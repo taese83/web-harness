@@ -14,7 +14,8 @@
 // 사용법:
 //   node .claude/scripts/validate-spawn-plan.mjs --project <root> --plan <manifest.json> [--json]
 //   옵션: --max-outputs <n> (기본 8), --max-read-tokens <n> (기본 60000)
-//   manifest.json: {"task": "<name>", "outputs": ["rel/a.ts", ...], "reads": ["rel/spec.md", "rel/dir/"]}
+//   manifest.json: {"task": "<name>", "outputs": ["rel/a.ts", ...], "reads": ["rel/spec.md", "rel/dir/"],
+//                   "readMode": "browse" | "injected"}   // 생략 시 browse(fail-safe)
 // 종료 코드: 0 = FITS(스폰 가능), 1 = REFUSE(분할 필요), 2 = 사용법/입력 오류.
 //
 // reads 항목이 디렉터리면 **파일시스템에서 실제 바이트를 전개**한다 — 목록을 짧게 적어
@@ -27,7 +28,7 @@
 // resume-manifest와 같은 파일을 공유해 교차 확인이 가능하다는 점에서 강하다.
 
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
-import {join, relative, resolve} from 'node:path'
+import {dirname, join, relative, resolve} from 'node:path'
 
 export const DEFAULT_MAX_OUTPUTS = 8
 export const DEFAULT_MAX_READ_TOKENS = 60_000
@@ -59,9 +60,19 @@ export function measureText(text) {
 }
 
 // reads 항목(파일 또는 디렉터리)을 실제 파일 목록으로 전개한다.
-export function expandReads(root, reads, {exists = existsSync, stat = statSync, readdir = readdirSync} = {}) {
+//
+// readMode(2026-08-11 실측 반영): 재구성 실험에서 **같은 계획이 reads 선언 폭에 따라
+// 판정이 완전히 뒤집혔다**(좁게 선언 4건 중 1건만 REFUSE / 실제 재독 행동대로 넓게 선언
+// 4건 전부 REFUSE). 즉 선언 방식이 게이트 효능을 지배한다. 그래서 "어떻게 읽을 것인가"를
+// 명시하게 한다:
+//   - 'browse'(기본) — 빌더가 스펙을 직접 읽는다. 실측상 빌더는 한 파일만 읽지 않고 분할
+//     설계 트리를 훑으므로, 파일 단위 선언은 **그 파일이 든 디렉터리로 전개**한다.
+//   - 'injected' — 오케스트레이터가 발췌를 프롬프트에 주입하고 재독을 금지한다(규칙 2).
+//     이때만 좁은 선언이 정직하므로 reads를 문자 그대로 잰다. 이 값은 자기진술이다(§4 등록).
+export function expandReads(root, reads, {exists = existsSync, stat = statSync, readdir = readdirSync, readMode = 'browse'} = {}) {
   const files = new Set()
   const missing = []
+  const rootResolved = resolve(root)
   const walk = (abs) => {
     let st
     try { st = stat(abs) } catch { return false }
@@ -78,7 +89,18 @@ export function expandReads(root, reads, {exists = existsSync, stat = statSync, 
   for (const rel of reads) {
     const abs = resolve(root, rel)
     if (!exists(abs)) { missing.push(rel); continue }
-    walk(abs)
+    // browse 모드에서 파일 단위 선언은 담긴 디렉터리로 넓힌다 — 빌더는 형제 파일도 훑는다.
+    // 단 프로젝트 루트로는 넓히지 않는다(루트 전체 스캔은 판정을 무의미하게 만든다).
+    let target = abs
+    if (readMode !== 'injected') {
+      let st
+      try { st = stat(abs) } catch { st = null }
+      if (st && st.isFile()) {
+        const parent = dirname(abs)
+        if (parent !== rootResolved) target = parent
+      }
+    }
+    walk(target)
   }
   return {files: [...files].sort(), missing}
 }
@@ -91,6 +113,8 @@ export function analyzePlan(root, plan, opts = {}) {
 
   const outputs = Array.isArray(plan.outputs) ? plan.outputs.filter(o => typeof o === 'string') : []
   const reads = Array.isArray(plan.reads) ? plan.reads.filter(r => typeof r === 'string') : []
+  // 미지정/오타는 'browse'로 fail-safe — 느슨한 쪽(injected)으로 기울지 않는다.
+  const readMode = plan.readMode === 'injected' ? 'injected' : 'browse'
 
   const violations = []
   if (outputs.length > maxOutputs) {
@@ -101,7 +125,7 @@ export function analyzePlan(root, plan, opts = {}) {
     })
   }
 
-  const {files, missing} = expandReads(root, reads, opts)
+  const {files, missing} = expandReads(root, reads, {...opts, readMode})
   if (missing.length > 0) {
     violations.push({
       rule: 'READ_MISSING',
@@ -133,6 +157,7 @@ export function analyzePlan(root, plan, opts = {}) {
 
   return {
     task: plan.task ?? null,
+    readMode,
     outputCount: outputs.length,
     readFileCount: files.length,
     readTokens,
@@ -177,7 +202,10 @@ function main() {
   if (opts.json) {
     console.log(JSON.stringify({schemaVersion: 1, ...report}, null, 2))
   } else {
-    console.log(`스폰 계획${report.task ? ` [${report.task}]` : ''}: 산출물 ${report.outputCount}/${report.maxOutputs} · read ${report.readFileCount}개 파일 ≈ ${report.readTokens.toLocaleString()}/${report.maxReadTokens.toLocaleString()} tokens(추정)`)
+    const modeNote = report.readMode === 'injected'
+      ? 'injected(발췌 주입·재독 금지 — 자기진술)'
+      : 'browse(빌더가 직접 읽음 — 파일 선언은 상위 디렉터리로 전개)'
+    console.log(`스폰 계획${report.task ? ` [${report.task}]` : ''}: 산출물 ${report.outputCount}/${report.maxOutputs} · read ${report.readFileCount}개 파일 ≈ ${report.readTokens.toLocaleString()}/${report.maxReadTokens.toLocaleString()} tokens(추정) · readMode=${modeNote}`)
     if (report.largestReads.length > 0) {
       console.log('  가장 큰 read:')
       for (const r of report.largestReads) console.log(`    ${r.tokens.toLocaleString()} tok  ${r.file}`)

@@ -115,6 +115,78 @@ test('reads 미선언(빈 배열)이어도 산출물 임계는 그대로 적용�
   })
 })
 
+test('readMode=browse(기본): 파일 단위 선언이 상위 디렉터리로 전개된다', () => {
+  withFixture({
+    'design/a.md': 'a'.repeat(400),
+    'design/b.md': 'b'.repeat(400),
+    'design/c.md': 'c'.repeat(400),
+  }, root => {
+    // a.md 하나만 선언해도 형제까지 계산된다(빌더가 트리를 훑는 실측 행동 모델).
+    const browse = analyzePlan(root, {outputs: ['x.ts'], reads: ['design/a.md']})
+    assert.equal(browse.readMode, 'browse')
+    assert.equal(browse.readFileCount, 3)
+  })
+})
+
+test('readMode=injected: 발췌 주입을 선언하면 reads를 문자 그대로 잰다', () => {
+  withFixture({
+    'design/a.md': 'a'.repeat(400),
+    'design/b.md': 'b'.repeat(400),
+  }, root => {
+    const injected = analyzePlan(root, {outputs: ['x.ts'], reads: ['design/a.md'], readMode: 'injected'})
+    assert.equal(injected.readMode, 'injected')
+    assert.equal(injected.readFileCount, 1)
+  })
+})
+
+test('readMode 미지정/오타는 browse로 fail-safe (느슨한 쪽으로 기울지 않는다)', () => {
+  withFixture({'design/a.md': 'a'.repeat(400), 'design/b.md': 'b'.repeat(400)}, root => {
+    for (const mode of [undefined, 'INJECTED', 'inject', '', 'browse']) {
+      const report = analyzePlan(root, {outputs: ['x.ts'], reads: ['design/a.md'], readMode: mode})
+      assert.equal(report.readMode, 'browse', `readMode=${String(mode)}는 browse여야 한다`)
+      assert.equal(report.readFileCount, 2)
+    }
+  })
+})
+
+test('browse 전개는 프로젝트 루트까지 넓히지 않는다', () => {
+  withFixture({'spec.md': 's'.repeat(100), 'other.md': 'o'.repeat(100)}, root => {
+    // 루트 직속 파일 선언 — 루트 전체로 전개하면 판정이 무의미해지므로 그 파일만 잰다.
+    const report = analyzePlan(root, {outputs: ['x.ts'], reads: ['spec.md']})
+    assert.equal(report.readFileCount, 1)
+  })
+})
+
+test('회귀(실측 민감도): 같은 계획도 readMode에 따라 판정이 뒤집힌다', () => {
+  // 2026-08-11 재구성 실험의 핵심 발견 — 좁은 선언은 REFUSE를 놓친다.
+  // browse면 형제까지 계산돼 REFUSE, injected면 선언분만 계산돼 FITS.
+  const big = {}
+  for (let i = 0; i < 12; i++) big[`design/shard-${i}.md`] = '가'.repeat(9000)
+  withFixture(big, root => {
+    const browse = analyzePlan(root, {outputs: ['a.ts'], reads: ['design/shard-0.md']})
+    const injected = analyzePlan(root, {outputs: ['a.ts'], reads: ['design/shard-0.md'], readMode: 'injected'})
+    assert.equal(browse.verdict, 'REFUSE')
+    assert.equal(injected.verdict, 'FITS')
+    assert.ok(browse.readTokens > injected.readTokens * 5)
+  })
+})
+
+test('오탐 0 회귀: 단일 샤드만 필요한 정당하게 좁은 스폰은 browse에서도 FITS', () => {
+  // 실측(seminar-booking, 5개 산출물 디렉터리) 오탐 0을 합성으로 고정한다 —
+  // browse 전개가 같은 산출물의 형제 샤드까지 합산해도 임계를 넘지 않아야 한다.
+  const shards = {}
+  for (let i = 0; i < 6; i++) shards[`design/state-contract/agg-${i}.md`] = '가'.repeat(3500)
+  withFixture(shards, root => {
+    const report = analyzePlan(root, {
+      task: 'single-aggregate-builder',
+      outputs: ['src/a.ts', 'src/b.ts'],
+      reads: ['design/state-contract/agg-0.md'],
+    })
+    assert.equal(report.readFileCount, 6, '형제 샤드까지 전개된다')
+    assert.equal(report.verdict, 'FITS', '정당하게 좁은 스폰을 오탐 REFUSE하면 안 된다')
+  })
+})
+
 test('회귀(seminar-booking): "도메인 계층 전체" 스폰은 사전에 REFUSE된다', () => {
   // 실측 실패 형태 — command 10개 + 스토어/셀렉터/마이그레이션까지 한 스폰에 요구하고,
   // 분할 설계 산출물 전체를 read로 지정했다.
