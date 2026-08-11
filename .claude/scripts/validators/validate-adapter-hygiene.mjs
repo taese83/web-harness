@@ -104,8 +104,10 @@ export const validateAdapterHygiene = ({repositoryRoot, pass, fail}) => {
       ['inventory:skills', skillCount, 'skill'],
       ['inventory:agents', agentCount, 'agent'],
     ]) {
-      const match = readme.match(new RegExp(`(\\d+)개 ${label} <!-- ${marker} -->`))
-      if (!match) fail(`README.md에 <!-- ${marker} --> 마커 라인이 없다 ("N개 ${label} <!-- ${marker} -->" 형태여야 함)`)
+      // 언어 독립(영문화 선행): "30개 skill" / "30 skills" 둘 다 인식한다. 마커 자체가 없으면
+      // 여전히 FAIL이다(조용한 통과 없음).
+      const match = readme.match(new RegExp(`(\\d+)\\s*(?:개\\s*)?${label}s?\\s*<!-- ${marker} -->`))
+      if (!match) fail(`README.md에 <!-- ${marker} --> 마커 라인이 없다 ("N개 ${label} <!-- ${marker} -->" 또는 "N ${label}s <!-- ${marker} -->" 형태여야 함)`)
       else if (Number(match[1]) !== actual) fail(`README.md ${label} 수치(${match[1]})가 실제(${actual})와 불일치`)
     }
     pass(`README inventory matches reality (${skillCount} skills, ${agentCount} agents)`)
