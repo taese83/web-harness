@@ -27,8 +27,38 @@
 // (a) 선언이 아티팩트로 남고 (b) 디렉터리 전개로 과소 신고가 어려워지고 (c) 사후
 // resume-manifest와 같은 파일을 공유해 교차 확인이 가능하다는 점에서 강하다.
 
-import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
+import {createHash} from 'node:crypto'
+import {appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {dirname, join, relative, resolve} from 'node:path'
+
+// 잠금 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
+export const lockLedgerPath = manifestPath => join(dirname(manifestPath), '.plan-locks.jsonl')
+
+// 이 계획과 **다른** digest로 이미 잠긴 기록들. 비어 있지 않으면 재잠금을 거부한다.
+// 사후 탐지(TAMPERED)보다 강한 사전 차단 — 축소된 계획이 "정상 잠금"으로 둔갑하는 것을
+// 애초에 성립시키지 않는다. 순수.
+export function conflictingLockDigests(plan, ledgerEntries = null) {
+  const digest = planDigest(plan)
+  const prior = new Set()
+  if (plan.planLock && typeof plan.planLock.digest === 'string') prior.add(plan.planLock.digest)
+  for (const entry of Array.isArray(ledgerEntries) ? ledgerEntries : []) {
+    if (!entry || typeof entry.digest !== 'string') continue
+    if ((entry.task ?? null) === (plan.task ?? null)) prior.add(entry.digest)
+  }
+  return [...prior].filter(d => d !== digest)
+}
+
+// 계획 잠금(plan lock) — 계획 **내용**의 digest. `planLock` 자신은 제외한다.
+// 왜: outputs가 자기선언인 한, 빌더가 죽은 뒤 매니페스트를 실제로 쓰인 파일에 맞춰
+// 줄이면 resume-manifest는 COMPLETE를 낸다(사후 축소). 스폰 **전에** digest를 고정하면
+// 그 축소가 기계적으로 드러난다. validate-design-preview의 source-snapshot과 같은 관용구.
+export function planDigest(plan) {
+  // 키 순서·서식에 흔들리지 않도록 정본 형태로 직렬화한다(planLock은 digest 대상 아님).
+  const canonical = JSON.stringify(Object.entries(plan)
+    .filter(([key]) => key !== 'planLock')
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+  return createHash('sha256').update(canonical).digest('hex').slice(0, 16)
+}
 
 export const DEFAULT_MAX_OUTPUTS = 8
 export const DEFAULT_MAX_READ_TOKENS = 60_000
@@ -170,11 +200,12 @@ export function analyzePlan(root, plan, opts = {}) {
 }
 
 function parseArgs(argv) {
-  const out = {root: null, plan: null, json: false, maxOutputs: DEFAULT_MAX_OUTPUTS, maxReadTokens: DEFAULT_MAX_READ_TOKENS}
+  const out = {root: null, plan: null, json: false, lock: false, maxOutputs: DEFAULT_MAX_OUTPUTS, maxReadTokens: DEFAULT_MAX_READ_TOKENS}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--project') { out.root = argv[++i]; continue }
     if (argv[i] === '--plan') { out.plan = argv[++i]; continue }
     if (argv[i] === '--json') { out.json = true; continue }
+    if (argv[i] === '--lock') { out.lock = true; continue }
     if (argv[i] === '--max-outputs') { out.maxOutputs = Number(argv[++i]); continue }
     if (argv[i] === '--max-read-tokens') { out.maxReadTokens = Number(argv[++i]); continue }
   }
@@ -199,6 +230,39 @@ function main() {
 
   const report = analyzePlan(root, plan, {maxOutputs: opts.maxOutputs, maxReadTokens: opts.maxReadTokens})
 
+  // 계획 잠금은 **FITS일 때만** 쓴다 — REFUSE된 계획을 잠그면 "거부된 계획"에 정당성을
+  // 부여하는 꼴이 된다. 잠금 이후의 사후 축소는 resume-manifest가 TAMPERED로 잡는다.
+  let locked = null
+  if (opts.lock && report.verdict === 'FITS') {
+    const digest = planDigest(plan)
+    // **재잠금 사전 거부**(사후 탐지보다 강하다). 이미 다른 digest로 잠긴 계획을 조용히
+    // 덮어쓰면 축소된 범위가 "정상 잠금"으로 둔갑한다. 원장·매니페스트 어느 쪽에든 다른
+    // digest의 잠금이 있으면 거부하고, 재계획은 새 task로 하게 한다.
+    const ledgerPath = lockLedgerPath(planPath)
+    const ledgerEntries = []
+    if (existsSync(ledgerPath)) {
+      for (const line of readFileSync(ledgerPath, 'utf8').split('\n')) {
+        if (!line.trim()) continue
+        try { ledgerEntries.push(JSON.parse(line)) } catch { /* 손상 줄 무시 */ }
+      }
+    }
+    const conflicting = conflictingLockDigests(plan, ledgerEntries)
+    if (conflicting.length > 0) {
+      console.error(`재잠금 거부: 이 task는 이미 다른 계획으로 잠겨 있다(기록 ${conflicting.join(', ')} ≠ 현재 ${digest}).`)
+      console.error('축소·변경된 계획을 덮어써 정상 잠금으로 만들 수 없다. 범위를 바꾸려면 새 task 이름으로 재계획하라.')
+      process.exit(2)
+    }
+    const at = new Date().toISOString()
+    const stamped = {...plan, planLock: {digest, at}}
+    writeFileSync(planPath, `${JSON.stringify(stamped, null, 2)}\n`)
+    // 원장은 매니페스트 **바깥**에 append-only로 남긴다. 매니페스트 안에만 두면 planLock을
+    // 지우거나(→unlocked) 축소 후 재잠금해(→새 digest) 위조가 통한다(실측 확인).
+    // 원장이 있으면 최초 잠금이 남고, 재잠금은 두 번째 줄로 드러난다.
+    appendFileSync(lockLedgerPath(planPath), `${JSON.stringify({task: plan.task ?? null, digest, at})}\n`)
+    locked = digest
+  }
+  report.planLock = locked
+
   if (opts.json) {
     console.log(JSON.stringify({schemaVersion: 1, ...report}, null, 2))
   } else {
@@ -212,6 +276,8 @@ function main() {
     }
     if (report.verdict === 'FITS') {
       console.log('FITS ✅ — 한 스폰에 들어가는 규모. 스폰 진행 가능.')
+      if (locked) console.log(`계획 잠금 기록: ${locked} — 이후 outputs를 줄이면 resume-manifest가 TAMPERED로 잡는다.`)
+      else if (opts.lock) console.log('계획 잠금 실패(내부 오류)')
     } else {
       for (const v of report.violations) {
         console.log(`  ❌ ${v.rule}: ${v.detail}`)

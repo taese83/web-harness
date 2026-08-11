@@ -529,6 +529,36 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --allow-anything"
+    },
+    {
+      "id": "spawn-plan-lock",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --lock"
+    },
+    {
+      "id": "spawn-plan-lock-duplicate",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --lock --lock"
+    },
+    {
+      "id": "resume-manifest-owned",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned docs"
+    },
+    {
+      "id": "resume-manifest-owned-json",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned docs --json"
+    },
+    {
+      "id": "resume-manifest-owned-empty",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned"
     }
   ]
 }

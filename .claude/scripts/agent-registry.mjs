@@ -40,6 +40,8 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/web-execution-plan.json', // compile-execution-plan.mjs stdout을 그대로 저장
   '_workspace/02_design/integration-overlay.json', // 기존 프로젝트 통합 지점 스캔 결과
   '_workspace/03_dev/change-scope.md', // minimal-change-contract의 변경 범위 brief
+  '_workspace/03_dev/build-manifest/', // 스폰 계획(fit 게이트 입력 = 재개 매니페스트)
+  '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 잠금 원장(append-only)
 ]
 
 export const AGENT_OWNERSHIP = {

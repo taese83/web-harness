@@ -6,7 +6,8 @@ import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import test from 'node:test'
-import {classifyOutput, computeRemaining} from './resume-manifest.mjs'
+import {classifyOutput, computeRemaining, crossCheckOwned, scanOwned, verifyPlanLock} from './resume-manifest.mjs'
+import {planDigest} from './validate-spawn-plan.mjs'
 
 function fixture(files) {
   const root = mkdtempSync(join(tmpdir(), 'wh-resume-'))
@@ -79,4 +80,103 @@ test('computeRemaining: 전부 완결 → remaining 0 (COMPLETE)', () => {
     const {remaining} = computeRemaining(root, ['a.ts', 'b.ts'])
     assert.equal(remaining.length, 0)
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// --- GIGO 대응 (2026-08-12): 계획 잠금 + owned 교차검증 ---
+
+test('verifyPlanLock: 잠금 없는 매니페스트는 unlocked로 정직 보고', () => {
+  assert.equal(verifyPlanLock({task: 'x', outputs: ['a.ts']}).status, 'unlocked')
+})
+
+test('verifyPlanLock: 잠근 그대로면 locked', () => {
+  const plan = {task: 'x', outputs: ['a.ts', 'b.ts'], reads: ['spec']}
+  const locked = {...plan, planLock: {digest: planDigest(plan), at: '2026-08-12T00:00:00.000Z'}}
+  const result = verifyPlanLock(locked)
+  assert.equal(result.status, 'locked')
+  assert.equal(result.at, '2026-08-12T00:00:00.000Z')
+})
+
+test('verifyPlanLock: 사후 축소(outputs 줄이기)는 TAMPERED', () => {
+  const plan = {task: 'x', outputs: ['a.ts', 'b.ts', 'c.ts'], reads: ['spec']}
+  const locked = {...plan, planLock: {digest: planDigest(plan), at: 'now'}}
+  const shrunk = {...locked, outputs: ['a.ts']} // 실제로 쓰인 것만 남기는 위조 시도
+  assert.equal(verifyPlanLock(shrunk).status, 'TAMPERED')
+})
+
+test('verifyPlanLock: outputs 추가·reads 변경도 TAMPERED', () => {
+  const plan = {task: 'x', outputs: ['a.ts'], reads: ['spec']}
+  const locked = {...plan, planLock: {digest: planDigest(plan), at: 'now'}}
+  assert.equal(verifyPlanLock({...locked, outputs: ['a.ts', 'z.ts']}).status, 'TAMPERED')
+  assert.equal(verifyPlanLock({...locked, reads: ['other']}).status, 'TAMPERED')
+})
+
+test('planDigest: 키 순서·서식이 달라도 같은 내용이면 같은 digest', () => {
+  const a = {task: 'x', outputs: ['a.ts'], reads: ['s']}
+  const b = {reads: ['s'], outputs: ['a.ts'], task: 'x'}
+  assert.equal(planDigest(a), planDigest(b))
+})
+
+test('scanOwned/crossCheckOwned: 선언되지 않은 산출물을 잡아낸다', () => {
+  const root = fixture({'src/e/a.ts': 'export const a = 1\n', 'src/e/helper.ts': 'export const h = 1\n'})
+  try {
+    assert.deepEqual(scanOwned(root, ['src/e']), ['src/e/a.ts', 'src/e/helper.ts'])
+    const cross = crossCheckOwned(root, ['src/e/a.ts'], ['src/e'])
+    assert.deepEqual(cross.undeclared, ['src/e/helper.ts'])
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('crossCheckOwned: owned 미지정이면 null(기존 동작 보존)', () => {
+  const root = fixture({'src/e/a.ts': 'export const a = 1\n'})
+  try { assert.equal(crossCheckOwned(root, ['src/e/a.ts'], []), null) } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('scanOwned: node_modules 등은 제외한다', () => {
+  const root = fixture({'src/e/a.ts': 'x\n', 'src/e/node_modules/pkg/i.js': 'x\n'})
+  try { assert.deepEqual(scanOwned(root, ['src/e']), ['src/e/a.ts']) } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// --- 잠금 원장: 매니페스트 내부 잠금의 두 우회를 막는다 (2026-08-12 실측) ---
+
+test('원장 우선: planLock을 지워도 원장이 있으면 TAMPERED', () => {
+  const plan = {task: 'x', outputs: ['a.ts', 'b.ts', 'c.ts'], reads: ['spec']}
+  const ledger = [{task: 'x', digest: planDigest(plan), at: 'T0'}]
+  const shrunkNoLock = {task: 'x', outputs: ['a.ts'], reads: ['spec']} // planLock 삭제 + 축소
+  const result = verifyPlanLock(shrunkNoLock, ledger)
+  assert.equal(result.status, 'TAMPERED')
+  assert.equal(result.source, 'ledger')
+})
+
+test('원장 우선: 축소 후 재잠금해도 최초 항목과 대조해 TAMPERED + relocked', () => {
+  const plan = {task: 'x', outputs: ['a.ts', 'b.ts'], reads: ['spec']}
+  const shrunk = {task: 'x', outputs: ['a.ts'], reads: ['spec']}
+  const ledger = [
+    {task: 'x', digest: planDigest(plan), at: 'T0'},
+    {task: 'x', digest: planDigest(shrunk), at: 'T1'}, // 재잠금 시도
+  ]
+  const result = verifyPlanLock({...shrunk, planLock: {digest: planDigest(shrunk), at: 'T1'}}, ledger)
+  assert.equal(result.status, 'TAMPERED')
+  assert.equal(result.relocked, true, '재잠금이 드러나야 한다')
+})
+
+test('원장 일치면 locked(source=ledger)', () => {
+  const plan = {task: 'x', outputs: ['a.ts'], reads: ['spec']}
+  const result = verifyPlanLock(plan, [{task: 'x', digest: planDigest(plan), at: 'T0'}])
+  assert.equal(result.status, 'locked')
+  assert.equal(result.source, 'ledger')
+  assert.equal(result.relocked, false)
+})
+
+test('원장 없으면 매니페스트 planLock으로 폴백(source=manifest)', () => {
+  const plan = {task: 'x', outputs: ['a.ts'], reads: ['spec']}
+  const locked = {...plan, planLock: {digest: planDigest(plan), at: 'T0'}}
+  assert.equal(verifyPlanLock(locked, null).source, 'manifest')
+})
+
+test('원장은 같은 task 항목만 대조한다(다른 task 오염 방지)', () => {
+  const mine = {task: 'mine', outputs: ['a.ts'], reads: ['s']}
+  const ledger = [
+    {task: 'other', digest: 'deadbeefdeadbeef', at: 'T0'},
+    {task: 'mine', digest: planDigest(mine), at: 'T1'},
+  ]
+  assert.equal(verifyPlanLock(mine, ledger).status, 'locked')
 })

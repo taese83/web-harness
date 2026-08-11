@@ -701,7 +701,7 @@ const validationScriptContract = (script, args, context) => {
     const seen = new Set()
     for (let i = 0; i < rest.length; i++) {
       const token = rest[i]
-      if (token === '--json') { if (seen.has(token)) return false; seen.add(token); continue }
+      if (token === '--json' || token === '--lock') { if (seen.has(token)) return false; seen.add(token); continue }
       if (token === '--max-outputs' || token === '--max-read-tokens') {
         if (seen.has(token)) return false
         seen.add(token)
@@ -721,6 +721,16 @@ const validationScriptContract = (script, args, context) => {
     if (mi === -1 || !rest[mi + 1]) return false
     readablePath(rest[mi + 1], context, 'file')
     rest = [...rest.slice(0, mi), ...rest.slice(mi + 2)]
+    // --owned <prefix...> 는 읽기 전용 스캔 범위다. 각 prefix는 읽기 가능 경로여야 한다.
+    const oi = rest.indexOf('--owned')
+    if (oi !== -1) {
+      const prefixes = []
+      let end = oi + 1
+      while (rest[end] && !rest[end].startsWith('--')) { prefixes.push(rest[end]); end++ }
+      if (prefixes.length === 0) return false
+      for (const prefix of prefixes) readablePath(prefix, context, 'directory')
+      rest = [...rest.slice(0, oi), ...rest.slice(end)]
+    }
     return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
   }
   if (script === '.claude/scripts/validators/validate-global-bash-policy.mjs') return args.length === 0
