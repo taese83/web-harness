@@ -53,7 +53,7 @@ export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, acti
   if (lineCount(executionContract) > 100) fail('web-orchestrator execution core exceeds 100 lines')
 
   const aiEvalSkill = read('.claude/skills/ai-eval/SKILL.md')
-  if (!aiEvalSkill.includes('catalog 자체를 편집할 때만')) fail('ai-eval does not guard full scenario catalog loading')
+  if (!/catalog 자체를 편집할 때만|only when editing the catalog itself/i.test(aiEvalSkill)) fail('ai-eval does not guard full scenario catalog loading')
 
   const qualityRunner = read('.claude/scripts/run-quality-gates.mjs')
   if (!qualityRunner.includes("from './evidence-lib.mjs'")) fail('quality runner bypasses the shared evidence module')

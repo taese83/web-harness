@@ -84,7 +84,7 @@ export const validateContentPolicy = ({repositoryRoot, activeSource, read, pass,
     }
     for (const consumerPath of markerConsumers) {
       // "마커 0건"과 "탐지 미구현"을 구분해야 한다 — 후자를 안전으로 읽으면 계약이 장식이 된다
-      if (!read(consumerPath).includes('미구현')) fail(`${consumerPath}: unimplemented-detection verdict is missing`)
+      if (!/미구현|unimplemented/i.test(read(consumerPath))) fail(`${consumerPath}: unimplemented-detection verdict is missing`)
     }
     pass('INJECTION_SUSPECT producer/consumer chain checked')
   }

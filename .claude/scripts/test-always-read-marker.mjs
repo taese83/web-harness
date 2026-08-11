@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+// test-always-read-marker.mjs — always-read 마커의 언어 독립성 회귀 (영문화 선행 작업).
+//
+// 왜 이 테스트가 있나: 계약 본문을 영어로 옮기면 한국어 문자열에 의존하던 마커가 매칭에
+// 실패해 **참조 0건 = 조용히 통과**가 된다(번역이 게이트를 끄는데 CI는 green). 여기서
+// 고정하는 사실은 두 가지다 — (1) 중립 앵커가 언어와 무관하게 정확히 세어진다,
+// (2) 영어 자연어 매칭은 경계가 없어 부정확하며 **느슨한 쪽이 아니라 엄격한 쪽으로** 틀린다.
+//
+// 실측 근거: 한국어는 SOV라 `항상 … 읽는다`가 always-read 목록을 감싸 조건부 읽기와
+// 구분된다. 영어는 SVO라 그 경계가 없어 같은 줄의 조건부 참조까지 삼킨다(과대계수 → FAIL).
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {countAlwaysReadRefs} from './validators/validate-contract-hygiene.mjs'
+
+test('한국어 SOV 마커: 감싼 범위의 참조만 센다(조건부 읽기 제외)', () => {
+  const line = '항상 `references/a.md`와 `references/b.md`를 읽는다. 구현은 `references/c.md`를 따른다.'
+  assert.equal(countAlwaysReadRefs(line), 2)
+})
+
+test('중립 앵커: 언어와 무관하게 정확히 센다(권장 경로)', () => {
+  const en = '<!-- always-read -->\n- `references/a.md`\n- `references/b.md`\n<!-- /always-read -->\nSee `references/c.md` when relevant.'
+  assert.equal(countAlwaysReadRefs(en), 2)
+})
+
+test('중립 앵커는 앵커 밖 참조를 세지 않는다', () => {
+  const text = 'Prelude `references/z.md`\n<!-- always-read -->\n- `references/a.md`\n<!-- /always-read -->\nAlso `references/y.md`'
+  assert.equal(countAlwaysReadRefs(text), 1)
+})
+
+test('마커 부재 → 0 (호출부의 MARKER_LOST 가드가 이 0을 FAIL로 처리한다)', () => {
+  assert.equal(countAlwaysReadRefs('No marker here, just `references/a.md`.'), 0)
+})
+
+test('영어 자연어: 경계가 없어 같은 줄 조건부 참조까지 삼킨다 — 느슨한 쪽이 아니라 과대계수로 틀린다', () => {
+  const line = 'Always read `references/a.md` and `references/b.md`. Implementation follows `references/c.md`.'
+  // 3 > 실제 2 — 과대계수는 ratchet에서 FAIL로 드러나므로 저자가 중립 앵커로 옮기게 된다.
+  // (조용히 통과하는 과소계수보다 안전한 방향)
+  assert.equal(countAlwaysReadRefs(line), 3)
+})
+
+test('영어 자연어라도 한 줄에 always-read만 있으면 정확하다', () => {
+  assert.equal(countAlwaysReadRefs('Always read `references/a.md` and `references/b.md`.'), 2)
+})

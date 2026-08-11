@@ -26,17 +26,31 @@ const listMarkdown = (root, out = []) => {
   return out;
 };
 
-// "항상 … 읽는다" 코어 문장의 references/*.md 개수 — 한국어 마커 프록시(§4 등록: 성장 ratchet 전용).
-const countAlwaysReadRefs = text => {
-  const match = text.match(/항상[\s\S]*?읽는다/);
+// 언어 독립 마커(2026-08-12, 영문화 선행 작업). 계약 본문을 영어로 옮기면 한국어 문자열에
+// 의존하던 검사가 **매칭 실패 → 마커 0건 → 조용히 통과**로 무력화된다(번역이 게이트를 끄는데
+// CI는 green). 그래서 (a) 한국어·영어·중립 앵커를 모두 인식하고, (b) baseline이 마커 존재를
+// 전제하는데 사라지면 통과가 아니라 FAIL(MARKER_LOST)로 잡는다.
+// 어순 주의(실측 2회). 한국어는 SOV라 `항상 … 읽는다`가 참조 목록을 **감싼다**. 영어는 SVO라
+// "Always read <목록>"으로 동사가 앞에 오므로 앵커 **뒤**를 봐야 한다. seed에서 두 번 틀렸다:
+//   1차 lazy 매칭 → "Always read" 11자만 잡아 참조 0건 → MARKER_LOST 오탐
+//   2차 문단 단위 전방 윈도우 → 뒤 줄의 참조까지 삼켜 과대계수(3 > baseline 2)
+// 그래서 영어는 **같은 줄**로 한정한다. 목록이 여러 줄에 걸치는 번역은 자연어 매칭 대신
+// 중립 앵커 `<!-- always-read --> … <!-- /always-read -->`를 쓴다(권장 경로).
+const ALWAYS_READ_SENTENCE = /(?:항상[\s\S]*?읽는다|always[^\n]{0,40}?read[^\n]{0,400}|<!--\s*always-read\s*-->[\s\S]*?<!--\s*\/always-read\s*-->)/i;
+const GENERALIZATION_HEADING = /(?:^|\n)##\s+(?:일반화 근거|Generalization evidence)\n([\s\S]*?)(?=\n## |$)/i;
+const EXPERIMENTAL_HEADING = /^##\s+(?:실험|Experimental)(?:\s|$)/m;
+
+export const countAlwaysReadRefs = text => {
+  const match = text.match(ALWAYS_READ_SENTENCE);
   if (match === null) return 0;
   return new Set(match[0].match(/references\/[^`\s,]+\.md/g) ?? []).size;
 };
 
-// `## 일반화 근거` 섹션 + 서로 다른 형태 2개 이상(불릿) — 존재·형태 검사(진실은 리뷰어·fixture 몫)
+// `## 일반화 근거` / `## Generalization evidence` + 서로 다른 형태 2개 이상(불릿)
+// — 존재·형태 검사(진실은 리뷰어·fixture 몫)
 // 종결 lookahead는 다음 `\n## ` 또는 문서 절대 끝($, m-플래그 없음 — 빈 줄 조기 종결 방지)
 const hasGeneralizationEvidence = text => {
-  const section = text.match(/(?:^|\n)## 일반화 근거\n([\s\S]*?)(?=\n## |$)/);
+  const section = text.match(GENERALIZATION_HEADING);
   if (section === null) return false;
   const bullets = section[1].match(/^- .+/gm) ?? [];
   return new Set(bullets.map(line => line.trim())).size >= 2;
@@ -69,7 +83,7 @@ export const inspectProfileNarrativeConsistency = ({profiles, skillSources, scen
         message: `${profile.id}: skill declares ${declaredSupport}, adapter declares ${profile.supportLevel}`,
       });
     }
-    if (profile.supportLevel !== 'experimental' && /^##\s+실험(?:\s|$)/m.test(source)) {
+    if (profile.supportLevel !== 'experimental' && EXPERIMENTAL_HEADING.test(source)) {
       errors.push({
         code: 'STALE_EXPERIMENTAL_HEADING',
         message: `${profile.id}: non-experimental adapter retains an experimental normative heading`,
@@ -210,6 +224,15 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
     if (count > budget) {
       fail(
         `contract-hygiene: '${skill}' always-read ${count} > baseline ${budget} — 조건부 읽기로 강등하거나 baseline을 의식적으로 갱신하라(JUDGMENT 기록, I4)`,
+      );
+    }
+    // MARKER_LOST 가드 — baseline이 always-read를 전제하는 스킬(>0)에서 마커가 0으로
+    // 떨어지면 "줄었으니 통과"가 아니라 FAIL이다. 번역·리팩터로 마커 문장이 사라지면
+    // ratchet이 조용히 장식이 되기 때문이다(vacuous pass 차단). 정말 줄였다면 baseline을
+    // 의식적으로 낮춰 이 검사를 통과시킨다.
+    if (Object.hasOwn(baseline.alwaysRead, skill) && baseline.alwaysRead[skill] > 0 && count === 0) {
+      fail(
+        `contract-hygiene: '${skill}' always-read 마커가 사라졌다(baseline ${budget} → 검출 0) — 번역·리팩터로 마커 문장이 없어졌는지 확인하고, 실제로 줄였다면 baseline을 낮춰라(MARKER_LOST, I2/I5)`,
       );
     }
 

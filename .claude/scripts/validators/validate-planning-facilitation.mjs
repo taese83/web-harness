@@ -26,7 +26,15 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
     '.claude/skills/web-orchestrator/SKILL.md',
   ]) {
     const fullSource = read(relativePath)
-    const source = fullSource.slice(fullSource.indexOf(relativePath.includes('web-plan') ? '## 실행' : '### Phase 1'))
+    // 언어 독립 앵커(영문화 선행) — 한국어 헤딩이 사라져도 indexOf가 -1이 되어 문서 전체를
+    // 훑는 조용한 완화가 일어나지 않게 한다(앵커 없으면 FAIL).
+    const anchors = relativePath.includes('web-plan') ? ['## 실행', '## Execution'] : ['### Phase 1']
+    const anchorAt = anchors.map(a => fullSource.indexOf(a)).find(i => i >= 0)
+    if (anchorAt === undefined) {
+      fail(`${relativePath}: planning order anchor (${anchors.join(' | ')}) not found — 번역·리팩터로 앵커가 사라졌는지 확인하라`)
+      continue
+    }
+    const source = fullSource.slice(anchorAt)
     const order = [
       'planning-facilitator',
       'requirements-analyst',
@@ -46,8 +54,16 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
   }
 
   const facilitation = read('.claude/skills/web-plan/references/planning-facilitation-contract.md')
-  for (const marker of ['대상 화면/기능', '자동 UX Check', 'Annotation Review', 'Current Planning Memo']) {
-    if (!facilitation.includes(marker)) fail(`planning facilitation contract is missing ${marker}`)
+  // 각 항목은 한국어·영어 대체 표기 중 **하나라도** 있으면 통과(영문화 이행 허용).
+  for (const alternatives of [
+    ['대상 화면/기능', 'Target screens/features'],
+    ['자동 UX Check'],
+    ['Annotation Review'],
+    ['Current Planning Memo'],
+  ]) {
+    if (!alternatives.some(marker => facilitation.includes(marker))) {
+      fail(`planning facilitation contract is missing ${alternatives.join(' | ')}`)
+    }
   }
 
   const readiness = read('.claude/skills/web-plan/references/planning-readiness-contract.md')
