@@ -685,6 +685,35 @@ const validationScriptContract = (script, args, context) => {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))
   }
+  if (script === '.claude/scripts/validate-spawn-plan.mjs') {
+    if (!args.includes('--project') || !args.includes('--plan')) return false
+    let rest = withoutDirectoryOption(args, '--project', context)
+    const pi = rest.indexOf('--plan')
+    if (pi === -1 || !rest[pi + 1]) return false
+    readablePath(rest[pi + 1], context, 'file')
+    rest = [...rest.slice(0, pi), ...rest.slice(pi + 2)]
+    // 남은 것은 --json 과 수치 임계 옵션뿐이어야 한다(각각 최대 1회, 값은 양의 정수).
+    // 임계 완화에는 **상한**이 있다 — 상한이 없으면 `--max-outputs 9999999`로 게이트를
+    // 스스로 무력화할 수 있고, 그러면 산문 규칙으로 되돌아간 것과 같다(I2). 상한 근거:
+    // 산출물 32개면 이미 "계층 전체" 스폰이고, read 200k tokens는 컨텍스트 창 전체라
+    // 그 위의 값은 판정 자체가 무의미하다.
+    const OVERRIDE_CEILING = {'--max-outputs': 32, '--max-read-tokens': 200_000}
+    const seen = new Set()
+    for (let i = 0; i < rest.length; i++) {
+      const token = rest[i]
+      if (token === '--json') { if (seen.has(token)) return false; seen.add(token); continue }
+      if (token === '--max-outputs' || token === '--max-read-tokens') {
+        if (seen.has(token)) return false
+        seen.add(token)
+        const value = rest[++i]
+        if (typeof value !== 'string' || !/^[1-9][0-9]{0,6}$/.test(value)) return false
+        if (Number(value) > OVERRIDE_CEILING[token]) return false
+        continue
+      }
+      return false
+    }
+    return true
+  }
   if (script === '.claude/scripts/resume-manifest.mjs') {
     if (!args.includes('--project') || !args.includes('--manifest')) return false
     let rest = withoutDirectoryOption(args, '--project', context)

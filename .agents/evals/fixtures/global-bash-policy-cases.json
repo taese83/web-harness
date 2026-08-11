@@ -481,6 +481,54 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/read-skill-section.mjs --catalog library-unknown --section CHARTS"
+    },
+    {
+      "id": "spawn-plan-bounded",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json"
+    },
+    {
+      "id": "spawn-plan-json",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --json"
+    },
+    {
+      "id": "spawn-plan-override-within-ceiling",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --max-outputs 12 --max-read-tokens 90000"
+    },
+    {
+      "id": "spawn-plan-requires-plan",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project workspace"
+    },
+    {
+      "id": "spawn-plan-override-outputs-over-ceiling",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --max-outputs 9999999"
+    },
+    {
+      "id": "spawn-plan-override-read-tokens-over-ceiling",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --max-read-tokens 999999"
+    },
+    {
+      "id": "spawn-plan-duplicate-flag",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --json --json"
+    },
+    {
+      "id": "spawn-plan-unknown-flag",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spawn-plan.mjs --project . --plan package.json --allow-anything"
     }
   ]
 }

@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+// test-spawn-plan.mjs — validate-spawn-plan.mjs 순수 코어 회귀 테스트.
+// 회귀 기준은 seminar-booking 실측이다: "계층 전체"(도메인 스토어 command 10개) 스폰이
+// 스펙 재독에 150~190k를 쓰고 종료했다 — 그 계획이 사전에 REFUSE로 잡혀야 한다.
+import assert from 'node:assert/strict'
+import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {dirname, join} from 'node:path'
+import test from 'node:test'
+import {analyzePlan, estimateTokens, expandReads, measureText} from './validate-spawn-plan.mjs'
+
+function fixture(files) {
+  const root = mkdtempSync(join(tmpdir(), 'wh-plan-'))
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = join(root, rel)
+    mkdirSync(dirname(abs), {recursive: true})
+    writeFileSync(abs, content)
+  }
+  return root
+}
+
+const withFixture = (files, fn) => {
+  const root = fixture(files)
+  try { return fn(root) } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+const ruleOf = report => report.violations.map(v => v.rule)
+
+test('작은 계획(산출물 3 · 짧은 스펙) → FITS', () => {
+  withFixture({'spec.md': '# 스펙\n짧다\n'}, root => {
+    const report = analyzePlan(root, {task: 'small', outputs: ['a.ts', 'b.ts', 'c.ts'], reads: ['spec.md']})
+    assert.equal(report.verdict, 'FITS')
+    assert.deepEqual(report.violations, [])
+  })
+})
+
+test('산출물이 임계 초과 → REFUSE(OUTPUT_FANOUT) + 분할 수 제안', () => {
+  withFixture({'spec.md': '# 스펙\n'}, root => {
+    const outputs = Array.from({length: 9}, (_, i) => `src/f${i}.ts`)
+    const report = analyzePlan(root, {task: 'fanout', outputs, reads: ['spec.md']})
+    assert.equal(report.verdict, 'REFUSE')
+    assert.ok(ruleOf(report).includes('OUTPUT_FANOUT'))
+    assert.match(report.violations.find(v => v.rule === 'OUTPUT_FANOUT').remedy, /2개 이상/)
+  })
+})
+
+test('read 추정 토큰이 임계 초과 → REFUSE(READ_BUDGET)', () => {
+  withFixture({'big.md': 'x'.repeat(4000)}, root => {
+    const report = analyzePlan(root, {task: 'heavy', outputs: ['a.ts'], reads: ['big.md']}, {maxReadTokens: 100})
+    assert.equal(report.verdict, 'REFUSE')
+    assert.ok(ruleOf(report).includes('READ_BUDGET'))
+    assert.ok(report.readTokens > 100)
+  })
+})
+
+test('reads에 디렉터리를 적으면 하위 전체가 전개된다(과소 신고 방지)', () => {
+  withFixture({
+    'design/a.md': 'a'.repeat(400),
+    'design/b.md': 'b'.repeat(400),
+    'design/nested/c.md': 'c'.repeat(400),
+  }, root => {
+    const {files, missing} = expandReads(root, ['design'])
+    assert.equal(files.length, 3)
+    assert.deepEqual(missing, [])
+    // 디렉터리 1개만 선언해도 3개 파일 전부가 예산에 계산된다.
+    const report = analyzePlan(root, {outputs: ['a.ts'], reads: ['design']})
+    assert.equal(report.readFileCount, 3)
+  })
+})
+
+test('node_modules 등은 read 전개에서 제외된다', () => {
+  withFixture({
+    'design/a.md': 'a'.repeat(100),
+    'design/node_modules/huge.js': 'x'.repeat(100000),
+  }, root => {
+    const {files} = expandReads(root, ['design'])
+    assert.equal(files.length, 1)
+    assert.match(files[0], /a\.md$/)
+  })
+})
+
+test('존재하지 않는 read 경로 → REFUSE(READ_MISSING)', () => {
+  withFixture({'spec.md': '# 스펙\n'}, root => {
+    const report = analyzePlan(root, {outputs: ['a.ts'], reads: ['spec.md', 'nope/missing.md']})
+    assert.equal(report.verdict, 'REFUSE')
+    assert.ok(ruleOf(report).includes('READ_MISSING'))
+  })
+})
+
+test('한글(비-ASCII)은 같은 문자 수라도 토큰 추정이 더 크다', () => {
+  const ascii = measureText('abcdefghij')
+  const hangul = measureText('가나다라마바사아자차')
+  assert.equal(ascii.wideBytes, 0)
+  assert.equal(hangul.asciiBytes, 0)
+  assert.ok(estimateTokens(hangul) > estimateTokens(ascii))
+})
+
+test('임계는 조정 가능하다 — 완화하면 같은 계획이 FITS', () => {
+  withFixture({'spec.md': '# 스펙\n'}, root => {
+    const outputs = Array.from({length: 9}, (_, i) => `src/f${i}.ts`)
+    const strict = analyzePlan(root, {outputs, reads: ['spec.md']}, {maxOutputs: 8})
+    const loose = analyzePlan(root, {outputs, reads: ['spec.md']}, {maxOutputs: 12})
+    assert.equal(strict.verdict, 'REFUSE')
+    assert.equal(loose.verdict, 'FITS')
+  })
+})
+
+test('reads 미선언(빈 배열)이어도 산출물 임계는 그대로 적용된다', () => {
+  withFixture({}, root => {
+    const outputs = Array.from({length: 20}, (_, i) => `src/f${i}.ts`)
+    const report = analyzePlan(root, {outputs})
+    assert.equal(report.verdict, 'REFUSE')
+    assert.deepEqual(ruleOf(report), ['OUTPUT_FANOUT'])
+    assert.equal(report.readTokens, 0)
+  })
+})
+
+test('회귀(seminar-booking): "도메인 계층 전체" 스폰은 사전에 REFUSE된다', () => {
+  // 실측 실패 형태 — command 10개 + 스토어/셀렉터/마이그레이션까지 한 스폰에 요구하고,
+  // 분할 설계 산출물 전체를 read로 지정했다.
+  withFixture({
+    '_workspace/02_design/state-contract.md': '가'.repeat(30000),
+    '_workspace/02_design/component-spec.md': '나'.repeat(30000),
+    '_workspace/01_plan/feature-plan.md': '다'.repeat(30000),
+  }, root => {
+    const outputs = [
+      ...Array.from({length: 10}, (_, i) => `src/entities/booking/model/command-${i}.ts`),
+      'src/entities/booking/model/store.ts',
+      'src/entities/booking/model/selectors.ts',
+      'src/entities/booking/model/migrations.ts',
+    ]
+    const report = analyzePlan(root, {task: 'client-domain-state-builder', outputs, reads: ['_workspace']})
+    assert.equal(report.verdict, 'REFUSE')
+    assert.ok(ruleOf(report).includes('OUTPUT_FANOUT'), '계층 단위 산출물 팬아웃이 잡혀야 한다')
+    assert.ok(ruleOf(report).includes('READ_BUDGET'), '스펙 전체 재독 예산이 잡혀야 한다')
+    // 가장 큰 read를 보고해 어디를 발췌/분할할지 알려준다.
+    assert.ok(report.largestReads.length > 0)
+  })
+})
