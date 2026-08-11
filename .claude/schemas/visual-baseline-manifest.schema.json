@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/visual-baseline-manifest.schema.json",
+  "title": "Visual Baseline Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "baselines"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "baselines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["targetId", "path", "sha256", "approvedBy", "approvedAt", "reason", "referenceId"],
+        "properties": {
+          "targetId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "path": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[^\\u0000]+\\.png$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "approvedBy": {"type": "string", "minLength": 1},
+          "approvedAt": {"type": "string", "format": "date-time"},
+          "reason": {"type": "string", "minLength": 1},
+          "referenceId": {"type": "string"}
+        }
+      }
+    }
+  }
+}

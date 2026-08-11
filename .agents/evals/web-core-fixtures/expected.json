@@ -1,0 +1,70 @@
+{
+ "profiles": [
+  {
+   "fixture": "projects/react-vite",
+   "requested": "auto",
+   "expectedProfile": "react-vite-spa",
+   "expectedSource": "detected"
+  },
+  {
+   "fixture": "projects/next-app",
+   "requested": "auto",
+   "expectedProfile": "next-app-fullstack",
+   "expectedSource": "detected"
+  },
+  {
+   "fixture": "projects/unknown",
+   "requested": "react-vite-spa",
+   "expectedProfile": "react-vite-spa",
+   "expectedSource": "requested"
+  },
+  {
+   "fixture": "projects/react-vite-hybrid",
+   "requested": "auto",
+   "expectedProfile": "vite-serverless-hybrid",
+   "expectedSource": "detected"
+  }
+ ],
+ "errors": [
+  {
+   "fixture": "projects/next-app",
+   "requested": "react-vite-spa",
+   "expectedCode": "PROFILE_CONFLICT"
+  },
+  {
+   "fixture": "projects/unknown",
+   "requested": "auto",
+   "expectedCode": "PROFILE_NOT_DETECTED"
+  },
+  {
+   "fixture": "projects/next-pages",
+   "requested": "next-app-fullstack",
+   "expectedCode": "PROFILE_INCOMPATIBLE"
+  },
+  {
+   "fixture": "projects/next-pages",
+   "requested": "auto",
+   "expectedCode": "PROFILE_INCOMPATIBLE"
+  },
+  {
+   "fixture": "projects/next-mixed",
+   "requested": "auto",
+   "expectedCode": "PROFILE_INCOMPATIBLE"
+  },
+  {
+   "fixture": "projects/next-edge",
+   "requested": "auto",
+   "expectedCode": "PROFILE_INCOMPATIBLE"
+  },
+  {
+   "fixture": "projects/react-vite-hybrid",
+   "requested": "react-vite-spa",
+   "expectedCode": "PROFILE_CONFLICT"
+  },
+  {
+   "fixture": "projects/react-vite",
+   "requested": "vite-serverless-hybrid",
+   "expectedCode": "PROFILE_CONFLICT"
+  }
+ ]
+}

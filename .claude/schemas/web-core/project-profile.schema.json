@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/web-core/project-profile.schema.json",
+  "title": "Resolved Web Project Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "resolution", "adapter", "product", "frontend", "backend", "runtime", "capabilities", "deployment", "risk", "toolchain"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schemaVersion": {"const": 1},
+    "profileId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "requested", "detected", "evidence"],
+      "properties": {
+        "source": {"enum": ["requested", "detected", "requested-and-detected"]},
+        "requested": {"type": ["string", "null"]},
+        "detected": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256", "supportLevel", "trustTier"],
+      "properties": {
+        "id": {"type": "string"},
+        "version": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "supportLevel": {"enum": ["certified", "compatible", "experimental"]},
+        "trustTier": {"const": "builtin"}
+      }
+    },
+    "product": {"type": "object", "additionalProperties": false, "required": ["kind"], "properties": {"kind": {"type": "string"}}},
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework", "variant", "router", "rendering", "packageManager"],
+      "properties": {
+        "framework": {"type": "string"},
+        "variant": {"type": "string"},
+        "router": {"type": "string"},
+        "rendering": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "packageManager": {"const": "pnpm"}
+      }
+    },
+    "backend": {"type": "object", "additionalProperties": false, "required": ["shape"], "properties": {"shape": {"type": "string"}}},
+    "runtime": {"type": "object", "additionalProperties": false, "required": ["primary", "supported"], "properties": {"primary": {"type": "string"}, "supported": {"type": "array", "items": {"type": "string"}}}},
+    "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "availableProviders", "target", "availableTargets", "releaseTarget", "artifacts"],
+      "properties": {
+        "provider": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+        "availableProviders": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "target": {"type": "string"},
+        "availableTargets": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "releaseTarget": {"type": "string", "pattern": "^release\\."},
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "path", "kind"],
+            "properties": {"id": {"type": "string"}, "path": {"type": "string"}, "kind": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "risk": {"type": "object", "additionalProperties": false, "required": ["level"], "properties": {"level": {"enum": ["public", "authenticated-business", "sensitive", "regulated"]}}},
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeEngine", "packageManager", "packageDeclarations", "exactFrameworkVersions"],
+      "properties": {
+        "nodeEngine": {"type": ["string", "null"]},
+        "packageManager": {"type": ["string", "null"]},
+        "packageDeclarations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "exactFrameworkVersions": {"type": "boolean"}
+      }
+    }
+  }
+}

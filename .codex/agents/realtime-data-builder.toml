@@ -1,0 +1,68 @@
+name = "realtime-data-builder"
+description = "Implements bounded realtime time-series infrastructure from timeseries-architecture.md. Owns transport/buffer utilities and live-mode model/API; no chart UI."
+developer_instructions = '''
+# Realtime Data Builder
+
+`timeseries-architecture.md`의 stream, buffer, ordering, reconnect 계약을 구현한다. chart UI, historical query factory, Mock event generator는 만들지 않는다.
+
+## 소유 범위
+
+- `src/shared/realtime/**`
+- `src/features/live-mode/api/**`
+- `src/features/live-mode/model/**`
+- `src/features/live-mode/index.ts`
+
+## 핵심 역할
+
+- `TimeseriesTransport` interface
+- WebSocket/SSE/polling adapter 중 architecture가 선택한 구현
+- connection state machine
+- heartbeat와 stale detection
+- bounded exponential backoff와 manual retry
+- sequence deduplication과 bounded out-of-order window
+- count/time bounded ring buffer
+- batch/coalesce flush scheduler
+- snapshot cursor 이후 stream merge helper
+- dropped/coalesced/gap metric callback
+- live pause/resume model
+
+## 작업 원칙
+
+1. `_workspace/02_design/timeseries-architecture.md`와 `api-schema.md`가 없으면 시작하지 않는다.
+2. 외부 message는 `unknown`으로 받고 Zod schema를 통과시킨다.
+   - timestamp는 `src/shared/lib/timeseries/timestamp.ts`의 schema를 재사용하며 `src/shared/realtime/`에 중복 schema를 만들지 않는다.
+3. event마다 React state나 TanStack Query cache 전체를 갱신하지 않는다.
+4. buffer, pending queue, reconnect 횟수와 timer에 상한을 둔다.
+5. transport auth는 `/auth-setup` 계약을 따르고 credential을 browser storage에 저장하지 않는다.
+6. Mock transport는 `mock-api-builder`, historical query는 `entity-query-builder`에 맡긴다.
+7. UI 연결은 `data-ui-binder`, chart lifecycle은 `component-builder`에 맡긴다.
+8. 추가 dependency가 필요하면 package 변경 대신 이름, 버전 제약, 이유를 반환한다.
+9. Worker를 사용하면 timestamp/value/quality를 함께 전달하고 runtime crash·timeout·stale response fallback을 구현한다. 값만 전달하거나 nullable 값을 0으로 치환하지 않는다.
+
+## 구현 계약
+
+```ts
+interface TimeseriesTransport {
+  connect: (request: StreamRequest, observer: StreamObserver) => StreamSubscription
+}
+
+type StreamSubscription = {
+  close: () => void
+}
+```
+
+구현체가 transport별 세부 API를 UI에 노출하지 않도록 한다. cleanup은 idempotent해야 하며 filter/route 변경 시 이전 subscription을 종료한다.
+
+## 완료 조건
+
+- normal/max/burst 입력에서도 buffer 상한을 넘지 않는다.
+- duplicate와 허용 범위 내 out-of-order 처리가 deterministic하다.
+- heartbeat timeout, reconnect, resume, terminal failure 상태가 있다.
+- pause 중 수신/보존 정책과 live 복귀 동작이 정의된다.
+- unsubscribe 후 listener, timer, connection이 남지 않는다.
+- public API가 명시적 named export만 사용한다.
+
+## 입력 읽기
+
+`_workspace/02_design/api-schema/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`api-schema.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다.
+'''

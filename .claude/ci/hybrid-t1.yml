@@ -1,0 +1,52 @@
+# Inactive canonical proposal. Platform approval must place this file at
+# .github/workflows/hybrid-t1.yml and provision the protected environment and runner labels.
+name: hybrid-t1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hybrid-t1-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify-hybrid:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - web-harness-isolated
+    environment: hybrid-t1-audit
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      WEB_HARNESS_ISOLATED_EXECUTION: '1'
+    steps:
+      - name: Checkout exact revision without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify preprovisioned Node and pnpm toolchain
+        run: node .claude/scripts/validate-toolchain.mjs
+      - name: Verify isolated runner browser contract
+        run: google-chrome --version
+      - name: Validate control plane before project execution
+        run: pnpm run ci
+      - name: Install reviewed golden dependency graph
+        run: node .claude/scripts/run-package-operation.mjs --project golden/vite-serverless-hybrid --operation install
+      - name: Run and verify one isolated hybrid quality cohort
+        run: node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --write-evidence --verify-t1 --expected-revision "${{ github.sha }}"
+      - name: Upload bounded T1 evidence
+        if: always()
+        uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de
+        with:
+          name: hybrid-t1-${{ github.run_id }}
+          path: |
+            golden/vite-serverless-hybrid/_workspace/01_plan/project-profile.json
+            golden/vite-serverless-hybrid/_workspace/03_dev/web-execution-plan.json
+            golden/vite-serverless-hybrid/_workspace/04_qa/evidence
+            golden/vite-serverless-hybrid/_workspace/04_qa/qa-*.md
+            golden/vite-serverless-hybrid/package.json
+            golden/vite-serverless-hybrid/pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 7

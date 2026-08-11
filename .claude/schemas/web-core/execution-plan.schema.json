@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/web-core/execution-plan.schema.json",
+  "title": "Compiled Capability Execution Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "adapter", "initialCapabilities", "targetCapabilities", "nodes", "edges", "executionOrder", "profileBinding"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schemaVersion": {"const": 1},
+    "profileId": {"type": "string"},
+    "adapter": {"type": "object", "additionalProperties": false, "required": ["id", "version"], "properties": {"id": {"type": "string"}, "version": {"type": "string"}}},
+    "initialCapabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "targetCapabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "phase", "requires", "provides", "commandIds", "dependencies"],
+        "properties": {
+          "id": {"type": "string"},
+          "phase": {"type": "string"},
+          "requires": {"type": "array", "items": {"type": "string"}},
+          "provides": {"type": "array", "items": {"type": "string"}},
+          "commandIds": {"type": "array", "items": {"type": "string"}},
+          "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "capabilities"],
+        "properties": {
+          "from": {"type": "string"},
+          "to": {"type": "string"},
+          "capabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+        }
+      }
+    },
+    "executionOrder": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "profileBinding": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["adapterSha256", "profileSha256", "deploymentProvider", "deploymentTarget", "selectedCapabilities"],
+          "properties": {
+            "adapterSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "profileSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "deploymentProvider": {"type": "string"},
+            "deploymentTarget": {"type": "string"},
+            "selectedCapabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+          }
+        }
+      ]
+    }
+  }
+}

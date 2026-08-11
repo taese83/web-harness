@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "workflowPath": ".github/workflows/refresh-data.yml",
+  "trustedPromotionActions": ["example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "baseWorkflow": "name: Refresh Data\non:\n  schedule:\n    - cron: '17 2 * * *'\n  workflow_dispatch:\npermissions:\n  contents: read\nenv:\n  WEB_HARNESS_WORKFLOW_KIND: refresh\n  WEB_HARNESS_GENERATED_PATHS: public/data.json\n  WEB_HARNESS_DIRECT_PUSH: forbidden\nconcurrency:\n  group: refresh-data\n  cancel-in-progress: false\njobs:\n  collect:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    steps:\n      - name: Checkout\n        uses: actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n        with:\n          persist-credentials: false\n      - name: Generate and validate\n        run: node scripts/ingestion/refresh.mjs\n      - name: Upload candidate\n        uses: actions/upload-artifact@cccccccccccccccccccccccccccccccccccccccc\n  promote:\n    needs: collect\n    environment: snapshot-promotion\n    permissions:\n      contents: write\n      pull-requests: write\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - name: Promote through reviewed automation\n        uses: example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+  "cases": [
+    {
+      "id": "valid-scheduled-refresh",
+      "generatedPaths": ["public/data.json"],
+      "expectCodes": []
+    },
+    {
+      "id": "generated-path-manifest-mismatch",
+      "generatedPaths": ["public/expected.json"],
+      "expectCodes": ["REFRESH_PATH_MANIFEST_MISMATCH"]
+    },
+    {
+      "id": "missing-default-permissions",
+      "replacements": [
+        {
+          "from": "permissions:\n  contents: read\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["DEFAULT_PERMISSIONS_REQUIRED"]
+    },
+    {
+      "id": "top-level-write-permission",
+      "replacements": [
+        {
+          "from": "permissions:\n  contents: read\n",
+          "to": "permissions:\n  contents: write\n"
+        }
+      ],
+      "expectCodes": ["DEFAULT_CONTENTS_READ_REQUIRED", "TOP_LEVEL_WRITE_PERMISSION"]
+    },
+    {
+      "id": "write-job-not-isolated",
+      "replacements": [
+        {
+          "from": "    needs: collect\n    environment: snapshot-promotion\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["WRITE_JOB_NEEDS_REQUIRED", "WRITE_JOB_ENVIRONMENT_REQUIRED"]
+    },
+    {
+      "id": "write-permission-hidden-by-yaml-alias",
+      "replacements": [
+        {
+          "from": "permissions:\n  contents: read\n",
+          "to": "x-write-permissions: &write_permissions\n  contents: write\npermissions:\n  contents: read\n"
+        },
+        {
+          "from": "    permissions:\n      contents: write\n      pull-requests: write\n",
+          "to": "    permissions:\n      <<: *write_permissions\n"
+        }
+      ],
+      "expectCodes": ["YAML_ALIAS_OR_ANCHOR_FORBIDDEN"]
+    },
+    {
+      "id": "alias-key-hidden-by-inline-anchor",
+      "replacements": [
+        {
+          "from": "env:\n  WEB_HARNESS_WORKFLOW_KIND: refresh\n",
+          "to": "env:\n  PERMISSIONS_KEY: &permissions-key permissions\n  WEB_HARNESS_WORKFLOW_KIND: refresh\n"
+        },
+        {
+          "from": "jobs:\n  collect:\n",
+          "to": "jobs:\n  *permissions-key:\n    permissions:\n      contents: write\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - uses: attacker/overwrite@dddddddddddddddddddddddddddddddddddddddd\n  collect:\n"
+        }
+      ],
+      "expectCodes": ["YAML_ALIAS_OR_ANCHOR_FORBIDDEN"]
+    },
+    {
+      "id": "write-permission-hidden-by-quoted-key",
+      "replacements": [
+        {
+          "from": "    permissions:\n      contents: write\n      pull-requests: write\n",
+          "to": "    \"permissions\":\n      contents: write\n      pull-requests: write\n"
+        }
+      ],
+      "expectCodes": ["YAML_QUOTED_KEY_FORBIDDEN"]
+    },
+    {
+      "id": "checkout-persists-credentials",
+      "replacements": [
+        {
+          "from": "          persist-credentials: false",
+          "to": "          persist-credentials: true"
+        }
+      ],
+      "expectCodes": ["CHECKOUT_PERSIST_CREDENTIALS_REQUIRED"]
+    },
+    {
+      "id": "missing-job-timeout",
+      "replacements": [
+        {
+          "from": "    timeout-minutes: 20\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["JOB_TIMEOUT_REQUIRED"]
+    },
+    {
+      "id": "missing-concurrency",
+      "replacements": [
+        {
+          "from": "concurrency:\n  group: refresh-data\n  cancel-in-progress: false\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["WORKFLOW_CONCURRENCY_REQUIRED"]
+    },
+    {
+      "id": "refresh-cancels-in-progress",
+      "replacements": [
+        {
+          "from": "  cancel-in-progress: false",
+          "to": "  cancel-in-progress: true"
+        }
+      ],
+      "expectCodes": ["REFRESH_CANCEL_IN_PROGRESS_MUST_BE_FALSE"]
+    },
+    {
+      "id": "missing-manual-recovery",
+      "replacements": [
+        {
+          "from": "  workflow_dispatch:\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["SCHEDULE_MANUAL_TRIGGER_REQUIRED"]
+    },
+    {
+      "id": "missing-static-cron",
+      "replacements": [
+        {
+          "from": "    - cron: '17 2 * * *'\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["SCHEDULE_CRON_REQUIRED"]
+    },
+    {
+      "id": "missing-refresh-schedule",
+      "replacements": [
+        {
+          "from": "  schedule:\n    - cron: '17 2 * * *'\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["REFRESH_SCHEDULE_REQUIRED"]
+    },
+    {
+      "id": "missing-workflow-kind",
+      "replacements": [
+        {
+          "from": "  WEB_HARNESS_WORKFLOW_KIND: refresh\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["SCHEDULE_KIND_REQUIRED", "REFRESH_KIND_REQUIRED"]
+    },
+    {
+      "id": "unsafe-generated-path",
+      "replacements": [
+        {
+          "from": "  WEB_HARNESS_GENERATED_PATHS: public/data.json",
+          "to": "  WEB_HARNESS_GENERATED_PATHS: .github/workflows/owned.yml"
+        }
+      ],
+      "expectCodes": ["REFRESH_PATH_UNSAFE"]
+    },
+    {
+      "id": "missing-direct-push-policy",
+      "replacements": [
+        {
+          "from": "  WEB_HARNESS_DIRECT_PUSH: forbidden",
+          "to": "  WEB_HARNESS_DIRECT_PUSH: allowed"
+        }
+      ],
+      "expectCodes": ["REFRESH_DIRECT_PUSH_POLICY_INVALID"]
+    },
+    {
+      "id": "direct-git-push",
+      "replacements": [
+        {
+          "from": "        run: node scripts/ingestion/refresh.mjs",
+          "to": "        run: git push origin HEAD"
+        }
+      ],
+      "expectCodes": ["DIRECT_GIT_PUSH_FORBIDDEN"]
+    },
+    {
+      "id": "broad-git-add",
+      "replacements": [
+        {
+          "from": "        run: node scripts/ingestion/refresh.mjs",
+          "to": "        run: git add ."
+        }
+      ],
+      "expectCodes": ["GIT_ADD_BROAD_OR_DYNAMIC"]
+    },
+    {
+      "id": "git-add-outside-allowlist",
+      "replacements": [
+        {
+          "from": "        run: node scripts/ingestion/refresh.mjs",
+          "to": "        run: git add -- public/other.json"
+        }
+      ],
+      "expectCodes": ["GIT_ADD_OUTSIDE_ALLOWLIST"]
+    },
+    {
+      "id": "mutable-action-ref",
+      "replacements": [
+        {
+          "from": "actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "to": "actions/checkout@v4"
+        }
+      ],
+      "expectCodes": ["ACTION_NOT_IMMUTABLE"]
+    },
+    {
+      "id": "untrusted-write-job-action",
+      "replacements": [
+        {
+          "from": "example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "to": "attacker/overwrite-repository@dddddddddddddddddddddddddddddddddddddddd"
+        }
+      ],
+      "expectCodes": ["WRITE_JOB_PROMOTION_ACTION_UNTRUSTED"]
+    },
+    {
+      "id": "flow-style-action-bypass",
+      "replacements": [
+        {
+          "from": "      - name: Promote through reviewed automation\n        uses: example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+          "to": "      - { name: Promote, uses: attacker/overwrite@main }\n"
+        }
+      ],
+      "expectCodes": ["YAML_FLOW_STYLE_FORBIDDEN", "WRITE_JOB_SINGLE_BROKER_REQUIRED"]
+    },
+    {
+      "id": "tagged-flow-action-bypass",
+      "replacements": [
+        {
+          "from": "        uses: example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+          "to": "        uses: example/snapshot-promotion@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n      - !!map { name: Own, uses: attacker/overwrite@dddddddddddddddddddddddddddddddddddddddd }\n"
+        }
+      ],
+      "expectCodes": ["YAML_TAG_OR_DIRECTIVE_FORBIDDEN"]
+    },
+    {
+      "id": "uninspected-local-action",
+      "replacements": [
+        {
+          "from": "actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "to": "./.github/actions/checkout-wrapper"
+        }
+      ],
+      "expectCodes": ["LOCAL_ACTION_UNVERIFIED"]
+    },
+    {
+      "id": "missing-checkout-credential-policy",
+      "replacements": [
+        {
+          "from": "        with:\n          persist-credentials: false\n",
+          "to": ""
+        }
+      ],
+      "expectCodes": ["CHECKOUT_PERSIST_CREDENTIALS_REQUIRED"]
+    }
+  ]
+}

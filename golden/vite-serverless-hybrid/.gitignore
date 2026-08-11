@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+playwright-report/
+test-results/
+_workspace/04_qa/evidence/
+_workspace/04_qa/qa-manifest.json
+.env
+.env.*
+!.env.example

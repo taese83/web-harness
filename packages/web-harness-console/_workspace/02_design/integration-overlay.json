@@ -1,0 +1,9 @@
+{
+  "project": {"appRoot": ".", "packageManager": "pnpm", "aliases": {}, "router": null},
+  "uiLibrary": {"package": null, "themePath": "public/styles.css"},
+  "api": {"clientImport": null, "responseWrapper": null, "queryLibrary": null, "authContext": null},
+  "serviceContext": null,
+  "modal": {"registryPath": null},
+  "msw": {"directory": null, "activationEnv": null},
+  "openapi": {"source": null, "generator": "manual-types"}
+}

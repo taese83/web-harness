@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 2,
+  "features": [
+    {
+      "featureId": "FEAT-002",
+      "title": "도구 목록 조회·전환·데이터 격리",
+      "testCaseIds": ["TC-002-2", "TC-002-3"],
+      "anchorIds": ["wh-feat-002-sidebar-tool-switch"]
+    },
+    {
+      "featureId": "FEAT-013",
+      "title": "빌더/런타임 모드 시각적 구분",
+      "testCaseIds": ["TC-013-1"],
+      "anchorIds": ["wh-feat-013-sidebar-table-entry"]
+    }
+  ],
+  "anchors": [
+    {
+      "anchorId": "wh-feat-002-sidebar-tool-switch",
+      "featureId": "FEAT-002",
+      "testCaseIds": ["TC-002-2", "TC-002-3"],
+      "selector": "[data-wh-anchor=\"wh-feat-002-sidebar-tool-switch\"]"
+    },
+    {
+      "anchorId": "wh-feat-013-sidebar-table-entry",
+      "featureId": "FEAT-013",
+      "testCaseIds": ["TC-013-1"],
+      "selector": "[data-wh-anchor=\"wh-feat-013-sidebar-table-entry\"]"
+    }
+  ]
+}

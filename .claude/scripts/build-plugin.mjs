@@ -1,0 +1,294 @@
+#!/usr/bin/env node
+// Claude Code 플러그인 아티팩트 빌더 — .claude/ 원본에서 dist/web-harness-plugin을 생성한다.
+// 원본은 수정하지 않는다(미러 철학: .agents/.codex와 동일하게 산출물만 재생성).
+// 산출물 레이아웃은 저장소 내부 구조를 보존해(.claude/scripts, packages/web-harness-console)
+// script-relative 루트 해석과 콘솔의 상대 import가 무변경으로 동작하게 한다.
+import {execFileSync} from 'node:child_process'
+import {chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync} from 'node:fs'
+import {basename, dirname, join, relative, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
+
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
+  ? process.argv[process.argv.indexOf('--out') + 1]
+  : 'dist/web-harness-plugin')
+
+const PLUGIN_NAME = 'web-harness'
+const PLUGIN_VERSION = '0.1.2'
+
+// 배포 메타데이터는 소스에 특정 저장소·개인을 박지 않고 환경에서 파생한다.
+// WEB_HARNESS_PLUGIN_AUTHOR / _REPO_URL / _MARKETPLACE_GIT 로 override, 없으면 git remote,
+// 그마저 없으면 중립 placeholder. (소스 중립 + 내부에선 remote로 올바른 값 자동 반영)
+const gitRemote = () => {
+  try { return execFileSync('git', ['-C', repositoryRoot, 'remote', 'get-url', 'origin'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim() } catch { return '' }
+}
+const remoteHttp = (() => {
+  const raw = process.env.WEB_HARNESS_PLUGIN_REPO_URL || gitRemote()
+  if (!raw) return '<your web-harness repository URL>'
+  return raw.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '')
+})()
+const PLUGIN_AUTHOR = process.env.WEB_HARNESS_PLUGIN_AUTHOR || 'web-harness maintainers'
+const PLUGIN_REPO_URL = remoteHttp
+const MARKETPLACE_GIT = process.env.WEB_HARNESS_PLUGIN_MARKETPLACE_GIT || '<your web-harness plugin marketplace git URL>'
+
+// 하니스 저장소 개발 전용 — 플러그인 런타임에 싣지 않는다.
+const DEV_ONLY_SCRIPTS = new Set([
+  'build-adapters.mjs',
+  'build-plugin.mjs',
+  'deploy-harness.mjs',
+  'run-ai-evals.mjs',
+  'run-eval-executor.mjs',
+  'run-golden-profile.mjs',
+  'test-ai-harness.mjs',
+  'validate-ai-harness.mjs',
+  'validate-harness.mjs',
+  'validate-toolchain.mjs',
+])
+const DEV_ONLY_SCRIPT_DIRS = new Set(['validators'])
+const DEV_ONLY_SCRIPT_PATTERN = /^test-.*\.mjs$/
+// 하니스 자체 개발에만 의미가 있는 표면 — 사용자 프로젝트 세션에는 싣지 않는다.
+const DEV_ONLY_SKILLS = new Set(['ai-eval'])
+const DEV_ONLY_AGENTS = new Set(['harness-change-reviewer.md'])
+
+// 사용자 세션 전체에 적용해도 안전한 프로젝트-대면 훅만 배선한다.
+// enforce-global-bash-policy는 하니스 저장소 개발 정책이라 의도적으로 제외한다.
+const PLUGIN_HOOKS = [
+  ['Read|Grep|Glob', 'enforce-sensitive-access.mjs'],
+  ['Bash', 'enforce-verifier-bash.mjs'],
+  ['Write|Edit', 'enforce-ai-safety.mjs'],
+  ['Write|Edit', 'enforce-agent-ownership.mjs'],
+  ['Write|Edit', 'enforce-release-gate.mjs'],
+]
+
+const SCRIPT_INVOCATION = /node (?:"\$CLAUDE_PROJECT_DIR"\/|\{[a-zA-Z]+\}\/)?\.claude\/scripts\/([a-z0-9/-]+\.mjs)/g
+const DOCUMENT_REFERENCE = /\.claude\/((?:skills|agents|adapters|schemas)\/[A-Za-z0-9._/-]*[A-Za-z0-9])/g
+const RESIDUAL_REFERENCE = /\.claude\/(?:scripts|skills|agents|adapters|schemas|evals)\//g
+
+// dev-only 스크립트 참조는 repo-only 절 제거·스킬 제외로 전부 해소된 상태를 기본으로 한다.
+// 새 미해결 참조가 생기면 빌드가 실패한다.
+const KNOWN_DEV_SCRIPT_REFERENCES = new Set()
+const REPO_ONLY_BLOCK = /<!-- repo-only:start -->[\s\S]*?<!-- repo-only:end -->/g
+const REPO_ONLY_PLACEHOLDER = '_(저장소 모드 전용 단계 — 플러그인 배포판에서는 생략한다.)_'
+
+const transformStats = {files: 0, replacements: 0, documentReferences: 0}
+const referencedScripts = new Set()
+const residuals = []
+
+const transformMarkdown = (source, relativePath) => {
+  let replacements = 0
+  let transformed = source.replace(REPO_ONLY_BLOCK, REPO_ONLY_PLACEHOLDER)
+  transformed = transformed.replace(SCRIPT_INVOCATION, (_match, scriptPath) => {
+    replacements += 1
+    referencedScripts.add(scriptPath)
+    return `web-harness-script ${scriptPath.replace(/\.mjs$/, '')}`
+  })
+  transformed = transformed.replace(DOCUMENT_REFERENCE, (_match, documentPath) => {
+    transformStats.documentReferences += 1
+    return `web-harness-read ${documentPath}`
+  })
+  if (replacements > 0) {
+    transformStats.files += 1
+    transformStats.replacements += replacements
+  }
+  const leftover = [...transformed.matchAll(RESIDUAL_REFERENCE)]
+  if (leftover.length > 0) residuals.push({path: relativePath, count: leftover.length})
+  return transformed
+}
+
+const copyTree = (sourceRoot, targetRoot, {transform = false, exclude = () => false} = {}) => {
+  const walk = current => {
+    for (const entry of readdirSync(current, {withFileTypes: true})) {
+      const sourcePath = join(current, entry.name)
+      const relativePath = relative(sourceRoot, sourcePath)
+      if (exclude(relativePath, entry)) continue
+      const targetPath = join(targetRoot, relativePath)
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) {
+        walk(sourcePath)
+        continue
+      }
+      mkdirSync(dirname(targetPath), {recursive: true})
+      if (transform && /\.md$/.test(entry.name)) {
+        writeFileSync(targetPath, transformMarkdown(readFileSync(sourcePath, 'utf8'), relativePath))
+      } else {
+        cpSync(sourcePath, targetPath)
+      }
+    }
+  }
+  walk(sourceRoot)
+}
+
+const writeExecutable = (path, content) => {
+  mkdirSync(dirname(path), {recursive: true})
+  writeFileSync(path, content)
+  chmodSync(path, 0o755)
+}
+
+const countTree = root => {
+  let files = 0
+  let bytes = 0
+  const walk = current => {
+    for (const entry of readdirSync(current, {withFileTypes: true})) {
+      const path = join(current, entry.name)
+      if (entry.isDirectory()) walk(path)
+      else {
+        files += 1
+        bytes += statSync(path).size
+      }
+    }
+  }
+  walk(root)
+  return {files, bytes}
+}
+
+rmSync(outputRoot, {recursive: true, force: true})
+mkdirSync(outputRoot, {recursive: true})
+
+// 1. 스킬·에이전트 — 스크립트 호출을 bin 디스패처로 변환해 복사한다(하니스 개발 전용 제외).
+const excludeDevSkills = relativePath => DEV_ONLY_SKILLS.has(relativePath.split('/')[0])
+const excludeDevAgents = relativePath => DEV_ONLY_AGENTS.has(relativePath)
+copyTree(join(repositoryRoot, '.claude', 'skills'), join(outputRoot, 'skills'), {transform: true, exclude: excludeDevSkills})
+copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, 'agents'), {transform: true, exclude: excludeDevAgents})
+// 스크립트 호환용 원본 사본 — read-skill-section 등의 .claude/skills asset 참조와
+// knownAgents 해석이 플러그인 루트 기준으로 그대로 동작하게 한다.
+copyTree(join(repositoryRoot, '.claude', 'skills'), join(outputRoot, '.claude', 'skills'), {exclude: excludeDevSkills})
+copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, '.claude', 'agents'), {exclude: excludeDevAgents})
+
+// 2. 런타임 스크립트 서브셋 — 저장소와 같은 .claude/scripts 위치에 둔다.
+copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude', 'scripts'), {
+  exclude: (relativePath, entry) => {
+    const [head] = relativePath.split('/')
+    if (entry.isDirectory()) return DEV_ONLY_SCRIPT_DIRS.has(head)
+    if (relativePath.includes('/')) return false
+    return DEV_ONLY_SCRIPTS.has(relativePath) || DEV_ONLY_SCRIPT_PATTERN.test(relativePath)
+  },
+})
+copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
+copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, '.claude', 'schemas'))
+cpSync(join(repositoryRoot, '.claude', 'ai-harness.json'), join(outputRoot, '.claude', 'ai-harness.json'))
+
+// 3. 콘솔 — 상대 import(../../../.claude/scripts/...)가 그대로 풀리는 위치에 복사한다.
+copyTree(join(repositoryRoot, 'packages', 'web-harness-console'), join(outputRoot, 'packages', 'web-harness-console'), {
+  exclude: relativePath => relativePath === '_workspace' || relativePath.startsWith('_workspace/')
+    || relativePath === 'test' || relativePath.startsWith('test/'),
+})
+
+// 4. bin 디스패처 — 스킬 본문 변수 치환에 의존하지 않고 플러그인 루트를 자체 해석한다.
+writeExecutable(join(outputRoot, 'bin', 'web-harness-script'), `#!/usr/bin/env bash
+set -euo pipefail
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+NAME="\${1:-}"
+case "$NAME" in
+  ''|*..*|*[!a-z0-9/-]*) echo "web-harness-script: invalid script name: $NAME" >&2; exit 2;;
+esac
+shift
+SCRIPT="$PLUGIN_ROOT/.claude/scripts/$NAME.mjs"
+if [ ! -f "$SCRIPT" ]; then
+  echo "web-harness-script: not part of the plugin runtime: $NAME" >&2
+  exit 2
+fi
+exec node "$SCRIPT" "$@"
+`)
+writeExecutable(join(outputRoot, 'bin', 'web-harness-console'), `#!/usr/bin/env bash
+set -euo pipefail
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "$PLUGIN_ROOT/packages/web-harness-console/server.mjs" --root "\${CLAUDE_PROJECT_DIR:-$PWD}" "$@"
+`)
+writeExecutable(join(outputRoot, 'bin', 'web-harness-read'), `#!/usr/bin/env bash
+set -euo pipefail
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET="\${1:-}"
+case "$TARGET" in
+  ''|/*|*..*) echo "web-harness-read: invalid path: $TARGET" >&2; exit 2;;
+esac
+RESOLVED="$PLUGIN_ROOT/$TARGET"
+if [ -f "$RESOLVED" ]; then
+  exec cat "$RESOLVED"
+elif [ -d "$RESOLVED" ]; then
+  exec ls -1 "$RESOLVED"
+else
+  echo "web-harness-read: not found in plugin payload: $TARGET" >&2
+  exit 2
+fi
+`)
+
+// 5. 매니페스트와 훅 배선
+mkdirSync(join(outputRoot, '.claude-plugin'), {recursive: true})
+writeFileSync(join(outputRoot, '.claude-plugin', 'plugin.json'), `${JSON.stringify({
+  name: PLUGIN_NAME,
+  description: 'Multi-agent web development harness — planning, design, implementation, QA pipeline with an approval-gated local console.',
+  version: PLUGIN_VERSION,
+  author: {name: PLUGIN_AUTHOR},
+}, null, 2)}\n`)
+mkdirSync(join(outputRoot, 'hooks'), {recursive: true})
+writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
+  hooks: {
+    PreToolUse: PLUGIN_HOOKS.map(([matcher, script]) => ({
+      matcher,
+      hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
+    })),
+  },
+}, null, 2)}\n`)
+
+// 5b. 마켓플레이스 매니페스트와 배포 repo README — dist/를 marketplace root로 쓸 수 있게 한다.
+writeFileSync(join(dirname(outputRoot), 'README.md'), `# web-harness plugin marketplace
+
+[web-harness](${PLUGIN_REPO_URL})에서 \`node .claude/scripts/build-plugin.mjs\`로 생성되는 배포 산출물입니다. 직접 편집하지 마세요.
+
+## 설치
+
+Claude Code에서:
+
+\`\`\`
+/plugin marketplace add ${MARKETPLACE_GIT}
+/plugin install ${PLUGIN_NAME}@web-harness-marketplace
+\`\`\`
+
+이후 아무 프로젝트 디렉터리에서 \`/${PLUGIN_NAME}:web-orchestrator\`, \`/${PLUGIN_NAME}:web-plan\`, \`/${PLUGIN_NAME}:web-console\` 등을 사용할 수 있습니다. 로컬 Console(4310)과 격리 프리뷰(4311)는 \`web-harness-console\` 실행 파일이 현재 프로젝트를 대상으로 구동합니다.
+
+- 버전: ${PLUGIN_VERSION}
+- 스킬 30 · 에이전트 98 · 안전 훅 5종
+- always-on 컨텍스트 비용 약 10k tokens/세션 — 사용하지 않을 때는 \`/plugin disable ${PLUGIN_NAME}@web-harness-marketplace\`
+`)
+
+
+const marketplaceRoot = dirname(outputRoot)
+mkdirSync(join(marketplaceRoot, '.claude-plugin'), {recursive: true})
+writeFileSync(join(marketplaceRoot, '.claude-plugin', 'marketplace.json'), `${JSON.stringify({
+  name: 'web-harness-marketplace',
+  description: 'Distribution marketplace for the web-harness multi-agent web development plugin.',
+  owner: {name: PLUGIN_AUTHOR},
+  plugins: [{
+    name: PLUGIN_NAME,
+    source: `./${basename(outputRoot)}`,
+    description: 'Multi-agent web development harness — planning, design, implementation, QA pipeline with an approval-gated local console.',
+  }],
+}, null, 2)}\n`)
+
+// 6. 검증 — 변환된 호출이 실제로 실린 스크립트를 가리키는지 확인한다.
+const missingScripts = [...referencedScripts]
+  .filter(scriptPath => !existsSync(join(outputRoot, '.claude', 'scripts', scriptPath)))
+  .sort()
+const knownMissing = missingScripts.filter(scriptPath => KNOWN_DEV_SCRIPT_REFERENCES.has(scriptPath))
+const unexpectedMissing = missingScripts.filter(scriptPath => !KNOWN_DEV_SCRIPT_REFERENCES.has(scriptPath))
+
+const {files, bytes} = countTree(outputRoot)
+process.stdout.write(`Plugin built: ${relative(repositoryRoot, outputRoot)}\n`)
+process.stdout.write(`  files: ${files}, bytes: ${(bytes / 1024 / 1024).toFixed(2)} MiB\n`)
+process.stdout.write(`  script invocations rewritten: ${transformStats.replacements} across ${transformStats.files} markdown files\n`)
+process.stdout.write(`  document references rewritten to web-harness-read: ${transformStats.documentReferences}\n`)
+process.stdout.write(`  distinct scripts referenced by skills/agents: ${referencedScripts.size}\n`)
+if (knownMissing.length > 0) {
+  process.stdout.write(`  known stage-2 TODO (dev-only scripts still referenced by shipped text):\n`)
+  for (const scriptPath of knownMissing) process.stdout.write(`    - ${scriptPath}\n`)
+}
+if (unexpectedMissing.length > 0) {
+  process.stdout.write(`  MISSING from runtime payload (unexpected — fix before shipping):\n`)
+  for (const scriptPath of unexpectedMissing) process.stdout.write(`    - ${scriptPath}\n`)
+}
+if (residuals.length > 0) {
+  process.stdout.write(`  residual .claude/ references (need stage-2 treatment): ${residuals.length} files\n`)
+  for (const {path, count} of residuals.slice(0, 40)) process.stdout.write(`    - ${path} (${count})\n`)
+  if (residuals.length > 40) process.stdout.write(`    ... and ${residuals.length - 40} more\n`)
+}
+if (unexpectedMissing.length > 0) process.exitCode = 1

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Web Harness Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
+    <div class="app-shell">
+      <aside class="project-sidebar" aria-label="프로젝트 탐색">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">WH</div>
+          <div>
+            <strong>Web Harness</strong>
+            <span>Console</span>
+          </div>
+        </div>
+        <div class="sidebar-heading">
+          <span>Projects</span>
+          <span id="project-count" class="count-badge">0</span>
+        </div>
+        <nav id="project-list" class="project-list" aria-label="인덱싱된 프로젝트"></nav>
+        <div class="sidebar-footer">
+          <span class="read-only-dot" aria-hidden="true"></span>
+          <div><strong>Approval-gated write</strong><span>Requests + Codex L2 apply</span></div>
+        </div>
+      </aside>
+
+      <main id="main-content" class="workspace" tabindex="-1">
+        <header class="workspace-header">
+          <div class="project-context">
+            <span class="eyebrow">LOCAL WORKSPACE</span>
+            <h1 id="project-title">프로젝트를 불러오는 중…</h1>
+            <p id="project-path">요청은 append-only로 기록하며 Codex 적용은 별도 승인이 필요합니다.</p>
+          </div>
+          <div class="header-actions">
+            <div class="scan-meta"><span>Last scan</span><strong id="scan-time">—</strong></div>
+            <button id="refresh-button" class="primary-button" type="button">
+              <span aria-hidden="true">↻</span> 디스크 새로고침
+            </button>
+          </div>
+        </header>
+
+        <div id="global-message" class="global-message" role="status" aria-live="polite" hidden></div>
+        <div id="run-status-live" class="sr-only" role="status" aria-live="polite"></div>
+
+        <nav class="tabs" aria-label="프로젝트 보기" role="tablist">
+          <button type="button" id="tab-overview" role="tab" data-tab="overview" aria-controls="content" aria-selected="true">Overview</button>
+          <button type="button" id="tab-documents" role="tab" data-tab="documents" aria-controls="content" aria-selected="false">Documents</button>
+          <button type="button" id="tab-features" role="tab" data-tab="features" aria-controls="content" aria-selected="false">Features</button>
+          <button type="button" id="tab-preview" role="tab" data-tab="preview" aria-controls="content" aria-selected="false">Preview</button>
+          <button type="button" id="tab-changes" role="tab" data-tab="changes" aria-controls="content" aria-selected="false">Changes</button>
+        </nav>
+
+        <section id="content" class="content" role="tabpanel" aria-labelledby="tab-overview">
+          <div class="loading-state"><span class="spinner" aria-hidden="true"></span> 프로젝트를 인덱싱하고 있습니다.</div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

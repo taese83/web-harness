@@ -1,0 +1,18 @@
+{
+  "name": "web-harness-control-plane",
+  "private": true,
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "console": "node packages/web-harness-console/server.mjs --root .",
+    "console:check": "pnpm --filter @web-harness/console check",
+    "console:test": "pnpm --filter @web-harness/console test",
+    "validate": "node .claude/scripts/validate-harness.mjs",
+    "validate:ai": "node .claude/scripts/test-ai-harness.mjs --through eval-contracts",
+    "validate:toolchain": "node .claude/scripts/validate-toolchain.mjs",
+    "check:mirror": "node .claude/scripts/build-adapters.mjs --check",
+    "ci": "node .claude/scripts/build-adapters.mjs --check && node .claude/scripts/validate-toolchain.mjs && pnpm run console:check && pnpm run console:test && node --test .claude/scripts/test-spawn-completion.mjs && node --test .claude/scripts/test-dependency-pins.mjs && node --test .claude/scripts/test-resume-manifest.mjs && node .claude/scripts/validate-harness.mjs && node .claude/scripts/test-ai-harness.mjs --through eval-contracts && node .claude/scripts/build-plugin.mjs"
+  }
+}

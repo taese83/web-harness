@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/visual-qa-contract.schema.json",
+  "title": "Visual QA Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "renderProfile", "thresholds", "stability", "baselinePolicy", "references", "modes", "targets"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "renderProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["browser", "deviceScaleFactor", "locale", "timezone", "animations", "waitForFonts", "reflowCssWidth", "zoomEquivalentPercent"],
+      "properties": {
+        "browser": {"const": "chromium"},
+        "deviceScaleFactor": {"type": "number", "exclusiveMinimum": 0},
+        "locale": {"type": "string", "minLength": 2},
+        "timezone": {"type": "string", "minLength": 3},
+        "animations": {"const": "disabled"},
+        "waitForFonts": {"const": true},
+        "reflowCssWidth": {"const": 320},
+        "zoomEquivalentPercent": {"const": 400}
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxDiffPixels", "maxDiffPixelRatio", "threshold"],
+      "properties": {
+        "maxDiffPixels": {"type": "integer", "minimum": 0},
+        "maxDiffPixelRatio": {"type": "number", "minimum": 0, "maximum": 1},
+        "threshold": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "stability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freezeClock", "deterministicData", "clsMax"],
+      "properties": {
+        "freezeClock": {"const": true},
+        "deterministicData": {"const": true},
+        "clsMax": {"type": "number", "minimum": 0, "maximum": 0.1}
+      }
+    },
+    "baselinePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approvalRequired", "verifierMayUpdate", "manifestPath"],
+      "properties": {
+        "approvalRequired": {"const": true},
+        "verifierMayUpdate": {"const": false},
+        "manifestPath": {"const": "_workspace/02_design/visual-baseline-manifest.json"}
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "locator"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["figma-node", "image", "specification", "none"]},
+          "locator": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "width", "height", "colorScheme", "reducedMotion", "forcedColors"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "width": {"type": "integer", "minimum": 1},
+          "height": {"type": "integer", "minimum": 1},
+          "colorScheme": {"enum": ["light", "dark"]},
+          "reducedMotion": {"enum": ["reduce", "no-preference"]},
+          "forcedColors": {"enum": ["none", "active"]}
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "locator", "state", "modeIds", "baselinePath", "referenceId", "blocking"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["route", "story", "component"]},
+          "locator": {"type": "string", "minLength": 1},
+          "state": {"type": "string", "minLength": 1},
+          "modeIds": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "baselinePath": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[^\\u0000]+\\.png$"},
+          "referenceId": {"type": "string"},
+          "blocking": {"type": "boolean"}
+        }
+      }
+    },
+    "designTokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "path"],
+      "properties": {
+        "format": {"const": "dtcg-2025.10"},
+        "path": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[^\\u0000]+\\.json$"}
+      }
+    }
+  }
+}

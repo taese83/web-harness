@@ -1,0 +1,76 @@
+# Protected Core — 하네스가 지켜야 하는 것 (판단 계층의 canonical)
+
+형식 게이트(validate-harness)는 **필요조건**이다. 이 문서는 그 위의 판단 계층이 보호하는
+불변식을 서열화하고, 변경 클래스별 판단 질문과 증거 형식을 고정한다. 소비자: 루트 `CLAUDE.md`
+판단 게이트(모든 AI 세션에 로드), `harness-change-reviewer` 에이전트, `validate-contract-hygiene.mjs`
+(기계 앵커). 이 문서 자체의 부재는 validate가 fail한다.
+
+## 0. 원칙 — 판단은 기계화되지 않는다, 그러나 강제된다
+
+"과적합인가", "2번째 서비스에도 성립하는가"를 grep으로 판정할 수 없다. 기계가 강제하는 것은
+**판단이 실제로 일어났고, 반증 가능한 형태로 기록됐는가**다. 진실성 검증은 fixture·CI 증명이
+따라와야 완성된다(주장≠증명 — I1).
+
+## 1. 보호 불변식 (서열 — 충돌 시 위가 이긴다)
+
+- **I1 · 증거의 진실성.** green은 실제 실행 근거가 있을 때만 green이다. 로컬에서 서명 증거를
+  위조하지 않는다. 증명 없는 `certified`를 주장하지 않는다(tier 정직). "닫았다"와 "닫는 시늉"을
+  구분해 보고한다.
+- **I2 · 게이트 강도.** 통과율을 위해 검증을 약화하지 않는다. 골든/생성물이 게이트에 막히면
+  그 지점이 곧 결함이다 — 게이트가 아니라 모델링을 고친다.
+- **I3 · 일반화.** 계약은 부류(class) 역량이다. 특정 서비스의 이름·백엔드·고정 수치·사고모델을
+  인코딩하지 않는다. 기준: **서로 다른 서비스 형태 2개 이상**에 성립함을 명시하고, 참조 서비스는
+  eval fixture로만 등장한다.
+- **I4 · 고정 비용 예산.** always-read·CLAUDE.md·미러 표면(×3 복제)은 예산이다. 추가 전에 제거를
+  먼저 검토한다. 예산 갱신은 의식적 행위(baseline 편집 + JUDGMENT 기록)여야 한다.
+- **I5 · 프록시 ≠ 품질.** 게이트가 프록시(줄 수·개수·패턴)라면, 프록시를 우회해 "통과"만 만드는
+  것은 통과가 아니라 위반이다. 알려진 프록시는 §4에 등록하고, 우회 발견 시 그 사례를 등록부에
+  추가한다.
+- **I6 · 안전 하한.** 접근성·보안·receipt 게이트는 fast-path에서도 생략 불가. 줄이는 것은
+  세리머니뿐이다.
+
+## 2. 변경 클래스별 판단 질문 (커밋 전 — 증거로 답한다)
+
+**모든 변경 공통**: I1(주장/증명 구분), I2(게이트 약화 없음), I5(프록시 우회 없음).
+
+| 클래스 | 추가 질문 | 요구 증거 |
+|---|---|---|
+| 계약 신설/확장 | I3: 서로 다른 서비스 형태 2개+에 성립하는가? 한 서비스를 역설계하지 않았는가? | 계약 내 `## 일반화 근거` 섹션(형태 2개+ 명명, fixture 검증 여부 명시) — 기계 강제 |
+| always-read/SKILL 변경 | I4: 고정 로드가 늘었는가? 조건부로 강등 가능한가? | baseline 대비 증감. 성장 시 baseline 갱신 + JUDGMENT 사유 — 기계 강제 |
+| 게이트/validator 변경 | I2: 무엇이 느슨해지는가? G2: 오탐이 정당한 기존 스킬을 잡는가? | 실제 트리에서 오탐 0 실행 로그 + 의도 회귀(seed) 탐지 로그 |
+| 스킬/에이전트 신설 | I4: 미러 ×3 유지비 정당한가? 기존과 중복인가? | 기존 대안 검토 1줄 + README 인벤토리 갱신 |
+| fast-path/세리머니 축소 | I6: 안전 하한이 남는가? | 유지되는 게이트 목록 명시 |
+| tier/supportLevel 변경 | I1: 라벨이 증거와 일치하는가? | 근거 receipt/golden 링크 |
+
+**기록 형식**: 커밋 본문에 `JUDGMENT:` 블록으로 해당 질문의 답을 1–3줄로 남긴다. 실질 변경
+(계약·게이트·스킬/에이전트)은 read-only `harness-change-reviewer`를 먼저 실행하고 결과를 반영한다.
+
+## 3. 예산 (기계 강제 — contract-hygiene)
+
+- 루트 `CLAUDE.md` ≤ 60줄(판단 게이트 마커 `harness-judgment-gate` 필수·삭제 시 fail).
+- 스킬별 always-read: `contract-hygiene-baseline.json`의 실측이 상한(ratchet — 성장만 fail).
+  미등록 신규 스킬 기본 상한 8.
+- baseline 밖 신규 reference 계약: `## 일반화 근거` + 형태 2개+ 필수.
+
+## 4. 알려진 프록시 등록부 (I5 — 정직한 한계 명세)
+
+| 프록시 | 한계 | 우회 사례(실제) | 대응 |
+|---|---|---|---|
+| 스크립트 400줄 제한 | 줄 수 ≠ 복잡도 | import 세미콜론-병합으로 399줄 맞춤(기존 관행 + 2026-08 세션도 동일 우회) | 병합으로 줄이지 말 것. 실질 해소는 validator 모듈 추출 — 미해결 TODO |
+| always-read 카운터 | `항상…읽는다` 한국어 마커의 첫 문장만 집계 — 영어 서술("Read X before…")·조건부 읽기는 미집계 | — | 성장 ratchet 용도로만 사용. 총 로드비용의 진실은 미보장 |
+| 일반화 근거 섹션 | 존재·형태만 검사, **진실은 미검증** | — | fixture/2번째 서비스 검증 전까지 해당 계약은 "명명 수준" — 계약에 자기 표기 |
+| 골든 5/7 로컬 green | e2e·서명 attestation 없는 로컬 증명은 폐곡선 아님 | — | CI 활성화 전 "certified(증명)" 주장 금지 |
+| maturity의 eval-언급 검사 | 시나리오 파일 내 스킬명 **언급**은 커버의 필요조건일 뿐 — 형식적 시나리오로 라벨만 승격 가능 | — | 승격용 시나리오는 신설 계약의 실질 assertion을 담아야 하며, 최종 진실은 시나리오 *실행* 결과다 |
+| anchorReceipt(live-delta 승인) | 존재·형식(한 줄 ≤300자)만 검사 — 자유 텍스트 self-attestation이며 라이브 서버·앵커 실검증을 자동 보장하지 않음 | — | receipt에 매칭 수·확인 URL·시점을 기록할 의무는 계약 몫. 실검증 자동화(브라우저 앵커 카운트 수집)는 미해결 TODO |
+| preview render-source 마커 스캔 | 파일 내 **문자열 포함**만 검사 — 해당 파일이 실제 로드·실행되는지 미보장(decoy 파일로 우회 가능) | — | .mjs 포함은 delta 모드에 한정. 실질 진실은 브라우저에서의 앵커 렌더 확인(TC 검증) 몫 |
+| 콘솔 frame-src loopback 와일드카드 | 열거식 CSP는 동적 프록시 포트가 문서 로드 후 배정되는 구조적 경합이 있어 `127.0.0.1:*`로 완화(2026-08-10) — DOM-XSS에 대한 심층방어 폭이 loopback 전 포트로 넓어짐 | — | iframe src는 서버 계산 값만, 신뢰 경계는 postMessage origin 엄격 검증 + 프록시 대상은 launch.json 포트 allowlist. script-src 'self'·frame-ancestors 'none' 유지 |
+| targetless 승인의 구조화 범위 self-report | 대상 없는 CR(기획 초안) 승인의 affectedFeatureIds는 apply 결과의 자기보고 — "그 FEAT를 정말 이번 apply가 신설했는가"는 미검증(승격 후 canonical 존재만 확인) | 파일럿(2026-08-11): apply가 기존 plan 재작성으로 승인 TC 파괴 — 존재 검사로는 미탐 | 실질 검증은 승격 전 인간의 기존 절 보존 확인 몫(runbook 2단계). 지시문 보존 조항은 완화책일 뿐. 라인 diff 렌더(후속 8)로 확인 비용 축소 예정 |
+| 구현 검증 증거(implementation receipt) | 존재·형식(승인 TC 부분집합·한 줄 ≤300자)만 검사 — 자유 텍스트 self-attestation이며 테스트가 실제로 실행·통과했는지 자동 보장하지 않음 | — | 증거에 명령·통과 요약·시점 기록 의무는 계약 몫(runbook). 테스트 러너 연동 자동 수집은 미해결 TODO |
+| 완결성 게이트 무산출 가드 | "owned 범위에 파일 0개=미완성"은 실제 신호이나, "파일 있음=완성"은 truncation/의미결함까지 보장 못 함. `--allow-no-output`은 self-attestation opt-in(오케스트레이터가 오탐 회피용으로 남용 가능) | 초기 구현이 scannable(.ts/.js) 확장자만 세어 비-code 산출물(.md/.json/.yml) 스폰을 오탐 FAIL — anyFilePresent(확장자 무관)로 수정(2026-08-11) | 무산출은 anyFilePresent로 판정, truncation은 별도 스캔, 의미결함은 typecheck 몫. --allow-no-output 남용은 리뷰에서 확인 |
+| tech-advisor 버전 pin | 이전엔 install 전까지 자기진술 프록시(§ 위 "일반화 근거"와 성격 유사) — "웹 리서치 교차확인" 주장이 실재 registry와 불일치 가능 | seminar-booking 실증: TS 6.0.0(존재하지 않는 버전) + typescript-eslint↔TS7 peer 비호환(install/lockfile은 WARN만) | **기계검사로 승격(2026-08-11)**: `validate-dependency-pins.mjs`가 존재성+peer 호환을 install 전 검사(Tessl 착안). 단 registry 없는 환경이면 self-attestation으로 강등(install 시점 검증에 위임), 파싱 불가 범위는 미검사 |
+| 재개 매니페스트 outputs 자기선언 | `resume-manifest.mjs`의 remaining(= missing ∪ truncated)은 "선언된 outputs의 존재+비-truncation"만 본다 — **선언 자체가 완결 범위를 다 담았는지는 미보장**(과소 선언 → remaining 과소평가 → COMPLETE 오판, GIGO) | — | outputs는 오케스트레이터가 owned prefix 기준으로 성실히 선언할 의무(계약 몫). owned 디렉토리 전체 스캔과의 교차검증(무산출 가드와 결합)은 미해결 TODO. 의미결함은 여전히 typecheck 몫 |
+
+## 5. 이 문서의 갱신
+
+판단 질문·예산·프록시 등록부의 변경 자체가 "게이트/validator 변경" 클래스다 — 같은 게이트를
+거친다. 등록부에서 행을 지우려면 해당 프록시가 실질 검증으로 대체됐다는 증거가 필요하다.

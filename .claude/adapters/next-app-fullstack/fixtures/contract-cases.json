@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "adapterId": "next-app-fullstack",
+  "statusValues": ["PASS", "FAIL", "BLOCKED", "NOT_APPLICABLE"],
+  "cases": [
+    {
+      "id": "next-node-auth-bff-pass",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node",
+        "deployment": "node-server",
+        "capabilities": ["request-time-ssr", "cookie-auth", "route-handler-mutation"],
+        "topology": "single-instance"
+      },
+      "expected": {
+        "status": "PASS",
+        "reasonCode": "NEXT_PROFILE_COMPATIBLE",
+        "artifact": ".next",
+        "requiredChecks": [
+          "next.build",
+          "next.route-contract",
+          "next.client-boundary",
+          "next.secret-boundary",
+          "next.node-authz",
+          "next.node-cache-isolation",
+          "next.production-start",
+          "next.node-smoke",
+          "next.node-browser",
+          "next.node-hydration",
+          "next.node-shutdown"
+        ]
+      }
+    },
+    {
+      "id": "next-docker-standalone-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node",
+        "deployment": "docker-standalone",
+        "nextOutput": "standalone",
+        "capabilities": ["request-time-ssr", "server-action"],
+        "topology": "single-instance"
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_DOCKER_OCI_EVIDENCE_BROKER_REQUIRED"
+      }
+    },
+    {
+      "id": "next-static-content-pass",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "nextOutput": "export",
+        "capabilities": ["build-time-server-component", "static-get-route-handler"],
+        "dynamicRoutesCompleteAtBuild": true,
+        "readsRuntimeRequest": false
+      },
+      "expected": {
+        "status": "PASS",
+        "reasonCode": "NEXT_PROFILE_COMPATIBLE",
+        "artifact": "out",
+        "requiredChecks": [
+          "next.build",
+          "next.route-contract",
+          "next.client-boundary",
+          "next.secret-boundary",
+          "next.export-artifact",
+          "next.static-host-smoke",
+          "next.static-browser",
+          "next.static-hydration"
+        ]
+      }
+    },
+    {
+      "id": "next-static-cookie-auth-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "capabilities": ["cookie-auth"]
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_STATIC_REQUEST_IDENTITY_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "next-static-server-action-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "capabilities": ["server-action"]
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_STATIC_SERVER_ACTION_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "next-static-isr-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "capabilities": ["isr"]
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_STATIC_ISR_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "next-static-request-handler-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "capabilities": ["route-handler"],
+        "routeHandlerMethods": ["GET"],
+        "readsRuntimeRequest": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_STATIC_REQUEST_HANDLER_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "next-static-incomplete-dynamic-route-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "node-build-only",
+        "deployment": "static-export",
+        "capabilities": ["dynamic-route"],
+        "dynamicRoutesCompleteAtBuild": false
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_STATIC_DYNAMIC_ROUTE_INCOMPLETE"
+      }
+    },
+    {
+      "id": "next-edge-runtime-blocked",
+      "phase": "profile-resolution",
+      "input": {
+        "router": "app",
+        "runtime": "edge",
+        "deployment": "adapter-platform",
+        "capabilities": ["request-time-ssr"]
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_RUNTIME_OUTSIDE_COMPATIBLE_SCOPE"
+      }
+    },
+    {
+      "id": "next-client-imports-server-only-fail",
+      "phase": "source-contract",
+      "input": {
+        "clientEntryImportsServerOnly": true,
+        "serverOnlyModuleReadsPrivateEnvironment": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "reasonCode": "NEXT_SERVER_ONLY_IN_CLIENT_GRAPH"
+      }
+    },
+    {
+      "id": "next-public-secret-environment-fail",
+      "phase": "source-contract",
+      "input": {
+        "environmentName": "NEXT_PUBLIC_DATABASE_PASSWORD",
+        "classification": "secret"
+      },
+      "expected": {
+        "status": "FAIL",
+        "reasonCode": "NEXT_SECRET_CLASSIFIED_PUBLIC"
+      }
+    },
+    {
+      "id": "next-route-handler-authz-missing-fail",
+      "phase": "source-contract",
+      "input": {
+        "entryPoint": "route-handler",
+        "protected": true,
+        "handlerAuthentication": false,
+        "handlerResourceAuthorization": false,
+        "layoutRedirectOnly": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "reasonCode": "NEXT_ENTRYPOINT_AUTHORIZATION_MISSING"
+      }
+    },
+    {
+      "id": "next-server-action-authz-missing-fail",
+      "phase": "source-contract",
+      "input": {
+        "entryPoint": "server-action",
+        "protected": true,
+        "actionAuthentication": true,
+        "actionResourceAuthorization": false
+      },
+      "expected": {
+        "status": "FAIL",
+        "reasonCode": "NEXT_ENTRYPOINT_AUTHORIZATION_MISSING"
+      }
+    },
+    {
+      "id": "next-authenticated-shared-cache-fail",
+      "phase": "runtime-contract",
+      "input": {
+        "dataClass": "authenticated",
+        "cacheScope": "shared-public",
+        "identityMarkersCrossed": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "reasonCode": "NEXT_PRIVATE_DATA_CACHE_LEAK"
+      }
+    },
+    {
+      "id": "next-stale-build-evidence-blocked",
+      "phase": "release-contract",
+      "input": {
+        "receiptStatus": "PASS",
+        "receiptSourceFingerprint": "source-a",
+        "currentSourceFingerprint": "source-b"
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "reasonCode": "NEXT_EVIDENCE_STALE"
+      }
+    }
+  ]
+}

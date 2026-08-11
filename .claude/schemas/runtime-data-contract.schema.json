@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/runtime-data-contract.schema.json",
+  "title": "Web Harness Runtime Data Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mode",
+    "authoritativeSource",
+    "buildCwd",
+    "deploymentRoot",
+    "generatedArtifacts",
+    "freshnessSlo",
+    "promotionPolicy",
+    "servingFallback",
+    "refreshCapabilities"
+  ],
+  "properties": {
+    "$schema": {
+      "const": ".claude/schemas/runtime-data-contract.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "mode": {
+      "enum": ["static-snapshot", "live-api", "hybrid"]
+    },
+    "authoritativeSource": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "buildCwd": {
+      "const": "."
+    },
+    "deploymentRoot": {
+      "const": "."
+    },
+    "generatedArtifacts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/generatedArtifact"
+      }
+    },
+    "freshnessSlo": {
+      "type": "string",
+      "pattern": "^P(?=\\d|T\\d)(?:\\d+D)?(?:T(?=\\d)(?:\\d+H)?(?:\\d+M)?(?:\\d+(?:\\.\\d+)?S)?)?$"
+    },
+    "promotionPolicy": {
+      "const": "reject-invalid"
+    },
+    "servingFallback": {
+      "enum": ["last-known-good", "unavailable"]
+    },
+    "refreshCapabilities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["scheduled", "manual-recovery", "on-demand", "runtime"]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "refreshCapabilities": {
+            "contains": {"const": "scheduled"}
+          }
+        },
+        "required": ["refreshCapabilities"]
+      },
+      "then": {
+        "properties": {
+          "refreshCapabilities": {
+            "contains": {"const": "manual-recovery"}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {"enum": ["static-snapshot", "hybrid"]}
+        },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "generatedArtifacts": {
+            "contains": {
+              "properties": {"required": {"const": true}},
+              "required": ["required"]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"mode": {"const": "live-api"}},
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "generatedArtifacts": {
+            "not": {
+              "contains": {
+                "properties": {"required": {"const": true}},
+                "required": ["required"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "projectDirectory": {
+      "type": "string",
+      "pattern": "^(?:\\.|(?:(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)(?:/(?:(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+))*)$",
+      "maxLength": 512
+    },
+    "projectFile": {
+      "type": "string",
+      "pattern": "^(?:(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)(?:/(?:(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+))*$",
+      "maxLength": 1024
+    },
+    "jsonPointer": {
+      "type": "string",
+      "pattern": "^(?:|(?:/(?:[^~/]|~[01])*)+)$",
+      "maxLength": 1024
+    },
+    "generatedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "required", "schema", "minCount"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/projectFile"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "minCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "validation": {
+          "$ref": "#/$defs/artifactValidation"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"required": {"const": true}},
+            "required": ["required"]
+          },
+          "then": {
+            "required": ["validation"],
+            "properties": {
+              "schema": {"not": {"const": "builtin:ingestion-envelope-v1"}},
+              "validation": {
+                "required": ["diff"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifactValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordsPointer": {
+          "$ref": "#/$defs/jsonPointer",
+          "default": "/data"
+        },
+        "countPointer": {
+          "$ref": "#/$defs/jsonPointer",
+          "default": "/count"
+        },
+        "freshnessPointer": {
+          "$ref": "#/$defs/jsonPointer",
+          "default": "/generatedAt"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverageValidation"
+        },
+        "duplicates": {
+          "$ref": "#/$defs/duplicateValidation"
+        },
+        "diff": {
+          "$ref": "#/$defs/diffValidation"
+        }
+      }
+    },
+    "coverageValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requiredFields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/jsonPointer"
+          },
+          "default": ["/id"]
+        },
+        "minimumFieldRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "metricPointer": {
+          "$ref": "#/$defs/jsonPointer"
+        },
+        "minimumMetric": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        }
+      }
+    },
+    "duplicateValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keyPointers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/jsonPointer"
+          },
+          "default": ["/id"]
+        },
+        "maximumRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0
+        }
+      }
+    },
+    "diffValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baselinePath", "maximumCountDropRatio"],
+      "properties": {
+        "baselinePath": {
+          "$ref": "#/$defs/projectFile"
+        },
+        "maximumCountDropRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

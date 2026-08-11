@@ -1,0 +1,29 @@
+# web-harness 컨트롤 플레인 — 운영 지침
+
+이 repo는 웹 생성 하네스의 canonical 소스다. `.claude/`가 원본이고 `.agents/`·`.codex/`는
+`node .claude/scripts/build-adapters.mjs`로만 재생성한다(손 편집 금지). 커밋 전 `pnpm run ci`
+(mirror·toolchain·validate-harness·ai)가 green이어야 한다.
+
+## 판단 게이트 <!-- harness-judgment-gate -->
+
+형식 게이트는 필요조건일 뿐이다. **커밋 전에 `docs/protected-core.md`의 불변식 I1~I6과
+변경 클래스별 질문에 증거로 답하라**:
+
+1. **진실성(I1)** — "주장"과 "증명"을 섞지 않았는가? green은 실제 실행 근거가 있는가?
+   증명 없는 certified·"닫았다" 보고를 하지 않았는가?
+2. **게이트 강도(I2)** — 통과율을 위해 검증을 약화하지 않았는가? 막히면 게이트가 아니라
+   모델링을 고쳤는가?
+3. **일반화(I3)** — 새 계약이 서로 다른 서비스 형태 2개+에 성립하는가? 특정 서비스의
+   이름·백엔드·수치·사고모델을 인코딩하지 않았는가? (참조 서비스는 eval fixture로만)
+4. **고정 비용(I4)** — always-read·CLAUDE.md·미러(×3) 표면이 예산 안인가? 추가 전에
+   제거를 검토했는가?
+5. **프록시(I5)** — 게이트가 프록시(줄 수·개수)라면 우회로 "통과"만 만들지 않았는가?
+   우회를 발견하면 protected-core §4 등록부에 기록했는가?
+6. **안전 하한(I6)** — 접근성·보안·receipt를 어떤 경로에서도 생략하지 않았는가?
+
+**실질 변경**(계약 신설/확장·게이트/validator 변경·스킬/에이전트 추가)이면 read-only
+`harness-change-reviewer` 에이전트를 실행해 결과를 반영하고, **커밋 본문에 `JUDGMENT:` 블록**
+(해당 질문 답 1–3줄)을 남긴다. baseline(`contract-hygiene-baseline.json`) 갱신은 의식적
+행위다 — 갱신 사유를 JUDGMENT에 포함하라.
+
+비협상: 로컬에서 서명 증거 위조 금지 · 검증 약화로 폐곡선 닫기 금지 · 증명 없는 tier 승격 금지.

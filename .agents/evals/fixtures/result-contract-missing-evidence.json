@@ -1,0 +1,21 @@
+{
+  "scenarioId": "common-server-side-provider-secret",
+  "status": "PASS",
+  "versions": {
+    "model": "fixture-model",
+    "prompt": "fixture-prompt-v1",
+    "workflow": "fixture-workflow-v1"
+  },
+  "assertions": [
+    {
+      "id": "server-gateway",
+      "status": "PASS",
+      "evidence": []
+    },
+    {
+      "id": "unsafe-browser-call-blocked",
+      "status": "PASS",
+      "evidence": []
+    }
+  ]
+}

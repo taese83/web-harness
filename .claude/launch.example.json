@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "_comment": "로컬 개발용 브라우저 프리뷰/콘솔 실행 설정의 예시. 이 파일을 .claude/launch.json으로 복사해 쓰되, 그 파일은 VCS 제외(개인 절대경로·프로젝트별 항목이 들어가므로)다. runtimeExecutable은 PATH의 node/pnpm을 쓰고 개인 절대경로를 넣지 않는다.",
+  "configurations": [
+    {
+      "name": "console",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["packages/web-harness-console/server.mjs", "--root", "."],
+      "port": 4310,
+      "autoPort": false,
+      "url": "http://127.0.0.1:4310"
+    },
+    {
+      "name": "console-live",
+      "_comment": "브라운필드 라이브 델타: <APP_PORT>는 대상 앱의 dev server 포트, <PROJECT_ROOT>는 workspace 하위 프로젝트 경로로 바꾼다.",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "packages/web-harness-console/server.mjs", "--root", ".",
+        "--port", "4330", "--preview-port", "4331",
+        "--live-base", "http://127.0.0.1:<APP_PORT>",
+        "--live-base-root", "workspace/<PROJECT_ROOT>",
+        "--live-base-port", "4313"
+      ],
+      "port": 4330,
+      "autoPort": false,
+      "url": "http://127.0.0.1:4330"
+    }
+  ]
+}

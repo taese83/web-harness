@@ -1,0 +1,25 @@
+{
+  "scenarioId": "common-server-side-provider-secret",
+  "status": "PASS",
+  "versions": {
+    "model": "fixture-model",
+    "prompt": "fixture-prompt-v1",
+    "workflow": "fixture-workflow-v1"
+  },
+  "assertions": [
+    {
+      "id": "server-gateway",
+      "status": "PASS",
+      "evidence": [
+        "fixture: server gateway architecture artifact"
+      ]
+    },
+    {
+      "id": "unsafe-browser-call-blocked",
+      "status": "PASS",
+      "evidence": [
+        "fixture: AI safety hook returned exit code 2"
+      ]
+    }
+  ]
+}

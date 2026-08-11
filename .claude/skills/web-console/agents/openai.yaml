@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Console"
+  short_description: "Web Harness Console 서버를 안전하게 운영합니다."
+  default_prompt: "Use $web-console to start the local Web Harness Console and verify its status."

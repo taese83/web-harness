@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-harness.local/schemas/quality-attestation-request.schema.json",
+  "title": "Unsigned external quality attestation request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestType", "evidence", "expectedProvenance", "requiredExecutionClaims"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "requestType": {"const": "web-harness-quality-attestation"},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issuedAt", "qualityCohortId", "receiptDigests", "sourceFingerprint", "trustConfigSha256"],
+      "properties": {
+        "issuedAt": {"type": "string", "format": "date-time"},
+        "qualityCohortId": {"type": "string"},
+        "receiptDigests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "sha256"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        },
+        "sourceFingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "trustConfigSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "expectedProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repositoryId", "revision", "workflowRef", "ciIssuer", "issuerRunId"],
+      "properties": {
+        "repositoryId": {"type": "string", "minLength": 1, "maxLength": 512},
+        "revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "workflowRef": {"type": "string", "minLength": 1, "maxLength": 512},
+        "ciIssuer": {"type": "string", "minLength": 1, "maxLength": 512},
+        "issuerRunId": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "requiredExecutionClaims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "frozenLockfileInstallVerified", "hostFilesystemIsolated", "lifecycleScriptsDisabled", "networkIsolated", "nodeModulesCreatedInRun", "processBoundaryVerified"],
+      "properties": {
+        "environment": {"const": "isolated-ci"},
+        "frozenLockfileInstallVerified": {"const": true},
+        "hostFilesystemIsolated": {"const": true},
+        "lifecycleScriptsDisabled": {"const": true},
+        "networkIsolated": {"const": true},
+        "nodeModulesCreatedInRun": {"const": true},
+        "processBoundaryVerified": {"const": true}
+      }
+    }
+  }
+}

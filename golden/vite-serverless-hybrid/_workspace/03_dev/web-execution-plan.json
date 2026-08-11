@@ -1,0 +1,178 @@
+{
+  "$schema": "https://web-harness.local/schemas/web-core/execution-plan.schema.json",
+  "adapter": {
+    "id": "vite-serverless-hybrid",
+    "version": "1.1.0"
+  },
+  "edges": [
+    {"capabilities": ["source.ready"], "from": "adapter.scaffold", "to": "dependencies.install"},
+    {"capabilities": ["evidence.api-guards"], "from": "api.guards", "to": "release.assemble"},
+    {"capabilities": ["evidence.api-unit"], "from": "api.unit", "to": "release.assemble"},
+    {"capabilities": ["profile.resolved"], "from": "core.resolve-profile", "to": "adapter.scaffold"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "api.guards"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "api.unit"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.lint"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.typecheck"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.unit"},
+    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "vite.build"},
+    {"capabilities": ["evidence.lint"], "from": "quality.lint", "to": "release.assemble"},
+    {"capabilities": ["evidence.typecheck"], "from": "quality.typecheck", "to": "vite.build"},
+    {"capabilities": ["evidence.unit"], "from": "quality.unit", "to": "release.assemble"},
+    {"capabilities": ["evidence.browser"], "from": "vite.browser", "to": "release.assemble"},
+    {"capabilities": ["artifact.built"], "from": "vite.build", "to": "vite.browser"},
+    {"capabilities": ["artifact.built"], "from": "vite.build", "to": "vite.production-boundary"},
+    {"capabilities": ["evidence.production-boundary"], "from": "vite.production-boundary", "to": "release.assemble"}
+  ],
+  "executionOrder": [
+    "core.resolve-profile",
+    "adapter.scaffold",
+    "dependencies.install",
+    "api.guards",
+    "api.unit",
+    "quality.lint",
+    "quality.typecheck",
+    "quality.unit",
+    "vite.build",
+    "vite.browser",
+    "vite.production-boundary",
+    "release.assemble"
+  ],
+  "initialCapabilities": ["requirements.locked"],
+  "nodes": [
+    {
+      "commandIds": [],
+      "dependencies": [],
+      "id": "core.resolve-profile",
+      "phase": "plan",
+      "provides": ["profile.resolved"],
+      "requires": ["requirements.locked"]
+    },
+    {
+      "commandIds": [],
+      "dependencies": ["core.resolve-profile"],
+      "id": "adapter.scaffold",
+      "phase": "scaffold",
+      "provides": ["source.ready"],
+      "requires": ["profile.resolved"]
+    },
+    {
+      "commandIds": ["dependencies.install"],
+      "dependencies": ["adapter.scaffold"],
+      "id": "dependencies.install",
+      "phase": "install",
+      "provides": ["dependencies.installed"],
+      "requires": ["source.ready"]
+    },
+    {
+      "commandIds": ["api.guards"],
+      "dependencies": ["dependencies.install"],
+      "id": "api.guards",
+      "phase": "verify",
+      "provides": ["evidence.api-guards"],
+      "requires": ["dependencies.installed"]
+    },
+    {
+      "commandIds": ["api.unit"],
+      "dependencies": ["dependencies.install"],
+      "id": "api.unit",
+      "phase": "verify",
+      "provides": ["evidence.api-unit"],
+      "requires": ["dependencies.installed"]
+    },
+    {
+      "commandIds": ["quality.lint"],
+      "dependencies": ["dependencies.install"],
+      "id": "quality.lint",
+      "phase": "verify",
+      "provides": ["evidence.lint"],
+      "requires": ["dependencies.installed"]
+    },
+    {
+      "commandIds": ["quality.typecheck"],
+      "dependencies": ["dependencies.install"],
+      "id": "quality.typecheck",
+      "phase": "verify",
+      "provides": ["evidence.typecheck"],
+      "requires": ["dependencies.installed"]
+    },
+    {
+      "commandIds": ["quality.unit"],
+      "dependencies": ["dependencies.install"],
+      "id": "quality.unit",
+      "phase": "verify",
+      "provides": ["evidence.unit"],
+      "requires": ["dependencies.installed"]
+    },
+    {
+      "commandIds": ["vite.build"],
+      "dependencies": ["dependencies.install", "quality.typecheck"],
+      "id": "vite.build",
+      "phase": "build",
+      "provides": ["artifact.built"],
+      "requires": ["dependencies.installed", "evidence.typecheck"]
+    },
+    {
+      "commandIds": ["vite.browser"],
+      "dependencies": ["vite.build"],
+      "id": "vite.browser",
+      "phase": "runtime",
+      "provides": ["evidence.browser"],
+      "requires": ["artifact.built"]
+    },
+    {
+      "commandIds": ["vite.production-mock-boundary"],
+      "dependencies": ["vite.build"],
+      "id": "vite.production-boundary",
+      "phase": "verify",
+      "provides": ["evidence.production-boundary"],
+      "requires": ["artifact.built"]
+    },
+    {
+      "commandIds": [],
+      "dependencies": [
+        "api.guards",
+        "api.unit",
+        "quality.lint",
+        "quality.unit",
+        "vite.browser",
+        "vite.production-boundary"
+      ],
+      "id": "release.assemble",
+      "phase": "release",
+      "provides": ["release.candidate", "release.vercel-hybrid"],
+      "requires": [
+        "evidence.api-guards",
+        "evidence.api-unit",
+        "evidence.browser",
+        "evidence.lint",
+        "evidence.production-boundary",
+        "evidence.unit"
+      ]
+    }
+  ],
+  "profileBinding": {
+    "adapterSha256": "306dd108f07b1444f7c32006f9c2da8aa291984d5fed5bd06a2d4f78da7316a4",
+    "deploymentProvider": "vercel",
+    "deploymentTarget": "vercel-hybrid",
+    "profileSha256": "be05714096ea50421de63889500d02132bee7f71de65f88de1c308a8af19c306",
+    "selectedCapabilities": [
+      "client-routing",
+      "csr",
+      "serverless-functions",
+      "static-build"
+    ]
+  },
+  "profileId": "vite-serverless-hybrid",
+  "schemaVersion": 1,
+  "targetCapabilities": [
+    "artifact.built",
+    "evidence.api-guards",
+    "evidence.api-unit",
+    "evidence.browser",
+    "evidence.lint",
+    "evidence.production-boundary",
+    "evidence.typecheck",
+    "evidence.unit",
+    "release.vercel-hybrid"
+  ]
+}

@@ -1,0 +1,7 @@
+.pnpm-store/
+dist/
+eval-runs/
+workspace/*
+!workspace/README.md
+node_modules/
+.claude/launch.json

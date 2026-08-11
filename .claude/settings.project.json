@@ -1,0 +1,96 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node .claude/scripts/validate-toolchain.mjs*)",
+      "Bash(node .claude/scripts/validate-harness.mjs)",
+      "Bash(node .claude/scripts/validate-ai-harness.mjs*)",
+      "Bash(node .claude/scripts/test-ai-harness.mjs*)",
+      "Bash(node .claude/scripts/run-ai-evals.mjs*)",
+      "Bash(node .claude/scripts/validate-release-gate.mjs*)",
+      "Bash(node .claude/scripts/prepare-quality-attestation.mjs*)",
+      "Bash(node .claude/scripts/run-git-inspection.mjs*)",
+      "Bash(node .claude/scripts/web-core/validate-adapters.mjs*)",
+      "Bash(node .claude/scripts/web-core/validate-next-contracts.mjs*)",
+      "Bash(node .claude/scripts/web-core/resolve-profile.mjs*)",
+      "Bash(node .claude/scripts/web-core/compile-execution-plan.mjs*)",
+      "Bash(node .claude/scripts/web-core/test-web-core.mjs*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.production)",
+      "Read(**/.env.development)",
+      "Read(**/.env.test)",
+      "Read(**/.dev.vars)",
+      "Read(**/.npmrc)",
+      "Read(**/.netrc)",
+      "Read(**/.pypirc)",
+      "Read(**/.git/config)",
+      "Read(**/.git-credentials)",
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.azure/**)",
+      "Read(**/.kube/**)",
+      "Read(**/.docker/config.json)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/*.jks)",
+      "Read(**/*.keystore)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-sensitive-access.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-global-bash-policy.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-verifier-bash.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-ai-safety.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-agent-ownership.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/enforce-release-gate.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}
