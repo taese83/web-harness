@@ -95,8 +95,15 @@ runaway 감지 시 다음 스폰 전에 아래 "초과 시 행동 규칙"을 적
 per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검출**한다. 아래 규칙 1·2는
 스폰 전에 **예방**하고(기계 게이트 `validate-spawn-plan.mjs`), 규칙 3은 이미 난 truncate에서
 **복구**한다(`resume-manifest.mjs`) — seminar-booking 전 과정 실증에서 복잡한 빌더(도메인 스토어·
-컴포넌트·route)가 스펙 재독에 150~190k 토큰을 쓰고 산출물 작성 전/중 반복 종료한 실측이
-근거다(빌더 6+회 중 5회). 기능 단위에선 드러나지 않고 서비스 규모에서만 나타난다.
+컴포넌트·route)가 스펙 재독에 토큰을 쓰고 산출물 작성 전/중 종료한 실측이 근거다.
+
+**빈도는 telemetry 원본 기준으로 정정한다(2026-08-12).** 이전 서술은 "빌더 6+회 중 5회
+폭주"였으나 이는 사후 서사이고, per-spawn으로 기록된 `execution-telemetry.json`은 다르게
+말한다 — seminar-booking 전 과정 **22스폰 중 미완 3건**(P2 layout-designer 126.7k truncated,
+P2 api-schema-designer 129.5k truncated, P3 client-domain-state-builder 168.0k incomplete),
+**미완이 소비한 토큰은 424k = 전체의 15%**, 셋 다 재스폰으로 복구됐다. 즉 **1회당 비용은
+크지만(130~170k) 상례가 아니라 예외**다. 기능 단위에선 드러나지 않고 서비스 규모에서만
+나타난다는 점은 그대로다.
 
 1. **출력 단위를 계층이 아니라 파일/작은 묶음으로 분해한다.** 한 스폰에 "도메인 계층
    전체"(command 10개)나 "컴포넌트 전체"를 요구하지 않는다. 실측: "이 4개만" 스코프한

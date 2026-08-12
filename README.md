@@ -91,9 +91,11 @@ than best-effort permitted.
 
 ## Runaway prevention
 
-At service scale, the dominant failure mode we measured was not bad code — it was
-builders spending 150–190k tokens re-reading specs and terminating before writing
-anything. In one full pilot, 5 of 6 Phase 3 builders did this.
+When a spawn fails at service scale, it usually fails the same way: it spends 130–170k
+tokens re-reading specs and terminates before finishing its output. Per-spawn telemetry
+from a full service pilot (22 spawns, planning through implementation) puts the actual
+rate at **3 incomplete spawns out of 22 — 15% of tokens**, all recovered by re-spawning
+only the remainder. So this is a real failure mode with a real cost, not a constant one.
 
 Three machine gates address it:
 
@@ -110,6 +112,27 @@ append-only ledger. Shrinking the manifest afterward to fake completion is caugh
 Honest scope: these gates are calibrated against measured failures, but whether they
 *reduce* runaway rate in practice has not been measured yet. See
 [docs/protected-core.md](docs/protected-core.md) §4 for every known proxy and its limits.
+
+## What it costs
+
+Token usage is recorded per spawn, not estimated. The contract is explicit that when the
+runtime does not report usage, the field is written as `null` — **values are never guessed
+or filled in**. From one full service pilot (planning → design → implementation):
+
+| Phase | Spawns | Tokens | Share |
+|---|---|---|---|
+| Planning | 10 | 844,039 | 30% |
+| Design | 6 | 1,130,234 | 40% |
+| Implementation | 6 | 831,449 | 30% |
+| **Total** | **22** | **2,805,722** | |
+
+The single largest spawn was the design-preview builder at 473k — the agent that produces
+the interactive prototype you approve before any implementation starts. Cost concentrates
+where rework risk is highest, which is the intended allocation rather than waste.
+
+This instrumentation exists so claims about the harness can be checked against its own
+records. It has already been used to correct an overstated failure-rate claim in this
+README.
 
 ## Honesty as a design constraint
 

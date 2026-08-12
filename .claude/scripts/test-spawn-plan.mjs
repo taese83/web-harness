@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // test-spawn-plan.mjs — validate-spawn-plan.mjs 순수 코어 회귀 테스트.
 // 회귀 기준은 seminar-booking 실측이다: "계층 전체"(도메인 스토어 command 10개) 스폰이
-// 스펙 재독에 150~190k를 쓰고 종료했다 — 그 계획이 사전에 REFUSE로 잡혀야 한다.
+// 스펙 재독에 168k를 쓰고 종료했다(telemetry 실측) — 그 계획이 사전에 REFUSE로 잡혀야 한다.
 import assert from 'node:assert/strict'
 import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
