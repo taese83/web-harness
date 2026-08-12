@@ -150,14 +150,33 @@ node .claude/scripts/build-adapters.mjs
 
 ## Documentation language
 
-English migration is staged, and the ordering is deliberate: validators that keyed on
-Korean string markers were made language-independent first, because translating the
-bodies before that would have silently disabled those gates while CI stayed green.
+Done so far:
 
-1. ~~Make validators language-independent~~ (done)
-2. This README (done) — Korean preserved at [README.ko.md](README.ko.md)
-3. Agent bodies
-4. Skill and contract bodies
+1. **Validators made language-independent.** Several gates keyed on Korean string markers
+   (`항상 … 읽는다`, `## 일반화 근거`, and others). Translating bodies first would have made
+   those regexes stop matching — and most of them treated "marker absent" as a pass, so
+   the gates would have gone quiet while CI stayed green. They now accept Korean, English,
+   and a neutral `<!-- always-read -->` anchor, and a missing marker where the baseline
+   expects one is a failure rather than a silent pass.
+2. **This README** — the Korean original is preserved at [README.ko.md](README.ko.md).
+
+Not done, and not a simple translation job:
+
+Agent and skill bodies are still Korean. They cannot be translated file-type by file-type,
+because **11 backtick-quoted Korean tokens are functional identifiers matched across
+files**, not prose — `주 소비자` and `담당 범위` appear in 26 agent definitions and are
+matched against the sharded-artifact read protocol; `ASSUMPTION(프리뷰 A/B)` is matched
+against a design readiness contract. Translating agents alone would either leave them
+half-Korean or silently break cross-file matching until the contracts followed.
+
+So the real migration unit is a **marker cluster** — an agent plus every contract that
+shares its literals — moved together with the validators that check them. That is a
+refactor, not a translation pass, and it has not been started.
+
+What this means in practice: the surfaces that affect adoption most — agent and skill
+`description` fields, which is what the model routes on and what menus show — are already
+English, as is this README. What remains Korean is the instruction detail you would read
+when auditing or customizing an agent.
 
 ## Further reading
 
