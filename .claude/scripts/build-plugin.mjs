@@ -27,9 +27,19 @@ const remoteHttp = (() => {
   if (!raw) return '<your web-harness repository URL>'
   return raw.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '')
 })()
-const PLUGIN_AUTHOR = process.env.WEB_HARNESS_PLUGIN_AUTHOR || 'web-harness maintainers'
+// author·marketplace URL도 remote에서 파생한다. 이전엔 env override가 없으면 placeholder로
+// 되돌아가, `pnpm run ci`가 build-plugin을 돌 때마다 **배포 산출물의 브랜딩이 조용히 원복**됐다
+// (실측: owner가 실제 소유자에서 'web-harness maintainers'로, 설치 URL이 placeholder로 회귀).
+// remote에서 파생하면 소스에 특정 개인·저장소를 박지 않으면서도 재발하지 않는다.
+const remoteOwner = (() => {
+  const match = remoteHttp.match(/^https?:\/\/[^/]+\/([^/]+)\//)
+  return match ? match[1] : ''
+})()
+const PLUGIN_AUTHOR = process.env.WEB_HARNESS_PLUGIN_AUTHOR || remoteOwner || 'web-harness maintainers'
 const PLUGIN_REPO_URL = remoteHttp
-const MARKETPLACE_GIT = process.env.WEB_HARNESS_PLUGIN_MARKETPLACE_GIT || '<your web-harness plugin marketplace git URL>'
+// 관례: 마켓플레이스 저장소는 `<source repo>-plugin`. 다른 관례면 env로 override한다.
+const MARKETPLACE_GIT = process.env.WEB_HARNESS_PLUGIN_MARKETPLACE_GIT
+  || (remoteHttp.startsWith('http') ? `${remoteHttp}-plugin` : '<your web-harness plugin marketplace git URL>')
 
 // 하니스 저장소 개발 전용 — 플러그인 런타임에 싣지 않는다.
 const DEV_ONLY_SCRIPTS = new Set([
