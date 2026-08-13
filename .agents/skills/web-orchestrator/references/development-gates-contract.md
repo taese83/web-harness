@@ -65,6 +65,33 @@ entity query, mutation/form/domain/realtime owner와 `data-ui-binder`가 완료�
 
 Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 잠근다.
 
+## Gate L — 산출물 언어 (선언과 실제의 일치)
+
+지시(에이전트·스킬 본문)의 언어와 **산출물의 언어는 별개 문제**다. 모델은 한국어 지시로도
+동작하지만, 기획서·설계서·QA 리포트가 사용자 언어로 나오지 않으면 이 하네스의 핵심 가치가
+그 사용자에게 통째로 사라진다. 실측: 산출물 문서 템플릿을 가진 에이전트 20개가 한국어
+헤딩(`## 색상 팔레트`, `## 엔드포인트 목록` 등)을 들고 있었다.
+
+**규약**
+
+1. intake에서 **요청 언어를 판별**해 `_workspace/01_plan/project-profile.json`에
+   `"outputLanguage": "en" | "ko" | …`로 기록한다(resolver stdout에 병합).
+2. **산출물을 쓰는 모든 스폰 프롬프트에 그 값을 주입**한다 — "산출물 문서의 제목·본문은
+   {outputLanguage}로 작성한다. 식별자·파일 경로·코드·FEAT/TC ID는 그대로 둔다."
+   에이전트 정의에 always-read를 추가하지 않는다(I4 — 주입은 고정 비용이 0이다).
+3. Phase 4에서 선언과 실제를 기계로 대조한다:
+
+```bash
+node .claude/scripts/validate-output-language.mjs --project {root}
+```
+
+**판정**: `PASS`(일치) · `FAIL`(선언과 다른 언어의 헤딩 존재) · `UNDECLARED`(선언 없음 —
+통과가 아니라 **검사 미수행**이다. 특정 언어권 지원을 주장하려면 선언이 있어야 한다).
+
+**한계**(§4 등록): 헤딩만 검사한다 — 본문·표·코드펜스는 샘플·고유명사로 한글이 정당하게
+들어갈 수 있어 오탐 비용이 크다. 즉 헤딩만 맞추고 본문이 다른 언어여도 PASS가 난다.
+검사는 단방향(en 선언에 한글 헤딩 금지)이며 `outputLanguage` 판별 자체는 자기선언이다.
+
 ## 판정
 
 - `PASS` — 다음 wave 진행 가능

@@ -559,6 +559,24 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned"
+    },
+    {
+      "id": "output-language-bounded",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-output-language.mjs --project ."
+    },
+    {
+      "id": "output-language-json",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-output-language.mjs --project . --json"
+    },
+    {
+      "id": "output-language-requires-project",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-output-language.mjs --json"
     }
   ]
 }
