@@ -7,7 +7,7 @@
 // 말하기 전에 게이트 자신이 맞는지부터 검증해야 한다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {analyzeRequirements, classifyPattern, splitRequirements, statesObligation} from './validate-requirements-notation.mjs'
+import {analyzeAcceptanceCriteria, analyzeRequirements, classifyPattern, earsPatternOf, splitRequirements, statesObligation} from './validate-requirements-notation.mjs'
 
 test('의무 진술: 영어 shall/must', () => {
   assert.ok(statesObligation('The system shall display the list.'))
@@ -87,4 +87,45 @@ test('analyzeRequirements: 라벨만 있는 요구사항을 NO_OBLIGATION으로 
 
 test('REQ 블록이 없으면 total 0 — 호출부가 검사 미수행으로 보고한다', () => {
   assert.equal(analyzeRequirements('### Must Have\n(작성 전)\n').total, 0)
+})
+
+// --- AC 층 EARS 구조 검사 (2026-08-12 — "의무 존재"에서 "구조 적합"으로 확장) ---
+
+test('AC 분해: Given/When/Then이 EARS 요소로 대응된다', () => {
+  const acs = analyzeAcceptanceCriteria(['  - Given 로그인 상태에서, When 저장을 누르면, Then 문서가 저장된다.'])
+  assert.equal(acs.length, 1)
+  assert.deepEqual([acs[0].precondition, acs[0].trigger, acs[0].response], [true, true, true])
+  assert.equal(earsPatternOf(acs[0]), 'complex')
+})
+
+test('earsPatternOf: trigger만 → event, precondition만 → state, 둘 다 없으면 ubiquitous', () => {
+  assert.equal(earsPatternOf({precondition: false, trigger: true}), 'event')
+  assert.equal(earsPatternOf({precondition: true, trigger: false}), 'state')
+  assert.equal(earsPatternOf({precondition: false, trigger: false}), 'ubiquitous')
+})
+
+test('의무는 진술했으나 AC가 없으면 NO_ACCEPTANCE_CRITERIA', () => {
+  const r = analyzeRequirements('### Must Have\n- [ ] REQ-F-001 목록 조회가 동작한다\n')
+  assert.deepEqual(r.violations.map(v => v.code), ['NO_ACCEPTANCE_CRITERIA'])
+})
+
+test('결과(Then/서술체)를 말하지 않는 AC는 AC_NO_RESPONSE', () => {
+  const r = analyzeRequirements('### Must Have\n- [ ] REQ-F-001 조회가 동작한다\n  - 상세 화면 관련 참고\n')
+  assert.ok(r.violations.some(v => v.code === 'AC_NO_RESPONSE'))
+})
+
+test('구조를 갖춘 AC는 위반 0 + 패턴 분포에 계상', () => {
+  const r = analyzeRequirements([
+    '### Must Have',
+    '- [ ] REQ-F-001 조회',
+    '  - Given 진입할 때, Then 목록이 표시된다.',
+    '  - When 검색하면, Then 결과가 갱신된다.',
+  ].join('\n'))
+  assert.deepEqual(r.violations, [])
+  assert.equal(r.acTotal, 2)
+})
+
+test('unwanted는 AC의 위험 어휘로 분류된다 (한국어 구문 한계 보완)', () => {
+  const r = analyzeRequirements('### Must Have\n- [ ] REQ-F-001 신청\n  - Given 정원이 초과됐을 때, Then 신청이 거부된다.\n')
+  assert.equal(r.distribution.unwanted, 1)
 })

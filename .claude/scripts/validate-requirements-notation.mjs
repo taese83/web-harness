@@ -87,21 +87,69 @@ export function mustSection(text) {
   return end === -1 ? rest : rest.slice(0, end + 1)
 }
 
+// --- AC 층 구조 검사 (EARS 실질 도입, 2026-08-12) ---
+//
+// EARS의 실제 기여는 "무엇을 한다"가 아니라 **언제/어떤 조건에서 하는가를 명시**하게 만드는
+// 것이다. 실측: 파일럿 AC 38개가 이미 Given/When/Then 구조를 갖췄고 EARS와 동형이다
+// (Given=상태/전제, When=트리거, Then=응답). 그래서 문서를 바꾸지 않고 검사를 AC 층으로
+// 내리는 것으로 이 축을 닫는다.
+//
+// 대응: Given+When+Then → complex · When+Then → event · Given+Then → state
+//       Then만 → ubiquitous(상시 요구사항 — EARS의 정당한 패턴)
+const AC_BULLET = /^\s+(?:[-*]|\d+\.)\s+(\S.*)$/
+const RESPONSE = /\bthen\b|\bshall\b|\bmust\b|[가-힣]{2,}다(?![가-힣])/i
+const TRIGGER = /\bwhen\b|\bif\b|하면|할\s*때|되면|시도하면/i
+const PRECONDITION = /\bgiven\b|\bwhile\b|\bwhere\b|인\s*동안|상태에서|경우/i
+
+export function analyzeAcceptanceCriteria(bodyLines) {
+  const acs = []
+  for (const line of bodyLines) {
+    const m = line.match(AC_BULLET)
+    if (!m) continue
+    const text = m[1]
+    acs.push({
+      text,
+      response: RESPONSE.test(text),
+      trigger: TRIGGER.test(text),
+      precondition: PRECONDITION.test(text),
+    })
+  }
+  return acs
+}
+
+export function earsPatternOf(ac) {
+  if (ac.precondition && ac.trigger) return 'complex'
+  if (ac.trigger) return 'event'
+  if (ac.precondition) return 'state'
+  return 'ubiquitous'
+}
+
 export function analyzeRequirements(text) {
   const scope = mustSection(text)
   const blocks = splitRequirements(scope)
+  const violations = []
+  const distribution = {}
+  let acTotal = 0
   const results = blocks.map(b => {
     const full = `${b.headline}\n${b.body.join('\n')}`
-    return {id: b.id, obligation: statesObligation(full), pattern: classifyPattern(full)}
+    const obligation = statesObligation(full)
+    if (!obligation) violations.push({code: 'NO_OBLIGATION', id: b.id})
+    const acs = analyzeAcceptanceCriteria(b.body)
+    // AC가 하나도 없으면 "언제 무엇을 보장하는가"가 검증 가능한 형태로 없다.
+    if (obligation && acs.length === 0) violations.push({code: 'NO_ACCEPTANCE_CRITERIA', id: b.id})
+    for (const ac of acs) {
+      acTotal++
+      // 응답(Then/shall) 없는 AC는 결과를 말하지 않는다 — EARS의 최소 요건 미달.
+      if (!ac.response) violations.push({code: 'AC_NO_RESPONSE', id: b.id, text: ac.text.slice(0, 60)})
+      else {
+        const p = /실패|오류|에러|없을\s*때|없으면|초과|거부|차단|불가|중복|잘못|비활성|invalid|error|fail|reject/i.test(ac.text)
+          ? 'unwanted' : earsPatternOf(ac)
+        distribution[p] = (distribution[p] ?? 0) + 1
+      }
+    }
+    return {id: b.id, obligation, acCount: acs.length}
   })
-  return {
-    total: results.length,
-    violations: results.filter(r => !r.obligation).map(r => ({code: 'NO_OBLIGATION', id: r.id})),
-    distribution: results.filter(r => r.obligation).reduce((acc, r) => {
-      acc[r.pattern] = (acc[r.pattern] ?? 0) + 1
-      return acc
-    }, {}),
-  }
+  return {total: results.length, acTotal, violations, distribution}
 }
 
 function parseArgs(argv) {
@@ -129,12 +177,18 @@ function main() {
     console.log('NO_REQUIREMENTS ⚠️  — Must 범위에서 REQ 블록을 찾지 못했다. 검사를 수행하지 않았다.')
   } else {
     const dist = Object.entries(report.distribution).map(([k, v]) => `${k} ${v}`).join(' · ')
-    console.log(`요구사항 표기: Must ${report.total}개 · 의무 진술 ${report.total - report.violations.length}개`)
+    const reqViolations = report.violations.filter(v => v.code === 'NO_OBLIGATION').length
+    console.log(`요구사항 표기: Must ${report.total}개 · 의무 진술 ${report.total - reqViolations}개 · AC ${report.acTotal}개`)
     console.log(`  EARS 패턴 분포: ${dist || '없음'}`)
     if (!report.distribution.unwanted) {
       console.log('  ⚠️  unwanted(If-Then) 패턴이 하나도 없다 — 오류·경계 요구사항을 빠뜨렸을 수 있다.')
     }
-    for (const v of report.violations.slice(0, 20)) console.log(`  ❌ ${v.code} ${v.id} — 라벨만 있고 무엇을 보장하는지 진술이 없다`)
+    const DESC = {
+      NO_OBLIGATION: '라벨만 있고 무엇을 보장하는지 진술이 없다',
+      NO_ACCEPTANCE_CRITERIA: '의무는 진술했으나 검증 가능한 AC가 하나도 없다',
+      AC_NO_RESPONSE: 'AC가 결과(Then/shall)를 말하지 않는다',
+    }
+    for (const v of report.violations.slice(0, 20)) console.log(`  ❌ ${v.code} ${v.id} — ${DESC[v.code]}${v.text ? ` :: ${v.text}` : ''}`)
     if (report.violations.length > 20) console.log(`  … 외 ${report.violations.length - 20}건`)
     if (report.violations.length === 0) console.log('PASS ✅ — 모든 Must 요구사항이 의무를 진술한다')
     else console.log(`\nFAIL ❌ — 의무 진술 없는 요구사항 ${report.violations.length}건.`)

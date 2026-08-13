@@ -75,13 +75,16 @@ Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전�
 node .claude/scripts/validate-requirements-notation.mjs --project {root}
 ```
 
-- `NO_OBLIGATION` — Must 요구사항 블록(헤드라인 + AC)에 의무 진술이 하나도 없다. 라벨일 뿐이다.
-- 통과 시 **EARS 6패턴 분포**(ubiquitous · event · state · unwanted · optional · complex)를 보고하고,
+- `NO_OBLIGATION` — Must 요구사항 블록에 의무 진술이 하나도 없다. 라벨일 뿐이다.
+- `NO_ACCEPTANCE_CRITERIA` — 의무는 진술했으나 검증 가능한 AC가 하나도 없다.
+- `AC_NO_RESPONSE` — AC가 결과(Then/shall/서술체 종결)를 말하지 않는다. EARS의 최소 요건
+  (시스템 응답 명시) 미달이다.
+- 통과 시 AC 단위 **EARS 패턴 분포**(complex/event/state/ubiquitous/unwanted)를 보고하고,
   `unwanted`(오류·경계)가 0이면 경고한다 — 작성자가 빠뜨리기 쉬운 범주다.
 
-**EARS 문법을 강제하지 않는다.** 자연어에 구문을 강제하면 오탐이 크다. 강제하는 것은
-**의무 진술의 존재**(필요조건)이고, 패턴은 분류·보고 용도다. 한국어·영어를 모두 인정한다
-(0단계 교훈 — 마커를 한 언어에 묶지 않는다).
+**EARS와 Given/When/Then은 동형이다** (실측: 파일럿 AC 38개 전부 구조 충족 — Given=상태/전제,
+When=트리거, Then=응답). 그래서 별도 문법을 도입하지 않고 기존 GWT AC에 EARS의 구조 요건
+(응답 명시 필수, 조건·트리거 분류)을 검사로 얹는다. 한국어·영어를 모두 인정한다(0단계 교훈).
 
 ## Gate L — 산출물 언어 (선언과 실제의 일치)
 
