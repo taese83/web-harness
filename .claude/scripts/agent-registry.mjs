@@ -168,7 +168,7 @@ export const AGENT_OWNERSHIP = {
   ],
   'package-publish-metadata': [/^package\.json$/, /^\.npmignore$/],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
-  'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml)$/, /^apps\/[^/]+\/package\.json$/],
+  'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc)$/, /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/],
   'planning-facilitator': [
     /^_workspace\/01_plan\/planning-context\.md$/,
     /^_workspace\/01_plan\/decision-log\.md$/,
@@ -212,6 +212,7 @@ export const AGENT_OWNERSHIP = {
   ],
   'tooling-scaffolder': [
     appPath('(?:tsconfig(?:\\.[^.]+)?\\.json|vite\\.config\\.ts|vitest\\.config\\.ts|playwright\\.config\\.ts)$'),
+    exactAppFile('src/vite-env\\.d\\.ts'),
     /^(?:eslint\.config\.js|\.prettierrc)$/,
     /^\.husky\//,
     appPath('src/test/'),
