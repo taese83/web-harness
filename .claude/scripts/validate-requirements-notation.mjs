@@ -62,7 +62,10 @@ export function splitRequirements(text) {
     // 헤드라인 판정: 리스트 항목이 **REQ ID로 시작**해야 한다(체크박스 허용).
     // 단순히 REQ ID를 "포함"하면 안 된다 — 실측에서 `- Given ...(REQ-F-012 참조)` 같은 AC 줄이
     // 헤드라인으로 오인돼 상위 REQ의 본문을 빼앗고 양쪽 다 오탐이 났다(2026-08-12).
-    const m = line.match(/^\s*(?:[-*]|\d+\.)\s*(?:\[[ xX]\]\s*)?(REQ-[A-Z]+-\d+)\b/)
+    // 강조 마커 허용(실전 오탐 4호, 2026-08-12): 첫 영어 실전 문서가 `- [ ] **REQ-F-001 — …**`
+    // 형태를 썼는데 볼드를 인정하지 않아 REQ 0개 → NO_REQUIREMENTS가 났다. 한국어 파일럿의
+    // 서식 관행(볼드 없음)에 교정돼 있던 것이다.
+    const m = line.match(/^\s*(?:[-*]|\d+\.)\s*(?:\[[ xX]\]\s*)?(?:[*_\`]+\s*)?(REQ-[A-Z]+-\d+)\b/)
     if (m) {
       if (current) blocks.push(current)
       current = {id: m[1], headline: line.trim(), body: []}

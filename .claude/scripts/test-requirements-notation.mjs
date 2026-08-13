@@ -129,3 +129,9 @@ test('unwanted는 AC의 위험 어휘로 분류된다 (한국어 구문 한계 �
   const r = analyzeRequirements('### Must Have\n- [ ] REQ-F-001 신청\n  - Given 정원이 초과됐을 때, Then 신청이 거부된다.\n')
   assert.equal(r.distribution.unwanted, 1)
 })
+
+test('회귀(오탐4): 볼드로 감싼 헤드라인도 REQ 블록이다 (첫 영어 실전 문서)', () => {
+  const blocks = splitRequirements('- [ ] **REQ-F-001 — Client-side file intake**\n  - Given a file, Then it loads.\n')
+  assert.equal(blocks.length, 1)
+  assert.equal(blocks[0].id, 'REQ-F-001')
+})
