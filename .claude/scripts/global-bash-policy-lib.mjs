@@ -694,7 +694,8 @@ const validationScriptContract = (script, args, context) => {
     const modes = rest.filter(a => a === '--snapshot' || a === '--verify')
     if (modes.length !== 1) return false
     const extra = rest.filter(a => a !== '--snapshot' && a !== '--verify')
-    return extra.length === 0 || (extra.length === 1 && extra[0] === '--json')
+    const allowed = new Set(['--json', '--allow-no-ids'])
+    return extra.every(a => allowed.has(a)) && extra.length === new Set(extra).size
   }
   if (script === '.claude/scripts/validate-output-language.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)

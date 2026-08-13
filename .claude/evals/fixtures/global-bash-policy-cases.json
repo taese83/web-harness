@@ -607,6 +607,18 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change ../etc --snapshot"
+    },
+    {
+      "id": "plan-delta-allow-no-ids",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --verify --allow-no-ids"
+    },
+    {
+      "id": "plan-delta-duplicate-flag",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --verify --json --json"
     }
   ]
 }

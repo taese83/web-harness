@@ -21,6 +21,7 @@
 // 사용법:
 //   node .claude/scripts/validate-plan-delta.mjs --project <root> --change <PC-014> --snapshot
 //   node .claude/scripts/validate-plan-delta.mjs --project <root> --change <PC-014> --verify [--json]
+//   옵션: --allow-no-ids (안정 ID 규율을 쓰지 않는 형태임을 명시 — 자기진술, §4 등록)
 // 종료 코드: 0 = 일치, 1 = 불일치, 2 = 사용법/입력 오류.
 
 import {createHash} from 'node:crypto'
@@ -100,6 +101,18 @@ export function approvedTestCaseIds(root, {exists = existsSync, readdir = readdi
   return [...ids].sort()
 }
 
+// 무-ID 가드 — I3 실증에서 드러난 vacuous PASS 차단.
+// 왜: 이 게이트는 안정 ID의 **소멸**을 본다. ID 규율을 쓰지 않는 서비스 형태(예: 라이브러리
+// 프로젝트의 api-design.md)에서는 ID가 0개라 잃을 것이 없고, **계획 문서를 통째로 비워도
+// PASS가 난다**(실측). 예약형 SPA 하나만 보고 만들어서 보이지 않던 구멍이다 — I3(형태 2개+)가
+// 요구하는 것이 정확히 이런 발견이다.
+// 대응은 `verify-spawn-completion`의 무산출 가드와 같은 관용구다: 기본 fail-closed,
+// 정당한 형태는 `--allow-no-ids`로 명시 opt-in(자기진술이므로 §4 등록).
+export function detectNoStableIds(fileCount, idCount, allowNoIds = false) {
+  if (allowNoIds || idCount > 0) return []
+  return [{code: 'NO_STABLE_IDS', id: `계획 산출물 ${fileCount}개에서 안정 ID 0개`}]
+}
+
 // 스냅샷 원장 — delta 파일 **바깥**의 append-only 기록.
 // 왜: delta 파일 하나에만 증거를 두면 **삭제 후 재스냅샷**으로 기준선이 초기화된다. 이 저장소는
 // 같은 실패를 resume-manifest의 planLock에서 이미 겪고 원장으로 고쳤다(§4). 같은 해법을 쓴다 —
@@ -141,13 +154,14 @@ function readPlanFiles(root) {
 }
 
 function parseArgs(argv) {
-  const out = {root: null, change: null, mode: null, json: false}
+  const out = {root: null, change: null, mode: null, json: false, allowNoIds: false}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--project') { out.root = argv[++i]; continue }
     if (argv[i] === '--change') { out.change = argv[++i]; continue }
     if (argv[i] === '--snapshot') { out.mode = 'snapshot'; continue }
     if (argv[i] === '--verify') { out.mode = 'verify'; continue }
     if (argv[i] === '--json') { out.json = true; continue }
+    if (argv[i] === '--allow-no-ids') { out.allowNoIds = true; continue }
   }
   return out
 }
@@ -186,8 +200,13 @@ function main() {
       declared: {added: [], modified: [], removed: []},
     }, null, 2)}\n`)
     appendFileSync(snapshotLedgerPath(deltaDir), `${JSON.stringify({changeId: opts.change, at: new Date().toISOString(), beforeDigest: digest, beforeCount: before.length})}\n`)
+    const noIds = detectNoStableIds(files.length, before.length, opts.allowNoIds)
     const late = detectLateSnapshot(before, approvedTestCaseIds(root))
     console.log(`스냅샷 기록: ${opts.change} — 계획 산출물 ${files.length}개, 안정 ID ${before.length}개`)
+    if (noIds.length > 0) {
+      console.log(`  ⚠️  NO_STABLE_IDS — ${noIds[0].id}. 이 프로젝트 형태에는 delta 대조가 적용되지 않는다.`)
+      console.log('      --verify는 실패한다. ID 규율을 쓰지 않는 형태가 맞다면 --allow-no-ids로 명시하라.')
+    }
     if (late.length > 0) {
       console.log(`  ⚠️  LATE_SNAPSHOT ${late.length}건 — 승인된 TC가 이미 없다: ${late.slice(0, 5).map(v => v.id).join(', ')}`)
       console.log('      변경 전에 스냅샷을 떴어야 한다. 이 상태의 before는 이미 오염됐다.')
@@ -205,6 +224,7 @@ function main() {
   // 순서 우회 검출 — 승인 레코드(독립 기록)를 before의 바닥값으로 쓴다.
   violations.push(...detectLateSnapshot(delta.before ?? [], approvedTestCaseIds(root)))
   violations.push(...detectResnapshot(opts.change, inventoryDigest(delta.before ?? []), readSnapshotLedger(deltaDir)))
+  violations.push(...detectNoStableIds(files.length, Math.max((delta.before ?? []).length, after.length), opts.allowNoIds))
 
   if (opts.json) {
     console.log(JSON.stringify({schemaVersion: 1, changeId: opts.change, disappeared, appeared, violations}, null, 2))
@@ -216,6 +236,7 @@ function main() {
     else {
       console.log(`\nFAIL ❌ — 위반 ${violations.length}건. UNDECLARED_REMOVAL은 승인 산출물이 조용히 사라진 것이고,`)
       console.log('  LATE_SNAPSHOT은 변경 후에 스냅샷을 떠 before를 오염시킨 것이다.')
+      console.log('  NO_STABLE_IDS는 이 게이트가 볼 수 있는 것이 없다는 뜻이다 — 통과가 아니라 미적용이다.')
     }
   }
   process.exit(violations.length === 0 ? 0 : 1)

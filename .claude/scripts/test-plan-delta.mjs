@@ -10,7 +10,7 @@ import {execFileSync} from 'node:child_process'
 import {mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
-import {classifyDelta, detectLateSnapshot, detectResnapshot, extractIds, inventory, inventoryDigest} from './validate-plan-delta.mjs'
+import {classifyDelta, detectLateSnapshot, detectNoStableIds, detectResnapshot, extractIds, inventory, inventoryDigest} from './validate-plan-delta.mjs'
 
 const SCRIPT = new URL('./validate-plan-delta.mjs', import.meta.url).pathname
 function project(files) {
@@ -180,5 +180,33 @@ test('CLI: 정상 흐름은 PASS로 끝난다 (오탐 0)', () => {
     const r = run(root, ['--change', 'PC-001', '--verify'])
     assert.equal(r.code, 0)
     assert.match(r.stdout, /PASS/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// --- 무-ID 가드 (I3 실증에서 드러난 vacuous PASS) ---
+
+test('detectNoStableIds: 계획 문서는 있는데 ID가 0개면 NO_STABLE_IDS', () => {
+  assert.deepEqual(detectNoStableIds(3, 0).map(v => v.code), ['NO_STABLE_IDS'])
+})
+
+test('detectNoStableIds: ID가 있으면 위반 0 (오탐 방지)', () => {
+  assert.deepEqual(detectNoStableIds(3, 12), [])
+})
+
+test('detectNoStableIds: --allow-no-ids 명시 시 통과 (자기진술 opt-in)', () => {
+  assert.deepEqual(detectNoStableIds(3, 0, true), [])
+})
+
+test('CLI 회귀(I3): ID 규율 없는 형태에서 문서를 비워도 PASS가 나지 않는다', () => {
+  // 실측 재현 — 예약형 SPA 하나만 보고 만들어 보이지 않던 vacuous PASS.
+  const root = project({'_workspace/01_plan/api-design.md': '# API Design\n## Public exports\n- parseConfig(input)\n'})
+  try {
+    assert.equal(run(root, ['--change', 'PC-001', '--snapshot']).code, 0)
+    writeFileSync(join(root, '_workspace/01_plan/api-design.md'), '# API Design\n') // 통째로 비움
+    const r = run(root, ['--change', 'PC-001', '--verify'])
+    assert.equal(r.code, 1, 'ID가 없다고 통과시키면 안 된다')
+    assert.match(r.stdout, /NO_STABLE_IDS/)
+    // 정당한 형태는 명시 opt-in으로 통과한다
+    assert.equal(run(root, ['--change', 'PC-001', '--verify', '--allow-no-ids']).code, 0)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
