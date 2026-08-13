@@ -65,6 +65,24 @@ entity query, mutation/form/domain/realtime owner와 `data-ui-binder`가 완료�
 
 Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 잠근다.
 
+## Gate R — 요구사항 표기 (의무 진술의 존재)
+
+요구사항이 **라벨인지 요구사항인지**를 가른다. 실측(seminar-booking)에서 REQ 헤드라인은
+`- [ ] REQ-F-014 대기열 순서 FIFO`처럼 명사구인 경우가 있고, 그 아래 AC가 없으면 "무엇을
+보장해야 하는가"가 문서 어디에도 없다 — 그래도 아무도 잡지 않았다.
+
+```bash
+node .claude/scripts/validate-requirements-notation.mjs --project {root}
+```
+
+- `NO_OBLIGATION` — Must 요구사항 블록(헤드라인 + AC)에 의무 진술이 하나도 없다. 라벨일 뿐이다.
+- 통과 시 **EARS 6패턴 분포**(ubiquitous · event · state · unwanted · optional · complex)를 보고하고,
+  `unwanted`(오류·경계)가 0이면 경고한다 — 작성자가 빠뜨리기 쉬운 범주다.
+
+**EARS 문법을 강제하지 않는다.** 자연어에 구문을 강제하면 오탐이 크다. 강제하는 것은
+**의무 진술의 존재**(필요조건)이고, 패턴은 분류·보고 용도다. 한국어·영어를 모두 인정한다
+(0단계 교훈 — 마커를 한 언어에 묶지 않는다).
+
 ## Gate L — 산출물 언어 (선언과 실제의 일치)
 
 지시(에이전트·스킬 본문)의 언어와 **산출물의 언어는 별개 문제**다. 모델은 한국어 지시로도

@@ -619,6 +619,18 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --verify --json --json"
+    },
+    {
+      "id": "req-notation-bounded",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-requirements-notation.mjs --project ."
+    },
+    {
+      "id": "req-notation-requires-project",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-requirements-notation.mjs --json"
     }
   ]
 }

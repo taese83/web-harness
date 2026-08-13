@@ -697,6 +697,10 @@ const validationScriptContract = (script, args, context) => {
     const allowed = new Set(['--json', '--allow-no-ids'])
     return extra.every(a => allowed.has(a)) && extra.length === new Set(extra).size
   }
+  if (script === '.claude/scripts/validate-requirements-notation.mjs') {
+    const commandArgs = withoutDirectoryOption(args, '--project', context)
+    return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))
+  }
   if (script === '.claude/scripts/validate-output-language.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))
