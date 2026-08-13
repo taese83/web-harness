@@ -26,23 +26,23 @@ developer_instructions = '''
 ## 출력
 
 ```markdown
-# Planning Context — {서비스명}
+# Planning Context — {serviceName}
 
 ## Product Frame
 - 대상 화면/기능:
-- 주 사용자:
-- 끝내려는 업무:
-- 현재 pain:
-- 관찰 가능한 성공 조건:
+- Primary users:
+- Job to be completed:
+- Current pain:
+- Observable success criteria:
 
 ## Evidence Inventory
-| Source/annotation | 확인한 사실 | 신뢰 범위 | 후속 검증 |
+|| Source/annotation | Confirmed fact | Confidence scope | Follow-up validation ||
 
 ## UX Check
 <!-- trigger가 없으면 비적용 근거 -->
 
 ## Annotation Review
-| ID | 대상 | 정규화한 의도 | 범위 | 확인 방법 | 상태 |
+|| ID | Target | Normalized intent | Scope | Verification method | Status ||
 
 ## Critical State Inventory
 | Surface | normal | empty | loading | error/partial | permission/destructive |
@@ -65,9 +65,9 @@ developer_instructions = '''
 - BLOCKER:
 
 ## Current Planning Memo
-- 확인된 요구:
-- 빠진 시나리오:
-- 다음 질문/행동:
+- Confirmed requirements:
+- Missing scenarios:
+- Next questions/actions:
 ```
 
 ## 디자인 방향 인테이크

@@ -29,7 +29,7 @@ developer_instructions = '''
 13. `ANALYTICS_BUILDER_MODE`이면 metric catalog, semantic query, chart compatibility, chart builder, dashboard editor 책임을 분리한다. Funnel/Retention/Flow는 전용 result schema와 owner를 계획한다.
 14. UX Check의 critical state와 annotation intent를 owner/evidence에 연결한다. 화면 좌표나 문구만으로 feature scope를 만들지 않는다.
 15. S/M/L/XL effort driver를 dependency와 검증 범위로 교차 확인하고, `invest | reduce | split` 권고가 있으면 가장 작은 가시적 수직 slice를 먼저 제시한다.
-16. `.claude/skills/web-plan/references/design-readiness-contract.md`의 Page Groups와 Feature List 표준 표를 필수로 작성한다. `PAGE-NNN`은 페이지 대분류의 안정 ID이고 각 FEAT는 정확히 하나의 primary Page Group을 참조한다. 여러 화면 진입점은 `화면`에 유지하며 단일 primary가 없는 전역 책임만 `PAGE-000`을 쓴다. `FEAT-NNN` ID는 생성 후 불변이고 삭제 대신 `이번 범위: cut` 표기를 쓴다. 모든 Must는 ≥1 화면에, 모든 화면은 ≥1 기능에 매핑한다 — unknown/orphan PAGE와 고아 화면/기능은 `NEEDS_DECISION`.
+16. `.claude/skills/web-plan/references/design-readiness-contract.md`의 Page Groups와 Feature List 표준 표를 필수로 작성한다. `PAGE-NNN`은 페이지 대분류의 안정 ID이고 각 FEAT는 정확히 하나의 primary Page Group을 참조한다. 여러 화면 진입점은 `Screen`에 유지하며 단일 primary가 없는 전역 책임만 `PAGE-000`을 쓴다. `FEAT-NNN` ID는 생성 후 불변이고 삭제 대신 `Scope: cut` 표기를 쓴다. 모든 Must는 ≥1 화면에, 모든 화면은 ≥1 기능에 매핑한다 — unknown/orphan PAGE와 고아 화면/기능은 `NEEDS_DECISION`.
 16-1. `design-readiness-contract.md` §3-1에 따라 **모든 Must FEAT에 동작 명세와 test case(`TC-NNN-N`)를 작성한다**. 동작 명세는 "무엇을"이 아니라 "어떻게 동작하는가"(입력 반응·상태 전이·페이지 이동·DnD·CRUD의 조건과 결과)이고, test case는 requirements.md의 Must acceptance criteria(Given/When/Then)를 FEAT 단위로 구체화한 것이다 — 새로 발명하지 않고 REQ AC를 정본 근거로 재사용한다. 정상·실패·경계와 LOCAL_DOMAIN_STATE 불변식을 포함한다. 이 test case는 프리뷰 동작 커버리지·Phase 4 test·사용자 승인 체크리스트가 공유하는 단일 정본이다.
 16-2. 복합 FEAT에 독립적으로 설명·검증·변경 가능한 행동이 둘 이상이면 `design-readiness-contract.md` §3-2의 `FEAT-NNN-NN` 하위 기능 표를 추가한다. 버튼 수를 그대로 분해하지 않고 별도 TC subset·변경 경계·preview anchor가 필요한 행동만 만든다. parent는 aggregate를 유지하고 TC ID는 재번호화하지 않는다.
 16-3. Preview interactive surface audit에서 매핑 누락이 환류되면 `design-readiness-contract.md` §3-3으로 분류한다. 동일 행동의 다른 진입점은 기존 ID에 anchor만 추가하고, 동적 entity label마다 FEAT를 만들지 않는다. 기존 parent의 독립 행동만 Sub Feature로, 새로운 사용자 가치·scope만 top-level FEAT/REQ/TC로 생성하며 `requirements.md`·`feature-plan.md`·`decision-log.md` write-back이 끝나기 전 preview 재생성을 허용하지 않는다.
@@ -38,43 +38,43 @@ developer_instructions = '''
 ## 출력 구조
 
 ```markdown
-# Feature Plan — {서비스명}
+# Feature Plan — {serviceName}
 
 ## Page Groups
-| Page Group ID | 페이지 | Route/Screen | 순서 |
+| Page Group ID | Page | Route/Screen | Order |
 |---|---|---|---|
-| PAGE-001 | 주문 목록 | order-list | 1 |
-| PAGE-002 | 주문 상세 | order-detail | 2 |
-| PAGE-000 | 공통 | all | 99 |
+| PAGE-001 | Order List | order-list | 1 |
+| PAGE-002 | Order Detail | order-detail | 2 |
+| PAGE-000 | Common | all | 99 |
 
 ## Feature List
-| ID | 기능 | 사용자 가치 (1줄) | 우선순위 | 페이지 그룹 | 화면 | 이번 범위 |
+| ID | Feature | User Value (1 line) | Priority | Page Group | Screen | Scope |
 |---|---|---|---|---|---|---|
-| FEAT-001 | 주문 상태 변경 | 관리자가 CS 없이 직접 처리 | Must | PAGE-002 | order-detail | keep |
+| FEAT-001 | Order Status Change | Admin resolves directly without CS | Must | PAGE-002 | order-detail | keep |
 
-## 기능 동작 명세와 Test Case (Must 전부 — design-readiness-contract §3-1)
-### FEAT-001 — 주문 상태 변경
+## Feature Behavior Specs and Test Cases (all Must — design-readiness-contract §3-1)
+### FEAT-001 — Order Status Change
 **동작 명세**: (조건·입력 반응·상태 전이·결과를 서술)
 
 | Test Case | Given | When | Then |
 |---|---|---|---|
 | TC-001-1 | ... | ... | ... |
 
-#### FEAT-001 하위 기능 (복합 Feature일 때만)
-| Sub Feature ID | 동작 | 관련 Test Case | 화면/영역 | 이번 범위 |
+#### FEAT-001 Sub Features (composite features only)
+| Sub Feature ID | Behavior | Related Test Case | Screen/Area | Scope |
 |---|---|---|---|---|
 | FEAT-001-01 | ... | TC-001-1 | ... | keep |
 
-## FSD 슬라이스 맵
-| 레이어 | 슬라이스명 | 역할 | 의존 |
+## FSD Slice Map
+|| Layer | Slice | Role | Depends On ||
 |---|---|---|---|
-| pages | dashboard | 메인 대시보드 페이지 | widgets/chart-grid |
-| features | filter-bar | 전역 필터 | entities/metric |
-| entities | metric | 메트릭 데이터/API | shared/api |
-| features | live-mode | realtime 연결·pause·resume | shared/realtime |
-| widgets | chart-panel | historical + live 표시 | entities/metric, features/live-mode |
+|| pages | dashboard | Main dashboard page | widgets/chart-grid ||
+|| features | filter-bar | Global filter | entities/metric ||
+|| entities | metric | Metric data/API | shared/api ||
+|| features | live-mode | realtime connect / pause / resume | shared/realtime ||
+|| widgets | chart-panel | historical + live display | entities/metric, features/live-mode ||
 
-## 데이터 모델
+## Data Model
 ```ts
 interface Metric {
   id: string
@@ -85,12 +85,12 @@ interface Metric {
 }
 ```
 
-## API 엔드포인트 목록
-| Method | Path | 설명 | 응답 타입 |
+## API Endpoints
+|| Method | Path | Description | Response Type ||
 |---|---|---|---|
-| GET | /api/metrics | 메트릭 목록 | Metric[] |
+|| GET | /api/metrics | Metric list | Metric[] ||
 
-## Mock 데이터 파일 목록
+## Mock Data Files
 - `src/mocks/data/metrics.json`
 
 ## Requirement Traceability
@@ -99,10 +99,10 @@ interface Metric {
 ## Delivery Slices
 | Order | Visible user outcome | Dependencies | Critical states | Effort driver |
 
-## Local Domain State (해당하는 경우)
+## Local Domain State (if applicable)
 | Aggregate | Authoritative Owner | Derived Views | Structural Commands |
 
-## External Data Flow (해당하는 경우)
+## External Data Flow (if applicable)
 | Source | Adapter/Normalizer Owner | Runtime Artifact/API | Consumer | Quality Evidence |
 ```
 

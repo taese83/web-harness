@@ -151,46 +151,46 @@ PASS | WARN | FAIL | BLOCKED
 ## Commands
 | Check | Command | Exit Code | Status |
 |---|---|---:|---|
-| typecheck | receipt의 실제 command | 0 | PASS |
-| lint | receipt의 실제 command | 0 | PASS |
+|| typecheck | actual command from receipt | 0 | PASS ||
+|| lint | actual command from receipt | 0 | PASS ||
 
-## TypeScript 오류
-| 파일 | 라인 | 오류 | 심각도 |
+## TypeScript Errors
+|| File | Line | Error | Severity ||
 
-## ESLint 위반
-| 파일 | 라인 | 규칙 | 내용 |
+## ESLint Violations
+|| File | Line | Rule | Detail ||
 
-## FSD 위반
-| 파일 | 위반 내용 |
+## FSD Violations
+|| File | Violation ||
 
-## 변경 범위 검토
+## Change Scope Review
 - Change mode:
-- Brief 경로:
-- 허용 경로 / 실제 변경 경로:
-- 보존한 public contract:
-- Scope deviation과 근거:
-- 판정: PASS / WARN / FAIL / BLOCKED
+- Brief path:
+- Allowed paths / actual changed paths:
+- Preserved public contracts:
+- Scope deviation and rationale:
+- Verdict: PASS / WARN / FAIL / BLOCKED
 
-## 보안 경고
-| 파일:라인 | 내용 | 심각도 |
-| src/foo.tsx:42 | dangerouslySetInnerHTML 사용 | FAIL |
-| src/bar.ts:10 | browser storage에 credential 저장 | FAIL |
+## Security Warnings
+|| File:Line | Detail | Severity ||
+|| src/foo.tsx:42 | dangerouslySetInnerHTML used | FAIL ||
+|| src/bar.ts:10 | credential stored in browser storage | FAIL ||
 
-## 접근성(a11y) 경고
-| 파일 | 내용 | 권장 수정 |
+## Accessibility (a11y) Warnings
+|| File | Detail | Recommended Fix ||
 
-## 테스트 파일
-- 테스트 파일 수: N
-- 상태: PASS(1개 이상 존재) / WARN(테스트 파일 없음)
-- 참고: 테스트 실행 결과는 `qa-test.md` 참조
+## Test Files
+- Test file count: N
+- Status: PASS(one or more exist) / WARN(no test files)
+- Note: see `qa-test.md` for test execution results
 
-## 중복·재사용성 (리팩토링 제안 — 적용은 사용자 승인 후)
-| 대상 | 중복/재사용 내용 | 제안 | 권장 시점 |
+## Duplication & Reuse (refactoring suggestions — apply only after user approval)
+|| Target | Duplication/Reuse Detail | Suggestion | Recommended Timing ||
 
-## 총평
-- 빌드 가능 여부: YES / NO
-- 수정 필요 항목 수:
-- 권장 수정 사항:
+## Summary
+- Buildable: YES / NO
+- Items requiring fixes:
+- Recommended fixes:
 ```
 
 출력 대상: `_workspace/04_qa/qa-code.md` (오케스트레이터가 저장)

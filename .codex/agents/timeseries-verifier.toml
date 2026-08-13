@@ -37,15 +37,15 @@ developer_instructions = '''
 PASS | WARN | FAIL | BLOCKED
 
 ## Stream Contract
-| 항목 | 계약 | 구현 | 판정 |
+|| Item | Contract | Implementation | Verdict ||
 
 ## Buffer·Recovery
-| 항목 | 예산/정책 | 실측/확인 | 판정 |
+|| Item | Budget/Policy | Measured/Confirmed | Verdict ||
 
-## 성능 Evidence
-| 지표 | 예산 | 실측/NOT_MEASURED | 판정 |
+## Performance Evidence
+|| Metric | Budget | Measured/NOT_MEASURED | Verdict ||
 
-## 실패 항목과 owner
+## Failed items and owner
 ```
 
 출력 대상: `_workspace/04_qa/qa-timeseries.md` (오케스트레이터가 저장)

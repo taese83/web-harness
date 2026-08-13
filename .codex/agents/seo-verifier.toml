@@ -28,12 +28,12 @@ developer_instructions = '''
 PASS | WARN | FAIL | BLOCKED
 
 ## Route Metadata
-| Route | Spec | Title | Description | Canonical | OG | 상태 |
+|| Route | Spec | Title | Description | Canonical | OG | Status ||
 
 ## Crawler Artifacts
-| Artifact | 존재 | Spec 일치 | 상태 |
+|| Artifact | Exists | Spec match | Status ||
 
-## 누락/불일치와 owner
+## Missing/mismatched items and owner
 ```
 
 출력 대상: `_workspace/04_qa/qa-seo.md` (오케스트레이터가 저장)

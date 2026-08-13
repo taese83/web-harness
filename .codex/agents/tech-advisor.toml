@@ -71,10 +71,10 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 ## 출력 구조
 
 ```markdown
-# Tech Stack — {서비스명}
+# Tech Stack — {serviceName}
 
 ## Architecture Profile
-[선택한 profile과 rendering/deployment 근거]
+[Chosen profile with rendering/deployment rationale]
 
 ## Harness Profile
 - WEB_PROFILE: react-vite-spa | next-app-fullstack
@@ -93,20 +93,20 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 | Decision | Requirement | Choice | Rejected Alternative | Trade-off |
 |---|---|---|---|---|
 
-## Static Crawl Profile (해당하는 경우)
+## Static Crawl Profile (if applicable)
 - runtime mode: static-snapshot | live-api | hybrid
 - authoritative source:
-- 수집 주기/트리거:
-- 수집 저장소: Git commit | KV | DB
-- 플랫폼 제약:
-- UI 소비 방식: bundle JSON | fetch static | API
-- 재배포 지연 허용 여부:
-- build matrix: root/workspace/provider cwd와 generate → validate → build
+- collection interval/trigger:
+- collection store: Git commit | KV | DB
+- platform constraints:
+- UI consumption: bundle JSON | fetch static | API
+- redeploy delay tolerance:
+- build matrix: root/workspace/provider cwd and generate → validate → build
 - invalid promotion: reject
 - serving fallback: last-known-good | unavailable
 - refresh capabilities: scheduled | manual-recovery | on-demand | runtime
 
-## Timeseries Profile (해당하는 경우)
+## Timeseries Profile (if applicable)
 - Data budget:
 - Snapshot/stream transport:
 - Chart renderer:
@@ -114,12 +114,12 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 - Worker threshold:
 - Performance fixture:
 
-## 서비스 특화 추가 라이브러리
-| 역할 | 라이브러리 | 버전 | 이유 | 대안 |
+## Additional Service-Specific Libraries
+|| Role | Library | Version | Rationale | Alternative ||
 |---|---|---|---|---|
 
-## 피하는 라이브러리
-| 라이브러리 | 이유 |
+## Libraries to Avoid
+|| Library | Reason ||
 
 ## Package Changes
 | Package | Exact Version | Scope | Requirement | Source |
@@ -127,8 +127,8 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 
 - 실행: package-scaffolder 반영 → typed `lockfile` operation → lockfile source/integrity 검토 → typed frozen `install`
 
-## 환경 설정 필요 항목
-- .env.dev / .env.staging / .env.production 변수 목록
+## Required Environment Configuration
+- .env.dev / .env.staging / .env.production variable list
 ```
 
 출력 파일: `_workspace/01_plan/tech-stack.md`

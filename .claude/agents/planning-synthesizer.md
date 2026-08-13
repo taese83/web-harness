@@ -30,9 +30,9 @@ maxTurns: 20
 ## 출력 구조
 
 ```markdown
-# Project Brief — {서비스명}
+# Project Brief — {serviceName}
 
-## 한 줄 요약
+## One-line Summary
 
 ## Product Frame & Current Planning Memo
 
@@ -42,23 +42,23 @@ maxTurns: 20
 
 ## Effort Trade-off
 
-## 확정된 화면 목록
-| 화면 | 경로 | 핵심 기능 |
+## Confirmed Screen List
+|| Screen | Path | Key Features ||
 
-## 확정된 기술 스택
+## Confirmed Tech Stack
 
-## 확정된 FSD 구조
+## Confirmed FSD Structure
 
-## 디자인 팀 액션 아이템
-- [ ] 디자인 시스템 토큰 정의
-- [ ] 레이아웃 명세 작성
+## Design Team Action Items
+- [ ] Define design system tokens
+- [ ] Write layout spec
 
-## 개발 팀 액션 아이템
-- [ ] 프로젝트 스캐폴딩
-- [ ] Mock API 구현
+## Dev Team Action Items
+- [ ] Project scaffolding
+- [ ] Implement Mock API
 
-## 결정이 필요한 사항
-- 항목 (선택지 A vs B, 이유)
+## Open Decisions
+- Item (option A vs B, rationale)
 ```
 
 출력 파일: `_workspace/01_plan/project-brief.md`

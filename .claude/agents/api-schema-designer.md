@@ -43,20 +43,20 @@ Mock API 스키마를 설계하고 `mock-api-builder`가 구현할 수 있는 �
 ## 출력 구조
 
 ````markdown
-# API Schema — {서비스명}
+# API Schema — {serviceName}
 
-## 엔드포인트 목록
-| Method | Path | 설명 | 요청 파라미터 | 응답 타입 |
+## Endpoints
+|| Method | Path | Description | Request Params | Response Type ||
 |---|---|---|---|---|
-| GET | /api/metrics | 메트릭 목록 | - | Metric[] |
-| GET | /api/metrics/:id | 메트릭 상세 | id: string | Metric |
-| POST | /api/metrics | 메트릭 생성 | CreateMetricRequest | Metric |
-| DELETE | /api/metrics/:id | 메트릭 삭제 | id: string | void |
+|| GET | /api/metrics | Metric list | - | Metric[] ||
+|| GET | /api/metrics/:id | Metric detail | id: string | Metric ||
+|| POST | /api/metrics | Create metric | CreateMetricRequest | Metric ||
+|| DELETE | /api/metrics/:id | Delete metric | id: string | void ||
 
-## Realtime Contract (해당하는 경우)
+## Realtime Contract (if applicable)
 | Transport | Endpoint | Authentication | Resume | Heartbeat | Schema |
 
-## Runtime Schema와 TypeScript 타입
+## Runtime Schema and TypeScript Types
 ```ts
 // src/entities/{name}/model/types.ts
 import {z} from 'zod'
@@ -75,7 +75,7 @@ export type Metric = z.infer<typeof metricSchema>
 
 TIMESERIES_MODE에서는 위 일반 예시 대신 `timestampInputSchema`를 point schema에 사용하고 parse 결과 타입이 Unix ms `number`인지 명시한다.
 
-## MSW 핸들러
+## MSW Handlers
 ```ts
 // src/mocks/handlers/metrics.ts
 import {http, HttpResponse, delay} from 'msw'

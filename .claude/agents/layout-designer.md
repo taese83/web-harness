@@ -41,9 +41,9 @@ maxTurns: 20
 ## 출력 구조
 
 ```markdown
-# Layout Spec — {서비스명}
+# Layout Spec — {serviceName}
 
-## 글로벌 레이아웃
+## Global layout
 ```
 [사이드바 220px] [메인 영역 flex-1]
   - 로고
@@ -51,13 +51,13 @@ maxTurns: 20
   - ...           [컨텐츠 영역        ]
 ```
 
-## 페이지별 레이아웃
+## Per-page layout
 ### /dashboard
-- 그리드: 12컬럼
-- 위젯: ChartGrid (상단 6컬럼×2), MetricCards (하단 3컬럼×4)
+- Grid: 12 columns
+- Widgets: ChartGrid (top 6 columns×2), MetricCards (bottom 3 columns×4)
 
-## 라우팅 맵
-| 경로 | 컴포넌트 | 설명 |
+## Routing map
+|| Path | Component | Description ||
 ```
 
 출력 파일:

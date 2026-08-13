@@ -34,12 +34,12 @@ developer_instructions = '''
 PASS | WARN | FAIL | BLOCKED
 
 ## Bundle Budget
-| 대상 | 예산 | 실측 | 판정 |
+|| Target | Budget | Measured | Verdict ||
 
 ## Runtime Budget
-| 지표 | 예산 | 실측/NOT_MEASURED | 판정 |
+|| Metric | Budget | Measured/NOT_MEASURED | Verdict ||
 
-## 초과 항목과 owner
+## Over-budget items and owner
 ```
 
 출력 대상: `_workspace/04_qa/qa-perf.md` (오케스트레이터가 저장)

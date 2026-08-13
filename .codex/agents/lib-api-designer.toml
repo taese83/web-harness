@@ -37,38 +37,38 @@ npm 라이브러리의 공개 API 표면을 설계한다. 타입 인터페이스
 ## 출력 구조
 
 ```markdown
-# API Design — {라이브러리명}
+# API Design — {libraryName}
 
-## 사용 예시 (README-first)
-사용자 코드 관점에서 먼저 작성:
+## Usage Example (README-first)
+Write from the consumer's code perspective first:
   import {myFunc, MyComponent} from '{pkg-name}'
   import type {MyOptions} from '{pkg-name}'
 
-## 공개 타입 인터페이스
+## Public Type Interfaces
 export interface MyOptions {
   value: string
   onChange?: (value: string) => void
 }
 
-## Export 구조
-| 이름 | 종류 | 경로 | 설명 |
+## Export Structure
+|| Name | Kind | Path | Description ||
 |---|---|---|---|
-| myFunc | function | src/core/myFunc.ts | 핵심 기능 |
+|| myFunc | function | src/core/myFunc.ts | Core feature ||
 
-## 하위 경로 export
-| import 경로 | 파일 | 용도 |
+## Subpath Exports
+|| import path | File | Purpose ||
 |---|---|---|
-| {pkg}/utils | src/utils/index.ts | 유틸 함수만 |
+|| {pkg}/utils | src/utils/index.ts | Utility functions only ||
 
-## package.json exports 필드 (설계)
+## package.json exports Field (design)
 "exports": {
   ".": {"import": "./dist/index.js", "require": "./dist/index.cjs", "types": "./dist/index.d.ts"},
   "./utils": {"import": "./dist/utils.js", "types": "./dist/utils.d.ts"}
 }
 
-## Breaking Change 경계
-- 다음을 변경하면 major bump 필요: [목록]
-- 추가만 하면 minor bump: [목록]
+## Breaking Change Boundaries
+- Changing these requires a major bump: [list]
+- Additive-only changes are a minor bump: [list]
 ```
 
 출력 파일: `_workspace/02_design/api-design.md`

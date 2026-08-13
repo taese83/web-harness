@@ -43,13 +43,13 @@ maxTurns: 20
 ## 출력 구조
 
 ```markdown
-# Design System — {서비스명}
+# Design System — {serviceName}
 
-## 색상 팔레트
-- Primary: #1976D2 (파란색 계열)
+## Color palette
+- Primary: #1976D2 (blue family)
 - ...
 
-## Theme 설정 (tech-stack이 선택한 라이브러리 기준 — 아래는 MUI 예시)
+## Theme setup (based on the library tech-stack selected — MUI example below)
 ```ts
 // src/app/theme.ts
 import {createTheme} from '@mui/material'
@@ -64,9 +64,9 @@ export const theme = createTheme({
 })
 ```
 
-## 컴포넌트 인벤토리
-| 컴포넌트 | 위치 | 설명 |
-| PageHeader | shared/ui/page-header | 모든 페이지 상단 헤더 |
+## Component inventory
+|| Component | Location | Description ||
+|| PageHeader | shared/ui/page-header | Header at the top of every page ||
 ```
 
 출력 파일:

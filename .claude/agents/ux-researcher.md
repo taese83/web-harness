@@ -41,44 +41,44 @@ maxTurns: 25
 ## 출력 구조
 
 ```markdown
-# UX Brief — {서비스명}
+# UX Brief — {serviceName}
 
-## 레퍼런스 서비스 분석
-| 서비스 | 강점 | 약점 | 적용할 패턴 |
+## Reference Service Analysis
+|| Service | Strengths | Weaknesses | Patterns to Adopt ||
 
-## 사용자 플로우
-[텍스트 다이어그램]
-로그인 → 대시보드 홈 → 패널 선택 → 상세 차트
+## User Flow
+[text diagram]
+Login → Dashboard home → Panel selection → Detail chart
 
-## 화면 인벤토리
-| 화면명 | 경로 | 목적 | 핵심 컴포넌트 |
+## Screen Inventory
+|| Screen | Path | Purpose | Key Components ||
 
-## 화면별 정보 위계
-<!-- design-readiness-contract.md 형식 필수 — 디자인 단계가 이 표 없이는 BLOCKED -->
-| 화면 | Primary 정보 (1~3, 순서=중요도) | Secondary | 밀도 | empty 시 내용 | error 시 내용 | 권한 없음 시 |
+## Information Hierarchy per Screen
+<!-- design-readiness-contract.md format required — the design phase is BLOCKED without this table -->
+|| Screen | Primary info (1~3, order=priority) | Secondary | Density | Empty state content | Error state content | No-permission state ||
 
-## 디자인 방향
-<!-- 인테이크 수집 결과 — 모르는 항목은 ASSUMPTION(프리뷰 A/B)로 표기 -->
-- 브랜드 제약: / 참조 무드: / 밀도: / 다크모드: / 주 사용 기기: / 용어·문구 톤:
+## Design Direction
+<!-- Intake results — mark unknown items as ASSUMPTION(프리뷰 A/B) -->
+- Brand constraints: / Reference mood: / Density: / Dark mode: / Primary device: / Terminology & copy tone:
 
-## 내비게이션 구조
-- 사이드바 / 탑바 / 탭 등 구조 선택과 이유
+## Navigation Structure
+- Structure choice (sidebar / topbar / tabs) and rationale
 
-## 핵심 인터랙션 패턴
-- 필터: 상단 고정 필터바
-- 날짜 범위: 달력 팝오버
-- 차트 드릴다운: 클릭 → 상세 모달
+## Key Interaction Patterns
+- Filter: sticky top filter bar
+- Date range: calendar popover
+- Chart drill-down: click → detail modal
 
 ## UX Check
-- 첫눈 / 다음 행동 / 오해 위험 / 먼저 정할 방향 / Phase 2 확인
+- First glance / Next action / Misreading risk / Direction to settle first / Phase 2 checks
 
 ## Critical States & Annotation Intent
-| Surface/annotation | normal/edge state | 사용자 의도 | 오류 예방 | 확인 방법 |
+|| Surface/annotation | normal/edge state | User intent | Error prevention | Verification ||
 
-## 반응형 전략
-- 모바일: 단일 컬럼, 햄버거 메뉴
-- 태블릿: 2컬럼 그리드
-- 데스크탑: 사이드바 + 메인 컨텐츠
+## Responsive Strategy
+- Mobile: single column, hamburger menu
+- Tablet: 2-column grid
+- Desktop: sidebar + main content
 ```
 
 출력 파일: `_workspace/01_plan/ux-brief.md`

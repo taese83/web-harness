@@ -52,7 +52,7 @@ maxTurns: 25
 ## 출력 구조
 
 ```markdown
-# Requirements — {서비스명}
+# Requirements — {serviceName}
 
 ## Modes
 - LOCAL_DOMAIN_STATE_MODE: true | false
@@ -61,37 +61,37 @@ maxTurns: 25
 - AI_MODE: true | false
 - EXTERNAL_DATA_INGESTION_MODE: true | false
 
-## 서비스 개요
-- 핵심 가치 제안 (1-2문장)
-- 주요 사용자
-- 핵심 사용 시나리오 3개
-- 대상 화면/기능, 현재 pain, 관찰 가능한 성공 조건
+## Service Overview
+- Core value proposition (1-2 sentences)
+- Primary users
+- Three core usage scenarios
+- Target screens/features, current pain, observable success criteria
 
-## 기능 요구사항
+## Functional Requirements
 
 ### Must Have (MVP)
-- [ ] REQ-F-001 기능 1
+- [ ] REQ-F-001 Feature 1
   - Given / When / Then acceptance criteria
-- [ ] REQ-F-002 기능 2
+- [ ] REQ-F-002 Feature 2
   - Given / When / Then acceptance criteria
 
 ### Should Have
-- [ ] 기능 3
+- [ ] Feature 3
 
-### Could Have (이후 단계)
-- [ ] 기능 4
+### Could Have (later phases)
+- [ ] Feature 4
 
-## 비기능 요구사항
-- REQ-NFR-001 성능: 측정 환경과 normal/max fixture 기준
-- REQ-NFR-002 반응형: 모바일/태블릿/데스크탑
-- REQ-NFR-003 접근성: WCAG 2.2 AA 기준, keyboard/focus/target size/authentication 요구 포함
-- REQ-NFR-004 브라우저: 지원 버전과 검증 범위
+## Non-functional Requirements
+- REQ-NFR-001 Performance: measurement environment and normal/max fixture baselines
+- REQ-NFR-002 Responsive: mobile/tablet/desktop
+- REQ-NFR-003 Accessibility: WCAG 2.2 AA, including keyboard/focus/target size/authentication requirements
+- REQ-NFR-004 Browsers: supported versions and verification scope
 
-## 화면 목록
-1. 화면명 — 목적
+## Screen List
+1. Screen name — purpose
 
-## API 필요 목록 (기능 기준)
-- GET /resource — 설명
+## Required APIs (by feature)
+- GET /resource — description
 ```
 
 출력 파일: `_workspace/01_plan/requirements.md`

@@ -46,7 +46,7 @@ skills: timeseries-dashboard
 ## 출력 구조
 
 ```markdown
-# Timeseries Architecture — {서비스명}
+# Timeseries Architecture — {serviceName}
 
 ## Assumptions and Blockers
 | ID | Value | Source | Confidence | Validation |

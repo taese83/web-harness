@@ -48,16 +48,16 @@ maxTurns: 20
 ## 출력 구조
 
 ```markdown
-# Component Spec — {서비스명}
+# Component Spec — {serviceName}
 
-## shared/ui 컴포넌트
-| 컴포넌트 | 파일 경로 | Props 인터페이스 | 설명 |
+## shared/ui Components
+|| Component | File Path | Props Interface | Description ||
 |---|---|---|---|
 
-## features 컴포넌트
-| 컴포넌트 | 슬라이스 | Props | 상태 |
+## features Components
+|| Component | Slice | Props | State ||
 
-## 컴포넌트 상세 명세
+## Component Detail Specs
 ### MetricCard
 ```ts
 interface MetricCardProps {
@@ -68,7 +68,7 @@ interface MetricCardProps {
   loading?: boolean
 }
 ```
-상태: loading skeleton / populated / error
+States: loading skeleton / populated / error
 
 ## Interaction Matrix
 | View State | Action | Canonical Target | UI Result | Browser Scenario |

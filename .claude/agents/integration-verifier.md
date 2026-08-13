@@ -70,36 +70,36 @@ PASS | WARN | FAIL | BLOCKED
 ## Commands
 | Check | Command | Exit Code | Status |
 |---|---|---:|---|
-| build | receipt의 실제 command | 0 | PASS |
+|| build | actual command from receipt | 0 | PASS ||
 
-## 빌드
+## Build
 - profile-bound production build: PASS / FAIL / BLOCKED
 - staging build: PASS / FAIL / SKIP (inactive check)
-- 오류 내용 (있으면):
+- Errors (if any):
 
-## 번들 크기
-| 청크 | 크기 | 상태 |
+## Bundle Size
+|| Chunk | Size | Status ||
 | vendor-mui | 420kB | PASS |
-| app | 560kB | WARN (500kB 초과) |
+|| app | 560kB | WARN (over 500kB) ||
 
-## 개발 서버
-- 기동: PASS / FAIL
+## Dev Server
+- Startup: PASS / FAIL
 - URL: profile receipt의 base URL (React/Vite 기본 8080, Next.js 기본 3000)
 
 ## Mock API
-- MSW 설정: PASS / FAIL
-- 핸들러 수: N개
+- MSW setup: PASS / FAIL
+- Handler count: N
 
-## 라우트 확인
-| 경로 | 컴포넌트 파일 | 결과 |
+## Route Check
+|| Path | Component File | Result ||
 
-## 설정 일관성
+## Config Consistency
 - scripts/config/ports: PASS / FAIL
 - production artifact: PASS / FAIL
 
-## 종합 판정
+## Overall Verdict
 - READY_FOR_RELEASE / NEEDS_FIX
-- 수정 필요 항목:
+- Items needing fixes:
 ```
 
 출력 대상: `_workspace/04_qa/qa-integration.md` (오케스트레이터가 저장)

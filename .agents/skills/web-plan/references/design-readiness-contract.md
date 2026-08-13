@@ -38,11 +38,11 @@
 
 ```markdown
 ## Page Groups
-| Page Group ID | 페이지 | Route/Screen | 순서 |
+| Page Group ID | Page | Route/Screen | Order |
 |---|---|---|---|
-| PAGE-001 | 주문 목록 | order-list | 1 |
-| PAGE-002 | 주문 상세 | order-detail | 2 |
-| PAGE-000 | 공통 | all | 99 |
+| PAGE-001 | Order List | order-list | 1 |
+| PAGE-002 | Order Detail | order-detail | 2 |
+| PAGE-000 | Common | all | 99 |
 ```
 
 - `PAGE-NNN`은 생성 후 불변인 기획·Console 탐색 ID다. 페이지명이 바뀌어도 ID를 유지하고 route/screen과 label만 현재화한다.
@@ -52,13 +52,13 @@
 
 ```markdown
 ## Feature List
-| ID | 기능 | 사용자 가치 (1줄) | 우선순위 | 페이지 그룹 | 화면 | 이번 범위 |
+| ID | Feature | User Value (1 line) | Priority | Page Group | Screen | Scope |
 |---|---|---|---|---|---|---|
-| FEAT-001 | 주문 상태 변경 | 관리자가 CS 없이 직접 처리 | Must | PAGE-002 | order-detail | keep |
+| FEAT-001 | Order Status Change | Admin resolves directly without CS | Must | PAGE-002 | order-detail | keep |
 | FEAT-002 | 상태 변경 이력 | 감사 추적 | Should | PAGE-002 | order-detail/history | defer |
 ```
 
-- `ID`는 안정 식별자 — 이름이 바뀌어도 ID는 유지하고, 삭제는 행 제거가 아니라 `이번 범위: cut`으로 표기 후 `plan-history-contract.md`에 기록한다.
+- `ID`는 안정 식별자 — 이름이 바뀌어도 ID는 유지하고, 삭제는 행 제거가 아니라 `Scope: cut`으로 표기 후 `plan-history-contract.md`에 기록한다.
 - 각 FEAT는 정확히 하나의 **primary `페이지 그룹`**을 참조한다. 여러 화면에 나타나는 기능도 검토·변경의 주 책임 페이지 하나를 고르고, 나머지 진입점은 `화면`에 쉼표로 남긴다. 정말 primary page가 없는 전역 책임만 `PAGE-000`을 사용한다.
 - Feature List가 참조한 `PAGE-NNN`이 Page Groups 표에 없거나 Page Group에 연결된 FEAT가 0개면 `plan-reviewer`의 `NEEDS_DECISION` 대상이다.
 - 모든 Must 기능은 ≥1개 화면에 매핑되고, 화면 인벤토리의 모든 화면은 ≥1개 기능에 매핑돼야 한다 — **고아 화면/고아 기능은 plan-reviewer의 NEEDS_DECISION 대상**이다.
@@ -68,7 +68,7 @@
 Feature List의 한 줄 요약은 "무엇을"만 말한다. 디자인·프리뷰·구현·QA가 하나의 기준으로 움직이려면 **"어떻게 동작하는가"**와 **검증 가능한 test case**가 있어야 한다. 각 Must FEAT에 대해 작성한다:
 
 ```markdown
-### FEAT-001 — 주문 상태 변경
+### FEAT-001 — Order Status Change
 **동작 명세**: 결제완료 상태의 주문에서만 [상태 변경] 버튼이 활성화된다. 클릭하면 확인 dialog가 열리고, 확인 시 상태가 갱신되어 목록·상세에 즉시 반영되며 취소 시 아무 변화가 없다. 변경 중에는 버튼이 처리중(disabled)으로 바뀐다.
 
 | Test Case | Given | When | Then |
@@ -91,7 +91,7 @@ Feature List의 한 줄 요약은 "무엇을"만 말한다. 디자인·프리뷰
 
 ```markdown
 #### FEAT-004 하위 기능
-| Sub Feature ID | 동작 | 관련 Test Case | 화면/영역 | 이번 범위 |
+| Sub Feature ID | Behavior | Related Test Case | Screen/Area | Scope |
 |---|---|---|---|---|
 | FEAT-004-01 | 테이블 생성 | TC-004-1 | tool-detail/create | keep |
 | FEAT-004-02 | 테이블 이름 변경 | TC-004-2, TC-004-5 | tool-detail/row | keep |

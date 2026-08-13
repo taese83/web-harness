@@ -50,21 +50,21 @@ maxTurns: 20
 ## Result
 PASS | WARN | FAIL | BLOCKED
 
-## 화면 완성도
-| 화면 | 명세 있음 | 구현됨 | 상태 |
+## Screen Completeness
+|| Screen | Specified | Implemented | Status ||
 | dashboard | ✅ | ✅ | PASS |
 
-## 컴포넌트 명세 일치
-| 컴포넌트 | Props 일치 | 상태 구현 | 결과 |
+## Component Spec Match
+|| Component | Props Match | States Implemented | Result ||
 
-## 데이터 연결
-| 화면/컴포넌트 | 데이터 훅 사용 | 결과 |
+## Data Binding
+|| Screen/Component | Data Hook Used | Result ||
 
-## 누락/불일치 목록
-- [파일명] 누락된 내용
+## Missing / Mismatched Items
+- [fileName] missing content
 
-## 권장 수정 사항
-- 우선순위: HIGH/MEDIUM/LOW
+## Recommended Fixes
+- Priority: HIGH/MEDIUM/LOW
 ```
 
 출력 대상: `_workspace/04_qa/qa-ux.md` (오케스트레이터가 저장)

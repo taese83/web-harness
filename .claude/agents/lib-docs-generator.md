@@ -28,15 +28,15 @@ npm 라이브러리의 README, API 문서, 사용 예시를 생성한다. 외부
 ## README 구조
 
 ```markdown
-# {라이브러리명}
+# {libraryName}
 
-> 한 줄 설명
+> One-line description
 
-## 설치
+## Installation
 
 pnpm add {pkg-name}
 
-## 기본 사용법
+## Basic Usage
 
 import {myFunc} from '{pkg-name}'
 const result = myFunc('input')
@@ -45,20 +45,20 @@ const result = myFunc('input')
 
 ### myFunc(input, options?)
 
-| 파라미터 | 타입 | 필수 | 설명 |
+|| Parameter | Type | Required | Description ||
 |---|---|---|---|
-| input | string | ✅ | 입력값 |
-| options | MyOptions | - | 옵션 |
+|| input | string | ✅ | Input value ||
+|| options | MyOptions | - | Options ||
 
-반환값: MyResult
+Returns: MyResult
 
 ## TypeScript
 
-이 라이브러리는 TypeScript로 작성되어 타입 정의가 내장되어 있습니다.
+This library is written in TypeScript and ships with built-in type definitions.
 
 import type {MyOptions} from '{pkg-name}'
 
-## 라이선스
+## License
 
 MIT
 ```
