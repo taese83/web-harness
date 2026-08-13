@@ -685,6 +685,17 @@ const validationScriptContract = (script, args, context) => {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))
   }
+  if (script === '.claude/scripts/validate-plan-delta.mjs') {
+    if (!args.includes('--project') || !args.includes('--change')) return false
+    let rest = withoutDirectoryOption(args, '--project', context)
+    const ci = rest.indexOf('--change')
+    if (ci === -1 || !/^PC-\d+$/.test(rest[ci + 1] ?? '')) return false
+    rest = [...rest.slice(0, ci), ...rest.slice(ci + 2)]
+    const modes = rest.filter(a => a === '--snapshot' || a === '--verify')
+    if (modes.length !== 1) return false
+    const extra = rest.filter(a => a !== '--snapshot' && a !== '--verify')
+    return extra.length === 0 || (extra.length === 1 && extra[0] === '--json')
+  }
   if (script === '.claude/scripts/validate-output-language.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))

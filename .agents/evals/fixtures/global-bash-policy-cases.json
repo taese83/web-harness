@@ -577,6 +577,36 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-output-language.mjs --json"
+    },
+    {
+      "id": "plan-delta-snapshot",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --snapshot"
+    },
+    {
+      "id": "plan-delta-verify-json",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --verify --json"
+    },
+    {
+      "id": "plan-delta-requires-mode",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014"
+    },
+    {
+      "id": "plan-delta-both-modes",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change PC-014 --snapshot --verify"
+    },
+    {
+      "id": "plan-delta-bad-change-id",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-plan-delta.mjs --project . --change ../etc --snapshot"
     }
   ]
 }

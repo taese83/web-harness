@@ -33,6 +33,39 @@ append-only. 기존 엔트리의 수정·삭제는 금지이며, 정정도 새 �
 - 갱신 주체는 main thread가 아니라 **기존 owner agent의 경량 재호출**이다: `requirements-analyst`(requirements.md), `feature-planner`(feature-plan.md), `planning-facilitator`(decision-log.md). 경량 재호출은 전체 재작성이 아니라 대상 절/행만 수정한다.
 3. 세 가지 중 하나라도 빠지면 그 변경은 미기록 변경이며 code-reviewer/plan-reviewer의 검사 대상이다.
 
+### 2-1. 경량 재호출의 기계 검증 (OpenSpec delta 착안)
+
+"경량 재호출"은 지금까지 **지시**였을 뿐 검증되지 않았다. 실측 실패(protected-core §4): apply가
+기존 plan을 전체 재작성해 **승인된 TC를 파괴**했는데 사후 존재 검사로는 잡히지 않았다.
+그래서 변경을 **선언과 대조**한다 — OpenSpec의 ADDED/MODIFIED/REMOVED를 이 하네스의 안정 ID
+규율에 맞춘 형태다.
+
+```bash
+# 변경 전: 안정 ID 인벤토리를 기계가 뜬다
+node .claude/scripts/validate-plan-delta.mjs --project {root} --change PC-014 --snapshot
+# → _workspace/01_plan/plan-delta/PC-014.json 의 declared에 added/modified/removed를 적는다
+# 변경 적용 후: 실제 변화와 선언을 대조한다
+node .claude/scripts/validate-plan-delta.mjs --project {root} --change PC-014 --verify
+```
+
+- `UNDECLARED_REMOVAL` — 선언하지 않았는데 ID가 사라졌다. **승인 산출물이 조용히 파괴된 것**이다.
+- `UNDECLARED_ADDITION` — 선언하지 않은 ID가 생겼다. 범위 밖 확장 신호.
+- `DECLARED_BUT_PRESENT` / `DECLARED_BUT_ABSENT` — 선언과 결과의 불일치.
+
+**`modified` 선언은 소멸을 정당화하지 않는다** — 재작성으로 하위 TC가 없어지면 modified로
+덮어도 UNDECLARED_REMOVAL이 뜬다. 이것이 이 게이트의 핵심이다.
+
+- `LATE_SNAPSHOT` — 승인 레코드에 있는 TC가 before에 없다. **사고를 낸 뒤에 스냅샷을 떠서
+  before를 오염시킨 것**이다. 승인 레코드(`_workspace/03_dev/change-request-decisions/`)는
+  다른 메커니즘이 다른 시점에 남긴 독립 기록이라, 이 순서 우회의 바닥값이 된다.
+
+before 인벤토리는 스캔 결과이지 자기선언이 아니다. 다만 **선언 자체가 옳은지**(이 변경이
+정말 그 ID들만 건드려야 하는지)는 사람 몫이다 — 게이트가 잡는 것은 선언과 실제의 불일치다.
+
+**막지 못하는 것(정확히)**: delta 파일을 지우고 다시 스냅샷하면 초기화된다. 승인 레코드가
+없는 변경에는 `LATE_SNAPSHOT` 바닥값도 없다. ID가 유지된 채 **내용만** 파괴되는 경우도
+잡히지 않는다 — 로컬 증거는 tamper-evident이지 tamper-proof가 아니다.
+
 ## 3. 안정 ID 규율
 
 - `REQ-NNN`(requirements.md), `FEAT-NNN`(feature-plan.md), 선택적 `FEAT-NNN-NN` 하위 기능 — 생성 후 불변, 이름 변경에도 ID 유지, 삭제 대신 상태 표기.
@@ -45,3 +78,16 @@ append-only. 기존 엔트리의 수정·삭제는 금지이며, 정정도 새 �
 - `plan-reviewer`: Phase 1 재실행·다듬기 라운드 후 — 변경된 기획 문서 대비 대장 엔트리 존재 여부, 고아 REQ/FEAT ID.
 - `code-reviewer`: `CHANGE_MODE: existing-change`에서 기획 문서 diff가 있는데 대응 PC 엔트리가 없으면 WARN, **기존 PC 엔트리가 수정·삭제됐으면 FAIL** (append-only 위반).
 - HANDOFF/release-readiness는 이번 릴리스에 포함된 PC 엔트리 범위를 인용한다.
+
+## 일반화 근거
+
+이 계약의 §2-1(delta 대조)은 안정 ID 규율(§3)에만 의존하고 특정 서비스의 이름·백엔드·수치를
+인코딩하지 않는다. 다만 **실증 범위는 정직하게 좁다**:
+
+- 예약형 SPA (실증 — seminar-booking: 안정 ID 108개 기준선에서 TC 3건 소멸을 `UNDECLARED_REMOVAL`로
+  검출, 순서 우회를 `LATE_SNAPSHOT`으로, 증거 인멸을 `RESNAPSHOT`으로 차단)
+- 그 외 서비스 형태 (**명명 수준 — 미검증**). ID 규율을 쓰는 어떤 형태에도 적용 가능하다고
+  보지만, 두 번째 형태에서 실증하기 전까지 이 계약은 "1개 형태 실측"으로 취급한다.
+
+I3 기준(서로 다른 형태 2개+)은 **아직 충족되지 않았다.** 다음 브라운필드/타 형태 프로젝트에서
+재실증하고, 어긋나는 규칙은 write-back한다.
