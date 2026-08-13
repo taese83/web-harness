@@ -35,6 +35,7 @@ maxTurns: 25
 14. `next-app-fullstack`에서는 active adapter check가 요구하는 target-specific 종료 가능한 `test:*` script closure를 선언한다. `test:production-start`와 runtime check는 production artifact의 start/readiness/test/teardown을 자체 소유해야 하며 장기 실행 `next start`를 quality check로 직접 노출하지 않는다.
 15. package metadata 작성 후 profile resolver와 canonical execution plan을 다시 생성하도록 반환한다. pre-scaffold profile/toolchain digest를 quality evidence에 재사용하지 않는다.
 16. **toolchain pin 단일 출처**: `packageManager`와 `engines`(node·pnpm)는 값을 새로 정하지 않는다 — 하니스 루트 `package.json`의
+17. `.nvmrc`도 이 에이전트 소유다 — `engines.node`의 하한과 **동기화된 정확 pin**(harness 루트 `.nvmrc`와 동일 값)을 한 줄로 쓴다. `engines`는 설치 호환 범위, `.nvmrc`는 게이트 preflight(run-quality-gates fail-closed)의 정확 pin으로 역할이 다르다 — 한쪽만 갱신하는 drift가 이 규칙의 금지 대상이다.
     현행 pin을 복사한다(템플릿 예시 값이 더 오래됐으면 루트가 이긴다). 기존 앱의 수정 라운드에서 `package.json`을 만질 때는
     pin이 하니스 현행 값보다 뒤처졌는지 대조하고, 뒤처진 버전이 upstream 결함 선언된 릴리스면(예: pnpm 11.13.0 —
     broken release로 신규 환경 설치 자체가 불가) 이번 라운드에서 pin 승격을 함께 수행한다. 생성 시점 pin의 동결은

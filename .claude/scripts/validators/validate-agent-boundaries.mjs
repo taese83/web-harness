@@ -141,6 +141,11 @@ export const validateAgentBoundaries = ({
 
   const cases = [
     ['owned path', 'entity-query-builder', join(repositoryRoot, 'src/entities/item/model/types.ts'), 0],
+    ['package scaffolder root nvmrc', 'package-scaffolder', join(repositoryRoot, '.nvmrc'), 0],
+    ['package scaffolder app nvmrc', 'package-scaffolder', join(repositoryRoot, 'apps/web/.nvmrc'), 0],
+    ['other agent nvmrc stays blocked', 'tooling-scaffolder', join(repositoryRoot, '.nvmrc'), 2],
+    ['tooling scaffolder vite-env stub', 'tooling-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
+    ['other agent vite-env stays blocked', 'component-builder', join(repositoryRoot, 'src/vite-env.d.ts'), 2],
     ['another agent path', 'entity-query-builder', join(repositoryRoot, 'src/app/App.tsx'), 2],
     ['outside-project path', 'entity-query-builder', resolve(repositoryRoot, '../outside.ts'), 2],
     ['timeseries architecture output', 'timeseries-architect', join(repositoryRoot, '_workspace/02_design/timeseries-architecture.md'), 0],
