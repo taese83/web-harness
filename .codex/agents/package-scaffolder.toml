@@ -44,9 +44,11 @@ developer_instructions = '''
     <!-- web-harness-managed -->
     This project is managed by the web-harness pipeline (`_workspace/` artifacts).
     For follow-up changes, re-enter via the situation-matched minimal contract load in
-    `skills/web-orchestrator/references/reentry-map.md` (plugin or harness checkout)
-    instead of reloading the full web-orchestrator skill. Full `/web-orchestrator`
-    entry is only needed for a new service or when the situation is unclear.
+    the web-orchestrator `reentry-map.md` instead of reloading the full skill. The
+    web-harness plugin's SessionStart hook injects that file's absolute path; without
+    the hook, locate it with Glob `**/skills/web-orchestrator/references/reentry-map.md`.
+    Full `/web-orchestrator` entry is only needed for a new service or when the
+    situation is unclear.
     <!-- /web-harness-managed -->
     ```
 
