@@ -12,7 +12,7 @@
 // 진행되면 각 마커의 pattern을 앵커로 교체하고 validate-harness의 인라인 문자열 체크를 이
 // 레지스트리로 이관한다 — 중복이 아니라 흩어진 검사의 통합이다(I4).
 //
-// 스코프: .claude/scripts 하위라 미러(build-adapters MIRROR_SET) 밖 — adapter 재생성 불필요.
+// 스코프: .claude/scripts 하위. (×3 미러는 2026-08-18 제거 — 이 게이트가 지키는 표면은 .claude/ 원본뿐.)
 
 import {existsSync, readdirSync, readFileSync, statSync, writeFileSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';

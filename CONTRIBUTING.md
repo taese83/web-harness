@@ -29,9 +29,9 @@ not the gate — is wrong (invariant I2). Fix the modeling; never weaken the che
   skills/agents, tier labels) must run the read-only `harness-change-reviewer` agent first
   and record 1–3 lines of judgment evidence in the commit body. See `CLAUDE.md` and
   `docs/protected-core.md` §2 for the per-class questions.
-- **Mirrors are generated, never edited.** `.agents/` and `.codex/` come from
-  `node .claude/scripts/build-adapters.mjs`. Edit `.claude/` only, regenerate, and the
-  byte-drift validator keeps you honest.
+- **`.claude/` is the only source of truth.** The former `.agents/`/`.codex/` tool mirrors
+  were removed (2026-08-18, zero consumers found). Skills, agents, and contracts are edited
+  in `.claude/` directly.
 - **Markers are language-neutral anchors.** Machine-matched contract markers use
   `<!-- marker:... -->` anchors (see `docs/marker-delock-plan.md`). Prose may be translated
   freely; deleting an anchor fails CI (`validate-marker-integrity`).

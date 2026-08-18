@@ -38,14 +38,10 @@ refused — align them first.
 
 ## Path rules
 
-- `.claude/` is the canonical control plane for Claude Code.
-- Even when `.agents/` or `.codex/` exist locally, treat them as runtime adapters or working
-  copies — they never substitute for canonical files.
-- **Never hand-edit adapters** — `.agents` is regenerated only via
-  `node .claude/scripts/build-adapters.mjs` (verbatim mirror of skills/adapters/evals/
-  ai-harness.json). Drift is detected byte-for-byte by `validate-harness.mjs` and fails.
-- Add new skills/agents to `.claude` first, pass `validate-harness.mjs`, then regenerate
-  the adapters.
+- `.claude/` is the canonical control plane — and since 2026-08-18, the **only** copy
+  (the former `.agents/`/`.codex/` tool mirrors were removed after an audit found zero
+  consumers).
+- Add new skills/agents to `.claude` and pass `validate-harness.mjs`.
 - When editing a skill document, bump `metadata.version` in its SKILL.md frontmatter and
   leave a one-line `changelog` (`metadata.version` is a validator-required field).
 

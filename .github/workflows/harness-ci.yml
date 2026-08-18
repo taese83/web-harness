@@ -33,8 +33,6 @@ jobs:
           node-version: '22.22.3'
       - name: Install pinned pnpm (corepack shim은 toolchain validator가 거부)
         run: npm install -g pnpm@11.18.0 --ignore-scripts --no-audit --no-fund
-      - name: Mirror drift (.agents/.codex == .claude canonical)
-        run: node .claude/scripts/build-adapters.mjs --check
       - name: Toolchain preflight
         run: node .claude/scripts/validate-toolchain.mjs
       - name: Harness static validation

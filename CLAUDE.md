@@ -1,8 +1,8 @@
 # web-harness 컨트롤 플레인 — 운영 지침
 
-이 repo는 웹 생성 하네스의 canonical 소스다. `.claude/`가 원본이고 `.agents/`·`.codex/`는
-`node .claude/scripts/build-adapters.mjs`로만 재생성한다(손 편집 금지). 커밋 전 `pnpm run ci`
-(mirror·toolchain·validate-harness·ai)가 green이어야 한다.
+이 repo는 웹 생성 하네스의 canonical 소스다. `.claude/`가 유일한 원본이다(×3 미러는
+2026-08-18 소비자 0 실증으로 제거 — M4 판정). 커밋 전 `pnpm run ci`
+(toolchain·validate-harness·ai)가 green이어야 한다.
 
 ## 판단 게이트 <!-- harness-judgment-gate -->
 
@@ -15,8 +15,8 @@
    모델링을 고쳤는가?
 3. **일반화(I3)** — 새 계약이 서로 다른 서비스 형태 2개+에 성립하는가? 특정 서비스의
    이름·백엔드·수치·사고모델을 인코딩하지 않았는가? (참조 서비스는 eval fixture로만)
-4. **고정 비용(I4)** — always-read·CLAUDE.md·미러(×3) 표면이 예산 안인가? 추가 전에
-   제거를 검토했는가?
+4. **고정 비용(I4)** — always-read·CLAUDE.md·플러그인 배포 사본 표면이 예산 안인가?
+   추가 전에 제거를 검토했는가?
 5. **프록시(I5)** — 게이트가 프록시(줄 수·개수)라면 우회로 "통과"만 만들지 않았는가?
    우회를 발견하면 protected-core §4 등록부에 기록했는가?
 6. **안전 하한(I6)** — 접근성·보안·receipt를 어떤 경로에서도 생략하지 않았는가?

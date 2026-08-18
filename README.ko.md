@@ -26,7 +26,7 @@ pnpm run ci
 - built-in profile 3개: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — 모두 compatible (`certified`는 T1 격리 CI receipt를 요구하는 기계 게이트로 강제되며, 현재 충족 레인 없음)
 - agent별 파일 소유권
 - read-only verifier 경계
-- adapter 사본(.agents) drift + 문서 위생 (깨진 경로 참조·하드코딩 잔재·스킬 버저닝)
+- 문서 위생 (깨진 경로 참조·하드코딩 잔재·스킬 버저닝·README inventory)
 - 전역 Bash 정책 fixture 49개
 - profile resolver·DAG·deployment conflict assertion 54개
 - Next.js adapter contract case 15개

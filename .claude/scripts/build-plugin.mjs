@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Claude Code 플러그인 아티팩트 빌더 — .claude/ 원본에서 dist/web-harness-plugin을 생성한다.
-// 원본은 수정하지 않는다(미러 철학: .agents/.codex와 동일하게 산출물만 재생성).
+// 원본은 수정하지 않는다 — 산출물만 재생성한다(유일하게 남은 배포 사본 표면, I4 예산 대상).
 // 산출물 레이아웃은 저장소 내부 구조를 보존해(.claude/scripts, packages/web-harness-console)
 // script-relative 루트 해석과 콘솔의 상대 import가 무변경으로 동작하게 한다.
 import {execFileSync} from 'node:child_process'
@@ -43,7 +43,6 @@ const MARKETPLACE_GIT = process.env.WEB_HARNESS_PLUGIN_MARKETPLACE_GIT
 
 // 하니스 저장소 개발 전용 — 플러그인 런타임에 싣지 않는다.
 const DEV_ONLY_SCRIPTS = new Set([
-  'build-adapters.mjs',
   'build-plugin.mjs',
   'deploy-harness.mjs',
   'run-ai-evals.mjs',

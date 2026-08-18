@@ -146,7 +146,7 @@
 - **`주 소비자`가 최고 위험** — 1 validator + 1 계약 spec + 26 에이전트 body(→ `.codex/agents/*.toml`
   verbatim). 부분 편집은 (a) 매칭 파괴 + (b) adapter-drift HARD FAIL 동시 유발. **원자적 편집 +
   즉시 재생성** 필수.
-- **미러 규칙** — 편집은 `.claude/` 원본만, 이후 `build-adapters.mjs`. `.agents/`·`.codex/` 직접
+- **미러 규칙 (역사적 — 2026-08-18 ×3 미러 제거로 소멸, M4 판정)** — 편집은 `.claude/` 원본만, 이후 `build-adapters.mjs`. `.agents/`·`.codex/` 직접
   편집 또는 재생성 누락 시 `validate-adapter-hygiene` byte-identity 실패.
 - **baseline 동기화** — 탈잠금은 카운트를 바꾸므로 `contract-hygiene-baseline.json`·신규
   `marker-integrity-baseline.json` 갱신이 필요. 갱신은 의식적 행위 — **사유를 JUDGMENT에 기록**.

@@ -41,7 +41,7 @@ A green run verifies:
   (`validate-certified-evidence`); no lane has produced that receipt yet, so none carries the label
 - per-agent file ownership
 - read-only verifier boundaries
-- adapter mirror (`.agents`, `.codex`) drift and document hygiene
+- document hygiene (broken repo-path references, hardcoded remnants, skill versioning, README inventory)
 - global Bash policy fixtures, profile resolver/DAG assertions, Next.js contract cases,
   harness integration checks, web and AI eval contracts, AI secret/tool safety hooks,
   and the Console's static checks and regression tests
@@ -155,16 +155,14 @@ loop, never promote a maturity tier without proof.
 
 ```
 .claude/            canonical source — skills, agents, scripts, evals, schemas
-.agents/  .codex/   generated mirrors (never hand-edit)
 docs/               protected-core (invariants + proxy registry), adoption guides
 packages/           Web Harness Console (local approval UI)
 ```
 
-`.claude/` is the only source of truth. Regenerate mirrors with:
-
-```bash
-node .claude/scripts/build-adapters.mjs
-```
+`.claude/` is the only source of truth. (The former `.agents/`/`.codex/` tool mirrors were
+removed 2026-08-18 after an audit found zero consumers — the `.codex` hooks referenced a
+Claude-only environment variable, proving they had never run under any other tool. If a
+specific tool integration is wanted later, it will be generated in that tool's real format.)
 
 ## Limitations
 

@@ -119,7 +119,7 @@ try {
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.json'))
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.project.json'))
   // 배포된 control plane 판별 마커 — validate-adapter-hygiene가 source repo 전용 검사
-  // (.agents drift, README inventory)를 배포 target에서 건너뛰는 명시적 근거다.
+  // (README inventory 등)를 배포 target에서 건너뛰는 명시적 근거다.
   writeFileSync(
     join(stagingRoot, 'deployment.json'),
     `${JSON.stringify({schemaVersion: 1, source: 'web-harness-control-plane', deployedAt: new Date().toISOString()}, null, 2)}\n`,

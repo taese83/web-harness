@@ -1,15 +1,14 @@
-// adapter 사본 정합 + 문서 위생 검증.
+// 문서 위생 검증. (adapter drift 검사는 2026-08-18 ×3 미러 제거로 소멸 — M4 판정:
+// 소비자 0 실증. 파일명의 "adapter"는 이제 .claude/adapters 문서를 포함한 문서 위생을 가리킨다.)
 // 검사 항목:
-//   1. adapter drift        — .agents가 build-adapters.mjs 재생성 결과와 byte 단위 일치
-//   2. 잘못된 경로 접두어    — .Codex/ 참조 (canonical은 .claude/, 대소문자 오류 포함)
-//   3. 저장소 경로 참조 실존 — .claude/... 형태로 참조된 .md/.mjs/.json 파일이 실존하는지
-//   4. 하드코딩 잔재         — 타 프로젝트 이식 잔재 (KartApi 등). 예외는 라인에 lint-allow
-//   5. README inventory     — <!-- inventory:skills|agents --> 마커 수치가 실제 개수와 일치
-//   6. 스킬 버저닝           — 모든 SKILL.md frontmatter에 metadata.version 존재
+//   1. 잘못된 경로 접두어    — .Codex/ 참조 (canonical은 .claude/, 대소문자 오류 포함)
+//   2. 저장소 경로 참조 실존 — .claude/... 형태로 참조된 .md/.mjs/.json 파일이 실존하는지
+//   3. 하드코딩 잔재         — 타 프로젝트 이식 잔재 (KartApi 등). 예외는 라인에 lint-allow
+//   4. README inventory     — <!-- inventory:skills|agents --> 마커 수치가 실제 개수와 일치
+//   5. 스킬 버저닝           — 모든 SKILL.md frontmatter에 metadata.version 존재
 
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join} from 'node:path'
-import {checkAdapterDrift} from '../build-adapters.mjs'
 
 const DENYLIST = [
   [/KartApi/, '타 프로젝트 API 클래스 잔재 (KartApi)'],
@@ -45,22 +44,6 @@ export const detectSourceRepository = repositoryRoot => {
 export const validateAdapterHygiene = ({repositoryRoot, pass, fail}) => {
   const isSourceRepository = detectSourceRepository(repositoryRoot)
 
-  // 1. adapter drift (source repo 전용 — 사본 부재는 skip이 아니라 실패다)
-  if (isSourceRepository) {
-    if (!existsSync(join(repositoryRoot, '.agents'))) {
-      fail('adapter 사본(.agents)이 없다 — node .claude/scripts/build-adapters.mjs 로 생성할 것 (source repo에서 drift 검사는 skip되지 않는다)')
-    }
-    const driftProblems = checkAdapterDrift()
-    if (driftProblems.length) {
-      for (const problem of driftProblems.slice(0, 20)) fail(`adapter drift: ${problem}`)
-      if (driftProblems.length > 20) fail(`adapter drift: 외 ${driftProblems.length - 20}건 (build-adapters.mjs로 재생성)`)
-    } else {
-      pass('adapter copies (.agents, .codex/agents) match canonical byte-for-byte')
-    }
-  } else {
-    pass('deployed control plane detected (deployment.json 또는 settings 동일) — adapter drift check skipped')
-  }
-
   const documentFiles = [
     ...walkMarkdown(join(repositoryRoot, '.claude', 'skills')),
     ...walkMarkdown(join(repositoryRoot, '.claude', 'agents')),
@@ -75,19 +58,18 @@ export const validateAdapterHygiene = ({repositoryRoot, pass, fail}) => {
       scannedLines += 1
       if (line.includes('lint-allow')) return
 
-      // 2. 잘못된 접두어
+      // 1. 잘못된 접두어
       if (/\.Codex\//.test(line)) fail(`${relFile}:${index + 1} — .Codex/ 경로 참조 (canonical은 .claude/)`)
 
-      // 3. 저장소 경로 참조 실존 (.agents 참조는 source repo에서만 존재)
-      for (const match of line.matchAll(/(?:\.claude|\.agents)\/[\w@./-]+\.(?:md|mjs|json)\b/g)) {
-        if (match[0].startsWith('.agents/') && !isSourceRepository) continue
+      // 2. 저장소 경로 참조 실존
+      for (const match of line.matchAll(/\.claude\/[\w@./-]+\.(?:md|mjs|json)\b/g)) {
         pathReferenceCount += 1
         if (!existsSync(join(repositoryRoot, match[0]))) {
           fail(`${relFile}:${index + 1} — 깨진 저장소 경로 참조: ${match[0]}`)
         }
       }
 
-      // 4. 하드코딩 잔재
+      // 3. 하드코딩 잔재
       for (const [pattern, reason] of DENYLIST) {
         if (pattern.test(line)) fail(`${relFile}:${index + 1} — ${reason}`)
       }
@@ -95,7 +77,7 @@ export const validateAdapterHygiene = ({repositoryRoot, pass, fail}) => {
   }
   pass(`document hygiene scanned (${documentFiles.length} files, ${pathReferenceCount} repo-path references verified)`)
 
-  // 5. README inventory 마커 (source repo 전용 — 배포 target의 README는 하네스 소유가 아님)
+  // 4. README inventory 마커 (source repo 전용 — 배포 target의 README는 하네스 소유가 아님)
   const skillCount = readdirSync(join(repositoryRoot, '.claude', 'skills'), {withFileTypes: true}).filter(e => e.isDirectory()).length
   const agentCount = readdirSync(join(repositoryRoot, '.claude', 'agents')).filter(name => name.endsWith('.md')).length
   if (isSourceRepository) {
@@ -113,7 +95,7 @@ export const validateAdapterHygiene = ({repositoryRoot, pass, fail}) => {
     pass(`README inventory matches reality (${skillCount} skills, ${agentCount} agents)`)
   }
 
-  // 6. 스킬 버저닝
+  // 5. 스킬 버저닝
   const skillsDirectory = join(repositoryRoot, '.claude', 'skills')
   const unversioned = []
   for (const name of readdirSync(skillsDirectory, {withFileTypes: true}).filter(e => e.isDirectory()).map(e => e.name)) {
