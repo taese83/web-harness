@@ -27,15 +27,17 @@ const BASELINE_PATH = join(validatorsDirectory, 'marker-integrity-baseline.json'
 // 새 마커 등록·앵커화는 docs/marker-delock-plan.md §5의 위험-오름차순 순서를 따른다.
 export const MARKER_REGISTRY = [
   {
-    id: 'index-consumer-column',
-    label: '샤딩 INDEX 소비자 열 (주 소비자)',
-    // 현재는 한국어 문자열. 앵커화(§5-3) 시 /<!--\s*marker:index-consumer-column\s*-->/g 로 교체.
-    pattern: /주 소비자/g,
+    id: 'consumer-read-protocol',
+    label: '소비자 읽기 프로토콜 앵커 (26 agents + 샤딩 계약)',
+    // M1 ③(2026-08-18)에서 한국어 문자열(`주 소비자`, baseline 30)을 언어 중립 앵커로 승격.
+    // 이제 산문은 자유 번역 가능하고, 이 게이트는 앵커의 존속만 지킨다. 생성물(INDEX.md) 쪽
+    // 검사는 validate-artifact-sharding.mjs가 구조 식별(2열 백틱 절 파일) + FAIL로 담당한다.
+    pattern: /<!--\s*marker:consumer-read-protocol\s*-->/g,
     files: [
       '.claude/agents',
       '.claude/skills/web-orchestrator/references/artifact-sharding-contract.md',
     ],
-    note: 'validate-artifact-sharding.mjs는 생성 INDEX.md만 매칭(warning-only) — 소스 마커는 이 게이트가 보호',
+    note: '앵커가 곧 계약 배선의 증거 — 에이전트 본문 번역·리팩터에서 이 줄이 사라지면 소비자 프로토콜 배선이 끊긴 것',
   },
 ];
 

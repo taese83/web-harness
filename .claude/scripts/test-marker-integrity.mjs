@@ -7,6 +7,7 @@
 //   (1) 전체 손실(→0)과 부분 손실(<baseline)을 모두 FAIL로 잡는다
 //   (2) baseline 미등록 신규 마커·baseline 파일 부재도 FAIL이다(vacuous pass 차단)
 //   (3) 카운터는 실제 트리에서 결정론적으로 같은 값을 낸다(스냅샷=검증 일관성)
+//   (4) M1 ③ 승격 후: 앵커는 **언어와 무관**하다 — 산문을 통째로 영어화해도 카운트 불변
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
@@ -16,8 +17,9 @@ import {countMarker, MARKER_REGISTRY, snapshotMarkers} from './validators/valida
 
 const repositoryRoot = resolve(import.meta.dirname, '..', '..')
 
-// 임시 트리에 '주 소비자' 마커를 심어 카운터를 검증한다(실제 레지스트리 패턴 재사용).
-const consumerMarker = MARKER_REGISTRY.find(marker => marker.id === 'index-consumer-column')
+// 실제 레지스트리 패턴 재사용 — 테스트가 검증하는 것이 곧 배선된 패턴이다.
+const consumerMarker = MARKER_REGISTRY.find(marker => marker.id === 'consumer-read-protocol')
+const ANCHOR = '<!-- marker:consumer-read-protocol -->'
 
 const makeTree = files => {
   const root = mkdtempSync(join(tmpdir(), 'marker-integrity-'))
@@ -29,11 +31,11 @@ const makeTree = files => {
   return root
 }
 
-test('countMarker: 등록 파일 전체에 걸친 출현 수를 센다(디렉터리 재귀 + 단일 파일)', () => {
+test('countMarker: 등록 파일 전체에 걸친 앵커 출현 수를 센다(디렉터리 재귀 + 단일 파일)', () => {
   const root = makeTree({
-    '.claude/agents/a.md': '표의 주 소비자 열을 읽는다.\n',
-    '.claude/agents/b.md': '주 소비자 확인. 다시 주 소비자.\n',
-    '.claude/skills/web-orchestrator/references/artifact-sharding-contract.md': '| 주 소비자 |\n',
+    '.claude/agents/a.md': `INDEX를 먼저 읽는다. ${ANCHOR}\n`,
+    '.claude/agents/b.md': `첫 줄 ${ANCHOR}\n다른 문맥 ${ANCHOR}\n`,
+    '.claude/skills/web-orchestrator/references/artifact-sharding-contract.md': `## 소비자 읽기 프로토콜 ${ANCHOR}\n`,
   })
   try {
     assert.equal(countMarker(root, consumerMarker), 4)
@@ -42,9 +44,25 @@ test('countMarker: 등록 파일 전체에 걸친 출현 수를 센다(디렉터
   }
 })
 
-test('countMarker: 마커 부재 → 0 (게이트가 이 0을 MARKER_LOST FAIL로 처리한다)', () => {
+test('언어 독립성(M1 ③의 요점): 산문을 영어화해도 앵커 카운트는 불변이다', () => {
+  const korean = makeTree({
+    '.claude/agents/a.md': `\`주 소비자\`와 \`담당 범위\`로 절을 고른다. ${ANCHOR}\n`,
+  })
+  const english = makeTree({
+    '.claude/agents/a.md': `Select sections via the consumer and scope columns. ${ANCHOR}\n`,
+  })
+  try {
+    assert.equal(countMarker(korean, consumerMarker), countMarker(english, consumerMarker))
+    assert.equal(countMarker(english, consumerMarker), 1)
+  } finally {
+    rmSync(korean, {recursive: true, force: true})
+    rmSync(english, {recursive: true, force: true})
+  }
+})
+
+test('countMarker: 앵커 부재 → 0 (게이트가 이 0을 MARKER_LOST FAIL로 처리한다)', () => {
   const root = makeTree({
-    '.claude/agents/a.md': 'Primary consumer column only — translated away.\n',
+    '.claude/agents/a.md': 'Prose only — the anchor comment was deleted in a refactor.\n',
   })
   try {
     assert.equal(countMarker(root, consumerMarker), 0)
@@ -62,10 +80,6 @@ test('실제 트리: 스냅샷과 재계수가 결정론적으로 일치한다(�
   }
 })
 
-// 게이트 판정 회귀 — validateMarkerIntegrity를 fake baseline으로 구동하기 위해 판정 로직만
-// 재현하는 대신, 실제 함수를 임시 트리 + 실제 baseline 규칙으로 검증한다. baseline 파일은
-// validators 디렉터리에 고정 경로라 직접 주입할 수 없으므로, 판정 규칙(전체/부분 손실)을
-// countMarker 결과와 실제 repo baseline으로 확인한다.
 test('실제 repo: 등록 마커는 baseline 이상으로 존재한다(게이트 green 전제)', async () => {
   const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
   const failures = []
@@ -78,26 +92,28 @@ test('실제 repo: 등록 마커는 baseline 이상으로 존재한다(게이트
 })
 
 test('부분 손실 시나리오: current < baseline이면 게이트 로직상 FAIL 메시지가 나온다', async () => {
-  // 실제 baseline(30)보다 작은 트리를 만들어 validateMarkerIntegrity가 잡는지 확인한다.
-  // baseline 경로는 validators 디렉터리 고정이므로 실제 baseline(주 소비자=30)이 적용된다.
+  // 실제 baseline(28 = 27 agents + 계약 1)보다 작은 트리 — baseline 경로는 validators 디렉터리
+  // 고정이므로 실제 baseline이 적용된다. 이 숫자는 의식적 baseline 갱신 시 함께 갱신한다(canary).
+  // 28이 된 경위: 최초 일괄 편집이 26개(어미 "…프로토콜이다." 패턴)만 잡았고, 리뷰가
+  // component-designer.md(어미 "…따른다.")의 누락을 발견해 27번째 에이전트로 추가했다.
   const root = makeTree({
-    '.claude/agents/only-one.md': '주 소비자 열 하나뿐.\n',
+    '.claude/agents/only-one.md': `한 줄만 남음 ${ANCHOR}\n`,
   })
   try {
     const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
     const failures = []
     validateMarkerIntegrity({repositoryRoot: root, pass: () => {}, fail: message => failures.push(message)})
     assert.equal(failures.length, 1)
-    assert.match(failures[0], /index-consumer-column/)
-    assert.match(failures[0], /1 < baseline 30/)
+    assert.match(failures[0], /consumer-read-protocol/)
+    assert.match(failures[0], /1 < baseline 28/)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
 })
 
-test('전체 손실(번역) 시나리오: 검출 0이면 MARKER_LOST로 FAIL한다', async () => {
+test('전체 손실(앵커 삭제) 시나리오: 검출 0이면 MARKER_LOST로 FAIL한다', async () => {
   const root = makeTree({
-    '.claude/agents/translated.md': 'The Primary consumer column — fully translated, marker gone.\n',
+    '.claude/agents/refactored.md': 'All anchors stripped during a bulk rewrite.\n',
   })
   try {
     const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')

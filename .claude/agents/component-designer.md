@@ -78,4 +78,4 @@ States: loading skeleton / populated / error
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘으면 `_workspace/02_design/component-spec/`으로 분할하고 FSD 레이어별(shared / features / widgets·pages) 절과 `INDEX.md`를 만든다. Props 인터페이스는 컴포넌트가 속한 레이어 절에 둔다.
 
-입력을 읽을 때도 같은 계약의 소비자 읽기 프로토콜을 따른다. `design-system/`, `layout-spec/`, `state-contract/` 디렉토리가 있으면 각 `INDEX.md`를 먼저 읽고 필요한 절만 읽는다.
+입력을 읽을 때도 같은 계약의 소비자 읽기 프로토콜을 따른다. `design-system/`, `layout-spec/`, `state-contract/` 디렉토리가 있으면 각 `INDEX.md`를 먼저 읽고 필요한 절만 읽는다. <!-- marker:consumer-read-protocol -->

@@ -12,9 +12,11 @@
   `<!-- harness-judgment-gate -->`(CLAUDE.md:7), `<!-- inventory:skills -->`(README.md:33),
   `<!-- always-read -->`(contract-hygiene). `docs/protected-core.md` §4(L74)가 이미 실패
   클래스("매칭 실패 → 마커 0건 → 조용히 통과")와 해법(앵커 스킴)을 명시.
-- **"26 에이전트"는 단일 마커 `주 소비자`.** 26개 파일에 있으나 **매칭처는 1곳**
-  (`validate-artifact-sharding.mjs`), 나머지 26은 *생산자*(런타임에 INDEX 열을 쓰는 지시). 즉
-  1-validator / 26-producer fan-out.
+- **"26 에이전트"는 단일 마커 `주 소비자` — 단, 실제 완전집합은 27이었다.** 26개 파일이 문자열
+  `주 소비자`를 담고, `component-designer.md`는 열 이름 없이 같은 프로토콜을 참조한다(문자열
+  grep 인벤토리의 사각 — ③ 리뷰에서 발견). 매칭처는 1곳(`validate-artifact-sharding.mjs`),
+  나머지는 *생산자/소비자*(런타임에 INDEX 열을 쓰고 읽는 지시). 즉 1-validator / 27-consumer
+  fan-out.
 - **`담당 범위`·`소유권`은 기계 매칭 0.** 각 28개 파일의 산문 헤더일 뿐 — 소유권은 에이전트
   *이름*으로 강제(`enforce-agent-ownership.mjs`, `agent-registry.mjs`). **지금 자유 번역 가능.**
 - **앵커 스킴은 이미 in-tree 선례.** 발명이 아니라 일반화.
@@ -27,8 +29,8 @@
 
 | 마커 | 매칭처 (file:line) | mismatch 시 |
 |---|---|---|
-| `주 소비자` (INDEX 소비자 열 헤더/값) | `validate-artifact-sharding.mjs:148,150,154` | **WARN only** (exit 0). 번역 시 조용히 열화 |
-| `전체` (모두-읽음 sentinel) | `validate-artifact-sharding.mjs:152` (`name==='전체'`) | **WARN only** |
+| ~~`주 소비자`~~ → **✅ ③ 완료(2026-08-18)** — validator가 절 행을 구조(2열 백틱 절 파일)로 식별, 헤더 문자열 매칭 삭제. 소스는 `<!-- marker:consumer-read-protocol -->` 앵커(27곳)로 승격, marker-integrity가 보호 | `validate-artifact-sharding.mjs` (구조 식별) | **HARD FAIL** (WARN에서 승격) |
+| ~~`전체`~~ → **✅ ③ 완료** — sentinel이 언어 중립 집합 `전체`/`*`/`all`로 확장 | `validate-artifact-sharding.mjs` | **HARD FAIL** |
 | `realtime은 필수 조건이 아니다` | `validate-harness.mjs:352` (`.includes`) | **HARD FAIL** |
 | `realtime interface 완료 후` | `validate-harness.mjs:370` | **HARD FAIL** |
 | `**시계열/실시간 감지**` · `**AI 서비스 감지**` | `validate-harness.mjs:168-185` | **HARD FAIL** (코드펜스 안이면도 실패) |
@@ -97,10 +99,21 @@
 2. **[저위험] `validate-marker-integrity` 신설** — 게이트를 **먼저** 만든다(마커를 바꾸기 전에
    안전망 설치). baseline 스냅샷. 이 시점엔 아무 마커도 안 바뀌었으니 green.
    → 실질 변경 → **harness-change-reviewer + JUDGMENT**.
-3. **[중위험] 소비자-열 앵커화** — `주 소비자`/`전체`에 앵커 추가, `validate-artifact-sharding.mjs`
-   매칭을 앵커 기반으로, WARN→HARD FAIL 승격. **26개 에이전트 body + 계약 spec + validator를
-   원자적으로** 편집(부분 편집 시 매칭 깨짐 + adapter-drift byte-identity 동시 실패).
-   → `node .claude/scripts/build-adapters.mjs` 재생성 → `validate-harness` green.
+3. **[중위험] 소비자-열 앵커화** — **✅ 완료(2026-08-18, 리뷰 HIGH 2건 반영)**. 설계에서 한
+   단계 개선: 생성물(INDEX.md) 쪽은 앵커 의존 대신 **구조 식별**(절 행 = 2열 백틱 절 파일)로
+   전환 — LLM이 앵커를 복사할 필요가 없어 *앵커 소실*이라는 실패 모드는 생성물 쪽에 존재하지
+   않는다. 대신 동형의 잔여 위험(**백틱 포맷 이탈로 행이 절 행 인식을 벗어나는 부분 우회**)이
+   생기는데, 리뷰가 이를 실증해(단일 행 백틱 생략 + 평문 substring 등재 검사의 분리) **절 행
+   커버리지 검사**(디스크의 모든 절 파일은 백틱 절 행으로 커버, 4열 EOL 앵커)로 폐쇄했다 —
+   회귀 2종(단일 행 생략·5열 표)으로 고정. 소스 쪽은 **27 에이전트**(26 + 리뷰가 발견한
+   `component-designer` 누락분) + 계약에 `<!-- marker:consumer-read-protocol -->` 앵커(28곳,
+   baseline 28)로 승격. sentinel은 `전체`/`*`/`all`. WARN→HARD FAIL 승격 + 빈 칸 위반 추가.
+   **파일럿 재실행**(로컬 전용 — workspace/는 gitignored라 저장소 내 재현물이 없는
+   self-attestation이다. 재현: `for p in workspace/*/_workspace; do node
+   .claude/scripts/validate-artifact-sharding.mjs --project $(dirname $p); done`): 12개 exit
+   변화 0, 오탐 소멸(영어 헤더 `Primary consumer`·타 표·괄호 한정어), 실재 위반(`e2e-test-writer`
+   등 미존재 에이전트)만 error 승격. 회귀: `test-artifact-sharding.mjs` 9종(영어 INDEX 통과·
+   우회 2종 포함). adapter 재생성 + mirror 일치 확인.
 4. **[중위험] HARD FAIL 마커 앵커화** — 그룹 A의 `realtime…`·`시계열/실시간 감지`·`AI 서비스 감지`
    4종을 앵커로. 각 = 소스 문서 1 + `validate-harness.mjs` 매칭 1 + 재생성.
 5. **[검증] 번역 불변 실증** — 산문을 영어로 바꾼 사본에서 `validate-marker-integrity` 매칭 수가
@@ -119,8 +132,12 @@
 
 ## 7. 완료 정의 (DoD)
 
-- [ ] 그룹 A 마커 전부 언어 중립 앵커로 승격, validator 앵커 기반 매칭.
-- [ ] `validate-marker-integrity` 게이트가 `pnpm run ci`에 배선, baseline 확립.
-- [ ] 산문 영어화 사본에서 **마커 매칭 수 번역 전후 불변** 실측 receipt.
-- [ ] `validate-artifact-sharding` 소비자-열 누락이 HARD FAIL로 승격(silent 구멍 폐쇄).
-- [ ] adapter 재생성 + `validate-harness` green.
+- [ ] 그룹 A 마커 전부 언어 중립화 — `주 소비자`/`전체` ✅(③), HARD FAIL 4종(realtime·감지 2종)
+      잔여(④)
+- [x] `validate-marker-integrity` 게이트가 `pnpm run ci`에 배선, baseline 확립. (②, c9f57dc)
+- [x] **번역 전후 매칭 불변** 실측 — 소스: `test-marker-integrity.mjs` "언어 독립성" 회귀(한국어
+      ↔영어 산문에서 앵커 카운트 동일). 생성물: `test-artifact-sharding.mjs` 영어 INDEX
+      (`Primary consumer` 헤더 + `*` sentinel)가 한국어 INDEX와 동일 판정 + telemetry-viewer
+      실파일럿에서 영어 헤더 오탐 소멸 실측. (③)
+- [x] `validate-artifact-sharding` 소비자-열 검사 HARD FAIL 승격 + 빈 칸·vacuous pass 폐쇄. (③)
+- [x] adapter 재생성 + mirror 일치 + `validate-harness` green. (③)

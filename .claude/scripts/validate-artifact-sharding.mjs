@@ -144,15 +144,65 @@ for (const relativeDirectory of pendingDirectories) {
         errors.push(`${indexRelative}: references a missing section file ${referenced}`)
       }
     }
-    // 주 소비자 열이 실제 에이전트 이름인가 (4열 표의 마지막 열)
-    for (const match of indexSource.matchAll(/^\|[^|\n]*\|[^|\n]*\|[^|\n]*\|([^|\n]+)\|/gm)) {
-      const cell = match[1].trim()
-      if (!cell || /^-+$/.test(cell) || cell === '주 소비자') continue
-      for (const name of cell.split(/[,·]/).map(value => value.trim().replace(/`/g, '')).filter(Boolean)) {
-        if (name === '전체') continue
+    // 소비자 열(4열)이 실제 에이전트 이름인가 — 언어 중립 구조 식별 + FAIL 승격 (M1 ③)
+    //
+    // 이전 구현의 두 결함(marker-delock-plan.md §5-3, 12개 파일럿 실측으로 확정):
+    //   1. 헤더 행을 한국어 문자열(`cell === '주 소비자'`)로 식별 → 영어 헤더 INDEX에서 헤더가
+    //      값으로 읽혀 "unknown agent" 경고(telemetry-viewer의 `Primary consumer`가 실사례).
+    //      번역이 검사를 조용히 열화시키는 마커 락인 그 자체였다.
+    //   2. warning-only(exit 0) → 소비자 열이 통째로 깨져도 게이트는 green.
+    //
+    // 새 식별: **절 행 = 2열에 백틱 절 파일(`x.md`)이 있는 행**. 헤더(2열이 '파일'/'File' 산문)·
+    // 구분선·INDEX 안의 다른 4열 표(값에 백틱 .md 없음)가 언어와 무관하게 자동 제외된다.
+    // 정규화 2종(실측 지배 패턴): (a) 괄호 한정어 제거 — `component-builder (shared layer)`,
+    // `entity-query-builder(해당 시)` (b) 다중 값은 괄호 밖 구분자(,·)로만 분리 —
+    // `component-builder(widgets/*, pages/*)`의 괄호 안 쉼표는 분리하지 않는다.
+    // sentinel은 언어 중립 확장: `전체` | `*` | `all`(대소문자 무관).
+    const splitTopLevel = cell => {
+      const parts = []
+      let depth = 0
+      let current = ''
+      for (const ch of cell) {
+        if (ch === '(') depth += 1
+        else if (ch === ')') depth = Math.max(0, depth - 1)
+        if ((ch === ',' || ch === '·') && depth === 0) {
+          parts.push(current)
+          current = ''
+        } else current += ch
+      }
+      parts.push(current)
+      return parts.map(value => value.trim().replace(/`/g, '')).filter(Boolean)
+    }
+    // 행 끝(| 후 공백만)을 앵커한다 — 5열 이상 표가 앞 4열 형태로 오매칭되지 않게. 4열 형식을
+    // 벗어난 절 행은 아래 rowFiles 커버리지 검사가 형식 이탈로 loud하게 잡는다.
+    let sectionRows = 0
+    const rowFiles = new Set()
+    for (const match of indexSource.matchAll(/^\|[^|\n]*\|([^|\n]*)\|[^|\n]*\|([^|\n]+)\|\s*$/gm)) {
+      const fileRefs = [...match[1].matchAll(/`([\w.-]+\.md)`/g)].map(value => value[1])
+      if (fileRefs.length === 0) continue // 절 행이 아니다(헤더·구분선·타 표)
+      sectionRows += 1
+      for (const fileRef of fileRefs) rowFiles.add(fileRef)
+      const cell = match[2].trim()
+      if (!cell) {
+        errors.push(`${indexRelative}: a section row has an empty consumer column — the contract requires it filled`)
+        continue
+      }
+      for (const raw of splitTopLevel(cell)) {
+        const name = raw.replace(/\s*\([^)]*\)\s*$/, '').trim()
+        if (/^(전체|\*|all)$/i.test(name)) continue
         if (knownAgents.size > 0 && !knownAgents.has(name)) {
-          warnings.push(`${indexRelative}: 주 소비자 "${name}" is not a known agent name`)
+          errors.push(`${indexRelative}: consumer "${name}" is not a known agent name — downstream agents cannot self-select on it`)
         }
+      }
+    }
+    // 절 행 커버리지 — 디스크의 모든 절 파일은 **백틱 절 행**으로 커버되어야 한다. 위의
+    // INDEX↔파일 검사는 평문 substring이라, 한 행만 백틱을 빼면(또는 5열 표로 적으면) 그 행이
+    // 절 행 인식을 벗어나 빈 칸·미상 에이전트 검사를 조용히 건너뛸 수 있었다(리뷰 HIGH 지적 —
+    // 부분 이탈 우회). 등재 검사와 절 행 인식을 같은 판정 기준으로 통합해 그 우회를 닫는다.
+    // 표 전체 이탈(절 행 0건)도 같은 검사가 파일별로 잡으므로 별도 가드가 필요 없다.
+    for (const name of readdirSync(join(projectRoot, entryPath)).filter(value => value.endsWith('.md') && value !== 'INDEX.md')) {
+      if (!rowFiles.has(name)) {
+        errors.push(`${join(entryPath, name)}: not covered by a 4-column section row (file column must carry \`${name}\`) — the consumer check cannot run for it`)
       }
     }
   }

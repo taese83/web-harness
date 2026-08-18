@@ -69,4 +69,4 @@ maxTurns: 20
 
 ## 입력 읽기
 
-`_workspace/01_plan/ux-brief/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절(화면 인벤토리·상태 matrix)과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`ux-brief.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다.
+`_workspace/01_plan/ux-brief/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절(화면 인벤토리·상태 matrix)과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`ux-brief.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다. <!-- marker:consumer-read-protocol -->

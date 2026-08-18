@@ -23,4 +23,4 @@ skills: analytics-chart-builder
 
 ## 입력 읽기
 
-`_workspace/02_design/api-schema/`, `_workspace/02_design/component-spec/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`api-schema.md`, `component-spec.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다.
+`_workspace/02_design/api-schema/`, `_workspace/02_design/component-spec/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`api-schema.md`, `component-spec.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다. <!-- marker:consumer-read-protocol -->
