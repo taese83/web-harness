@@ -15,17 +15,18 @@ Use this reference before generating React or TypeScript code.
 
 ```tsx
 import type {FC, ReactNode} from 'react'
-import type {SxProps, Theme} from '@mui/material'
+// UI_LANE: mui 레인만 — import type {SxProps, Theme} from '@mui/material'
 
 interface PanelProps {
   title: string
   children?: ReactNode
-  sx?: SxProps<Theme>
+  // 스타일 확장 prop은 레인을 따른다: mui → sx?: SxProps<Theme> / tailwind-shadcn → className?: string
+  className?: string
 }
 
-export const Panel: FC<PanelProps> = ({title, children, sx}) => {
+export const Panel: FC<PanelProps> = ({title, children, className}) => {
   return (
-    <section>
+    <section className={className}>
       <h2>{title}</h2>
       {children}
     </section>

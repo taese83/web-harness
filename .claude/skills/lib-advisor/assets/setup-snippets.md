@@ -150,6 +150,55 @@ function App() {
 
 ---
 
+## Tailwind CSS + shadcn/ui
+
+Dependency metadata: runtime `tailwindcss`, `@tailwindcss/vite`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot`(+ 프리미티브별 `@radix-ui/react-*`). 적용 시 공식 metadata에서 확인한 exact version을 기록하고 typed package broker를 사용한다.
+
+shadcn CLI는 사용하지 않는다 — 프리미티브를 **`src/shared/ui/`에 수동 vendoring**한다(CLI 기본 경로 `src/components/ui/`·`components.json`은 이 하네스의 FSD 규칙·에이전트 소유권과 충돌). vendored 파일은 upstream-파생물이다: 스타일·구성은 바꿔도 **Radix a11y props(`aria-*`·`role`)·Portal·focus 구조는 보존**하고, 이탈 시 한 줄 사유를 남긴다.
+
+### `vite.config.ts` (Tailwind v4 — PostCSS 불필요)
+```ts
+import tailwindcss from '@tailwindcss/vite'
+// plugins: [react(), tailwindcss()]
+```
+
+### `src/app/style.css` (토큰 = CSS 변수 = @theme)
+```css
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1976d2;
+  --font-sans: "Pretendard", "Noto Sans KR", sans-serif;
+  --radius-md: 0.5rem;
+}
+```
+
+### `src/shared/lib/utils.ts`
+```ts
+import {clsx, type ClassValue} from 'clsx'
+import {twMerge} from 'tailwind-merge'
+
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs))
+```
+
+### vendored 프리미티브 예시 — `src/shared/ui/button/`
+```tsx
+// button.tsx — cva variants + cn 병합. index.ts에서 명시 named export(export * 금지).
+import {cva, type VariantProps} from 'class-variance-authority'
+import {cn} from '@/shared/lib/utils'
+
+const buttonVariants = cva('inline-flex items-center justify-center rounded-md font-medium', {
+  variants: {variant: {default: 'bg-primary text-white', outline: 'border border-primary'}},
+  defaultVariants: {variant: 'default'},
+})
+
+export function Button({className, variant, ...props}: React.ComponentProps<'button'> & VariantProps<typeof buttonVariants>) {
+  return <button className={cn(buttonVariants({variant}), className)} {...props} />
+}
+```
+
+---
+
 ## Recharts
 
 Dependency metadata: runtime `recharts`. 적용 시 공식 metadata에서 확인한 exact version을 기록하고 typed package broker를 사용한다.

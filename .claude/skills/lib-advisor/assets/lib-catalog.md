@@ -97,17 +97,26 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 
 ## UI — UI 컴포넌트
 
-### 종합 컴포넌트 라이브러리
-- **추천:** `@mui/material v5` (MUI)
-- **이유:** 가장 성숙한 React UI 라이브러리. TypeScript 완전 지원. Emotion 기반 sx prop으로 유연한 커스터마이징.
-- **대안 (디자인 자유도 높을 때):** `Radix UI` + `Tailwind CSS` — 헤드리스 컴포넌트로 디자인 시스템 완전 제어.
-- **대안 (어드민/대시보드):** `Ant Design` — 테이블, 폼, 레이아웃 컴포넌트가 풍부하나 번들 크기 큼.
-- **피할 것:** `Bootstrap` + `React` 조합 — className 방식과 React 상태 관리 충돌 자주 발생.
+### UI 레인 결정 (tech-advisor가 `UI_LANE`으로 기록 — 두 레인은 동급 1급 선택지)
 
-### 헤드리스 컴포넌트 (디자인 시스템 자체 구축 시)
+| 레인 | 언제 | 트레이드오프 |
+|---|---|---|
+| `mui` — `@mui/material` | 어드민·대시보드·폼 밀도 높은 내부 도구, 빠른 완성 우선 | a11y가 node_modules에 있어 **불변·업그레이드 가능**. Material 형태 언어가 강해 브랜드-포워드 디자인엔 천장 |
+| `tailwind-shadcn` — `tailwindcss` + vendored Radix 프리미티브 | 브랜드-포워드·소비자 제품·디자인 자유도 우선 | 디자인 완전 제어(토큰=CSS 변수=@theme). 단 a11y가 **vendored 소스(수정 가능 표면)**로 이동 — 보존 규칙 필수(setup-snippets 참조) |
+
+- **판단 축:** "이 서비스의 디자인이 차별점인가?" 예 → `tailwind-shadcn`. "밀도·속도가 차별점인가?" 예 → `mui`.
+- **대안 (어드민/대시보드):** `Ant Design` — 테이블·폼·레이아웃 풍부하나 번들 크고 레인 계약 밖.
+- **피할 것:** `Bootstrap` + `React` 조합 — className 방식과 React 상태 관리 충돌 자주 발생.
+- **브라운필드:** 기존 앱의 레인을 따른다(integration-overlay `uiLane`) — 한 앱에 두 레인을 도입하지 않는다.
+- **⚠ tier (a) 한계 공시:** 방출 라이브러리와 `UI_LANE`의 일치를 보는 기계 검사는 아직 없고,
+  `project-init` 스캐폴드 템플릿은 레인 무관하게 MUI를 심는다 — `tailwind-shadcn` 그린필드는
+  스캐폴드 직후 MUI 의존(`@mui/material`·`ThemeProvider`·`CssBaseline`) 제거가 수동으로
+  필요하다(protected-core §4 등록, tier (b)에서 해소 예정).
+
+### 헤드리스 컴포넌트 (레인 밖 개별 조합 시)
 - **추천:** `@radix-ui/react-*`
 - **이유:** 접근성(WAI-ARIA) 내장, 비스타일 컴포넌트로 커스터마이징 완전 자유.
-- **함께 사용:** `tailwindcss` + `class-variance-authority(cva)` + `clsx`
+- **함께 사용:** `tailwindcss` + `class-variance-authority(cva)` + `clsx` + `tailwind-merge`
 
 ---
 
@@ -278,4 +287,5 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 | 소규모 앱 | `redux-toolkit` | Zustand + React Query로 충분 |
 | 국내 서비스 | `moment.js` | 번들 크기, 유지보수 종료 |
 | MUI 프로젝트 | `styled-components` 혼용 | Emotion과 CSS 충돌 가능 |
+| MUI 프로젝트 | Tailwind preflight 도입 | preflight 리셋이 MUI `CssBaseline`과 충돌 — 한 앱에 두 레인 금지(브라운필드는 기존 레인 유지) |
 | 간단한 목록 | `react-window` | 1000개 미만이면 그냥 map으로 충분 |

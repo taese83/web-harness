@@ -170,7 +170,7 @@ VITE_APP_TITLE={appTitle}
 |---|---|
 | `/fsd-scaffold` | FSD 레이어 결정 + 슬라이스 보일러플레이트 |
 | `/pr-drafter` | git diff → 한국어 PR 초안 자동 작성 |
-| `/component-gen` | MUI 컴포넌트 컨벤션 맞게 생성 |
+| `/component-gen` | 선택된 UI 레인(UI_LANE) 컨벤션에 맞게 생성 |
 | `/timeseries-dashboard` | 시계열·실시간 dashboard 설계/구현/검증 |
 | `/ai-app-orchestrator` | AI runtime·tool·보안·평가 통합 |
 | `/ai-eval` | AI 정적 gate와 runtime scenario 검증 |

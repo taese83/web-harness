@@ -1,21 +1,22 @@
 ---
 name: component-gen
-description: Project-scoped component generator for web-harness. Use this skill when the user asks to create a new React component, MUI-based UI, or needs a boilerplate that follows the project's TypeScript/MUI/Emotion conventions. Generates code that respects Prettier config, MUI sx selector rules, and the FSD layer the component belongs to.
+description: Project-scoped component generator for web-harness. Use this skill when the user asks to create a new React component or UI boilerplate that follows the project's TypeScript conventions and its selected UI lane (MUI, or Tailwind + shadcn/ui vendored primitives). Generates code that respects Prettier config, the lane's public styling API rules, and the FSD layer the component belongs to.
 argument-hint: "[component name and responsibility]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   maturity: contract-only
   updated: 2026-07-27
-  changelog: 최초 버저닝 — adapter 재생성·검증 체계 도입과 함께 일괄 부여.
+  changelog: UI 레인 이원화(M4) — UI_LANE(mui|tailwind-shadcn) 분기, tailwind-shadcn-styling 계약 신설, 인덱스·설명 레인 중립화.
 ---
 
 # Component Gen
 
-web-harness 컨벤션에 맞는 React + MUI 컴포넌트 보일러플레이트를 생성한다.
+web-harness 컨벤션에 맞는 React 컴포넌트 보일러플레이트를 생성한다. UI 레인은
+`tech-stack.md`의 `UI_LANE`(mui | tailwind-shadcn)을 따른다.
 
-Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` before changing an existing component. Read `references/mui-patterns.md` as the navigation index and `references/ts-conventions.md` for TypeScript rules. Then read only the focused reference needed by the component: `references/mui-styling.md` for MUI styling/forms/theme, `references/input-focus-ime.md` for text input/menu focus, `references/responsive-layout.md` for responsive structure/grid/transform, and `references/accessibility.md` for interactive UI.
+Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` before changing an existing component. Read `references/mui-patterns.md` as the navigation index and `references/ts-conventions.md` for TypeScript rules. Then read only the focused reference needed by the component: the lane's styling doc (`references/mui-styling.md` for the mui lane; `references/tailwind-shadcn-styling.md` for the tailwind-shadcn lane — vendoring, cva, a11y preservation), `references/input-focus-ime.md` for text input/menu focus, `references/responsive-layout.md` for responsive structure/grid/transform, and `references/accessibility.md` for interactive UI.
 
 ## Start
 
@@ -25,7 +26,7 @@ When the user invokes `/component-gen` alone, start with:
 
 그리고 두 가지만 물어본다:
 - 컴포넌트 이름과 어느 레이어/슬라이스에 속하는지 (모르면 역할을 설명하면 결정해준다)
-- MUI 컴포넌트를 직접 감싸는 래퍼인지, 새로운 UI를 만드는 것인지
+- 레인 라이브러리 컴포넌트를 직접 감싸는 래퍼인지, 새로운 UI를 만드는 것인지
 
 인자(`/component-gen ButtonGroup features/cart`)처럼 명확하면 별도 질문 없이 바로 생성한다.
 
@@ -68,7 +69,7 @@ When the user invokes `/component-gen` alone, start with:
 
 ## Gotchas
 
-- MUI 내부 구현 selector 대신 `slotProps`, `classes`, theme `styleOverrides`, exported utility class를 우선한다. substring selector와 생성된 Emotion/hash class는 금지한다. (`references/mui-styling.md` 참조)
+- 레인의 공개 스타일 API를 우선한다 — mui: `slotProps`/`classes`/theme `styleOverrides`(`references/mui-styling.md`), tailwind-shadcn: cva variant + `cn()` 병합(`references/tailwind-shadcn-styling.md`). 어떤 레인이든 substring selector와 생성된 hash class는 금지한다.
 - SVG는 `import {ReactComponent as IconName} from './icon.svg'` 대신 vite-plugin-svgr 방식인 `import IconName from './icon.svg?react'`를 사용한다.
 - strict TypeScript, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`를 전제로 타입을 작성한다.
 - `noUnusedParameters: true` — 미사용 파라미터는 `_` 접두사를 붙인다.

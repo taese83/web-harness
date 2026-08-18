@@ -27,7 +27,7 @@ entity model, shared domain helper, parser/normalizer, query, mutation, persiste
 4. semantic HTML, accessible name, keyboard/focus, reduced motion과 WCAG 2.2 AA 계약을 구현하며 native element를 우선한다.
    - component-spec이 침묵하는 상태 스타일·모션 기본값(5개 상태, `:focus-visible` 링, duration/easing, `prefers-reduced-motion`)은 `.claude/skills/web-orchestrator/references/design-principles-interaction-controls.md`를 따른다.
 5. Enter 동작은 CJK IME composition을 구분한다. 복잡한 focus 상호작용은 `.claude/skills/component-gen/references/input-focus-ime.md`를 읽는다.
-6. UI 라이브러리는 `tech-stack.md`의 선택을 따른다. MUI면 slotProps, classes, theme override, exported utility class 같은 public styling API를 사용한다. 어떤 라이브러리든 generated class와 substring selector에 의존하지 않는다.
+6. UI 라이브러리는 `tech-stack.md`의 `UI_LANE`을 따른다. mui면 slotProps, classes, theme override, exported utility class 같은 public styling API를 사용한다. tailwind-shadcn이면 프리미티브를 **`src/shared/ui/`에 vendoring**하고(`src/components/ui/`·`components.json` 금지 — 소유권·FSD 위반), cva variants + `cn()` 병합을 쓰며, vendored 파일의 **Radix a11y props·Portal·focus 구조는 보존**한다(스타일·구성만 변경, 이탈 시 한 줄 사유 — `.claude/skills/component-gen/references/tailwind-shadcn-styling.md`). 어떤 레인이든 generated class와 substring selector에 의존하지 않는다.
 7. responsive 구조가 실제로 다를 때만 viewport별 subcomponent로 분리한다. 정보나 기능을 색상·viewport만으로 숨기지 않는다.
 8. 측정된 bundle/interaction 근거가 있을 때만 memoization, virtualization, lazy loading을 적용한다. `.claude/skills/web-orchestrator/references/performance-patterns.md`와 mode별 성능 계약을 따른다.
 9. render 중 side effect를 만들지 않고 timer, observer, listener, chart instance를 cleanup한다.

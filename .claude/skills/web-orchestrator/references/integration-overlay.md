@@ -10,7 +10,7 @@
     "aliases": {"@shared/*": "src/shared/*"},
     "router": "react-router"
   },
-  "uiLibrary": {"package": "@mui/material", "themePath": "src/app/theme.ts"},
+  "uiLibrary": {"package": "@mui/material", "themePath": "src/app/theme.ts", "uiLane": "mui", "vendoredUiPath": null},
   "api": {
     "clientImport": "@shared/api",
     "responseWrapper": null,

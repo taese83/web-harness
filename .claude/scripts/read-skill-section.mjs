@@ -11,6 +11,7 @@ const librarySetupKeys = new Map([
   ['Zustand v5', 'zustand'],
   ['React Hook Form + Zod', 'react-hook-form-zod'],
   ['MUI (Material UI)', 'mui'],
+  ['Tailwind CSS + shadcn/ui', 'tailwind-shadcn'],
   ['Recharts', 'recharts'],
   ['TanStack Table v8', 'tanstack-table'],
   ['Framer Motion', 'framer-motion'],

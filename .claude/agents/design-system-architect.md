@@ -49,9 +49,9 @@ maxTurns: 20
 - Primary: #1976D2 (blue family)
 - ...
 
-## Theme setup (based on the library tech-stack selected — MUI example below)
+## Theme setup (based on the library tech-stack selected — one block per UI_LANE)
 ```ts
-// src/app/theme.ts
+// UI_LANE: mui → src/app/theme.ts
 import {createTheme} from '@mui/material'
 
 export const theme = createTheme({
@@ -62,6 +62,17 @@ export const theme = createTheme({
   typography: {...},
   spacing: 8,
 })
+```
+```css
+/* UI_LANE: tailwind-shadcn → src/app/style.css — 토큰이 곧 CSS 변수(@theme) */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1976D2;
+  --font-sans: "Pretendard", "Noto Sans KR", sans-serif;
+  --radius-md: 0.5rem;
+  --spacing: 0.5rem;
+}
 ```
 
 ## Component inventory
@@ -74,7 +85,7 @@ export const theme = createTheme({
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘으면 `_workspace/02_design/design-system/`으로 분할하고 토큰 / 컴포넌트 인벤토리 / 접근성 절과 `INDEX.md`를 만든다.
 
-`src/app/theme.ts`는 직접 생성하지 않는다. 테마 코드가 80줄을 넘으면 문서 본문이 아니라 `theme.code.ts`(분할 시 `design-system/theme.code.ts`)로 분리하고 본문에는 경로와 용도 한 줄만 남긴다. `app-shell-builder`가 Phase 3에서 이 파일을 `src/app/theme.ts`로 생성한다.
+`src/app/theme.ts`는 직접 생성하지 않는다. 테마 코드가 80줄을 넘으면 문서 본문이 아니라 `theme.code.ts`(tailwind-shadcn 레인은 `theme.code.css`; 분할 시 `design-system/` 하위)로 분리하고 본문에는 경로와 용도 한 줄만 남긴다. `app-shell-builder`가 Phase 3에서 이 파일을 `src/app/theme.ts`(mui) 또는 `src/app/style.css`(tailwind-shadcn)로 생성한다.
 
 ## 입력 읽기
 

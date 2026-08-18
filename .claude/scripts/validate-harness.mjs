@@ -17,6 +17,7 @@ import {validateWebCoreIntegration} from './validators/validate-web-core-integra
 import {validateVisualDesign} from './validators/validate-visual-design.mjs'
 import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-evals.mjs'; import {validateContractHygiene} from './validators/validate-contract-hygiene.mjs'
 import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mjs'; import {validateCertifiedEvidence} from './validators/validate-certified-evidence.mjs'
+import {validateSectionReaders} from './validators/validate-section-readers.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')
@@ -218,29 +219,9 @@ if (!projectInit.includes('test-ai-harness.mjs --through eval-contracts')) {
 pass('project-init dependency closure checked')
 
 const templateSource = read('.claude/skills/project-init/assets/templates.md')
-const sectionReaderPath = join(claudeDirectory, 'scripts', 'read-skill-section.mjs')
-if (!projectInitSkill.includes('read-skill-section.mjs --catalog project-templates --section')) {
-  fail('project-init does not use progressive template section loading')
-}
-const templateSectionRun = spawnSync(
-  process.execPath,
-  [sectionReaderPath, '--catalog', 'project-templates', '--section', 'PR_TEMPLATE'],
-  {cwd: repositoryRoot, encoding: 'utf8'},
-)
-if (templateSectionRun.status !== 0 || !templateSectionRun.stdout.includes('## 작업 내용')) {
-  fail('template section reader does not preserve fenced nested headings')
-}
-if (templateSectionRun.stdout.includes('## CODEOWNERS')) fail('template section reader leaks the next section')
-const librarySectionRun = spawnSync(
-  process.execPath,
-  [sectionReaderPath, '--catalog', 'library-setup', '--section', 'mui'],
-  {cwd: repositoryRoot, encoding: 'utf8'},
-)
-if (librarySectionRun.status !== 0 || !librarySectionRun.stdout.includes('MUI (Material UI)')) {
-  fail('library setup section reader cannot resolve the MUI snippet')
-}
-if (librarySectionRun.stdout.includes('## Recharts')) fail('library setup section reader leaks the next section')
-pass('progressive template and setup snippet loading checked')
+// 섹션-리더 실행 검사는 validators/validate-section-readers.mjs로 추출(400줄 한도의 §4 지시
+// "실질 해소는 validator 모듈 추출"에 따름 — UI 레인 2종 대칭 검사 포함).
+validateSectionReaders({claudeDirectory, repositoryRoot, read, pass, fail})
 
 const requiredPackages = [
   '@axe-core/playwright',

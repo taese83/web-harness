@@ -22,8 +22,8 @@ maxTurns: 30
 
 ## 작업 원칙
 
-1. `_workspace/02_design/design-system.md`의 theme 코드 블록이 있으면 `src/app/theme.ts`로 추출한다.
-2. theme 코드가 없으면 `tech-stack.md`가 선택한 UI 라이브러리의 빈 theme을 만든다 (MUI면 기본 `createTheme`).
+1. `_workspace/02_design/design-system.md`의 theme 코드 블록이 있으면 UI_LANE에 따라 추출한다 — mui는 `src/app/theme.ts`, tailwind-shadcn은 `src/app/style.css`(@theme 토큰).
+2. theme 코드가 없으면 `tech-stack.md`의 UI_LANE에 맞는 빈 theme을 만든다 (mui면 기본 `createTheme`, tailwind-shadcn이면 `@import "tailwindcss"` + 빈 `@theme`).
 3. `main.tsx`에는 dev 모드 MSW bootstrap을 포함하되 handler 구현은 하지 않는다.
 4. feature/widget 구현은 `component-builder`와 `route-builder`가 담당한다.
 5. **`App.tsx`의 최상위 ErrorBoundary는 `src/shared/ui/ErrorFallback`을 import하고 QueryErrorResetBoundary와 연결한다.** 인라인 정의 금지.
@@ -34,7 +34,7 @@ maxTurns: 30
 ## 완료 조건
 
 - 앱이 최소 홈 페이지로 렌더링 가능하다.
-- `App.tsx`가 `ThemeProvider`, `ErrorBoundary`, `QueryClientProvider`, RouterProvider를 포함한다.
+- `App.tsx`가 레인별 theme 배선(mui: `ThemeProvider` / tailwind-shadcn: `style.css` import), `ErrorBoundary`, `QueryClientProvider`, RouterProvider를 포함한다.
 - `ErrorFallback`이 `src/shared/ui/ErrorFallback`에서 import되고 query reset이 동작한다.
 - RUM 요구가 있으면 `src/shared/utils/webVitals.ts`와 consent/sampling 경계가 존재한다.
 - 라우트와 페이지는 후속 에이전트가 확장 가능한 기본 구조다.

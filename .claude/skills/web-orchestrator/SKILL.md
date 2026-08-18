@@ -5,10 +5,10 @@ argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.6.3
+  version: 1.6.4
   maturity: eval-covered
   updated: 2026-08-06
-  changelog: Design Preview의 모든 interactive surface를 기존 FEAT anchor·동적 entity instance·명시적 비매핑으로 분류하고, 기획에 없는 사용자 행동은 feature-planner write-back 없이는 승인하지 않는 coverage gate를 추가.
+  changelog: UI 레인 이원화(M4) — integration-overlay uiLibrary에 uiLane·vendoredUiPath 필드 추가(브라운필드 레인 실측 기록).
 ---
 
 # Web Orchestrator

@@ -31,6 +31,7 @@ export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, acti
   const muiIndex = read(muiIndexPath)
   const focusedMuiReferences = [
     '.claude/skills/component-gen/references/mui-styling.md',
+    '.claude/skills/component-gen/references/tailwind-shadcn-styling.md',
     '.claude/skills/component-gen/references/input-focus-ime.md',
     '.claude/skills/component-gen/references/responsive-layout.md',
     '.claude/skills/component-gen/references/accessibility.md',

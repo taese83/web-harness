@@ -37,7 +37,7 @@ Pixel-perfect Figma 일치를 범용 hard gate로 사용하지 않는다. text r
 design token source가 있으면 DTCG 2025.10 compatible JSON path와 다음 mapping을 기록한다.
 
 ```text
-Figma variable → design token → CSS variable → MUI/theme consumer
+Figma variable → design token → CSS variable → UI-lane theme consumer (mui: theme.ts / tailwind-shadcn: @theme)
 ```
 
 DTCG type/value field, alias resolution, cycle, missing theme variant, hard-coded bypass를 검증한다. DTCG report를 W3C Recommendation으로 표현하지 않는다.

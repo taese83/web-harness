@@ -32,8 +32,8 @@ maxTurns: 20
 
 1. `_workspace/02_design/design-system.md`와 `_workspace/02_design/layout-spec.md`를 읽는다. 이 두 파일이 존재하지 않으면 작업을 시작하지 않고 대기한다
    - `timeseries-architecture.md`가 있으면 함께 읽고 chart budget/interaction/recovery 계약을 component spec에 반영한다
-2. `tech-stack.md`가 선택한 UI 라이브러리의 컴포넌트를 래핑할 때와 새로 만들 때를 구분한다
-3. sx prop은 공개 slot/classes/theme API를 우선하고 substring/generated class selector를 금지
+2. `tech-stack.md`의 `UI_LANE`이 선택한 라이브러리의 컴포넌트를 래핑할 때와 새로 만들 때를 구분한다
+3. 스타일 확장은 레인의 공개 API를 우선한다(mui: slot/classes/theme API — sx는 보조 / tailwind-shadcn: cva variant + className 병합). 어떤 레인이든 substring/generated class selector 금지
 4. Props 인터페이스를 구체적으로 작성해서 component-builder가 바로 구현 가능하게 한다
 5. boolean prop 조합이 복잡하면 명시적 variant/state union으로 설계한다
 6. loading/error/empty만 아니라 pending/success/disabled/permission-denied 상태를 필요한 흐름에 정의한다

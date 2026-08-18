@@ -2,8 +2,9 @@
 
 ## Semantic interaction
 
-- action은 `button`, navigation은 `a`, 입력은 native form control 또는 대응 MUI component를 우선한다.
+- action은 `button`, navigation은 `a`, 입력은 native form control 또는 레인 라이브러리의 대응 component를 우선한다.
 - custom widget은 해당 WAI-ARIA keyboard pattern, role, state를 모두 구현할 때만 사용한다.
+- **vendored 프리미티브(tailwind-shadcn 레인)**: Radix가 공급하는 a11y 구조(`aria-*`·`role`·Portal·focus trap)는 upstream-파생 계약이다 — 스타일·구성만 바꾸고 a11y 배선을 제거하지 않는다. 이탈 시 해당 줄에 한 줄 사유를 남긴다.
 - icon-only button은 목적을 설명하는 `aria-label`이 필요하다.
 - 장식 이미지는 `alt=""`, 정보 이미지는 문맥에 맞는 대체 텍스트를 제공한다.
 

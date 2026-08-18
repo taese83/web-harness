@@ -65,7 +65,7 @@ React Router 8
 zustand v5 — 복잡한 공유 클라이언트 상태가 있을 때만
 axios — HTTP
 react-hook-form + zod — 폼
-@mui/material v7 + Emotion — 제품 요구에 맞을 때
+UI 레인 — `mui`(@mui/material v7 + Emotion) 또는 `tailwind-shadcn`(tailwindcss v4 + vendored Radix). lib-catalog §UI의 판단 축("디자인이 차별점인가?")으로 결정하고 UI_LANE으로 기록
 date-fns v4 — 날짜
 Vitest 4 + Testing Library + MSW 2 + Playwright 1.61 + axe
 ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공식 지원하기 전까지의 호환 기준
@@ -83,6 +83,7 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 
 ## Harness Profile
 - WEB_PROFILE: react-vite-spa | next-app-fullstack
+- UI_LANE: mui | tailwind-shadcn — 선택 근거 1줄 필수(lib-catalog §UI 판단 축). 하류 빌더는 이 값을 따르며, 브라운필드는 integration-overlay `uiLane`(기존 앱 실측)이 우선한다
 - deployment provider: generic | vercel
 - deployment target:
 - selected capabilities:

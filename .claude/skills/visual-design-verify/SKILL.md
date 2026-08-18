@@ -5,10 +5,10 @@ argument-hint: "[project path or visual QA request]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion, Agent
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   maturity: eval-covered
   updated: 2026-07-27
-  changelog: 최초 버저닝 — adapter 재생성·검증 체계 도입과 함께 일괄 부여.
+  changelog: UI 레인 이원화(M4) — 토큰 체인 서술을 레인 중립으로(mui theme.ts / tailwind-shadcn @theme).
 ---
 
 # Visual Design Verify

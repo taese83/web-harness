@@ -5,10 +5,10 @@ argument-hint: "[service type or required capability]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, WebSearch, WebFetch, AskUserQuestion
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   maturity: contract-only
   updated: 2026-07-27
-  changelog: 최초 버저닝 — adapter 재생성·검증 체계 도입과 함께 일괄 부여.
+  changelog: UI 레인 이원화(M4) — §UI 2레인 결정표(판단 축·트레이드오프), Tailwind CSS + shadcn/ui 설정 스니펫 신설, preflight×CssBaseline 안티패턴.
 ---
 
 # Lib Advisor
