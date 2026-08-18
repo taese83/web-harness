@@ -70,6 +70,10 @@ const PLUGIN_HOOKS = [
   ['Write|Edit', 'enforce-release-gate.mjs'],
 ]
 
+// SessionStart 안내 층 — `_workspace/`가 있는 프로젝트에서만 재진입 안내를 주입하고
+// 아니면 침묵한다. matcher 없음 = startup/resume/clear/compact 전부(압축 후 재진입 포함).
+const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
+
 const SCRIPT_INVOCATION = /node (?:"\$CLAUDE_PROJECT_DIR"\/|\{[a-zA-Z]+\}\/)?\.claude\/scripts\/([a-z0-9/-]+\.mjs)/g
 const DOCUMENT_REFERENCE = /\.claude\/((?:skills|agents|adapters|schemas)\/[A-Za-z0-9._/-]*[A-Za-z0-9])/g
 const RESIDUAL_REFERENCE = /\.claude\/(?:scripts|skills|agents|adapters|schemas|evals)\//g
@@ -233,6 +237,9 @@ writeFileSync(join(outputRoot, '.claude-plugin', 'plugin.json'), `${JSON.stringi
 mkdirSync(join(outputRoot, 'hooks'), {recursive: true})
 writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
   hooks: {
+    SessionStart: PLUGIN_SESSION_START_HOOKS.map(script => ({
+      hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
+    })),
     PreToolUse: PLUGIN_HOOKS.map(([matcher, script]) => ({
       matcher,
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
