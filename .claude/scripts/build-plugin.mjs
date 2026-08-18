@@ -247,6 +247,12 @@ writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
   },
 }, null, 2)}\n`)
 
+// 5a-1. LICENSE — 공개 배포 산출물에 라이선스 원문을 동봉한다(마켓플레이스 root + 플러그인 root).
+if (existsSync(join(repositoryRoot, 'LICENSE'))) {
+  cpSync(join(repositoryRoot, 'LICENSE'), join(outputRoot, 'LICENSE'))
+  cpSync(join(repositoryRoot, 'LICENSE'), join(dirname(outputRoot), 'LICENSE'))
+}
+
 // 5b. 마켓플레이스 매니페스트와 배포 repo README — dist/를 marketplace root로 쓸 수 있게 한다.
 // 이 랜딩 페이지는 플러그인 채택자의 첫인상 표면이므로 영어가 정본이다(M4).
 writeFileSync(join(dirname(outputRoot), 'README.md'), `# web-harness plugin marketplace
