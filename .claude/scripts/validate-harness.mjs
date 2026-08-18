@@ -16,6 +16,7 @@ import {validateSettings} from './validators/validate-settings.mjs'
 import {validateWebCoreIntegration} from './validators/validate-web-core-integration.mjs'
 import {validateVisualDesign} from './validators/validate-visual-design.mjs'
 import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-evals.mjs'; import {validateContractHygiene} from './validators/validate-contract-hygiene.mjs'
+import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')
@@ -382,7 +383,7 @@ validateSettings({claudeDirectory, repositoryRoot, read, pass, fail})
 validateWebCoreIntegration({repositoryRoot, pass, fail})
 validateReleaseFixtures({claudeDirectory, repositoryRoot, pass, fail})
 
-validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateAnalyticsBuilder({repositoryRoot, read, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail}); validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail})
+validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateAnalyticsBuilder({repositoryRoot, read, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail}); validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail}); validateMarkerIntegrity({repositoryRoot, pass, fail})
 
 if (errors.length) {
   console.error(`Harness validation failed with ${errors.length} error(s):`)
