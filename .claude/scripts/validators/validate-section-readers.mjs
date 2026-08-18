@@ -32,6 +32,13 @@ export function validateSectionReaders({claudeDirectory, repositoryRoot, read, p
   }
   if (templateSectionRun.stdout.includes('## CODEOWNERS')) fail('template section reader leaks the next section')
 
+  // 레인별 템플릿 섹션 존속 — tailwind-shadcn 스캐폴드 섹션이 삭제·개명되면 project-init의
+  // 레인 분기가 조용히 mui 단독으로 퇴행하므로 대표 섹션을 상시 확인한다(tier b).
+  const tailwindTemplateRun = runSection('project-templates', 'APP_TSX_TAILWIND')
+  if (tailwindTemplateRun.status !== 0 || !tailwindTemplateRun.stdout.includes('APP_TSX_TAILWIND')) {
+    fail('template section reader cannot resolve the tailwind-shadcn app template (APP_TSX_TAILWIND)')
+  }
+
   // UI 레인 2종 대칭 검사(M4 UI 다양화) — 각 레인 스니펫이 동일 규약으로 해석돼야 한다.
   for (const [section, expected] of [
     ['mui', 'MUI (Material UI)'],

@@ -18,6 +18,7 @@
 			"Bash(node .claude/scripts/run-git-inspection.mjs*)",
 			"Bash(node .claude/scripts/read-skill-section.mjs*)",
 			"Bash(node .claude/scripts/validate-artifact-sharding.mjs*)",
+			"Bash(node .claude/scripts/validate-ui-lane.mjs*)",
 			"Bash(node .claude/scripts/web-core/validate-adapters.mjs*)",
 			"Bash(node .claude/scripts/web-core/validate-next-contracts.mjs*)",
 			"Bash(node .claude/scripts/web-core/resolve-profile.mjs*)",

@@ -7,7 +7,7 @@ allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion
 metadata:
   version: 1.1.0
   maturity: eval-covered
-  updated: 2026-08-03
+  updated: 2026-08-18
   changelog: scaffold vs 서비스 구축 범위 기준선 신설 — 서비스 요청을 골격 생성으로 흡수해 기획·설계·QA 게이트를 우회하지 못하게 하고, scaffold 완결 시 게이트 미실행 고지를 의무화.
 ---
 
@@ -52,6 +52,7 @@ When the user invokes `/project-init` alone, start with:
 6. **GitHub Actions preview** — WIP preview CI가 필요한가요? (self-hosted runner를 쓸 경우 필요)
 7. **내부(사설) 패키지** — 조직 사설 레지스트리의 내부 패키지가 필요한가요? (필요하면 스코프·패키지명을 알려주세요)
 8. **외부 데이터 수집** — 크롤링·파일 import·scheduled sync·build-generated JSON이 있나요? 있으면 source와 실행 주기도 알려주세요.
+9. **UI 레인** — 어드민·대시보드처럼 밀도·속도가 우선이면 `mui`, 브랜드·디자인 자유도가 우선이면 `tailwind-shadcn`을 권합니다. 어느 쪽으로 할까요? (미정이면 서비스 성격을 알려주시면 제안합니다)
 ```
 
 답변을 받으면 외부 데이터 수집 여부를 먼저 판별한다. 해당하면 `/web-orchestrator`로 위임하고, 아니면 Phase 1부터 순서대로 실행한다.
@@ -85,7 +86,7 @@ When the user invokes `/project-init` alone, start with:
 - 모노레포 여부에 따라 경로가 달라진다:
   - **모노레포**: `{root}/apps/{appName}/src/...`
   - **단일 앱**: `{root}/src/...`
-- 사설 내부 패키지가 필요 없으면 해당 패키지와 설정을 제거하고 표준 MUI로 대체한다.
+- 사설 내부 패키지가 필요 없으면 해당 패키지와 설정을 제거하고 선택된 UI 레인의 표준 구성으로 대체한다.
 - Mock API를 생성하면 `msw` 의존성과 `src/mocks/` 설정을 함께 생성한다.
 - browser Mock을 생성하면 package.json에 `msw.workerDirectory`를 설정하고 install 후 실제 외부 격리 setup job에서만 broker의 `msw-init` operation으로 worker script를 생성한다. package 내부 worker를 수동 복사하거나 임의 구현하지 않는다.
 

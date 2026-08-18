@@ -19,7 +19,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 - profile-bound `lint.json` receipt의 실제 command/exit와 위반 목록을 확인
 - FSD import 방향 위반 확인 (상위 레이어 import 금지)
 - `export *` 사용 여부 확인
-- MUI substring/generated class selector와 public styling API 우회 확인
+- UI 레인의 public styling API 우회 확인 — substring/generated class selector(레인 무관), mui: 내부 selector, tailwind-shadcn: vendored 프리미티브의 a11y 배선 삭제
 - 접근성(a11y) 기본 항목 검사
 - 테스트 파일 존재 여부 확인
 - change brief와 실제 diff의 경로·public contract·non-goal 일치 여부 확인
@@ -84,6 +84,10 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - Grep 도구로 `autoFocus` 사용처를 `src/`에서 목록화
    - Menu/Popover 항목 클릭으로 트리거되는 인풋에 `autoFocus`만 있고 `useRef` + `requestAnimationFrame` 패턴이 없으면 WARN (포커스 충돌 위험)
 10. **a11y 정적 검사**: jsx-a11y lint 결과를 사용하고, 실제 keyboard/axe/viewport 판정은 `browser-verifier`에 위임
+10-1. **vendored 프리미티브 a11y 보존 검사** (`UI_LANE: tailwind-shadcn`일 때):
+   - Grep으로 `src/shared/ui/` 내 `@radix-ui/` import 파일을 목록화
+   - 해당 파일에서 Radix 구조 요소(`Portal`, `aria-*`/`role` props, focus 관련 배선)가 upstream 형상 대비 제거됐는데 한 줄 사유 주석이 없으면 **FAIL** — a11y가 수정 가능한 repo 소스로 이동한 레인의 안전 하한(I6, `component-gen/references/tailwind-shadcn-styling.md`의 보존 규칙)
+   - `cn()` 병합 순서 역전(`cn(className, variants(...))` — 호출부 override가 무시됨)은 WARN
 11. **로컬 도메인 상태 정적 검사** (`state-contract.md`가 있을 때):
    - entity mutation에 `Partial<Entity>`가 사용되며 ID/reference/order/version/createdAt을 제외하지 않으면 FAIL
    - store lookup의 non-null assertion, 없는 ID를 펼치는 bulk mutation, UI-only destructive guard를 검사

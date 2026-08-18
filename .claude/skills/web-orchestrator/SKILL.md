@@ -5,10 +5,10 @@ argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.6.4
+  version: 1.6.5
   maturity: eval-covered
-  updated: 2026-08-06
-  changelog: UI 레인 이원화(M4) — integration-overlay uiLibrary에 uiLane·vendoredUiPath 필드 추가(브라운필드 레인 실측 기록).
+  updated: 2026-08-18
+  changelog: UI 레인 tier b — UI_LANE을 결정 flag로 배너 명시, Phase 3 완료 시 validate-ui-lane 검사 배선.
 ---
 
 # Web Orchestrator
@@ -39,7 +39,7 @@ Read `references/execution-contract.md` and `references/web-profile-contract.md`
 `.claude/skills/web-orchestrator/references/external-data-ingestion.md`를 외부 데이터 수집의 단일 판별 기준으로 사용한다. 크롤링·스크래핑·RSS/CSV/import·scheduled third-party sync·build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`로 기록한다. 별도 수집·정규화·승격 단계 없이 일반 내부 API를 조회만 하면 제외한다.
 시각 QA, Figma/reference image, `DESIGN_PROTOTYPE_MODE`, 브랜드 핵심 화면, theme/locale matrix가 있으면 `.claude/skills/visual-design-verify/SKILL.md`를 읽고 `VISUAL_QA_MODE: true`로 기록한다. 기존 `visual-qa-contract.json`도 활성 조건이다.
 
-`.claude/skills/web-orchestrator/references/companion-skill-detection.md`를 보조 skill 감지의 단일 기준으로 사용한다. 감지 시점의 project state와 intake 결과를 종합해 다음 flag를 기록한다: `HYBRID_SERVERLESS_MODE`(Vite SPA + serverless functions), `SERVER_DB_MODE`(Postgres/SQLite/MySQL 사용), `API_CONTRACT_MODE`(client/server 분리 개발 또는 계약 강제 요구), `MOCK_SERVICE_MODE`(MSW handler 필요), `OAUTH_SERVER_MODE`(서버 OAuth code exchange 흐름), `I18N_MODE`(다국어 catalog·locale routing — `/i18n-setup` + `i18n-builder`), `OBSERVABILITY_MODE`(에러 추적·RUM — `web-observability-builder`). 각 flag는 해당 companion skill/agent의 execution을 Phase 3에 삽입한다.
+`.claude/skills/web-orchestrator/references/companion-skill-detection.md`를 보조 skill 감지의 단일 기준으로 사용한다. 감지 시점의 project state와 intake 결과를 종합해 다음 flag를 기록한다: `HYBRID_SERVERLESS_MODE`(Vite SPA + serverless functions), `SERVER_DB_MODE`(Postgres/SQLite/MySQL 사용), `API_CONTRACT_MODE`(client/server 분리 개발 또는 계약 강제 요구), `MOCK_SERVICE_MODE`(MSW handler 필요), `OAUTH_SERVER_MODE`(서버 OAuth code exchange 흐름), `I18N_MODE`(다국어 catalog·locale routing — `/i18n-setup` + `i18n-builder`), `OBSERVABILITY_MODE`(에러 추적·RUM — `web-observability-builder`). 각 flag는 해당 companion skill/agent의 execution을 Phase 3에 삽입한다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
 
 ## Start
 

@@ -5,10 +5,10 @@ argument-hint: "[slice responsibility]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, AskUserQuestion
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   maturity: contract-only
-  updated: 2026-07-27
-  changelog: 최초 버저닝 — adapter 재생성·검증 체계 도입과 함께 일괄 부여.
+  updated: 2026-08-18
+  changelog: UI 레인 tier b — slice-template 보일러플레이트 레인 분기(mui/tailwind-shadcn 병기).
 ---
 
 # FSD Scaffold

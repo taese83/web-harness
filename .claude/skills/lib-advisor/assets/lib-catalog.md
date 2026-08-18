@@ -108,10 +108,9 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 - **대안 (어드민/대시보드):** `Ant Design` — 테이블·폼·레이아웃 풍부하나 번들 크고 레인 계약 밖.
 - **피할 것:** `Bootstrap` + `React` 조합 — className 방식과 React 상태 관리 충돌 자주 발생.
 - **브라운필드:** 기존 앱의 레인을 따른다(integration-overlay `uiLane`) — 한 앱에 두 레인을 도입하지 않는다.
-- **⚠ tier (a) 한계 공시:** 방출 라이브러리와 `UI_LANE`의 일치를 보는 기계 검사는 아직 없고,
-  `project-init` 스캐폴드 템플릿은 레인 무관하게 MUI를 심는다 — `tailwind-shadcn` 그린필드는
-  스캐폴드 직후 MUI 의존(`@mui/material`·`ThemeProvider`·`CssBaseline`) 제거가 수동으로
-  필요하다(protected-core §4 등록, tier (b)에서 해소 예정).
+- **기계 강제(tier b, 2026-08-18):** 방출-선택 일치는 `validate-ui-lane.mjs --project`가 검사한다
+  (선언 레인 vs `src/` import 대조, 브라운필드 overlay 우선, 선언 부재는 UNDECLARED 명시 보고).
+  스캐폴드는 `*_TAILWIND` 템플릿 섹션으로 레인 분기한다(project-init checklist).
 
 ### 헤드리스 컴포넌트 (레인 밖 개별 조합 시)
 - **추천:** `@radix-ui/react-*`

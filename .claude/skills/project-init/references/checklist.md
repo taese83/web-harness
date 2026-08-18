@@ -60,11 +60,18 @@
 - `{app}/public/`
 
 ### 앱 진입점
+
+**UI_LANE 분기**: 아래 목록은 `mui` 레인 기준이다. `tailwind-shadcn` 레인이면 표기된 섹션 대신
+`*_TAILWIND` 대응 섹션을 쓴다 — `APP_PACKAGE_JSON_TAILWIND`(의존성 교체분), `VITE_CONFIG_TAILWIND`,
+`APP_TSX_TAILWIND`, `APP_STYLE_CSS_TAILWIND`, `ERROR_FALLBACK_TAILWIND`, `HOME_PAGE_TAILWIND`,
+`NOT_FOUND_PAGE_TAILWIND`. 이 레인은 `theme.ts`를 만들지 않고(토큰=style.css `@theme`),
+`src/shared/lib/utils.ts`(`UTILS_CN_TAILWIND`)를 추가한다. 한 앱에 두 레인을 섞지 않는다.
+
 - `{app}/src/main.tsx` (template section: MAIN_TSX)
 - `{app}/src/vite-env.d.ts` (template section: VITE_ENV_D_TS)
 - `{app}/src/app/App.tsx` (template section: APP_TSX)
 - `{app}/src/app/style.css` (template section: APP_STYLE_CSS)
-- `{app}/src/app/theme.ts` (template section: APP_THEME)
+- `{app}/src/app/theme.ts` (template section: APP_THEME — mui 레인 전용)
 - `{app}/src/app/providers/RouterProvider.tsx` (template section: ROUTER_PROVIDER)
 - `{app}/src/app/routes/index.ts` (template section: ROUTES_INDEX)
 - `{app}/src/app/routes/Routes.tsx` (template section: ROUTES_TSX)

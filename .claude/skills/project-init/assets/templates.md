@@ -847,6 +847,216 @@ export default NotFoundPage
 
 ---
 
+<!-- ══ UI_LANE: tailwind-shadcn 병렬 섹션 (M4 tier b) ══
+     아래 *_TAILWIND 섹션은 같은 이름의 MUI 섹션을 레인별로 대체한다.
+     project-init은 tech-stack.md의 UI_LANE에 따라 한 레인의 섹션만 사용한다. -->
+
+## APP_PACKAGE_JSON_TAILWIND
+
+APP_PACKAGE_JSON에서 dependencies의 `@emotion/react`·`@emotion/styled`·`@mui/material` 세 줄을
+아래로 교체한 것 외에는 동일하다(scripts·devDependencies 전부 동일 — 중복 기재하지 않는다).
+
+```json
+{
+  "_comment": "⚠ 이 JSON을 package.json으로 그대로 복사하지 말 것 — APP_PACKAGE_JSON에 적용할 diff 지시다",
+  "dependencies-교체분": {
+    "@radix-ui/react-slot": "1.2.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.3.1",
+    "tailwindcss": "4.1.0"
+  },
+  "devDependencies-추가분": {
+    "@tailwindcss/vite": "4.1.0"
+  }
+}
+```
+
+> 레인 의존성의 exact version은 생성 시 tech-advisor의 registry 확인(validate-dependency-pins)으로
+> 갱신한다 — 위 값은 실재 확인된 출발점이다. Radix 프리미티브(`@radix-ui/react-*`)는 vendoring하는
+> 컴포넌트에 따라 개별 추가한다.
+
+---
+
+## VITE_CONFIG_TAILWIND
+
+```ts
+import {defineConfig} from 'vite';
+import react from '@vitejs/plugin-react';
+import svgr from 'vite-plugin-svgr';
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({
+  plugins: [react(), svgr(), tailwindcss()],
+  resolve: {tsconfigPaths: true},
+  server: {
+    port: 8080,
+    host: '127.0.0.1',
+  },
+  build: {assetsInlineLimit: 4096},
+});
+```
+
+Tailwind v4는 `@tailwindcss/vite` 플러그인만 쓴다 — `postcss.config.*`·`tailwind.config.*`를
+만들지 않는다(토큰·설정은 전부 `src/app/style.css`의 `@theme`).
+
+---
+
+## APP_TSX_TAILWIND
+
+```tsx
+import {QueryClientProvider, QueryErrorResetBoundary} from '@tanstack/react-query'
+import {ErrorBoundary} from 'react-error-boundary'
+import {queryClient} from '@shared/api'
+import {ErrorFallback} from '@shared/ui/ErrorFallback'
+import RouterProvider from './providers/RouterProvider'
+import './style.css'
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <QueryErrorResetBoundary>
+        {({reset}) => (
+          <ErrorBoundary FallbackComponent={ErrorFallback} onReset={reset}>
+            <RouterProvider />
+          </ErrorBoundary>
+        )}
+      </QueryErrorResetBoundary>
+    </QueryClientProvider>
+  )
+}
+
+export default App
+```
+
+> ThemeProvider가 없다 — 테마는 `style.css`의 `@theme`(CSS 변수)가 전담한다. 다크 모드가
+> 요구되면 `data-theme` 속성 토글 + `@theme`의 다크 변수 재정의로 구현한다(settings slice는
+> form-state-builder가 먼저 만든 뒤 연결 — MUI 레인과 동일 규칙).
+
+---
+
+## APP_STYLE_CSS_TAILWIND
+
+```css
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1976d2;
+  --color-secondary: #7c4dff;
+  --color-surface: #f7f8fa;
+  --font-sans: "Inter", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --radius-md: 0.5rem;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body > #root {
+  min-height: 100dvh;
+}
+```
+
+> `design-system.md`(또는 `theme.code.css`)에 토큰이 명시된 경우 `@theme` 값을 그 토큰으로
+> 교체한다. preflight가 리셋을 담당하므로 MUI 레인의 CssBaseline에 대응하는 별도 리셋은 없다.
+
+---
+
+## ERROR_FALLBACK_TAILWIND
+
+```tsx
+import type {FallbackProps} from 'react-error-boundary'
+
+export const ErrorFallback = ({resetErrorBoundary}: FallbackProps) => (
+  <div role="alert" className="flex flex-col gap-4 p-6">
+    <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+      일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.
+    </p>
+    <button
+      type="button"
+      onClick={resetErrorBoundary}
+      className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      다시 시도
+    </button>
+  </div>
+)
+```
+
+개발자용 오류 상세는 화면에 노출하지 않고 observability adapter로 전송한다(MUI 레인과 동일 규칙).
+
+---
+
+## HOME_PAGE_TAILWIND
+
+```tsx
+const HomePage = () => {
+  return (
+    <main className="min-h-dvh p-8">
+      <div className="mx-auto flex max-w-4xl flex-col gap-6">
+        <header>
+          <h1 className="text-4xl font-bold">{'{{APP_TITLE}}'}</h1>
+          <p className="mt-2 text-gray-600">생성된 React + TypeScript + Vite 웹앱입니다.</p>
+        </header>
+        <section className="rounded-md border border-gray-200 bg-white p-6">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold">시작 준비 완료</h2>
+            <p className="text-gray-600">이 화면을 기준으로 페이지, 위젯, 기능 슬라이스를 추가하세요.</p>
+            <button
+              type="button"
+              className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              첫 기능 만들기
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+export default HomePage
+```
+
+---
+
+## NOT_FOUND_PAGE_TAILWIND
+
+```tsx
+import {Link} from 'react-router'
+
+const NotFoundPage = () => (
+  <div className="flex flex-col items-start gap-4 p-8">
+    <h1 className="text-4xl font-bold">페이지를 찾을 수 없습니다</h1>
+    <Link
+      to="/home"
+      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      홈으로 이동
+    </Link>
+  </div>
+)
+
+export default NotFoundPage
+```
+
+---
+
+## UTILS_CN_TAILWIND
+
+```ts
+// src/shared/lib/utils.ts — vendored 프리미티브의 클래스 병합 유틸(cva variants와 함께 사용)
+import {clsx, type ClassValue} from 'clsx'
+import {twMerge} from 'tailwind-merge'
+
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs))
+```
+
+---
+
 ## MOCK_HANDLERS_INDEX
 
 ```ts

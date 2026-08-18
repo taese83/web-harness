@@ -26,7 +26,11 @@ export {useFeatureMutation} from './api/mutations'
 ```
 
 ### `ui/FeatureComponent.tsx`
+
+보일러플레이트는 `tech-stack.md`의 `UI_LANE`을 따른다:
+
 ```tsx
+// UI_LANE: mui
 import {FC} from 'react'
 import {Box, Typography} from '@mui/material'
 
@@ -39,6 +43,23 @@ export const FeatureComponent: FC<FeatureComponentProps> = ({}) => {
     <Box>
       <Typography variant="body1">FeatureName</Typography>
     </Box>
+  )
+}
+```
+
+```tsx
+// UI_LANE: tailwind-shadcn
+import {FC} from 'react'
+
+interface FeatureComponentProps {
+  className?: string
+}
+
+export const FeatureComponent: FC<FeatureComponentProps> = ({className}) => {
+  return (
+    <div className={className}>
+      <p className="text-sm">FeatureName</p>
+    </div>
   )
 }
 ```
@@ -162,13 +183,13 @@ pages/{pageName}/
 ### `ui/PageNamePage.tsx`
 ```tsx
 import type {FC} from 'react'
-import {Box} from '@mui/material'
+// UI_LANE: mui → <Box component="main"> / tailwind-shadcn → <main className="...">
 
 const PageNamePage: FC = () => {
   return (
-    <Box component="main">
+    <main>
       {/* 페이지 컨텐츠 */}
-    </Box>
+    </main>
   )
 }
 

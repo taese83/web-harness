@@ -281,7 +281,7 @@
     "assertions": [
       "Figma MCP or export access is treated as an explicit capability with a local export and hash fallback",
       "Code Connect or an equivalent mapping links the design component to the actual code component when available",
-      "DTCG token type, value, alias resolution, theme variants, and Figma to token to CSS to MUI mapping are checked",
+      "DTCG token type, value, alias resolution, theme variants, and the Figma to token to CSS to UI-lane theme consumer mapping are checked",
       "AI vision findings remain advisory while deterministic token, structural, and screenshot evidence controls the release gate"
     ]
   },
@@ -436,6 +436,29 @@
       "prompt bodies and model response text are excluded from logs; only structured scalars are logged",
       "the endpoint guard matrix (§7) is reported with no gaps; a checked-in or host-run golden remains T0, and even a checked-in T1 workflow proposal remains preparation until its protected environment and isolated runner produce a passing single-cohort summary",
       "the compatible profile does not claim certified production evidence without actual provider evidence and external attestation"
+    ]
+  },
+  {
+    "id": "ui-lane-brand-forward-greenfield",
+    "entrySkill": "/web-orchestrator",
+    "prompt": "브랜드 아이덴티티가 차별점인 소비자 대상 포트폴리오·쇼케이스 웹서비스를 만들어줘. 디자인 자유도가 최우선이야.",
+    "assertions": [
+      "tech-stack.md records UI_LANE: tailwind-shadcn with a one-line rationale tied to the lib-catalog decision axis (design as differentiator)",
+      "vendored primitives land under src/shared/ui with explicit named exports, and no src/components/ui or components.json appears",
+      "vendored Radix-based files preserve aria/role/Portal/focus wiring, with a one-line rationale on any deviation",
+      "node .claude/scripts/validate-ui-lane.mjs --project reports PASS with no @mui or @emotion imports in src",
+      "tokens live in src/app/style.css @theme derived from the design-system output, with no feature-local palettes or arbitrary color values"
+    ]
+  },
+  {
+    "id": "ui-lane-brownfield-no-flip",
+    "entrySkill": "/web-orchestrator",
+    "prompt": "기존 MUI 기반 어드민 앱에 알림 설정 화면을 추가해줘. 새 화면도 기존 디자인과 똑같은 톤이어야 해.",
+    "assertions": [
+      "integration-overlay.json records uiLibrary.uiLane: mui from the existing app, and that measurement takes precedence over any fresh lane preference",
+      "the new screen uses the existing MUI theme and shared components — no tailwindcss, cva, or tailwind-merge dependency is introduced",
+      "node .claude/scripts/validate-ui-lane.mjs --project reports PASS against the overlay-declared mui lane",
+      "existing screens' observable appearance is preserved per the minimal-change baseline rule"
     ]
   },
   {
