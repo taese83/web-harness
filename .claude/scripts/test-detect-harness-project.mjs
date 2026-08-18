@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {mkdirSync, mkdtempSync, writeFileSync} from 'node:fs'
+import {copyFileSync, mkdirSync, mkdtempSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -50,4 +50,20 @@ test('CLAUDE_PROJECT_DIR가 존재하지 않는 경로여도 exit 0 (fail-safe �
   const result = run(join(tmpdir(), 'wh-detect-nonexistent-path'))
   assert.equal(result.status, 0)
   assert.equal(result.stdout, '')
+})
+
+test('reentry-map 부재(스크립트가 skills 트리 밖에 있음): 폴백 안내로 강등', () => {
+  const isolated = mkdtempSync(join(tmpdir(), 'wh-detect-isolated-'))
+  const orphanScript = join(isolated, 'detect-harness-project.mjs')
+  copyFileSync(script, orphanScript)
+  const projectDir = mkdtempSync(join(tmpdir(), 'wh-detect-'))
+  mkdirSync(join(projectDir, '_workspace'))
+  const result = spawnSync(process.execPath, [orphanScript], {
+    env: {...process.env, CLAUDE_PROJECT_DIR: projectDir},
+    encoding: 'utf8',
+  })
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /Harness-managed project detected/)
+  assert.match(result.stdout, /Re-enter via the \/web-orchestrator skill/)
+  assert.doesNotMatch(result.stdout, /reentry-map\.md/)
 })
