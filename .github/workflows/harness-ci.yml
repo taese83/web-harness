@@ -1,0 +1,43 @@
+# Harness 자체 정적 검증 CI — 생성 프로젝트용 workflow가 아니라 이 control-plane 저장소의
+# validator·eval 계약 회귀를 막는다 (P2-2: 모드 라우팅·계약 회귀의 정기 실행 편입 1단계).
+#
+# ⚠ 보관 위치 안내: 일부 조직의 GitHub pre-receive 정책은 .github/workflows/*.yml push를
+# 별도 승인 게이트로 차단한다. 그런 환경에서는 이 파일을 승인 전까지 비활성 보관 경로
+# (.claude/ci/)에 두고, 승인 후 .github/workflows/harness-ci.yml로 이동해 활성화한다.
+# 이동 후 validate-harness의 workflow 보안 검사가 이 파일을 검사한다.
+#
+# action pin은 2026-08-03에 github.com release 페이지에서 확인한 full SHA다.
+# GitHub Enterprise 미러의 runner label(ubuntu-latest)과 actions 동기화 상태는 조직 설정을 따른다.
+name: harness-ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: harness-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.22.3'
+      - name: Install pinned pnpm (corepack shim은 toolchain validator가 거부)
+        run: npm install -g pnpm@11.18.0 --ignore-scripts --no-audit --no-fund
+      - name: Mirror drift (.agents/.codex == .claude canonical)
+        run: node .claude/scripts/build-adapters.mjs --check
+      - name: Toolchain preflight
+        run: node .claude/scripts/validate-toolchain.mjs
+      - name: Harness static validation
+        run: node .claude/scripts/validate-harness.mjs
+      - name: Staged AI harness validation
+        run: node .claude/scripts/test-ai-harness.mjs --through all
