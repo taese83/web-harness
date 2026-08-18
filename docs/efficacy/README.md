@@ -56,9 +56,14 @@ node .claude/scripts/report-execution-telemetry.mjs --project workspace/seminar-
 seminar-booking 파일럿(22 스폰·2.8M 토큰)의 ON-암 지표. → receipt:
 [`baseline-on-seminar-booking.md`](baseline-on-seminar-booking.md)
 
-### 1c. 합성 리플레이 — ⬜ 예정 (저비용)
-게이트 pure core(`analyzePlan`·`scanSource`·`computeRemaining`·`verifyPlanLock`)에 합성/기록
-manifest·truncated 파일을 먹여 탐지 **precision/recall**을 결정론적으로 측정. 라이브 실행 0.
+### 1c. 합성 리플레이 — ✅ 완료 (2026-08-18)
+```bash
+node docs/efficacy/run-synthetic-replay.mjs
+```
+repo-내 코퍼스(126 .mjs) × 체계적 절단 1,200표본 + 임계 경계 스윕 + 분류 배터리. 결과:
+byte-cut recall 88~98% / line-cut 77~93%(미탐=완결 지점 절단 — 원리적 한계, Layer 1·3 보완),
+**오탐 2/126 실측 발견**(정규식 리터럴 괄호 오인 — §4 등록·후속 TODO), 경계 정밀성 YES
+(60,000→FITS/60,001→REFUSE), 분류 5/5. → receipt: [`receipts/synthetic-replay.md`](receipts/synthetic-replay.md)
 
 ## 5. Part 2 — 결과 효능 (고비용, **명시적 예산 승인 게이트**)
 
@@ -87,8 +92,10 @@ runaway율을 낮춘다"는 지금 증명 불가. 필요한 것 셋:
 |---|---|---|---|
 | 탐지 — 로직 회귀 | unit test 3종 | ~0 | ✅ 46/46 pass |
 | 탐지 — 현장(ON) | 기록 트레이스 파싱 | ~0 | ✅ n=1 baseline |
-| 탐지 — 합성 precision/recall | pure-core replay | ~0 | ⬜ 예정 |
+| 탐지 — 합성 precision/recall | pure-core replay | ~0 | ✅ 1,200표본 + 경계 + 분류 |
 | 결과 — ON/OFF × 2형태 | 라이브 A/B | 10~20M | ⛔ 예산 승인 대기 |
+
+**탐지 효능 측정 완결(2026-08-18)** — 남은 것은 결과 효능뿐이다.
 
 ## 7. 불변식 매핑
 
@@ -101,5 +108,6 @@ runaway율을 낮춘다"는 지금 증명 불가. 필요한 것 셋:
 
 - [`baseline-on-seminar-booking.md`](baseline-on-seminar-booking.md) — ON-암 n=1 실측 receipt
 - `receipts/gate-logic-unit.md` — 게이트 로직 46/46 회귀 receipt
-- (예정) `receipts/synthetic-replay.md` — 합성 precision/recall
+- `receipts/synthetic-replay.md` — 합성 리플레이(1,200표본 recall·오탐·경계·분류) receipt
+- `run-synthetic-replay.mjs` — 합성 리플레이 측정기(결정론, exit 1 = 경계·분류 회귀)
 - (예산 승인 후) `receipts/ab-<shape>-<on|off>.md` — 라이브 A/B 암별 receipt
