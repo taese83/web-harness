@@ -214,6 +214,7 @@ export const AGENT_OWNERSHIP = {
     appPath('(?:tsconfig(?:\\.[^.]+)?\\.json|vite\\.config\\.ts|vitest\\.config\\.ts|playwright\\.config\\.ts)$'),
     exactAppFile('src/vite-env\\.d\\.ts'),
     /^(?:eslint\.config\.js|\.prettierrc)$/,
+    appPath('eslint\\.config\\.js$'),
     /^\.husky\//,
     appPath('src/test/'),
   ],
