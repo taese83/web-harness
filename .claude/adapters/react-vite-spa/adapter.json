@@ -2,8 +2,8 @@
   "$schema": "../../schemas/web-core/adapter.schema.json",
   "schemaVersion": 1,
   "id": "react-vite-spa",
-  "version": "1.2.0",
-  "supportLevel": "certified",
+  "version": "1.2.1",
+  "supportLevel": "compatible",
   "trust": {
     "tier": "builtin",
     "source": "web-harness-control-plane",

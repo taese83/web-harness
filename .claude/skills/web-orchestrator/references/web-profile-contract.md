@@ -4,11 +4,19 @@ Web Harness의 범용 실행 범위는 세 built-in profile로 제한한다.
 
 | Profile | Support | Primary use | Default deployment |
 |---|---|---|---|
-| `react-vite-spa` | certified | CSR SPA, external API, static hosting | `static-cdn` |
+| `react-vite-spa` | compatible | CSR SPA, external API, static hosting | `static-cdn` |
 | `next-app-fullstack` | compatible | App Router, RSC/SSR/SSG/ISR, framework BFF | `node-server` |
 | `vite-serverless-hybrid` | compatible | Vite SPA + 얇은 serverless functions (루트 `api/`, endpoint 5~30개) | `vercel-hybrid` |
 
 `compatible`은 계약·정적 fixture·DAG가 검증됐다는 뜻이며 host-run golden, 실제 배포/rollback, 격리 CI와 외부 attestation evidence를 대신하지 않는다. 체크인된 hybrid golden도 이 하한을 완화하지 않는다. Next profile을 `certified`로 승격하려면 exact toolchain에서 Node, Docker, 조건부 static target의 golden evidence가 모두 필요하다.
+
+`certified`는 라벨이 아니라 증거다 — **기계 강제(2026-08-18)**: `supportLevel: certified`인
+adapter는 `golden/{id}/`에 locked profile(certified 일치)과 격리 CI 폐곡선 receipt
+(`_workspace/04_qa/t1-summary.json`, `ISOLATED_VERIFIED`)가 있어야 `validate-harness`가
+통과한다(`validate-certified-evidence`). 이전에는 어떤 검사도 라벨을 증거에 묶지 않아
+adapter.json 편집만으로 "certified"가 성립했다. `react-vite-spa`는 이 기준으로 증거를
+정렬하며 compatible로 강등됐다(2026-08-18, 라벨 역전 해소 — 골든 5/7 로컬·receipt 0이었음).
+어떤 레인이든 T1 폐곡선을 CI에서 그린으로 재현하면 같은 게이트 아래에서 certified를 획득한다.
 
 `vite-serverless-hybrid`는 루트 `api/` 디렉토리가 감지 마커다 — `react-vite-spa`는 루트 `api/`를 forbidden marker로 배제하므로 두 profile은 상호 배타로 감지된다. hybrid의 release DAG는 일반 Vite evidence에 `api.unit`(serverless handler unit)과 `api.guards`(§7 엔드포인트 가드 5종 — security) receipt를 추가로 요구한다. SSR/RSC/Server Actions는 conflict로 차단된다 — 그 요구는 `next-app-fullstack`의 몫이다.
 

@@ -32,7 +32,7 @@ A green run verifies:
 
 - 31 skills <!-- inventory:skills -->
 - 99 agents <!-- inventory:agents -->
-- 2 built-in profiles: `react-vite-spa` (certified), `next-app-fullstack` (compatible)
+- 3 built-in profiles: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` (모두 compatible — `certified`는 T1 격리 CI receipt를 요구하는 기계 게이트로 강제되며, 현재 어떤 레인도 충족 전)
 - per-agent file ownership
 - read-only verifier boundaries
 - adapter mirror (`.agents`, `.codex`) drift and document hygiene
