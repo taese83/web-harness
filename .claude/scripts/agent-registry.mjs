@@ -168,7 +168,7 @@ export const AGENT_OWNERSHIP = {
   ],
   'package-publish-metadata': [/^package\.json$/, /^\.npmignore$/],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
-  'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc)$/, /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/],
+  'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/, /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/],
   'planning-facilitator': [
     /^_workspace\/01_plan\/planning-context\.md$/,
     /^_workspace\/01_plan\/decision-log\.md$/,

@@ -144,6 +144,8 @@ export const validateAgentBoundaries = ({
     ['package scaffolder root nvmrc', 'package-scaffolder', join(repositoryRoot, '.nvmrc'), 0],
     ['package scaffolder app nvmrc', 'package-scaffolder', join(repositoryRoot, 'apps/web/.nvmrc'), 0],
     ['other agent nvmrc stays blocked', 'tooling-scaffolder', join(repositoryRoot, '.nvmrc'), 2],
+    ['package scaffolder root claude-md marker', 'package-scaffolder', join(repositoryRoot, 'CLAUDE.md'), 0],
+    ['other agent claude-md stays blocked', 'app-shell-builder', join(repositoryRoot, 'CLAUDE.md'), 2],
     ['tooling scaffolder vite-env stub', 'tooling-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
     ['tooling scaffolder app eslint config', 'tooling-scaffolder', join(repositoryRoot, 'apps/web/eslint.config.js'), 0],
     ['other agent vite-env stays blocked', 'component-builder', join(repositoryRoot, 'src/vite-env.d.ts'), 2],
