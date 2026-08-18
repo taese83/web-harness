@@ -104,7 +104,7 @@ Web Harness는 이를 다음 구조로 해결한다.
 
 - 요구사항과 MVP 범위 작성
 - UX brief와 기능 계획 — 화면별 정보 위계·디자인 방향·Feature List(keep/cut/defer 다듬기)와 append-only 기획 변경 대장
-- 구현 전 디자인 프리뷰 루프 — 무의존 정적 프리뷰를 로컬 서버로 확인하고 시안 A/B로 취향 확정
+- 구현 전 디자인 프리뷰 루프 — 발산 조사가 커밋한 단일 시안을 디자인 근거와 함께 무의존 프리뷰로 확인·승인 (비교 토글은 opt-in)
 - 기술 스택과 rendering profile 결정
 - React + TypeScript + Vite 기반 생성 또는 Next.js App Router compatible 경로
 - Feature-Sliced Design 구조

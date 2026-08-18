@@ -23,6 +23,7 @@ maxTurns: 25
 
 내비게이션 구조·인터랙션 패턴을 제안하기 전에 다음 원칙 문서를 읽고 기본값으로 사용한다 (`.claude/skills/web-orchestrator/references/design-principles.md`의 소비 규칙 준수):
 
+- `.claude/skills/web-orchestrator/references/design-principles-research.md` — **발산 조사 프로토콜**: 조사 축 4종(동종=관습·이종=영감·트렌드·시스템 릴리스), recency 규칙, 상투 회피, 단일 시안 수렴 — Reference Service Analysis 표는 이 프로토콜로 채운다
 - `.claude/skills/web-orchestrator/references/design-principles-navigation-ia.md` — 내비 구조 선택 기준, 메뉴 그룹핑(객체 기반·빈도순), 동선(반복 과업 1클릭·empty state 온보딩), 검색 승격 조건
 - `.claude/skills/web-orchestrator/references/design-principles-interaction-controls.md` — 핵심 인터랙션 패턴(필터·모달/드로어·피드백·undo)의 선택 기준
 - `.claude/skills/web-orchestrator/references/design-principles-foundations.md` — 밀도 전략(사용자 숙련도×빈도), Laws of UX
@@ -31,12 +32,12 @@ maxTurns: 25
 ## 작업 원칙
 
 1. `_workspace/01_plan/planning-context.md`와 `requirements.md`를 먼저 읽는다
-2. "데이터 대시보드" 유형이면 그라파나/Kibana/Metabase의 UX 패턴을 참조한다
+2. 조사는 `design-principles-research.md`의 발산 축 4종을 따른다 — 특정 서비스 이름은 동종 축의 예시일 뿐 조사를 한정하지 않는다("관습은 동종에서, 영감은 이종에서")
 3. 화면 전환 흐름을 텍스트 다이어그램으로 표현한다
 4. 인터랙션 패턴 (필터, 정렬, 드릴다운 등)을 명시한다
 5. `.claude/skills/web-plan/references/planning-facilitation-contract.md`의 trigger에 해당하면 `## UX Check`를 반드시 포함한다. “어색함”은 copy보다 mode, hierarchy, layout shift, affordance, state clarity를 먼저 검토한다.
 6. 주석은 좌표를 복사하지 않고 대상·의도·범위·확인 방법으로 정규화하며 상충 항목은 `NEEDS_DECISION`으로 둔다.
-7. `.claude/skills/web-plan/references/design-readiness-contract.md`의 화면별 정보 위계 표와 디자인 방향 절을 필수로 작성한다. Primary 정보는 "3초 안에 얻어야 하는 것" 1~3개이며, 상태별 내용은 컴포넌트명이 아니라 사용자에게 보여줄 내용으로 쓴다. 미결 취향은 값을 지어내지 않고 `ASSUMPTION(프리뷰 A/B)`로 둔다.
+7. `.claude/skills/web-plan/references/design-readiness-contract.md`의 화면별 정보 위계 표와 디자인 방향 절을 필수로 작성한다. Primary 정보는 "3초 안에 얻어야 하는 것" 1~3개이며, 상태별 내용은 컴포넌트명이 아니라 사용자에게 보여줄 내용으로 쓴다. 미결 취향은 값을 지어내지 않고 `ASSUMPTION(시안 확정)`로 둔다.
 
 ## 출력 구조
 
@@ -58,7 +59,7 @@ Login → Dashboard home → Panel selection → Detail chart
 || Screen | Primary info (1~3, order=priority) | Secondary | Density | Empty state content | Error state content | No-permission state ||
 
 ## Design Direction
-<!-- Intake results — mark unknown items as ASSUMPTION(프리뷰 A/B) -->
+<!-- Intake results — mark unknown items as ASSUMPTION(시안 확정) -->
 - Brand constraints: / Reference mood: / Density: / Dark mode: / Primary device: / Terminology & copy tone:
 
 ## Navigation Structure

@@ -4,7 +4,7 @@ web-harness가 생성하는 모든 화면에 적용되는 디자인 원칙 지�
 
 ## 철학 선언
 
-> **좋은 디자인은 장식이 아니라 결정의 품질이다.** 간격 하나, 색 하나, 컨트롤 하나가 모두 "왜"에 답할 수 있어야 한다. 답은 이 지식 베이스의 규칙에서 찾고, 규칙에 없으면 관습(Jakob's Law)을 따르고, 관습도 없으면 `ASSUMPTION(프리뷰 A/B)`으로 시안 비교로 확정한다.
+> **좋은 디자인은 장식이 아니라 결정의 품질이다.** 간격 하나, 색 하나, 컨트롤 하나가 모두 "왜"에 답할 수 있어야 한다. 답은 이 지식 베이스의 규칙에서 찾고, 규칙에 없으면 관습(Jakob's Law)을 따르고, 관습도 없으면 발산 조사(`design-principles-research.md`)로 방향을 커밋해 `ASSUMPTION(시안 확정)`으로 두고 단일 시안 승인에서 확정한다.
 
 디자인 결정이 충돌할 때의 우선순위 (상세: `design-principles-foundations.md`):
 
@@ -27,6 +27,7 @@ web-harness가 생성하는 모든 화면에 적용되는 디자인 원칙 지�
 | 내비게이션·IA | `design-principles-navigation-ia.md` | 내비 구조 선택, 메뉴 설계, 동선, 검색, 모바일 전환, 상태 표시 | ux-researcher, layout-designer |
 | 인터랙션·컨트롤 | `design-principles-interaction-controls.md` | 컨트롤 선택 매트릭스, 폼, 피드백, 로딩, 모달/드로어, 모션, DnD, hover/focus | component-designer, ux-researcher, design-preview-builder |
 | 데이터 시각화 | `design-principles-data-viz.md` | 차트 선택, Tufte, 색, 축·범례, 대시보드 구성, 숫자 표현, 실시간·상태 | component-designer, timeseries-architect, analytics-domain-architect, ux-researcher |
+| 디자인 리서치 | `design-principles-research.md` | 발산 축 4종(동종·이종·트렌드·시스템 릴리스), recency 규칙, 상투 회피, 단일 시안 수렴 | ux-researcher, design-system-architect, planning-facilitator |
 
 ## 소비 규칙
 

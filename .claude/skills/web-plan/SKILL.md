@@ -5,10 +5,10 @@ argument-hint: "[service description]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 metadata:
-  version: 1.0.1
+  version: 1.1.0
   maturity: eval-covered
   updated: 2026-08-06
-  changelog: Preview interactive surface 누락을 동일 행동 anchor·동적 entity·Sub Feature·신규 FEAT로 구분해 requirements/feature-plan/decision-log에 환류하는 계약을 추가.
+  changelog: ASSUMPTION 관용구를 시안 확정(발산 조사가 커밋한 단일 시안 승인)으로 교체 — design-readiness-contract.
 ---
 
 # Web Plan

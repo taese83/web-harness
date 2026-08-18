@@ -77,7 +77,7 @@ maxTurns: 20
 
 ## 디자인 방향 인테이크
 
-제품 목적이 고정된 뒤 한 라운드(최대 3질문)로 수집한다: 브랜드 제약(색/로고/폰트), 참조 무드(어떤 서비스의 어떤 점), 밀도/다크모드/주 사용 기기. 답을 모르면 재질문하지 않고 `ASSUMPTION(프리뷰 A/B)`로 기록한다 — 프리뷰 루프에서 시안 비교로 확정된다 (`.claude/skills/web-plan/references/design-readiness-contract.md`).
+제품 목적이 고정된 뒤 한 라운드(최대 3질문)로 수집한다: 브랜드 제약(색/로고/폰트), 참조 무드(어떤 서비스의 어떤 점), 밀도/다크모드/주 사용 기기. 답을 모르면 재질문하지 않고 `ASSUMPTION(시안 확정)`로 기록한다 — 발산 조사가 커밋한 단일 시안의 프리뷰 승인에서 확정된다 (`.claude/skills/web-plan/references/design-readiness-contract.md`).
 
 출력 파일:
 

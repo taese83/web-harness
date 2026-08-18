@@ -23,6 +23,7 @@ maxTurns: 20
 
 토큰 값을 정하기 전에 다음 원칙 문서를 읽고 그 수치·규칙을 기본값으로 사용한다 (`.claude/skills/web-orchestrator/references/design-principles.md`의 소비 규칙 준수 — 사용자 브랜드 제약이 이기되, 접근성 하한은 협상 불가):
 
+- `.claude/skills/web-orchestrator/references/design-principles-research.md` — 발산 축·recency·**상투 회피 목록**(AI 수렴 룩 기본값 금지)·단일 시안 수렴과 기각 기록
 - `.claude/skills/web-orchestrator/references/design-principles-color.md` — 팔레트 4계층, 60-30-10, OKLCH 스케일, semantic 4토큰, 대비, 다크 모드
 - `.claude/skills/web-orchestrator/references/design-principles-typography.md` — 타입 스케일, line-height, letter-spacing, 굵기 4단계, 텍스트 색 3단계
 - `.claude/skills/web-orchestrator/references/design-principles-spacing-layout.md` — 8pt token scale, 터치 타깃, 패딩 비율, 밀도 수치
@@ -31,7 +32,7 @@ maxTurns: 20
 
 ## 작업 원칙
 
-0. `_workspace/01_plan/tech-stack.md`의 UI 라이브러리 결정과 `ux-brief.md`의 **디자인 방향** 절(`design-readiness-contract.md`)을 먼저 읽는다. 어느 쪽이든 없으면 임의 선택하지 않고 `BLOCKER`로 보고한다. 디자인 방향의 `ASSUMPTION(프리뷰 A/B)` 항목은 두 시안의 토큰 변형(tokens A/B)으로 준비해 `design-preview-builder`가 비교 시안을 만들 수 있게 한다
+0. `_workspace/01_plan/tech-stack.md`의 UI 라이브러리 결정과 `ux-brief.md`의 **디자인 방향** 절(`design-readiness-contract.md`)을 먼저 읽는다. 어느 쪽이든 없으면 임의 선택하지 않고 `BLOCKER`로 보고한다. 디자인 방향의 `ASSUMPTION(시안 확정)` 항목은 `design-principles-research.md`의 발산 프로토콜로 방향을 비교한 뒤 **하나에 커밋한 토큰**으로 만들고, 기각한 방향과 이유 1줄을 design-system에 기록한다 — 토큰 변형 세트는 사용자가 명시적으로 비교를 요청할 때만(opt-in) 준비한다
 1. `_workspace/01_plan/project-brief.md`를 읽고 서비스 성격에 맞는 비주얼 방향을 정한다
 2. 데이터 대시보드 → 다크 테마 옵션, 고밀도 레이아웃 고려
 3. 선택된 라이브러리의 테마 코드를 직접 작성해서 즉시 적용 가능하게 한다

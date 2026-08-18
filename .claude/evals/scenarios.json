@@ -384,7 +384,7 @@
     "entrySkill": "/web-orchestrator",
     "prompt": "팀 업무 현황 대시보드를 만들어줘. 디자인 취향은 아직 못 정했는데 밀도가 높은 게 좋을지 여백이 있는 게 좋을지 모르겠어.",
     "assertions": [
-      "the undecided density preference is recorded as ASSUMPTION(프리뷰 A/B) instead of an invented value and resolved by comparing preview variants",
+      "the undecided density preference is recorded as ASSUMPTION(시안 확정) instead of an invented value, with the divergence-research protocol committing a single direction and recording the rejected alternative",
       "design-preview-builder generates dependency-free static previews under _workspace/02_design/preview/ with per-screen state variants and a fidelity disclaimer banner",
       "traceability.json maps every Feature List FEAT and TC to stable data-wh-* DOM anchors where the behavior is visible, and each anchor exposes a keyboard-accessible FEAT badge that opens related feature and test-case details",
       "before snapshot approval every interactive surface is classified: repeated entity labels are covered by their existing navigation/list anchor, existing behavior on another surface gains another anchor, and truly unplanned user behavior returns to feature-planner for REQ/FEAT/TC and decision-log write-back instead of being silently omitted or assigned a feature from its seed label",

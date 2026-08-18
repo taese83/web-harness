@@ -29,7 +29,7 @@
 ## 단계형 Intake
 
 1. **제품 맥락** — 대상 화면/기능, 사용자, 끝내려는 업무, 현재 pain, 관찰 가능한 성공 조건. API·branch·파일·라이브러리는 아직 묻지 않는다
-2. **디자인 방향** — 브랜드 제약(색/로고/폰트), 참조 무드, 밀도/다크모드/주 사용 기기 (`../../web-plan/references/design-readiness-contract.md`). 모르면 재질문하지 않고 `ASSUMPTION(프리뷰 A/B)` — 프리뷰 루프의 시안 비교로 확정한다
+2. **디자인 방향** — 브랜드 제약(색/로고/폰트), 참조 무드, 밀도/다크모드/주 사용 기기 (`../../web-plan/references/design-readiness-contract.md`). 모르면 재질문하지 않고 `ASSUMPTION(시안 확정)` — 발산 조사가 커밋한 단일 시안의 프리뷰 승인에서 확정한다
 3. **데이터** — source, historical/realtime, 기존 API/OpenAPI, 저장 여부
 4. **규모** — normal/max/burst, latency, visible data, 지원 환경
 5. **편집/운영** — 공유·권한·버전·복구·배포

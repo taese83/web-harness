@@ -192,7 +192,7 @@ Not done, and not a simple translation job:
 Agent and skill bodies are still Korean. They cannot be translated file-type by file-type,
 because **11 backtick-quoted Korean tokens are functional identifiers matched across
 files**, not prose — `주 소비자` and `담당 범위` appear in 26 agent definitions and are
-matched against the sharded-artifact read protocol; `ASSUMPTION(프리뷰 A/B)` is matched
+matched against the sharded-artifact read protocol; `ASSUMPTION(시안 확정)` is matched
 against a design readiness contract. Translating agents alone would either leave them
 half-Korean or silently break cross-file matching until the contracts followed.
 

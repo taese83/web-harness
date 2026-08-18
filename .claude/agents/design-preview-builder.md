@@ -38,7 +38,7 @@ _workspace/02_design/preview/
   traceability.json  # FEAT ↔ TC ↔ 화면 요소 앵커의 machine-readable 매핑
 ```
 
-단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. A/B 시안(용어 톤 등)은 별도 파일이 아니라 앱 내 토글로 전환한다.
+단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. 프리뷰는 **커밋된 단일 시안**이 기본이다 — 비교 토글은 사용자가 명시적으로 요청했거나 스펙이 opt-in으로 지정한 축에만 만들고, 그때도 별도 파일이 아니라 앱 내 토글로 전환한다.
 
 ## 생성 규칙
 
@@ -59,7 +59,7 @@ _workspace/02_design/preview/
 6-1. **스펙이 침묵하는 시각 세부는 디자인 원칙의 기본값을 따른다** — hover/focus/active/disabled 상태 스타일, 모션 duration·easing, 간격 단계, 포커스 링은 `.claude/skills/web-orchestrator/references/design-principles-spacing-layout.md`·`design-principles-hierarchy-actions.md`·`design-principles-interaction-controls.md`의 수치를 그대로 쓴다. 이것은 새 결정의 발명이 아니라 기본값 적용이다 (`design-principles.md`의 소비 규칙).
 7. 정보 위계 표의 Primary 순서를 시각 위계로 구현한다. 상태별 내용은 정보 위계 표 문구를 그대로 쓴다 — placeholder("Lorem")를 지어내지 않는다. seed 데이터는 도메인에 맞는 현실적 예시로 최소 empty가 아닌 상태를 보여줄 만큼 넣는다.
 8. 시맨틱 HTML(landmark, heading, 실제 button/label/dialog)로 작성한다 — 디자인 단계부터 접근성 구조와 키보드 동작을 보여준다.
-9. `ASSUMPTION(프리뷰 A/B)`(용어 톤 등)는 앱 내 토글로 두 변형을 즉시 전환하게 한다.
+9. `ASSUMPTION(시안 확정)` 항목은 design-system이 커밋한 값으로 렌더하고, 충실도 배너 옆에 **디자인 근거 요약**(커밋한 방향·기각한 방향과 이유 1줄 — design-system 기록에서 가져옴)을 접을 수 있는 패널로 노출한다. 사용자는 승인하거나 조준된 피드백을 주며, 비교 토글은 opt-in 축에만 만든다.
 10. **기능 추적 오버레이**: 사용자가 조작하거나 관찰하는 화면 요소에는 안정적인 `data-wh-anchor`, `data-wh-feature`, 선택적 `data-wh-subfeature`, `data-wh-tests` 속성을 둔다. 배지·사이드바 구현은 **공용 런타임 `.claude/skills/web-orchestrator/assets/wh-overlay.mjs`를 프리뷰 디렉토리로 복사해 로드**한다 — 배지 코드를 프로젝트마다 재작성하지 않는다(라이브 델타와 동일 파일 공유). 배지의 **표시 형식은 닷+호버 표준으로 통일한다** — 프로젝트마다 다른 형식(상시 노출 pill 등)을 발명하지 않는다: ① 배지는 앵커 DOM 안에 삽입하지 않고 body 직속 오버레이 레이어(`#wh-trace-overlay-layer`)에 `<button class="wh-feature-badge">`로 렌더하고 rAF로 앵커의 `getBoundingClientRect` 우상단에 재배치한다(뷰포트 클램프, 앵커가 화면 밖이면 hidden). ② 기본 표시는 작은 원형 닷(8px + ring)뿐이고, hover/focus-visible 시에만 `FEAT-NNN`(하위 기능이 있으면 `FEAT-NNN-NN`) 라벨이 툴팁으로 나타난다(화면 하단 근처는 위쪽 배치). ③ 배지를 클릭하거나 키보드로 활성화하면 parent/subfeature 설명·관련 test case·현재 화면에서의 수행 방법을 접근 가능한 side panel로 연다(aria-expanded 반영). Console iframe 안의 panel에는 Test Case 아래 `변경 요청` action을 두고 schemaVersion 1의 feature/subfeature/anchor ID만 부모 Console에 전달한다. iframe은 API/file mutation을 직접 수행하지 않으며 direct preview 또는 신뢰할 Console parent를 확인할 수 없으면 action을 숨긴다. 배지는 원래 컨트롤의 클릭·focus·drag target을 가로막지 않아야 하며 오버레이 전체를 숨기는 토글을 제공한다.
 10-1. **Interactive surface audit**: snapshot 전에 모든 `button`, `a[href]`, `input/select/textarea`, `role=tab|menuitem|button`, drag handle, clickable row와 navigation group을 열거한다. 각 항목은 기존 anchor의 직접/descendant coverage, 반복 entity instance를 포괄하는 목록 anchor, 또는 구체적인 preview-only/순수 표현 비매핑 사유 중 하나를 가져야 한다. 도구명·테이블명 같은 seed/entity 값마다 FEAT를 만들지 않는다. 실제 사용자 행동인데 FEAT/TC가 없으면 조용히 누락하거나 ID를 발명하지 말고 `design-readiness-contract.md` §3-3에 따라 feature-planner write-back을 요청하고 `BLOCKED`로 반환한다.
 11. **`traceability.json` 정본 형식**: parent-only preview는 기존 `schemaVersion: 1`을 계속 지원한다. feature-plan에 `FEAT-NNN-NN`이 있으면 `schemaVersion: 2`를 사용해 feature의 선택적 `subFeatures[]`에 `subFeatureId`, `title`, 선택적 `description`, `testCaseIds`, `anchorIds`를 기록하고 anchor에는 parent `featureId`와 선택적 `subFeatureId`를 함께 기록한다. parent의 TC/anchor는 모든 하위 항목을 aggregate한다. 화면 요소에 대응하지 않는 책임만 빈 `anchorIds`와 구체적인 `unmappedReason`을 허용한다. selector는 정확히 `[data-wh-anchor="<anchorId>"]` 형식이고 FEAT/Sub Feature/TC를 새로 만들지 않고 `feature-plan.md`의 ID를 그대로 쓴다.
@@ -113,7 +113,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 - state-contract가 있으면 그 불변식이 프로토타입에서 지켜진다 (위반 재현 불가)
 - **design-system이 명세한 시각 토큰(팔레트·타이포·밀도·필드 타입 아이콘+색상 인코딩·참조 무드)이 실제로 반영된다** — 명세된 색상을 회색/기본값으로 단순화하면 미충족. 재생성이 이전 시각 충실도를 후퇴시키지 않는다
 - 무의존(외부 로드 0)·충실도 배너·시맨틱 구조를 만족한다
-- `NEEDS_DECISION` 마커 목록과 A/B 토글 대상을 반환 본문에 요약한다
+- `NEEDS_DECISION` 마커 목록과 디자인 근거 요약(커밋·기각 방향), opt-in 토글 대상을 반환 본문에 요약한다
 - 모든 feature/test case가 `traceability.json`에 있고 화면형 동작은 실제 DOM 앵커·FEAT 배지·side panel로 연결된다
 - interactive surface audit에 미분류 control/navigation이 0개이며, 반복 entity instance는 기존 행동 anchor가 포괄하고 기획에 없는 행동은 feature-planner write-back 전까지 `BLOCKED`다
 - `validate-design-preview.mjs --write-source-snapshot`이 성공해 상태가 `UNAPPROVED`이며, 사용자 승인 뒤에만 `APPROVED`가 된다

@@ -5,10 +5,10 @@ argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.6.5
+  version: 1.6.6
   maturity: eval-covered
   updated: 2026-08-18
-  changelog: UI 레인 tier b — UI_LANE을 결정 flag로 배너 명시, Phase 3 완료 시 validate-ui-lane 검사 배선.
+  changelog: 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
 ---
 
 # Web Orchestrator
