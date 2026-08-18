@@ -39,6 +39,28 @@ export const MARKER_REGISTRY = [
     ],
     note: '앵커가 곧 계약 배선의 증거 — 에이전트 본문 번역·리팩터에서 이 줄이 사라지면 소비자 프로토콜 배선이 끊긴 것',
   },
+  // ── 존재-류 마커 (M1 ④): validate-harness의 한국어 문장 인라인 매칭에서 이관.
+  // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries/detect-ai-service)는
+  // validate-harness의 instructionPlacementChecks에 남는다 — 이 레지스트리는 존재만 본다.
+  {
+    id: 'timeseries-historical-only',
+    label: 'historical 전용 시계열 허용 규칙 (detection-contract)',
+    // 이전: validate-harness가 `realtime은 필수 조건이 아니다` 문장을 인라인 매칭 — 번역이 곧
+    // HARD FAIL이었다. 앵커 승격으로 산문 자유화. 규칙 자체가 사라지면 historical 전용
+    // 대시보드 요청이 timeseries 모드를 못 받는 회귀다.
+    pattern: /<!--\s*marker:timeseries-historical-only\s*-->/g,
+    files: ['.claude/skills/timeseries-dashboard/references/detection-contract.md'],
+    note: 'realtime을 필수로 오해하는 회귀 방지 — historical 전용도 모드 활성화',
+  },
+  {
+    id: 'timeseries-realtime-build-order',
+    label: 'realtime Mock 빌드 순서 규칙 (web-orchestrator)',
+    // 이전: validate-harness가 `realtime interface 완료 후` 문장을 인라인 매칭. 규칙이 사라지면
+    // TIMESERIES_MODE에서 realtime Mock이 transport interface보다 먼저 돌아가는 회귀다.
+    pattern: /<!--\s*marker:timeseries-realtime-build-order\s*-->/g,
+    files: ['.claude/skills/web-orchestrator/SKILL.md'],
+    note: 'mock-api-builder를 realtime interface 완료 후로 미루는 순서 계약',
+  },
 ];
 
 const collectMarkdown = (root, out = []) => {

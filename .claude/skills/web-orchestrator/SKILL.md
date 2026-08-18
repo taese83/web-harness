@@ -205,7 +205,7 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
    - `MOCK_SERVICE_MODE`이고 `mock-api-builder`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
 3. route, 일반 Mock, 컴포넌트 구현:
    - `route-builder`
-   - `mock-api-builder` — 일반 web app에서 `route-builder`와 병렬 실행 가능. `TIMESERIES_MODE`에서는 realtime interface 완료 후인 5단계로 미룬다
+   - `mock-api-builder` — 일반 web app에서 `route-builder`와 병렬 실행 가능. `TIMESERIES_MODE`에서는 realtime interface 완료 후인 5단계로 미룬다 <!-- marker:timeseries-realtime-build-order -->
    - `component-builder`. 공개 노출(검색 유입·소셜 공유) 요구이면 `seo-meta-builder`가 `seo-spec.md`, robots/sitemap, `src/shared/seo/`를 작성한다
 4. 데이터 계층 연결 (순서 있음):
    - `entity-query-builder`

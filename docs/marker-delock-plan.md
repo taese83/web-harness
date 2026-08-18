@@ -31,9 +31,9 @@
 |---|---|---|
 | ~~`주 소비자`~~ → **✅ ③ 완료(2026-08-18)** — validator가 절 행을 구조(2열 백틱 절 파일)로 식별, 헤더 문자열 매칭 삭제. 소스는 `<!-- marker:consumer-read-protocol -->` 앵커(27곳)로 승격, marker-integrity가 보호 | `validate-artifact-sharding.mjs` (구조 식별) | **HARD FAIL** (WARN에서 승격) |
 | ~~`전체`~~ → **✅ ③ 완료** — sentinel이 언어 중립 집합 `전체`/`*`/`all`로 확장 | `validate-artifact-sharding.mjs` | **HARD FAIL** |
-| `realtime은 필수 조건이 아니다` | `validate-harness.mjs:352` (`.includes`) | **HARD FAIL** |
-| `realtime interface 완료 후` | `validate-harness.mjs:370` | **HARD FAIL** |
-| `**시계열/실시간 감지**` · `**AI 서비스 감지**` | `validate-harness.mjs:168-185` | **HARD FAIL** (코드펜스 안이면도 실패) |
+| ~~`realtime은 필수 조건이 아니다`~~ → **✅ ④ 완료(2026-08-18)** — `<!-- marker:timeseries-historical-only -->` 앵커로 marker-integrity 레지스트리에 이관 | `validate-marker-integrity.mjs` (존재-류) | **HARD FAIL** |
+| ~~`realtime interface 완료 후`~~ → **✅ ④ 완료** — `<!-- marker:timeseries-realtime-build-order -->` 앵커로 이관 | `validate-marker-integrity.mjs` (존재-류) | **HARD FAIL** |
+| ~~`**시계열/실시간 감지**` · `**AI 서비스 감지**`~~ → **✅ ④ 완료** — `<!-- marker:detect-timeseries -->`/`<!-- marker:detect-ai-service -->` 앵커. 배치-류(코드펜스 밖 검사)라 validate-harness의 instructionPlacementChecks에 남되 needle만 앵커로 전환 | `validate-harness.mjs` instructionPlacementChecks (배치-류) | **HARD FAIL** (코드펜스 안이면도 실패) |
 
 ### B. 이미 부분 탈잠금 (bilingual OR 앵커 인식) — 가드 유지만
 
@@ -114,8 +114,16 @@
    변화 0, 오탐 소멸(영어 헤더 `Primary consumer`·타 표·괄호 한정어), 실재 위반(`e2e-test-writer`
    등 미존재 에이전트)만 error 승격. 회귀: `test-artifact-sharding.mjs` 9종(영어 INDEX 통과·
    우회 2종 포함). adapter 재생성 + mirror 일치 확인.
-4. **[중위험] HARD FAIL 마커 앵커화** — 그룹 A의 `realtime…`·`시계열/실시간 감지`·`AI 서비스 감지`
-   4종을 앵커로. 각 = 소스 문서 1 + `validate-harness.mjs` 매칭 1 + 재생성.
+4. **[중위험] HARD FAIL 마커 앵커화** — **✅ 완료(2026-08-18)**. 마커를 두 류로 분리해 이관:
+   **존재-류**(realtime 2종)는 validate-harness 인라인 매칭을 삭제하고 marker-integrity
+   레지스트리로 이관(앵커 각 1, baseline 등록). **배치-류**(감지 2종 — 코드펜스 밖 배치까지
+   검사)는 placement 로직이 레지스트리에 없으므로 validate-harness에 남되 needle을 한국어
+   굵은 글씨에서 앵커로 전환. 중복 검사 없음(존재는 레지스트리, 배치는 harness — 류당 1곳).
+   이로써 **그룹 A의 기계 매칭 한국어 마커는 0이 됐다**. 남은 한국어 기계 매칭은 (a) 의도적
+   유지인 그룹 E(탐지 키워드), (b) 계약 마커가 아닌 **기능 테스트 fixture 매칭** —
+   `validate-harness.mjs`의 `## 작업 내용`(read-skill-section 로더가 templates.md의 실제 절
+   내용을 보존하는지 검증; 마커가 아니라 fixture 콘텐츠라 분류표 밖, 템플릿 영어화 시 함께
+   갱신하면 됨 — ④ 리뷰 지적으로 명시).
 5. **[검증] 번역 불변 실증** — 산문을 영어로 바꾼 사본에서 `validate-marker-integrity` 매칭 수가
    **번역 전후 동일**함을 실측. 이것이 M1 완료 정의(DoD)의 증거.
 
@@ -132,8 +140,8 @@
 
 ## 7. 완료 정의 (DoD)
 
-- [ ] 그룹 A 마커 전부 언어 중립화 — `주 소비자`/`전체` ✅(③), HARD FAIL 4종(realtime·감지 2종)
-      잔여(④)
+- [x] 그룹 A 마커 전부 언어 중립화 — `주 소비자`/`전체` ✅(③), HARD FAIL 4종(존재-류 2 →
+      레지스트리 이관 · 배치-류 2 → 앵커 needle) ✅(④)
 - [x] `validate-marker-integrity` 게이트가 `pnpm run ci`에 배선, baseline 확립. (②, c9f57dc)
 - [x] **번역 전후 매칭 불변** 실측 — 소스: `test-marker-integrity.mjs` "언어 독립성" 회귀(한국어
       ↔영어 산문에서 앵커 카운트 동일). 생성물: `test-artifact-sharding.mjs` 영어 INDEX

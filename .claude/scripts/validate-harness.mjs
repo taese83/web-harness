@@ -164,9 +164,11 @@ pass('Markdown code fences and document references checked')
 validateModularity({repositoryRoot, agentFiles, skillFiles, activeMarkdown, read, pass, fail})
 validateMinimalChange({repositoryRoot, read, pass, fail})
 
+// 배치-류 마커: 존재 + 코드펜스 밖 배치까지 검사한다(존재-류는 validate-marker-integrity
+// 레지스트리 몫). needle은 언어 중립 앵커 — 지시 산문은 자유 번역 가능(M1 ④).
 const instructionPlacementChecks = [
-  ['.claude/agents/requirements-analyst.md', '**시계열/실시간 감지**'],
-  ['.claude/agents/requirements-analyst.md', '**AI 서비스 감지**'],
+  ['.claude/agents/requirements-analyst.md', '<!-- marker:detect-timeseries -->'],
+  ['.claude/agents/requirements-analyst.md', '<!-- marker:detect-ai-service -->'],
 ]
 for (const [relativePath, marker] of instructionPlacementChecks) {
   const lines = read(relativePath).split(/\r?\n/)
@@ -349,7 +351,8 @@ if (!read('.claude/skills/web-orchestrator/SKILL.md').includes(detectionReferenc
 for (const keyword of ['그라파나', '시계열', '날짜별', '실시간', '빅데이터', '채팅']) {
   if (!detectionSource.includes(keyword)) fail(`timeseries detection contract is missing Korean case: ${keyword}`)
 }
-if (!detectionSource.includes('realtime은 필수 조건이 아니다')) fail('historical-only timeseries mode is not supported')
+// historical-only 허용 규칙의 존속은 validate-marker-integrity가 앵커
+// (timeseries-historical-only)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
 pass('bilingual timeseries detection contract checked')
 
 const streamingSource = read('.claude/skills/timeseries-dashboard/references/streaming-contract.md')
@@ -367,8 +370,9 @@ if (streamingSource.includes("src/shared/realtime/timestamp.ts")) fail('timestam
 for (const source of [entityBuilderSource, foundationBuilderSource]) {
   if (!source.includes('src/shared/lib/timeseries/timestamp.ts')) fail('shared timestamp schema ownership is inconsistent')
 }
-if (!webOrchestrationSource.includes('realtime interface 완료 후')) fail('timeseries realtime Mock still runs before its transport interface')
-pass('timeseries timestamp, Worker, and build-order contracts checked')
+// realtime Mock 빌드 순서 규칙의 존속은 validate-marker-integrity가 앵커
+// (timeseries-realtime-build-order)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
+pass('timeseries timestamp and Worker contracts checked')
 
 const deploySource = read('.claude/agents/deploy-ci-writer.md')
 for (const requiredDeployPattern of ['config:best-practices', 'build-run-id', 'github-token:', 'run-id:', 'WebFetch']) {

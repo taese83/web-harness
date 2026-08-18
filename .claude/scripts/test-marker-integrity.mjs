@@ -96,8 +96,13 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
   // 고정이므로 실제 baseline이 적용된다. 이 숫자는 의식적 baseline 갱신 시 함께 갱신한다(canary).
   // 28이 된 경위: 최초 일괄 편집이 26개(어미 "…프로토콜이다." 패턴)만 잡았고, 리뷰가
   // component-designer.md(어미 "…따른다.")의 누락을 발견해 27번째 에이전트로 추가했다.
+  // 존재-류 마커 2종(M1 ④)은 온전한 상태로 포함 — consumer 마커의 부분 손실만 검사한다.
   const root = makeTree({
     '.claude/agents/only-one.md': `한 줄만 남음 ${ANCHOR}\n`,
+    '.claude/skills/timeseries-dashboard/references/detection-contract.md':
+      'realtime is not required. <!-- marker:timeseries-historical-only -->\n',
+    '.claude/skills/web-orchestrator/SKILL.md':
+      'defer mock-api-builder. <!-- marker:timeseries-realtime-build-order -->\n',
   })
   try {
     const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
@@ -111,16 +116,17 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
   }
 })
 
-test('전체 손실(앵커 삭제) 시나리오: 검출 0이면 MARKER_LOST로 FAIL한다', async () => {
+test('전체 손실(앵커 삭제) 시나리오: 검출 0이면 마커별로 MARKER_LOST FAIL한다', async () => {
+  // 빈 트리 — 등록 마커 전부가 손실이다. 마커마다 독립적으로 잡히는지 확인한다.
   const root = makeTree({
     '.claude/agents/refactored.md': 'All anchors stripped during a bulk rewrite.\n',
   })
   try {
-    const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
+    const {validateMarkerIntegrity, MARKER_REGISTRY} = await import('./validators/validate-marker-integrity.mjs')
     const failures = []
     validateMarkerIntegrity({repositoryRoot: root, pass: () => {}, fail: message => failures.push(message)})
-    assert.equal(failures.length, 1)
-    assert.match(failures[0], /MARKER_LOST/)
+    assert.equal(failures.length, MARKER_REGISTRY.length)
+    for (const message of failures) assert.match(message, /MARKER_LOST/)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

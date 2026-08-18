@@ -11,7 +11,7 @@
    - realtime/live/streaming 갱신, WebSocket, SSE, polling이 필요하다.
    - high-volume/high-cardinality 데이터의 표시량·성능 budget이 필요하다.
 
-historical 전용 대시보드도 1·2·3을 만족하면 활성화한다. realtime은 필수 조건이 아니다.
+historical 전용 대시보드도 1·2·3을 만족하면 활성화한다. realtime은 필수 조건이 아니다. <!-- marker:timeseries-historical-only -->
 
 ## 동의어
 
