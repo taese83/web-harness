@@ -96,11 +96,20 @@ export function inspectCertifiedEvidence(repositoryRoot) {
     }
 
     const qaDir = join(goldenRoot, '_workspace', '04_qa');
-    if (existsSync(qaDir)) {
-      for (const name of readdirSync(qaDir).filter(value => value.startsWith('qa-') && value.endsWith('.md'))) {
-        if (!QA_RESULT_PASS.test(readFileSync(join(qaDir, name), 'utf8'))) {
-          errors.push(`certified-evidence: '${id}' ${name}의 '## Result'가 PASS가 아니다(CERTIFIED_QA_NOT_PASS, I1)`);
-        }
+    const qaReports = existsSync(qaDir)
+      ? readdirSync(qaDir).filter(value => value.startsWith('qa-') && value.endsWith('.md'))
+      : [];
+    if (qaReports.length === 0) {
+      // 리뷰 지적(2026-08-18): QA 리포트 0건이면 검사 루프가 공회전해 vacuous 통과였다 —
+      // golden+lock+T1만으로 QA 부재가 조용히 넘어가는 구멍. 최소 1건을 요구한다.
+      errors.push(
+        `certified-evidence: '${id}'에 QA 리포트(qa-*.md)가 하나도 없다 — T1 receipt만으로 ` +
+          'QA 검증을 대신할 수 없다(CERTIFIED_WITHOUT_QA, I1)',
+      );
+    }
+    for (const name of qaReports) {
+      if (!QA_RESULT_PASS.test(readFileSync(join(qaDir, name), 'utf8'))) {
+        errors.push(`certified-evidence: '${id}' ${name}의 '## Result'가 PASS가 아니다(CERTIFIED_QA_NOT_PASS, I1)`);
       }
     }
   }
@@ -109,7 +118,7 @@ export function inspectCertifiedEvidence(repositoryRoot) {
 
 // seed — certified 0개인 현재 상태에서 게이트가 공회전-장식이 되지 않도록, 매 실행마다 합성
 // 트리로 무장 상태를 증명한다(양성 1·음성 3). contract-hygiene의 seed 회귀와 같은 관례.
-const buildSeedTree = ({withGolden, withLock, t1Status, qaPass}) => {
+const buildSeedTree = ({withGolden, withLock, lockId = 'seed-profile', t1Status, qaPass, withQaReport = true}) => {
   const root = mkdtempSync(join(tmpdir(), 'certified-seed-'));
   const adapterDir = join(root, '.claude', 'adapters', 'seed-profile');
   mkdirSync(adapterDir, {recursive: true});
@@ -121,23 +130,31 @@ const buildSeedTree = ({withGolden, withLock, t1Status, qaPass}) => {
     if (withLock) {
       writeFileSync(
         join(root, 'golden', 'seed-profile', '_workspace', '01_plan', 'project-profile.json'),
-        JSON.stringify({profileId: 'seed-profile', supportLevel: 'certified'}),
+        JSON.stringify({profileId: lockId, supportLevel: 'certified'}),
       );
     }
     if (t1Status !== null) {
       writeFileSync(join(qaDir, 't1-summary.json'), JSON.stringify({status: t1Status}));
     }
-    writeFileSync(join(qaDir, 'qa-test.md'), `## Result\n\n${qaPass ? 'PASS' : 'FAIL'}\n`);
+    if (withQaReport) {
+      writeFileSync(join(qaDir, 'qa-test.md'), `## Result\n\n${qaPass ? 'PASS' : 'FAIL'}\n`);
+    }
   }
   return root;
 };
 
 export function validateCertifiedEvidence({repositoryRoot, pass, fail}) {
-  // 1) seed 무장 검증 — 게이트 자체의 침묵 회귀 차단
+  // 1) seed 무장 검증 — 게이트 자체의 침묵 회귀 차단. 리뷰 지적(2026-08-18)으로 확장:
+  //    최초 4종은 6개 에러코드 중 3개(WITHOUT_LOCK·LOCK_MISMATCH·T1_NOT_VERIFIED)를 트리거하지
+  //    않아 해당 검사 블록을 지워도 "seeds armed"가 green이었다. 코드별 음성 seed로 전면 커버.
   const seeds = [
     {label: 'positive', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: false},
     {label: 'no-golden', tree: {withGolden: false, withLock: false, t1Status: null, qaPass: true}, expectErrors: true},
+    {label: 'no-lock', tree: {withGolden: true, withLock: false, t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
+    {label: 'lock-mismatch', tree: {withGolden: true, withLock: true, lockId: 'other-profile', t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
     {label: 'no-t1', tree: {withGolden: true, withLock: true, t1Status: null, qaPass: true}, expectErrors: true},
+    {label: 't1-not-verified', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_FAILED', qaPass: true}, expectErrors: true},
+    {label: 'no-qa-report', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_VERIFIED', qaPass: true, withQaReport: false}, expectErrors: true},
     {label: 'qa-fail', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_VERIFIED', qaPass: false}, expectErrors: true},
   ];
   for (const seed of seeds) {

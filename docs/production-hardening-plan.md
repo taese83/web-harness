@@ -53,6 +53,16 @@
 
 현재 8/8 레인 없음 — "certified"는 주장이지 증명이 아니다. 이 표를 그린으로 채우는 것이 목표.
 
+> **2026-08-18 갱신 (B트랙 M3)**: 위 문장을 기계로 강제했다. `validate-certified-evidence`가
+> certified 라벨에 증거(골든 + locked certified profile + `t1-summary.json ISOLATED_VERIFIED` +
+> QA 전부 PASS)를 요구하며, 이 기준으로 `react-vite-spa`를 **compatible로 강등**했다(라벨 역전
+> 해소 — 증거가 더 강한 hybrid가 compatible인데 증거 없는 SPA가 certified였다. 강등은 라벨이지
+> 기능 제거가 아니다, §D). 이제 certified는 0개다. **이 게이트는 §0 정의의 ③(격리 CI 폐곡선)
+> 하한만 기계로 강제한다** — 8/8 production-grade 판정에는 ④verifier·⑤security·⑥위생·
+> ⑦enterprise·⑧문서가 별도로 필요하며, 게이트 통과는 그 전체 정의를 좁히지 않는다(리뷰 지적
+> 반영). T1 폐곡선을 그린으로 재현하는 레인이 기계 하한을 처음 통과하는 레인이 된다. CI 활성화
+> 절차는 `docs/ci-activation-runbook.md`.
+
 ## 3. 파일러 (레버리지 순, 가드레일 연결)
 
 ### P0 · 신뢰 폐곡선
