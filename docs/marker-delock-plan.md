@@ -94,8 +94,10 @@
 
 ## 5. 변경 계획 (순서 = 위험 오름차순, 각 단계 커밋 분리)
 
-1. **[무위험] 산문 전용 번역** — 그룹 D(`담당 범위`·`소유권` 헤더)를 bilingual 병기. 게이트 무영향.
-   회귀: `pnpm run ci` green 확인.
+1. **[무위험] 산문 전용 번역** — **결정 변경(⑤ 시점)**: 그룹 D는 기계 매칭 0이 확정됐으므로
+   bilingual 병기라는 사전 작업 자체가 불필요하다(56파일 churn만 남는 일). 그룹 D 번역은
+   M4 패키징의 전면 영어화에서 일괄 수행한다 — ⑤ receipt가 그룹 D 포함 번역의 안전성을
+   이미 실증했다.
 2. **[저위험] `validate-marker-integrity` 신설** — 게이트를 **먼저** 만든다(마커를 바꾸기 전에
    안전망 설치). baseline 스냅샷. 이 시점엔 아무 마커도 안 바뀌었으니 green.
    → 실질 변경 → **harness-change-reviewer + JUDGMENT**.
@@ -124,8 +126,20 @@
    `validate-harness.mjs`의 `## 작업 내용`(read-skill-section 로더가 templates.md의 실제 절
    내용을 보존하는지 검증; 마커가 아니라 fixture 콘텐츠라 분류표 밖, 템플릿 영어화 시 함께
    갱신하면 됨 — ④ 리뷰 지적으로 명시).
-5. **[검증] 번역 불변 실증** — 산문을 영어로 바꾼 사본에서 `validate-marker-integrity` 매칭 수가
-   **번역 전후 동일**함을 실측. 이것이 M1 완료 정의(DoD)의 증거.
+5. **[검증] 번역 불변 실증** — **✅ 완료(2026-08-18)**. 레지스트리가 스캔하는 4개 표면 전체
+   (에이전트 99파일 + 샤딩 계약 + detection-contract + web-orchestrator SKILL)를 사본으로 뜨고,
+   **마커를 지닌 모든 라인**(consumer 프로토콜 27 + 계약 헤딩 + historical-only + 빌드 순서 +
+   배치-류 지시문 2)을 영어로 치환한 뒤 실측:
+
+   ```
+   원본(한국어): {"consumer-read-protocol":28,"timeseries-historical-only":1,"timeseries-realtime-build-order":1}
+   사본(영어화): {"consumer-read-protocol":28,"timeseries-historical-only":1,"timeseries-realtime-build-order":1}
+   불변: YES · 영어화 사본 게이트 판정: PASS (0 failures) · 잔존 한국어 마커 문장: 0
+   ```
+
+   생성물 쪽 대칭 증거는 `test-artifact-sharding.mjs`(영어 INDEX 동일 판정)가 상시 회귀로
+   보유. 재현: 사본 트리에 위 치환을 적용하고 `snapshotMarkers(원본) === snapshotMarkers(사본)`
+   + `validateMarkerIntegrity(사본)` 0 failures를 확인한다.
 
 ## 6. 위험·주의
 
@@ -143,9 +157,12 @@
 - [x] 그룹 A 마커 전부 언어 중립화 — `주 소비자`/`전체` ✅(③), HARD FAIL 4종(존재-류 2 →
       레지스트리 이관 · 배치-류 2 → 앵커 needle) ✅(④)
 - [x] `validate-marker-integrity` 게이트가 `pnpm run ci`에 배선, baseline 확립. (②, c9f57dc)
-- [x] **번역 전후 매칭 불변** 실측 — 소스: `test-marker-integrity.mjs` "언어 독립성" 회귀(한국어
-      ↔영어 산문에서 앵커 카운트 동일). 생성물: `test-artifact-sharding.mjs` 영어 INDEX
-      (`Primary consumer` 헤더 + `*` sentinel)가 한국어 INDEX와 동일 판정 + telemetry-viewer
-      실파일럿에서 영어 헤더 오탐 소멸 실측. (③)
+- [x] **번역 전후 매칭 불변** 실측 — 소스: ⑤ 실물 receipt(마커 라인 전원 영어화 사본에서
+      28/1/1 불변 + 게이트 PASS) + `test-marker-integrity.mjs` "언어 독립성" 상시 회귀.
+      생성물: `test-artifact-sharding.mjs` 영어 INDEX(`Primary consumer` 헤더 + `*` sentinel)
+      동일 판정 + telemetry-viewer 실파일럿에서 영어 헤더 오탐 소멸 실측. (③⑤)
 - [x] `validate-artifact-sharding` 소비자-열 검사 HARD FAIL 승격 + 빈 칸·vacuous pass 폐쇄. (③)
-- [x] adapter 재생성 + mirror 일치 + `validate-harness` green. (③)
+- [x] adapter 재생성 + mirror 일치 + `validate-harness` green. (③④)
+
+**M1 DoD 전 항목 충족(2026-08-18)** — 계약 산문은 이제 게이트를 깨지 않고 번역 가능하다.
+전면 영어화 자체는 M4(채택·패키징)의 몫이며, 그때 이 게이트들이 안전망으로 작동한다.
