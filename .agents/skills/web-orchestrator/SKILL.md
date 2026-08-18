@@ -22,6 +22,7 @@ metadata:
 - 기존 source 변경 감지 시 `references/change-journal-contract.md`, `references/integration-overlay.md`
 - 첫 Phase 체크포인트 전 `references/approval-checkpoints.md` · Phase 2 전 `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md`
 - Phase 4 판정·release tier 보고 전 `references/release-tier-contract.md` · 완료 보고 전 `references/completion-contract.md`
+- **재진입**(이미 진행 중인 프로젝트에 후속 턴·새 세션·압축 후 다시 관여)은 이 스킬 전체를 재로드하지 않는다 — `references/reentry-map.md`의 상황별 최소 로드가 정본이다. 전체 진입은 신규 서비스·모드 미판별에서만 필요하다
 
 자연어 설명 하나 또는 기존 기획/디자인/API 문서로 완성된 웹 애플리케이션을 만든다. 입력 상태를 먼저 판별한 뒤 필요한 Phase만 실행한다.
 
