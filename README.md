@@ -22,6 +22,10 @@ output is a real service rather than a snippet.
 
 ## Quick start
 
+**Building your first app?** Start with **[docs/quickstart.md](docs/quickstart.md)** — plugin
+install, first generated app, honest cost expectations, and the brownfield path. The commands
+below validate the *harness itself* (contributor path):
+
 ```bash
 nvm use
 pnpm install --frozen-lockfile
@@ -32,7 +36,9 @@ A green run verifies:
 
 - 31 skills <!-- inventory:skills -->
 - 99 agents <!-- inventory:agents -->
-- 3 built-in profiles: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` (모두 compatible — `certified`는 T1 격리 CI receipt를 요구하는 기계 게이트로 강제되며, 현재 어떤 레인도 충족 전)
+- 3 built-in profiles: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — all
+  `compatible`. The `certified` label is machine-bound to isolated-CI evidence
+  (`validate-certified-evidence`); no lane has produced that receipt yet, so none carries the label
 - per-agent file ownership
 - read-only verifier boundaries
 - adapter mirror (`.agents`, `.codex`) drift and document hygiene

@@ -49,4 +49,4 @@ PASS assertion에는 비어 있지 않은 evidence가 필요하다. Critical sce
 
 정적 script는 실제 model, 외부 API, SCM, CRM, warehouse, browser를 호출하지 않는다. Runtime scenario와 서비스 품질 평가는 별도 격리 환경에서 실행해야 한다.
 
-전체 절차와 서비스별 승격 순서는 `AI_AGENT_HARNESS_TESTING.md`를 따른다.
+전체 절차와 서비스별 승격 순서는 `docs/archive/AI_AGENT_HARNESS_TESTING.md`를 따른다.

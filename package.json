@@ -1,6 +1,7 @@
 {
   "name": "web-harness-control-plane",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=22.22.0"
   },

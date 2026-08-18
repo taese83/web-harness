@@ -6,9 +6,10 @@
 
 ## 현재 상태 (실측)
 
-- 저장소에 `.github/` 디렉터리가 **없다** — 어떤 워크플로도 활성화된 적 없음.
-- 제안서 2건이 `.claude/ci/`에 준비돼 있다(비활성 canonical):
-  - `harness-ci.yml` — 하네스 자기 회귀(`pnpm run ci`). `ubuntu-latest`, **self-hosted 불필요**.
+- **단계 A 완료(2026-08-18)**: `harness-ci.yml`이 `.github/workflows/`에 배치·활성화됐고
+  첫 유효 실행(run #2)이 **success** — 저장소 최초의 독립 CI green 실증. 이제 모든 main
+  push·PR이 자동 회귀를 받는다.
+- 잔여 제안서 1건이 `.claude/ci/`에 준비돼 있다(비활성 canonical):
   - `hybrid-t1.yml` — vite-serverless-hybrid 골든의 T1 폐곡선. self-hosted runner 필요.
 - hybrid 골든은 T1 실행 준비 완료: 골든 fixture 완비, `run-golden-profile.mjs --verify-t1`,
   `validate-isolated-cohort.mjs`(격리 컨텍스트·24h freshness 검증) 구현됨.

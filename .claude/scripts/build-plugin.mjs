@@ -233,6 +233,7 @@ writeFileSync(join(outputRoot, '.claude-plugin', 'plugin.json'), `${JSON.stringi
   description: 'Multi-agent web development harness — planning, design, implementation, QA pipeline with an approval-gated local console.',
   version: PLUGIN_VERSION,
   author: {name: PLUGIN_AUTHOR},
+  license: 'MIT',
 }, null, 2)}\n`)
 mkdirSync(join(outputRoot, 'hooks'), {recursive: true})
 writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
@@ -248,24 +249,27 @@ writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
 }, null, 2)}\n`)
 
 // 5b. 마켓플레이스 매니페스트와 배포 repo README — dist/를 marketplace root로 쓸 수 있게 한다.
+// 이 랜딩 페이지는 플러그인 채택자의 첫인상 표면이므로 영어가 정본이다(M4).
 writeFileSync(join(dirname(outputRoot), 'README.md'), `# web-harness plugin marketplace
 
-[web-harness](${PLUGIN_REPO_URL})에서 \`node .claude/scripts/build-plugin.mjs\`로 생성되는 배포 산출물입니다. 직접 편집하지 마세요.
+Build artifact generated from [web-harness](${PLUGIN_REPO_URL}) via \`node .claude/scripts/build-plugin.mjs\`. Do not edit directly. MIT licensed.
 
-## 설치
+## Install
 
-Claude Code에서:
+In Claude Code:
 
 \`\`\`
 /plugin marketplace add ${MARKETPLACE_GIT}
 /plugin install ${PLUGIN_NAME}@web-harness-marketplace
 \`\`\`
 
-이후 아무 프로젝트 디렉터리에서 \`/${PLUGIN_NAME}:web-orchestrator\`, \`/${PLUGIN_NAME}:web-plan\`, \`/${PLUGIN_NAME}:web-console\` 등을 사용할 수 있습니다. 로컬 Console(4310)과 격리 프리뷰(4311)는 \`web-harness-console\` 실행 파일이 현재 프로젝트를 대상으로 구동합니다.
+Then use \`/${PLUGIN_NAME}:web-orchestrator\`, \`/${PLUGIN_NAME}:web-plan\`, \`/${PLUGIN_NAME}:web-console\`, and more from any project directory. The local Console (port 4310) and isolated preview (4311) are started against the current project by the \`web-harness-console\` executable.
 
-- 버전: ${PLUGIN_VERSION}
-- 스킬 30 · 에이전트 98 · 안전 훅 5종
-- always-on 컨텍스트 비용 약 10k tokens/세션(+ \`_workspace/\` 하네스 관리 프로젝트에서만 SessionStart 재진입 안내 수 줄) — 사용하지 않을 때는 \`/plugin disable ${PLUGIN_NAME}@web-harness-marketplace\`
+First app, cost expectations, and the brownfield path: see the [quickstart](${PLUGIN_REPO_URL}/blob/main/docs/quickstart.md).
+
+- Version: ${PLUGIN_VERSION}
+- 30 skills · 98 agents · 5 safety hooks
+- Always-on context cost ≈10k tokens/session (plus a few SessionStart re-entry lines only in \`_workspace/\` harness-managed projects) — disable when idle: \`/plugin disable ${PLUGIN_NAME}@web-harness-marketplace\`
 `)
 
 
@@ -279,6 +283,7 @@ writeFileSync(join(marketplaceRoot, '.claude-plugin', 'marketplace.json'), `${JS
     name: PLUGIN_NAME,
     source: `./${basename(outputRoot)}`,
     description: 'Multi-agent web development harness — planning, design, implementation, QA pipeline with an approval-gated local console.',
+    license: 'MIT',
   }],
 }, null, 2)}\n`)
 

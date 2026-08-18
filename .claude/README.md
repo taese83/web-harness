@@ -1,34 +1,57 @@
 # Web Harness Control Plane
 
-이 디렉터리가 배포 가능한 Web Harness의 canonical source of truth다.
+This directory is the deployable Web Harness's canonical source of truth.
 
-## 다른 프로젝트에 적용
+## Deploying into another project
 
-저장소 루트에서 다음 명령을 사용한다.
+> **Constraint (by design):** `deploy-harness.mjs` only accepts targets **inside this
+> repository checkout** — it refuses external paths like `~/work/my-app`. To adopt the
+> harness in an existing project, either clone that project under `workspace/` first
+> (see `workspace/README.md`), or install the Claude Code **plugin**, which works from any
+> directory (root `README.md` → "Install as a Claude Code plugin").
+
+From the repository root:
 
 ```bash
-node .claude/scripts/deploy-harness.mjs --target <existing-child-project>
+node .claude/scripts/deploy-harness.mjs --target workspace/<existing-child-project>
 ```
 
-배포기는 source 검증, symlink 차단, 기존 `.claude` 덮어쓰기 차단, staging 후 atomic promotion, target 재검증을 수행한다. `skills`만 복사하지 않는다. agents, scripts, evals, adapters, schemas, settings, toolchain pin이 함께 있어야 MSW 초기화, OpenAPI 선택 적용, profile resolution, QA receipt와 release gate가 동작한다.
+The deployer validates the source repo, blocks symlinks, refuses to overwrite an existing
+`.claude`, stages then atomically promotes, and re-validates the target. It never copies
+`skills` alone: agents, scripts, evals, adapters, schemas, settings, and the toolchain pins
+must travel together for MSW init, OpenAPI adoption, profile resolution, QA receipts, and the
+release gate to work. Targets whose `.node-version`/`.nvmrc` differ from the harness pins are
+refused — align them first.
 
-## 이식 후 시작
+## After deployment
 
 1. `node .claude/scripts/validate-harness.mjs`
-2. `/web-plan`으로 제품 중심 intake, UX 위험, 데이터 전략, 상대 노력도와 준비도를 먼저 검토하거나 `/web-orchestrator`로 전체 lifecycle 시작
-3. 기존 서비스는 감지된 `CHANGE_MODE: existing-change`와 integration overlay를 확인
-4. API가 있으면 `/api-connect`가 기존 client/generator를 보존하고 선택 endpoint만 채택
-5. `/web-verify`로 machine receipt와 read-only QA 수행
-6. Figma/reference image, 시각 회귀, theme/viewport 검증은 `/visual-design-verify`로 contract와 승인 baseline을 추가
+2. Start with `/web-plan` (product-focused intake, UX risk, data strategy, relative effort,
+   readiness) or `/web-orchestrator` for the full lifecycle
+3. For existing services, check the detected `CHANGE_MODE: existing-change` and the
+   integration overlay
+4. If an API exists, `/api-connect` preserves existing clients/generators and adopts only
+   the selected endpoints
+5. `/web-verify` runs machine receipts and read-only QA
+6. For Figma/reference images, visual regression, and theme/viewport checks,
+   `/visual-design-verify` adds contracts and approved baselines
 
-## 경로 규칙
+## Path rules
 
-- `.claude/`는 Claude Code용 canonical control plane이다.
-- `.agents/`, `.codex/`가 로컬에 있더라도 runtime adapter 또는 작업 사본으로 취급하며 canonical 파일을 대신하지 않는다.
-- **adapter는 직접 수정하지 않는다** — `.agents`는 `node .claude/scripts/build-adapters.mjs`로만 재생성한다 (skills/adapters/evals/ai-harness.json을 canonical에서 verbatim 미러). drift는 `validate-harness.mjs`가 byte 단위로 검출해 실패시킨다.
-- 새 skill/agent는 먼저 `.claude`에 추가하고 `validate-harness.mjs`를 통과시킨 뒤 adapter를 재생성한다.
-- 스킬 문서를 수정하면 해당 SKILL.md frontmatter의 `metadata.version`을 올리고 `changelog`를 한 줄 남긴다 (`metadata.version`은 validator 필수 필드).
+- `.claude/` is the canonical control plane for Claude Code.
+- Even when `.agents/` or `.codex/` exist locally, treat them as runtime adapters or working
+  copies — they never substitute for canonical files.
+- **Never hand-edit adapters** — `.agents` is regenerated only via
+  `node .claude/scripts/build-adapters.mjs` (verbatim mirror of skills/adapters/evals/
+  ai-harness.json). Drift is detected byte-for-byte by `validate-harness.mjs` and fails.
+- Add new skills/agents to `.claude` first, pass `validate-harness.mjs`, then regenerate
+  the adapters.
+- When editing a skill document, bump `metadata.version` in its SKILL.md frontmatter and
+  leave a one-line `changelog` (`metadata.version` is a validator-required field).
 
-## 프로젝트별 설정
+## Per-project configuration
 
-기존 프로젝트의 package manager, app root, alias, UI library, API client, auth/service context, MSW activation, OpenAPI generator는 탐지 결과와 `_workspace/02_design/integration-overlay.json`에 기록한다. 불명확한 항목은 한 번에 최대 3개 질문으로 확인하며, 기존 공개 계약을 추측으로 교체하지 않는다.
+An existing project's package manager, app root, aliases, UI library, API client,
+auth/service context, MSW activation, and OpenAPI generator are recorded from detection
+results into `_workspace/02_design/integration-overlay.json`. Unclear items are confirmed
+with at most 3 questions at a time; existing public contracts are never replaced by guesses.

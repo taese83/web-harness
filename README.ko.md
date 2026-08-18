@@ -23,7 +23,7 @@ pnpm run ci
 
 - 31개 skill <!-- inventory:skills -->
 - 99개 agent <!-- inventory:agents -->
-- built-in profile 2개: `react-vite-spa` certified, `next-app-fullstack` compatible
+- built-in profile 3개: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — 모두 compatible (`certified`는 T1 격리 CI receipt를 요구하는 기계 게이트로 강제되며, 현재 충족 레인 없음)
 - agent별 파일 소유권
 - read-only verifier 경계
 - adapter 사본(.agents) drift + 문서 위생 (깨진 경로 참조·하드코딩 잔재·스킬 버저닝)
@@ -118,9 +118,13 @@ Web Harness는 이를 다음 구조로 해결한다.
 
 | Profile | 현재 등급 | 범위 | 기본 artifact |
 |---|---|---|---|
-| `react-vite-spa` | certified | React/Vite CSR, static CDN/container | `dist` |
+| `react-vite-spa` | compatible | React/Vite CSR, static CDN/container | `dist` |
 | `vite-serverless-hybrid` | compatible | React/Vite CSR + app-root Vercel Functions | `dist` + root `api/` |
 | `next-app-fullstack` | compatible | App Router, Node SSR/RSC/BFF, 조건부 static export | `.next`, `out` |
+
+`certified`는 2026-08-18부터 기계 게이트(`validate-certified-evidence`)가 격리 CI 폐곡선
+receipt를 요구한다 — 현재 충족 레인이 없어 세 프로파일 모두 compatible이다(승격 절차는
+`docs/ci-activation-runbook.md`).
 
 Hybrid profile은 root `api/`, Web Standard Vercel Functions, endpoint 5종 가드와 `api.unit`·`api.guards` receipt를 요구한다. `golden/vite-serverless-hybrid/`는 host/격리 CI 재현 경로를 제공하지만 실제 provider 배포와 외부 attestation이 없으면 certified로 승격하지 않는다.
 
@@ -1117,7 +1121,7 @@ node .claude/scripts/run-ai-evals.mjs \
 
 정적 검증은 실제 model과 외부 시스템을 호출하지 않는다. Runtime scenario는 격리된 fixture와 staging에서 별도로 실행해야 한다.
 
-자세한 순서는 [AI Agent Harness 테스트 가이드](AI_AGENT_HARNESS_TESTING.md)를 참고한다.
+자세한 순서는 [AI Agent Harness 테스트 가이드](docs/archive/AI_AGENT_HARNESS_TESTING.md)를 참고한다.
 
 ---
 
@@ -1233,9 +1237,9 @@ node .claude/scripts/run-ai-evals.mjs \
 ## 상세 문서
 
 - [Web Harness Agent 고도화 리뷰](WEB_HARNESS_AGENT_HARDENING_REVIEW.md)
-- [AI 서비스 개발 가능성 및 고도화 분석](AI_AGENT_WEB_SERVICE_FEASIBILITY.md)
-- [AI Harness 순차 테스트 가이드](AI_AGENT_HARNESS_TESTING.md)
-- [Claude 웹 엔지니어링 구조 감사](CLAUDE_WEB_ENGINEERING_AUDIT.md)
+- [AI 서비스 개발 가능성 및 고도화 분석](docs/archive/AI_AGENT_WEB_SERVICE_FEASIBILITY.md)
+- [AI Harness 순차 테스트 가이드](docs/archive/AI_AGENT_HARNESS_TESTING.md)
+- [Claude 웹 엔지니어링 구조 감사](docs/archive/CLAUDE_WEB_ENGINEERING_AUDIT.md)
 - [일반 Eval 계약](.claude/evals/README.md)
 
 ---
