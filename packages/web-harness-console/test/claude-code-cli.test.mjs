@@ -199,3 +199,24 @@ test('claude executor strips the draft meta-schema reference the CLI validator c
   assert.deepEqual(schema.properties.phase.enum, ['impact', 'apply'])
   assert.ok(schema.required.includes('outcome'))
 })
+
+test('명시 kind=claude-code는 probe 전에도 codex로 떨어지지 않는다 (search-portal 파일럿 실측 회귀)', async () => {
+  const events = []
+  const adapter = createExecutorAdapter({
+    kind: 'claude-code',
+    probes: {'claude-code': () => ({available: true, authenticated: true, connected: true, version: 'Claude Code v2', reason: null})},
+    executors: {
+      codex: async () => {
+        events.push('codex')
+        return 'codex-ran'
+      },
+      'claude-code': async () => {
+        events.push('claude-code')
+        return 'claude-ran'
+      },
+    },
+  })
+  // probe를 호출하지 않은 상태(activeExecutor=null)에서 실행 — 이전 버그는 여기서 codex를 실행했다
+  assert.equal(await adapter.execute({phase: 'apply', prompt: 'x'}), 'claude-ran')
+  assert.deepEqual(events, ['claude-code'])
+})

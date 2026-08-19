@@ -33,9 +33,15 @@ export const createExecutorAdapter = ({kind = 'auto', codexBin = 'codex', claude
       : primary
   }
 
-  const execute = input => activeExecutor === 'claude-code'
-    ? executeFor['claude-code']({claudeBin, ...input})
-    : executeFor.codex(input)
+  // 명시 kind는 probe 여부와 무관하게 항상 그 실행기를 쓴다 — 이전엔 probe 전
+  // (activeExecutor=null)이면 kind='claude-code'여도 codex 경로로 떨어지는 버그가 있었다
+  // (search-portal 파일럿 실측: Claude 연결 상태에서 변경 적용이 codex를 실행).
+  const execute = input => {
+    const target = kind !== 'auto' ? kind : (activeExecutor ?? 'codex')
+    return target === 'claude-code'
+      ? executeFor['claude-code']({claudeBin, ...input})
+      : executeFor.codex(input)
+  }
 
   return {
     kind,
