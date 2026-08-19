@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>web-harness style tile</title>
+<!--
+  Style Tile — 발산 후보 비교용 고정 템플릿 (design-principles-research.md §발산의 기계화)
+
+  통제변인 규약: 이 파일은 assets/에서 후보 디렉터리로 **그대로 복사**한다(재작성·수정 금지 —
+  wh-overlay.mjs와 같은 규약). 후보 간 차이는 같은 디렉터리의 tokens.css 하나로만 표현한다.
+  DOM이 같아야 스타일 축의 차이만 비교된다.
+
+  tokens.css가 정의해야 하는 변수 (누락 시 마젠타로 크게 표시 — 조용한 기본값 없음):
+    --st-bg           페이지 배경          --st-surface      카드·표면
+    --st-text         본문 텍스트          --st-text-muted   보조 텍스트
+    --st-accent       액센트(주 동작)      --st-on-accent    액센트 위 텍스트
+    --st-border       보더                 --st-danger       오류
+    --st-radius       모서리 언어(px)      --st-space        간격 기본 단위(px)
+    --st-font-display 디스플레이 서체 스택  --st-font-body    본문 서체 스택
+    --st-shadow       그림자 언어(box-shadow 값 전체)
+
+  내장 대비 검사(WCAG 2.x): 본문 4.5:1 · 보조/대형 3:1 · 비텍스트(보더) 3:1.
+  FAIL이 하나라도 있으면 이 후보는 미학 비교 전에 탈락한다(허브: 접근성 하한 > 미학).
+-->
+<link rel="stylesheet" href="tokens.css">
+<style>
+  :root { color-scheme: light dark; }
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    background: var(--st-bg, #f0f); color: var(--st-text, #f0f);
+    font-family: var(--st-font-body, monospace);
+    padding: calc(var(--st-space, 8px) * 3); max-width: 720px; margin-inline: auto;
+    display: grid; gap: calc(var(--st-space, 8px) * 3);
+  }
+  section { display: grid; gap: var(--st-space, 8px); }
+  .st-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--st-text-muted, #f0f); }
+  /* 색 칩 */
+  .st-chips { display: flex; gap: var(--st-space, 8px); flex-wrap: wrap; }
+  .st-chip { width: 96px; border: 1px solid var(--st-border, #f0f); border-radius: var(--st-radius, 0); overflow: hidden; }
+  .st-chip > div { height: 40px; }
+  .st-chip > span { display: block; font-size: 10px; padding: 4px 6px; color: var(--st-text-muted, #f0f); }
+  /* 타이포 */
+  .st-display { font-family: var(--st-font-display, monospace); font-size: 34px; line-height: 1.15; font-weight: 700; }
+  .st-h2 { font-family: var(--st-font-display, monospace); font-size: 21px; line-height: 1.3; font-weight: 600; }
+  .st-body { font-size: 15px; line-height: 1.6; max-width: 60ch; }
+  .st-caption { font-size: 12px; color: var(--st-text-muted, #f0f); }
+  /* 버튼 */
+  .st-row { display: flex; gap: var(--st-space, 8px); align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 14px; padding: calc(var(--st-space, 8px) * 1) calc(var(--st-space, 8px) * 2);
+    border-radius: var(--st-radius, 0); border: 1px solid transparent; cursor: pointer;
+  }
+  .st-primary { background: var(--st-accent, #f0f); color: var(--st-on-accent, #f0f); }
+  .st-secondary { background: transparent; color: var(--st-text, #f0f); border-color: var(--st-border, #f0f); }
+  .st-disabled { background: var(--st-surface, #f0f); color: var(--st-text-muted, #f0f); cursor: not-allowed; }
+  .st-focus { outline: 2px solid var(--st-accent, #f0f); outline-offset: 2px; }
+  /* 폼 */
+  .st-field { display: grid; gap: 4px; max-width: 320px; }
+  .st-field label { font-size: 13px; font-weight: 600; }
+  .st-field input {
+    font: inherit; font-size: 14px; padding: calc(var(--st-space, 8px) * 1);
+    border: 1px solid var(--st-border, #f0f); border-radius: var(--st-radius, 0);
+    background: var(--st-surface, #f0f); color: var(--st-text, #f0f);
+  }
+  .st-help { font-size: 12px; color: var(--st-text-muted, #f0f); }
+  .st-error { font-size: 12px; color: var(--st-danger, #f0f); }
+  .st-error-input { border-color: var(--st-danger, #f0f); }
+  /* 카드 */
+  .st-card {
+    background: var(--st-surface, #f0f); border: 1px solid var(--st-border, #f0f);
+    border-radius: var(--st-radius, 0); box-shadow: var(--st-shadow, none);
+    padding: calc(var(--st-space, 8px) * 2); display: grid; gap: var(--st-space, 8px); max-width: 360px;
+  }
+  /* 표 */
+  table { border-collapse: collapse; font-size: 13px; width: 100%; }
+  th, td { text-align: left; padding: calc(var(--st-space, 8px) * 1); border-bottom: 1px solid var(--st-border, #f0f); }
+  th { color: var(--st-text-muted, #f0f); font-weight: 600; }
+  /* 내비 */
+  nav { display: flex; gap: calc(var(--st-space, 8px) * 2); border-bottom: 1px solid var(--st-border, #f0f); }
+  nav a { font-size: 14px; text-decoration: none; color: var(--st-text-muted, #f0f); padding-bottom: var(--st-space, 8px); }
+  nav .st-active { color: var(--st-text, #f0f); border-bottom: 2px solid var(--st-accent, #f0f); }
+  /* 대비 리포트 */
+  #st-contrast { font-size: 12px; border: 1px dashed var(--st-border, #f0f); padding: var(--st-space, 8px); display: grid; gap: 4px; }
+  .st-pass { color: inherit; } .st-fail { color: var(--st-danger, #d00); font-weight: 700; }
+</style>
+</head>
+<body>
+  <section>
+    <span class="st-label">Color</span>
+    <div class="st-chips" id="st-chips"></div>
+  </section>
+  <section>
+    <span class="st-label">Type</span>
+    <div class="st-display">Display heading Aa</div>
+    <div class="st-h2">Section heading for a common screen</div>
+    <p class="st-body">Body copy at reading size. Two sentences are enough to judge rhythm,
+      x-height and the pairing against the display face above.</p>
+    <span class="st-caption">Caption / metadata · 12px</span>
+  </section>
+  <nav aria-label="sample">
+    <a href="#" class="st-active">Overview</a><a href="#">Items</a><a href="#">Reports</a><a href="#">Settings</a>
+  </nav>
+  <section>
+    <span class="st-label">Actions</span>
+    <div class="st-row">
+      <button class="st-primary">Primary action</button>
+      <button class="st-secondary">Secondary</button>
+      <button class="st-disabled" disabled>Disabled</button>
+      <button class="st-secondary st-focus">Focused</button>
+    </div>
+  </section>
+  <section class="st-row" style="align-items:flex-start">
+    <div class="st-field">
+      <label for="st-in1">Field label</label>
+      <input id="st-in1" placeholder="Placeholder">
+      <span class="st-help">Help text under the field.</span>
+    </div>
+    <div class="st-field">
+      <label for="st-in2">With error</label>
+      <input id="st-in2" class="st-error-input" value="Bad value">
+      <span class="st-error">Validation message.</span>
+    </div>
+  </section>
+  <div class="st-card">
+    <div class="st-h2" style="font-size:17px">Card title</div>
+    <p class="st-body" style="font-size:14px">Surface color, border, radius and shadow language in one place.</p>
+    <div class="st-row"><button class="st-primary">Act</button><span class="st-caption">2 min ago</span></div>
+  </div>
+  <section>
+    <span class="st-label">Table</span>
+    <table>
+      <thead><tr><th>Name</th><th>Status</th><th>Updated</th></tr></thead>
+      <tbody>
+        <tr><td>First row</td><td>Active</td><td>Today</td></tr>
+        <tr><td>Second row</td><td class="st-caption">Paused</td><td>Yesterday</td></tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <span class="st-label">Contrast (WCAG) — FAIL 1개 이상이면 이 후보는 탈락</span>
+    <div id="st-contrast"></div>
+  </section>
+<script>
+  const cs = getComputedStyle(document.body)
+  const v = name => cs.getPropertyValue(name).trim()
+  const rgb = str => {
+    const m = str.match(/rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/)
+    if (m) return [+m[1], +m[2], +m[3]]
+    const probe = document.createElement('i'); probe.style.color = str; document.body.appendChild(probe)
+    const out = getComputedStyle(probe).color.match(/rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/)
+    probe.remove(); return out ? [+out[1], +out[2], +out[3]] : null
+  }
+  const lum = ([r, g, b]) => {
+    const f = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+  }
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p)
+    return (x + 0.05) / (y + 0.05)
+  }
+  const chips = [['--st-bg', 'bg'], ['--st-surface', 'surface'], ['--st-text', 'text'],
+    ['--st-text-muted', 'muted'], ['--st-accent', 'accent'], ['--st-border', 'border']]
+  document.getElementById('st-chips').innerHTML = chips.map(([token, label]) =>
+    `<div class="st-chip"><div style="background:var(${token})"></div><span>${label}<br>${v(token) || 'MISSING'}</span></div>`).join('')
+  const checks = [
+    ['본문 text/bg', '--st-text', '--st-bg', 4.5],
+    ['보조 muted/bg', '--st-text-muted', '--st-bg', 4.5],
+    ['본문 text/surface', '--st-text', '--st-surface', 4.5],
+    ['액센트 on-accent/accent', '--st-on-accent', '--st-accent', 4.5],
+    ['오류 danger/bg', '--st-danger', '--st-bg', 4.5],
+    ['비텍스트 border/bg', '--st-border', '--st-bg', 3],
+  ]
+  document.getElementById('st-contrast').innerHTML = checks.map(([name, fg, bg, min]) => {
+    const a = rgb(v(fg)), b = rgb(v(bg))
+    if (!a || !b) return `<span class="st-fail">${name}: 토큰 누락 — FAIL</span>`
+    const r = ratio(a, b)
+    const ok = r >= min
+    return `<span class="${ok ? 'st-pass' : 'st-fail'}">${name}: ${r.toFixed(2)}:1 (하한 ${min}:1) — ${ok ? 'PASS' : 'FAIL'}</span>`
+  }).join('')
+</script>
+</body>
+</html>

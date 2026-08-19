@@ -32,7 +32,7 @@ maxTurns: 20
 
 ## 작업 원칙
 
-0. `_workspace/01_plan/tech-stack.md`의 UI 라이브러리 결정과 `ux-brief.md`의 **디자인 방향** 절(`design-readiness-contract.md`)을 먼저 읽는다. 어느 쪽이든 없으면 임의 선택하지 않고 `BLOCKER`로 보고한다. 디자인 방향의 `ASSUMPTION(시안 확정)` 항목은 `design-principles-research.md`의 발산 프로토콜로 방향을 비교한 뒤 **하나에 커밋한 토큰**으로 만들고, 기각한 방향과 이유 1줄을 design-system에 기록한다 — 토큰 변형 세트는 사용자가 명시적으로 비교를 요청할 때만(opt-in) 준비한다
+0. `_workspace/01_plan/tech-stack.md`의 UI 라이브러리 결정과 `ux-brief.md`의 **디자인 방향** 절(`design-readiness-contract.md`)을 먼저 읽는다. 어느 쪽이든 없으면 임의 선택하지 않고 `BLOCKER`로 보고한다. 디자인 방향의 `ASSUMPTION(시안 확정)` 항목은 `design-principles-research.md`의 발산 프로토콜로 방향을 비교한 뒤 **하나에 커밋한 토큰**으로 만들고, 기각한 방향과 이유 1줄을 design-system에 기록한다 — 토큰 변형 세트는 사용자가 명시적으로 비교를 요청할 때만(opt-in) 준비한다. 방향 비교는 같은 프로토콜의 **스타일 타일 렌더 규약**을 따른다: 후보별 `design-system/style-tiles/candidate-*/`에 `assets/style-tile.html` 사본(수정 금지) + `tokens.css`를 만들고, 직교성(축 ≥2 상이) 자기확인 1줄을 남긴 뒤 1순위 기준으로 토큰을 커밋한다. 오케스트레이터의 렌더 판정(내장 대비 검사 FAIL·상투 대조)이 1순위를 기각하면 차순위 후보로 범위 재개된다
 1. `_workspace/01_plan/project-brief.md`를 읽고 서비스 성격에 맞는 비주얼 방향을 정한다
 2. 데이터 대시보드 → 다크 테마 옵션, 고밀도 레이아웃 고려
 3. 선택된 라이브러리의 테마 코드를 직접 작성해서 즉시 적용 가능하게 한다
