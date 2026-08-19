@@ -550,7 +550,7 @@ export class WorkspaceCatalog {
     if (!request) throw Object.assign(new Error('Change Request was not found'), {code: 'CHANGE_REQUEST_NOT_FOUND', status: 404})
     const requestRuns = (options.codexRuns ?? []).filter(run => run.changeRequestId === changeRequestId)
     if (requestRuns.some(run => ['PENDING', 'RUNNING'].includes(run.status))) {
-      throw Object.assign(new Error('Wait for the active Codex run to finish before revising the request'), {code: 'CHANGE_REQUEST_REVISION_RUN_ACTIVE', status: 409})
+      throw Object.assign(new Error('Wait for the active executor run to finish before revising the request'), {code: 'CHANGE_REQUEST_REVISION_RUN_ACTIVE', status: 409})
     }
     if (requestRuns.some(run => run.phase === 'apply')) {
       throw Object.assign(new Error('The request cannot be revised after change application has started; use the candidate review flow'), {code: 'CHANGE_REQUEST_REVISION_APPLY_STARTED', status: 409})
@@ -570,7 +570,7 @@ export class WorkspaceCatalog {
     if (!request) return {deleted: false, artifactCount: 0}
     const requestRuns = codexRuns.filter(run => run.changeRequestId === changeRequestId)
     if (requestRuns.some(run => ['PENDING', 'RUNNING'].includes(run.status))) {
-      throw Object.assign(new Error('Wait for the active Codex run to finish before deleting the request'), {code: 'CHANGE_REQUEST_DELETE_RUN_ACTIVE', status: 409})
+      throw Object.assign(new Error('Wait for the active executor run to finish before deleting the request'), {code: 'CHANGE_REQUEST_DELETE_RUN_ACTIVE', status: 409})
     }
     const verifiedReviews = listChangeRequestReviews(project.root, changeRequestId, {strict: true})
     if (verifiedReviews.some(decision => decision.decision === 'APPROVED')) {

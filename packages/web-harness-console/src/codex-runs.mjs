@@ -51,7 +51,7 @@ const safeDirectory = path => {
 
 const assertContained = (path, root) => {
   const real = realpathSync(path)
-  if (real !== root && !real.startsWith(root + sep)) throw new CodexRunError('UNSAFE_CODEX_RUN_PATH', 'Codex run path is outside the project boundary', 409)
+  if (real !== root && !real.startsWith(root + sep)) throw new CodexRunError('UNSAFE_CODEX_RUN_PATH', 'Executor run path is outside the project boundary', 409)
   return real
 }
 
@@ -65,14 +65,14 @@ const runRoot = (projectRoot, {create = false} = {}) => {
     try {
       mkdirSync(development, {mode: 0o700})
     } catch (error) {
-      if (error.code !== 'EEXIST') throw new CodexRunError('CODEX_RUN_DIRECTORY_FAILED', 'Codex run directory could not be created', 409)
+      if (error.code !== 'EEXIST') throw new CodexRunError('CODEX_RUN_DIRECTORY_FAILED', 'Executor run directory could not be created', 409)
     }
     if (!safeDirectory(development)) throw new CodexRunError('UNSAFE_CODEX_RUN_PATH', 'Development audit directory is unsafe', 409)
     assertContained(development, root)
     try {
       mkdirSync(join(development, RUN_DIRECTORY), {mode: 0o700})
     } catch (error) {
-      if (error.code !== 'EEXIST') throw new CodexRunError('CODEX_RUN_DIRECTORY_FAILED', 'Codex run directory could not be created', 409)
+      if (error.code !== 'EEXIST') throw new CodexRunError('CODEX_RUN_DIRECTORY_FAILED', 'Executor run directory could not be created', 409)
     }
   }
   const directory = join(development, RUN_DIRECTORY)
@@ -231,11 +231,11 @@ const publicImpactContext = context => context ? {
 } : null
 
 export const normalizeRunResult = (phase, value) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || value.phase !== phase) throw new CodexRunError('CODEX_OUTPUT_INVALID', 'Codex returned an invalid structured result', 502)
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.phase !== phase) throw new CodexRunError('CODEX_OUTPUT_INVALID', 'Executor returned an invalid structured result', 502)
   const allowedOutcomes = phase === 'impact'
     ? new Set(['READY', 'ALREADY_APPLIED', 'BLOCKED'])
     : new Set(['READY_FOR_REVIEW', 'NO_CHANGE', 'BLOCKED'])
-  if (!allowedOutcomes.has(value.outcome) || typeof value.summary !== 'string' || !value.summary.trim()) throw new CodexRunError('CODEX_OUTPUT_INVALID', 'Codex returned an invalid outcome', 502)
+  if (!allowedOutcomes.has(value.outcome) || typeof value.summary !== 'string' || !value.summary.trim()) throw new CodexRunError('CODEX_OUTPUT_INVALID', 'Executor returned an invalid outcome', 502)
   return {
     phase,
     outcome: value.outcome,
@@ -426,8 +426,8 @@ export const executeCodexCli = ({codexBin = 'codex', projectRoot, phase, prompt,
   child.once('close', code => {
     if (settled) return
     if (jsonlBuffer) inspectEvent(jsonlBuffer)
-    if (aborted) return finishError(new CodexRunError('CODEX_RUN_INTERRUPTED', 'Codex run was interrupted', 409))
-    if (timedOut) return finishError(new CodexRunError('CODEX_RUN_TIMED_OUT', 'Codex run exceeded its time budget', 504))
+    if (aborted) return finishError(new CodexRunError('CODEX_RUN_INTERRUPTED', 'Executor run was interrupted', 409))
+    if (timedOut) return finishError(new CodexRunError('CODEX_RUN_TIMED_OUT', 'Executor run exceeded its time budget', 504))
     if (code !== 0) return finishError(new CodexRunError('CODEX_RUN_FAILED', boundedText(stderr.trim(), 500) || `Codex exited with code ${code}`, 502))
     try {
       const result = normalizeRunResult(phase, JSON.parse(readFileSync(outputPath, 'utf8')))
@@ -510,7 +510,7 @@ export class CodexRunManager {
     if (!IDEMPOTENCY_PATTERN.test(idempotencyKey ?? '')) throw new CodexRunError('INVALID_IDEMPOTENCY_KEY', 'A UUID Idempotency-Key is required')
     if (!input || typeof input !== 'object' || Array.isArray(input) || !['impact', 'apply'].includes(input.phase)) throw new CodexRunError('INVALID_CODEX_RUN', 'phase must be impact or apply')
     const allowedFields = input.phase === 'impact' ? new Set(['phase']) : new Set(['phase', 'impactRunId', 'approval'])
-    if (Object.keys(input).some(field => !allowedFields.has(field))) throw new CodexRunError('INVALID_CODEX_RUN', 'Codex run body contains unsupported fields')
+    if (Object.keys(input).some(field => !allowedFields.has(field))) throw new CodexRunError('INVALID_CODEX_RUN', 'Executor run body contains unsupported fields')
     const request = project.changeRequests.find(candidate => candidate.id === changeRequestId)
     if (!request) throw new CodexRunError('CHANGE_REQUEST_NOT_FOUND', 'Change Request was not found', 404)
     // 대상 없는 CR(bootstrap·newFeature)은 기획 초안 생성 지시문(PLAN_*)으로 실행된다.
@@ -521,7 +521,7 @@ export class CodexRunManager {
     const existing = this.#listInternal(project.root).find(run => run.idempotencyKey === idempotencyKey)
     if (existing) return {created: false, run: publicRun(existing)}
     if (['APPROVED', 'DISCARDED'].includes(request.latestReviewDecision?.decision)) throw new CodexRunError('CHANGE_REQUEST_REVIEW_TERMINAL', 'This Change Request has a terminal review decision', 409)
-    if (this.active.size > 0) throw new CodexRunError('CODEX_RUN_ACTIVE', 'Another Codex run is already active', 409)
+    if (this.active.size > 0) throw new CodexRunError('CODEX_RUN_ACTIVE', 'Another executor run is already active', 409)
     const impactContext = buildImpactContext(project, request)
     if (input.phase === 'impact') {
       const cachedSource = this.#listInternal(project.root).find(run =>

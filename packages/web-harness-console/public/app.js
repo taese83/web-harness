@@ -1613,9 +1613,13 @@ const appendCodexResult = (card, run, {stale = false} = {}) => {
     if (!stale && run.phase === 'impact' && run.result.outcome === 'BLOCKED') {
       panel.append(create('p', {className: 'codex-run-error', text: '영향 검토가 BLOCKED로 종료되어 적용 단계로 진행할 수 없습니다. Blockers를 확인하고 ‘요청 수정’으로 요청을 갱신하면 새 영향 검토를 시작할 수 있습니다.'}))
     }
-  } else if (run.error) panel.append(create('p', {className: 'codex-run-error', role: 'alert', text: run.error.code === 'CODEX_RUN_TIMED_OUT'
-    ? `${run.error.code}: ${run.error.message} 자동 재시도하지 않았습니다. 영향 범위를 확인한 뒤 ‘변경 적용 다시 실행’을 사용하세요.`
-    : `${run.error.code}: ${run.error.message}`}))
+  } else if (run.error) {
+    // 오류 코드는 API 계약이라 저장값을 바꾸지 않고 표시에서만 실행기 중립화한다
+    const displayCode = String(run.error.code ?? '').replace(/^(?:UNSAFE_)?CODEX_/, 'EXECUTOR_')
+    panel.append(create('p', {className: 'codex-run-error', role: 'alert', text: run.error.code === 'CODEX_RUN_TIMED_OUT'
+      ? `${displayCode}: ${run.error.message} 자동 재시도하지 않았습니다. 영향 범위를 확인한 뒤 ‘변경 적용 다시 실행’을 사용하세요.`
+      : `${displayCode}: ${run.error.message}`}))
+  }
   else panel.append(create('p', {className: 'codex-run-summary', text: run.status === 'PENDING' ? '실행을 준비하고 있습니다.' : '실행기가 현재 repository와 요청을 확인하고 있습니다.'}))
   const contextMetrics = run.impactContext
     ? `Context ${run.impactContext.documentCount} docs · ${Number(run.impactContext.manifestBytes).toLocaleString('ko-KR')} bytes`

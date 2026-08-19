@@ -134,7 +134,7 @@ export const executeClaudeCodeCli = ({claudeBin = 'claude', projectRoot, phase, 
   child.once('error', error => finishError(new CodexRunError(error.code === 'ENOENT' ? 'CLAUDE_CODE_NOT_INSTALLED' : 'CLAUDE_CODE_PROCESS_FAILED', 'Claude Code process could not be started', 409)))
   child.once('close', code => {
     if (settled) return
-    if (aborted) return finishError(new CodexRunError('CODEX_RUN_INTERRUPTED', 'Claude Code run was interrupted', 409))
+    if (aborted) return finishError(new CodexRunError('CODEX_RUN_INTERRUPTED', 'Executor run was interrupted', 409))
     if (timedOut) return finishError(new CodexRunError('CODEX_RUN_TIMED_OUT', 'Claude Code run exceeded its time budget', 504))
     if (code !== 0) return finishError(new CodexRunError('CLAUDE_CODE_RUN_FAILED', boundedText(stderr.trim(), 500) || `Claude Code exited with code ${code}`, 502))
     try {
