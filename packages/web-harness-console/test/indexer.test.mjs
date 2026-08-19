@@ -230,3 +230,38 @@ test('discovery walks nested layouts beyond workspace/ and packages/ and reports
   assert.equal(typeof listing.scanRoot, 'string')
   assert.ok(listing.scanRoot.length > 0)
 })
+
+test('sharded feature-plan 디렉토리에서도 FEAT/TC가 파싱된다 (search-portal 파일럿 실측 회귀)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-console-sharded-'))
+  try {
+    const project = join(root, 'workspace', 'sharded')
+    mkdirSync(join(project, '_workspace', '01_plan', 'feature-plan'), {recursive: true})
+    writeFileSync(join(project, '_workspace', '01_plan', 'feature-plan', 'INDEX.md'), [
+      '# Feature Plan — 서비스',
+      '| 절 | 파일 | 담당 범위 | 주 소비자 |',
+      '|---|---|---|---|',
+      '| Feature List | `feature-list.md` | FEAT 표 | 전체 |',
+    ].join('\n'))
+    writeFileSync(join(project, '_workspace', '01_plan', 'feature-plan', 'feature-list.md'), [
+      '| FEAT ID | Feature | Priority | Page Group | Screen |',
+      '|---|---|---|---|---|',
+      '| FEAT-001 | Unified search | Must | PAGE-001 | home |',
+    ].join('\n'))
+    writeFileSync(join(project, '_workspace', '01_plan', 'feature-plan', 'behavior-specs.md'), [
+      '- TC-001-1: runs a search',
+      '',
+      '| Sub Feature ID | 동작 | 관련 Test Case | 화면/영역 | 이번 범위 |',
+      '|---|---|---|---|---|',
+      '| FEAT-001-01 | Submit query | TC-001-1 | search-input | keep |',
+    ].join('\n'))
+    const catalog = new WorkspaceCatalog(root)
+    const listing = catalog.list()
+    const detail = catalog.detail(listing.projects[0].id)
+    assert.equal(detail.features.length, 1)
+    assert.equal(detail.features[0].featureId, 'FEAT-001')
+    assert.equal(detail.features[0].subFeatures[0].subFeatureId, 'FEAT-001-01')
+    assert.ok(detail.features[0].subFeatures[0].testCaseIds.includes('TC-001-1'))
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})

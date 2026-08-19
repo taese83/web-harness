@@ -334,9 +334,18 @@ const projectId = relativePath => `${basename(relativePath || 'root').replace(/[
 const scanProject = (repositoryRoot, root) => {
   const relativePath = toPosix(relative(repositoryRoot, root)) || '.'
   const documents = PHASES.flatMap(phase => walkDocuments(root, phase))
+  // feature-plan은 sharding 계약상 flat(.md) 또는 디렉토리(feature-plan/) 형태다
+  // (search-portal 파일럿 실측 — flat 완전 일치만 찾으면 sharded 프로젝트에서 FEAT 0으로 보임).
+  // 디렉토리 형태면 절 파일들을 이어붙여 파싱한다: feature-list.md(FEAT 표)를 앞에 두어
+  // FEAT 정의 순서를 보존하고, INDEX.md는 절 목록 표뿐이라 파서 헤더에 매칭되지 않는다.
+  const featurePlanShards = documents
+    .filter(document => document.path.startsWith('_workspace/01_plan/feature-plan/'))
+    .sort((left, right) => Number(right.path.endsWith('/feature-list.md')) - Number(left.path.endsWith('/feature-list.md')) || left.path.localeCompare(right.path))
   const featurePlan = documents.find(document => document.path === '_workspace/01_plan/feature-plan.md')
+  const featurePlanSource = featurePlan?.content
+    ?? (featurePlanShards.length ? featurePlanShards.map(document => document.content ?? '').join('\n\n') : undefined)
   const preview = summarizePreview(root)
-  const features = parseFeaturePlan(featurePlan?.content).map(feature => {
+  const features = parseFeaturePlan(featurePlanSource).map(feature => {
     const previewFeature = preview.features.find(item => item.featureId === feature.featureId)
     const subFeatures = feature.subFeatures.map(subFeature => {
       const previewSubFeature = previewFeature?.subFeatures.find(item => item.subFeatureId === subFeature.subFeatureId)

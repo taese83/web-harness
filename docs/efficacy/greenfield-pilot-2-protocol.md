@@ -162,4 +162,17 @@ Phase 1 2종에는 없었다. **결함 4호(레지스트리 flat-only)의 하류
 동일 관용구(그룹 필수 검사) 적용, delta 모드의 같은 클래스(DELTA_SOURCE_INPUTS
 feature-plan.md flat 필수)는 미실측이라 관찰 대기로 남긴다.
 
+#### 결함 9호 — Console indexer의 feature-plan flat-only 탐색 (4호 하류 3번째)
+
+사용자가 Console Features 탭에서 "아직 기획(FEAT)이 없는 프로젝트입니다"를 실측 보고.
+원인 2중: ① Console 서버 프로세스가 8호 수정 이전 모듈을 캐시(재시작으로 해소 —
+ESM 캐시 프로세스는 lib 수정 후 재시작 필요, 운영 교훈), ② `indexer.mjs`가
+feature-plan을 `_workspace/01_plan/feature-plan.md` 완전 일치로만 탐색 — sharded
+디렉토리에서 parseFeaturePlan(undefined) → FEAT 0. **4호의 하류 소비자 3번째**
+(레지스트리→프리뷰 검증기→Console 색인기 — 같은 flat-only 클래스가 사슬로 드러남).
+회수: shard 이어붙임 폴백(feature-list.md 우선 정렬로 FEAT 순서 보존), 회귀 테스트
+1건(sharded fixture → FEAT/subFeature/TC 파싱 assert), Console 스위트 60/60 green.
+수정 후 실측: `/api/projects/search-portal-*`가 featureCount 13·subFeatures 5·TC 연결
+정상 반환.
+
 (이후 기록은 파일럿 완료 시 append)
