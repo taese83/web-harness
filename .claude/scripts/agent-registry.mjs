@@ -218,6 +218,11 @@ export const AGENT_OWNERSHIP = {
     appPath('src/.+\\.(?:test|spec)\\.[jt]sx?$'),
     appPath('src/.+/__tests__/'),
     appPath('e2e/.+\\.spec\\.ts$'),
+    // 프로젝트 루트 tests/(서버 핸들러 unit·가드·production-boundary 스위트)는 test-writer
+    // 소유다 — search-portal 파일럿 실측: package 스크립트(test:api 등)와
+    // vitest.production.config.ts include가 tests/를 참조하는데 소유자가 없었음(결함 15호).
+    // 13호 fix와 동일하게 프리픽스 src/·app/ 배제로 루트 tests/만 매칭(중간 tests/ 세그먼트 배제).
+    /^(?:(?!(?:src|app)\/)[^/]+\/)*tests\//,
   ],
   'tooling-scaffolder': [
     // vitest 변형 config(vitest.production.config.ts 등)는 tsconfig와 동일한 가변 그룹 관용구 —

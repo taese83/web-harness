@@ -170,6 +170,10 @@ export const validateAgentBoundaries = ({
     ['feature api layer not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/features/dashboard/api/client.ts'), 2],
     ['next app router api not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/app/api/route.ts'), 2],
     ['realtime api layer not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/features/live-mode/api/connect.ts'), 2],
+    // 결함 15호 — 루트 tests/(서버 unit·가드·production-boundary)는 test-writer 소유, src 내부 tests/ 세그먼트는 배제
+    ['root tests suite owned by test writer', 'test-writer', join(repositoryRoot, 'tests/api.guards.test.ts'), 0],
+    ['root production boundary owned by test writer', 'test-writer', join(repositoryRoot, 'tests/production-boundary/mock-boundary.test.ts'), 0],
+    ['src nested tests dir non-test file not owned via root pattern', 'test-writer', join(repositoryRoot, 'src/features/dashboard/tests/helper.ts'), 2],
     ['tooling vitest variant config owned', 'tooling-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],
     ['tooling arbitrary ts file not owned', 'tooling-scaffolder', join(repositoryRoot, 'src/app/App.tsx'), 2],
     ['AI threat model flat output', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model.md'), 0],
