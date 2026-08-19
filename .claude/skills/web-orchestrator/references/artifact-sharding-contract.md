@@ -53,6 +53,7 @@ _workspace/02_design/api-schema/            ← 분할
 
 | 산출물 | 분할 축 | 주요 소비자 경계 |
 |---|---|---|
+| `planning-context` | Product Frame·Evidence / UX 리스크·상태 / 디자인 방향 intake / 데이터·규모 전략 / 미결정 / Planning Memo | 디자인 방향은 design-system-architect·ux-researcher만, 미결정·Memo는 전체 (실측: search-portal 파일럿 10섹션 발화) |
 | `tech-stack` | 의존성·버전 매트릭스 / 아키텍처 결정(ADR) / 배포·provider target / 테스트 전략 | scaffolder는 버전만, designer는 결정만, CI writer는 배포만 |
 | `requirements` | 기능 REQ(도메인별) / 비기능 NFR / 상태·엣지 시나리오 | feature-planner는 기능, performance-budget-designer는 NFR, state-contract-designer는 시나리오 |
 | `ux-brief` | 화면 인벤토리·상태 matrix / 사용자 플로우 / 디자인 방향 | layout-designer는 인벤토리, design-system-architect는 방향 |

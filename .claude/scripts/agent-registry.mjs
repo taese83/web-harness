@@ -124,7 +124,7 @@ export const AGENT_OWNERSHIP = {
     /^packages\/enterprise-search\//,
   ],
   'feature-mutation-builder': [appPath('src/features/(?!live-mode/)[^/]+/api/')],
-  'feature-planner': [/^_workspace\/01_plan\/feature-plan\.md$/],
+  'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
   'form-state-builder': [appPath('src/features/(?!live-mode/)[^/]+/model/'), appPath('src/shared/modal/')],
   'human-approval-builder': [
     /^packages\/approval-policy\//,
@@ -170,13 +170,13 @@ export const AGENT_OWNERSHIP = {
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
   'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/, /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/],
   'planning-facilitator': [
-    /^_workspace\/01_plan\/planning-context\.md$/,
-    /^_workspace\/01_plan\/decision-log\.md$/,
+    /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
+    /^_workspace\/01_plan\/decision-log(?:\.md|\/.+)$/,
   ],
   'planning-synthesizer': [/^_workspace\/01_plan\/project-brief\.md$/],
   'publish-ci-writer': [/^\.github\/workflows\/publish\.ya?ml$/],
   'release-manager': [/^_workspace\/RELEASE\//],
-  'requirements-analyst': [/^_workspace\/01_plan\/requirements\.md$/],
+  'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
   'route-builder': [appPath('src/app/routes/'), appPath('src/pages/'), appPath('src/widgets/layout/')],
   'shared-foundation-builder': [
     appPath('src/shared/(?!realtime/)'),
@@ -192,7 +192,7 @@ export const AGENT_OWNERSHIP = {
   ],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
-  'tech-advisor': [/^_workspace\/01_plan\/tech-stack\.md$/],
+  'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
   'tool-adapter-builder': [
     /^packages\/ai-contracts\//,
@@ -218,7 +218,7 @@ export const AGENT_OWNERSHIP = {
     /^\.husky\//,
     appPath('src/test/'),
   ],
-  'ux-researcher': [/^_workspace\/01_plan\/ux-brief\.md$/],
+  'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
   'browser-agent-builder': [
     /^apps\/browser-runner\//,
     /^packages\/browser-agent\//,
