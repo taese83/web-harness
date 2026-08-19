@@ -24,7 +24,7 @@ const MAX_INSPECTED_FILE_BYTES = 2 * 1024 * 1024
 const MAX_INSPECTED_SOURCE_FILES = 1024
 const NETWORK_INGESTION_SOURCE = /\bfetch\s*\(|\b(?:globalThis|window|self)\s*\.\s*fetch\b|\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*fetch\b|\b(?:axios|got)\s*\(|\bhttps?\s*\.\s*(?:get|request)\s*\(|\bfrom\s*['"](?:axios|got|node:https?|undici)['"]|\brequire\s*\(\s*['"](?:axios|got|node:https?|undici)['"]\s*\)/
 const SOURCE_SCAN_EXCLUDED_DIRECTORIES = new Set([
-  '.claude', '.git', '.github', '.next', '_workspace', 'build', 'coverage', 'dist',
+  '.claude', '.git', '.github', '.next', '.pnpm-store', '_workspace', 'build', 'coverage', 'dist',
   'e2e', 'fixtures', 'node_modules', 'out', 'public', 'static', 'test', 'tests',
 ])
 const OPERATIONAL_SOURCE_SEGMENTS = new Set([
@@ -110,7 +110,7 @@ const inspectWorkflows = (projectRoot, evidence) => {
   }
 }
 
-const inspectNetworkIngestionSources = (projectRoot, evidence) => {
+const inspectNetworkIngestionSources = (projectRoot, evidence, excludeHarnessProjectChildren = false) => {
   let inspected = 0
   const inspectFile = relativePath => {
     if (!/\.(?:c?js|mjs|[cm]?ts|tsx)$/i.test(relativePath)) return
@@ -146,6 +146,13 @@ const inspectNetworkIngestionSources = (projectRoot, evidence) => {
       const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name
       if (entry.isSymbolicLink()) evidence.push(`uninspectable-source:${relativePath}`)
       else if (entry.isDirectory() && !SOURCE_SCAN_EXCLUDED_DIRECTORIES.has(entry.name)) {
+        // ancestor 스캔 한정: 자체 하니스 release root(사촌 프로젝트)는 이 프로젝트의 조상
+        // 운영 표면이 아니다 — search-portal 파일럿 실측(형제 파일럿의 crawler가 ancestor
+        // 증거로 오탐, 결함 11호). 판정 마커는 존재-only `_workspace`가 아니라 **실질 구조**
+        // `_workspace/01_plan`(하니스 init이 반드시 만드는 하위)이다 — 빈 `_workspace` 위장
+        // 우회를 막는다(리뷰 HIGH 반영). 마커 없는 wrapper crawler 패키지는 계속 스캔되므로
+        // split-root 방어는 유지된다. 잔여 한계(구조까지 위조한 decoy)는 protected-core §4 등록.
+        if (excludeHarnessProjectChildren && pathEntryExists(join(directory, entry.name, '_workspace', '01_plan'))) continue
         walk(relativePath, depth + 1)
       }
       else if (entry.isFile()) inspectFile(relativePath)
@@ -166,7 +173,7 @@ const readRuntimeContractMode = projectRoot => {
   }
 }
 
-const collectOperationalEvidence = projectRoot => {
+const collectOperationalEvidence = (projectRoot, {excludeHarnessProjectChildren = false} = {}) => {
   const evidence = []
   for (const path of CONTRACT_PATHS) {
     if (pathEntryExists(join(projectRoot, path))) evidence.push(`contract:${path}`)
@@ -176,7 +183,7 @@ const collectOperationalEvidence = projectRoot => {
   }
   inspectPackageScripts(projectRoot, evidence)
   inspectWorkflows(projectRoot, evidence)
-  inspectNetworkIngestionSources(projectRoot, evidence)
+  inspectNetworkIngestionSources(projectRoot, evidence, excludeHarnessProjectChildren)
   return evidence
 }
 
@@ -196,7 +203,7 @@ const inspectAncestorRepositoryIngestion = (projectRoot, includeAncestorReposito
   let depth = 0
   for (let directory = dirname(projectRoot); ; directory = dirname(directory)) {
     depth += 1
-    evidence.push(...collectOperationalEvidence(directory).map(item => `ancestor[${depth}]:${item}`))
+    evidence.push(...collectOperationalEvidence(directory, {excludeHarnessProjectChildren: true}).map(item => `ancestor[${depth}]:${item}`))
     if (directory === repositoryRoot) break
   }
   return [...new Set(evidence)].sort()

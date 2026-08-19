@@ -175,4 +175,21 @@ feature-plan을 `_workspace/01_plan/feature-plan.md` 완전 일치로만 탐색 
 수정 후 실측: `/api/projects/search-portal-*`가 featureCount 13·subFeatures 5·TC 연결
 정상 반환.
 
+#### 결함 11호 — ingestion ancestor 스캔의 사촌 프로젝트 오탐 (Phase 3 진입 차단)
+
+profile resolver가 greenfield hybrid 잠금을 거부. 원시 출력:
+
+    "code": "INGESTION_CONTRACT_INVALID",
+    "External ingestion markers exist above the selected project root; ..."
+
+실측 증거 목록이 원인을 드러냄: ancestor[1]이 `workspace/` 디렉토리에서 **형제 파일럿**
+(tamiya-race-app의 crawler.ts, tamiya-motor-lab sync-client)을 수집 — wrapper-crawler
+분리-루트 방어가 조상 경로의 **사촌**(독립 release root인 다른 하니스 프로젝트)까지
+재귀 스캔한 모델링 갭. 다중 파일럿 dogfood repo에서는 crawler 있는 형제가 하나라도
+생기면 모든 후속 그린필드가 차단되는 구조. 회수: ancestor 스캔 한정으로 자체
+`_workspace/`를 가진 하위(=독립 하니스 프로젝트) 제외 — `_workspace` 없는 wrapper
+crawler 패키지는 계속 스캔되어 split-root 방어 불변(회귀 2방향 고정: 사촌 제외 +
+wrapper 계속 검출). `.pnpm-store` 스캔 제외 추가. web-core 스위트 exit 0, resolver
+재실행 exit 0(hybrid 1.1.0 잠금·DAG 12노드).
+
 (이후 기록은 파일럿 완료 시 append)

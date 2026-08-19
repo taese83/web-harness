@@ -318,6 +318,44 @@ try {
     inspectExternalIngestion(join(splitRootFixture, 'apps/.claude/web')).errors.some(error => error.includes('above the selected project root')),
     'a path segment named .claude must not disable ancestor ingestion inspection',
   )
+  // 사촌 프로젝트 오탐 회귀(결함 11호): 자체 _workspace를 가진 형제 하니스 프로젝트의
+  // crawler는 ancestor 증거가 아니다 — split-root(위 케이스, ancestor 자신의 package.json
+  // 스크립트)는 계속 잡히면서 사촌만 제외되는지 두 방향 모두 고정한다.
+  const cousinFixture = mkdtempSync(join(tmpdir(), 'web-harness-cousin-'))
+  try {
+    mkdirSync(join(cousinFixture, '.git'))
+    writeFileSync(join(cousinFixture, '.git/HEAD'), 'ref: refs/heads/main\n')
+    writeFileSync(join(cousinFixture, '.git/config'), '[core]\n\trepositoryformatversion = 0\n')
+    mkdirSync(join(cousinFixture, 'workspace/clean-app/_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(cousinFixture, 'workspace/clean-app/package.json'), '{}\n')
+    mkdirSync(join(cousinFixture, 'workspace/other-pilot/_workspace/01_plan'), {recursive: true})
+    mkdirSync(join(cousinFixture, 'workspace/other-pilot/lib'), {recursive: true})
+    writeFileSync(join(cousinFixture, 'workspace/other-pilot/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
+    const cousinInspection = inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app'))
+    check(
+      !cousinInspection.errors.some(error => error.includes('above the selected project root')),
+      'a sibling harness project (own _workspace) must not count as ancestor ingestion evidence',
+    )
+    // 같은 crawler가 _workspace 없는 wrapper 패키지에 있으면 여전히 잡힌다 (split-root 방어 불변)
+    mkdirSync(join(cousinFixture, 'workspace/raw-crawler-pkg/lib'), {recursive: true})
+    writeFileSync(join(cousinFixture, 'workspace/raw-crawler-pkg/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
+    check(
+      inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app')).errors.some(error => error.includes('above the selected project root')),
+      'a wrapper crawler package without _workspace must still count as ancestor ingestion evidence',
+    )
+    // 우회 시드(리뷰 HIGH 고정): 빈 `_workspace/` 위장으로는 실제 조상 ingestion을 가릴 수 없다
+    rmSync(join(cousinFixture, 'workspace/raw-crawler-pkg'), {recursive: true, force: true})
+    mkdirSync(join(cousinFixture, 'workspace/decoy-crawler/_workspace'), {recursive: true})
+    mkdirSync(join(cousinFixture, 'workspace/decoy-crawler/lib'), {recursive: true})
+    writeFileSync(join(cousinFixture, 'workspace/decoy-crawler/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
+    check(
+      inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app')).errors.some(error => error.includes('above the selected project root')),
+      'an empty _workspace decoy must not hide ancestor ingestion evidence',
+    )
+  } finally {
+    rmSync(cousinFixture, {recursive: true, force: true})
+  }
+
   const aliasContainer = mkdtempSync(join(tmpdir(), 'web-harness-split-root-alias-'))
   symlinkSync(join(splitRootFixture, 'client'), join(aliasContainer, 'client'))
   check(
