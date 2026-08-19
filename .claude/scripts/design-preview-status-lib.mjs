@@ -21,8 +21,13 @@ const REQUIRED_PREVIEW_FILES = [
 ]
 
 const SOURCE_INPUTS = [
-  ['_workspace/01_plan/feature-plan.md', true],
-  ['_workspace/01_plan/ux-brief.md', true],
+  // feature-plan·ux-brief는 sharding 계약상 디렉토리 형태가 가능하다(search-portal 파일럿
+  // 실측 — Phase 1 sharded 산출물에서 flat 필수 요구가 오탐 missing을 냄). Phase 2 3종과
+  // 동일하게 (.md|/) 그룹 필수 검사로 강제한다(아래 grouped 검사 참조).
+  ['_workspace/01_plan/feature-plan', false],
+  ['_workspace/01_plan/feature-plan.md', false],
+  ['_workspace/01_plan/ux-brief', false],
+  ['_workspace/01_plan/ux-brief.md', false],
   ['_workspace/02_design/design-system', false],
   ['_workspace/02_design/design-system.md', false],
   ['_workspace/02_design/layout-spec', false],
@@ -38,6 +43,9 @@ const SOURCE_INPUTS = [
 // greenfield 문서 3종(design-system 등)은 있으면 digest에 포함하되 요구하지 않는다.
 const DELTA_REQUIRED_FILES = ['delta/bootstrap.mjs', 'delta/wh-overlay.mjs', 'delta/traceability.json']
 const DELTA_SOURCE_INPUTS = [
+  // TODO: feature-plan flat-only 요구는 위 SOURCE_INPUTS에서 고친 것과 동일 클래스의
+  // latent 결함이다 — live-delta 경로는 미실측이라 의도적으로 미변경
+  // (docs/efficacy/greenfield-pilot-2-protocol.md 결함 8호 참조). 실측 재현 시 같은 정합화.
   ['_workspace/01_plan/feature-plan.md', true],
   ['_workspace/02_design/delta-spec.md', true],
   ['_workspace/01_plan/ux-brief.md', false],
@@ -99,6 +107,8 @@ const sourceFiles = (projectRoot, mode = 'prototype') => {
   }
   if (mode !== 'live-delta') {
     for (const group of [
+      '_workspace/01_plan/feature-plan',
+      '_workspace/01_plan/ux-brief',
       '_workspace/02_design/design-system',
       '_workspace/02_design/layout-spec',
       '_workspace/02_design/component-spec',

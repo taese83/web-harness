@@ -150,4 +150,16 @@ P1 runaway 4건은 게이트가 볼 기회조차 없었다(개선 후보).
 search-results.md 절 초과는 verbatim 이동 분할(+INDEX 행). ④ performance-budget
 9섹션은 Assumptions 푸터가 9번째 절로 집계된 것 — 헤딩 강등. 재검증으로 회수 확인.
 
+#### 결함 8호 — design-preview-status-lib의 Phase 1 flat-only 요구 (4호의 하류 재현)
+
+design-preview-builder(428.7k, 최대 스폰, 완결 반환)가 산출물 완성과 함께 보고:
+`design-preview-status-lib.mjs`의 `SOURCE_INPUTS`가 `_workspace/01_plan/feature-plan.md`·
+`ux-brief.md`를 flat 필수(required: true)로 요구하는데 두 산출물은 sharding 계약대로
+디렉토리 형태다 — Phase 2 3종(design-system 등)에는 이미 있는 `(.md|/)` 그룹 폴백이
+Phase 1 2종에는 없었다. **결함 4호(레지스트리 flat-only)의 하류 판박이** — 계약을 한 곳
+고치면 소비자들이 차례로 드러난다. 실측: 수정 전 `validate-design-preview` INVALID
+(missing input 오탐), 수정 후 DRAFT(errors 0)·source digest에 sharded 파일 정상 포함.
+동일 관용구(그룹 필수 검사) 적용, delta 모드의 같은 클래스(DELTA_SOURCE_INPUTS
+feature-plan.md flat 필수)는 미실측이라 관찰 대기로 남긴다.
+
 (이후 기록은 파일럿 완료 시 append)

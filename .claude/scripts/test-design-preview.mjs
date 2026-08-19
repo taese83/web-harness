@@ -220,6 +220,33 @@ try {
   assert.equal(regression.mode, 'prototype')
   assert.equal(regression.status, 'DRAFT')
 
+  // sharded Phase 1 입력 (결함 8호 회귀 — search-portal 파일럿 실측): flat 대신 디렉토리
+  // 형태의 feature-plan/·ux-brief/도 required 그룹을 충족해야 한다
+  const shardedRoot = makeProject('sharded-phase1')
+  roots.push(shardedRoot)
+  const shardedPlan = join(shardedRoot, '_workspace', '01_plan')
+  rmSync(join(shardedPlan, 'feature-plan.md'))
+  rmSync(join(shardedPlan, 'ux-brief.md'))
+  mkdirSync(join(shardedPlan, 'feature-plan'), {recursive: true})
+  mkdirSync(join(shardedPlan, 'ux-brief'), {recursive: true})
+  writeFileSync(join(shardedPlan, 'feature-plan', 'INDEX.md'), '# Feature Plan\n')
+  writeFileSync(join(shardedPlan, 'feature-plan', 'feature-list.md'), '## FEAT-001 Save item\n\n- TC-001-1: saves a valid item\n')
+  writeFileSync(join(shardedPlan, 'ux-brief', 'INDEX.md'), '# UX Brief\n\nPrimary action: Save\n')
+  const sharded = inspectDesignPreview(shardedRoot)
+  assert.equal(sharded.status, 'DRAFT')
+  assert.deepEqual(sharded.errors, [])
+  assert.ok(sharded.source.files.some(file => file.path === '_workspace/01_plan/feature-plan/feature-list.md'))
+
+  // 양쪽(.md·디렉토리) 모두 부재면 그룹 필수 검사가 loud하게 잡는다
+  const missingPlanRoot = makeProject('missing-phase1')
+  roots.push(missingPlanRoot)
+  rmSync(join(missingPlanRoot, '_workspace', '01_plan', 'feature-plan.md'))
+  rmSync(join(missingPlanRoot, '_workspace', '01_plan', 'ux-brief.md'))
+  const missingPlan = inspectDesignPreview(missingPlanRoot)
+  assert.equal(missingPlan.status, 'INVALID')
+  assert.ok(missingPlan.errors.some(error => error.includes('_workspace/01_plan/feature-plan(.md|/)')))
+  assert.ok(missingPlan.errors.some(error => error.includes('_workspace/01_plan/ux-brief(.md|/)')))
+
   process.stdout.write('design preview traceability, approval, stale-state, and live-delta mode tests passed\n')
 } finally {
   for (const root of roots) rmSync(root, {recursive: true, force: true})
