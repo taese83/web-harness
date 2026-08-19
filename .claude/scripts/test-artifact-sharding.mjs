@@ -154,3 +154,33 @@ test('5열 표의 절 행: 4열 형식 오매칭이 아니라 커버리지 위�
   assert.equal(run.status, 1)
   assert.equal(run.errors.filter(message => message.includes('orders.md') && message.includes('not covered')).length, 1)
 })
+
+// ── project-brief 축소-전용 예외 (search-portal 파일럿 실측 결함: 계약은 분할 금지·레지스트리는
+//    flat-only인데 섹션 트리거가 "split required"를 내 기계끼리 모순됐다) ──
+
+const manySections = Array.from({length: 11}, (_, i) => `## 절 ${i + 1}\n\n내용.\n`).join('\n')
+
+test('project-brief: 섹션 11개여도 예산 내면 통과 — 분할 금지 문서에 섹션 트리거 미적용', () => {
+  const run = runOn({
+    '_workspace/01_plan/project-brief.md': `# Brief\n\n${manySections}`,
+  })
+  assert.equal(run.status, 0)
+  assert.deepEqual(run.errors, [])
+})
+
+test('project-brief: 20KB 초과는 여전히 위반 — 단 시정 지시는 분할이 아니라 축소', () => {
+  const run = runOn({
+    '_workspace/01_plan/project-brief.md': `# Brief\n\n${'본문 채움 '.repeat(2200)}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('shrink the body')).length, 1)
+  assert.equal(run.errors.filter(message => message.includes('split required')).length, 0)
+})
+
+test('일반 flat 산출물의 섹션 트리거는 그대로 — 예외는 project-brief에만 좁게 적용', () => {
+  const run = runOn({
+    '_workspace/01_plan/requirements.md': `# Req\n\n${manySections}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
+})

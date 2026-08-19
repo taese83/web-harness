@@ -119,7 +119,9 @@ node .claude/scripts/validate-artifact-sharding.mjs --project {project-root}
 
 exit 1이면 계약 위반이다. 이 검사는 아래 4항목을 측정한다 — **KB 예산을 산문으로만 두면 지켜지지 않는다**(도입 초기에 이 측정기가 없어 실제 생성물의 `component-spec.md`가 58KB, `design-system.md`가 58KB까지 분할 없이 자랐다).
 
-- 절 파일·INDEX·미분할 단일 파일이 예산을 넘지 않는가 (절 개수 트리거 포함)
+- 절 파일·INDEX·미분할 단일 파일이 예산을 넘지 않는가 (절 개수 트리거 포함 — 단
+  project-brief는 분할 금지 문서라 절 개수 트리거를 적용하지 않고, KB 초과 시 "분할"이
+  아니라 "축소" 지시를 낸다)
 - `INDEX.md`의 모든 절 파일이 실제로 존재하는가 (역도 성립)
 - 디렉토리와 동명 `.md`가 공존하지 않는가
 - 각 절의 소비자 열이 실제 에이전트 이름 또는 sentinel(`전체`/`*`/`all`)인가 — 빈 칸·미상

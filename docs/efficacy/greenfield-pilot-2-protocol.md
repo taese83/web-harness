@@ -104,4 +104,23 @@ ai-requirements-analyst 산출에 발화. 원시 출력:
 여전히 flat-only이고 계약 표 밖 — 동일 클래스 결함이 재현되면 같은 정합화 적용")의
 실측 재현이다. 회수: ai-requirements만 sharded 허용(autonomy-risk-matrix는 실측 없어
 flat 유지 — 근거 없는 선제 확장 금지), 회귀 케이스 4건 추가, 계약 표에 ai-requirements
-행 추가(AI 설계 Gate 5종의 소비자 경계). (이후 기록은 파일럿 완료 시 append)
+행 추가(AI 설계 Gate 5종의 소비자 경계).
+
+#### 게이트 발화 4 — sharding(P1 Wave 5) + 기계끼리 모순(결함 6호)
+
+planning-synthesizer의 project-brief.md(20KB 이내)에 섹션 트리거 발화. 원시 출력:
+
+    Artifact sharding contract violations (1):
+    - _workspace/01_plan/project-brief.md: has 11 sections (trigger 8) — split required
+
+그런데 계약은 project-brief 분할을 금지하고("요약이 원본만큼 커지면 요약이 아니다 —
+축소하라") 소유권 레지스트리도 flat-only로 잠겨 있다(결함 4호 회수 때 그 negative
+케이스까지 추가함). 즉 validator가 **시정 불가능한 지시**를 낸 기계끼리 모순 — 계약의
+예외를 validator가 모델링하지 않은 결함이다. 회수: SHRINK_ONLY_BASENAMES 도입 —
+project-brief는 섹션 트리거 제외, KB 예산은 "축소" 지시로 유지(게이트 강도 불변),
+회귀 테스트 3건 추가(예산 내 11섹션 통과 / 20KB 초과는 축소 지시로 위반 / 일반
+산출물 섹션 트리거 불변) → 스위트 12/12, 파일럿 재검증:
+
+    Artifact sharding contract satisfied (9 artifacts inspected).
+
+(이후 기록은 파일럿 완료 시 append)

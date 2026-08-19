@@ -20,6 +20,13 @@ const SECTION_MAX_BYTES = 15 * 1024
 const INDEX_MAX_BYTES = 5 * 1024
 const SINGLE_FILE_MAX_BYTES = 20 * 1024
 const SECTION_COUNT_TRIGGER = 8
+// 계약 §분할 축: project-brief는 요약·연결 문서라 분할 금지 — 예산 초과 시 시정은
+// "분할"이 아니라 "본문 축소"다. 섹션 수 트리거는 적용하지 않고(시정 불가능한 지시가 됨
+// — ownership도 flat-only로 잠겨 있다), KB 예산은 축소 지시 메시지로 그대로 강제한다.
+// search-portal 파일럿 실측: 11섹션 project-brief에 "split required"가 나와 기계끼리 모순.
+// 경로 앵커 매칭 — basename 전역 매칭이면 토픽 폴더 내 동명 파일에 새는 이론적 스코프 누수가
+// 있다(리뷰 지적). 소유권 레지스트리가 이중 방어하지만 구조적으로도 좁힌다.
+const SHRINK_ONLY_PATHS = new Set([join('_workspace', '01_plan', 'project-brief.md')])
 
 const argv = process.argv.slice(2)
 const jsonOutput = argv.includes('--json')
@@ -103,7 +110,11 @@ for (const relativeDirectory of pendingDirectories) {
       if (existsSync(twinDirectory) && statSync(twinDirectory).isDirectory()) {
         errors.push(`${entryPath}: a directory of the same name also exists — consumers cannot tell which is authoritative`)
       }
-      if (bytes > SINGLE_FILE_MAX_BYTES) {
+      if (SHRINK_ONLY_PATHS.has(entryPath)) {
+        if (bytes > SINGLE_FILE_MAX_BYTES) {
+          errors.push(`${entryPath}: summary document is ${kb(bytes)} (budget ${kb(SINGLE_FILE_MAX_BYTES)}) — shrink the body and point to source shards (split is forbidden by contract)`)
+        }
+      } else if (bytes > SINGLE_FILE_MAX_BYTES) {
         errors.push(`${entryPath}: unsharded artifact is ${kb(bytes)} (budget ${kb(SINGLE_FILE_MAX_BYTES)}) — split required`)
       } else if (sections > SECTION_COUNT_TRIGGER) {
         errors.push(`${entryPath}: has ${sections} sections (trigger ${SECTION_COUNT_TRIGGER}) — split required`)
