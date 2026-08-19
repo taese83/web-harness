@@ -214,7 +214,9 @@ export const AGENT_OWNERSHIP = {
     appPath('e2e/.+\\.spec\\.ts$'),
   ],
   'tooling-scaffolder': [
-    appPath('(?:tsconfig(?:\\.[^.]+)?\\.json|vite\\.config\\.ts|vitest\\.config\\.ts|playwright\\.config\\.ts)$'),
+    // vitest 변형 config(vitest.production.config.ts 등)는 tsconfig와 동일한 가변 그룹 관용구 —
+    // search-portal 파일럿 실측(결함 12호: production-boundary config 소유 공백으로 Write 차단)
+    appPath('(?:tsconfig(?:\\.[^.]+)?\\.json|vite\\.config\\.ts|vitest(?:\\.[^.]+)?\\.config\\.ts|playwright\\.config\\.ts)$'),
     exactAppFile('src/vite-env\\.d\\.ts'),
     /^(?:eslint\.config\.js|\.prettierrc)$/,
     appPath('eslint\\.config\\.js$'),

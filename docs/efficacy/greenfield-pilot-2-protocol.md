@@ -192,4 +192,29 @@ crawler 패키지는 계속 스캔되어 split-root 방어 불변(회귀 2방향
 wrapper 계속 검출). `.pnpm-store` 스캔 제외 추가. web-core 스위트 exit 0, resolver
 재실행 exit 0(hybrid 1.1.0 잠금·DAG 12노드).
 
+#### Gate A0 첫 실전 + 결함 12호 (P3 step 1)
+
+- **Gate A0(의존성 pin 사전검증) 첫 실전 적발 2건**: `@vitejs/plugin-react@5.0.2`(peer
+  vite ^4-7 ↔ pin vite 8.2.1 위반), `typescript-eslint@8.24.0`(peer TS<5.8 ↔ pin TS
+  6.0.3 위반) — tech-advisor의 WebSearch 검증은 실존만 확인했고 peer 그래프는 A0가
+  install 전에 차단(seminar 실증 클래스의 예방 재현). registry 실측으로 정정
+  (6.0.5·8.67.0) 후 재검증 PASS(pin 34·위반 0·미검사 1[msw peer 범위 파싱 불가 —
+  정직 미검사]). scaffolder의 정직 WARN 2건(매트릭스 갭: coverage provider·@types
+  3종)도 registry 실측 보강.
+- Gate A0 재실행 원시 출력(--json, 리뷰 지적 반영 — 위 서술의 기계 근거):
+
+      {"schemaVersion": 1, "pins": 34, "violations": [], "skipped": [{"name": "msw",
+       "version": "2.15.0", "reason": "peer typescript \">= 4.8.x\" 범위 파싱 불가 — 미검사"}]}
+
+- **결함 12호 — config 파일명 변형 문법 갭**: `vitest.production.config.ts`가 어느
+  agent 소유도 아님(tooling-scaffolder 패턴이 완전일치만 허용 — tsconfig의 가변 그룹
+  관용구가 vitest에 미적용) → Write 차단, 에이전트는 우회 없이 partial 보고 + 해소
+  옵션 제시. 회수: `vitest(?:\.[^.]+)?\.config\.ts` 확장 + 실훅 회귀 2건.
+  **클래스 구분(12호 리뷰 지적 반영)**: 이것은 4·5·7·8·9호와 다른 근본원인이다 —
+  ① **샤딩 계약 소비자 드리프트**(4·5·7호 레지스트리 + 8호 프리뷰 검증기 + 9호 Console
+  색인기: 단일 계약의 flat-only 재구현이 소비자마다 반복) ② **config 변형 문법 갭**
+  (12호: tsconfig 관용구의 vitest 미이관). ①에는 리뷰어가 구조적 해법을 권고함 —
+  "sharded 여부 판정 술어를 공유 lib로 추출해 세 소비자가 import"(단일 소유, I4의
+  로직판). 파일럿 종합 판정에 두 클래스 분리 반영.
+
 (이후 기록은 파일럿 완료 시 append)

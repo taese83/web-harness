@@ -164,6 +164,8 @@ export const validateAgentBoundaries = ({
     ['AI requirements sharded section', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements/INDEX.md'), 0],
     ['AI requirements adjacent name not owned', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements-v2.md'), 2],
     ['autonomy risk matrix stays flat-only', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/autonomy-risk-matrix/INDEX.md'), 2],
+    ['tooling vitest variant config owned', 'tooling-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],
+    ['tooling arbitrary ts file not owned', 'tooling-scaffolder', join(repositoryRoot, 'src/app/App.tsx'), 2],
     ['AI threat model flat output', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model.md'), 0],
     ['AI threat model sharded section', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model/INDEX.md'), 0],
     ['AI threat model adjacent name not owned', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model-v2.md'), 2],
