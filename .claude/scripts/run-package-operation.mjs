@@ -207,12 +207,19 @@ if (initializerPackage) {
     process.exit(2)
   }
 }
+// --ignore-workspace: 생성 프로젝트는 계약상 독립 release root다 — 중첩 dogfood repo에서
+// pnpm이 **조상** 워크스페이스로 흡수해 루트 lockfile을 조작하는 것을 차단(search-portal 파일럿
+// 실측, 결함 14호: "Scope: all 2 workspace projects"로 프로젝트-로컬 lockfile 미생성).
+// 프로젝트가 자기 자신의 pnpm-workspace.yaml을 가지면(모노레포 프로필) 플래그를 넣지 않는다 —
+// pnpm은 cwd에서 가장 가까운 workspace 파일에서 탐색을 멈추므로 조상 흡수가 성립하지 않고,
+// 무조건 추가하면 자체 workspace:* 의존성 해석까지 무력화된다(적대 검토 HIGH).
+const projectWorkspaceFlags = existsSync(join(projectRoot, 'pnpm-workspace.yaml')) ? [] : ['--ignore-workspace']
 const command = operation === 'git-init'
   ? [gitExecutable, 'init', '--template=']
   : operation === 'lockfile'
-    ? [pnpmExecutable, 'install', '--lockfile-only', '--ignore-scripts', '--ignore-pnpmfile']
+    ? [pnpmExecutable, 'install', '--lockfile-only', '--ignore-scripts', '--ignore-pnpmfile', ...projectWorkspaceFlags]
     : operation === 'install'
-      ? [pnpmExecutable, 'install', '--frozen-lockfile', '--ignore-scripts', '--ignore-pnpmfile']
+      ? [pnpmExecutable, 'install', '--frozen-lockfile', '--ignore-scripts', '--ignore-pnpmfile', ...projectWorkspaceFlags]
     : operation === 'msw-init'
       ? process.platform === 'win32'
         ? [pnpmExecutable, 'exec', 'msw', 'init', 'public', '--save']

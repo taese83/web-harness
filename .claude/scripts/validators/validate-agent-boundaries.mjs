@@ -164,6 +164,12 @@ export const validateAgentBoundaries = ({
     ['AI requirements sharded section', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements/INDEX.md'), 0],
     ['AI requirements adjacent name not owned', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements-v2.md'), 2],
     ['autonomy risk matrix stays flat-only', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/autonomy-risk-matrix/INDEX.md'), 2],
+    ['hybrid api handler owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'api/search.ts'), 0],
+    ['hybrid api lib guard owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'api/_lib/guards.ts'), 0],
+    // 결함 13호 fix의 부정 회귀(적대 검토 HIGH) — 루트 api/만 소유하고 타 agent 소유 api/ 경로는 배제
+    ['feature api layer not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/features/dashboard/api/client.ts'), 2],
+    ['next app router api not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/app/api/route.ts'), 2],
+    ['realtime api layer not owned by shared foundation', 'shared-foundation-builder', join(repositoryRoot, 'src/features/live-mode/api/connect.ts'), 2],
     ['tooling vitest variant config owned', 'tooling-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],
     ['tooling arbitrary ts file not owned', 'tooling-scaffolder', join(repositoryRoot, 'src/app/App.tsx'), 2],
     ['AI threat model flat output', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model.md'), 0],

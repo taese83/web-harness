@@ -186,6 +186,12 @@ export const AGENT_OWNERSHIP = {
     appPath('src/mocks/(?:handlers/index\\.ts|browser\\.ts|server\\.ts)$'),
     appPath('\\.env(?:\\.[^.]+)?$'),
     exactAppFile('\\.gitignore'),
+    // vite-serverless-hybrid의 루트 api/(핸들러+_lib 가드)는 서버측 shared 런타임 기반이다 —
+    // search-portal 파일럿 실측: hybrid greenfield에서 api/ 소유자가 레지스트리에 없었음(결함 13호).
+    // appPath('api/')는 미앵커라 src/features/*/api/(feature-mutation-builder)·(?:src/)?app/api/
+    // (next-runtime-builder)·src/features/live-mode/api/(realtime-data-builder)와 겹친다(적대 검토
+    // HIGH) — 프리픽스 세그먼트에 src/·app/을 배제해 프로젝트 루트 api/만 매칭한다.
+    /^(?:(?!(?:src|app)\/)[^/]+\/)*api\//,
   ],
   'seo-meta-builder': [
     /^_workspace\/02_design\/seo-spec(?:\.md|\/.+)$/,
