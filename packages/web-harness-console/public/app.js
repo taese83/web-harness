@@ -169,6 +169,8 @@ const showMessage = (message, error = false) => {
   elements.message.style.borderColor = error ? '#fda29b' : ''
   elements.message.style.color = error ? '#b42318' : ''
   elements.message.style.background = error ? '#fef3f2' : ''
+  // 오류 배너는 상단 고정 요소라 카드 위치에서 클릭한 사용자에게 안 보인다("반응 없음" 실측)
+  if (message && error) elements.message.scrollIntoView({behavior: 'smooth', block: 'nearest'})
 }
 
 const api = async path => {
@@ -192,7 +194,11 @@ const mutateApi = async (path, body, idempotencyKey, intent = 'create-change-req
     body: JSON.stringify(body),
   })
   const payload = await response.json()
-  if (!response.ok) throw new Error(payload.error?.message ?? `HTTP ${response.status}`)
+  if (!response.ok) {
+    const error = new Error(payload.error?.message ?? `HTTP ${response.status}`)
+    error.code = payload.error?.code ?? null
+    throw error
+  }
   return payload
 }
 
@@ -1245,6 +1251,13 @@ const startCodexRun = async ({request, phase, impactRun = null, trigger = null})
       : `${request.id} 격리 변경 후보 생성을 시작했습니다. 완료 후 candidate diff를 검토해 주세요.`)
     renderContent()
   } catch (error) {
+    if (error.code === 'CODEX_IMPACT_STALE') {
+      state.evidenceStaleRunIds = state.evidenceStaleRunIds ?? new Set()
+      if (impactRun?.runId) state.evidenceStaleRunIds.add(impactRun.runId)
+      showMessage('기획·디자인 증거가 변경되어 기존 영향 검토가 만료되었습니다. 카드의 ‘영향 검토 다시 실행’으로 새 검토를 시작해 주세요.', true)
+      renderContent()
+      return
+    }
     showMessage(`실행기 작업을 시작하지 못했습니다: ${error.message}`, true)
     if (trigger?.isConnected) {
       trigger.disabled = false
@@ -1504,7 +1517,7 @@ const openCodexApplyDialog = ({request, impactRun, trigger}) => {
   const revisionDecision = request.latestReviewDecision?.decision === 'REVISION_REQUESTED' ? request.latestReviewDecision : null
   form.append(
     create('header', {className: 'request-dialog-header'}, [
-      create('div', {}, [create('span', {className: 'eyebrow', text: 'CODEX · L2 APPROVAL'}), create('h2', {id: 'codex-apply-title', text: '격리 변경 후보 생성'})]),
+      create('div', {}, [create('span', {className: 'eyebrow', text: '실행기 · L2 APPROVAL'}), create('h2', {id: 'codex-apply-title', text: '격리 변경 후보 생성'})]),
       create('button', {type: 'button', className: 'icon-button', 'aria-label': '변경 적용 닫기', text: '×'}),
     ]),
     create('p', {className: 'request-boundary-copy', text: '실행기 workspace-write 세션은 서버가 만든 temporary candidate만 수정합니다. 정본은 검토 승인 전 변경되지 않으며 commit, push, PR, deploy와 danger-full-access는 허용되지 않습니다.'}),
@@ -1666,9 +1679,13 @@ const renderChanges = () => {
     const requestGrid = create('div', {className: 'request-history-grid'})
     for (const request of requests) {
       const latestImpactRun = latestCodexRun(request.id, 'impact')
-      const impactRun = latestCurrentCodexRun(request, 'impact')
+      // 서버의 stale 판정은 요청 개정 축 + 증거(contextDigest) 축 2겹이다. 클라이언트는
+      // 증거 축을 재계산할 수 없어, apply 409(CODEX_IMPACT_STALE)에서 표시해 둔 run을
+      // 만료로 취급해 "영향 검토 다시 실행" 경로를 연다.
+      const impactRun0 = latestCurrentCodexRun(request, 'impact')
+      const impactRun = impactRun0 && state.evidenceStaleRunIds?.has(impactRun0.runId) ? null : impactRun0
       const applyRun = latestCodexRun(request.id, 'apply')
-      const staleImpact = Boolean(latestImpactRun && !runMatchesCurrentRequest(latestImpactRun, request))
+      const staleImpact = Boolean(latestImpactRun && (!runMatchesCurrentRequest(latestImpactRun, request) || state.evidenceStaleRunIds?.has(latestImpactRun.runId)))
       const reviewDecision = reviewDecisionForRun(request, applyRun)
       const targetButton = create('button', {type: 'button', className: 'inline-link-button', text: request.context.subFeatureId ?? request.context.featureId ?? '프로젝트(부트스트랩)'})
       targetButton.addEventListener('click', () => {
