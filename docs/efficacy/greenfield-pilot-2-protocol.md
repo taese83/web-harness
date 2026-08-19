@@ -91,5 +91,17 @@ INDEX 위반 3건 발화 — 원시 출력:
 
     Artifact sharding contract satisfied (3 artifacts inspected).
 
-두 발화 모두 회수 완료 — 발화→재실행→기계 재판정 루프가 Phase 1에서 2회 작동. (이후
-기록은 파일럿 완료 시 append)
+두 발화 모두 회수 완료 — 발화→재실행→기계 재판정 루프가 Phase 1에서 2회 작동.
+
+#### 게이트 발화 3 — sharding(P1 Wave 1-A) + 결함 4호의 예고된 재현(5호)
+
+ai-requirements-analyst 산출에 발화. 원시 출력:
+
+    Artifact sharding contract violations (1):
+    - _workspace/01_plan/ai-requirements.md: unsharded artifact is 24.0KB (budget 20.0KB) — split required
+
+이는 결함 4호 리뷰에서 리뷰어가 명시적으로 예고한 잔여 후보("ai-requirements-analyst는
+여전히 flat-only이고 계약 표 밖 — 동일 클래스 결함이 재현되면 같은 정합화 적용")의
+실측 재현이다. 회수: ai-requirements만 sharded 허용(autonomy-risk-matrix는 실측 없어
+flat 유지 — 근거 없는 선제 확장 금지), 회귀 케이스 4건 추가, 계약 표에 ai-requirements
+행 추가(AI 설계 Gate 5종의 소비자 경계). (이후 기록은 파일럿 완료 시 append)

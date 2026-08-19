@@ -59,6 +59,7 @@ _workspace/02_design/api-schema/            ← 분할
 | `ux-brief` | 화면 인벤토리·상태 matrix / 사용자 플로우 / 디자인 방향 | layout-designer는 인벤토리, design-system-architect는 방향 |
 | `feature-plan` | Feature List 표 / slice·command 매핑 / 데이터 모델 | 표만 필요한 소비자가 다수 |
 | `decision-log` | **ID 구간별**(`PC-001~050`, `PC-051~100` …) — append는 최신 절에만 | append-only 대장이므로 주제별로 자르면 이력 추적이 깨진다 |
+| `ai-requirements` | 판별 출력·task 경계 / 실패 비용·위협 표면 / runtime budget / 품질·측정 계획 | AI 설계 Gate 5종이 각자 다른 절을 읽도록 하는 설계 의도 — 현재 명시 입력 참조는 architect·tool 2종뿐, 나머지 3종은 SKILL 단계 순서로만 의존 (20KB 초과 실측: search-portal 파일럿) |
 
 `project-brief`는 이미 다른 산출물의 요약·연결 문서다. 20KB를 넘으면 분할하기보다 **원본을 가리키고 본문을 줄인다** — 요약이 원본만큼 커지면 요약이 아니다.
 

@@ -53,7 +53,9 @@ export const AGENT_OWNERSHIP = {
   'ai-eval-designer': [/^_workspace\/02_design\/eval-plan\.md$/],
   'ai-observability-builder': [/^packages\/observability\//],
   'ai-requirements-analyst': [
-    /^_workspace\/01_plan\/ai-requirements\.md$/,
+    // ai-requirements는 search-portal 파일럿 실측(24KB>20KB)으로 sharded 형태 허용 —
+    // autonomy-risk-matrix는 실측 없어 flat 유지 (근거 없는 선제 확장 금지)
+    /^_workspace\/01_plan\/ai-requirements(?:\.md|\/.+)$/,
     /^_workspace\/01_plan\/autonomy-risk-matrix\.md$/,
   ],
   'ai-solution-architect': [
