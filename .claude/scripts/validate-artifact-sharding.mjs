@@ -189,7 +189,9 @@ for (const relativeDirectory of pendingDirectories) {
     let sectionRows = 0
     const rowFiles = new Set()
     for (const match of indexSource.matchAll(/^\|[^|\n]*\|([^|\n]*)\|[^|\n]*\|([^|\n]+)\|\s*$/gm)) {
-      const fileRefs = [...match[1].matchAll(/`([\w.-]+\.md)`/g)].map(value => value[1])
+      // `~`는 계약이 명시한 decision-log ID 구간 파일명(`PC-001~050.md`)에 쓰인다 —
+      // 문자셋에서 빠지면 계약이 시킨 이름을 절 행으로 인식 못 한다(search-portal 실측, 6호와 동일 클래스)
+      const fileRefs = [...match[1].matchAll(/`([\w.~-]+\.md)`/g)].map(value => value[1])
       if (fileRefs.length === 0) continue // 절 행이 아니다(헤더·구분선·타 표)
       sectionRows += 1
       for (const fileRef of fileRefs) rowFiles.add(fileRef)

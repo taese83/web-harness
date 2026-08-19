@@ -184,3 +184,15 @@ test('일반 flat 산출물의 섹션 트리거는 그대로 — 예외는 proje
   assert.equal(run.status, 1)
   assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
 })
+
+test('decision-log ID 구간 파일명(~)이 절 행으로 인식된다 — 계약 표기와 검증기 문자셋 정합(10호 회귀)', () => {
+  const run = runOn({
+    '_workspace/01_plan/decision-log/INDEX.md':
+      '# Decision Log\n\n## 절 목록\n' +
+      '| 절 | 파일 | 담당 범위 | 주 소비자 |\n|---|---|---|---|\n' +
+      '| PC-001~050 | `PC-001~050.md` | 결정 엔트리 | 전체 |\n',
+    '_workspace/01_plan/decision-log/PC-001~050.md': section,
+  })
+  assert.equal(run.status, 0)
+  assert.deepEqual(run.errors, [])
+})
