@@ -41,13 +41,22 @@ tamiya-motor-lab·tamiya-race-app 두 실제 repo에서 발화·reentry-map 절�
 
 ## 라운드 기록
 
-### R1 — (대기: 저자의 실제 변경 건)
+### R1 — tamiya-motor-lab N1 완화(R68 초기 잠금 검증) [2026-08-19]
 
-- 요청:
-- 상황 분류(reentry-map A/B/C):
-- 로드한 계약:
-- 스폰·토큰:
-- 벽시계:
-- 게이트·검증:
-- receipt:
-- 저자 판정:
+- 요청: repo 문서화 백로그 1순위(pano-tuner-comparison.md §4.1) — 신규 획득 무hint
+  프레임의 comb식 무이력 하강 검사. DSP 엔진 로직 변경(feature/bug-fix급).
+- 상황 분류: **A (Iterate 라운드)** — buildable 기존 프로젝트 + 범위 좁힌 변경.
+- 로드한 계약: 상황 A core 6종 = **37.4KB**(SKILL 전체 재로드 없이). 훅·마커 신호 정상.
+- 스폰·토큰: **스폰 0** — 오케스트레이터 직접 편집(엔진 ~20줄 + 테스트 1파일).
+  main-loop 토큰은 미계측(계약상 null — 지어내지 않음).
+- 벽시계: **09:59:34 → 10:06:40 (~7분)** — 온보딩(마커 append) 포함. 순수 변경분은
+  브리프→재현→수정→전체 게이트까지 ~6분.
+- 게이트·검증: 재현 테스트(변경 전 FAIL — 배값 고착 113프레임 재현) → 수정 → 신규
+  테스트 2/2 + 기존 전체 스위트 318/318 green + typecheck·lint·build green(toolchain
+  pin 명시). 실기기 레짐은 DEPLOY_ONLY — 사용자 위임 명시.
+- receipt: change brief 전 필드 + 라운드 결과가 change-scope.md에 기록.
+  **QA evidence: STALE (재발급 불가)** — run-quality-gates가 locked profile 불일치(M3
+  어댑터 변경)로 거부, 재잠금은 INGESTION_CONTRACT_MISSING(api/ 하이브리드 모델링
+  갭)으로 BLOCKED. **도그푸드 갭 진단("서명 출구가 하이브리드를 못 모델링")이 R1에서
+  그대로 실측됨** — 출구 분리(범위 서명·무서명 receipt) 필요성의 실증 데이터.
+- 저자 판정: (대기 — 대화+push 대비 한 줄)
