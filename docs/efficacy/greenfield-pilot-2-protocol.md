@@ -261,4 +261,34 @@ wrapper 계속 검출). `.pnpm-store` 스캔 제외 추가. web-core 스위트 e
   단, 6호는 사후 복구가 아니라 사전 계약으로 예방한 첫 사례(test-writer 3분할에도
   동일 계약 적용).
 
+#### Phase 4 verifier 웨이브 실측 (14종 병렬 + 재검증 라운드)
+
+- **verifier 최종 보고 절단 12/14(!)** — read-only verifier는 보고 텍스트가 곧 산출물인데
+  14종 중 12종의 최종 메시지가 서사 중간 절단 또는 공백으로 종료. SendMessage 재개
+  요청("이미 수행한 검증만으로 즉시 보고 출력, 추가 도구 호출 금지")으로 전량 회수 성공,
+  저장은 transcript JSONL에서 마지막 assistant 텍스트를 기계 추출하는 방식으로 정착
+  (오케스트레이터 재타이핑 대비 컨텍스트 절약). **builder의 무산출과 대칭인 verifier
+  클래스 결함** — 완결성 게이트가 파일 존재 기반이라 보고서형 산출물에 무력, 종합 판정
+  반영 대상.
+- **verifier 도구 정책 갭 2건**: ①enforce-verifier-bash가 grep을 read-command에서 제외
+  (rg만 허용)인데 호스트 rg 바이너리가 CPU 아키텍처 불일치로 exit 127 — 전수 텍스트
+  검색이 구조적으로 불가, security/ai-security가 NEEDS_REVIEW·검증 한계 고지로 정직
+  대응(오케스트레이터 후속 실측으로 마감). ②fit-gate browse 모드의 "파일 선언→상위
+  디렉터리 전개"가 _workspace/02_design 하위 파일 1개 선언에 디렉터리 전체(159k tokens)를
+  물려 REFUSE — injected 모드(발췌 주입)로 우회 성공. 두 건 모두 실측 재현 시 정합화 대상.
+- **verifier가 잡은 실질 결함(하니스 가치 실증)**: ①T4 링크 스킴 allowlist 미구현
+  (z.string().url()이 javascript:를 통과 — ai-evals·ai-security 이중 독립 적발) → 스키마
+  refine+렌더 가드 이중 방어 및 회귀 테스트 ②SEO bake/런타임 이중 선언(JS 미실행
+  크롤러가 틀린 문구) + OG bake 전무 + og:image 필드 자체 부재 ③eval-plan
+  executability 클래스: 게이트가 요구하는 fixture ID 체계가 구현에 부재해 GATE 다수가
+  실행 불가(BLOCKED) — "계획이 존재"와 "계획이 실행 가능"의 간극을 verifier가 정확히
+  분리 보고 ④cost-latency 문서의 플랫폼 전제 오류(Edge vs 실제 Node Function)와 mock
+  이원화 미기재 ⑤agent-traces가 coverage HTML을 근거로 abort 분기 0% 실행을 적발
+  (배선 존재≠행동 증명). 전부 기계수정+fixture/테스트 스폰(injected)으로 회수, 신규
+  17테스트 green.
+- **오케스트레이터 후속 실측 패턴**: verifier가 도구 제약으로 남긴 미완 항목(비밀 파일
+  ls-files·XSS 전수 스윕·audit 최신성[UTC/KST 혼동]·gzip 실측)을 오케스트레이터가
+  직접 마감하고 보고서에 **작성 주체를 명시한 후속 절**로 append — verifier 불변성
+  원칙과 충돌하지 않는 정직한 보완 경로로 정착.
+
 (이후 기록은 파일럿 완료 시 append)
