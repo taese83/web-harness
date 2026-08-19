@@ -192,7 +192,7 @@ export const finalizeCandidateWorkspace = (projectRoot, runId, session) => {
   try {
     const candidate = snapshotTree(session.worktreeRoot)
     const changes = changedEntries(session.baseline, candidate)
-    if (changes.length === 0) throw new ChangeCandidateError('CANDIDATE_EMPTY', 'Codex reported a reviewable change but produced no candidate file changes')
+    if (changes.length === 0) throw new ChangeCandidateError('CANDIDATE_EMPTY', 'Executor reported a reviewable change but produced no candidate file changes')
     const directory = candidateDirectory(projectRoot, runId, {create: true})
     const files = join(directory, 'files')
     mkdirSync(files, {mode: 0o700})

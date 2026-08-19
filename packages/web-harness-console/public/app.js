@@ -1161,7 +1161,7 @@ const hasActiveCodexRunForRequest = requestId => (state.detail?.codexRuns ?? [])
 const refreshCodexConnection = async ({announce = false} = {}) => {
   try {
     state.codexConnection = await api('/api/codex/status?refresh=1')
-    if (announce) showMessage(state.codexConnection.connected ? 'Codex CLI 연결을 확인했습니다.' : 'Codex CLI 연결이 필요합니다.', !state.codexConnection.connected)
+    if (announce) showMessage(state.codexConnection.connected ? '실행기 연결을 확인했습니다.' : '실행기 연결이 필요합니다.', !state.codexConnection.connected)
     renderContent()
   } catch (error) {
     showMessage(`실행기 연결 상태를 확인하지 못했습니다: ${error.message}`, true)
@@ -1596,7 +1596,7 @@ const appendCodexResult = (card, run, {stale = false} = {}) => {
     || run.result.blockers.length
     || run.candidate?.changedFiles?.length
   ))
-  const runExecutorLabel = run.executor === 'claude-code' ? 'Claude Code' : 'Codex'
+  const runExecutorLabel = '실행기'
   const panel = create('section', {className: `codex-run-panel${hasLongResult ? ' is-scrollable' : ''}`, 'aria-label': `${run.phase} ${runExecutorLabel} 실행`}, [
     create('div', {className: 'codex-run-heading'}, [create('strong', {text: run.phase === 'impact' ? `${runExecutorLabel} 영향 검토` : `${runExecutorLabel} 변경 적용`}), statusChip(stale ? 'STALE' : codexRunStatus(run))]),
   ])
@@ -1616,7 +1616,7 @@ const appendCodexResult = (card, run, {stale = false} = {}) => {
   } else if (run.error) panel.append(create('p', {className: 'codex-run-error', role: 'alert', text: run.error.code === 'CODEX_RUN_TIMED_OUT'
     ? `${run.error.code}: ${run.error.message} 자동 재시도하지 않았습니다. 영향 범위를 확인한 뒤 ‘변경 적용 다시 실행’을 사용하세요.`
     : `${run.error.code}: ${run.error.message}`}))
-  else panel.append(create('p', {className: 'codex-run-summary', text: run.status === 'PENDING' ? '실행을 준비하고 있습니다.' : 'Codex가 현재 repository와 요청을 확인하고 있습니다.'}))
+  else panel.append(create('p', {className: 'codex-run-summary', text: run.status === 'PENDING' ? '실행을 준비하고 있습니다.' : '실행기가 현재 repository와 요청을 확인하고 있습니다.'}))
   const contextMetrics = run.impactContext
     ? `Context ${run.impactContext.documentCount} docs · ${Number(run.impactContext.manifestBytes).toLocaleString('ko-KR')} bytes`
     : null
@@ -1640,17 +1640,17 @@ const renderChanges = () => {
   const connection = state.codexConnection
   const connectionAction = create('button', {type: 'button', className: 'secondary-button', text: '연결 다시 확인'})
   connectionAction.addEventListener('click', () => refreshCodexConnection({announce: true}))
-  const executorLabel = connection?.executor === 'claude-code' ? 'Claude Code' : 'Codex'
+  const executorLabel = '실행기'
   const candidateReasons = connection?.candidates ?? (connection ? [connection] : [])
   const noCliInstalled = candidateReasons.length > 0 && candidateReasons.every(candidate => String(candidate.reason ?? '').endsWith('NOT_INSTALLED') || String(candidate.reason ?? '').endsWith('UNAVAILABLE'))
   const connectionPanel = create('section', {className: `codex-connection-panel ${connection?.connected ? 'is-connected' : 'is-disconnected'}`}, [
     create('div', {}, [
-      create('div', {className: 'codex-connection-title'}, [create('strong', {text: `${connection?.connected ? executorLabel : 'AI'} execution`}), statusChip(connection?.connected ? 'CONNECTED' : 'CONNECTION_REQUIRED')]),
+      create('div', {className: 'codex-connection-title'}, [create('strong', {text: '실행기 연결'}), statusChip(connection?.connected ? 'CONNECTED' : 'CONNECTION_REQUIRED')]),
       create('p', {text: connection?.connected
-        ? `${connection.version ?? `${executorLabel} CLI`} · 저장된 ${executorLabel} CLI 인증을 사용합니다. 요청 등록과 실행 승인은 분리됩니다.`
+        ? '저장된 실행기 인증을 사용합니다. 요청 등록과 실행 승인은 분리됩니다.'
         : noCliInstalled
-          ? '사용 가능한 실행기(Codex CLI 또는 Claude Code CLI)를 찾지 못했습니다. 하나를 설치한 뒤 Console 서버를 다시 시작하세요.'
-          : '실행기 CLI 인증이 필요합니다. 터미널에서 `codex login` 또는 Claude Code 로그인을 완료한 뒤 다시 확인하세요.'}),
+          ? '사용 가능한 실행기 CLI를 찾지 못했습니다. 실행기를 설치한 뒤 Console 서버를 다시 시작하세요.'
+          : '실행기 CLI 인증이 필요합니다. 터미널에서 실행기 로그인을 완료한 뒤 다시 확인하세요.'}),
     ]),
     connectionAction,
   ])
@@ -1722,7 +1722,7 @@ const renderChanges = () => {
         // 대상 없는 CR(bootstrap·newFeature)은 같은 파이프라인이 기획 초안 생성으로 동작한다.
         const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
         const impactLabel = targetlessCr ? '기획 정찰' : '영향 검토'
-        const impactButton = create('button', {type: 'button', className: 'secondary-button', text: latestImpactRun ? `${impactLabel} 다시 실행` : `${executorLabel} ${impactLabel}`, disabled: !connection?.connected || active})
+        const impactButton = create('button', {type: 'button', className: 'secondary-button', text: latestImpactRun ? `${impactLabel} 다시 실행` : impactLabel, disabled: !connection?.connected || active})
         impactButton.addEventListener('click', () => startCodexRun({request, phase: 'impact', trigger: impactButton}))
         actions.append(impactButton)
       } else if (!request.latestReviewDecision && impactRun.status === 'COMPLETED' && impactRun.result?.outcome === 'READY' && (!applyRun || ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(applyRun.status))) {
