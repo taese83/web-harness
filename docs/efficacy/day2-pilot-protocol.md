@@ -77,3 +77,15 @@ tamiya-motor-lab·tamiya-race-app 두 실제 repo에서 발화·reentry-map 절�
 - receipt: change-scope 2단계 기록 + RENDER-VERDICT + v4 근거 절. QA evidence:
   STALE(R1과 동일 사유 — 하이브리드 모델링 갭).
 - 저자 판정: (대기 — R1·R2 공통)
+
+### R2 부록 — release 마찰 실측 (2026-08-19)
+
+- **pnpm 상향 탐색이 release 차단**: motor-lab에 pnpm-workspace.yaml이 없어 pnpm이
+  부모(하네스 루트)를 workspace 루트로 인식 — `pnpm version`의 clean-tree 검사가 부모
+  repo를 향해, 부모가 더티면(병행 세션 WIP) 자식이 클린해도 release 불가.
+  telemetry-viewer lockfile 사건과 같은 클래스의 2번째 실측 — 경계 파일 선언으로 해소.
+  브라운필드 온보딩 체크리스트에 "pnpm workspace 경계 확인" 추가 후보.
+- **R-번호 충돌**: 다른 머신의 미푸시 커밋(R68 근접 음량, 8/10 작성)이 릴리스 직전
+  합류 — 리베이스(충돌 0) 후 이번 세션의 R68을 R69로 리넘버, 결합 상태로 전체 스위트
+  재검증(320/320) 후 v2.42.0 릴리스. 멀티 체크아웃 환경에서 리비전 번호는 푸시 시점
+  선점 — 넘버링 규율의 알려진 한계로 기록.
