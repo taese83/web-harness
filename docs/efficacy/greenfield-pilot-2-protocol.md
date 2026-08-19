@@ -123,4 +123,31 @@ project-brief는 섹션 트리거 제외, KB 예산은 "축소" 지시로 유지
 
     Artifact sharding contract satisfied (9 artifacts inspected).
 
+#### fit-gate 첫 실전 판정 분포 (P2 Wave 1 스폰 전)
+
+광폭 선언(01_plan 전체, browse): **4/4 REFUSE** — read 추정 62,696 > 임계 60,000. P1에서
+fit-gate 없이 나간 스폰 4건이 전부 runaway(147~189k)였던 실측이 이 경고를 소급 입증.
+소비자 맵 좁힘(디렉터리 2개씩) 재선언: **4/4 FITS + lock**, 프롬프트에서 읽기 범위를
+잠금 선언과 일치시키고 교차 산출물 핵심 사실은 발췌 주입. 효과 실측: 좁힘 스폰 4건은
+28.7k~119.7k로 전원 완주(seminar에서 truncate났던 layout-designer 포함), 광폭으로 나간
+api-schema-designer만 139.5k 초과. **발견: P1 기획 웨이브에는 fit-gate 배선이 없다** —
+P1 runaway 4건은 게이트가 볼 기회조차 없었다(개선 후보).
+
+#### 게이트 발화 5 — sharding(P2 Wave -1·1 완료 검증) + 동일 클래스 3번째 재현(7호)
+
+원시 출력(위반 5건):
+
+    - _workspace/02_design/ai-threat-model.md: unsharded artifact is 22.5KB (budget 20.0KB) — split required
+    - _workspace/02_design/api-schema/INDEX.md: references a missing section file data-model.md
+    - _workspace/02_design/design-system/INDEX.md: references a missing section file design-direction.md
+    - _workspace/02_design/layout-spec/search-results.md: 16.6KB exceeds the section budget 15.0KB — re-split on a smaller axis
+    - _workspace/02_design/performance-budget.md: has 9 sections (trigger 8) — split required
+
+분류·회수: ① ai-threat-model 초과는 4·5호와 동일 클래스(AI_MODE 소유자 flat-only)의
+3번째 실측 재현 — 리뷰어가 예고한 잔여 후보 그대로. 레지스트리 확장 + 회귀 케이스 2건 +
+계약 표 행 추가, 분할은 소유 에이전트 재개로 수행. ② bare 백틱 교차 산출물 오탐 2건
+(재현 5회째 — 오탐 클래스로 §4 등록 검토 대상), 경로 한정 표기로 기계 수정. ③
+search-results.md 절 초과는 verbatim 이동 분할(+INDEX 행). ④ performance-budget
+9섹션은 Assumptions 푸터가 9번째 절로 집계된 것 — 헤딩 강등. 재검증으로 회수 확인.
+
 (이후 기록은 파일럿 완료 시 append)

@@ -164,6 +164,9 @@ export const validateAgentBoundaries = ({
     ['AI requirements sharded section', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements/INDEX.md'), 0],
     ['AI requirements adjacent name not owned', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements-v2.md'), 2],
     ['autonomy risk matrix stays flat-only', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/autonomy-risk-matrix/INDEX.md'), 2],
+    ['AI threat model flat output', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model.md'), 0],
+    ['AI threat model sharded section', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model/INDEX.md'), 0],
+    ['AI threat model adjacent name not owned', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model-v2.md'), 2],
     ['AI planner runtime source', 'ai-requirements-analyst', join(repositoryRoot, 'apps/agent-api/src/index.ts'), 2],
     // Phase 1 sharded ownership — sharding 계약의 분할 축 대상 5 owner (search-portal 파일럿 실측 결함 4호 회귀 케이스)
     ['planning context flat output', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context.md'), 0],

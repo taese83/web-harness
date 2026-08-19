@@ -62,7 +62,8 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/02_design\/ai-architecture\.md$/,
     /^_workspace\/02_design\/cost-latency-budget\.md$/,
   ],
-  'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model\.md$/],
+  // ai-threat-model은 search-portal 파일럿 실측(22.5KB>20KB)으로 sharded 허용 — 결함 4·5호와 동일 클래스 3번째 재현
+  'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model(?:\.md|\/.+)$/],
   'analytics-agent-builder': [
     /^packages\/semantic-model\//,
     /^packages\/analytics-agent\//,

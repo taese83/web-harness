@@ -48,6 +48,7 @@ _workspace/02_design/api-schema/            ← 분할
 | `component-spec` | FSD 레이어별(shared / features / widgets·pages) |
 | `layout-spec` | 글로벌 레이아웃·라우팅 맵 / 페이지별 |
 | `state-contract` | aggregate별 + 공통 persistence·verification 1개 |
+| `ai-threat-model` | 자산·경계·구조적 차단 / 실재 위협축 / 전환 체크리스트·잔여 리스크 (20KB 초과 실측: search-portal 파일럿) |
 
 **Phase 1 산출물** — 재읽기 규모가 Phase 2보다 **크다**. 실측(96개 agent prompt 전수 집계)에서 `tech-stack`은 18개, `requirements`는 13개 에이전트가 입력으로 읽는데, 초기 계약은 Phase 2만 다뤄 가장 많이 재읽히는 두 파일이 규칙 밖에 있었다.
 
