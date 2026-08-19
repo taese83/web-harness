@@ -217,4 +217,48 @@ wrapper 계속 검출). `.pnpm-store` 스캔 제외 추가. web-core 스위트 e
   "sharded 여부 판정 술어를 공유 lib로 추출해 세 소비자가 import"(단일 소유, I4의
   로직판). 파일럿 종합 판정에 두 클래스 분리 반영.
 
+#### 결함 13·14호 + 적대 검토 왕복 (P3 step 1~3, 커밋 20530c7)
+
+- **결함 13호 — 루트 api/ 소유 공백**: vite-serverless-hybrid greenfield에서 루트
+  `api/`(핸들러+_lib 가드 — 프로필의 1급 계약 표면)의 소유자가 registry에 없었다.
+  1차 fix `appPath('api/')`를 적대 검토가 HIGH로 반려: appPath 프리픽스가 미앵커라
+  `src/features/*/api/`(feature-mutation-builder)·`(?:src/)?app/api/`(next-runtime-
+  builder)·`live-mode/api/`(realtime-data-builder)와 정규식 수준에서 실제 겹침 —
+  enforce-agent-ownership은 자기 패턴 매칭만 검사하므로 이중 소유가 조용히 통과한다.
+  회수: 프리픽스 세그먼트 src/·app/ 배제형(`^(?:(?!(?:src|app)\/)[^/]+\/)*api\/`)
+  + 부정 회귀 3건. **교훈(신규 클래스): 소유 패턴 추가는 "매칭됨"만이 아니라 "타
+  소유와 안 겹침"을 증명해야 한다 — positive-only 회귀는 정밀성 착시를 만든다(I5).**
+- **결함 14호 — pnpm 조상 워크스페이스 흡수**: 중첩 dogfood repo에서 lockfile/install이
+  "Scope: all 2 workspace projects"로 상위에 흡수돼 하니스 루트 lockfile을 조작했다
+  (실측: 루트 pnpm-lock.yaml 델타 발생, git checkout 원복). 1차 fix(무조건
+  `--ignore-workspace`)를 적대 검토가 HIGH로 반려: 자체 pnpm-workspace.yaml을 가진
+  모노레포 프로필의 `workspace:*` 해석까지 무력화. 회수: 프로젝트 자신의 workspace
+  파일 부재 시에만 플래그 적용(조상 흡수의 정확한 모델링). 실행 증거 2건 — 자체
+  모노레포 픽스처: workspace 링크 정상 해석(lockfile에 `@fix/lib-a` link), 조상
+  워크스페이스 픽스처: child lockfile 생성·parent 미오염. 잔여: 모노레포 lockfile의
+  link: 소스를 공급망 정책이 flag — 실측 재현 시 별도 정합화(선제 확장 안 함).
+- **리뷰어 절단 서사 재현**: harness-change-reviewer 1차 완료 보고가 서사 중간에서
+  절단("Now let me...") — read-only 리뷰어는 산출물이 보고 텍스트 자체라
+  truncated-narration-but-files-complete 판정이 불가능한 유형. SendMessage 재개
+  1회로 전체 findings 회수 성공.
+
+#### 결함 15호 — 루트 tests/ 소유 공백 (P4 진입, 커밋 ed28025)
+
+- package 스크립트(test:api·test:api-guards·test:production-boundary)와
+  vitest.production.config.ts include가 루트 `tests/`를 참조하는데 test-writer 소유
+  패턴은 src·e2e뿐 — 13호와 동일 클래스(계약 표면이 참조하는 경로의 registry 공백).
+  13호에서 확립한 배제형 패턴 재사용 + positive 2·negative 1 회귀. **13·15호 종합:
+  greenfield 프로필이 계약상 생성하는 최상위 디렉토리 전수(api/·tests/·e2e/·public/
+  등)와 registry 소유의 대조표가 없어 공백이 하나씩 실측으로만 발견되고 있다 —
+  프로필별 소유 커버리지 게이트가 구조적 해법 후보(파일럿 종합 판정 반영).**
+
+#### 무산출 6호 — 신규 유형(장시간 hang) + 즉시-쓰기 6/6 (P3 step 3)
+
+- seo-meta-builder 1차 스폰이 55분 무진행(파일 0, tool round 미발생 — SendMessage
+  재개 지시도 미전달, TaskStop 중단). 기존 5회의 "읽기 후 절단"과 다른 유형.
+  재스폰에 **즉시-쓰기 계약을 프롬프트에 명시**(첫 도구 호출=산출물 Write, 읽기
+  상한·순서 지정) → 6분 완주(5/5, 52.5k tokens). 무산출 복구 패턴 누적 6/6 성공 —
+  단, 6호는 사후 복구가 아니라 사전 계약으로 예방한 첫 사례(test-writer 3분할에도
+  동일 계약 적용).
+
 (이후 기록은 파일럿 완료 시 append)
