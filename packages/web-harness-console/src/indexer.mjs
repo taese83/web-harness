@@ -74,6 +74,10 @@ const walkDocuments = (projectRoot, phase) => {
       if (entry.isSymbolicLink()) continue
       if (entry.isDirectory()) {
         if (phase.id === 'design' && entry.name === 'preview') continue
+        // 스타일 타일 후보 디렉터리(candidate-*)는 렌더 자산(html/css 사본)이지 문서가
+        // 아니다 — 문서 트리를 오염시키지 않게 제외한다. 라운드의 README/판정 MD는
+        // 라운드 디렉터리 직속이라 계속 인덱싱된다(발산 기계화 §보존).
+        if (phase.id === 'design' && /^candidate-/.test(entry.name)) continue
         visit(path)
         continue
       }
@@ -276,6 +280,40 @@ const boundedLineDiff = (before, after) => {
   }
 }
 
+// 발산 시안 아카이브(발산 기계화 §보존) — 라운드 디렉터리별 후보 타일·판정 문서를 열람용으로
+// 요약한다. 후보 성립 조건은 계약과 동일(템플릿 사본 index.html + tokens.css). 라운드
+// 디렉터리 규약(<날짜>-<라운드명>/) 이전의 flat 배치는 지원하지 않는다.
+const summarizeStyleTiles = projectRoot => {
+  const root = join(projectRoot, '_workspace', '02_design', 'design-system', 'style-tiles')
+  if (!isSafeDirectory(root)) return []
+  const rounds = []
+  for (const entry of readdirSync(root, {withFileTypes: true})) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue
+    const roundRoot = join(root, entry.name)
+    const candidates = readdirSync(roundRoot, {withFileTypes: true})
+      .filter(candidate => candidate.isDirectory() && !candidate.isSymbolicLink()
+        && /^candidate-/.test(candidate.name)
+        && existsSync(join(roundRoot, candidate.name, 'index.html'))
+        && existsSync(join(roundRoot, candidate.name, 'tokens.css')))
+      .map(candidate => candidate.name)
+      .sort()
+    if (candidates.length === 0) continue
+    const documentPath = name =>
+      existsSync(join(roundRoot, name))
+        ? `_workspace/02_design/design-system/style-tiles/${entry.name}/${name}`
+        : null
+    rounds.push({
+      round: entry.name,
+      candidates,
+      readmePath: documentPath('README.md'),
+      renderVerdictPath: documentPath('RENDER-VERDICT.md'),
+      implementationVerdictPath: documentPath('IMPLEMENTATION-VERDICT.md'),
+    })
+  }
+  // 최신 라운드 우선 (라운드명이 <YYYY-MM-DD>-… 규약이라 사전순 역순 = 시간 역순)
+  return rounds.sort((left, right) => right.round.localeCompare(left.round))
+}
+
 const summarizePreview = projectRoot => {
   const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
   const {mode} = isSafeDirectory(previewRoot) ? readPreviewMode(projectRoot) : {mode: 'prototype'}
@@ -345,6 +383,7 @@ const scanProject = (repositoryRoot, root) => {
   const featurePlanSource = featurePlan?.content
     ?? (featurePlanShards.length ? featurePlanShards.map(document => document.content ?? '').join('\n\n') : undefined)
   const preview = summarizePreview(root)
+  const styleTiles = summarizeStyleTiles(root)
   const features = parseFeaturePlan(featurePlanSource).map(feature => {
     const previewFeature = preview.features.find(item => item.featureId === feature.featureId)
     const subFeatures = feature.subFeatures.map(subFeature => {
@@ -404,6 +443,7 @@ const scanProject = (repositoryRoot, root) => {
     documents,
     features,
     preview,
+    styleTiles,
     changeRequests,
   }
 }
@@ -516,6 +556,7 @@ export class WorkspaceCatalog {
       ])),
       features: project.features,
       preview: project.preview,
+      styleTiles: project.styleTiles,
       changeRequests: project.changeRequests,
       changes,
     }

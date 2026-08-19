@@ -554,6 +554,22 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     } catch {
       return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
     }
+    // 발산 시안 아카이브 정적 서빙 — 프리뷰와 동일한 read-only·safeStaticFile 태세.
+    // 시안은 승인 상태와 무관한 보존 증거물이라 preview.exists를 요구하지 않는다.
+    const styleTiles = pathname.match(/^\/([^/]+)\/__style-tiles(\/.+)$/)
+    if (styleTiles) {
+      const tileProject = catalog.project(styleTiles[1])
+      if (!tileProject) return json(response, 404, errorBody('STYLE_TILES_NOT_FOUND', 'Style tiles were not found'))
+      let tilesRoot
+      try {
+        tilesRoot = realpathSync(join(tileProject.root, '_workspace', '02_design', 'design-system', 'style-tiles'))
+      } catch {
+        return json(response, 404, errorBody('STYLE_TILES_NOT_FOUND', 'Style tiles were not found'))
+      }
+      const tileFile = safeStaticFile(tilesRoot, styleTiles[2])
+      if (!tileFile) return json(response, 404, errorBody('STYLE_TILE_ASSET_NOT_FOUND', 'Style tile asset was not found'))
+      return streamFile(request, response, tileFile)
+    }
     const match = pathname.match(/^\/([^/]+)(\/.*)?$/)
     if (!match) return json(response, 404, errorBody('PREVIEW_NOT_FOUND', 'Preview was not found'))
     const project = catalog.project(match[1])

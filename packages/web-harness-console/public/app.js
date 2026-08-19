@@ -492,6 +492,47 @@ const renderOverview = () => {
   }
   previewPanel.addEventListener('dblclick', () => setTab('preview'))
 
+  // 발산 시안 아카이브(발산 기계화 §보존) — 라운드별 후보 타일을 그대로 렌더해 보여준다.
+  // 시안은 승인 여부와 무관한 보존 증거물이며, 판정 근거 문서는 Documents 탭 문서로 연다.
+  const styleTilesPanel = (detail.styleTiles ?? []).length === 0 ? null : create('article', {className: 'panel style-tiles-panel'}, [
+    create('h3', {text: `디자인 시안 아카이브 · ${detail.styleTiles.length} round${detail.styleTiles.length > 1 ? 's' : ''}`}),
+    create('p', {className: 'panel-copy', text: '발산 라운드의 후보 타일과 판정 기록입니다. 기각 시안도 재제시 조건과 함께 보존됩니다.'}),
+    ...detail.styleTiles.map((round, index) => {
+      const documentButton = (label, path) => {
+        if (!path) return null
+        const button = create('button', {type: 'button', className: 'style-tile-doc', text: label})
+        button.addEventListener('click', () => {
+          state.documentPath = path
+          setTab('documents')
+        })
+        return button
+      }
+      const grid = create('div', {className: 'style-tile-grid'}, round.candidates.map(candidate =>
+        create('figure', {className: 'style-tile-figure'}, [
+          create('iframe', {
+            className: 'style-tile-frame',
+            title: `${round.round} ${candidate}`,
+            loading: 'lazy',
+            src: `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__style-tiles/${encodeURIComponent(round.round)}/${encodeURIComponent(candidate)}/index.html`,
+          }),
+          create('figcaption', {text: candidate}),
+        ])))
+      const body = create('details', index === 0 ? {open: true} : {}, [
+        create('summary', {}, [
+          create('strong', {text: round.round}),
+          create('small', {text: ` 후보 ${round.candidates.length}개`}),
+        ]),
+        create('div', {className: 'style-tile-docs'}, [
+          documentButton('README', round.readmePath),
+          documentButton('렌더 판정', round.renderVerdictPath),
+          documentButton('구현 대조표', round.implementationVerdictPath),
+        ]),
+        grid,
+      ])
+      return body
+    }),
+  ])
+
   const changes = detail.changes.slice(0, 5)
   const changePanel = create('article', {className: 'panel'}, [create('h3', {text: `Change requests · ${detail.changeRequestCount}`}), create('p', {className: 'panel-copy', text: 'Preview 검토에서 생성한 영구 요청 이력입니다.'}), create('h3', {className: 'secondary-panel-title', text: `Session changes · ${detail.changeSummary.total}`})])
   if (changes.length === 0) changePanel.append(create('p', {className: 'panel-copy', text: '서버 시작 이후 감지된 Source/Plan/Design 변경이 없습니다.'}))
@@ -503,7 +544,7 @@ const renderOverview = () => {
     ]))
     changePanel.append(list)
   }
-  return create('div', {}, [heading('Project overview', '기획과 디자인의 현재 상태를 한눈에 확인합니다.'), metrics, create('div', {className: 'overview-grid'}, [previewPanel, changePanel])])
+  return create('div', {}, [heading('Project overview', '기획과 디자인의 현재 상태를 한눈에 확인합니다.'), metrics, create('div', {className: 'overview-grid'}, [previewPanel, changePanel]), styleTilesPanel].filter(Boolean))
 }
 
 const appendMarkdown = (container, source) => {
