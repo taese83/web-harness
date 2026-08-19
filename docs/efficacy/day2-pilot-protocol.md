@@ -59,7 +59,7 @@ tamiya-motor-lab·tamiya-race-app 두 실제 repo에서 발화·reentry-map 절�
   어댑터 변경)로 거부, 재잠금은 INGESTION_CONTRACT_MISSING(api/ 하이브리드 모델링
   갭)으로 BLOCKED. **도그푸드 갭 진단("서명 출구가 하이브리드를 못 모델링")이 R1에서
   그대로 실측됨** — 출구 분리(범위 서명·무서명 receipt) 필요성의 실증 데이터.
-- 저자 판정: (대기 — 대화+push 대비 한 줄)
+- 저자 판정(2026-08-19): **더 나음** — 대화+push 대비.
 
 ### R2 — tamiya-motor-lab 디자인 리프레시(v4 Pit-Wall Amber) [2026-08-19]
 
@@ -76,7 +76,7 @@ tamiya-motor-lab·tamiya-race-app 두 실제 repo에서 발화·reentry-map 절�
   (라운드 디렉터리) 첫 이행.
 - receipt: change-scope 2단계 기록 + RENDER-VERDICT + v4 근거 절. QA evidence:
   STALE(R1과 동일 사유 — 하이브리드 모델링 갭).
-- 저자 판정: (대기 — R1·R2 공통)
+- 저자 판정(2026-08-19): **더 나음** — R1·R2 공통, 결함·보수 왕복을 포함한 판정.
 
 ### R2 부록 — release 마찰 실측 (2026-08-19)
 
@@ -104,4 +104,4 @@ tamiya-motor-lab·tamiya-race-app 두 실제 repo에서 발화·reentry-map 절�
 - **검증 한계의 정직성이 작동**: 대조표의 "요소 실측 미도달(로그인 게이트) — 사용자
   위임" 표기 지점에서 사용자가 결함을 발견 — 위임된 검증이 실제 수행된 구조. fixture
   기반 인증 후 검증(auth-verification)의 부재가 이 왕복 비용의 원인 — 개선 후보.
-- 저자 판정: (대기 — R1·R2 공통)
+- 저자 판정(2026-08-19): **더 나음** — R1·R2 공통, 결함·보수 왕복을 포함한 판정.
