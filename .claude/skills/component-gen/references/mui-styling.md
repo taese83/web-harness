@@ -62,6 +62,11 @@ mutation 버튼은 pending 동안 중복 제출을 막고 텍스트로 상태를
 - 앱 최상위 `ThemeProvider`가 현재 theme을 소유한다.
 - feature가 자체 `createTheme`를 호출하지 않는다.
 - 공통 variant와 override는 app theme에 둔다.
+- **임의 값 금지 — design-system 갱신으로 해소**: 컴포넌트·sx에 theme을 우회하는 raw hex·
+  임의 px(스페이싱 스케일 밖)·로컬 fontFamily를 넣지 않는다. 시스템에 없는 원소가
+  필요하면 design-system 정본을 먼저 갱신하고 theme 경유로 소비한다(시스템-우선 왕복 —
+  `design-principles-research.md` §시안 적용 완결성 규칙 4가 흐름 수준 정본,
+  tailwind-shadcn 레인의 동명 규칙과 대칭).
 - user preset은 stable ID만 저장하고 theme object는 저장하지 않는다.
 - `prefers-reduced-motion`, contrast, dark/light surface 조합을 함께 검증한다.
 
