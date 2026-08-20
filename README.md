@@ -20,6 +20,28 @@ that was fixed *before* the builder ran.
 If that sounds like overhead, it is — deliberately. The tradeoff is worth it when the
 output is a real service rather than a snippet.
 
+## What it costs to adopt
+
+Honest, machine-verified numbers — a ratchet fails the build if any of them drifts.
+
+- **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
+  human onboarding path. The ~110 contract documents are read *by the agent*, on demand — not by you.
+- **Fixed contract load per orchestrator run**: 27,609 bytes <!-- inventory:entry-cost --> of
+  always-read contract files. That is a *byte* measurement of exactly those files — roughly 9k
+  tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the skill
+  file itself (~9k tokens), the per-spawn agent definitions, runtime hook injection, and everything
+  loaded on demand — so treat it as the floor of one dimension, not the total context bill. The
+  always/on-demand split is declared by an `<!-- always-read -->` anchor, and both the reference
+  count and the byte size are ratcheted: growth fails the build until someone updates the baseline
+  with a JUDGMENT record.
+- **Token cost per app**: measured, not estimated. The reference pilot — a mid-size SPA taken from
+  intake to a T0 receipt — spent roughly **12.7M tokens over ~90 spawns**, with ~11% of spawns
+  needing a retry. (Scoped to that pilot's close; its telemetry file keeps accumulating for
+  follow-up work, so treat these as the recorded order of magnitude, not a live counter. The
+  authoritative record is `docs/efficacy/greenfield-pilot-2-protocol.md` appendix A.) This is the
+  honest headline — the harness buys evidence, and evidence is expensive. If you want a prototype
+  in minutes, use a prototype tool; this one is for when "it looks done" is not good enough.
+
 ## Quick start
 
 **Building your first app?** Start with **[docs/quickstart.md](docs/quickstart.md)** — plugin

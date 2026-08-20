@@ -40,10 +40,41 @@ const ALWAYS_READ_SENTENCE = /(?:항상[\s\S]*?읽는다|always[^\n]{0,40}?read[
 const GENERALIZATION_HEADING = /(?:^|\n)##\s+(?:일반화 근거|Generalization evidence)\n([\s\S]*?)(?=\n## |$)/i;
 const EXPERIMENTAL_HEADING = /^##\s+(?:실험|Experimental)(?:\s|$)/m;
 
+// 선행 로드 범위 확정 — **명시 앵커가 산문 휴리스틱을 이긴다**(2026-08-20). 종전에는
+// 알터네이션 순서상 `항상…읽는다` 문장이 먼저 걸려, 앵커가 그보다 뒤에 있으면 무관한
+// 문장이 범위가 됐다(실측: web-orchestrator에서 129행 "plan-reviewer를 항상 실행하고…"가
+// 잡혀 실제 목록 전체가 미집계, baseline 2가 그 오집계와 self-consistent). protected-core
+// §4 "always-read 카운터" 행의 미해결 TODO였다.
+const ALWAYS_READ_ANCHOR = /<!--\s*always-read\s*-->([\s\S]*?)<!--\s*\/always-read\s*-->/i;
+const alwaysReadScope = text => text.match(ALWAYS_READ_ANCHOR)?.[1] ?? text.match(ALWAYS_READ_SENTENCE)?.[0] ?? null;
+
 export const countAlwaysReadRefs = text => {
-  const match = text.match(ALWAYS_READ_SENTENCE);
-  if (match === null) return 0;
-  return new Set(match[0].match(/references\/[^`\s,]+\.md/g) ?? []).size;
+  const scope = alwaysReadScope(text);
+  if (scope === null) return 0;
+  return new Set(scope.match(/references\/[^`\s,]+\.md/g) ?? []).size;
+};
+
+// 선행 로드의 **바이트 실측**(고정 진입 비용). 참조 수만으로는 "파일 하나가 5배로 커지는"
+// 성장을 못 잡는다(§4: "총 로드비용의 진실은 미보장"). 바이트는 결정론적이라 ratchet 단위로
+// 쓰고, 사람이 읽는 토큰 근사치는 bytes/3으로 별도 표기한다(근사임을 숨기지 않는다).
+// 참조를 못 찾으면 0이 아니라 `missing`으로 보고한다 — 경로 오타가 "비용 0"으로 보이면 안 된다.
+export const measureAlwaysReadBytes = (text, skillDirectory) => {
+  const scope = alwaysReadScope(text);
+  if (scope === null) return {bytes: 0, files: 0, missing: []};
+  const refs = new Set(scope.match(/(?:\.\.\/[\w\-]+\/)?references\/[^`\s,]+\.md/g) ?? []);
+  let bytes = 0;
+  let files = 0;
+  const missing = [];
+  for (const ref of refs) {
+    const path = join(skillDirectory, ref);
+    if (!existsSync(path)) {
+      missing.push(ref);
+      continue;
+    }
+    bytes += statSync(path).size;
+    files += 1;
+  }
+  return {bytes, files, missing};
 };
 
 // `## 일반화 근거` / `## Generalization evidence` + 서로 다른 형태 2개 이상(불릿)
@@ -213,6 +244,43 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
       // 배포되므로 target에서는 skip이 의도된 동작이다.
       if (maturity === 'golden-backed' && isSourceRepository && !goldenSource.includes(skill)) {
         fail(`contract-hygiene: '${skill}'이 golden-backed를 주장하지만 golden/ 어디에도 근거가 없다(I1)`);
+      }
+    }
+
+    // 3-b) 고정 진입 비용(바이트) ratchet — 참조 **수**가 그대로여도 계약 파일이 커지면
+    // 진입 비용은 커진다. 채택 비용의 실제 단위라 별도 차원으로 잠근다(2026-08-20 신설).
+    // baseline에 없는 스킬은 미측정으로 두고 fail하지 않는다(소급 fail 금지 — G2/G3 관례).
+    if (Object.hasOwn(baseline.alwaysReadBytes ?? {}, skill)) {
+      const {bytes, missing} = measureAlwaysReadBytes(skillMd, join(skillsDir, skill));
+      if (missing.length > 0) {
+        fail(
+          `contract-hygiene: '${skill}' 선행 로드 참조를 찾을 수 없다: ${missing.join(', ')} — 경로 오타가 "비용 0"으로 집계되면 안 된다(I1)`,
+        );
+      }
+      const byteBudget = baseline.alwaysReadBytes[skill];
+      if (bytes > byteBudget) {
+        fail(
+          `contract-hygiene: '${skill}' 선행 로드 ${bytes.toLocaleString()}B > baseline ${byteBudget.toLocaleString()}B(≈${Math.round(bytes / 3).toLocaleString()} tok) — 시점 로드로 강등하거나 baseline을 의식적으로 갱신하라(JUDGMENT 기록, I4)`,
+        );
+      }
+    }
+
+    // 3-c) README 공표 대조 — 채택 판단에 쓰이는 고정 진입 비용을 README가 공표하고, 그 숫자가
+    // 실측과 어긋나면 FAIL한다(2026-08-20). 채택 비용을 "읽어보면 안다"에서 "게시된 검증 숫자"로
+    // 바꾸는 것이 목적이라, 숫자가 조용히 낡으면 목적 자체가 무너진다.
+    // 번역본도 같은 게이트를 받는다 — README.ko.md가 "더 상세한 현재 정본"이라고 스스로 밝히는데
+    // 영문만 검사하면 한국어 독자가 보는 숫자가 조용히 낡는다(적대 검토 MEDIUM, 2026-08-20).
+    if (skill === 'web-orchestrator' && isSourceRepository) {
+      const {bytes} = measureAlwaysReadBytes(skillMd, join(skillsDir, skill));
+      for (const readmeName of ['README.md', 'README.ko.md']) {
+        const readmePath = join(repositoryRoot, readmeName);
+        if (!existsSync(readmePath)) continue;
+        const published = readFileSync(readmePath, 'utf8').match(/([\d,]+)\s*bytes\s*<!--\s*inventory:entry-cost\s*-->/);
+        if (!published) {
+          fail(`contract-hygiene: ${readmeName}에 <!-- inventory:entry-cost --> 마커가 없다 — 고정 진입 비용 공표는 채택 비용 계약이다("N bytes <!-- inventory:entry-cost -->" 형태)`);
+        } else if (Number(published[1].replace(/,/g, '')) !== bytes) {
+          fail(`contract-hygiene: ${readmeName} 진입 비용 공표(${published[1]}B)가 실측(${bytes.toLocaleString()}B)과 불일치 — 공표 숫자를 갱신하라(I1)`);
+        }
       }
     }
 
