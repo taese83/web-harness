@@ -96,13 +96,18 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
   // 고정이므로 실제 baseline이 적용된다. 이 숫자는 의식적 baseline 갱신 시 함께 갱신한다(canary).
   // 28이 된 경위: 최초 일괄 편집이 26개(어미 "…프로토콜이다." 패턴)만 잡았고, 리뷰가
   // component-designer.md(어미 "…따른다.")의 누락을 발견해 27번째 에이전트로 추가했다.
-  // 존재-류 마커 2종(M1 ④)은 온전한 상태로 포함 — consumer 마커의 부분 손실만 검사한다.
+  // 존재-류 마커 2종(M1 ④)과 즉시-쓰기 짝(2026-08-20 추가, baseline 2 = 게이트 스크립트 +
+  // 계약 산문)은 온전한 상태로 포함 — consumer 마커의 부분 손실만 검사한다.
   const root = makeTree({
     '.claude/agents/only-one.md': `한 줄만 남음 ${ANCHOR}\n`,
     '.claude/skills/timeseries-dashboard/references/detection-contract.md':
       'realtime is not required. <!-- marker:timeseries-historical-only -->\n',
     '.claude/skills/web-orchestrator/SKILL.md':
       'defer mock-api-builder. <!-- marker:timeseries-realtime-build-order -->\n',
+    '.claude/scripts/validate-spawn-plan.mjs':
+      '// reminder <!-- marker:immediate-write-contract -->\n',
+    '.claude/skills/web-orchestrator/references/execution-budget-contract.md':
+      'rule 4 <!-- marker:immediate-write-contract -->\n',
   })
   try {
     const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
@@ -127,6 +132,34 @@ test('전체 손실(앵커 삭제) 시나리오: 검출 0이면 마커별로 MAR
     validateMarkerIntegrity({repositoryRoot: root, pass: () => {}, fail: message => failures.push(message)})
     assert.equal(failures.length, MARKER_REGISTRY.length)
     for (const message of failures) assert.match(message, /MARKER_LOST/)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('명시 등록된 비-.md 파일도 스캔한다(스크립트 앵커 침묵 미보호 회귀)', () => {
+  // 실측 결함(2026-08-20): collectMarkdown이 명시 파일도 `.md`가 아니면 건너뛰어,
+  // validate-spawn-plan.mjs에 배치한 즉시-쓰기 앵커가 baseline에 잡히지 않았다
+  // (2곳 배치 → 1건만 집계). 레지스트리 주석의 계약("파일이면 그 파일만")과 코드가
+  // 어긋난 침묵 공백이라, 스크립트 쪽 앵커를 지워도 게이트가 통과했다.
+  const anchor = '<!-- marker:immediate-write-contract -->'
+  const root = makeTree({
+    'scripts/gate.mjs': `// 리마인더 출력 ${anchor}\n`,
+    'docs/contract.md': `계약 산문 ${anchor}\n`,
+  })
+  try {
+    const marker = {
+      id: 'pair-anchor',
+      pattern: /<!--\s*marker:immediate-write-contract\s*-->/g,
+      files: ['scripts/gate.mjs', 'docs/contract.md'],
+    }
+    // 짝(스크립트 + 계약) 둘 다 세어야 한다 — .md만 세면 1이 되어 스크립트 쪽 손실이
+    // baseline 통과로 숨는다.
+    assert.equal(countMarker(root, marker), 2)
+
+    // 디렉터리 재귀는 종전대로 `.md`만 — 무관한 파일 트리를 끌어들이지 않는다.
+    const dirMarker = {id: 'dir-scan', pattern: marker.pattern, files: ['.']}
+    assert.equal(countMarker(root, dirMarker), 1)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

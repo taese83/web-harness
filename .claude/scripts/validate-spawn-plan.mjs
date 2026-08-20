@@ -281,6 +281,15 @@ function main() {
       console.log('FITS ✅ — 한 스폰에 들어가는 규모. 스폰 진행 가능.')
       if (locked) console.log(`계획 잠금 기록: ${locked} — 이후 outputs를 줄이면 resume-manifest가 TAMPERED로 잡는다.`)
       else if (opts.lock) console.log('계획 잠금 실패(내부 오류)')
+      // 즉시-쓰기 리마인더(execution-budget-contract 규칙 4) — 이 게이트는 큰 산출 스폰
+      // *직전에* 실행되고 출력이 곧바로 프롬프트 작성에 소비되므로, 규칙을 계약 산문에만
+      // 두지 않고 이 시점에 되짚는다. 실측 근거: 무산출(읽기만 하고 산출물 0) 10건/90스폰,
+      // 선제 명시 후 재발 0. 게이트는 프롬프트를 검사하지 못하므로 이것은 강제가 아니라
+      // 배치가 정확한 리마인더다. <!-- marker:immediate-write-contract -->
+      console.log('즉시-쓰기: 프롬프트에 "첫 도구 호출 = 선언 산출물 중 하나의 Write"를 명시하라(무산출 예방, 규칙 4).')
+      if (report.readMode === 'injected') {
+        console.log('  injected 선언이므로 발췌를 프롬프트에 주입하고 "재독 금지"를 함께 적는다 — 아니면 browse로 정정하라.')
+      }
     } else {
       for (const v of report.violations) {
         console.log(`  ❌ ${v.rule}: ${v.detail}`)

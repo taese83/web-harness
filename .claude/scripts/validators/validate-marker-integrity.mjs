@@ -39,6 +39,20 @@ export const MARKER_REGISTRY = [
     ],
     note: '앵커가 곧 계약 배선의 증거 — 에이전트 본문 번역·리팩터에서 이 줄이 사라지면 소비자 프로토콜 배선이 끊긴 것',
   },
+  {
+    id: 'immediate-write-contract',
+    label: '즉시-쓰기 계약 배선 (fit-gate 리마인더 + 예산 계약 규칙 4)',
+    // search-portal 파일럿 실측(2026-08-20): 무산출(읽기만 하고 산출물 0) 10건/90스폰.
+    // 규칙 4는 프롬프트 산문이라 기계 강제가 불가능하다 — 대신 큰 스폰 직전에 반드시
+    // 실행되는 fit-gate 출력에 리마인더를 배치했고, 이 마커는 그 배치의 존속만 지킨다.
+    // 앵커가 사라지면 예방이 오케스트레이터 기억에만 의존하는 상태로 회귀한다.
+    pattern: /<!--\s*marker:immediate-write-contract\s*-->/g,
+    files: [
+      '.claude/scripts/validate-spawn-plan.mjs',
+      '.claude/skills/web-orchestrator/references/execution-budget-contract.md',
+    ],
+    note: '무산출 예방은 계약 산문 + 게이트 출력 리마인더의 짝으로만 성립 — 한쪽이 사라지면 배선이 끊긴다',
+  },
   // ── 존재-류 마커 (M1 ④): validate-harness의 한국어 문장 인라인 매칭에서 이관.
   // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries/detect-ai-service)는
   // validate-harness의 instructionPlacementChecks에 남는다 — 이 레지스트리는 존재만 본다.
@@ -66,9 +80,17 @@ export const MARKER_REGISTRY = [
 const collectMarkdown = (root, out = []) => {
   if (!existsSync(root)) return out;
   if (statSync(root).isFile()) {
-    if (root.endsWith('.md')) out.push(root);
+    // 명시적으로 등록된 **파일**은 확장자와 무관하게 스캔한다(레지스트리 주석의 계약
+    // "파일이면 그 파일만" 그대로). 종전에는 `.md`가 아니면 조용히 건너뛰어, 스크립트에
+    // 배치한 앵커가 보호되지 않으면서 baseline만 통과하는 침묵 공백이 있었다
+    // (2026-08-20 실측: immediate-write-contract 앵커 2곳 중 .mjs 1곳 미집계).
+    out.push(root);
     return out;
   }
+  // 디렉터리 재귀는 **여전히 `.md`만**이다(의도적 범위 제한 — 무관한 트리·빌드 산출물을
+  // 끌어들이지 않기 위함). **남는 공백(정직 표기)**: 디렉터리로 등록된 경로 하위의 비-.md
+  // 파일에 앵커를 두면 집계되지 않는다(실측: `.claude/agents`에 .mjs 앵커를 두면 미집계).
+  // 스크립트에 앵커를 둘 거면 위처럼 **파일 단위로 명시 등록**해야 보호된다.
   for (const name of readdirSync(root)) {
     const path = join(root, name);
     if (statSync(path).isDirectory()) collectMarkdown(path, out);
