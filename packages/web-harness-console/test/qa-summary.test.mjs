@@ -167,10 +167,12 @@ test('TC 실행 채널: test:tc 미선언은 fail-closed(404)', async t => {
   assert.equal((await missing.json()).error.code, 'TC_RUN_COMMAND_MISSING')
 })
 
-// 재테스트 소스 스탬프는 _workspace를 제외한다 — 실행 기록(tc-runs.jsonl)이 04_qa에
-// 쓰이므로, 제외하지 않으면 "실행 → 기록이 트리 dirty → 즉시 재테스트 필요"의 자기
-// 무효화가 난다(2026-08-20 motor-lab 실증에서 발견·수정).
-test('재테스트 스탬프: _workspace 변경은 소스 스탬프를 흔들지 않는다', t => {
+// 재테스트 소스 스탬프는 _workspace/04_qa(QA 출력)만 제외한다 — 실행 기록
+// tc-runs.jsonl이 여기 쓰여, 포함하면 "실행 → 기록이 트리 dirty → 즉시 재테스트
+// 필요"의 자기 무효화가 난다(2026-08-20 motor-lab 실증). 단 제외를 _workspace 전체로
+// 넓히면 01_plan/feature-plan.md(TC 정본)까지 빠져 CR 미경유 스펙 수정을 놓치므로
+// 04_qa로 국한한다(리뷰 지적 반영) — 아래 세 방향을 모두 실측한다.
+test('재테스트 스탬프: 04_qa 출력은 불변, 01_plan·소스 변경은 발화', t => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-console-stamp-'))
   t.after(() => rmSync(root, {recursive: true, force: true}))
   const git = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})
@@ -178,18 +180,21 @@ test('재테스트 스탬프: _workspace 변경은 소스 스탬프를 흔들지
   git('config', 'user.email', 'test@example.com')
   git('config', 'user.name', 'test')
   mkdirSync(join(root, 'src'), {recursive: true})
+  mkdirSync(join(root, '_workspace', '01_plan'), {recursive: true})
   writeFileSync(join(root, 'src', 'app.ts'), 'export const v = 1\n')
+  writeFileSync(join(root, '_workspace', '01_plan', 'feature-plan.md'), '# plan\n- TC-001-1: given a, when b, then c\n')
   git('add', '-A')
   git('commit', '-q', '-m', 'init')
   const before = computeTcSourceStamp(root)
   assert.ok(before.commit, '커밋 베이스라인이 있어야 한다')
-  // _workspace 아래 실행 기록을 쓴다 — 스탬프는 변하지 않아야 한다
+  // (1) 04_qa 아래 실행 기록 — 스탬프 불변(자기 무효화 제거)
   mkdirSync(join(root, '_workspace', '04_qa'), {recursive: true})
   writeFileSync(join(root, '_workspace', '04_qa', 'tc-runs.jsonl'), '{"schemaVersion":1}\n')
-  const afterWorkspaceWrite = computeTcSourceStamp(root)
-  assert.deepEqual(afterWorkspaceWrite, before, '_workspace 쓰기는 스탬프 불변')
-  // 실제 구현 소스를 바꾸면 스탬프가 변해야 한다
+  assert.deepEqual(computeTcSourceStamp(root), before, '04_qa 출력 쓰기는 스탬프 불변')
+  // (2) 01_plan feature-plan(TC 정본) 수정 — 스탬프 변화(CR 미경유 스펙 수정도 잡힘)
+  writeFileSync(join(root, '_workspace', '01_plan', 'feature-plan.md'), '# plan\n- TC-001-1: given a, when b, then DIFFERENT\n')
+  assert.notEqual(computeTcSourceStamp(root).dirtyDigest, before.dirtyDigest, '01_plan 스펙 변경은 스탬프 변화')
+  // (3) 구현 소스 변경 — 스탬프 변화
   writeFileSync(join(root, 'src', 'app.ts'), 'export const v = 2\n')
-  const afterSourceChange = computeTcSourceStamp(root)
-  assert.notEqual(afterSourceChange.dirtyDigest, before.dirtyDigest, '소스 변경은 스탬프 변화')
+  assert.notEqual(computeTcSourceStamp(root).dirtyDigest, before.dirtyDigest, '소스 변경은 스탬프 변화')
 })

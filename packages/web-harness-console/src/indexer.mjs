@@ -487,14 +487,16 @@ const readBoundedFile = (path, maxBytes) => {
 
 // TC 재테스트 필요 판정의 소스 신호 — 프로젝트 서브트리 기준 마지막 커밋과 dirty
 // 다이제스트. repo 전체 HEAD를 쓰면 무관한 커밋마다 거짓 경보가 나므로 경로 스코프.
-// **`_workspace`는 제외한다**(구현 소스가 아니라 콘솔·하네스 메타데이터) — 특히 실행
-// 기록 tc-runs.jsonl이 여기 쓰여, 제외하지 않으면 "실행 → 기록이 트리를 dirty →
-// 즉시 재테스트 필요"의 자기 무효화가 난다(2026-08-20 실증에서 발견). git이 없거나
-// 실패하면 null — "판정 불가"로 정직 표기하고 지어내지 않는다.
+// **`_workspace/04_qa`만 제외한다** — 실행 기록 tc-runs.jsonl과 QA receipt가 여기
+// 쓰이는 '출력'이라, 포함하면 "실행 → 기록이 트리를 dirty → 즉시 재테스트 필요"의
+// 자기 무효화가 난다(2026-08-20 motor-lab 실증). 제외 범위는 이 출력 디렉터리로
+// 국한한다 — `_workspace` 전체를 빼면 01_plan/feature-plan.md(TC given/when/then의
+// 정본)까지 스탬프에서 빠져 CR 미경유 스펙 수정을 놓친다(리뷰 지적, 2026-08-20).
+// git이 없거나 실패하면 null — "판정 불가"로 정직 표기하고 지어내지 않는다.
 export const computeTcSourceStamp = root => {
   try {
     const options = {cwd: root, timeout: 3000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
-    const scope = ['.', ':(exclude)_workspace']
+    const scope = ['.', ':(exclude)_workspace/04_qa']
     const commit = execFileSync('git', ['log', '-1', '--format=%H', '--', ...scope], options).trim() || null
     const porcelain = execFileSync('git', ['status', '--porcelain', '--', ...scope], options)
     return {commit, dirtyDigest: sha256(porcelain)}
