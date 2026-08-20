@@ -293,27 +293,49 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .preview-empty p { max-width: 56ch; margin: 0; color: var(--muted); line-height: 1.5; }
 
 @media (min-width: 905px) {
-  body[data-active-tab="features"] { overflow: hidden; }
-  body[data-active-tab="features"] .app-shell { height: 100vh; min-height: 0; }
-  body[data-active-tab="features"] .workspace { display: flex; min-height: 0; flex-direction: column; }
-  body[data-active-tab="features"] .content { flex: 1; min-height: 0; overflow: hidden; }
-  body[data-active-tab="features"] .content > div { display: flex; height: 100%; min-height: 0; flex-direction: column; }
-  body[data-active-tab="features"] .section-heading { flex: 0 0 auto; }
-  body[data-active-tab="features"] .feature-layout { flex: 1; min-height: 0; align-items: stretch; }
-  body[data-active-tab="features"] .feature-list,
-  body[data-active-tab="features"] .feature-detail { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-  body[data-active-tab="features"] .feature-list { align-content: start; padding-right: 8px; }
+  /* 전체 높이 잠금의 기준은 실제 보이는 표면(data-active-surface) — 단계 탭 재구성 후
+     features/preview는 서브탭 안에 있어서 탭 id만으로는 판정할 수 없다. */
+  body[data-active-surface="features"] { overflow: hidden; }
+  body[data-active-surface="features"] .app-shell { height: 100vh; min-height: 0; }
+  body[data-active-surface="features"] .workspace { display: flex; min-height: 0; flex-direction: column; }
+  body[data-active-surface="features"] .content { flex: 1; min-height: 0; overflow: hidden; }
+  body[data-active-surface="features"] .content > div { display: flex; height: 100%; min-height: 0; flex-direction: column; }
+  body[data-active-surface="features"] .stage-tab > .stage-tab-body,
+  body[data-active-surface="features"] .stage-tab-body > div { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+  body[data-active-surface="features"] .section-heading { flex: 0 0 auto; }
+  body[data-active-surface="features"] .feature-layout { flex: 1; min-height: 0; align-items: stretch; }
+  body[data-active-surface="features"] .feature-list,
+  body[data-active-surface="features"] .feature-detail { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  body[data-active-surface="features"] .feature-list { align-content: start; padding-right: 8px; }
 
-  body[data-active-tab="preview"] { overflow: hidden; }
-  body[data-active-tab="preview"] .app-shell { height: 100vh; min-height: 0; }
-  body[data-active-tab="preview"] .workspace { display: flex; min-height: 0; flex-direction: column; }
-  body[data-active-tab="preview"] .content { flex: 1; min-height: 0; overflow: hidden; }
-  body[data-active-tab="preview"] .content > div { display: flex; height: 100%; min-height: 0; flex-direction: column; }
-  body[data-active-tab="preview"] .section-heading { flex: 0 0 auto; }
-  body[data-active-tab="preview"] .preview-shell { display: flex; flex: 1; min-height: 0; flex-direction: column; }
-  body[data-active-tab="preview"] .preview-frame,
-  body[data-active-tab="preview"] .preview-empty { flex: 1; height: auto; min-height: 0; }
+  body[data-active-surface="preview"] { overflow: hidden; }
+  body[data-active-surface="preview"] .app-shell { height: 100vh; min-height: 0; }
+  body[data-active-surface="preview"] .workspace { display: flex; min-height: 0; flex-direction: column; }
+  body[data-active-surface="preview"] .content { flex: 1; min-height: 0; overflow: hidden; }
+  body[data-active-surface="preview"] .content > div { display: flex; height: 100%; min-height: 0; flex-direction: column; }
+  body[data-active-surface="preview"] .stage-tab > .stage-tab-body,
+  body[data-active-surface="preview"] .stage-tab-body > div { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+  body[data-active-surface="preview"] .section-heading { flex: 0 0 auto; }
+  body[data-active-surface="preview"] .preview-shell { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+  body[data-active-surface="preview"] .preview-frame,
+  body[data-active-surface="preview"] .preview-empty { flex: 1; height: auto; min-height: 0; }
 }
+
+/* 단계 탭 래퍼(서브탭 바 + 본문) */
+.stage-tab { display: flex; flex-direction: column; min-height: 0; }
+.stage-tab > .preview-pane-tabs { flex: 0 0 auto; }
+.stage-tab-body { min-width: 0; }
+
+/* Development 탭 — 라이브 서버 운영 패널 */
+.dev-live-panel { display: grid; gap: 12px; }
+.dev-live-panel .dev-live-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dev-live-panel .dev-live-head h3 { margin: 0; }
+.dev-live-panel .dev-live-head a { margin-left: auto; }
+.dev-info { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.dev-info dt { font-weight: 700; font-size: 13px; color: var(--muted); }
+.dev-info dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.dev-controls { display: grid; gap: 8px; }
+.dev-controls:empty { display: none; }
 
 .changes-grid { display: grid; gap: 12px; }
 .change-card { padding: 16px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--surface); }

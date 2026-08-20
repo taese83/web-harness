@@ -29,6 +29,9 @@ const state = {
   previewAnchorId: null,
   previewOrigin: null,
   previewPane: null,
+  // 단계 탭 재구성(2026-08-20): Features(기능/변경), Design(시안/프리뷰) 서브탭 상태.
+  featuresPane: 'features',
+  designPane: 'design',
   focusChangeRequestId: null,
   codexConnection: null,
   codexPollTimer: null,
@@ -223,6 +226,48 @@ const armedClick = (button, armedLabel, run) => {
   run()
 }
 
+// 라이브 베이스 시작 명령 행(복사 + 2단계 시작 + 인라인 오류) — Preview 헬스 카드와
+// Development 탭이 공유한다. recheck는 시작 요청 뒤 헬스 재확인 콜백.
+const buildStartHintRow = (hint, recheck) => {
+  const rowError = create('p', {className: 'live-health-inline-error', hidden: true})
+  return create('div', {className: 'live-health-command'}, [
+    create('code', {text: hint.command}),
+    create('button', {type: 'button', className: 'secondary-button', text: '복사', onclick: event => {
+      const button = event.currentTarget
+      navigator.clipboard?.writeText(hint.command)
+      button.textContent = '복사됨'
+      setTimeout(() => { button.textContent = '복사' }, 1500)
+    }}),
+    create('button', {type: 'button', className: 'primary-button', text: '시작', title: `launch.json "${hint.name}" 항목을 repo 루트에서 실행합니다`, onclick: event => {
+      const button = event.currentTarget
+      armedClick(button, '한 번 더 누르면 실행', async () => {
+        button.disabled = true
+        button.textContent = '시작 중…'
+        rowError.hidden = true
+        try {
+          await mutateApi('/api/live-base/start', {project: state.projectId, entry: hint.name}, crypto.randomUUID(), 'start-live-base')
+          setTimeout(recheck, 1500)
+          // 스폰은 됐지만 서버가 계속 무응답이면 버튼을 되살려 재시도를 허용한다.
+          setTimeout(() => {
+            if (button.disabled && document.contains(button)) {
+              button.disabled = false
+              button.textContent = '시작'
+              rowError.textContent = '시작 요청은 접수됐지만 서버가 아직 응답하지 않습니다 — 잠시 후 다시 시도하거나 터미널에서 명령을 직접 실행해 로그를 확인하세요.'
+              rowError.hidden = false
+            }
+          }, 20000)
+        } catch (error) {
+          button.disabled = false
+          button.textContent = '시작'
+          rowError.textContent = `시작 실패: ${error.message}`
+          rowError.hidden = false
+        }
+      })
+    }}),
+    rowError,
+  ])
+}
+
 const deleteApi = async (path, intent = 'delete-change-request') => {
   const response = await fetch(path, {
     method: 'DELETE',
@@ -242,20 +287,32 @@ const parseLocation = () => {
     featureId: params.get('feature'),
     subFeatureId: params.get('subfeature'),
     previewAnchorId: params.get('anchor'),
+    pane: params.get('pane'),
     changeRequestId: /^CHG-\d{8}-\d{3}$/.test(params.get('change') ?? '') ? params.get('change') : null,
     openCR: params.get('openCR') === '1',
   }
 }
 
+// URL의 서브탭(pane) 복원 — 구형 tab=preview/changes 딥링크는 setTab 별칭이 처리한다.
+const applyLocationPanes = locationState => {
+  if (locationState.tab === 'features') state.featuresPane = locationState.pane === 'changes' ? 'changes' : 'features'
+  if (locationState.tab === 'design') state.designPane = locationState.pane === 'preview' ? 'preview' : 'design'
+}
+
+const previewSurfaceVisible = () => state.tab === 'design' && state.designPane === 'preview'
+const changesSurfaceVisible = () => state.tab === 'features' && state.featuresPane === 'changes'
+
 const writeLocation = ({replace = false} = {}) => {
   const params = new URLSearchParams()
   if (state.projectId) params.set('project', state.projectId)
   params.set('tab', state.tab)
+  if (changesSurfaceVisible()) params.set('pane', 'changes')
+  if (previewSurfaceVisible()) params.set('pane', 'preview')
   if (state.tab === 'documents' && state.documentPath) params.set('document', state.documentPath)
   if (state.tab === 'features' && state.featureId) params.set('feature', state.featureId)
   if (state.tab === 'features' && state.subFeatureId) params.set('subfeature', state.subFeatureId)
-  if (state.tab === 'preview' && state.previewAnchorId) params.set('anchor', state.previewAnchorId)
-  if (state.tab === 'changes' && state.focusChangeRequestId) params.set('change', state.focusChangeRequestId)
+  if (previewSurfaceVisible() && state.previewAnchorId) params.set('anchor', state.previewAnchorId)
+  if (changesSurfaceVisible() && state.focusChangeRequestId) params.set('change', state.focusChangeRequestId)
   const hash = `#${params}`
   if (location.hash === hash) return
   if (replace) history.replaceState(null, '', hash)
@@ -295,13 +352,16 @@ const updateHeader = () => {
 }
 
 const setTab = (tab, {updateLocation = true} = {}) => {
+  // 단계 재구성 이전의 preview/changes 탭 id 별칭 — 구 딥링크·내부 호출부를 그대로 살린다.
+  if (tab === 'preview') { state.designPane = 'preview'; tab = 'design' }
+  else if (tab === 'changes') { state.featuresPane = 'changes'; tab = 'features' }
   const available = new Set(elements.tabs.map(button => button.dataset.tab))
   state.tab = available.has(tab) ? tab : 'overview'
-  if (state.tab !== 'changes' && state.codexPollTimer) {
+  if (!changesSurfaceVisible() && state.codexPollTimer) {
     clearTimeout(state.codexPollTimer)
     state.codexPollTimer = null
   }
-  if (state.tab !== 'preview') state.previewAnchorId = null
+  if (!previewSurfaceVisible()) state.previewAnchorId = null
   document.body.dataset.activeTab = state.tab
   elements.content.setAttribute('aria-labelledby', `tab-${state.tab}`)
   for (const button of elements.tabs) {
@@ -322,6 +382,10 @@ const selectProject = async (projectId, {updateLocation = true} = {}) => {
   state.featureId = null
   state.subFeatureId = null
   state.previewAnchorId = null
+  // 서브탭은 프로젝트별 맥락이다 — 전환 시 기본값으로 돌리고, 딥링크의 pane만 복원한다.
+  state.featuresPane = 'features'
+  state.designPane = 'design'
+  if (requestedLocation.projectId === projectId) applyLocationPanes(requestedLocation)
   renderProjectNavigation()
   updateHeader()
   elements.content.replaceChildren(create('div', {className: 'loading-state'}, [create('span', {className: 'spinner', 'aria-hidden': 'true'}), document.createTextNode('프로젝트 문서를 읽고 있습니다.')]))
@@ -1047,45 +1111,7 @@ const renderPreview = () => {
             create('strong', {text: '라이브 베이스가 응답하지 않습니다'}),
             create('p', {text: `대상 ${body.target ?? live.target} — 아래 명령으로 서버를 시작하면 자동으로 다시 연결됩니다. (repo 루트에서 실행)`}),
             (body.startHints ?? []).length > 1 ? create('p', {text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}) : null,
-            ...(body.startHints ?? []).map(hint => {
-              const rowError = create('p', {className: 'live-health-inline-error', hidden: true})
-              return create('div', {className: 'live-health-command'}, [
-                create('code', {text: hint.command}),
-                create('button', {type: 'button', className: 'secondary-button', text: '복사', onclick: event => {
-                  const button = event.currentTarget
-                  navigator.clipboard?.writeText(hint.command)
-                  button.textContent = '복사됨'
-                  setTimeout(() => { button.textContent = '복사' }, 1500)
-                }}),
-                create('button', {type: 'button', className: 'primary-button', text: '시작', title: `launch.json "${hint.name}" 항목을 repo 루트에서 실행합니다`, onclick: event => {
-                  const button = event.currentTarget
-                  armedClick(button, '한 번 더 누르면 실행', async () => {
-                    button.disabled = true
-                    button.textContent = '시작 중…'
-                    rowError.hidden = true
-                    try {
-                      await mutateApi('/api/live-base/start', {project: state.projectId, entry: hint.name}, crypto.randomUUID(), 'start-live-base')
-                      setTimeout(checkLiveHealth, 1500)
-                      // 스폰은 됐지만 서버가 계속 무응답이면 버튼을 되살려 재시도를 허용한다.
-                      setTimeout(() => {
-                        if (button.disabled && document.contains(button)) {
-                          button.disabled = false
-                          button.textContent = '시작'
-                          rowError.textContent = '시작 요청은 접수됐지만 서버가 아직 응답하지 않습니다 — 잠시 후 다시 시도하거나 터미널에서 명령을 직접 실행해 로그를 확인하세요.'
-                          rowError.hidden = false
-                        }
-                      }, 20000)
-                    } catch (error) {
-                      button.disabled = false
-                      button.textContent = '시작'
-                      rowError.textContent = `시작 실패: ${error.message}`
-                      rowError.hidden = false
-                    }
-                  })
-                }}),
-                rowError,
-              ])
-            }),
+            ...(body.startHints ?? []).map(hint => buildStartHintRow(hint, checkLiveHealth)),
             (body.startHints ?? []).length === 0 ? create('p', {text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}) : null,
           // replaceChildren은 null을 문자열 "null"로 렌더한다(실측) — 조건부 항목은 반드시 걸러낸다
           ].filter(Boolean))
@@ -1159,7 +1185,7 @@ const renderPreview = () => {
 }
 
 const handlePreviewMessage = event => {
-  if (state.tab !== 'preview') return
+  if (!previewSurfaceVisible()) return
   const frame = elements.content.querySelector('.preview-frame')
   if (!frame) return
   // 신뢰 origin: 격리 프로토타입(previewOrigin) 또는 이 프로젝트의 라이브 델타 origin.
@@ -1327,7 +1353,7 @@ const restoreChangesViewState = ({openRequestDetails, focusedRequestId}) => {
 const scheduleCodexPoll = () => {
   if (state.codexPollTimer) clearTimeout(state.codexPollTimer)
   state.codexPollTimer = null
-  if (state.tab !== 'changes' || !hasActiveCodexRun()) return
+  if (!changesSurfaceVisible() || !hasActiveCodexRun()) return
   const projectId = state.projectId
   state.codexPollTimer = setTimeout(async () => {
     state.codexPollTimer = null
@@ -1336,7 +1362,7 @@ const scheduleCodexPoll = () => {
       if (state.projectId !== projectId) return
       const changed = codexActivitySignature(detail) !== codexActivitySignature(state.detail)
       state.detail = detail
-      if (state.tab !== 'changes') return
+      if (!changesSurfaceVisible()) return
       if (!changed) {
         scheduleCodexPoll()
         return
@@ -1920,17 +1946,140 @@ const renderChanges = () => {
   return view
 }
 
+// 단계 탭 내부의 서브탭 바 — 상단 탭(단계)과 같은 시각 언어를 쓰되 상태는 state.*Pane.
+const paneTabBar = (ariaLabel, items, current, onSelect) => create('div', {className: 'tabs preview-pane-tabs', role: 'tablist', 'aria-label': ariaLabel}, items.map(([id, label]) => {
+  const button = create('button', {type: 'button', role: 'tab', 'aria-selected': String(current === id), text: label})
+  button.addEventListener('click', () => { if (current !== id) onSelect(id) })
+  return button
+}))
+
+const renderFeaturesTab = () => {
+  const pane = state.featuresPane === 'changes' ? 'changes' : 'features'
+  const bar = paneTabBar('기능 단계 보기', [['features', 'Features'], ['changes', 'Changes']], pane, id => {
+    state.featuresPane = id
+    writeLocation()
+    renderContent()
+  })
+  return create('div', {className: 'stage-tab'}, [bar, create('div', {className: 'stage-tab-body'}, [pane === 'changes' ? renderChanges() : renderFeatures()])])
+}
+
+const renderDesignTab = () => {
+  const pane = state.designPane === 'preview' ? 'preview' : 'design'
+  const bar = paneTabBar('디자인 단계 보기', [['design', 'Design'], ['preview', 'Preview']], pane, id => {
+    state.designPane = id
+    writeLocation()
+    renderContent()
+  })
+  return create('div', {className: 'stage-tab'}, [bar, create('div', {className: 'stage-tab-body'}, [pane === 'preview' ? renderPreview() : renderDesign()])])
+}
+
+// Development — 라이브 dev 서버 운영(상태·시작/중지·launch 항목). 기획 확인 표면
+// (델타 임베드)은 Design > Preview 소관이고, 여기는 서버 운영 상세만 담당한다.
+const renderDevelopment = () => {
+  const live = state.detail.livePreview
+  const container = create('div', {}, [heading('Development', '라이브 dev 서버 운영 — 상태 확인과 시작/중지를 관리합니다. 기획 확인 화면은 Design > Preview에 있습니다.')])
+  if (!live) {
+    container.append(create('article', {className: 'panel'}, [
+      create('h3', {text: '라이브 서버 설정이 없습니다'}),
+      create('p', {className: 'panel-copy', text: '이 프로젝트에는 라이브 베이스 대상(preview/live.json 또는 델타 킷 manifest의 target)이 선언돼 있지 않습니다. 그린필드 프로젝트는 정적 디자인 프리뷰(Design > Preview)로 확인하며, dev 서버 운영이 필요해지는 시점(라이브 델타 전환)에 이 탭이 활성화됩니다.'}),
+    ]))
+    return container
+  }
+  const chip = create('span', {className: 'status-chip status-pending live-health-chip', 'aria-live': 'polite', text: 'BASE 확인 중'})
+  const infoList = create('dl', {className: 'dev-info'})
+  const controls = create('div', {className: 'dev-controls'})
+  let timer = null
+  let busy = false
+  let signature = null
+  const poll = async () => {
+    if (busy) return
+    busy = true
+    clearTimeout(timer)
+    if (!document.contains(chip)) { busy = false; return }
+    try {
+      const body = await fetch(`/api/live-base/health?project=${encodeURIComponent(state.projectId)}`).then(r => r.json())
+      if (!document.contains(chip)) { busy = false; return }
+      const identityState = body.identity?.state
+      if (body.healthy && identityState !== 'mismatch' && identityState !== 'invalid') {
+        chip.textContent = identityState === 'verified' ? 'BASE 신원 일치' : 'BASE 실행 중'
+        chip.className = 'status-chip status-approved live-health-chip'
+      } else if (body.healthy) {
+        chip.textContent = identityState === 'invalid' ? 'IDENTITY 설정 오류' : 'BASE 다른 앱 응답'
+        chip.className = 'status-chip status-failed live-health-chip'
+      } else {
+        chip.textContent = 'BASE 응답 없음'
+        chip.className = 'status-chip status-failed live-health-chip'
+      }
+      const managed = body.managed ?? null
+      // 내용이 같으면 재렌더하지 않는다 — 무장 상태·'시작 중…'·인라인 오류 보존.
+      const sig = JSON.stringify({healthy: body.healthy ?? false, identity: identityState ?? null, managed: managed ? `${managed.entry}@${managed.startedAt}` : null, hints: (body.startHints ?? []).map(hint => hint.name)})
+      if (sig !== signature) {
+        signature = sig
+        infoList.replaceChildren(...[
+          ['대상', body.target ?? live.target],
+          ['identity 선언', identityState === 'undeclared' ? '없음 — 포트의 앱이 이 프로젝트인지 대조하지 못합니다' : identityState === 'invalid' ? '유효하지 않음 (titleIncludes는 1~200자 문자열)' : body.identity?.expected ? `titleIncludes "${body.identity.expected}"` : '선언됨'],
+          ['프로세스', managed ? `콘솔 관리 — launch.json "${managed.entry}" (시작 ${formatTime(managed.startedAt)})` : body.healthy ? '외부 실행 중 (콘솔 관리 아님)' : '실행 중 아님'],
+        ].flatMap(([term, value]) => [create('dt', {text: term}), create('dd', {text: value})]))
+        const children = []
+        if (!body.healthy) {
+          children.push(create('p', {className: 'panel-copy', text: '아래 명령으로 서버를 시작합니다 (repo 루트에서 실행):'}))
+          if ((body.startHints ?? []).length > 1) children.push(create('p', {className: 'panel-copy', text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}))
+          children.push(...(body.startHints ?? []).map(hint => buildStartHintRow(hint, poll)))
+          if ((body.startHints ?? []).length === 0) children.push(create('p', {className: 'panel-copy', text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}))
+        } else if (managed) {
+          const stopError = create('p', {className: 'live-health-inline-error', hidden: true})
+          children.push(create('div', {className: 'live-health-command'}, [
+            create('code', {text: `launch.json "${managed.entry}" — 콘솔이 관리 중`}),
+            create('button', {type: 'button', className: 'secondary-button', text: '베이스 중지', onclick: event => armedClick(event.currentTarget, '한 번 더 누르면 중지', async () => {
+              stopError.hidden = true
+              try {
+                await mutateApi('/api/live-base/stop', {project: state.projectId}, crypto.randomUUID(), 'stop-live-base')
+                setTimeout(poll, 800)
+              } catch (error) {
+                stopError.textContent = `중지 실패: ${error.message}`
+                stopError.hidden = false
+              }
+            })}),
+            stopError,
+          ]))
+        } else {
+          children.push(create('p', {className: 'panel-copy', text: '서버가 콘솔 밖(터미널 등)에서 실행 중입니다 — 중지는 실행한 곳에서 하세요.'}))
+        }
+        controls.replaceChildren(...children)
+      }
+    } catch { /* 콘솔 서버 통신 실패 — 다음 주기에 재시도 */ }
+    busy = false
+    timer = setTimeout(poll, 8000)
+  }
+  setTimeout(poll, 0)
+  container.append(create('article', {className: 'panel dev-live-panel'}, [
+    create('div', {className: 'dev-live-head'}, [
+      create('h3', {text: '라이브 베이스'}),
+      chip,
+      create('a', {href: live.target, target: '_blank', rel: 'noopener', className: 'secondary-button', text: '대상 직접 열기'}),
+    ]),
+    infoList,
+    controls,
+  ]))
+  return container
+}
+
 const renderContent = () => {
   if (!state.detail) return
   const view = {
     overview: renderOverview,
-    design: renderDesign,
+    design: renderDesignTab,
     documents: renderDocuments,
-    features: renderFeatures,
-    preview: renderPreview,
-    changes: renderChanges,
+    features: renderFeaturesTab,
+    development: renderDevelopment,
   }[state.tab]?.() ?? renderOverview()
   elements.content.replaceChildren(view)
+  // 전체 높이 잠금 등 표면별 CSS의 기준 — 탭이 아니라 실제 보이는 표면(서브탭 반영).
+  document.body.dataset.activeSurface = state.tab === 'features'
+    ? (state.featuresPane === 'changes' ? 'changes' : 'features')
+    : state.tab === 'design'
+      ? (state.designPane === 'preview' ? 'preview' : 'design')
+      : state.tab
 }
 
 const loadCatalog = async ({refresh = false} = {}) => {
@@ -1947,6 +2096,7 @@ const loadCatalog = async ({refresh = false} = {}) => {
       ? (locationState.projectId ?? previousProjectId)
       : state.catalog.projects[0]?.id ?? null
     state.tab = locationState.tab
+    applyLocationPanes(locationState)
     state.documentPath = locationState.documentPath
     state.featureId = locationState.featureId
     state.subFeatureId = locationState.subFeatureId
@@ -1999,6 +2149,7 @@ elements.refreshButton.addEventListener('click', () => loadCatalog({refresh: tru
 window.addEventListener('message', handlePreviewMessage)
 window.addEventListener('hashchange', async () => {
   const locationState = parseLocation()
+  applyLocationPanes(locationState)
   state.documentPath = locationState.documentPath
   state.featureId = locationState.featureId
   state.subFeatureId = locationState.subFeatureId

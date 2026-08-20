@@ -47,8 +47,8 @@ test('console keeps canonical artifacts read-only and isolates its single append
   const previewOrigin = `http://127.0.0.1:${addresses.previewPort}`
   const featureStyles = await fetch(`${consoleOrigin}/styles.css`).then(response => response.text())
   const featureScript = await fetch(`${consoleOrigin}/app.js`).then(response => response.text())
-  assert.match(featureStyles, /body\[data-active-tab="features"\] \.feature-list/)
-  assert.match(featureStyles, /body\[data-active-tab="features"\] \.feature-detail/)
+  assert.match(featureStyles, /body\[data-active-surface="features"\] \.feature-list/)
+  assert.match(featureStyles, /body\[data-active-surface="features"\] \.feature-detail/)
   assert.match(featureStyles, /overflow-y: auto/)
   assert.match(featureStyles, /\.codex-run-panel\.is-scrollable \{ block-size: clamp\(320px, 48vh, 480px\); overflow-y: auto;/)
   assert.match(featureStyles, /\.codex-run-panel\.is-scrollable \.codex-run-heading \{ position: sticky;/)
