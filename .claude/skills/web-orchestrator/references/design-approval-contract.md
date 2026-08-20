@@ -8,6 +8,18 @@
 
 프리뷰는 정적 목업이 아니라 **메모리 상태 기반 인터랙티브 프로토타입**이다 — Feature List의 test case(`TC-NNN-N`)가 실제로 동작해야 한다. 목적은 "이렇게 보이는가"를 넘어 **"이렇게 동작하는가"를 사용자 피드백 수준으로** 확인하는 것이다.
 
+0. **방향 승인(필수 선행 — 2026-08-20 배선)**: 프리뷰를 만들기 **전에** `design-system-architect`가
+   `design-principles-research.md` §발산의 기계화대로 **후보 타일 3종**(`assets/style-tile.html` 사본,
+   차이는 tokens.css 13변수로만)과 순위·기각 사유를 내고, **사용자가 방향을 고른 뒤에야** 아래 1로 간다.
+   실측 근거: 방향 기각을 프리뷰에서 받으면 라운드당 **630k~681k**가 들지만(search-portal R1·R2),
+   타일 단계에서 받으면 **후보 3종 전체가 132k**다(style-tile-probe receipt). 기각 사유가 *방향*
+   ("촌스럽다"·"느낌이 아니다")이면 그건 타일에서 받아야 하는 피드백이다.
+   **예외**: 사용자가 레퍼런스·시안을 이미 지정했거나 기존 디자인 시스템을 승계하는 경우 —
+   그때는 고를 것이 없으므로 건너뛴다. 단 decision-log에 **무엇을 승계·참조하는지 구체적으로**
+   (파일 경로·URL·기존 tokens 출처) 적는다 — "레퍼런스 있음" 같은 자기선언만으로는 스킵이 성립하지
+   않는다. 이 스킵의 정당성을 검사하는 기계는 없다(protected-core §4 등재) — 근거를 쓸 수 없으면
+   예외가 아니라 타일을 만든다. <!-- marker:tile-direction-gate -->
+
 1. **생성**: `design-preview-builder`가 `_workspace/02_design/preview/`에 무의존 인터랙티브 프로토타입(in-memory store + 해시 라우팅 + 실제 CRUD/DnD/상태 전이)을 생성하고, `behaviors.md`에 Must test case 커버리지를 남긴다. `traceability.json`에는 모든 `FEAT-NNN ↔ 선택적 FEAT-NNN-NN ↔ TC-NNN-N ↔ data-wh-anchor`를 기록하고 화면 요소에는 클릭 가능한 가장 좁은 책임 ID의 배지와 상세 side panel을 제공한다(배지 표시 형식은 design-preview-builder 규칙 10의 **닷+호버 표준**으로 모든 프로젝트에서 동일 — 상시 노출 pill 등 변형 금지. 배지·패널을 자체 구현한 **레거시 프리뷰는 발견 시 내장 구현·스타일을 제거하고 공용 런타임 로드로 이전**한다 — 스키마 세대 차이(`description`/`howTo`/기능 내장 `testCases` ↔ `summary`/`behavior`/최상위 `testCases`)는 공용 런타임의 별칭이 흡수하므로 traceability 재작성은 불필요, 앱 기능 코드는 건드리지 않는다). Console iframe 안의 side panel에는 Test Case 문맥에서 append-only Change Request dialog를 여는 `변경 요청` action을 제공하되, preview는 schemaVersion 1 ID signal만 부모에 보내고 직접 API/file mutation을 수행하지 않는다. feature-plan에 동작 명세·test case가 없으면 `BLOCKED`.
    - schema v1 parent-only traceability는 계속 유효하다. 하위 기능을 선언한 신규/갱신 preview는 schema v2의 `features[].subFeatures[]`와 `anchors[].subFeatureId`를 사용한다.
    - parent FEAT는 사용자 가치와 aggregate TC/anchor를 유지하고, subfeature는 독립 행동의 TC/anchor subset만 소유한다. 같은 동작의 복수 화면은 subfeature를 늘리지 않고 anchor를 여러 개 연결한다.

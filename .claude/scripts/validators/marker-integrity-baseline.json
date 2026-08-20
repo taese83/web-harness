@@ -3,6 +3,8 @@
  "markers": {
   "consumer-read-protocol": 28,
   "immediate-write-contract": 2,
+  "tile-direction-gate": 1,
+  "preview-delta-default": 1,
   "timeseries-historical-only": 1,
   "timeseries-realtime-build-order": 1
  }

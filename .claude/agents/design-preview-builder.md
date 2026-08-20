@@ -63,7 +63,19 @@ _workspace/02_design/preview/
 10. **기능 추적 오버레이**: 사용자가 조작하거나 관찰하는 화면 요소에는 안정적인 `data-wh-anchor`, `data-wh-feature`, 선택적 `data-wh-subfeature`, `data-wh-tests` 속성을 둔다. 배지·사이드바 구현은 **공용 런타임 `.claude/skills/web-orchestrator/assets/wh-overlay.mjs`를 프리뷰 디렉토리로 복사해 로드**한다 — 배지 코드를 프로젝트마다 재작성하지 않는다(라이브 델타와 동일 파일 공유). 배지의 **표시 형식은 닷+호버 표준으로 통일한다** — 프로젝트마다 다른 형식(상시 노출 pill 등)을 발명하지 않는다: ① 배지는 앵커 DOM 안에 삽입하지 않고 body 직속 오버레이 레이어(`#wh-trace-overlay-layer`)에 `<button class="wh-feature-badge">`로 렌더하고 rAF로 앵커의 `getBoundingClientRect` 우상단에 재배치한다(뷰포트 클램프, 앵커가 화면 밖이면 hidden). ② 기본 표시는 작은 원형 닷(8px + ring)뿐이고, hover/focus-visible 시에만 `FEAT-NNN`(하위 기능이 있으면 `FEAT-NNN-NN`) 라벨이 툴팁으로 나타난다(화면 하단 근처는 위쪽 배치). ③ 배지를 클릭하거나 키보드로 활성화하면 parent/subfeature 설명·관련 test case·현재 화면에서의 수행 방법을 접근 가능한 side panel로 연다(aria-expanded 반영). Console iframe 안의 panel에는 Test Case 아래 `변경 요청` action을 두고 schemaVersion 1의 feature/subfeature/anchor ID만 부모 Console에 전달한다. iframe은 API/file mutation을 직접 수행하지 않으며 direct preview 또는 신뢰할 Console parent를 확인할 수 없으면 action을 숨긴다. 배지는 원래 컨트롤의 클릭·focus·drag target을 가로막지 않아야 하며 오버레이 전체를 숨기는 토글을 제공한다.
 10-1. **Interactive surface audit**: snapshot 전에 모든 `button`, `a[href]`, `input/select/textarea`, `role=tab|menuitem|button`, drag handle, clickable row와 navigation group을 열거한다. 각 항목은 기존 anchor의 직접/descendant coverage, 반복 entity instance를 포괄하는 목록 anchor, 또는 구체적인 preview-only/순수 표현 비매핑 사유 중 하나를 가져야 한다. 도구명·테이블명 같은 seed/entity 값마다 FEAT를 만들지 않는다. 실제 사용자 행동인데 FEAT/TC가 없으면 조용히 누락하거나 ID를 발명하지 말고 `design-readiness-contract.md` §3-3에 따라 feature-planner write-back을 요청하고 `BLOCKED`로 반환한다.
 11. **`traceability.json` 정본 형식**: parent-only preview는 기존 `schemaVersion: 1`을 계속 지원한다. feature-plan에 `FEAT-NNN-NN`이 있으면 `schemaVersion: 2`를 사용해 feature의 선택적 `subFeatures[]`에 `subFeatureId`, `title`, 선택적 `description`, `testCaseIds`, `anchorIds`를 기록하고 anchor에는 parent `featureId`와 선택적 `subFeatureId`를 함께 기록한다. parent의 TC/anchor는 모든 하위 항목을 aggregate한다. 화면 요소에 대응하지 않는 책임만 빈 `anchorIds`와 구체적인 `unmappedReason`을 허용한다. selector는 정확히 `[data-wh-anchor="<anchorId>"]` 형식이고 FEAT/Sub Feature/TC를 새로 만들지 않고 `feature-plan.md`의 ID를 그대로 쓴다.
-12. 생성 직후 오케스트레이터가 `node .claude/scripts/validate-design-preview.mjs --project {root} --write-source-snapshot`을 실행한다. 이 명령이 입력 스펙 SHA-256을 `traceability.json.sourceSnapshot`에 기록하며, builder가 digest를 추측하거나 직접 작성하지 않는다. 검증 실패 시 완료로 보고하지 않는다.
+12. **개정 라운드는 델타 수정이 기본이다(2026-08-20 실측 배선)** <!-- marker:preview-delta-default -->: 최초 생성은 전체 산출이지만,
+    피드백·스펙 갱신에 따른 **개정 라운드에서는 기존 프리뷰 파일을 제자리에서 고친다** — 전체
+    재생성은 화면·라우팅 구조 자체가 바뀔 때만이다. 실측(search-portal): 전체 재생성 428k·631k·681k
+    vs **델타 수정 253k·134k — 2.5~5배 차이**이며(630,910/253,355=2.49배, 681,424/133,704=5.10배)
+    품질 손실은 없었다(앵커 21/21 무결, 5/5 완주). 델타 라운드에서는 ① 바뀐 스펙 절만 읽고
+    (오케스트레이터가 발췌 주입하면 재독 금지) ② 해당 토큰·마크업만 고치고 ③ `store.js`·`router.js`
+    처럼 변경과 무관한 파일은 열지 않는다. **단 `traceability.json`은 예외다** — DOM 앵커를
+    추가·삭제·개명했으면 반드시 함께 갱신한다. `validate-design-preview.mjs`는 traceability의 내부
+    정합성(스키마·selector 형식·featureId 참조)만 보고 **앵커가 실제 DOM에 있는지는 대조하지 않으므로**,
+    이 갱신을 빠뜨리면 기계가 못 잡는다. 마지막에 앵커 수와 TC 커버리지가 개정 전과 같은지 스스로
+    확인해 보고하고, 달라졌으면 무엇이 왜 달라졌는지 명시한다.
+
+13. 생성 직후 오케스트레이터가 `node .claude/scripts/validate-design-preview.mjs --project {root} --write-source-snapshot`을 실행한다. 이 명령이 입력 스펙 SHA-256을 `traceability.json.sourceSnapshot`에 기록하며, builder가 digest를 추측하거나 직접 작성하지 않는다. 검증 실패 시 완료로 보고하지 않는다.
 
 ## 작업 순서 (turn 소진으로 필수 산출물이 누락되지 않도록)
 
@@ -101,7 +113,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 ## 금지
 
 - `src/**` 등 preview 밖의 모든 경로 수정
-- 프리뷰 피드백을 스펙에 반영하는 일 — 해당 designer의 몫이며, 이 에이전트는 갱신된 스펙에서 **재생성**만 한다
+- 프리뷰 피드백을 스펙에 반영하는 일 — 해당 designer의 몫이며, 이 에이전트는 갱신된 스펙에서 **재산출**만 한다(무엇을 만들지 정하지 않는다). 재산출 방식은 아래 규칙 12를 따른다 — 개정 라운드는 전체 재생성이 아니라 **델타 수정이 기본**이다
 - 실제 DB·API·네트워크 호출, 외부 의존성 설치
 - 서버 실행 — 서빙은 오케스트레이터가 `node .claude/scripts/preview-server.mjs`로 수행한다
 - production 이식을 전제한 코드 작성 — 이 프로토타입은 버려진다

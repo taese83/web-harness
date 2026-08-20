@@ -53,6 +53,26 @@ export const MARKER_REGISTRY = [
     ],
     note: '무산출 예방은 계약 산문 + 게이트 출력 리마인더의 짝으로만 성립 — 한쪽이 사라지면 배선이 끊긴다',
   },
+  {
+    id: 'tile-direction-gate',
+    label: '방향 승인 선행 게이트 (프리뷰 전 후보 타일)',
+    // 실측 배선(2026-08-20): search-portal에서 방향 기각을 프리뷰 라운드로 받아 R1 630k·R2 681k를
+    // 태웠다. 타일 단계에서 받으면 후보 3종 전체가 132k다(style-tile-probe receipt). 메커니즘·계약·
+    // 프로브는 이미 있었으나 **파이프라인에 배선되지 않아** 오케스트레이터 기억에만 의존했다 —
+    // 이 repo의 반복 실패 형상("만들었지만 배선 안 함")이라 앵커로 고정한다.
+    pattern: /<!--\s*marker:tile-direction-gate\s*-->/g,
+    files: ['.claude/skills/web-orchestrator/references/design-approval-contract.md'],
+    note: '앵커가 사라지면 프리뷰 직행으로 회귀 — 방향 기각 1회당 5배 비용',
+  },
+  {
+    id: 'preview-delta-default',
+    label: '프리뷰 개정 라운드의 델타 수정 기본값',
+    // 실측: 전체 재생성 428k/631k/681k vs 델타 253k/134k(3~5배). 종전 계약은 "재생성만 한다"라
+    // 델타를 금지에 가깝게 읽히게 했고, 싼 경로는 오케스트레이터의 임시 지시로만 존재했다.
+    pattern: /<!--\s*marker:preview-delta-default\s*-->/g,
+    files: ['.claude/agents/design-preview-builder.md'],
+    note: '앵커가 사라지면 개정 라운드가 전체 재생성으로 회귀 — 라운드당 3~5배',
+  },
   // ── 존재-류 마커 (M1 ④): validate-harness의 한국어 문장 인라인 매칭에서 이관.
   // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries/detect-ai-service)는
   // validate-harness의 instructionPlacementChecks에 남는다 — 이 레지스트리는 존재만 본다.

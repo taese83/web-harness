@@ -108,6 +108,11 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
       '// reminder <!-- marker:immediate-write-contract -->\n',
     '.claude/skills/web-orchestrator/references/execution-budget-contract.md':
       'rule 4 <!-- marker:immediate-write-contract -->\n',
+    // 디자인 비용 배선 2종(2026-08-20, 각 baseline 1)도 온전한 상태로 포함한다.
+    '.claude/skills/web-orchestrator/references/design-approval-contract.md':
+      'tile gate <!-- marker:tile-direction-gate -->\n',
+    '.claude/agents/design-preview-builder.md':
+      'delta default <!-- marker:preview-delta-default -->\n',
   })
   try {
     const {validateMarkerIntegrity} = await import('./validators/validate-marker-integrity.mjs')
