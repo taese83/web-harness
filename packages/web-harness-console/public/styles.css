@@ -170,7 +170,7 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 [hidden] { display: none !important; } /* 명시적 display 규칙이 hidden 속성을 이기는 사고 방지 */
 .live-health-guide p { margin: 0; font-size: 13px; }
 .live-health-command { display: flex; align-items: center; gap: 8px; }
-.live-health-command code { flex: 1; overflow-x: auto; padding: 6px 8px; border-radius: 6px; background: var(--surface-subtle); font-size: 12px; white-space: nowrap; }
+.live-health-command code { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; background: var(--surface-subtle); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .status-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .status-approved { color: var(--success); background: var(--success-bg); }
 .status-stale, .status-unapproved, .status-draft, .status-revision_requested, .status-request_revised { color: var(--warning); background: var(--warning-bg); }

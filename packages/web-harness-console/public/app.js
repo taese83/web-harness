@@ -1009,7 +1009,7 @@ const renderPreview = () => {
         liveWasDown = true
         liveHealthChip.textContent = 'BASE 응답 없음'
         liveHealthChip.className = 'status-chip status-failed live-health-chip'
-        liveHealthGuide.replaceChildren(
+        liveHealthGuide.replaceChildren(...[
           create('strong', {text: '라이브 베이스가 응답하지 않습니다'}),
           create('p', {text: `대상 ${body.target ?? live.target} — 아래 명령으로 서버를 시작하면 자동으로 다시 연결됩니다. (repo 루트에서 실행)`}),
           (body.startHints ?? []).length > 1 ? create('p', {text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}) : null,
@@ -1037,7 +1037,8 @@ const renderPreview = () => {
             }}),
           ])),
           (body.startHints ?? []).length === 0 ? create('p', {text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}) : null,
-        )
+        // replaceChildren은 null을 문자열 "null"로 렌더한다(실측) — 조건부 항목은 반드시 걸러낸다
+        ].filter(Boolean))
         liveHealthGuide.hidden = false
       }
     } catch { /* 콘솔 서버 통신 실패 — 다음 주기에 재시도 */ }
