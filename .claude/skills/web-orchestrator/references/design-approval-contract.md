@@ -4,7 +4,7 @@
 
 ## Design Preview Loop (Phase 2 기본 흐름)
 
-화면이 있는 greenfield는 Phase 2 Wave 2(component-spec) 완료 후 **프리뷰 루프를 기본 실행**한다. 사용자가 명시적으로 skip하면 생략한다. **이 계약의 프리뷰(디자인 프리뷰)는 greenfield 태생의 기획 확인·승인 표면**이고, brownfield의 표면은 **라이브 델타**(`live-base-delta-contract.md`)다 — 두 표면은 별개 항목이되 같은 기획 UX(닷+호버 배지·기능 사이드바·변경 요청·승인 상태머신, 공용 런타임 `assets/wh-overlay.mjs`)를 공유하고, 같은 validator(`validate-design-preview.mjs` — 델타는 `manifest.json`의 live-delta 모드)로 승인된다. 시각 확인이 불필요한 brownfield 변경은 `docs/brownfield-adoption.md`의 L1(변경 관리 루프)로 충분하다.
+화면이 있는 greenfield는 Phase 2 Wave 2(component-spec) 완료 후 **프리뷰 루프를 기본 실행**한다. 사용자가 명시적으로 skip하면 생략한다. **이 계약의 프리뷰(디자인 프리뷰)는 greenfield 태생의 기획 확인·승인 표면**이고, brownfield의 표면은 **라이브 델타**(`live-base-delta-contract.md`)다 — 두 표면은 별개 항목이되 같은 기획 UX(닷+호버 배지·기능 사이드바·변경 요청·승인 상태머신, 공용 런타임 `assets/wh-overlay.mjs`)를 공유하고, 같은 validator(`validate-design-preview.mjs`)로 승인된다. **라이브 뷰 설정은 승인 자산과 분리된 별도 파일 `preview/live.json`({target, identity})이 정본**이며(2026-08-20 분리 — 승인 프리뷰와 라이브 뷰는 한 프로젝트에서 공존한다), 레거시 `manifest.json`의 live-delta 모드는 브라운필드 하위 호환으로만 읽힌다. `live.json`은 특정 agent가 생성하지 않는 **운영자 수기 파일**이다(콘솔이 읽기만 함) — 깨진 JSON은 레거시로 침묵 폴백하지 않고 `INVALID_LIVE_CONFIG`로 loud fail한다. 시각 확인이 불필요한 brownfield 변경은 `docs/brownfield-adoption.md`의 L1(변경 관리 루프)로 충분하다.
 
 프리뷰는 정적 목업이 아니라 **메모리 상태 기반 인터랙티브 프로토타입**이다 — Feature List의 test case(`TC-NNN-N`)가 실제로 동작해야 한다. 목적은 "이렇게 보이는가"를 넘어 **"이렇게 동작하는가"를 사용자 피드백 수준으로** 확인하는 것이다.
 

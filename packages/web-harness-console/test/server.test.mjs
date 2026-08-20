@@ -777,3 +777,97 @@ test('console refuses to present a foreign app as a project live preview (target
   assert.match(featureScript, /INVALID_LIVE_IDENTITY/)
   assert.match(featureScript, /BASE 다른 앱 응답/)
 })
+
+test('live config is decoupled from the design preview manifest (live.json 우선, 레거시 하위 호환)', async t => {
+  // 분리 계약(2026-08-20): 디자인 프리뷰(승인 자산)와 라이브 뷰(운영)는 직교한다 —
+  // 승인된 design-preview manifest가 있어도 live.json으로 라이브를 켤 수 있고,
+  // 레거시 mode:'live-delta' manifest는 계속 동작하며, 어느 쪽도 없으면 라이브는 꺼진다.
+  const fixture = fixtureRoot()
+  const previewDir = join(fixture.project, '_workspace', '02_design', 'preview')
+  mkdirSync(previewDir, {recursive: true})
+
+  const app = createServer((request, response) => {
+    response.writeHead(200, {'content-type': 'text/html; charset=utf-8'})
+    response.end('<html><head><title>Quintet Fixture</title></head><body>app</body></html>')
+  })
+  await new Promise(resolveListen => app.listen(0, '127.0.0.1', resolveListen))
+  const appPort = app.address().port
+  mkdirSync(join(fixture.root, '.claude'), {recursive: true})
+  writeFileSync(join(fixture.root, '.claude', 'launch.json'), JSON.stringify({
+    version: '0.0.1',
+    configurations: [{name: 'base', runtimeExecutable: process.execPath, port: appPort}],
+  }))
+
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    await new Promise(resolveClose => app.close(() => resolveClose()))
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const projectId = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0].id
+  const detailOf = () => fetch(`${consoleOrigin}/api/projects/${projectId}`, {headers: {'x-web-harness-ui': '1'}}).then(response => response.json())
+
+  // ① design-preview 모드 manifest만 있으면 라이브는 꺼진 상태다(모드 오염 없음).
+  writeFileSync(join(previewDir, 'manifest.json'), JSON.stringify({mode: 'design-preview', sourceDigest: 'x'}))
+  assert.equal((await detailOf()).livePreview, null)
+
+  // ② 같은 design-preview manifest 옆에 live.json을 두면 라이브가 켜진다 — 두 자산의 공존.
+  writeFileSync(join(previewDir, 'live.json'), JSON.stringify({target: `http://127.0.0.1:${appPort}`, identity: {titleIncludes: 'Quintet Fixture'}}))
+  const withLive = await detailOf()
+  assert.ok(withLive.livePreview, 'live.json이 있으면 livePreview가 채워져야 한다')
+  assert.deepEqual(withLive.livePreview.identity, {state: 'declared', titleIncludes: 'Quintet Fixture'})
+  const embedded = await fetch(withLive.livePreview.url)
+  assert.equal(embedded.status, 200)
+  assert.match(await embedded.text(), /Quintet Fixture/)
+
+  // ③ live.json을 지우면 레거시 mode:'live-delta' manifest가 하위 호환으로 계속 동작한다.
+  rmSync(join(previewDir, 'live.json'))
+  writeFileSync(join(previewDir, 'manifest.json'), JSON.stringify({mode: 'live-delta', target: `http://127.0.0.1:${appPort}`}))
+  const legacy = await detailOf()
+  assert.ok(legacy.livePreview, '레거시 live-delta manifest는 계속 동작해야 한다')
+
+  // ④ 존재하지만 문법이 깨진 live.json은 레거시로 조용히 대체되지 않고 loud fail한다
+  // (적대 검토 MEDIUM: 마이그레이션 도중 편집 실수가 구(舊) target으로 침묵 강등되는 것 방지).
+  writeFileSync(join(previewDir, 'live.json'), '{ broken json')
+  const broken = await detailOf()
+  assert.equal(broken.livePreview, null)
+  assert.equal(broken.livePreviewError, 'INVALID_LIVE_CONFIG')
+})
+
+test('pinned --live-base는 프로젝트 측 live.json/manifest 없이도 동작한다', async t => {
+  // 실측 결함 재현(2026-08-20): 종전에는 manifest 부재가 pinned 경로 도달 자체를 막아
+  // 운영자가 플래그로 명시한 라이브 뷰가 무력화됐다 — 분리 후에는 플래그만으로 동작한다.
+  const fixture = fixtureRoot()
+
+  const app = createServer((request, response) => {
+    response.writeHead(200, {'content-type': 'text/html; charset=utf-8'})
+    response.end('<html><head><title>Pinned Fixture</title></head><body>pinned</body></html>')
+  })
+  await new Promise(resolveListen => app.listen(0, '127.0.0.1', resolveListen))
+  const appPort = app.address().port
+
+  const servers = createConsoleServers({
+    repositoryRoot: fixture.root,
+    port: 0,
+    previewPort: 0,
+    liveBase: {target: {origin: `http://127.0.0.1:${appPort}`, port: appPort}, root: fixture.project, port: 0},
+  })
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    await new Promise(resolveClose => app.close(() => resolveClose()))
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  assert.ok(addresses.livePreviewPort, 'pinned 라이브 프리뷰 서버가 떠야 한다')
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const projectId = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0].id
+  const detail = await fetch(`${consoleOrigin}/api/projects/${projectId}`, {headers: {'x-web-harness-ui': '1'}}).then(response => response.json())
+  assert.ok(detail.livePreview, 'live.json/manifest 없이도 pinned livePreview가 채워져야 한다')
+  assert.equal(detail.livePreview.url, `http://127.0.0.1:${addresses.livePreviewPort}`)
+  assert.deepEqual(detail.livePreview.identity, {state: 'undeclared'})
+  const embedded = await fetch(detail.livePreview.url)
+  assert.equal(embedded.status, 200)
+  assert.match(await embedded.text(), /Pinned Fixture/)
+})

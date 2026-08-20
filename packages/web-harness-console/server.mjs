@@ -475,6 +475,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       if (healthProjectId) {
         const healthProject = catalog.project(healthProjectId)
         const manifest = healthProject ? readLiveConfig(healthProject.root) : null
+        if (manifest?.error) return json(response, 200, {configured: false, error: manifest.error}) // 깨진 live.json — 침묵 강등 대신 명시 보고
         target = manifest ? parseLiveBaseTarget(manifest.target) : null
         if (target && !launchAllowedPorts().has(target.port)) target = null
         identityManifest = manifest
