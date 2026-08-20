@@ -343,9 +343,10 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .qa-feature { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
 .qa-feature-head { display: flex; align-items: baseline; gap: 10px; }
 .qa-feature-head code { color: var(--primary); font-weight: 700; }
-.qa-tc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qa-tc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 2px 0; }
 .qa-tc-row > code { min-width: 88px; font-size: 12px; }
-.qa-tc-files { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.qa-tc-title { flex: 1 1 240px; min-width: 200px; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.qa-run-button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
 .qa-table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .qa-table th, .qa-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-soft); text-align: left; white-space: nowrap; }
 .qa-table td:first-child { white-space: normal; }

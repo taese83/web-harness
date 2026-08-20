@@ -99,7 +99,11 @@ TC ID 검증, 콘솔 Features 탭의 추적성 누적(L3 수렴 경로), 이후 
    → 승인 → 정본 승격.
 5. **라이브 검증** — 실행 중 dev server(HMR)가 즉시 컴파일하므로, 승격 직후 실제 앱에서
    TC를 실측한다(프리뷰가 없어도 실물 검증이 가능한 이유). 실측 불가한 TC는 사유와 함께
-   정직 표기.
+   정직 표기. **자동 실측 채널(2026-08-20)**: 프로젝트 package.json에 TC ID를 위치
+   인자로 받는 `test:tc` 스크립트를 선언하면(예: `"test:tc": "vitest run -t"` — 러너
+   비의존, 위치 인자 규약만) 콘솔 QA 탭에서 TC별 실행·exit code 기록·재테스트 필요
+   표기(소스 스탬프·승인 CR 신호)가 활성화된다. 미선언이면 채널은 fail-closed고 수동
+   실측만 남는다. 한계는 protected-core §4 "TC 실행 exit code 판정" 행이 정본.
 6. **운영 주의**: 콘솔 CR의 저장 `status`는 검토 결정 전까지 `PROPOSED`로 유지되고 UI의
    IMPACT_REVIEW/READY_FOR_REVIEW는 파생 표시다 — 상태 감시는 `codexRuns`의 run
    status/outcome으로 한다.

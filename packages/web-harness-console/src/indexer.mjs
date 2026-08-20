@@ -1,3 +1,4 @@
+import {execFileSync} from 'node:child_process'
 import {createHash} from 'node:crypto'
 import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync} from 'node:fs'
 import {basename, dirname, extname, join, relative, resolve, sep} from 'node:path'
@@ -454,18 +455,17 @@ const scanProject = (repositoryRoot, root) => {
     preview,
     styleTiles,
     changeRequests,
-    qa: summarizeQa(root),
   }
 }
 
 // QA 요약(단계 탭 2단계) — 읽기 전용 파생 뷰. 콘솔은 어떤 판정도 만들지 않는다:
-// receipt(04_qa/evidence/*.json)의 status·exit code, qa-*.md의 Result 표기, 소스
-// 테스트의 같은-ID TC 토큰 "발견 사실"만 그대로 나른다. TC별 개별 실행 결과는
-// 어디에도 기록되지 않으므로(스위트 단위 receipt) 콘솔이 지어내지 않는다.
+// receipt(04_qa/evidence/*.json)의 status·exit code, qa-*.md의 Result 표기, TC 실행
+// 기록(tc-runs.jsonl — 구현 코드 대상 실행의 exit code)을 그대로 나른다. 토큰 발견
+// 같은 정적 프록시 판정은 쓰지 않는다(저자 지시 2026-08-20 — 실측 실행만 판정).
 const QA_STATUS_TOKENS = new Set(['PASS', 'WARN', 'FAIL', 'BLOCKED', 'NEEDS_REVIEW', 'NEEDS_DECISION', 'NOT_MEASURED', 'STALE'])
 const MAX_QA_RECEIPT_BYTES = 512 * 1024
-const MAX_TEST_SCAN_FILES = 4000
-const TEST_FILE_PATTERN = /\.(test|spec)\.[cm]?[jt]sx?$/
+export const TC_RUNS_FILE = 'tc-runs.jsonl'
+export const MAX_TC_RUNS_BYTES = 1024 * 1024
 
 const safeEntries = directory => {
   try {
@@ -482,6 +482,31 @@ const readBoundedFile = (path, maxBytes) => {
     return readFileSync(path, 'utf8')
   } catch {
     return null
+  }
+}
+
+// TC 재테스트 필요 판정의 소스 신호 — 프로젝트 서브트리 기준 마지막 커밋과 dirty
+// 다이제스트. repo 전체 HEAD를 쓰면 무관한 커밋마다 거짓 경보가 나므로 경로 스코프.
+// git이 없거나 실패하면 null — "판정 불가"로 정직 표기하고 지어내지 않는다.
+export const computeTcSourceStamp = root => {
+  try {
+    const options = {cwd: root, timeout: 3000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+    const commit = execFileSync('git', ['log', '-1', '--format=%H', '--', '.'], options).trim() || null
+    const porcelain = execFileSync('git', ['status', '--porcelain', '--', '.'], options)
+    return {commit, dirtyDigest: sha256(porcelain)}
+  } catch {
+    return null
+  }
+}
+
+// 실행 채널의 사전 선언 명령 — package.json scripts["test:tc"]가 유일한 채널이다.
+// UI 활성화(indexer)와 서버 fail-closed 관문이 같은 판정을 쓰도록 단일 헬퍼(리뷰 반영).
+export const hasTcRunCommand = root => {
+  try {
+    const manifest = JSON.parse(readBoundedFile(join(root, 'package.json'), MAX_QA_RECEIPT_BYTES) ?? 'null')
+    return typeof manifest?.scripts?.['test:tc'] === 'string' && manifest.scripts['test:tc'].trim().length > 0
+  } catch {
+    return false
   }
 }
 
@@ -524,31 +549,30 @@ const summarizeQa = root => {
     }
     reports.sort((left, right) => left.name.localeCompare(right.name))
   }
-  // 구현 테스트의 같은-ID TC 토큰 스캔 — "테스트 존재" 신호일 뿐 개별 통과 증명이 아니다.
-  const implementedTestCases = {}
-  let scannedTestFiles = 0
-  const walk = (directory, depth) => {
-    if (depth > 8 || scannedTestFiles >= MAX_TEST_SCAN_FILES) return
-    for (const entry of safeEntries(directory)) {
-      if (entry.isSymbolicLink()) continue
-      if (entry.isDirectory()) {
-        if (EXCLUDED_DIRECTORIES.has(entry.name) || entry.name === '_workspace' || entry.name.startsWith('.')) continue
-        walk(join(directory, entry.name), depth + 1)
-      } else if (entry.isFile() && TEST_FILE_PATTERN.test(entry.name)) {
-        if (scannedTestFiles >= MAX_TEST_SCAN_FILES) return
-        scannedTestFiles += 1
-        const raw = readBoundedFile(join(directory, entry.name), MAX_DOCUMENT_BYTES)
-        if (raw === null) continue
-        const relativeFile = relative(root, join(directory, entry.name)).split(sep).join('/')
-        for (const testCaseId of new Set(raw.match(/TC-\d{3,}-\d+/g) ?? [])) {
-          const files = implementedTestCases[testCaseId] ?? (implementedTestCases[testCaseId] = [])
-          if (files.length < 5) files.push(relativeFile)
-        }
-      }
+  // TC 실행 기록 — 콘솔 실행 채널(/api/qa/tc-run)이 append한 구현 코드 대상 실행의
+  // 사실 기록(exit code·출력 꼬리). 손상 라인은 제외하고 지어내지 않는다.
+  const tcRuns = {}
+  const runsRaw = readBoundedFile(join(qaRoot, TC_RUNS_FILE), MAX_TC_RUNS_BYTES)
+  if (runsRaw !== null) {
+    for (const line of runsRaw.split(/\r?\n/)) {
+      if (!line.trim()) continue
+      try {
+        const record = JSON.parse(line)
+        const valid = record?.schemaVersion === 1
+          && typeof record.testCaseId === 'string' && /^TC-\d{3,}-\d+$/.test(record.testCaseId)
+          && typeof record.command === 'string'
+          && Number.isFinite(Date.parse(record.startedAt))
+          && (record.exitCode === null || Number.isInteger(record.exitCode))
+        if (!valid) continue
+        const bucket = tcRuns[record.testCaseId] ?? (tcRuns[record.testCaseId] = {count: 0, latest: null, recent: []})
+        bucket.count += 1
+        bucket.latest = record
+        bucket.recent.push(record)
+        if (bucket.recent.length > 5) bucket.recent.shift()
+      } catch { /* 손상 라인 제외 */ }
     }
   }
-  walk(root, 0)
-  return {exists, receipts, reports, implementedTestCases, scannedTestFiles}
+  return {exists, receipts, reports, tcRuns, tcRunCommandDeclared: hasTcRunCommand(root), sourceStamp: computeTcSourceStamp(root)}
 }
 
 const documentSnapshot = projects => new Map(
@@ -661,7 +685,8 @@ export class WorkspaceCatalog {
       preview: project.preview,
       styleTiles: project.styleTiles,
       changeRequests: project.changeRequests,
-      qa: project.qa,
+      // 실행 직후 신선도를 위해 스캔 캐시가 아니라 조회 시점에 계산한다(저비용 파일 읽기).
+      qa: summarizeQa(project.root),
       changes,
     }
   }

@@ -2064,15 +2064,25 @@ const renderDevelopment = () => {
   return container
 }
 
-// QA — TC 커버리지 × 스위트 receipt × 리포트 상태의 읽기 전용 조인(단계 탭 2단계).
-// 콘솔은 판정을 만들지 않는다: receipt/리포트의 표기와 같은-ID 토큰 발견 사실만 나른다.
+// QA — TC 인벤토리 × 실제 실행 결과 × 재테스트 필요 표기(단계 탭 2단계, 저자 지시로
+// 실행 기반 판정). 판정은 구현 코드 대상 실행의 exit code 그대로이며(프리뷰 아님),
+// 재테스트 필요는 소스 스탬프 불일치·실행 이후 승인된 변경이라는 사실 신호에서 파생된다.
 const renderQa = () => {
-  const qa = state.detail.qa ?? {exists: false, receipts: [], reports: [], implementedTestCases: {}}
-  const container = create('div', {}, [heading('QA', 'TC 커버리지와 스위트 실행 증거의 읽기 전용 뷰입니다 — 판정의 원본은 receipt와 QA 리포트입니다.')])
+  const qa = state.detail.qa ?? {exists: false, receipts: [], reports: [], tcRuns: {}, tcRunCommandDeclared: false, sourceStamp: null}
+  const container = create('div', {}, [heading('QA', 'TC 인벤토리와 실행 증거의 뷰입니다 — TC 판정은 구현 코드 대상 실행의 exit code 그대로입니다(프리뷰 아님).')])
 
-  // TC ↔ 구현 테스트 ↔ CR 검증 이벤트 조인 재료
+  // TC별 승인된 변경(재테스트 신호)·구현 검증 이벤트 조인 재료
+  const approvalsByTc = new Map()
   const verificationByTc = new Map()
   for (const request of state.detail.changeRequests ?? []) {
+    const decision = request.latestReviewDecision
+    if (decision?.decision === 'APPROVED') {
+      for (const testCaseId of decision.featureLinks?.affectedTestCaseIds ?? []) {
+        const approvals = approvalsByTc.get(testCaseId) ?? []
+        approvals.push({changeRequestId: request.id, approvedAt: decision.createdAt})
+        approvalsByTc.set(testCaseId, approvals)
+      }
+    }
     for (const event of request.implementationVerification?.events ?? []) {
       for (const testCaseId of event.testCaseIds ?? []) {
         const events = verificationByTc.get(testCaseId) ?? []
@@ -2081,25 +2091,77 @@ const renderQa = () => {
       }
     }
   }
+  const stampKey = stamp => stamp && (stamp.commit || stamp.dirtyDigest) ? `${stamp.commit ?? ''}:${stamp.dirtyDigest ?? ''}` : null
+  const currentStampKey = stampKey(qa.sourceStamp)
+
+  const runTc = async (button, testCaseId, rowError) => {
+    button.disabled = true
+    button.textContent = '실행 중…'
+    rowError.hidden = true
+    try {
+      await mutateApi('/api/qa/tc-run', {project: state.projectId, testCaseId}, crypto.randomUUID(), 'run-tc')
+      // 기록·스탬프가 서버에 남았으므로 상세를 다시 읽어 최신 판정으로 재렌더한다.
+      await selectProject(state.projectId, {updateLocation: false})
+    } catch (error) {
+      button.disabled = false
+      button.textContent = '실행'
+      rowError.textContent = `실행 실패: ${error.message}`
+      rowError.hidden = false
+    }
+  }
+
   const features = (state.detail.features ?? []).filter(feature => (feature.testCaseIds ?? []).length > 0)
-  const matrix = create('article', {className: 'panel qa-panel'}, [create('h3', {text: `Test Case 커버리지 · ${features.reduce((count, feature) => count + new Set(feature.testCaseIds).size, 0)}`})])
+  const matrix = create('article', {className: 'panel qa-panel'}, [create('h3', {text: `Test Case · ${features.reduce((count, feature) => count + new Set(feature.testCaseIds).size, 0)}`})])
   if (features.length === 0) {
     matrix.append(create('p', {className: 'panel-copy', text: 'TC가 없습니다 — feature-plan/traceability에 TC-NNN-N이 기록되면 여기 표시됩니다.'}))
   } else {
-    matrix.append(create('p', {className: 'panel-copy', text: '"구현 테스트 있음"은 소스 테스트에서 같은 TC ID 토큰을 발견했다는 뜻이며, 해당 TC의 개별 통과 증명이 아닙니다(스위트 결과는 아래 receipt).'}))
+    matrix.append(create('p', {className: 'panel-copy', text: qa.tcRunCommandDeclared
+      ? '실행은 프로젝트가 선언한 test:tc 스크립트로 구현 코드를 대상으로 수행되고, 판정은 exit code 그대로 기록됩니다.'
+      : '이 프로젝트는 package.json에 test:tc 스크립트가 없어 콘솔 실행이 비활성입니다. 예: "test:tc": "vitest run -t" 를 선언하면 TC ID로 필터 실행됩니다(실행 대상은 구현 코드).'}))
     for (const feature of features) {
       const rows = [...new Set(feature.testCaseIds)].map(testCaseId => {
-        const files = qa.implementedTestCases?.[testCaseId] ?? []
+        const testCase = (feature.testCases ?? []).find(item => item.testCaseId === testCaseId)
+        const title = testCase?.label || testCase?.description
+          || [testCase?.given, testCase?.when, testCase?.then].filter(Boolean).join(' → ') || ''
+        const bucket = qa.tcRuns?.[testCaseId] ?? null
+        const latest = bucket?.latest ?? null
         const events = verificationByTc.get(testCaseId) ?? []
+        // 실행 결과 칩 — exit code 사실 그대로
+        let runChip
+        if (!latest) runChip = create('span', {className: 'status-chip status-stale', text: '실행 기록 없음'})
+        else {
+          const ok = latest.exitCode === 0 && !latest.timedOut && !latest.spawnError
+          const label = latest.timedOut ? 'TIMEOUT' : latest.spawnError ? '실행 오류' : `exit ${latest.exitCode}`
+          runChip = create('span', {
+            className: `status-chip ${ok ? 'status-approved' : 'status-failed'}`,
+            text: `${label} · ${formatTime(latest.completedAt)}${bucket.count > 1 ? ` (${bucket.count}회)` : ''}`,
+            title: `${latest.command}\n\n${(latest.outputTail ?? '').slice(-600)}`,
+          })
+        }
+        // 재테스트 필요 — 사실 신호 2종(소스 스탬프 불일치·실행 이후 승인 변경)
+        const reasons = []
+        let stampUnknown = false
+        if (latest) {
+          const latestKey = stampKey(latest.sourceStamp)
+          if (currentStampKey && latestKey) {
+            if (currentStampKey !== latestKey) reasons.push('소스 변경')
+          } else stampUnknown = true
+          const approvedAfter = (approvalsByTc.get(testCaseId) ?? []).filter(approval => approval.approvedAt > latest.completedAt)
+          if (approvedAfter.length > 0) reasons.push(`변경 승인 ${approvedAfter.map(approval => approval.changeRequestId).join(', ')}`)
+        }
+        const rowError = create('p', {className: 'live-health-inline-error', hidden: true})
+        const runButton = create('button', {type: 'button', className: 'secondary-button qa-run-button', text: '실행', disabled: !qa.tcRunCommandDeclared, onclick: event => runTc(event.currentTarget, testCaseId, rowError)})
         return create('div', {className: 'qa-tc-row'}, [
           create('code', {text: testCaseId}),
-          files.length > 0
-            ? create('span', {className: 'status-chip status-approved', text: '구현 테스트 있음', title: files.join('\n')})
-            : create('span', {className: 'status-chip status-stale', text: '구현 테스트 미발견'}),
+          create('span', {className: 'qa-tc-title', text: title}),
+          runChip,
+          reasons.length > 0 ? create('span', {className: 'status-chip status-stale', text: '재테스트 필요', title: reasons.join(' · ')}) : null,
+          latest && stampUnknown && reasons.length === 0 ? create('span', {className: 'status-chip status-pending', text: '변경 감지 불가', title: 'git 소스 스탬프를 얻지 못해 실행 이후 변경 여부를 판정할 수 없습니다.'}) : null,
           events.length > 0
             ? create('span', {className: 'status-chip status-connected', text: `CR 검증 ${events.length}회`, title: events.map(event => `${event.changeRequestId} · ${event.createdAt}\n${event.evidence}`).join('\n\n')})
             : null,
-          files.length > 0 ? create('span', {className: 'qa-tc-files', text: files[0] + (files.length > 1 ? ` 외 ${files.length - 1}` : '')}) : null,
+          runButton,
+          rowError,
         ])
       })
       matrix.append(create('section', {className: 'qa-feature'}, [

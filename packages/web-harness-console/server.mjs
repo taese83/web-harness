@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {spawn} from 'node:child_process'
-import {createReadStream, existsSync, lstatSync, readFileSync, realpathSync, statSync} from 'node:fs'
+import {closeSync, constants as fsConstants, createReadStream, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, writeSync} from 'node:fs'
 import {createServer} from 'node:http'
 import {dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -8,7 +8,7 @@ import {inspectDesignPreview, recordPreviewApproval} from '../../.claude/scripts
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
 import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
-import {WorkspaceCatalog} from './src/indexer.mjs'
+import {WorkspaceCatalog, computeTcSourceStamp, hasTcRunCommand} from './src/indexer.mjs'
 import {createLiveBasePreviewServer, extractHtmlTitle, parseLiveBaseTarget, parseLiveIdentity} from './src/live-base-preview.mjs'
 
 const packageRoot = dirname(fileURLToPath(import.meta.url))
@@ -378,6 +378,94 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         return json(response, status, errorBody(code, message))
       }
     }
+    // TC 실행 채널 — 판정은 프록시(토큰 발견)가 아니라 구현 코드 대상 실행의 exit code다
+    // (저자 지시 2026-08-20). 실행 명령은 프로젝트 package.json의 사전 선언 스크립트
+    // "test:tc"뿐이며(라이브 베이스 시작과 같은 신뢰 모델), 미선언은 fail-closed다.
+    // 결과는 _workspace/04_qa/tc-runs.jsonl에 append-only 사실 기록으로 남는다.
+    if (request.method === 'POST' && url.pathname === '/api/qa/tc-run') {
+      if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== 'run-tc') {
+        return json(response, 403, errorBody('TC_RUN_FORBIDDEN', 'TC run origin or intent was rejected'))
+      }
+      if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+        return json(response, 415, errorBody('UNSUPPORTED_MEDIA_TYPE', 'TC run requires application/json'))
+      }
+      try {
+        const input = await readJsonBody(request)
+        const runProject = catalog.project(String(input?.project ?? ''))
+        if (!runProject) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
+        const testCaseId = String(input?.testCaseId ?? '')
+        if (!/^TC-\d{3,}-\d+$/.test(testCaseId)) return json(response, 400, errorBody('INVALID_TEST_CASE_ID', 'testCaseId must match TC-NNN-N'))
+        // UI 활성화(indexer summarizeQa)와 같은 판정 — 단일 헬퍼로 이중화 제거(리뷰 반영).
+        if (!hasTcRunCommand(runProject.root)) {
+          return json(response, 404, errorBody('TC_RUN_COMMAND_MISSING', 'Project package.json does not declare a "test:tc" script'))
+        }
+        if (tcRunLocks.has(runProject.id)) return json(response, 409, errorBody('TC_RUN_IN_PROGRESS', 'Another TC run is already in progress for this project'))
+        const qaRoot = join(runProject.root, '_workspace', '04_qa')
+        const runsPath = join(qaRoot, 'tc-runs.jsonl')
+        try {
+          if (lstatSync(runsPath).size > 1024 * 1024) return json(response, 409, errorBody('TC_RUN_HISTORY_FULL', 'TC run history file exceeds 1MB'))
+        } catch { /* 기록 파일 없음 — 첫 실행 */ }
+        tcRunLocks.add(runProject.id)
+        try {
+          const startedAt = new Date().toISOString()
+          const startedMs = Date.now()
+          // env 상속은 live-base start와 같은 의도적 선택 — 운영자 셸의 PATH·도구 체인 사용.
+          const child = spawn('pnpm', ['run', 'test:tc', testCaseId], {cwd: runProject.root, stdio: ['ignore', 'pipe', 'pipe'], env: process.env})
+          let outputTail = ''
+          const collect = chunk => {
+            outputTail = (outputTail + chunk.toString('utf8')).slice(-4000)
+          }
+          child.stdout.on('data', collect)
+          child.stderr.on('data', collect)
+          const result = await new Promise(resolveRun => {
+            let timedOut = false
+            const timer = setTimeout(() => {
+              timedOut = true
+              child.kill('SIGKILL')
+            }, 300000)
+            child.once('error', error => {
+              clearTimeout(timer)
+              resolveRun({exitCode: null, signal: null, timedOut, spawnError: error.message})
+            })
+            child.once('close', (code, signal) => {
+              clearTimeout(timer)
+              resolveRun({exitCode: code, signal: signal ?? null, timedOut, spawnError: null})
+            })
+          })
+          const record = {
+            schemaVersion: 1,
+            testCaseId,
+            command: `pnpm run test:tc ${testCaseId}`,
+            startedAt,
+            completedAt: new Date().toISOString(),
+            durationMs: Date.now() - startedMs,
+            exitCode: result.exitCode,
+            signal: result.signal,
+            timedOut: result.timedOut,
+            spawnError: result.spawnError,
+            // ANSI 이스케이프 제거 — 기록·툴팁 가독을 위한 표시 정규화(사실 변경 아님).
+            outputTail: outputTail.replace(/\x1b\[[0-9;]*[A-Za-z]/g, ''),
+            // 재테스트 필요 판정 재료 — 실행 시점의 프로젝트 서브트리 소스 스탬프.
+            sourceStamp: computeTcSourceStamp(runProject.root),
+          }
+          mkdirSync(qaRoot, {recursive: true})
+          let descriptor
+          try {
+            descriptor = openSync(runsPath, fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY | fsConstants.O_NOFOLLOW, 0o600)
+            if (fstatSync(descriptor).size > 1024 * 1024) return json(response, 409, errorBody('TC_RUN_HISTORY_FULL', 'TC run history file exceeds 1MB'))
+            writeSync(descriptor, `${JSON.stringify(record)}\n`, null, 'utf8')
+          } finally {
+            if (descriptor !== undefined) closeSync(descriptor)
+          }
+          return json(response, 200, {record})
+        } finally {
+          tcRunLocks.delete(runProject.id)
+        }
+      } catch (error) {
+        const status = Number.isInteger(error.status) ? error.status : 500
+        return json(response, status, errorBody('TC_RUN_FAILED', status === 500 ? 'TC run failed' : error.message))
+      }
+    }
     if (request.method === 'POST' && (url.pathname === '/api/live-base/start' || url.pathname === '/api/live-base/stop')) {
       const action = url.pathname.endsWith('/start') ? 'start' : 'stop'
       if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== `${action}-live-base`) {
@@ -686,6 +774,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
   // 나오고(임의 명령 불가), 항목 포트가 프로젝트 manifest target 포트와 일치해야 하며,
   // 중지는 이 콘솔이 스폰한 프로세스만 가능하다. POST는 origin+intent 가드를 거친다.
   const liveBaseProcesses = new Map() // port(Number) → {child, entry, startedAt}
+  const tcRunLocks = new Set() // projectId — 프로젝트당 동시 TC 실행 1개
   const readLaunchEntry = name => {
     try {
       const launch = JSON.parse(readFileSync(join(repositoryRoot, '.claude', 'launch.json'), 'utf8'))
