@@ -9,7 +9,7 @@ import {recordImplementationVerification} from './src/change-request-implementat
 import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
 import {WorkspaceCatalog} from './src/indexer.mjs'
-import {createLiveBasePreviewServer, parseLiveBaseTarget} from './src/live-base-preview.mjs'
+import {createLiveBasePreviewServer, extractHtmlTitle, parseLiveBaseTarget, parseLiveIdentity} from './src/live-base-preview.mjs'
 
 const packageRoot = dirname(fileURLToPath(import.meta.url))
 const CONTENT_TYPES = {
@@ -469,13 +469,16 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       // delta manifest 또는 --live-base 플래그에서만 나온다.
       const healthProjectId = url.searchParams.get('project')
       let target = null
+      let identityManifest = null
       if (healthProjectId) {
         const healthProject = catalog.project(healthProjectId)
         const manifest = healthProject ? readDeltaManifest(healthProject.root) : null
         target = manifest ? parseLiveBaseTarget(manifest.target) : null
         if (target && !launchAllowedPorts().has(target.port)) target = null
+        identityManifest = manifest
       } else if (liveBase) {
         target = liveBase.target
+        identityManifest = liveBase.root ? readDeltaManifest(liveBase.root) : null
       }
       if (!target) return json(response, 200, {configured: false})
       const startHints = []
@@ -488,13 +491,35 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         }
       } catch { /* launch.json 없음/파싱 실패 — 힌트 생략 */ }
       const managed = liveBaseProcesses.get(target.port)
-      fetch(target.origin, {signal: AbortSignal.timeout(1500), redirect: 'manual'})
-        .then(() => true, () => false)
-        .then(healthy => json(response, 200, {
-          configured: true, target: target.origin, healthy, startHints,
+      const expectedIdentity = parseLiveIdentity(identityManifest?.identity)
+      ;(async () => {
+        let healthy = false
+        // 응답이 오면(상태코드 무관) healthy — 그 위에 신원 판정을 얹는다: 선언이 있으면
+        // HTML <title> 대조(제목 미검출·비-HTML은 fail-closed mismatch), 없으면 undeclared로
+        // 정직 보고. 무응답이면 신원 판정 자체가 불가하므로 null.
+        let identity = expectedIdentity === null ? {state: 'undeclared'} : expectedIdentity.error ? {state: 'invalid'} : null
+        try {
+          const upstream = await fetch(target.origin, {signal: AbortSignal.timeout(1500), redirect: 'manual'})
+          healthy = true
+          if (expectedIdentity && !expectedIdentity.error) {
+            let actualTitle = null
+            try {
+              if ((upstream.headers.get('content-type') ?? '').includes('text/html')) actualTitle = extractHtmlTitle(await upstream.text())
+            } catch { /* 본문 판독 실패 — 제목 미검출로 두어 fail-closed */ }
+            identity = {
+              state: actualTitle !== null && actualTitle.includes(expectedIdentity.titleIncludes) ? 'verified' : 'mismatch',
+              expected: expectedIdentity.titleIncludes,
+              actualTitle,
+            }
+          }
+        } catch { /* 대상 무응답 */ }
+        if (!healthy) identity = null
+        json(response, 200, {
+          configured: true, target: target.origin, healthy, identity, startHints,
           managed: managed?.child ? {entry: managed.entry, startedAt: managed.startedAt} : null,
           checkedAt: new Date().toISOString(),
-        }))
+        })
+      })()
       return
     }
     if (url.pathname === '/api/projects') {
@@ -521,10 +546,18 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       try {
         const proxy = await ensureLiveProxy(project, {allowStart: request.headers['x-web-harness-ui'] === '1'})
         if (proxy?.port) {
+          const declaredIdentity = parseLiveIdentity(readDeltaManifest(project.root)?.identity)
           detail.livePreview = {
             url: `http://127.0.0.1:${proxy.port}`,
             target: proxy.target.origin,
             deltaPresent: existsSync(join(project.root, '_workspace', '02_design', 'preview', 'delta', 'bootstrap.mjs')),
+            // 신원 선언 상태를 UI에 노출한다 — 미선언 킷은 차단하지 않되(하위호환)
+            // "target 포트의 앱 신원 미검증" 경고의 데이터 소스가 된다.
+            identity: declaredIdentity === null
+              ? {state: 'undeclared'}
+              : declaredIdentity.error
+                ? {state: 'invalid'}
+                : {state: 'declared', titleIncludes: declaredIdentity.titleIncludes},
           }
         } else if (proxy?.error) {
           detail.livePreviewError = proxy.error
@@ -591,6 +624,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       target: liveBase.target,
       deltaRoot: join(liveBase.root, '_workspace', '02_design', 'preview', 'delta'),
       streamDeltaFile: streamFile,
+      readIdentity: () => parseLiveIdentity(readDeltaManifest(liveBase.root)?.identity),
     })
     : null
   let boundLivePreviewPort = liveBase?.port ?? null
@@ -649,11 +683,15 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     const target = parseLiveBaseTarget(manifest.target)
     if (!target) return {error: 'INVALID_LIVE_TARGET'}
     if (!launchAllowedPorts().has(target.port)) return {error: 'LIVE_TARGET_NOT_IN_LAUNCH'}
+    // 신원 선언의 형식 오류는 미선언으로 강등하지 않고 loud 실패 — 오타가 검사를 조용히
+    // 끄면 안 된다. 대조 자체는 프록시가 HTML 응답마다 수행한다(생성 시 1회가 아니라).
+    if (parseLiveIdentity(manifest.identity)?.error) return {error: 'INVALID_LIVE_IDENTITY'}
     if (!allowStart) return null
     const server = createLiveBasePreviewServer({
       target,
       deltaRoot: join(project.root, '_workspace', '02_design', 'preview', 'delta'),
       streamDeltaFile: streamFile,
+      readIdentity: () => parseLiveIdentity(readDeltaManifest(project.root)?.identity),
     })
     const promise = new Promise(resolveEntry => {
       server.once('error', () => {

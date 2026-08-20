@@ -31,7 +31,9 @@
 
 ```
 _workspace/02_design/delta-spec.md              # 앵커 표·mock 경계·인접 목록 (스펙 정본)
-_workspace/02_design/preview/manifest.json      # {"mode": "live-delta", "target": "http://127.0.0.1:<port>"}
+_workspace/02_design/preview/manifest.json      # {"mode": "live-delta", "target": "http://127.0.0.1:<port>",
+                                                #  "identity": {"titleIncludes": "<앱 <title>의 리터럴 부분 문자열, 1~200자>"}}
+                                                # identity는 신규 킷 필수(생성 시점 — 승인 전이라 digest 영향 없음)
 _workspace/02_design/preview/delta/bootstrap.mjs      # 주입 진입점 (기능 델타 + 앵커 스탬핑 + 오버레이 로드)
 _workspace/02_design/preview/delta/wh-overlay.mjs     # 공용 런타임 — assets/에서 복사 (재작성 금지)
 _workspace/02_design/preview/delta/traceability.json  # feature-plan 전 FEAT 매핑 (as-is는 빈 anchorIds+사유)
@@ -45,6 +47,38 @@ _workspace/02_design/preview/delta/traceability.json  # feature-plan 전 FEAT �
 프록시는 HTML에만 bootstrap 주입, `/__wh_delta__/`로 킷 서빙. 기존 앱 소스는 절대
 수정하지 않는다. 주의: 임시 포트는 콘솔 재시작마다 바뀌므로 origin별 저장소(localStorage)
 에 얹힌 앱 상태는 초기화된다(쿠키는 포트 무관이라 SSO 세션은 유지).
+
+### target 신원 대조 (2026-08-19 오표시 사건에서 도입)
+
+포트는 앱 신원이 아니다 — launch.json에 여러 프로젝트가 등록된 환경에서 manifest target
+포트를 **다른 프로젝트의 dev server가 점유**하면, 포트만 신뢰하는 프록시는 그 앱을 이
+프로젝트의 라이브 프리뷰로 오표시한다(실측: tart-web target 8080을 tamiya-motor-lab
+vite dev server가 점유 — 사용자 발견). 대응 메커니즘:
+
+- **선언**: manifest `identity.titleIncludes` — 대상 앱 `<title>`의 **리터럴 부분 문자열**
+  (1~200자). 정규식이 아니다 — manifest는 repo 콘텐츠라 정규식 허용은 프록시에 ReDoS를
+  주입할 수 있다. 선언은 launch.json 포트 allowlist 안에서 표시 범위를 **좁히기만** 하므로
+  잘못된 manifest가 신뢰를 확장할 수 없다.
+- **대조**: 프록시가 **HTML 응답마다** 응답 `<title>`(공백 정규화)과 부분 문자열 대조 —
+  생성 시 1회 검사로는 이후의 포트 점유 교체를 놓친다. 불일치·제목 미검출은 fail-closed:
+  바탕 앱을 표시하지 않고 `LIVE_TARGET_IDENTITY_MISMATCH` 차단 페이지(502)를 낸다. 선언
+  형식 오류는 미선언으로 강등하지 않고 `INVALID_LIVE_IDENTITY`로 loud 실패한다(오타가
+  검사를 조용히 끄는 것 방지). 헬스체크가 신원 상태(verified/mismatch/undeclared/invalid)
+  를 보고하고 콘솔 카드가 "다른 앱 응답" 경고를 띄운다.
+- **하위호환**: identity 미선언 킷은 차단하지 않는다(소급 하드 실패는 승인된 기존 킷을
+  일괄 무효화) — 대신 콘솔이 "IDENTITY 미검증" 경고를 상시 표시하고 응답 헤더에
+  `unverified`를 노출한다. **신규 킷은 선언이 필수다**(위 산출물 표) — 단 이 필수는
+  현재 validator가 기계 강제하지 않는 산문 규칙이다(design-preview-status-lib는 identity
+  필드를 보지 않음, §4 등록): 누락 탐지망은 콘솔 경고뿐이며, 신규 킷 한정 validator
+  승격은 미해결 TODO.
+- **오탐 트레이드오프**: 정당한 앱 title 변경도 차단된다 — 복구는 manifest identity 갱신
+  (프록시가 요청 시점마다 재독하므로 콘솔 재시작 불필요). 단 manifest는 previewDigest
+  입력이라 갱신은 승인을 STALE로 전이시킨다 — 바탕 앱의 신원 표식이 바뀌었으면 재검증이
+  정당하다는 방향으로 수용한다(델타는 일회성 증거물).
+- **한계**(protected-core §4 등록): title 부분 문자열은 앱 신원의 **프록시**다 — 제목이
+  같거나 generic한 두 앱은 구분하지 못하고, 비-HTML 경로(asset·API·WS 패스스루)는
+  미검사이며, 옳은 제목을 선언했는지 자체는 자기선언이다. 앵커 수준 실검증은 여전히
+  anchorReceipt(사람의 라이브 검증) 몫 — 이 검사는 오표시 차단이지 실검증 대체가 아니다.
 
 ## 승인 파이프라인 (validator live-delta 모드 — 프리뷰와 같은 상태머신)
 
