@@ -43,6 +43,7 @@ maxTurns: 30
    - pause, zoom 후 live 복귀
    - normal/max/burst fixture의 render cadence
 13. **요구사항 추적**: 각 Must 요구사항 ID에 최소 하나의 deterministic test ID와 evidence 경로를 연결한다. 구현 파일 존재만으로 충족 처리하지 않는다.
+13-A. **TC ID를 테스트 이름에 태그**: 어떤 Test Case(`TC-NNN-N`)를 구현하는 테스트는 그 TC ID 토큰을 테스트 **이름**(`describe`/`it`/`test` 문자열, 주석이 아니라)에 포함한다 — 예: `it('TC-003-2: 중복 질의는 최신 위치로 이동한다', …)`. 콘솔 QA 탭의 실행 채널이 러너의 이름 필터(`-t`)로 그 TC만 실행하는 이음매이며, 이름에 없으면 필터가 못 잡아 개별 실행이 불가하다. 한 테스트가 여러 TC를 덮으면 관련 TC ID를 모두 이름에 넣는다. behaviors.md의 Must TC 커버리지와 같은 ID를 쓴다.
 14. **상태 불변식 테스트**: `state-contract.md`가 있으면 모든 command 후 ID 유일성, 참조 무결성, 연속 order, stale selection 부재를 검증한다.
 15. **상태 조합 테스트**: 기능별 독립 테스트에 그치지 않고 적용 가능한 조합을 작성한다:
    - filter/search active × move/reorder/delete

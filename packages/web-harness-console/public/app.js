@@ -2135,7 +2135,7 @@ const renderQa = () => {
   } else {
     matrix.append(create('p', {className: 'panel-copy', text: qa.tcRunCommandDeclared
       ? '실행은 프로젝트가 선언한 test:tc 스크립트로 구현 코드를 대상으로 수행되고, 판정은 exit code 그대로 기록됩니다.'
-      : '이 프로젝트는 package.json에 test:tc 스크립트가 없어 콘솔 실행이 비활성입니다. 예: "test:tc": "vitest run -t" 를 선언하면 TC ID로 필터 실행됩니다(실행 대상은 구현 코드).'}))
+      : '이 프로젝트는 package.json에 test:tc 스크립트가 없어 콘솔 실행이 비활성입니다. TC ID를 위치 인자로 받아 러너의 이름 필터로 넘기는 종료 가능 명령을 선언하면 활성화됩니다(vitest: "vitest run -t", jest: "jest -t", playwright: "playwright test -g" — 매칭 0건을 성공 처리하지 않는 형태). 실행 대상은 구현 코드입니다.'}))
     const focusRows = []
     for (const feature of features) {
       const cards = [...new Set(feature.testCaseIds)].map(testCaseId => {
