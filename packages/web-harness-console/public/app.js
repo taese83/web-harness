@@ -563,14 +563,17 @@ const renderDocumentContent = async (reader, path) => {
   }
 }
 
-// Design 탭 — 발산 시안 아카이브(발산 기계화 §보존). 라운드별 후보 타일을 렌더하고
-// 판정 근거 문서는 Documents 탭 문서로 연다. 시안은 승인 여부와 무관한 보존 증거물이다.
+// Design 탭 — 현재 디자인(최신 라운드의 선정 시안)만 노출한다(사용자 결정: 후보·과거
+// 라운드는 UI 미노출 — 파일 아카이브는 발산 기계화 §보존대로 저장소에 남는다). 선정
+// 식별은 판정 기록의 SELECTED_CANDIDATE 기계 마커가 유일 근거 — 없으면 "선정 기록
+// 없음"으로 정직 표시(추정 금지). 새 라운드가 생기면 디스크 새로고침 시 자동 교체된다.
 const renderDesign = () => {
   const detail = state.detail
-  const container = create('div', {}, [heading('Design 시안 아카이브', '발산 라운드의 후보 타일과 판정 기록입니다. 기각 시안도 재제시 조건과 함께 보존됩니다.')])
+  const container = create('div', {}, [heading('Design', '현재 적용 방향의 선정 시안입니다. 발산 라운드가 갱신되면 최신 선정 시안으로 바뀝니다.')])
   const rounds = detail.styleTiles ?? []
-  if (rounds.length === 0) {
-    container.append(create('div', {className: 'empty-state', text: '보존된 디자인 시안이 없습니다. 발산 라운드가 실행되면 style-tiles 라운드 디렉터리가 여기에 나타납니다.'}))
+  const latest = rounds[0] ?? null
+  if (!latest) {
+    container.append(create('div', {className: 'empty-state', text: '보존된 디자인 시안이 없습니다. 발산 라운드가 실행되면 여기에 나타납니다.'}))
     return container
   }
   const documentButton = (label, path) => {
@@ -582,29 +585,25 @@ const renderDesign = () => {
     })
     return button
   }
-  const panel = create('article', {className: 'panel style-tiles-panel'}, rounds.map((round, index) =>
-    create('details', index === 0 ? {open: true} : {}, [
-      create('summary', {}, [
-        create('strong', {text: round.round}),
-        create('small', {text: ` 후보 ${round.candidates.length}개`}),
-      ]),
-      create('div', {className: 'style-tile-docs'}, [
-        documentButton('README', round.readmePath),
-        documentButton('렌더 판정', round.renderVerdictPath),
-        documentButton('구현 대조표', round.implementationVerdictPath),
-      ]),
-      create('div', {className: 'style-tile-grid'}, round.candidates.map(candidate =>
-        create('figure', {className: 'style-tile-figure'}, [
-          create('iframe', {
-            className: 'style-tile-frame',
-            title: `${round.round} ${candidate}`,
-            loading: 'lazy',
-            src: `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__style-tiles/${encodeURIComponent(round.round)}/${encodeURIComponent(candidate)}/index.html`,
-          }),
-          create('figcaption', {text: candidate}),
-        ]))),
-    ])))
-  container.append(panel)
+  const heroCandidate = latest.selectedCandidate
+  container.append(create('article', {className: 'panel style-tiles-panel'}, [
+    create('div', {className: 'style-tile-hero-head'}, [
+      create('h3', {text: heroCandidate ? `현재 디자인 · ${heroCandidate}` : '현재 디자인 · 선정 기록 없음'}),
+      create('small', {text: `${latest.round} 라운드`}),
+    ]),
+    create('div', {className: 'style-tile-docs'}, [
+      documentButton('README', latest.readmePath),
+      documentButton('렌더 판정', latest.renderVerdictPath),
+      documentButton('구현 대조표', latest.implementationVerdictPath),
+    ]),
+    heroCandidate
+      ? create('figure', {className: 'style-tile-figure'}, [create('iframe', {
+          className: 'style-tile-frame style-tile-hero-frame',
+          title: `${latest.round} ${heroCandidate}`,
+          src: `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__style-tiles/${encodeURIComponent(latest.round)}/${encodeURIComponent(heroCandidate)}/index.html`,
+        })])
+      : create('p', {className: 'panel-copy', text: '이 라운드의 판정 기록(RENDER-VERDICT.md)에 SELECTED_CANDIDATE 마커가 없어 선정 시안을 표시하지 않습니다. 후보·판정 원문은 Documents 탭과 저장소의 style-tiles 라운드 디렉터리에 보존돼 있습니다.'}),
+  ]))
   return container
 }
 

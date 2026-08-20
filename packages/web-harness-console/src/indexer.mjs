@@ -302,9 +302,18 @@ const summarizeStyleTiles = projectRoot => {
       existsSync(join(roundRoot, name))
         ? `_workspace/02_design/design-system/style-tiles/${entry.name}/${name}`
         : null
+    // 선정 시안 식별은 판정 기록의 기계 마커가 유일 근거(계약 §발산의 기계화 5) —
+    // 마커가 없거나 후보 목록 밖이면 null(추정 금지, 소비자는 "선정 기록 없음" 표시)
+    let selectedCandidate = null
+    try {
+      const verdict = readFileSync(join(roundRoot, 'RENDER-VERDICT.md'), 'utf8')
+      const marker = verdict.match(/^SELECTED_CANDIDATE:\s*(candidate-[\w-]+)\s*$/m)
+      if (marker && candidates.includes(marker[1])) selectedCandidate = marker[1]
+    } catch { /* 판정 기록 없음 — null 유지 */ }
     rounds.push({
       round: entry.name,
       candidates,
+      selectedCandidate,
       readmePath: documentPath('README.md'),
       renderVerdictPath: documentPath('RENDER-VERDICT.md'),
       implementationVerdictPath: documentPath('IMPLEMENTATION-VERDICT.md'),

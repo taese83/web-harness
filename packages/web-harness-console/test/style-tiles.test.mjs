@@ -26,7 +26,7 @@ const fixtureRoot = () => {
   writeFileSync(join(round, 'candidate-b', 'index.html'), '<!doctype html><title>tile b</title>\n')
   // candidate-b는 tokens.css가 없어 미완 — 후보로 세지 않는다
   writeFileSync(join(round, 'README.md'), '# 발산 후보\n')
-  writeFileSync(join(round, 'RENDER-VERDICT.md'), '# 렌더 판정\n')
+  writeFileSync(join(round, 'RENDER-VERDICT.md'), '# 렌더 판정\n\nSELECTED_CANDIDATE: candidate-a\n')
   return {root, project}
 }
 
@@ -43,6 +43,8 @@ test('시안 아카이브: 라운드·후보 카탈로그와 문서 인덱싱 �
   assert.match(round.readmePath, /style-tiles\/2026-08-19-refresh\/README\.md$/)
   assert.match(round.renderVerdictPath, /RENDER-VERDICT\.md$/)
   assert.equal(round.implementationVerdictPath, null)
+  // 선정 식별은 판정 기록의 기계 마커가 유일 근거 — 후보 목록 안 값만 인정
+  assert.equal(round.selectedCandidate, 'candidate-a')
   // 렌더 자산은 문서 트리 밖, 라운드 MD는 문서 트리 안
   const designPaths = detail.documents.design.map(document => document.path)
   assert.ok(!designPaths.some(path => path.includes('candidate-a')))
