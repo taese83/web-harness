@@ -77,3 +77,25 @@ test('시안 아카이브: 프리뷰 서버 __style-tiles read-only 서빙과 �
   const mutation = await fetch(`${previewOrigin}/${projectId}/__style-tiles/2026-08-19-refresh/candidate-a/index.html`, {method: 'POST'})
   assert.equal(mutation.status, 405)
 })
+
+test('시안 선정 마커 음성 경로: 부재→null, 후보 목록 밖 값→null (추정 금지)', t => {
+  const fixture = fixtureRoot()
+  t.after(() => rmSync(fixture.root, {recursive: true, force: true}))
+  const tilesRoot = join(fixture.project, '_workspace', '02_design', 'design-system', 'style-tiles')
+  // 라운드 2: 판정 기록 자체가 없음 → null
+  const bare = join(tilesRoot, '2026-08-20-bare')
+  mkdirSync(join(bare, 'candidate-a'), {recursive: true})
+  writeFileSync(join(bare, 'candidate-a', 'index.html'), '<!doctype html>\n')
+  writeFileSync(join(bare, 'candidate-a', 'tokens.css'), ':root {}\n')
+  // 라운드 3: 마커가 후보 목록 밖(미완성 후보 지정) → null — candidates.includes 방어선 회귀
+  const rogue = join(tilesRoot, '2026-08-21-rogue')
+  mkdirSync(join(rogue, 'candidate-a'), {recursive: true})
+  writeFileSync(join(rogue, 'candidate-a', 'index.html'), '<!doctype html>\n')
+  writeFileSync(join(rogue, 'candidate-a', 'tokens.css'), ':root {}\n')
+  writeFileSync(join(rogue, 'RENDER-VERDICT.md'), 'SELECTED_CANDIDATE: candidate-zz\n')
+  const catalog = new WorkspaceCatalog(fixture.root)
+  const [project] = catalog.list().projects
+  const rounds = catalog.detail(project.id).styleTiles
+  assert.equal(rounds.find(r => r.round === '2026-08-20-bare').selectedCandidate, null)
+  assert.equal(rounds.find(r => r.round === '2026-08-21-rogue').selectedCandidate, null)
+})
