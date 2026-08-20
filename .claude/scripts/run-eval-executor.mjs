@@ -37,6 +37,11 @@ const valueAfter = option => {
 
 const claudeBin = valueAfter('--claude-bin') ?? process.env.EVAL_CLAUDE_BIN ?? 'claude'
 const model = valueAfter('--model')
+const arm = valueAfter('--arm') ?? 'on' // 결과 효능 A/B 암(on|off) — 기본은 평소 동작
+if (!['on', 'off'].includes(arm)) {
+  console.error(`--arm 은 on|off 만 허용한다(받은 값: ${arm}) — 오타가 조용히 ON으로 떨어지면 암이 오염된다`)
+  process.exit(2)
+}
 const permissionMode = valueAfter('--permission-mode') ?? 'bypassPermissions' // fixture는 격리 디렉터리이며 hook 정책은 permission mode와 무관하게 동작한다
 const timeoutMs = Number(valueAfter('--timeout-minutes') ?? 30) * 60_000
 
@@ -94,7 +99,16 @@ const runScenario = ({scenario}) => {
     process.exit(1)
   }
 
-  const prompt = `${scenario.entrySkill} ${scenario.prompt}`
+  // 결과 효능 A/B(M2 Part 2, docs/efficacy/outcome-efficacy-ab-plan.md)의 암 지시문.
+  // 게이트 bypass env는 하드 정책이 막으므로(global-bash-policy-lib) 실제 제어점은
+  // "오케스트레이터가 게이트를 호출하느냐"다 — 따라서 토글은 실행 지시 변형이다.
+  // OFF 암은 **runaway 방어 3게이트만** 끈다. 품질 게이트(run-quality-gates)·소유권 훅은
+  // 그대로 둔다 — 이 실험의 종속변수는 스폰 실패율이지 앱 품질이 아니다(계획서 §7).
+  const armInstruction = arm === 'off'
+    ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 잠금) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt·telemetry 기록)은 평소대로 지킨다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOff`를 붙여 기록하라.'
+    : '\n\n[A/B 실험 지시 — 이 실행은 게이트 ON 암이다] 평소대로 runaway 방어 3게이트를 모두 사용한다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOn`을 붙여 기록하라.'
+
+  const prompt = `${scenario.entrySkill} ${scenario.prompt}${armInstruction}`
   const claudeArguments = ['-p', prompt, '--permission-mode', permissionMode]
   if (model) claudeArguments.push('--model', model)
 
@@ -106,7 +120,7 @@ const runScenario = ({scenario}) => {
   const cliVersion = spawnSync(claudeBin, ['--version'], {encoding: 'utf8'}).stdout?.trim() ?? 'unknown'
   const harnessRev = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {cwd: repositoryRoot, encoding: 'utf8'}).stdout?.trim() ?? 'unknown'
   writeFileSync(join(runDirectory, 'run.json'), JSON.stringify({
-    scenarioId: scenario.id, runId, permissionMode, executorExit: execution.status,
+    scenarioId: scenario.id, runId, permissionMode, executorExit: execution.status, arm,
     versions: {model: model ?? `session-default (${cliVersion})`, prompt: `catalog-v${loadScenario(scenario.id).documentVersion}/${scenario.id}`, workflow: `harness@${harnessRev}`},
   }, null, 2) + '\n')
 
@@ -233,7 +247,7 @@ if (args.includes('--list-runs')) {
 
 const scenarioId = valueAfter('--scenario')
 if (!scenarioId) {
-  console.log('Usage: node .claude/scripts/run-eval-executor.mjs --scenario <id> [--dry-run|--run|--grade|--full] [--model m] [--permission-mode p] [--timeout-minutes n] [--claude-bin path]')
+  console.log('Usage: node .claude/scripts/run-eval-executor.mjs --scenario <id> [--dry-run|--run|--grade|--full] [--arm on|off] [--model m] [--permission-mode p] [--timeout-minutes n] [--claude-bin path]')
   console.log('       node .claude/scripts/run-eval-executor.mjs --list-runs')
   process.exit(2)
 }
@@ -243,6 +257,7 @@ if (args.includes('--dry-run')) {
   console.log(`scenario: ${scenarioId} (${loaded.catalog} catalog, risk: ${loaded.scenario.risk ?? 'n/a'}, assertions: ${loaded.scenario.assertions.length})`)
   console.log(`1) fixture 배포: deploy-harness.mjs --target eval-runs/${scenarioId}/<run-id>/fixture`)
   console.log(`2) executor:     ${claudeBin} -p "${loaded.scenario.entrySkill} ${loaded.scenario.prompt}" --permission-mode ${permissionMode}${model ? ` --model ${model}` : ''}`)
+  console.log(`   A/B 암:       ${arm}${arm === 'off' ? ' — runaway 방어 3게이트 미호출 지시가 프롬프트에 추가된다(telemetry run 라벨 +gatesOff)' : ' (평소 동작, telemetry run 라벨 +gatesOn)'}`)
   console.log(`3) grader:       ${claudeBin} -p <grader-prompt> --allowedTools Read,Glob,Grep (read-only)`)
   console.log('주의: executor는 전체 앱 빌드를 수행할 수 있어 수십 분·상당한 토큰이 든다.')
 } else if (args.includes('--full')) {
