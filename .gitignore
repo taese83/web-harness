@@ -5,3 +5,4 @@ workspace/*
 !workspace/README.md
 node_modules/
 .claude/launch.json
+.claude/settings.local.json
