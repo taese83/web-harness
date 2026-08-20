@@ -337,6 +337,22 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .dev-controls { display: grid; gap: 8px; }
 .dev-controls:empty { display: none; }
 
+/* QA 탭 — TC 커버리지·receipt·리포트 읽기 전용 뷰 */
+.qa-panel { display: grid; gap: 12px; margin-bottom: 16px; }
+.qa-panel h3 { margin: 0; }
+.qa-feature { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+.qa-feature-head { display: flex; align-items: baseline; gap: 10px; }
+.qa-feature-head code { color: var(--primary); font-weight: 700; }
+.qa-tc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qa-tc-row > code { min-width: 88px; font-size: 12px; }
+.qa-tc-files { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.qa-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.qa-table th, .qa-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-soft); text-align: left; white-space: nowrap; }
+.qa-table td:first-child { white-space: normal; }
+.qa-tier-note { color: var(--muted); font-size: 12px; }
+.qa-report-list { display: grid; gap: 6px; }
+.qa-report-row { display: flex; align-items: center; gap: 10px; }
+
 .changes-grid { display: grid; gap: 12px; }
 .change-card { padding: 16px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--surface); }
 .change-card-header { display: flex; justify-content: space-between; gap: 16px; }

@@ -2064,6 +2064,86 @@ const renderDevelopment = () => {
   return container
 }
 
+// QA — TC 커버리지 × 스위트 receipt × 리포트 상태의 읽기 전용 조인(단계 탭 2단계).
+// 콘솔은 판정을 만들지 않는다: receipt/리포트의 표기와 같은-ID 토큰 발견 사실만 나른다.
+const renderQa = () => {
+  const qa = state.detail.qa ?? {exists: false, receipts: [], reports: [], implementedTestCases: {}}
+  const container = create('div', {}, [heading('QA', 'TC 커버리지와 스위트 실행 증거의 읽기 전용 뷰입니다 — 판정의 원본은 receipt와 QA 리포트입니다.')])
+
+  // TC ↔ 구현 테스트 ↔ CR 검증 이벤트 조인 재료
+  const verificationByTc = new Map()
+  for (const request of state.detail.changeRequests ?? []) {
+    for (const event of request.implementationVerification?.events ?? []) {
+      for (const testCaseId of event.testCaseIds ?? []) {
+        const events = verificationByTc.get(testCaseId) ?? []
+        events.push({changeRequestId: request.id, evidence: event.evidence, createdAt: event.createdAt})
+        verificationByTc.set(testCaseId, events)
+      }
+    }
+  }
+  const features = (state.detail.features ?? []).filter(feature => (feature.testCaseIds ?? []).length > 0)
+  const matrix = create('article', {className: 'panel qa-panel'}, [create('h3', {text: `Test Case 커버리지 · ${features.reduce((count, feature) => count + new Set(feature.testCaseIds).size, 0)}`})])
+  if (features.length === 0) {
+    matrix.append(create('p', {className: 'panel-copy', text: 'TC가 없습니다 — feature-plan/traceability에 TC-NNN-N이 기록되면 여기 표시됩니다.'}))
+  } else {
+    matrix.append(create('p', {className: 'panel-copy', text: '"구현 테스트 있음"은 소스 테스트에서 같은 TC ID 토큰을 발견했다는 뜻이며, 해당 TC의 개별 통과 증명이 아닙니다(스위트 결과는 아래 receipt).'}))
+    for (const feature of features) {
+      const rows = [...new Set(feature.testCaseIds)].map(testCaseId => {
+        const files = qa.implementedTestCases?.[testCaseId] ?? []
+        const events = verificationByTc.get(testCaseId) ?? []
+        return create('div', {className: 'qa-tc-row'}, [
+          create('code', {text: testCaseId}),
+          files.length > 0
+            ? create('span', {className: 'status-chip status-approved', text: '구현 테스트 있음', title: files.join('\n')})
+            : create('span', {className: 'status-chip status-stale', text: '구현 테스트 미발견'}),
+          events.length > 0
+            ? create('span', {className: 'status-chip status-connected', text: `CR 검증 ${events.length}회`, title: events.map(event => `${event.changeRequestId} · ${event.createdAt}\n${event.evidence}`).join('\n\n')})
+            : null,
+          files.length > 0 ? create('span', {className: 'qa-tc-files', text: files[0] + (files.length > 1 ? ` 외 ${files.length - 1}` : '')}) : null,
+        ])
+      })
+      matrix.append(create('section', {className: 'qa-feature'}, [
+        create('div', {className: 'qa-feature-head'}, [create('code', {text: feature.featureId}), create('strong', {text: feature.title ?? ''})]),
+        ...rows,
+      ]))
+    }
+  }
+  container.append(matrix)
+
+  const receiptsPanel = create('article', {className: 'panel qa-panel'}, [create('h3', {text: `스위트 실행 receipt · ${qa.receipts.length}`})])
+  if (!qa.exists) {
+    receiptsPanel.append(create('p', {className: 'panel-copy', text: '_workspace/04_qa가 없습니다 — Phase 4(QA)가 실행되면 receipt와 리포트가 여기 표시됩니다.'}))
+  } else if (qa.receipts.length === 0) {
+    receiptsPanel.append(create('p', {className: 'panel-copy', text: '04_qa/evidence에 receipt가 없습니다.'}))
+  } else {
+    const table = create('table', {className: 'qa-table'}, [
+      create('thead', {}, [create('tr', {}, ['Check', 'Status', 'Exit', '실행 시각', '소요'].map(label => create('th', {text: label})))]),
+      create('tbody', {}, qa.receipts.map(receipt => create('tr', {}, [
+        create('td', {}, [create('code', {text: receipt.check, title: receipt.command ?? ''})]),
+        create('td', {}, [receipt.status ? statusChip(receipt.status) : create('span', {className: 'status-chip status-stale', text: '표기 없음'})]),
+        create('td', {text: receipt.exitCode === null ? '—' : String(receipt.exitCode)}),
+        create('td', {text: receipt.startedAt ? formatTime(receipt.startedAt) : '—'}),
+        create('td', {text: receipt.durationMs === null ? '—' : `${Math.round(receipt.durationMs / 100) / 10}s`}),
+      ]))),
+    ])
+    receiptsPanel.append(table)
+    receiptsPanel.append(create('p', {className: 'panel-copy qa-tier-note', text: '위 상태는 receipt에 기록된 스위트 단위 실행의 표기(exit code 기준)를 그대로 나른 것입니다 — 릴리스 tier 판정(격리 실행·서명 증거)이 아니며, TC별 개별 결과는 기록되지 않습니다.'}))
+  }
+  container.append(receiptsPanel)
+
+  const reportsPanel = create('article', {className: 'panel qa-panel'}, [create('h3', {text: `QA 리포트 · ${qa.reports.length}`})])
+  if (qa.reports.length === 0) {
+    reportsPanel.append(create('p', {className: 'panel-copy', text: qa.exists ? '04_qa에 qa-*.md 리포트가 없습니다.' : '_workspace/04_qa가 없습니다.'}))
+  } else {
+    reportsPanel.append(create('div', {className: 'qa-report-list'}, qa.reports.map(report => create('div', {className: 'qa-report-row'}, [
+      create('code', {text: report.name}),
+      report.status ? statusChip(report.status) : create('span', {className: 'status-chip status-stale', text: 'Result 미표기'}),
+    ]))))
+  }
+  container.append(reportsPanel)
+  return container
+}
+
 const renderContent = () => {
   if (!state.detail) return
   const view = {
@@ -2072,6 +2152,7 @@ const renderContent = () => {
     documents: renderDocuments,
     features: renderFeaturesTab,
     development: renderDevelopment,
+    qa: renderQa,
   }[state.tab]?.() ?? renderOverview()
   elements.content.replaceChildren(view)
   // 전체 높이 잠금 등 표면별 CSS의 기준 — 탭이 아니라 실제 보이는 표면(서브탭 반영).

@@ -454,7 +454,101 @@ const scanProject = (repositoryRoot, root) => {
     preview,
     styleTiles,
     changeRequests,
+    qa: summarizeQa(root),
   }
+}
+
+// QA 요약(단계 탭 2단계) — 읽기 전용 파생 뷰. 콘솔은 어떤 판정도 만들지 않는다:
+// receipt(04_qa/evidence/*.json)의 status·exit code, qa-*.md의 Result 표기, 소스
+// 테스트의 같은-ID TC 토큰 "발견 사실"만 그대로 나른다. TC별 개별 실행 결과는
+// 어디에도 기록되지 않으므로(스위트 단위 receipt) 콘솔이 지어내지 않는다.
+const QA_STATUS_TOKENS = new Set(['PASS', 'WARN', 'FAIL', 'BLOCKED', 'NEEDS_REVIEW', 'NEEDS_DECISION', 'NOT_MEASURED', 'STALE'])
+const MAX_QA_RECEIPT_BYTES = 512 * 1024
+const MAX_TEST_SCAN_FILES = 4000
+const TEST_FILE_PATTERN = /\.(test|spec)\.[cm]?[jt]sx?$/
+
+const safeEntries = directory => {
+  try {
+    return readdirSync(directory, {withFileTypes: true})
+  } catch {
+    return []
+  }
+}
+
+const readBoundedFile = (path, maxBytes) => {
+  try {
+    const stat = lstatSync(path)
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > maxBytes) return null
+    return readFileSync(path, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+const summarizeQa = root => {
+  const qaRoot = join(root, '_workspace', '04_qa')
+  let exists = false
+  try {
+    const stat = lstatSync(qaRoot)
+    exists = stat.isDirectory() && !stat.isSymbolicLink()
+  } catch { /* 04_qa 없음 */ }
+  const receipts = []
+  const reports = []
+  if (exists) {
+    for (const entry of safeEntries(join(qaRoot, 'evidence'))) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+      const raw = readBoundedFile(join(qaRoot, 'evidence', entry.name), MAX_QA_RECEIPT_BYTES)
+      if (raw === null) continue
+      try {
+        const receipt = JSON.parse(raw)
+        if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) continue
+        receipts.push({
+          check: typeof receipt.id === 'string' ? receipt.id : entry.name.replace(/\.json$/, ''),
+          command: typeof receipt.command === 'string' ? receipt.command : null,
+          status: typeof receipt.status === 'string' ? receipt.status : null,
+          exitCode: Number.isInteger(receipt.exitCode) ? receipt.exitCode : null,
+          startedAt: typeof receipt.startedAt === 'string' ? receipt.startedAt : null,
+          durationMs: Number.isFinite(receipt.durationMs) ? receipt.durationMs : null,
+          qualityCohortId: typeof receipt.qualityCohortId === 'string' ? receipt.qualityCohortId : null,
+          sourceFingerprint: typeof receipt.sourceFingerprint === 'string' ? receipt.sourceFingerprint.slice(0, 12) : null,
+        })
+      } catch { /* 손상 receipt — 표시 대상에서 제외(지어내지 않음) */ }
+    }
+    receipts.sort((left, right) => left.check.localeCompare(right.check))
+    for (const entry of safeEntries(qaRoot)) {
+      if (!entry.isFile() || !/^qa-[\w-]+\.md$/.test(entry.name)) continue
+      const raw = readBoundedFile(join(qaRoot, entry.name), MAX_DOCUMENT_BYTES)
+      if (raw === null) continue
+      const match = raw.match(/^##\s*Result\s*\r?\n+\s*([A-Z_]+)/m)
+      reports.push({name: entry.name, status: match && QA_STATUS_TOKENS.has(match[1]) ? match[1] : null})
+    }
+    reports.sort((left, right) => left.name.localeCompare(right.name))
+  }
+  // 구현 테스트의 같은-ID TC 토큰 스캔 — "테스트 존재" 신호일 뿐 개별 통과 증명이 아니다.
+  const implementedTestCases = {}
+  let scannedTestFiles = 0
+  const walk = (directory, depth) => {
+    if (depth > 8 || scannedTestFiles >= MAX_TEST_SCAN_FILES) return
+    for (const entry of safeEntries(directory)) {
+      if (entry.isSymbolicLink()) continue
+      if (entry.isDirectory()) {
+        if (EXCLUDED_DIRECTORIES.has(entry.name) || entry.name === '_workspace' || entry.name.startsWith('.')) continue
+        walk(join(directory, entry.name), depth + 1)
+      } else if (entry.isFile() && TEST_FILE_PATTERN.test(entry.name)) {
+        if (scannedTestFiles >= MAX_TEST_SCAN_FILES) return
+        scannedTestFiles += 1
+        const raw = readBoundedFile(join(directory, entry.name), MAX_DOCUMENT_BYTES)
+        if (raw === null) continue
+        const relativeFile = relative(root, join(directory, entry.name)).split(sep).join('/')
+        for (const testCaseId of new Set(raw.match(/TC-\d{3,}-\d+/g) ?? [])) {
+          const files = implementedTestCases[testCaseId] ?? (implementedTestCases[testCaseId] = [])
+          if (files.length < 5) files.push(relativeFile)
+        }
+      }
+    }
+  }
+  walk(root, 0)
+  return {exists, receipts, reports, implementedTestCases, scannedTestFiles}
 }
 
 const documentSnapshot = projects => new Map(
@@ -567,6 +661,7 @@ export class WorkspaceCatalog {
       preview: project.preview,
       styleTiles: project.styleTiles,
       changeRequests: project.changeRequests,
+      qa: project.qa,
       changes,
     }
   }
