@@ -2091,7 +2091,10 @@ const renderQa = () => {
       }
     }
   }
-  const stampKey = stamp => stamp && (stamp.commit || stamp.dirtyDigest) ? `${stamp.commit ?? ''}:${stamp.dirtyDigest ?? ''}` : null
+  // 변경 감지는 커밋 베이스라인이 있어야 성립한다 — commit이 없으면(비-git·상위 repo에서
+  // gitignore된 경로 등) dirtyDigest는 항상 빈 트리 해시라 변화를 못 잡는다. 이때 유효
+  // 스탬프로 취급하면 "변화 없음"으로 조용히 오도되므로, commit 없으면 null(=감지 불가).
+  const stampKey = stamp => stamp && stamp.commit ? `${stamp.commit}:${stamp.dirtyDigest ?? ''}` : null
   const currentStampKey = stampKey(qa.sourceStamp)
 
   const runTc = async (button, testCaseId, rowError) => {
