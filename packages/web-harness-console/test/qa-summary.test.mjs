@@ -6,12 +6,13 @@
 // (exit code)이며 손상 라인은 제외한다, (4) 실행 채널은 package.json의 사전 선언
 // test:tc 스크립트뿐이고 미선언은 fail-closed(404)다, (5) 04_qa 부재는 exists:false.
 import assert from 'node:assert/strict'
+import {execFileSync} from 'node:child_process'
 import {existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import test from 'node:test'
 import {createConsoleServers} from '../server.mjs'
-import {WorkspaceCatalog} from '../src/indexer.mjs'
+import {WorkspaceCatalog, computeTcSourceStamp} from '../src/indexer.mjs'
 
 const fixtureRoot = ({withRunScript = true} = {}) => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-console-qa-'))
@@ -164,4 +165,31 @@ test('TC 실행 채널: test:tc 미선언은 fail-closed(404)', async t => {
   })
   assert.equal(missing.status, 404)
   assert.equal((await missing.json()).error.code, 'TC_RUN_COMMAND_MISSING')
+})
+
+// 재테스트 소스 스탬프는 _workspace를 제외한다 — 실행 기록(tc-runs.jsonl)이 04_qa에
+// 쓰이므로, 제외하지 않으면 "실행 → 기록이 트리 dirty → 즉시 재테스트 필요"의 자기
+// 무효화가 난다(2026-08-20 motor-lab 실증에서 발견·수정).
+test('재테스트 스탬프: _workspace 변경은 소스 스탬프를 흔들지 않는다', t => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-console-stamp-'))
+  t.after(() => rmSync(root, {recursive: true, force: true}))
+  const git = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})
+  git('init', '-q')
+  git('config', 'user.email', 'test@example.com')
+  git('config', 'user.name', 'test')
+  mkdirSync(join(root, 'src'), {recursive: true})
+  writeFileSync(join(root, 'src', 'app.ts'), 'export const v = 1\n')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'init')
+  const before = computeTcSourceStamp(root)
+  assert.ok(before.commit, '커밋 베이스라인이 있어야 한다')
+  // _workspace 아래 실행 기록을 쓴다 — 스탬프는 변하지 않아야 한다
+  mkdirSync(join(root, '_workspace', '04_qa'), {recursive: true})
+  writeFileSync(join(root, '_workspace', '04_qa', 'tc-runs.jsonl'), '{"schemaVersion":1}\n')
+  const afterWorkspaceWrite = computeTcSourceStamp(root)
+  assert.deepEqual(afterWorkspaceWrite, before, '_workspace 쓰기는 스탬프 불변')
+  // 실제 구현 소스를 바꾸면 스탬프가 변해야 한다
+  writeFileSync(join(root, 'src', 'app.ts'), 'export const v = 2\n')
+  const afterSourceChange = computeTcSourceStamp(root)
+  assert.notEqual(afterSourceChange.dirtyDigest, before.dirtyDigest, '소스 변경은 스탬프 변화')
 })
