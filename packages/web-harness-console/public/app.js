@@ -202,6 +202,27 @@ const mutateApi = async (path, body, idempotencyKey, intent = 'create-change-req
   return payload
 }
 
+// 임베드 웹뷰(콘솔의 기본 표시 환경)는 confirm/alert 네이티브 다이얼로그를 소리 없이
+// 무시한다(실측: confirm이 다이얼로그 없이 즉시 false 반환) — 차단형 다이얼로그로
+// 확인을 받으면 클릭이 무반응이 된다. 같은 버튼을 4초 안에 한 번 더 누르게 하는
+// 무장(arm) 확인으로 대체한다.
+const armedClick = (button, armedLabel, run) => {
+  if (button.dataset.armed !== 'true') {
+    const original = button.textContent
+    button.dataset.armed = 'true'
+    button.textContent = armedLabel
+    setTimeout(() => {
+      if (button.dataset.armed === 'true' && !button.disabled) {
+        button.dataset.armed = ''
+        button.textContent = original
+      }
+    }, 4000)
+    return
+  }
+  button.dataset.armed = ''
+  run()
+}
+
 const deleteApi = async (path, intent = 'delete-change-request') => {
   const response = await fetch(path, {
     method: 'DELETE',
@@ -958,18 +979,23 @@ const renderPreview = () => {
   // 있는 동안 8초 주기로 재확인하고, 서버가 다시 뜨면 임베드를 자동 새로고침한다.
   const liveHealthChip = create('span', {className: 'status-chip status-pending live-health-chip', 'aria-live': 'polite', text: 'BASE 확인 중'})
   const liveHealthGuide = create('div', {className: 'live-health-guide', hidden: true})
-  const liveManagedStop = create('button', {type: 'button', className: 'secondary-button', text: '베이스 중지', hidden: true, onclick: async () => {
-    if (!confirm('콘솔이 시작한 라이브 베이스 프로세스를 중지할까요? 델타 표면이 내려갑니다.')) return
+  const liveManagedStopError = create('p', {className: 'live-health-inline-error', hidden: true})
+  const liveManagedStop = create('button', {type: 'button', className: 'secondary-button', text: '베이스 중지', hidden: true, onclick: event => armedClick(event.currentTarget, '한 번 더 누르면 중지', async () => {
+    liveManagedStopError.hidden = true
     try {
       await mutateApi('/api/live-base/stop', {project: state.projectId}, crypto.randomUUID(), 'stop-live-base')
       setTimeout(checkLiveHealth, 800)
     } catch (error) {
-      alert(`중지 실패: ${error.message}`)
+      liveManagedStopError.textContent = `중지 실패: ${error.message}`
+      liveManagedStopError.hidden = false
     }
-  }})
+  })})
   let liveWasDown = false
   let liveHealthTimer = null
   let liveHealthBusy = false
+  // 다운/불일치 안내는 내용이 같으면 재렌더하지 않는다 — 8초 폴링마다 replaceChildren
+  // 하면 무장 상태·'시작 중…'·인라인 오류가 매 주기 초기화된다.
+  let liveGuideSignature = null
   const checkLiveHealth = async () => {
     // 단일 폴링 체인 유지 — 버튼 등에서 수동 호출해도 체인이 복제되지 않는다.
     if (liveHealthBusy) return
@@ -989,6 +1015,7 @@ const renderPreview = () => {
         liveHealthChip.textContent = body.identity?.state === 'verified' ? 'BASE 신원 일치' : 'BASE 실행 중'
         liveHealthChip.className = 'status-chip status-approved live-health-chip'
         liveHealthGuide.hidden = true
+        liveGuideSignature = null
         if (liveWasDown) {
           liveWasDown = false
           const frame = liveShell.querySelector('iframe')
@@ -998,47 +1025,71 @@ const renderPreview = () => {
         liveWasDown = true
         liveHealthChip.textContent = body.identity.state === 'invalid' ? 'IDENTITY 설정 오류' : 'BASE 다른 앱 응답'
         liveHealthChip.className = 'status-chip status-failed live-health-chip'
-        liveHealthGuide.replaceChildren(
-          create('strong', {text: body.identity.state === 'invalid' ? 'identity 선언이 유효하지 않습니다' : '대상 포트의 앱이 이 프로젝트가 아닌 것으로 보입니다'}),
-          create('p', {text: body.identity.state === 'invalid'
-            ? 'preview/manifest.json의 identity.titleIncludes는 1~200자 문자열이어야 합니다. 선언을 고치면 자동으로 회복됩니다.'
-            : `기대 제목 포함 문자열 "${body.identity.expected}" — 실제 응답 제목: ${body.identity.actualTitle ? `"${body.identity.actualTitle}"` : '(제목 없음/HTML 아님)'}. 다른 프로젝트의 dev server가 이 포트(${body.target ?? live.target})를 점유했을 수 있습니다. 올바른 앱을 시작하거나, 정당한 제목 변경이라면 manifest의 identity.titleIncludes를 갱신하세요(프리뷰 승인은 STALE로 전이됩니다).`}),
-        )
+        const signature = `identity:${body.identity.state}:${body.identity.expected ?? ''}:${body.identity.actualTitle ?? ''}`
+        if (liveGuideSignature !== signature) {
+          liveGuideSignature = signature
+          liveHealthGuide.replaceChildren(
+            create('strong', {text: body.identity.state === 'invalid' ? 'identity 선언이 유효하지 않습니다' : '대상 포트의 앱이 이 프로젝트가 아닌 것으로 보입니다'}),
+            create('p', {text: body.identity.state === 'invalid'
+              ? 'preview/manifest.json의 identity.titleIncludes는 1~200자 문자열이어야 합니다. 선언을 고치면 자동으로 회복됩니다.'
+              : `기대 제목 포함 문자열 "${body.identity.expected}" — 실제 응답 제목: ${body.identity.actualTitle ? `"${body.identity.actualTitle}"` : '(제목 없음/HTML 아님)'}. 다른 프로젝트의 dev server가 이 포트(${body.target ?? live.target})를 점유했을 수 있습니다. 올바른 앱을 시작하거나, 정당한 제목 변경이라면 manifest의 identity.titleIncludes를 갱신하세요(프리뷰 승인은 STALE로 전이됩니다).`}),
+          )
+        }
         liveHealthGuide.hidden = false
       } else {
         liveWasDown = true
         liveHealthChip.textContent = 'BASE 응답 없음'
         liveHealthChip.className = 'status-chip status-failed live-health-chip'
-        liveHealthGuide.replaceChildren(...[
-          create('strong', {text: '라이브 베이스가 응답하지 않습니다'}),
-          create('p', {text: `대상 ${body.target ?? live.target} — 아래 명령으로 서버를 시작하면 자동으로 다시 연결됩니다. (repo 루트에서 실행)`}),
-          (body.startHints ?? []).length > 1 ? create('p', {text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}) : null,
-          ...(body.startHints ?? []).map(hint => create('div', {className: 'live-health-command'}, [
-            create('code', {text: hint.command}),
-            create('button', {type: 'button', className: 'secondary-button', text: '복사', onclick: event => {
-              const button = event.currentTarget
-              navigator.clipboard?.writeText(hint.command)
-              button.textContent = '복사됨'
-              setTimeout(() => { button.textContent = '복사' }, 1500)
-            }}),
-            create('button', {type: 'button', className: 'primary-button', text: '시작', onclick: async event => {
-              const button = event.currentTarget
-              if (!confirm(`콘솔이 이 명령을 실행합니다 (repo 루트, launch.json "${hint.name}"):\n\n${hint.command}\n\n시작할까요?`)) return
-              button.disabled = true
-              button.textContent = '시작 중…'
-              try {
-                await mutateApi('/api/live-base/start', {project: state.projectId, entry: hint.name}, crypto.randomUUID(), 'start-live-base')
-                setTimeout(checkLiveHealth, 1500)
-              } catch (error) {
-                button.disabled = false
-                button.textContent = '시작'
-                alert(`시작 실패: ${error.message}`)
-              }
-            }}),
-          ])),
-          (body.startHints ?? []).length === 0 ? create('p', {text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}) : null,
-        // replaceChildren은 null을 문자열 "null"로 렌더한다(실측) — 조건부 항목은 반드시 걸러낸다
-        ].filter(Boolean))
+        const signature = `down:${body.target ?? live.target}:${(body.startHints ?? []).map(hint => hint.name).join('|')}`
+        if (liveGuideSignature !== signature) {
+          liveGuideSignature = signature
+          liveHealthGuide.replaceChildren(...[
+            create('strong', {text: '라이브 베이스가 응답하지 않습니다'}),
+            create('p', {text: `대상 ${body.target ?? live.target} — 아래 명령으로 서버를 시작하면 자동으로 다시 연결됩니다. (repo 루트에서 실행)`}),
+            (body.startHints ?? []).length > 1 ? create('p', {text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}) : null,
+            ...(body.startHints ?? []).map(hint => {
+              const rowError = create('p', {className: 'live-health-inline-error', hidden: true})
+              return create('div', {className: 'live-health-command'}, [
+                create('code', {text: hint.command}),
+                create('button', {type: 'button', className: 'secondary-button', text: '복사', onclick: event => {
+                  const button = event.currentTarget
+                  navigator.clipboard?.writeText(hint.command)
+                  button.textContent = '복사됨'
+                  setTimeout(() => { button.textContent = '복사' }, 1500)
+                }}),
+                create('button', {type: 'button', className: 'primary-button', text: '시작', title: `launch.json "${hint.name}" 항목을 repo 루트에서 실행합니다`, onclick: event => {
+                  const button = event.currentTarget
+                  armedClick(button, '한 번 더 누르면 실행', async () => {
+                    button.disabled = true
+                    button.textContent = '시작 중…'
+                    rowError.hidden = true
+                    try {
+                      await mutateApi('/api/live-base/start', {project: state.projectId, entry: hint.name}, crypto.randomUUID(), 'start-live-base')
+                      setTimeout(checkLiveHealth, 1500)
+                      // 스폰은 됐지만 서버가 계속 무응답이면 버튼을 되살려 재시도를 허용한다.
+                      setTimeout(() => {
+                        if (button.disabled && document.contains(button)) {
+                          button.disabled = false
+                          button.textContent = '시작'
+                          rowError.textContent = '시작 요청은 접수됐지만 서버가 아직 응답하지 않습니다 — 잠시 후 다시 시도하거나 터미널에서 명령을 직접 실행해 로그를 확인하세요.'
+                          rowError.hidden = false
+                        }
+                      }, 20000)
+                    } catch (error) {
+                      button.disabled = false
+                      button.textContent = '시작'
+                      rowError.textContent = `시작 실패: ${error.message}`
+                      rowError.hidden = false
+                    }
+                  })
+                }}),
+                rowError,
+              ])
+            }),
+            (body.startHints ?? []).length === 0 ? create('p', {text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}) : null,
+          // replaceChildren은 null을 문자열 "null"로 렌더한다(실측) — 조건부 항목은 반드시 걸러낸다
+          ].filter(Boolean))
+        }
         liveHealthGuide.hidden = false
       }
     } catch { /* 콘솔 서버 통신 실패 — 다음 주기에 재시도 */ }
@@ -1068,7 +1119,7 @@ const renderPreview = () => {
       openLink,
     ]),
   ]))
-  liveShell.append(liveHealthGuide)
+  liveShell.append(liveManagedStopError, liveHealthGuide)
   if (live.deltaPresent) {
     liveShell.append(create('iframe', {
       className: 'preview-frame',
