@@ -291,4 +291,40 @@ wrapper 계속 검출). `.pnpm-store` 스캔 제외 추가. web-core 스위트 e
   직접 마감하고 보고서에 **작성 주체를 명시한 후속 절**로 append — verifier 불변성
   원칙과 충돌하지 않는 정직한 보완 경로로 정착.
 
-(이후 기록은 파일럿 완료 시 append)
+## R1 종합 판정 (2026-08-20 파일럿 완주)
+
+**결과: 통합 검색 포털(퀸텟)이 Phase 1→4 전 구간을 완주, Tier T0 DIAGNOSTIC_VERIFIED 도달.**
+최종 cohort 8877eda1(기계 검사 10종 PASS: unit 122·e2e 42/42·boundary 5·api 26+가드 18·
+coverage·audit), QA 14종 = PASS 7·WARN 7·hard-stop 0, release gate 잔여 error는
+attestation 계열 4건뿐(T1 승급 경로 = #34 격리 러너).
+
+### 사중 효율 목표 대비
+1. **M3 2형태 재교정** — hybrid 형태 실측 확보: 스폰 86건 telemetry, fit-gate REFUSE→
+   FITS 왕복 다수(browse 전개 159k 사례 포함), runaway 0건(무산출·hang·세션경계 유실로
+   대체 발현). 임계 자체(8/60k·120k)는 hybrid에서도 유효했고, 새로 필요한 것은 임계가
+   아니라 **산출물 유형별 완결성 판정**(파일형 vs 보고서형)이었다.
+2. **M2 I3** — 결함 4~17호급 14건+α가 전부 "특정 서비스 인코딩 없이" 정합화됨
+   (배제형 소유 패턴·조건부 --ignore-workspace·injected 모드 등 — 2형태 일반화 서술로 커밋).
+3. **M4 DoD receipt** — repo-모드 "문서·하네스만으로 첫 앱" 실증 완료(이 문서 전체가
+   receipt). T0 라벨·승급 경로는 release-readiness.md에 기계 근거로 고정.
+4. **디자인 체계 첫 실전** — R1 기각→R3 레퍼런스 지정→승인 해시→구현→**프리뷰↔구현
+   computed-style 기계 대조 감사**(결과 화면 완전 정합·chrome 갭 4건 수정)까지 폐곡선 완주.
+
+### 결함 클래스 최종 집계 (하니스 커밋 14건)
+① 샤딩 계약 소비자 드리프트(4·5·7·8·9호 — 공유 술어 lib 구조 해법 권고 유지)
+② config 변형 문법 갭(12호) ③ 소유 공백 클래스(13 api/·15 tests/ — **프로필별 최상위
+디렉토리 소유 커버리지 게이트**가 구조 해법 후보) ④ 환경 흡수(14호 pnpm) ⑤ 소유 패턴
+과다일반화(13호 1차 fix — positive-only 회귀의 정밀성 착시, 적대 검토가 차단)
+⑥ **산출물 유형별 완결성 공백(신규 최대 발견)**: builder 무산출 6회(즉시-쓰기 계약으로
+예방 전환)·세션경계 유실 2회·verifier 절단 12/14(+3) — 재개 프롬프트(축소 스코프+즉시
+출력 지시)가 절단 0/4로 완화함을 실측. ⑦ verifier 도구 정책(grep 불허+rg 바이너리 불능,
+browse 전개) ⑧ jsdom 등 tooling 요구 의존성의 pin 매트릭스 공백(16호 후보)
+⑨ 러너 host 진단의 환경 격리 부작용 2건(dist-e2e 미등록 출력·sandbox HOME vs Playwright
+캐시 — 프로젝트 측 수용으로 해소, 하니스 게이트 완화 없음).
+
+### 검증 계층이 실제로 잡은 것 (I1 가치 실증)
+T4 스킴 allowlist(이중 독립 적발)·SEO bake/런타임 이중 선언·og:image 런타임이 bake를
+지우는 부작용(재검증이 수정의 부작용을 재적발 — 2단 검증의 존재 증명)·eval executability
+간극·abort 분기 0% 커버리지·MSW 워커의 production 번들 방출. 전부 수정·회귀 고정 완료.
+
+(파일럿 2 종료 — 후속: T1 러너(#34)·CHG 처리 계속·CLS 등 런타임 지표 도입)
