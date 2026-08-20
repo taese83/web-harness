@@ -55,6 +55,8 @@ const create = (tag, options = {}, children = []) => {
 }
 
 const formatTime = source => source ? new Intl.DateTimeFormat('ko-KR', {hour: '2-digit', minute: '2-digit', second: '2-digit'}).format(new Date(source)) : '—'
+// 히스토리는 여러 날에 걸칠 수 있어 날짜+시각을 함께 보인다.
+const formatDateTime = source => source ? new Intl.DateTimeFormat('ko-KR', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'}).format(new Date(source)) : '—'
 const formatBytes = bytes => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 const extension = path => path.includes('.') ? `.${path.split('.').at(-1).toLowerCase()}` : ''
 const statusClass = status => `status-${String(status).toLowerCase()}`
@@ -2143,15 +2145,15 @@ const renderQa = () => {
         const bucket = qa.tcRuns?.[testCaseId] ?? null
         const latest = bucket?.latest ?? null
         const events = verificationByTc.get(testCaseId) ?? []
-        // 실행 결과 칩 — exit code 사실 그대로
+        // 실행 결과 라벨 — exit code 사실 그대로(칩·히스토리 공용)
+        const runOk = record => record.exitCode === 0 && !record.timedOut && !record.spawnError
+        const runLabel = record => record.timedOut ? 'TIMEOUT' : record.spawnError ? '실행 오류' : `exit ${record.exitCode}`
         let runChip
         if (!latest) runChip = create('span', {className: 'status-chip status-stale', text: '실행 기록 없음'})
         else {
-          const ok = latest.exitCode === 0 && !latest.timedOut && !latest.spawnError
-          const label = latest.timedOut ? 'TIMEOUT' : latest.spawnError ? '실행 오류' : `exit ${latest.exitCode}`
           runChip = create('span', {
-            className: `status-chip ${ok ? 'status-approved' : 'status-failed'}`,
-            text: `${label} · ${formatTime(latest.completedAt)}${bucket.count > 1 ? ` (${bucket.count}회)` : ''}`,
+            className: `status-chip ${runOk(latest) ? 'status-approved' : 'status-failed'}`,
+            text: `${runLabel(latest)} · ${formatTime(latest.completedAt)}${bucket.count > 1 ? ` (${bucket.count}회)` : ''}`,
             title: `${latest.command}\n\n${(latest.outputTail ?? '').slice(-600)}`,
           })
         }
@@ -2178,6 +2180,23 @@ const renderQa = () => {
           body.append(dl)
         }
         if (steps.length === 0 && !testCase?.description) body.append(create('p', {className: 'panel-copy', text: 'feature-plan에 이 TC의 given/when/then 명세가 없습니다.'}))
+        // 실행 히스토리 — tc-runs.jsonl의 최근 회차(인덱서가 최근 5개까지 보존).
+        if (bucket && (bucket.recent ?? []).length > 0) {
+          const recent = [...bucket.recent].reverse() // 최신 먼저
+          const summaryText = bucket.count > recent.length
+            ? `실행 히스토리 · 최근 ${recent.length}회 (누적 ${bucket.count}회)`
+            : `실행 히스토리 · ${bucket.count}회`
+          const history = create('details', {className: 'qa-tc-history'}, [
+            create('summary', {text: summaryText}),
+            create('ol', {className: 'qa-history-list'}, recent.map(record => create('li', {className: 'qa-history-row'}, [
+              create('span', {className: `qa-history-verdict ${runOk(record) ? 'ok' : 'fail'}`, text: runLabel(record)}),
+              create('span', {className: 'qa-history-time', text: formatDateTime(record.completedAt)}),
+              create('span', {className: 'qa-history-dur', text: Number.isFinite(record.durationMs) ? `${Math.round(record.durationMs / 100) / 10}s` : ''}),
+              (record.outputTail ?? '').trim() ? create('button', {type: 'button', className: 'qa-history-log', text: '로그', title: `${record.command}\n\n${(record.outputTail ?? '').slice(-800)}`}) : null,
+            ]))),
+          ])
+          body.append(history)
+        }
         const card = create('article', {className: 'qa-tc-card', dataset: {tc: testCaseId}}, [
           create('div', {className: 'qa-tc-head'}, [
             create('code', {className: 'qa-tc-id', text: testCaseId}),

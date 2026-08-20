@@ -356,6 +356,19 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .qa-tc-steps dt { font-size: 12px; font-weight: 700; color: var(--muted); }
 .qa-tc-steps dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
 .qa-tc-focused { border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-selected); }
+/* 실행 히스토리 (최근 회차) */
+.qa-tc-history { margin-top: 4px; }
+.qa-tc-history > summary { cursor: pointer; font-size: 12px; font-weight: 650; color: var(--muted); }
+.qa-tc-history > summary:hover { color: var(--text); }
+.qa-history-list { display: grid; gap: 2px; margin: 6px 0 0; padding-left: 18px; }
+.qa-history-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.qa-history-verdict { min-width: 64px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qa-history-verdict.ok { color: var(--success); }
+.qa-history-verdict.fail { color: var(--error); }
+.qa-history-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.qa-history-dur { color: var(--muted); font-variant-numeric: tabular-nums; }
+.qa-history-log { padding: 1px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 11px; cursor: pointer; }
+.qa-history-log:hover { border-color: #84adff; color: var(--primary); }
 /* Features 상세: TC 간소화 행 → 클릭 시 QA로 */
 .tc-compact-list { display: grid; gap: 4px; }
 .tc-compact-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--surface); text-align: left; cursor: pointer; }
