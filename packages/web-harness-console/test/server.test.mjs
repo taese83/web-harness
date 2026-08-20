@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import {existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs'
-import {request as httpRequest} from 'node:http'
+import {createServer, request as httpRequest} from 'node:http'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import test from 'node:test'
@@ -693,4 +693,87 @@ test('live-base start/stop is approval-gated, launch.json-scoped, and confirms c
   assert.equal((await stopped.json()).stopped, true)
   const downAgain = await fetch(`http://127.0.0.1:${freePort}/`).then(() => false, () => true)
   assert.equal(downAgain, true)
+})
+
+test('console refuses to present a foreign app as a project live preview (target identity)', async t => {
+  // 실측 사건(2026-08-19) 재현: 프로젝트 A의 delta manifest target 포트를 다른 프로젝트의
+  // dev server(제목 'Tamiya Motor Lab')가 점유 → 콘솔이 그 앱을 A의 라이브 프리뷰로 오표시.
+  const fixture = fixtureRoot()
+  const deltaPreview = join(fixture.project, '_workspace', '02_design', 'preview')
+  mkdirSync(join(deltaPreview, 'delta'), {recursive: true})
+  writeFileSync(join(deltaPreview, 'delta', 'bootstrap.mjs'), 'window.__WH_DELTA_VERSION = 1\n')
+
+  const foreign = createServer((request, response) => {
+    response.writeHead(200, {'content-type': 'text/html; charset=utf-8'})
+    response.end('<html><head><title>Tamiya Motor Lab</title></head><body>foreign app</body></html>')
+  })
+  await new Promise(resolveListen => foreign.listen(0, '127.0.0.1', resolveListen))
+  const foreignPort = foreign.address().port
+  const manifest = extra => JSON.stringify({mode: 'live-delta', target: `http://127.0.0.1:${foreignPort}`, ...extra})
+  mkdirSync(join(fixture.root, '.claude'), {recursive: true})
+  writeFileSync(join(fixture.root, '.claude', 'launch.json'), JSON.stringify({
+    version: '0.0.1',
+    configurations: [{name: 'base', runtimeExecutable: process.execPath, port: foreignPort}],
+  }))
+
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    await new Promise(resolveClose => foreign.close(() => resolveClose()))
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const projectId = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0].id
+  const detailOf = () => fetch(`${consoleOrigin}/api/projects/${projectId}`, {headers: {'x-web-harness-ui': '1'}}).then(response => response.json())
+
+  // 형식 오류 선언은 미선언으로 강등되지 않고 프록시 구성 자체를 거부한다(loud fail).
+  writeFileSync(join(deltaPreview, 'manifest.json'), manifest({identity: {titleIncludes: 42}}))
+  const invalidDetail = await detailOf()
+  assert.equal(invalidDetail.livePreview, null)
+  assert.equal(invalidDetail.livePreviewError, 'INVALID_LIVE_IDENTITY')
+
+  // 오표시 재현 → 차단: 신원 선언('Tart Web')과 다른 앱이 포트에 떠 있다.
+  writeFileSync(join(deltaPreview, 'manifest.json'), manifest({identity: {titleIncludes: 'Tart Web'}}))
+  const detail = await detailOf()
+  assert.deepEqual(detail.livePreview.identity, {state: 'declared', titleIncludes: 'Tart Web'})
+  const blocked = await fetch(detail.livePreview.url)
+  assert.equal(blocked.status, 502)
+  assert.equal(blocked.headers.get('x-web-harness-live-identity'), 'mismatch')
+  const blockedBody = await blocked.text()
+  assert.match(blockedBody, /LIVE_TARGET_IDENTITY_MISMATCH/)
+  assert.doesNotMatch(blockedBody, /foreign app/)
+  assert.doesNotMatch(blockedBody, /__wh_delta__\/bootstrap\.mjs/)
+
+  // 헬스체크도 같은 사실을 보고한다 — 콘솔 카드 "다른 앱 응답" 경고의 데이터 소스.
+  const mismatchHealth = await fetch(`${consoleOrigin}/api/live-base/health?project=${projectId}`).then(response => response.json())
+  assert.equal(mismatchHealth.healthy, true)
+  assert.equal(mismatchHealth.identity.state, 'mismatch')
+  assert.equal(mismatchHealth.identity.actualTitle, 'Tamiya Motor Lab')
+
+  // 오탐 복구 경로(정당한 제목 변경): manifest identity 갱신 → 콘솔 재시작 없이 통과.
+  writeFileSync(join(deltaPreview, 'manifest.json'), manifest({identity: {titleIncludes: 'Tamiya Motor Lab'}}))
+  const recovered = await fetch(detail.livePreview.url)
+  assert.equal(recovered.status, 200)
+  assert.equal(recovered.headers.get('x-web-harness-live-identity'), 'verified')
+  assert.match(await recovered.text(), /__wh_delta__\/bootstrap\.mjs/)
+  const verifiedHealth = await fetch(`${consoleOrigin}/api/live-base/health?project=${projectId}`).then(response => response.json())
+  assert.equal(verifiedHealth.identity.state, 'verified')
+
+  // 미선언 킷(하위호환): 차단하지 않되 미검증 상태를 detail·헬스·응답 헤더로 정직 노출.
+  writeFileSync(join(deltaPreview, 'manifest.json'), manifest())
+  const undeclaredDetail = await detailOf()
+  assert.deepEqual(undeclaredDetail.livePreview.identity, {state: 'undeclared'})
+  const passthrough = await fetch(undeclaredDetail.livePreview.url)
+  assert.equal(passthrough.status, 200)
+  assert.equal(passthrough.headers.get('x-web-harness-live-identity'), 'unverified')
+  assert.match(await passthrough.text(), /foreign app/)
+  const undeclaredHealth = await fetch(`${consoleOrigin}/api/live-base/health?project=${projectId}`).then(response => response.json())
+  assert.equal(undeclaredHealth.identity.state, 'undeclared')
+
+  // UI 배선 고정: 미검증 경고 칩과 신원 오류 안내가 콘솔 앱에 존재한다.
+  const featureScript = await fetch(`${consoleOrigin}/app.js`).then(response => response.text())
+  assert.match(featureScript, /IDENTITY 미검증/)
+  assert.match(featureScript, /INVALID_LIVE_IDENTITY/)
+  assert.match(featureScript, /BASE 다른 앱 응답/)
 })

@@ -932,7 +932,9 @@ const renderPreview = () => {
           ? 'preview/manifest.json의 target이 loopback http URL(http://127.0.0.1:<port>)이 아닙니다. target을 고치면 자동으로 구성됩니다.'
           : state.detail.livePreviewError === 'LIVE_TARGET_NOT_IN_LAUNCH'
             ? 'manifest의 target 포트가 .claude/launch.json에 등록돼 있지 않습니다. 운영자가 등록한 dev server 포트만 라이브 베이스가 될 수 있습니다(allowlist).'
-            : '델타 프록시 시작에 실패했습니다. Console 서버 로그를 확인하세요.'}),
+            : state.detail.livePreviewError === 'INVALID_LIVE_IDENTITY'
+              ? 'preview/manifest.json의 identity 선언이 유효하지 않습니다. identity.titleIncludes에 대상 앱 <title>의 부분 문자열(1~200자)을 적으면 자동으로 구성됩니다.'
+              : '델타 프록시 시작에 실패했습니다. Console 서버 로그를 확인하세요.'}),
       ])])]),
     ])
   }
@@ -979,8 +981,12 @@ const renderPreview = () => {
       if (!document.contains(liveHealthChip)) { liveHealthBusy = false; return }
       liveManagedStop.hidden = !(body.healthy && body.managed)
       if (body.managed) liveManagedStop.title = `launch.json "${body.managed.entry}" — 콘솔이 시작함 (${body.managed.startedAt})`
-      if (body.healthy) {
-        liveHealthChip.textContent = 'BASE 실행 중'
+      // 신원 불일치는 "실행 중이지만 다른 앱"이다 — healthy로 취급하면 오표시 사건
+      // (다른 프로젝트 dev server의 포트 점유)을 초록 칩이 덮는다. 프록시는 별도로
+      // HTML 응답을 차단하고, 여기서는 원인과 복구 경로를 안내한다.
+      const misbound = body.healthy && (body.identity?.state === 'mismatch' || body.identity?.state === 'invalid')
+      if (body.healthy && !misbound) {
+        liveHealthChip.textContent = body.identity?.state === 'verified' ? 'BASE 신원 일치' : 'BASE 실행 중'
         liveHealthChip.className = 'status-chip status-approved live-health-chip'
         liveHealthGuide.hidden = true
         if (liveWasDown) {
@@ -988,6 +994,17 @@ const renderPreview = () => {
           const frame = liveShell.querySelector('iframe')
           if (frame) frame.src = frame.src
         }
+      } else if (misbound) {
+        liveWasDown = true
+        liveHealthChip.textContent = body.identity.state === 'invalid' ? 'IDENTITY 설정 오류' : 'BASE 다른 앱 응답'
+        liveHealthChip.className = 'status-chip status-failed live-health-chip'
+        liveHealthGuide.replaceChildren(
+          create('strong', {text: body.identity.state === 'invalid' ? 'identity 선언이 유효하지 않습니다' : '대상 포트의 앱이 이 프로젝트가 아닌 것으로 보입니다'}),
+          create('p', {text: body.identity.state === 'invalid'
+            ? 'preview/manifest.json의 identity.titleIncludes는 1~200자 문자열이어야 합니다. 선언을 고치면 자동으로 회복됩니다.'
+            : `기대 제목 포함 문자열 "${body.identity.expected}" — 실제 응답 제목: ${body.identity.actualTitle ? `"${body.identity.actualTitle}"` : '(제목 없음/HTML 아님)'}. 다른 프로젝트의 dev server가 이 포트(${body.target ?? live.target})를 점유했을 수 있습니다. 올바른 앱을 시작하거나, 정당한 제목 변경이라면 manifest의 identity.titleIncludes를 갱신하세요(프리뷰 승인은 STALE로 전이됩니다).`}),
+        )
+        liveHealthGuide.hidden = false
       } else {
         liveWasDown = true
         liveHealthChip.textContent = 'BASE 응답 없음'
@@ -1038,6 +1055,13 @@ const renderPreview = () => {
     create('div', {className: 'preview-toolbar-actions'}, [
       isDeltaMode ? statusChipButton(preview) : null,
       create('span', {className: `status-chip ${live.deltaPresent ? 'status-approved' : 'status-absent'}`, text: live.deltaPresent ? 'DELTA READY' : 'DELTA ABSENT'}),
+      // target 신원 미검증 경고(하위호환 킷): 선언이 없으면 프록시가 포트의 앱을 대조하지
+      // 못한다 — 다른 프로젝트의 dev server가 같은 포트를 점유하면 그 앱이 표시될 수 있다.
+      live.identity?.state === 'undeclared' ? create('span', {
+        className: 'status-chip status-stale',
+        text: 'IDENTITY 미검증',
+        title: 'manifest.json에 identity.titleIncludes가 없어 target 포트의 앱이 이 프로젝트인지 확인하지 못합니다. 다른 프로젝트의 dev server가 같은 포트를 점유하면 그 앱이 표시될 수 있습니다.',
+      }) : null,
       liveHealthChip,
       liveManagedStop,
       openLink,
