@@ -32,6 +32,8 @@ const state = {
   // 단계 탭 재구성(2026-08-20): Features(기능/변경), Design(시안/프리뷰) 서브탭 상태.
   featuresPane: 'features',
   designPane: 'design',
+  // QA 탭이 TC 상세(given/when/then)의 집 — Features에서 링크로 들어오면 이 TC로 포커스.
+  qaFocusTestCaseId: null,
   focusChangeRequestId: null,
   codexConnection: null,
   codexPollTimer: null,
@@ -288,6 +290,7 @@ const parseLocation = () => {
     subFeatureId: params.get('subfeature'),
     previewAnchorId: params.get('anchor'),
     pane: params.get('pane'),
+    qaTestCaseId: /^TC-\d{3,}-\d+$/.test(params.get('tc') ?? '') ? params.get('tc') : null,
     changeRequestId: /^CHG-\d{8}-\d{3}$/.test(params.get('change') ?? '') ? params.get('change') : null,
     openCR: params.get('openCR') === '1',
   }
@@ -297,6 +300,7 @@ const parseLocation = () => {
 const applyLocationPanes = locationState => {
   if (locationState.tab === 'features') state.featuresPane = locationState.pane === 'changes' ? 'changes' : 'features'
   if (locationState.tab === 'design') state.designPane = locationState.pane === 'preview' ? 'preview' : 'design'
+  if (locationState.tab === 'qa') state.qaFocusTestCaseId = locationState.qaTestCaseId
 }
 
 const previewSurfaceVisible = () => state.tab === 'design' && state.designPane === 'preview'
@@ -312,6 +316,7 @@ const writeLocation = ({replace = false} = {}) => {
   if (state.tab === 'features' && state.featureId) params.set('feature', state.featureId)
   if (state.tab === 'features' && state.subFeatureId) params.set('subfeature', state.subFeatureId)
   if (previewSurfaceVisible() && state.previewAnchorId) params.set('anchor', state.previewAnchorId)
+  if (state.tab === 'qa' && state.qaFocusTestCaseId) params.set('tc', state.qaFocusTestCaseId)
   if (changesSurfaceVisible() && state.focusChangeRequestId) params.set('change', state.focusChangeRequestId)
   const hash = `#${params}`
   if (location.hash === hash) return
@@ -362,6 +367,7 @@ const setTab = (tab, {updateLocation = true} = {}) => {
     state.codexPollTimer = null
   }
   if (!previewSurfaceVisible()) state.previewAnchorId = null
+  if (state.tab !== 'qa') state.qaFocusTestCaseId = null
   document.body.dataset.activeTab = state.tab
   elements.content.setAttribute('aria-labelledby', `tab-${state.tab}`)
   for (const button of elements.tabs) {
@@ -371,6 +377,12 @@ const setTab = (tab, {updateLocation = true} = {}) => {
   }
   if (updateLocation) writeLocation()
   renderContent()
+}
+
+// Features → QA 딥링크: 해당 TC로 QA 탭을 열고 스크롤·하이라이트한다.
+const goToQaTestCase = testCaseId => {
+  state.qaFocusTestCaseId = testCaseId
+  setTab('qa')
 }
 
 const selectProject = async (projectId, {updateLocation = true} = {}) => {
@@ -806,23 +818,26 @@ const renderFeatures = () => {
       }
       history.append(historyList)
     }
+    // TC 상세(given/when/then)의 집은 QA 탭이다 — 여기선 ID+짧은 요약만 보여주고
+    // 클릭하면 QA의 해당 TC로 이동한다(IA 정리 2026-08-20).
     const tests = create('section', {className: 'feature-detail-section'}, [
       create('div', {className: 'detail-section-heading'}, [create('h3', {text: `Test cases · ${selectedTestCases.length}`})]),
     ])
     if (selectedTestCases.length === 0) tests.append(create('p', {className: 'panel-copy', text: '연결된 Test Case 상세가 없습니다.'}))
-    for (const testCase of selectedTestCases) {
-      const testBody = create('div', {className: 'test-case-body'})
-      if (testCase.description) testBody.append(create('p', {text: testCase.description}))
-      const steps = [['Given', testCase.given], ['When', testCase.when], ['Then', testCase.then]].filter(([, value]) => value)
-      if (steps.length > 0) {
-        const definition = create('dl', {className: 'test-case-steps'})
-        for (const [label, value] of steps) definition.append(create('dt', {text: label}), create('dd', {text: value}))
-        testBody.append(definition)
+    else {
+      const tcList = create('div', {className: 'tc-compact-list'})
+      for (const testCase of selectedTestCases) {
+        const summary = testCase.label || testCase.description
+          || [testCase.given, testCase.when, testCase.then].filter(Boolean).join(' → ')
+        const row = create('button', {type: 'button', className: 'tc-compact-row', title: 'QA 탭에서 상세·실행 보기'}, [
+          create('span', {className: 'tc-chip', text: testCase.testCaseId}),
+          create('span', {className: 'tc-compact-summary', text: summary || '요약 없음'}),
+          create('span', {className: 'tc-compact-go', text: 'QA →', 'aria-hidden': 'true'}),
+        ])
+        row.addEventListener('click', () => goToQaTestCase(testCase.testCaseId))
+        tcList.append(row)
       }
-      tests.append(create('article', {className: 'test-case'}, [
-        create('div', {className: 'test-case-heading'}, [create('span', {className: 'tc-chip', text: testCase.testCaseId}), testCase.label ? create('span', {className: 'test-label', text: testCase.label}) : null]),
-        testBody,
-      ]))
+      tests.append(tcList)
     }
 
     const documents = create('section', {className: 'feature-detail-section'}, [create('div', {className: 'detail-section-heading'}, [create('h3', {text: `Related documents · ${feature.relatedDocuments.length}`})])])
@@ -2121,11 +2136,10 @@ const renderQa = () => {
     matrix.append(create('p', {className: 'panel-copy', text: qa.tcRunCommandDeclared
       ? '실행은 프로젝트가 선언한 test:tc 스크립트로 구현 코드를 대상으로 수행되고, 판정은 exit code 그대로 기록됩니다.'
       : '이 프로젝트는 package.json에 test:tc 스크립트가 없어 콘솔 실행이 비활성입니다. 예: "test:tc": "vitest run -t" 를 선언하면 TC ID로 필터 실행됩니다(실행 대상은 구현 코드).'}))
+    const focusRows = []
     for (const feature of features) {
-      const rows = [...new Set(feature.testCaseIds)].map(testCaseId => {
+      const cards = [...new Set(feature.testCaseIds)].map(testCaseId => {
         const testCase = (feature.testCases ?? []).find(item => item.testCaseId === testCaseId)
-        const title = testCase?.label || testCase?.description
-          || [testCase?.given, testCase?.when, testCase?.then].filter(Boolean).join(' → ') || ''
         const bucket = qa.tcRuns?.[testCaseId] ?? null
         const latest = bucket?.latest ?? null
         const events = verificationByTc.get(testCaseId) ?? []
@@ -2154,24 +2168,43 @@ const renderQa = () => {
         }
         const rowError = create('p', {className: 'live-health-inline-error', hidden: true})
         const runButton = create('button', {type: 'button', className: 'secondary-button qa-run-button', text: '실행', disabled: !qa.tcRunCommandDeclared, onclick: event => runTc(event.currentTarget, testCaseId, rowError)})
-        return create('div', {className: 'qa-tc-row'}, [
-          create('code', {text: testCaseId}),
-          create('span', {className: 'qa-tc-title', text: title}),
-          runChip,
-          reasons.length > 0 ? create('span', {className: 'status-chip status-stale', text: '재테스트 필요', title: reasons.join(' · ')}) : null,
-          latest && stampUnknown && reasons.length === 0 ? create('span', {className: 'status-chip status-pending', text: '변경 감지 불가', title: 'git 소스 스탬프를 얻지 못해 실행 이후 변경 여부를 판정할 수 없습니다.'}) : null,
-          events.length > 0
-            ? create('span', {className: 'status-chip status-connected', text: `CR 검증 ${events.length}회`, title: events.map(event => `${event.changeRequestId} · ${event.createdAt}\n${event.evidence}`).join('\n\n')})
-            : null,
-          runButton,
+        // given/when/then 상세 — QA가 TC 상세의 집이다(IA 정리 2026-08-20).
+        const steps = [['Given', testCase?.given], ['When', testCase?.when], ['Then', testCase?.then]].filter(([, value]) => value)
+        const body = create('div', {className: 'qa-tc-body'})
+        if (testCase?.description) body.append(create('p', {className: 'qa-tc-desc', text: testCase.description}))
+        if (steps.length > 0) {
+          const dl = create('dl', {className: 'qa-tc-steps'})
+          for (const [label, value] of steps) dl.append(create('dt', {text: label}), create('dd', {text: value}))
+          body.append(dl)
+        }
+        if (steps.length === 0 && !testCase?.description) body.append(create('p', {className: 'panel-copy', text: 'feature-plan에 이 TC의 given/when/then 명세가 없습니다.'}))
+        const card = create('article', {className: 'qa-tc-card', dataset: {tc: testCaseId}}, [
+          create('div', {className: 'qa-tc-head'}, [
+            create('code', {className: 'qa-tc-id', text: testCaseId}),
+            testCase?.label ? create('span', {className: 'qa-tc-label', text: testCase.label}) : null,
+            create('span', {className: 'qa-tc-chips'}, [
+              runChip,
+              reasons.length > 0 ? create('span', {className: 'status-chip status-stale', text: '재테스트 필요', title: reasons.join(' · ')}) : null,
+              latest && stampUnknown && reasons.length === 0 ? create('span', {className: 'status-chip status-pending', text: '변경 감지 불가', title: 'git 소스 스탬프를 얻지 못해 실행 이후 변경 여부를 판정할 수 없습니다.'}) : null,
+              events.length > 0
+                ? create('span', {className: 'status-chip status-connected', text: `CR 검증 ${events.length}회`, title: events.map(event => `${event.changeRequestId} · ${event.createdAt}\n${event.evidence}`).join('\n\n')})
+                : null,
+            ]),
+            runButton,
+          ]),
+          body,
           rowError,
         ])
+        if (testCaseId === state.qaFocusTestCaseId) { card.classList.add('qa-tc-focused'); focusRows.push(card) }
+        return card
       })
       matrix.append(create('section', {className: 'qa-feature'}, [
         create('div', {className: 'qa-feature-head'}, [create('code', {text: feature.featureId}), create('strong', {text: feature.title ?? ''})]),
-        ...rows,
+        ...cards,
       ]))
     }
+    // Features에서 링크로 들어온 TC로 스크롤·하이라이트(DOM 부착 후).
+    if (focusRows.length > 0) setTimeout(() => focusRows[0].scrollIntoView({block: 'center', behavior: 'smooth'}), 0)
   }
   container.append(matrix)
 
