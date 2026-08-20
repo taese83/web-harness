@@ -2,7 +2,7 @@
 import {spawn} from 'node:child_process'
 import {createReadStream, existsSync, lstatSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {createServer} from 'node:http'
-import {dirname, extname, join, resolve, sep} from 'node:path'
+import {dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {inspectDesignPreview, recordPreviewApproval} from '../../.claude/scripts/design-preview-status-lib.mjs'
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
@@ -105,6 +105,8 @@ const isAllowedHost = (host, port) => new Set([
   `127.0.0.1:${port}`,
   `localhost:${port}`,
 ]).has(host)
+
+const toPosixPath = value => value.split(sep).join('/')
 
 const decodePathSegment = value => {
   try {
@@ -387,7 +389,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       try {
         const input = await readJsonBody(request)
         const controlProject = catalog.project(String(input?.project ?? ''))
-        const manifest = controlProject ? readDeltaManifest(controlProject.root) : null
+        const manifest = controlProject ? readLiveConfig(controlProject.root) : null
         const target = manifest ? parseLiveBaseTarget(manifest.target) : null
         if (!target) return json(response, 404, errorBody('LIVE_TARGET_NOT_FOUND', 'Project has no valid live-delta target'))
         if (action === 'stop') {
@@ -472,22 +474,32 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       let identityManifest = null
       if (healthProjectId) {
         const healthProject = catalog.project(healthProjectId)
-        const manifest = healthProject ? readDeltaManifest(healthProject.root) : null
+        const manifest = healthProject ? readLiveConfig(healthProject.root) : null
         target = manifest ? parseLiveBaseTarget(manifest.target) : null
         if (target && !launchAllowedPorts().has(target.port)) target = null
         identityManifest = manifest
       } else if (liveBase) {
         target = liveBase.target
-        identityManifest = liveBase.root ? readDeltaManifest(liveBase.root) : null
+        identityManifest = liveBase.root ? readLiveConfig(liveBase.root) : null
       }
       if (!target) return json(response, 200, {configured: false})
-      const startHints = []
+      let startHints = []
       try {
         const launch = JSON.parse(readFileSync(join(repositoryRoot, '.claude', 'launch.json'), 'utf8'))
         for (const entry of launch.configurations ?? []) {
           if (String(entry.port) === String(target.port) && entry.runtimeExecutable) {
             startHints.push({name: entry.name, command: [entry.runtimeExecutable, ...(entry.runtimeArgs ?? [])].join(' ')})
           }
+        }
+        // 포트는 프로젝트 신원이 아니다(오표시 사건과 같은 뿌리) — 여러 프로젝트가 같은
+        // 포트를 선언하면 무관한 시작 명령까지 후보로 뜬다(실측: motor-lab 카드에 tart-web
+        // 명령). 명령 문자열이 이 프로젝트의 상대 경로를 참조하는 항목이 있으면 그것만
+        // 남긴다(연관 필터). 매칭이 하나도 없으면 포트 전체 목록으로 폴백(경고 문구 유지).
+        const healthProject = healthProjectId ? catalog.project(healthProjectId) : null
+        const projectRelative = healthProject ? toPosixPath(relative(repositoryRoot, healthProject.root)) : null
+        if (projectRelative) {
+          const related = startHints.filter(hint => hint.command.includes(projectRelative))
+          if (related.length > 0) startHints = related
         }
       } catch { /* launch.json 없음/파싱 실패 — 힌트 생략 */ }
       const managed = liveBaseProcesses.get(target.port)
@@ -546,7 +558,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       try {
         const proxy = await ensureLiveProxy(project, {allowStart: request.headers['x-web-harness-ui'] === '1'})
         if (proxy?.port) {
-          const declaredIdentity = parseLiveIdentity(readDeltaManifest(project.root)?.identity)
+          const declaredIdentity = parseLiveIdentity(readLiveConfig(project.root)?.identity)
           detail.livePreview = {
             url: `http://127.0.0.1:${proxy.port}`,
             target: proxy.target.origin,
@@ -624,7 +636,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       target: liveBase.target,
       deltaRoot: join(liveBase.root, '_workspace', '02_design', 'preview', 'delta'),
       streamDeltaFile: streamFile,
-      readIdentity: () => parseLiveIdentity(readDeltaManifest(liveBase.root)?.identity),
+      readIdentity: () => parseLiveIdentity(readLiveConfig(liveBase.root)?.identity),
     })
     : null
   let boundLivePreviewPort = liveBase?.port ?? null
@@ -640,6 +652,34 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     } catch {
       return null
     }
+  }
+  // 라이브 설정과 디자인 프리뷰의 분리(2026-08-20, search-portal 파일럿 실측): 두 관심사는
+  // 직교한다 — 디자인 프리뷰는 Phase 2 승인 자산("무엇을 만들기로 했나"), 라이브는 운영
+  // 뷰("지금 무엇이 돌고 있나")다. 종전에는 preview/manifest.json의 mode 필드 하나를
+  // 공유해 상호 배타였고, 승인 프리뷰가 있는 그린필드는 라이브 뷰를 켤 수 없었다.
+  // 정본은 이제 별도 파일 preview/live.json({target, identity?})이며, 레거시
+  // manifest(mode:'live-delta')는 브라운필드 하위 호환으로 계속 읽는다 — 두 파일이
+  // 모두 있으면 live.json이 이긴다.
+  const readLiveConfig = projectRoot => {
+    // 부재(ENOENT)와 형식 오류를 구분한다(적대 검토 MEDIUM 반영, 2026-08-20): 파일이
+    // 존재하는데 파싱이 깨지면 레거시 manifest로 조용히 폴백하지 않는다 — 마이그레이션
+    // 도중 live.json을 고치다 문법을 깨면 구(舊) target으로 소리 없이 대체되는 침묵
+    // 강등이 생기기 때문이다. identity 오타의 loud-fail 원칙과 동일하게 취급한다.
+    let raw = null
+    try {
+      raw = readFileSync(join(projectRoot, '_workspace', '02_design', 'preview', 'live.json'), 'utf8')
+    } catch {
+      raw = null // 부재 — 레거시 폴백 허용
+    }
+    if (raw !== null) {
+      try {
+        const config = JSON.parse(raw)
+        return config && typeof config === 'object' ? config : {error: 'INVALID_LIVE_CONFIG'}
+      } catch {
+        return {error: 'INVALID_LIVE_CONFIG'}
+      }
+    }
+    return readDeltaManifest(projectRoot)
   }
   // 승인 게이트 dev server 시작/중지(후속 작업 7-②): 명령은 launch.json 항목에서만
   // 나오고(임의 명령 불가), 항목 포트가 프로젝트 manifest target 포트와 일치해야 하며,
@@ -664,19 +704,22 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     }
   }
   const ensureLiveProxy = (project, {allowStart = false} = {}) => {
-    const manifest = readDeltaManifest(project.root)
-    if (!manifest) return null
     let realRoot
     try {
       realRoot = realpathSync(project.root)
     } catch {
       return null
     }
+    // pinned --live-base는 운영자의 명시 의도다 — 프로젝트 측 live.json/manifest 존재를
+    // 요구하지 않는다(분리 이전에는 manifest 부재가 pinned 경로까지 막았음, 실측 결함).
     if (liveBase && boundLivePreviewPort) {
       try {
         if (realpathSync(liveBase.root) === realRoot) return {port: boundLivePreviewPort, target: liveBase.target}
       } catch { /* 플래그 루트 해석 실패 — 동적 경로로 진행 */ }
     }
+    const manifest = readLiveConfig(project.root)
+    if (!manifest) return null
+    if (manifest.error) return {error: manifest.error} // 깨진 live.json — loud fail(레거시 대체 금지)
     const existing = liveProxies.get(realRoot)
     if (existing) return existing.promise ?? existing
     // 실패는 캐시하지 않는다 — manifest/launch.json을 고치면 재시작 없이 복구된다.
@@ -691,7 +734,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       target,
       deltaRoot: join(project.root, '_workspace', '02_design', 'preview', 'delta'),
       streamDeltaFile: streamFile,
-      readIdentity: () => parseLiveIdentity(readDeltaManifest(project.root)?.identity),
+      readIdentity: () => parseLiveIdentity(readLiveConfig(project.root)?.identity),
     })
     const promise = new Promise(resolveEntry => {
       server.once('error', () => {
