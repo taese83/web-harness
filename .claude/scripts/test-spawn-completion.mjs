@@ -11,6 +11,7 @@ import test from 'node:test'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(scriptDir, 'verify-spawn-completion.mjs')
+const {scanSource} = await import(SCRIPT)
 
 const run = (args) => {
   try {
@@ -88,4 +89,49 @@ test('truncation 신호(미종결 괄호)는 여전히 SUSPECT로 검출', () =>
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
+})
+
+// ── 정규식 리터럴 진입 판정 회귀 (실측 FP 2건 — synthetic-replay 2026-08-18) ──
+// scanSource를 직접 임포트해 실측 사례의 축약 없는 원문 라인을 고정한다.
+
+test('실측 FP 회귀: 화살표 본문 위치 정규식(=> /re/)의 괄호를 열림으로 세지 않음 — validate-settings.mjs:55', () => {
+  // 정규식 안의 \( 가 열림으로, 끝의 \// 가 라인 주석으로 오인되던 사례.
+  const source = [
+    'const projectAllowRules = ["Edit(.claude/x)"]',
+    'if (projectAllowRules.some(rule => /^(?:Edit|Write)\\(\\/?\\.claude\\//.test(rule))) {',
+    '  fail("Project settings allow the generated app to modify its Claude control plane")',
+    '}',
+    '',
+  ].join('\n')
+  assert.deepEqual(scanSource(source), [])
+})
+
+test('실측 FP 회귀: 키워드-선행 정규식(return /re/)의 문자클래스 [ 를 열림으로 세지 않음 — validate-workflows-and-evals.mjs:148', () => {
+  // word 버퍼가 '/' 판정 전에 flush되지 않아 return 뒤 정규식이 코드로 읽히던 사례.
+  const source = [
+    'const isImmutableUsesTarget = target => {',
+    '  if (target.startsWith("docker://")) {',
+    '    return /^docker:\\/\\/[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[a-f0-9]{64}$/i.test(target)',
+    '  }',
+    '  const match = target.match(/^([A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+(?:\\/[A-Za-z0-9_.-]+)*)@(?:[a-f0-9]{40}|[a-f0-9]{64})$/i)',
+    '  return Boolean(match && !match[1].split("/").some(segment => segment === "." || segment === ".."))',
+    '}',
+    '',
+  ].join('\n')
+  assert.deepEqual(scanSource(source), [])
+})
+
+test('정규식 진입 정밀화가 recall을 약화하지 않음: 정규식 중간 절단은 여전히 검출', () => {
+  // 화살표/키워드 위치에서 정규식 상태로 들어간 채 잘리면 미종결 정규식으로 잡혀야 한다.
+  assert.ok(scanSource('const ok = rules.some(rule => /^(?:Edit|Write').length > 0)
+  assert.ok(scanSource('function f(x) {\n  return /^docker:[a-z').length > 0)
+})
+
+test('=> 합성 경계: >=·제네릭·복합 연산자는 정규식으로 오진입하지 않음 (리뷰 반영)', () => {
+  // '=>'는 직전 문자가 정확히 '='일 때만 합성된다 — 순서 의존이라 '>='(먼저 '>')와
+  // 구분된다. 아래 어느 것도 '/'를 나눗셈이 아니라 정규식 시작으로 오독하면 안 된다.
+  assert.deepEqual(scanSource('const r = a >= b / c'), [])          // 비교 뒤 나눗셈
+  assert.deepEqual(scanSource('const xs: Array<number> = split / n'), []) // 제네릭 뒤 나눗셈
+  assert.deepEqual(scanSource('let m = 0; m >>= 1; const q = t / 2'), [])  // 복합 시프트 뒤 나눗셈
+  assert.deepEqual(scanSource('const f = (x: number): boolean => x > 1 / 2'), []) // 진짜 화살표 + 뒤 나눗셈
 })

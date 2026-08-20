@@ -89,8 +89,11 @@ function anyFilePresent(root, paths) {
 // (비교 연산자) 뒤에 와서 정규식 시작으로 오인되면 모든 .tsx 컴포넌트가 false
 // positive가 된다(실측: P1 tenant-isolation-probe의 layout/page.tsx). 비교 연산자
 // 뒤에 정규식 리터럴이 오는 경우는 극히 드물어, JSX 오탐 비용이 훨씬 크다.
+// '=>'는 화살표 함수 본문 위치(`rule => /re/.test(...)`)의 정규식을 잡는다. bare '>'는
+// 여전히 제외 — '=>'는 직전 유의미 문자가 '='일 때만 합성되므로 JSX `</div>` 오탐과 무관.
+// (실측 FP: validate-settings.mjs:55 — synthetic-replay 2026-08-18)
 const REGEX_PRECEDERS = new Set([
-  '(', ',', '=', ':', '[', '{', ';', '!', '&', '|', '?', '+', '-', '*', '%', '~', '^', 'return', 'typeof', 'instanceof', 'in', 'of', 'case', 'do', 'else', 'void', 'delete', 'throw', 'new', 'yield', 'await',
+  '(', ',', '=', ':', '[', '{', ';', '!', '&', '|', '?', '+', '-', '*', '%', '~', '^', '=>', 'return', 'typeof', 'instanceof', 'in', 'of', 'case', 'do', 'else', 'void', 'delete', 'throw', 'new', 'yield', 'await',
 ])
 
 export function scanSource(text) {
@@ -121,15 +124,17 @@ export function scanSource(text) {
 
     // state === 'code'
     if (c === ' ' || c === '\t' || c === '\r' || c === '\n') { continue }
+    if (/[A-Za-z_$]/.test(c)) { word += c; prevToken = ''; continue }
+    // 버퍼된 단어를 '/' 판정 *전에* prevToken으로 확정 — 뒤에 두면 `return /re/` 같은
+    // 키워드-선행 정규식이 코드로 읽혀 정규식 내부 괄호가 열림으로 오카운트된다.
+    // (실측 FP: validate-workflows-and-evals.mjs:148 — synthetic-replay 2026-08-18)
+    if (word) { prevToken = word; word = '' }
     if (c === '/' && c2 === '/') { state = 'line'; i++; continue }
     if (c === '/' && c2 === '*') { state = 'block'; i++; continue }
     if (c === '/' && REGEX_PRECEDERS.has(prevToken)) { state = 'regex'; continue }
     if (c === "'") { state = 'sq'; continue }
     if (c === '"') { state = 'dq'; continue }
     if (c === '`') { state = 'tpl'; continue }
-
-    if (/[A-Za-z_$]/.test(c)) { word += c; prevToken = ''; continue }
-    if (word) { prevToken = word; word = '' }
 
     if (c === '(' || c === '[' || c === '{') { openers.push({ch: c, line}); prevToken = c; continue }
     if (c === ')' || c === ']' || c === '}') {
@@ -143,7 +148,8 @@ export function scanSource(text) {
       prevToken = c
       continue
     }
-    prevToken = c
+    // '=' 직후의 '>'는 화살표 '=>'로 합성 — REGEX_PRECEDERS의 '=>' 항목이 참조한다.
+    prevToken = c === '>' && prevToken === '=' ? '=>' : c
   }
 
   if (state === 'block') reasons.push('EOF: 미종결 블록 주석 /* */')
