@@ -71,9 +71,12 @@ TicketProvider {                              // Jira / GitHub / Linear / Manual
 **설계 필수**:
 1. **미리보기 → 확인 → 생성.** 티켓 생성은 외부 시스템에 기록을 만드는 side-effect다. 잘못된
    분해가 이슈 N개로 박히면 되돌리기 번거롭다 → dry-run(이 N개를 이렇게) → 사람 확인 → 생성.
-2. **재발행 멱등성 — plan-delta 재사용.** 재분해 시 중복 생성 금지. harness의 stable-ID/
-   plan-delta 기계(`validate-plan-delta`)를 그대로 씀: 새 FEAT→생성, 변경→갱신, 삭제→닫기/플래그.
-   식별자 원장이 "이미 발행된 FEAT"의 정본.
+2. **재발행 멱등성 — plan-delta와 같은 패턴, 별개 구현.** 재분해 시 중복 생성 금지: 새
+   FEAT→생성, 변경→갱신, 삭제→닫기/플래그. 이는 `validate-plan-delta`의 stable-ID 사상과
+   **같은 축**이되 **코드를 재사용하지 않고 별도 구현**한다(`emit.mjs`의 `computeEmitPlan`) —
+   plan-delta는 계획 스냅샷의 **존재-집합 diff**(FEAT/TC 소멸 탐지)이고, emit은 티켓 발행
+   상태의 **콘텐츠-해시 diff**(unchanged vs update 구분에 내용 해시가 필요)라 대상·판정축이
+   다르다. 식별자 원장이 "이미 발행된 FEAT"의 정본. (구현 시 정직 표기: 리뷰 반영 2026-08-21)
 
 **혼자면**: 이 단계를 건너뛰고 feature-plan을 그대로 티켓 보드로 써도 된다(외부 추적이 필요할
 때만 emit).
