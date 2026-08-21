@@ -82,11 +82,21 @@ change-scope 파생 — taken이면 중복 개발 차단).
 **청구 버전 ↔ 픽업자 로컬 버전 대조**(STALE의 사각지대): STALE 체크는 "청구가 *현재* 계획 대비
 낡았나"를 보지만, 반대 방향 — **청구자가 자기 로컬 기획 변경(NEW)으로 청구했는데 픽업자 로컬은
 OLD** — 이면 픽업자는 청구가 참조한 레퍼런스 없이 개발하게 된다. 결정 단서는 이미 원장에 있다:
-청구 시 기록한 `contentHash`가 "이 티켓이 어느 계획 버전에 묶였나"다. 픽업 때 원장의 청구 해시와
-픽업자 로컬 단위 해시를 대조(`reconcileClaimVersion`)해 어긋나면 `plan-out-of-sync`로 **개발 진입을
-차단**하고 계획 동기화를 요구한다. 근본 규율: **청구는 공유(커밋)된 계획 버전에만** 걸어야 한다 —
-미공유 로컬 변경으로 청구하면 픽업자가 그 버전을 재현할 수 없다(이 경우 차단 후 청구자와 조율).
-원장 writer는 `ledger-writer.mjs`(append-only, O_NOFOLLOW·1MB 상한)가 실파일 기록을 맡는다.
+청구 시 기록한 `contentHash`가 "이 티켓이 어느 계획 버전에 묶였나"다.
+
+#### 형상 규율 4점 (VCS 게이트)
+
+| # | 규율 | 메커니즘 | 모듈 |
+|---|---|---|---|
+| 1 | **청구는 origin에 푸시된 형상에만** | 로컬 feature-plan이 origin과 다르면(미커밋·미푸시) 청구 거부 | `claim-guard.computeClaimEligibility` + `git-origin.resolveOriginPlanSync`(git diff --quiet base) |
+| 2 | **현재 브랜치 청구분만 픽업** | 청구 시 원장에 `branch` 기록 → 픽업 시 현재 브랜치와 대조, 불일치 차단 | `sync-guard.evaluatePickupReadiness`(branch-mismatch) + 원장 `branch` 필드 |
+| 3 | **형상 다르면 청구 형상으로 정렬** | 원장 청구 해시 ≠ 로컬 해시면 `sync-required` — 청구 형상으로 pull | `reconcileClaimVersion` / `evaluatePickupReadiness`(sync-required) |
+| 4 | **정렬 시 컨플릭 해결 강제** | working-tree 컨플릭 감지 시 fail-closed 차단 — **하네스는 감지·차단만, 자동 해결 안 함**(개발자 git 작업) | `evaluatePickupReadiness`(conflicts-unresolved) + `git-origin.resolveWorkingState` |
+
+픽업 준비 게이트는 우선순위대로 판정한다: **브랜치(2) → 컨플릭(4) → 형상(3) → ready**. 실제 pull과
+컨플릭 해결은 개발자 git 작업이고, 하네스는 상태를 읽어 진입을 gate할 뿐이다(임의 시맨틱 컨플릭
+자동해결은 범위 밖 — 정직 경계). 원장 writer는 `ledger-writer.mjs`(append-only, O_NOFOLLOW·1MB
+상한)가 실파일 기록을 맡는다.
 
 **이미 청구된 것 처리 — 가용성 보드**(`buildAvailabilityBoard`): feature-plan 단위 + 원장(청구
 이력) + 이슈 배정을 합쳐 FEAT마다 상태를 매긴다 — `unclaimed`(아직) / `pickupable`(청구됨·미배정)

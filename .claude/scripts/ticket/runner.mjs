@@ -19,10 +19,11 @@ import {claimCapability, classifyGhError, permissionGuidance} from './permission
  * @param {{append: (record: any) => Promise<void>|void, find?: (featureId: string) => any}} args.ledger
  *   ledger.find는 원장의 기존 기록(있으면)을 반환 — **1차 멱등 가드**(동기·일관).
  * @param {string|null} [args.assignee]   미지정 시 미배정(혼자 개발/나중 분배)
+ * @param {string|null} [args.branch]     청구가 이뤄진 브랜치 — 원장에 기록(픽업 브랜치 대조, 점 2)
  * @param {() => string} [args.now]
  * @returns {Promise<{claimed: boolean, alreadyClaimed: boolean, issue: any, record?: any, specWarning: string[]|null}>}
  */
-export async function claimFeature({unit, provider, ledger, assignee = null, permission = null, repo = '', now = () => new Date().toISOString()}) {
+export async function claimFeature({unit, provider, ledger, assignee = null, branch = null, permission = null, repo = '', now = () => new Date().toISOString()}) {
   const featureId = unit.featureId
   if (typeof featureId !== 'string' || !/^FEAT-\d{3,}$/.test(featureId)) {
     throw new Error(`INVALID_FEATURE_ID: ${featureId}`)
@@ -70,6 +71,7 @@ export async function claimFeature({unit, provider, ledger, assignee = null, per
     contentHash: unitContentHash(unit),
     createdAt: now(),
     ...(assignee ? {assignee} : {}),
+    ...(branch ? {branch} : {}), // 픽업 시 브랜치 대조(점 2) — 미지정이면 생략(하위호환)
   }
   await ledger.append(record)
   return {

@@ -16,6 +16,8 @@ const FEAT_ID_ONE = /^FEAT-\d{3,}$/
  * @property {string} createdAt      ISO 시각
  * @property {string} [prUrl]        C(PR/status)가 채우는 PR 링크 — 없으면 미연결
  * @property {boolean} [closed]      units에서 사라져 닫힌 티켓
+ * @property {string} [assignee]     청구 시 배정자(있으면)
+ * @property {string} [branch]       청구가 이뤄진 브랜치 — 픽업 시 브랜치 대조(점 2). 하위호환 위해 선택
  */
 
 /**
