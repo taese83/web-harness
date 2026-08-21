@@ -56,7 +56,7 @@ pnpm run ci
 
 A green run verifies:
 
-- 31 skills <!-- inventory:skills -->
+- 32 skills <!-- inventory:skills -->
 - 99 agents <!-- inventory:agents -->
 - 3 built-in profiles: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — all
   `compatible`. The `certified` label is machine-bound to isolated-CI evidence
