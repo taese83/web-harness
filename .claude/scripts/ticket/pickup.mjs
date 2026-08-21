@@ -103,11 +103,31 @@ export function isChangeScopeStale(changeScope, currentUnit) {
 }
 
 /**
- * 픽업 오케스트레이션(순수): 이슈(resolve된 값) + feature-plan → change-scope 또는 되돌림.
- * @param {Object} args {issue: {title, body, number/ticketKey}, planUnits, allowedPathsSeed?, preserve?, requestType?}
- * @returns {{ok: boolean, changeScope?: Object, bounce?: {reason: string, unmatchedTcs?: string[]}, injection: {injectionSuspect: boolean, markers: string[]}}}
+ * **청구 버전 ↔ 픽업자 로컬 버전 대조**(순수). STALE의 사각지대를 닫는다: 청구자가 자기 로컬
+ * 기획 변경(NEW)으로 청구했는데(원장 contentHash=NEW) 픽업자 로컬은 OLD면, 픽업자는 청구가
+ * 참조한 레퍼런스가 없는 채 개발하게 된다. 원장에 기록된 "청구 시점 계획 버전"(record.contentHash)을
+ * 픽업자의 현재 로컬 단위 해시와 대조해 이 어긋남을 잡는다.
+ *  - 'no-claim'          : 원장 청구 기록 없음(맨몸 티켓 등) — 대조 불가
+ *  - 'in-sync'           : 로컬 버전 = 청구 버전 — 안전
+ *  - 'plan-out-of-sync'  : 로컬 버전 ≠ 청구 버전 — 픽업자 레퍼런스가 청구와 불일치(개발 차단)
+ * @param {{ledgerRecord: {contentHash?: string}|null, currentUnit: Object|null}} args
+ * @returns {{status: string, claimedHash: string|null, localHash: string|null}}
  */
-export function pickupTicket({issue, planUnits, allowedPathsSeed = [], preserve = [], requestType = 'feature'}) {
+export function reconcileClaimVersion({ledgerRecord, currentUnit}) {
+  const claimedHash = ledgerRecord?.contentHash ?? null
+  const localHash = currentUnit ? unitContentHash(currentUnit) : null
+  if (!claimedHash) return {status: 'no-claim', claimedHash: null, localHash}
+  if (!currentUnit) return {status: 'plan-out-of-sync', claimedHash, localHash: null}
+  return {status: claimedHash === localHash ? 'in-sync' : 'plan-out-of-sync', claimedHash, localHash}
+}
+
+/**
+ * 픽업 오케스트레이션(순수): 이슈(resolve된 값) + feature-plan → change-scope 또는 되돌림.
+ * ledgerRecord를 주면 청구 버전↔로컬 버전을 대조해 픽업자 레퍼런스 불일치를 차단한다(선택).
+ * @param {Object} args {issue, planUnits, ledgerRecord?, allowedPathsSeed?, preserve?, requestType?}
+ * @returns {{ok: boolean, changeScope?: Object, bounce?: {reason: string, unmatchedTcs?: string[], claimedHash?: string, localHash?: string}, injection: {injectionSuspect: boolean, markers: string[]}}}
+ */
+export function pickupTicket({issue, planUnits, ledgerRecord = null, allowedPathsSeed = [], preserve = [], requestType = 'feature'}) {
   const injection = scanUntrustedBody(issue?.body)
   if (injection.injectionSuspect) {
     // 인젝션 의심 본문 → 사람 확인 전까지 개발 진입 fail-closed 차단(release-blocking 실현).
@@ -119,6 +139,12 @@ export function pickupTicket({issue, planUnits, allowedPathsSeed = [], preserve 
   if (rec.status !== 'clean') {
     // 스펙-불완전/미지 FEAT → feature-planner 되돌림. 개발 진입 차단(TC 발명 금지).
     return {ok: false, bounce: {reason: rec.status, unmatchedTcs: rec.unmatchedTcs}, injection}
+  }
+  // 청구 버전 대조 — 픽업자 로컬 계획이 청구가 묶인 버전과 다르면 레퍼런스 불일치로 차단.
+  // (원장 없으면 대조 생략 — 맨몸 티켓/원장 미배선 경로.)
+  const version = reconcileClaimVersion({ledgerRecord, currentUnit: rec.unit})
+  if (version.status === 'plan-out-of-sync') {
+    return {ok: false, bounce: {reason: 'plan-out-of-sync', claimedHash: version.claimedHash, localHash: version.localHash}, injection}
   }
   const changeScope = buildChangeScope({issue, unit: rec.unit, testCaseIds: rec.testCaseIds, allowedPathsSeed, preserve, requestType})
   return {ok: true, changeScope, injection}

@@ -39,10 +39,10 @@ export function computeAssignmentPlan({issue, developer}) {
  * 청구자와 픽업자가 다른 경우를 정면으로 다룬다 — 남이 발행한 이슈라도, 미배정이면 이 개발자가
  * 가져가고(self-assign 필요), 남이 이미 가져갔으면 차단(중복 개발 방지). 소유권이 정리된 뒤에야
  * pickupTicket으로 넘어간다(비신뢰 본문 스캔·계획 대조는 그쪽 몫).
- * @param {Object} args {issue, developer, planUnits, allowedPathsSeed?, preserve?, requestType?}
+ * @param {Object} args {issue, developer, planUnits, ledgerRecord?, allowedPathsSeed?, preserve?, requestType?}
  * @returns {{ok: boolean, changeScope?: Object, bounce?: {reason: string, by?: string[]}, assignment: Object, injection?: Object}}
  */
-export function pickupWithOwnership({issue, developer, planUnits, allowedPathsSeed = [], preserve = [], requestType = 'feature'}) {
+export function pickupWithOwnership({issue, developer, planUnits, ledgerRecord = null, allowedPathsSeed = [], preserve = [], requestType = 'feature'}) {
   const assignment = computeAssignmentPlan({issue, developer})
   if (assignment.status === 'taken') {
     return {ok: false, bounce: {reason: 'assigned-to-other', by: assignment.by}, assignment}
@@ -51,7 +51,8 @@ export function pickupWithOwnership({issue, developer, planUnits, allowedPathsSe
     return {ok: false, bounce: {reason: 'no-developer'}, assignment}
   }
   // 소유권 확보(assignable=self-assign 필요, already-mine=멱등) → change-scope 파생.
-  const pick = pickupTicket({issue, planUnits, allowedPathsSeed, preserve, requestType})
+  // ledgerRecord를 넘겨 청구 버전↔픽업자 로컬 버전 대조까지(레퍼런스 불일치 차단).
+  const pick = pickupTicket({issue, planUnits, ledgerRecord, allowedPathsSeed, preserve, requestType})
   return {...pick, assignment}
 }
 

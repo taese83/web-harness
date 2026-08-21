@@ -7,9 +7,9 @@
 // change-scope·아니면 되돌림, (6) 왕복 마커 이슈로 end-to-end.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {scanUntrustedBody, reconcileWithPlan, buildChangeScope, isChangeScopeStale, pickupTicket} from './ticket/pickup.mjs'
+import {scanUntrustedBody, reconcileWithPlan, buildChangeScope, isChangeScopeStale, reconcileClaimVersion, pickupTicket} from './ticket/pickup.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
-import {buildTicketDraft} from './ticket/emit.mjs'
+import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
 
 const planUnit = {featureId: 'FEAT-007', title: '모터 상세', body: '모터 선택 시 상세 표시', testCaseIds: ['TC-007-1', 'TC-007-2'], type: 'feature'}
 // 왕복 마커가 든 실제 이슈 본문(emit이 만든 형식)
@@ -54,6 +54,31 @@ test('isChangeScopeStale: 상류 기획 변경(단위 변경·삭제) 감지', (
   assert.equal(isChangeScopeStale(cs, planUnit), false) // 무변경 → not stale
   assert.equal(isChangeScopeStale(cs, {...planUnit, body: '동작 명세 변경됨'}), true) // 스펙 변경 → STALE
   assert.equal(isChangeScopeStale(cs, null), true) // FEAT 삭제 → STALE
+})
+
+test('reconcileClaimVersion: 청구 버전 ↔ 로컬 버전 대조', () => {
+  const claimed = {contentHash: unitContentHash(planUnit)}
+  assert.equal(reconcileClaimVersion({ledgerRecord: claimed, currentUnit: planUnit}).status, 'in-sync')
+  // 픽업자 로컬이 OLD(청구는 NEW) → 레퍼런스 불일치
+  assert.equal(reconcileClaimVersion({ledgerRecord: claimed, currentUnit: {...planUnit, body: 'OLD 명세'}}).status, 'plan-out-of-sync')
+  // FEAT 로컬에 없음 → out-of-sync
+  assert.equal(reconcileClaimVersion({ledgerRecord: claimed, currentUnit: null}).status, 'plan-out-of-sync')
+  // 원장 기록 없음(맨몸) → 대조 불가
+  assert.equal(reconcileClaimVersion({ledgerRecord: null, currentUnit: planUnit}).status, 'no-claim')
+})
+
+test('pickupTicket: 청구 버전과 로컬 계획 버전이 다르면 plan-out-of-sync 차단', () => {
+  // 청구는 NEW(planUnit)로 묶였는데 픽업자 로컬 계획은 OLD → 개발 진입 차단(레퍼런스 없음)
+  const claimedNew = {contentHash: unitContentHash(planUnit)}
+  const localOld = {...planUnit, body: '픽업자 로컬은 옛 명세'}
+  const res = pickupTicket({issue, planUnits: [localOld], ledgerRecord: claimedNew, allowedPathsSeed: ['src/features/motor/']})
+  assert.equal(res.ok, false)
+  assert.equal(res.bounce.reason, 'plan-out-of-sync')
+  assert.equal(res.bounce.claimedHash, unitContentHash(planUnit))
+  assert.equal(res.bounce.localHash, unitContentHash(localOld))
+  // 버전 일치면 통과
+  const ok = pickupTicket({issue, planUnits: [planUnit], ledgerRecord: claimedNew, allowedPathsSeed: ['src/features/motor/']})
+  assert.equal(ok.ok, true)
 })
 
 test('pickupTicket: clean이면 change-scope, 아니면 되돌림', () => {
