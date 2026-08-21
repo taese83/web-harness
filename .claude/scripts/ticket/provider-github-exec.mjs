@@ -4,6 +4,7 @@
 // 선택 행위) 뒤 runner.claimFeature가 이 provider를 주입받아 쓴다.
 import {spawn} from 'node:child_process'
 import {featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl} from './provider-github.mjs'
+import {parseViewerPermission} from './permissions.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
 function gh(args, {host = 'github.com', timeoutMs = 30000} = {}) {
@@ -47,6 +48,22 @@ export function createGithubProvider({repo, host = 'github.com'}) {
       if (!created) throw new Error(`이슈 생성 출력에서 URL을 못 찾음: ${out.trim().slice(-200)}`)
       return created
     },
+  }
+}
+
+/**
+ * 개발자의 repo 권한 등급을 gh로 조회한다(read-only, side-effect). runner의 permission
+ * pre-check 입력. 404/403(미접근)이면 'read'로 보수 판정(least-privilege).
+ * @param {{repo: string, host?: string}} config
+ * @returns {Promise<'write'|'triage'|'read'>}
+ */
+export async function resolveViewerPermission({repo, host = 'github.com'}) {
+  if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
+  try {
+    const out = await gh(['repo', 'view', repo, '--json', 'viewerPermission'], {host})
+    return parseViewerPermission(out)
+  } catch {
+    return 'read' // 조회 실패(미접근 등) → 보수적으로 최소 권한 가정
   }
 }
 

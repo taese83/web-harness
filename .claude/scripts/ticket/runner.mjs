@@ -7,6 +7,7 @@
 // 검사한다 — findByLabel→createIssue 사이 잔여 race는 라벨로 사후 감지·dedup 가능(후속).
 import {buildTicketDraft, unitContentHash} from './emit.mjs'
 import {buildIssueFields, featLabel} from './provider-github.mjs'
+import {claimCapability, classifyGhError, permissionGuidance} from './permissions.mjs'
 
 /**
  * 개발자가 선택한 FEAT 단위를 청구한다: 기존 이슈 확인 → 없으면 발행(assignee=청구자) →
@@ -21,10 +22,20 @@ import {buildIssueFields, featLabel} from './provider-github.mjs'
  * @param {() => string} [args.now]
  * @returns {Promise<{claimed: boolean, alreadyClaimed: boolean, issue: any, record?: any, specWarning: string[]|null}>}
  */
-export async function claimFeature({unit, provider, ledger, assignee = null, now = () => new Date().toISOString()}) {
+export async function claimFeature({unit, provider, ledger, assignee = null, permission = null, repo = '', now = () => new Date().toISOString()}) {
   const featureId = unit.featureId
   if (typeof featureId !== 'string' || !/^FEAT-\d{3,}$/.test(featureId)) {
     throw new Error(`INVALID_FEATURE_ID: ${featureId}`)
+  }
+  // 0. 권한 pre-check(등급이 주어지면). lazy-claim은 이슈 쓰기가 필요하므로, 쓰기 불가
+  //    등급이면 시도조차 하지 않고 맞는 모델·안내로 라우팅한다(실패 API 호출 회피, 친절한
+  //    안내). 등급 미제공이면 기존처럼 시도(하위 호환).
+  if (permission) {
+    const cap = claimCapability(permission)
+    if (!cap.canCreateIssue) {
+      return {claimed: false, alreadyClaimed: false, blocked: true, reason: 'insufficient-permission',
+        model: cap.model, guidance: permissionGuidance(permission, repo), issue: null, specWarning: null}
+    }
   }
   // 1. 청구 경쟁 — **로컬 원장이 1차 가드**다. 트래커(`findByLabel`)는 GitHub 색인 지연으로
   //    직전 생성 이슈를 못 보는 실측 갭이 있어(2026-08-21 라이브), 신뢰할 멱등 가드가 아니다.
@@ -39,8 +50,19 @@ export async function claimFeature({unit, provider, ledger, assignee = null, now
   //    않고 pickup(단계 5)이 되돌림을 결정한다(스펙 상류 규율).
   const draft = buildTicketDraft(unit)
   const fields = buildIssueFields(draft, {assignee})
-  // 3. 발행(side-effect via provider)
-  const issue = await provider.createIssue(fields)
+  // 3. 발행(side-effect via provider). 권한 감지를 pre-check로 못 한 경우(등급 미제공)의
+  //    reactive 안전망: gh 오류를 분류해 권한/미접근이면 친절한 결과로 전환, 그 외는 loud.
+  let issue
+  try {
+    issue = await provider.createIssue(fields)
+  } catch (error) {
+    const classified = classifyGhError(error?.message)
+    if (classified.kind === 'forbidden' || classified.kind === 'not-found' || classified.kind === 'auth') {
+      return {claimed: false, alreadyClaimed: false, blocked: true, reason: classified.kind,
+        guidance: `${classified.hint} (${repo || '대상 repo'})`, issue: null, specWarning: null}
+    }
+    throw error // 미지 오류는 loud-fail 유지
+  }
   // 4. 원장 append(왕복 정본, side-effect via ledger). ticketKey = 이슈 번호/키.
   const record = {
     featureId,
