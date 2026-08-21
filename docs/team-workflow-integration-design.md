@@ -152,7 +152,7 @@ TicketProvider {                              // Jira / GitHub / Linear / Manual
 | 비신뢰 본문 (B) | `untrusted-content-quarantine` + `INJECTION_SUSPECT` |
 | 티켓 타입 분류 (B) | `request-type-contract` |
 | 목표 산출 (B) | `minimal-change-contract` (change-scope) |
-| 재발행 멱등 (A) | `validate-plan-delta` stable-ID |
+| 재발행 멱등 (A) | `validate-plan-delta`와 **같은 사상, 별개 구현**(콘텐츠-해시 diff — §A 각주) |
 | 스펙-불완전 되돌림 (B) | feature-planner 재진입 |
 | 증거 (C) | QA receipt · same-TC-ID 검증(콘솔 QA 탭) |
 
@@ -183,8 +183,11 @@ FEAT-007 청구를 GitHub Issues에 실제 발행하며 두 실버그를 잡아 
    라벨이 사후 중복 감지·dedup의 기계 키가 된다. 이는 설계 §A "트래커가 권위"를 정밀화한다 —
    트래커는 크로스-머신 *가시성*의 권위이나, *멱등*의 신뢰 가드는 원장이다.
 
-미해결(다음 증분): 닫힌 이슈의 재청구 의미(done=재생성 금지 vs abandoned=재청구 허용 —
-findByLabel의 `--state` 선택), 크로스-머신 잔여 race의 사후 dedup sweep.
+현재 기본 결정(정직 표기 — 코드가 이미 배선함): findByLabel은 `--state all`이라(provider-github-exec.mjs)
+**닫힌 이슈도 '이미 청구됨'으로 처리** → 닫힌 FEAT는 재청구 영구 차단(과다 보수, 안전 방향).
+미해결(다음 증분): 이 기본을 유지할지 vs `--state open`으로 바꿔 abandoned(닫힘·미머지) 재청구를
+허용할지 — done(머지 완료)과 abandoned를 구분하려면 PR 링크·머지 상태를 봐야 한다. 크로스-머신
+잔여 race의 사후 dedup sweep도 미해결.
 
 ## 정직한 한계 / 미해결
 

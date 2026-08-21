@@ -24,26 +24,32 @@ function gh(args, {host = 'github.com', timeoutMs = 30000} = {}) {
   })
 }
 
+// --- 순수 argv 빌더 (회귀 테스트 대상 — 실 gh 없이 인자 구조를 고정) ---
+export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url', '--limit', '1']
+export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
+export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
+export const permissionArgs = repo => ['repo', 'view', repo, '--json', 'viewerPermission']
+
 /**
  * runner에 주입할 GitHub provider(실행부). findByLabel/createIssue를 gh로 구현.
- * @param {{repo: string, host?: string}} config  repo = "owner/name"
+ * exec는 argv→stdout Promise — 기본은 실제 gh spawn, 테스트는 mock을 주입해 side-effect
+ * 없이 argv·순서·오류 경로를 검증한다(회귀 커버리지, 리뷰 조건).
+ * @param {{repo: string, host?: string, exec?: (args: string[]) => Promise<string>}} config
  */
-export function createGithubProvider({repo, host = 'github.com'}) {
+export function createGithubProvider({repo, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
+  const run = exec ?? (args => gh(args, {host}))
   return {
     // FEAT 고유 라벨로 기존 이슈 조회(청구 경쟁 검사) — 있으면 첫 이슈, 없으면 null.
     async findByLabel(label) {
-      const out = await gh(['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url', '--limit', '1'], {host})
-      return parseIssueListJson(out)[0] ?? null
+      return parseIssueListJson(await run(listArgs(repo, label)))[0] ?? null
     },
     // 이슈 생성 — GitHub은 --label로 붙이려면 라벨이 먼저 존재해야 하므로(라이브 실측:
-    // "could not add label: not found"), 각 라벨을 발행 전에 보장한다. --force는 이미
-    // 있으면 갱신(멱등). 그 뒤 이슈 생성, 출력 URL에서 번호 파싱해 반환.
+    // "could not add label: not found"), 각 라벨을 발행 *전에* 보장한다(--force=멱등).
+    // 그 뒤 이슈 생성, 출력 URL에서 번호 파싱해 반환.
     async createIssue(fields) {
-      for (const label of fields.labels) {
-        await gh(['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force'], {host})
-      }
-      const out = await gh([...ghCreateArgs(fields), '--repo', repo], {host})
+      for (const label of fields.labels) await run(labelEnsureArgs(repo, label))
+      const out = await run(createArgs(repo, fields))
       const created = parseCreatedIssueUrl(out)
       if (!created) throw new Error(`이슈 생성 출력에서 URL을 못 찾음: ${out.trim().slice(-200)}`)
       return created
@@ -57,13 +63,13 @@ export function createGithubProvider({repo, host = 'github.com'}) {
  * @param {{repo: string, host?: string}} config
  * @returns {Promise<'write'|'triage'|'read'>}
  */
-export async function resolveViewerPermission({repo, host = 'github.com'}) {
+export async function resolveViewerPermission({repo, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
+  const run = exec ?? (args => gh(args, {host}))
   try {
-    const out = await gh(['repo', 'view', repo, '--json', 'viewerPermission'], {host})
-    return parseViewerPermission(out)
+    return parseViewerPermission(await run(permissionArgs(repo)))
   } catch {
-    return 'read' // 조회 실패(미접근 등) → 보수적으로 최소 권한 가정
+    return 'read' // 조회 실패(미접근·gh 환경 오류 등) → 보수적으로 최소 권한 가정
   }
 }
 
