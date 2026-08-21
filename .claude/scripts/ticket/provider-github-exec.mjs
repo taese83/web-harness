@@ -38,6 +38,8 @@ export const prCreateArgs = (repo, {title, body, base, head}) => {
   return args
 }
 export const issueCommentArgs = (repo, number, body) => ['issue', 'comment', String(number), '--repo', repo, '--body', body]
+// 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
+export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
 
 /**
  * runner에 주입할 GitHub provider(실행부). findByLabel/createIssue를 gh로 구현.

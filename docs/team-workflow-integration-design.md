@@ -58,6 +58,26 @@ TicketProvider {                              // Jira / GitHub / Linear / Manual
 트래커가 아니라 이 원장이 왕복의 정본이다 — harness의 기존 원장(`.plan-snapshots.jsonl` 등)과
 같은 관용구. A(생성)·C(PR 링크)가 여기 기록하고, B(픽업)가 여기서 ID를 복원한다.
 
+### 3. 청구 ≠ 픽업 (두 동사 분리)
+
+**청구자와 픽업자는 다를 수 있다.** 두 개를 별개 동사로 나눈다(`assign.mjs`):
+
+| | **청구/발행** | **픽업/착수** |
+|---|---|---|
+| 무엇 | 이슈를 *존재*하게 함 | 개발 *소유권*을 가져감 |
+| 누가 | **누구든** — lead 일괄 발행(`computeEmitPlan`) / dev lazy-claim(`claimFeature`) | **개발자** — 미배정 이슈 self-assign |
+| side-effect | `gh issue create` | `gh issue edit --add-assignee @me` |
+| 가드 | featLabel dedup + 원장(중복 발행 금지) | **남의 것 훔치기 금지**(`computeAssignmentPlan`: taken→차단) |
+
+lazy-claim은 이 둘을 한 사람·한 순간으로 뭉친 **한 모드**일 뿐이다. lead가 미리 전부 발행해두면
+개발자는 픽업 시점에 소유권만 가져간다(`pickupWithOwnership`: 소유권 게이트 통과 후에만
+change-scope 파생 — taken이면 중복 개발 차단).
+
+**이미 청구된 것 처리 — 가용성 보드**(`buildAvailabilityBoard`): feature-plan 단위 + 원장(청구
+이력) + 이슈 배정을 합쳐 FEAT마다 상태를 매긴다 — `unclaimed`(아직) / `pickupable`(청구됨·미배정)
+/ `mine`(내 배정) / `in-progress`(남이 진행). 각 행에 `stale`(원장 청구 시점 대비 계획 변경)도
+실어, 이미 청구된 것이 상류 변경으로 낡았는지 표시한다. gh 조회는 실행부가 하고 보드 판정은 순수.
+
 ---
 
 ## A · 아웃바운드 emit (feature-plan → 티켓)
