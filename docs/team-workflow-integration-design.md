@@ -73,6 +73,12 @@ lazy-claim은 이 둘을 한 사람·한 순간으로 뭉친 **한 모드**일 �
 개발자는 픽업 시점에 소유권만 가져간다(`pickupWithOwnership`: 소유권 게이트 통과 후에만
 change-scope 파생 — taken이면 중복 개발 차단).
 
+**정직한 한계(TOCTOU)**: `computeAssignmentPlan`은 순수 함수라 **순차** 경합(이미-taken)만
+차단한다. 두 개발자가 *동시에* 미배정 이슈를 읽으면 둘 다 `assignable`을 받고, `gh issue edit
+--add-assignee`는 additive라 다중 배정이 남을 수 있다 — 발행 경합의 원장-우선 가드와 같은
+클래스다. **동시 경합 차단은 실행부 배선의 몫**: assign 직전 재조회+재판정, 사후 다중배정 감지로
+완화한다(`protected-core.md §4` 등록, 실행부 커밋 이전 조건).
+
 **이미 청구된 것 처리 — 가용성 보드**(`buildAvailabilityBoard`): feature-plan 단위 + 원장(청구
 이력) + 이슈 배정을 합쳐 FEAT마다 상태를 매긴다 — `unclaimed`(아직) / `pickupable`(청구됨·미배정)
 / `mine`(내 배정) / `in-progress`(남이 진행). 각 행에 `stale`(원장 청구 시점 대비 계획 변경)도

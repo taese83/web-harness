@@ -15,6 +15,13 @@ import {unitContentHash} from './emit.mjs'
  *  - 'already-mine': 이미 내가 배정 → 멱등(재픽업 안전, 재배정 불필요)
  *  - 'taken'       : 남이 배정 → **차단**(훔치지 않음 — 명시적 재배정/핸드오프는 별개 행위)
  *  - 'no-developer': 개발자 식별자 없음 → 판정 불가
+ *
+ * **한계(TOCTOU, 리뷰 지적 2026-08-21)**: 이 순수 함수는 호출 시점 스냅샷(issue.assignees)만
+ * 본다. 두 개발자가 *동시에* 같은 미배정 이슈를 읽으면 둘 다 'assignable'을 받고, 실행부
+ * assignArgs(`gh issue edit --add-assignee`)는 additive(compare-and-swap 아님)라 둘 다 성공해
+ * 다중 배정이 남을 수 있다. 순차(이미-taken) 케이스만 차단하며 동시 경합은 **이 코어가 막지
+ * 못한다** — 실행부 배선이 assign 직전 재조회+재판정, 사후 다중배정 감지로 완화해야 한다
+ * (protected-core.md §4 등록). claim-race(발행 경합)의 원장-우선 가드와 같은 클래스다.
  * @param {{issue: {assignees?: string[]}, developer: string}} args
  * @returns {{status: string, action: 'self-assign'|'none'|'blocked'|null, developer?: string, by?: string[]}}
  */
