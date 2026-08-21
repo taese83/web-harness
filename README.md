@@ -3,9 +3,9 @@
 A control plane for building web applications with Claude Code — planning → design →
 implementation → QA → handoff, driven by skills and subagents.
 
-> 한국어 문서는 [README.ko.md](README.ko.md)를 참고하세요. (The full Korean documentation is
-> the older and currently more detailed version; English docs are being migrated
-> progressively — see [Documentation language](#documentation-language).)
+> 한국어 문서는 [README.ko.md](README.ko.md)를 참고하세요. (A Korean translation kept in sync
+> with this README; contract bodies are still being migrated — see
+> [Documentation language](#documentation-language).)
 
 ## What this actually is
 
@@ -207,7 +207,7 @@ Done so far:
    the gates would have gone quiet while CI stayed green. They now accept Korean, English,
    and a neutral `<!-- always-read -->` anchor, and a missing marker where the baseline
    expects one is a failure rather than a silent pass.
-2. **This README** — the Korean original is preserved at [README.ko.md](README.ko.md).
+2. **This README** — a Korean translation kept in sync at [README.ko.md](README.ko.md).
 
 Not done, and not a simple translation job:
 
