@@ -232,4 +232,5 @@ when auditing or customizing an agent.
 - [docs/protected-core.md](docs/protected-core.md) — invariants I1–I6 and the proxy registry
 - [docs/brownfield-adoption.md](docs/brownfield-adoption.md) — adopting into an existing codebase
 - [docs/competitive-landscape.md](docs/competitive-landscape.md) — where this sits in the 2026 tool landscape, and what actually distinguishes it
+- [docs/field-guide-gap.md](docs/field-guide-gap.md) — ten agentic-engineering patterns checked against this codebase, with per-item evidence
 - [CLAUDE.md](CLAUDE.md) — the judgment gate applied to changes in this repository
