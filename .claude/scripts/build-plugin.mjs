@@ -268,7 +268,21 @@ In Claude Code:
 /plugin install ${PLUGIN_NAME}@web-harness-marketplace
 \`\`\`
 
-Then use \`/${PLUGIN_NAME}:web-orchestrator\`, \`/${PLUGIN_NAME}:web-plan\`, \`/${PLUGIN_NAME}:web-console\`, and more from any project directory. The local Console (port 4310) and isolated preview (4311) are started against the current project by the \`web-harness-console\` executable.
+The local Console (port 4310) and isolated preview (4311) are started against the current project by the \`web-harness-console\` executable.
+
+## Entry-point commands
+
+These are the commands you invoke directly. Everything else this plugin ships is an **internal building block** that the orchestrators call for you (Phase steps, companion setups, AI submodes) — they appear in the \`/${PLUGIN_NAME}:\` list but are not meant to be run standalone.
+
+| Command | Use it to |
+|---|---|
+| \`/${PLUGIN_NAME}:web-orchestrator\` | Build a complete web app from a description (plan → design → dev → QA). The master entry. |
+| \`/${PLUGIN_NAME}:web-plan\` | Produce or refine the plan only (planning facilitation + readiness review). |
+| \`/${PLUGIN_NAME}:feature-add\` | Add one feature to a finished project (scoped plan → design → dev → QA loop). |
+| \`/${PLUGIN_NAME}:team-flow\` | Ticket-based team development — batch-claim a plan into GitHub Issues on a feature branch, pick up tickets into evidence PRs. |
+| \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff. |
+| \`/${PLUGIN_NAME}:web-console\` | Open the approval-gated local Console for the current project. |
+| \`/${PLUGIN_NAME}:project-init\` | Scaffold an empty project skeleton only (no planning/QA gates). |
 
 First app, cost expectations, and the brownfield path: see the [quickstart](${PLUGIN_REPO_URL}/blob/main/docs/quickstart.md).
 
