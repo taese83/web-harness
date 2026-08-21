@@ -26,6 +26,7 @@ function gh(args, {host = 'github.com', timeoutMs = 30000} = {}) {
 
 // --- 순수 argv 빌더 (회귀 테스트 대상 — 실 gh 없이 인자 구조를 고정) ---
 export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url', '--limit', '1']
+export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees']
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 export const permissionArgs = repo => ['repo', 'view', repo, '--json', 'viewerPermission']
@@ -54,6 +55,25 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       if (!created) throw new Error(`이슈 생성 출력에서 URL을 못 찾음: ${out.trim().slice(-200)}`)
       return created
     },
+  }
+}
+
+/**
+ * 이슈를 조회해 pickup 입력 형태로 반환한다(read-only, side-effect). 순수 파싱은 caller가
+ * pickup.mjs로 처리 — 여기서는 gh json을 그대로 넘긴다.
+ * @param {{repo: string, number: number|string, host?: string, exec?: (args: string[]) => Promise<string>}} config
+ * @returns {Promise<{number: number, title: string, body: string, labels: string[], assignees: string[]}>}
+ */
+export async function resolveIssue({repo, number, host = 'github.com', exec = null}) {
+  if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
+  const run = exec ?? (args => gh(args, {host}))
+  const parsed = JSON.parse(await run(viewArgs(repo, number)))
+  return {
+    number: parsed.number,
+    title: parsed.title ?? '',
+    body: parsed.body ?? '',
+    labels: (parsed.labels ?? []).map(l => l.name),
+    assignees: (parsed.assignees ?? []).map(a => a.login),
   }
 }
 
