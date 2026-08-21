@@ -7,14 +7,13 @@
 // 몫이며, 여기서는 실행하지 않는다(child_process import 없음). runner는 아래 buildIssueFields의
 // 결과로 `gh issue create`를 구성하고, listExistingIssues의 결과로 claim 경쟁을 검사한다.
 
-const FEAT_ID = /\bFEAT-\d{3,}\b/g
-const TC_ID = /\bTC-\d{3,}-\d+\b/g
+import {buildRefsMarker, parseIssueRefs} from './refs.mjs'
+
 const unique = values => [...new Set(values)]
 
-// 하네스↔이슈 왕복 마커 — 이슈 본문에 스탬프하고 pickup이 되읽는다. 사람 눈에도 보이되
-// 기계 파싱이 안정적이도록 고정 구획.
-const MARKER_BEGIN = '<!-- web-harness:refs'
-const MARKER_END = '-->'
+// 왕복 마커(빌드/파싱)는 트래커 무관 모듈 refs.mjs 소유다(I3 — provider 인터페이스 뒤
+// 격리). 이 파일은 그것을 소비만 한다. parseIssueRefs는 하위 호환으로 재노출한다.
+export {parseIssueRefs}
 
 // FEAT당 고유 라벨 — claim 경쟁 검사·중복 감지의 기계 키(gh issue list --label 로 조회).
 export const featLabel = featureId => `feat:${featureId}`
@@ -30,7 +29,7 @@ export function buildIssueFields(draft, options = {}) {
   const featureIds = draft.harnessRefs?.featureIds ?? (draft.sourceKey ? [draft.sourceKey] : [])
   const testCaseIds = draft.harnessRefs?.testCaseIds ?? []
   const acLines = (draft.acceptanceCriteria ?? []).map(ac => `- [ ] ${ac}`).join('\n')
-  const refsMarker = `${MARKER_BEGIN} feat=${featureIds.join(',')} tc=${testCaseIds.join(',')} ${MARKER_END}`
+  const refsMarker = buildRefsMarker(featureIds, testCaseIds)
   const body = [
     draft.body ?? '',
     '',
@@ -45,24 +44,6 @@ export function buildIssueFields(draft, options = {}) {
     body,
     labels,
     assignee: options.assignee ?? null,
-  }
-}
-
-/**
- * 이슈 본문의 왕복 마커에서 하네스 refs를 되읽는다(pickup 인바운드). 순수.
- * 마커가 없으면 본문 전체에서 형식 엄격 스캔으로 폴백(사람이 맨몸으로 만든 이슈 대응).
- * @param {string} body
- * @returns {{featureIds: string[], testCaseIds: string[]}}
- */
-export function parseIssueRefs(body) {
-  if (typeof body !== 'string') return {featureIds: [], testCaseIds: []}
-  const markerStart = body.indexOf(MARKER_BEGIN)
-  const scope = markerStart >= 0
-    ? body.slice(markerStart, body.indexOf(MARKER_END, markerStart) + MARKER_END.length)
-    : body
-  return {
-    featureIds: unique(scope.match(FEAT_ID) ?? []),
-    testCaseIds: unique(scope.match(TC_ID) ?? []),
   }
 }
 
