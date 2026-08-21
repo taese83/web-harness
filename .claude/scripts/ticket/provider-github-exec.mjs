@@ -30,6 +30,14 @@ export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--r
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 export const permissionArgs = repo => ['repo', 'view', repo, '--json', 'viewerPermission']
+// C(아웃바운드) 실행부 argv — 실제 실행은 confirm/권한 게이트 뒤 caller 몫.
+export const prCreateArgs = (repo, {title, body, base, head}) => {
+  const args = ['pr', 'create', '--repo', repo, '--title', title, '--body', body]
+  if (base) args.push('--base', base)
+  if (head) args.push('--head', head)
+  return args
+}
+export const issueCommentArgs = (repo, number, body) => ['issue', 'comment', String(number), '--repo', repo, '--body', body]
 
 /**
  * runner에 주입할 GitHub provider(실행부). findByLabel/createIssue를 gh로 구현.
