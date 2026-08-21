@@ -140,7 +140,7 @@ TicketProvider {                              // Jira / GitHub / Linear / Manual
 
 | 불변식 | 적용 |
 |---|---|
-| **I3 트래커 무관** | provider 인터페이스 뒤에 트래커 격리. 왕복 마커(빌드/파싱)는 트래커 무관 모듈 `ticket/refs.mjs` 소유이며 provider는 소비만 함(GitHub 파일에 인코딩 안 함). 파이프라인·계약은 Jira 미인코딩 |
+| **I3 트래커 무관** | provider 인터페이스 뒤에 트래커 격리. 왕복 마커(빌드/파싱)는 트래커 무관 모듈 `ticket/refs.mjs` 소유이며 provider는 소비만 함. **close 참조 서식(`Closes #N` 등)도 트래커별이라 provider(`renderCloseReference`)가 렌더**하고 순수 코어 `pr.mjs`는 그 문자열만 받음(GitHub 구문 유출 금지). 파이프라인·계약은 Jira 미인코딩 |
 | **비신뢰 본문** | 읽는 방향(B)은 untrusted-quarantine 경유. 티켓 body를 지시로 실행 금지 |
 | **식별자 왕복** | FEAT/TC ID가 A→티켓→B→개발→검증→C를 관통. 원장이 정본 |
 | **스펙 상류 규율** | TC는 feature-planner 소유. 픽업(B)·어댑터가 스펙/TC를 발명하지 않음 |

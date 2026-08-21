@@ -48,6 +48,27 @@ export function buildIssueFields(draft, options = {}) {
 }
 
 /**
+ * computeCloseLink 결과(트래커 무관)를 **GitHub 서식** PR 본문 줄로 렌더한다. 순수.
+ * close/relate 키워드는 GitHub 전용이므로 이 provider 파일이 소유한다(I3 — 순수 코어 pr.mjs에
+ * 유출 금지). 안전 하한(I6):
+ *  - verified(원장 소유 확인) → `Closes #N`(머지 시 자동 닫힘 허용)
+ *  - unverified(원장 미기록)  → `Relates to #N` non-closing 참조 + **가시** 경고(자동 닫힘 안 함)
+ *  - mismatch(CLOSE_TARGET_MISMATCH) → 링크 생략 + 가시 사유(침묵 fail-closed 방지)
+ * @param {{ok: boolean, closes?: string, verified?: boolean, error?: string, warning?: string}} closeLink
+ * @returns {string|null}  PR 본문에 넣을 줄(없으면 null)
+ */
+export function renderCloseReference(closeLink) {
+  if (!closeLink?.ok) {
+    if (closeLink?.error === 'CLOSE_TARGET_MISMATCH') {
+      return `> ⚠️ 자동 닫힘 링크 생략 — 대상 불일치(${closeLink.warning ?? ''})`
+    }
+    return null
+  }
+  if (closeLink.verified) return `Closes #${closeLink.closes}`
+  return `Relates to #${closeLink.closes}\n\n> ⚠️ 이 이슈 소유가 원장에서 미확인 — 자동 닫힘하지 않음(확인 후 Closes로 승격)`
+}
+
+/**
  * gh issue create 명령 인자를 구성한다(문자열 배열 — 실행은 runner). 순수.
  * 실제 실행은 confirm(=개발자의 티켓 선택 행위) 뒤 runner가 spawn한다.
  * @param {{title: string, body: string, labels: string[], assignee: string|null}} fields

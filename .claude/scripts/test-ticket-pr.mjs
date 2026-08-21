@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {summarizeEvidence, completionGate, computeCloseLink, computePrLinkPlan, buildPrBody} from './ticket/pr.mjs'
+import {renderCloseReference} from './ticket/provider-github.mjs'
 import {buildChangeScope} from './ticket/pickup.mjs'
 import {ledgerState} from './ticket/ledger.mjs'
 import {prCreateArgs, issueCommentArgs} from './ticket/provider-github-exec.mjs'
@@ -72,15 +73,35 @@ test('computePrLinkPlan: 멱등(이미 링크면 재링크 금지)', () => {
   assert.equal(plan.record.ticketKey, '42') // 기존 청구 보존
 })
 
-test('buildPrBody: Closes #N + 정직 tier(검증 통과 미주장)', () => {
-  const closeLink = computeCloseLink({featureId: 'FEAT-007', ticketKey: 42, ledgerState: ledgerState([{schemaVersion: 1, featureId: 'FEAT-007', ticketKey: '42', contentHash: 'h', createdAt: 't'}])})
-  const body = buildPrBody({summary: '모터 상세 구현', changeScope, closeLink, evidence: {tcResults: [{id: 'TC-007-1', verdict: 'pass'}]}})
+test('renderCloseReference: verified만 Closes, unverified는 non-closing, mismatch는 가시 사유', () => {
+  // verified → Closes(자동 닫힘 허용)
+  assert.equal(renderCloseReference({ok: true, closes: '42', verified: true}), 'Closes #42')
+  // unverified → Relates to(자동 닫힘 안 함) + 가시 경고(HTML 주석 아님)
+  const unv = renderCloseReference({ok: true, closes: '42', verified: false})
+  assert.match(unv, /Relates to #42/)
+  assert.doesNotMatch(unv, /Closes #42/)         // 자동 닫힘 키워드 없음
+  assert.doesNotMatch(unv, /<!--/)               // 비가시 주석 아님
+  assert.match(unv, /> ⚠️/)                       // 가시 blockquote 경고
+  // mismatch → 링크 생략 + 가시 사유(침묵 fail-closed 방지)
+  const mm = renderCloseReference({ok: false, error: 'CLOSE_TARGET_MISMATCH', warning: '원장 5 ≠ 9'})
+  assert.match(mm, /생략 — 대상 불일치/)
+  assert.doesNotMatch(mm, /Closes|Relates/)
+})
+
+test('buildPrBody: provider 렌더 close 줄 + 정직 tier(검증 통과 미주장)', () => {
+  const verified = renderCloseReference(computeCloseLink({featureId: 'FEAT-007', ticketKey: 42, ledgerState: ledgerState([{schemaVersion: 1, featureId: 'FEAT-007', ticketKey: '42', contentHash: 'h', createdAt: 't'}])}))
+  const body = buildPrBody({summary: '모터 상세 구현', changeScope, closeLine: verified, evidence: {tcResults: [{id: 'TC-007-1', verdict: 'pass'}]}})
   assert.match(body, /Closes #42/)
   assert.match(body, /FEAT-007/)
   assert.match(body, /TC-007-1: pass/)
   assert.match(body, /diagnostic-only/)
   assert.match(body, /검증 통과를 의미하지 않는다/) // 정직 하한
   assert.doesNotMatch(body, /certified|검증 완료/) // 위조 금지
+  // 미기록(unverified) FEAT → 본문에 자동 닫힘 키워드 없음(I6 안전 갭 회귀)
+  const unvLine = renderCloseReference(computeCloseLink({featureId: 'FEAT-009', ticketKey: 7, ledgerState: ledgerState([])}))
+  const unvBody = buildPrBody({summary: 's', changeScope, closeLine: unvLine, evidence: {}})
+  assert.doesNotMatch(unvBody, /Closes #7/)      // 미확인 이슈 자동 닫힘 금지
+  assert.match(unvBody, /Relates to #7/)
 })
 
 test('실행부 argv: prCreate·issueComment 구조 고정', () => {

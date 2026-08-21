@@ -1,14 +1,17 @@
 // 팀 워크플로우 통합 — 아웃바운드 PR/status 코어 (통합 빌드 C단계, 순수).
 // docs/team-workflow-integration-design.md 지점 C: 개발 결과 → PR·티켓 연결.
 //
-// 이 모듈은 순수하다 — gh 실행(pr create·issue comment)은 실행부가 confirm 게이트 뒤에
-// 한다. C는 pr-drafter를 **대체하지 않고** 그 산출(사람 승인된 요약) 위에 증거·링크를 얹는다.
+// 이 모듈은 순수하고 **트래커 무관**하다(I3) — gh 실행(pr create·issue comment)은 실행부가
+// confirm 게이트 뒤에 한다. close 참조 서식(`Closes #N` 등)은 트래커별이라 provider가 렌더하며
+// 여기서는 provider가 준 문자열을 받을 뿐이다. C는 pr-drafter를 **대체하지 않고** 그 산출
+// (사람 승인된 요약) 위에 증거·링크를 얹는다.
 //
 // 세 어려운 지점을 코드로 강제한다:
 //  (1) 증거 위조 금지(I1) — QA/TC 산출물의 *존재*만 정직 표기한다. "검증 완료/certified"를
 //      만들지 않는다. 서명 receipt 검증은 release-tier-contract 몫이며 C는 첨부 여부만 말한다.
-//  (2) `Closes #N` 대상 정합 — 닫을 이슈 번호가 원장의 실제 청구(featureId↔ticketKey)와
-//      일치할 때만 링크한다. 불일치면 거부(엉뚱한 이슈 자동 닫힘 방지).
+//  (2) close 대상 정합 — 닫을 이슈가 원장의 실제 청구(featureId↔ticketKey)와 일치할 때만
+//      verified 링크한다. 불일치면 거부, 원장 미기록이면 non-closing 참조로 강등(provider 렌더가
+//      자동 닫힘을 막음) — 엉뚱한/미확인 이슈 자동 닫힘 방지.
 //  (3) STALE 완료 차단 — 픽업 후 상류 기획이 바뀌었으면(change-scope STALE) PR 완료를 막는다
 //      (개발 *중*이 아니라 *완료* 시점 게이트 — 고정 스냅샷으로 개발하되 머지 전 재동기 요구).
 import {isChangeScopeStale} from './pickup.mjs'
@@ -89,17 +92,18 @@ export function computePrLinkPlan({featureId, ledgerState, prUrl, now}) {
 }
 
 /**
- * PR 본문을 만든다(순수). pr-drafter 요약 위에 `Closes #N` + 증거 요약을 얹는다.
+ * PR 본문을 만든다(순수, 트래커 무관). pr-drafter 요약 위에 close 참조 + 증거 요약을 얹는다.
+ * close 참조 줄(`Closes #N` 등)은 트래커별 서식이라 **여기서 만들지 않고** provider가 렌더한
+ * 문자열(`closeLine`)을 그대로 받는다(I3 — GitHub 구문 유출 금지). null이면 링크 없음.
  * 증거 블록은 *존재하는 산출물만* 나열하고 tier를 정직 라벨한다 — "검증 통과"를 주장하지 않는다.
- * @param {Object} args {summary(사람 요약, pr-drafter), changeScope, closeLink, evidence}
+ * @param {Object} args {summary(사람 요약, pr-drafter), changeScope, closeLine(provider 렌더|null), evidence}
  * @returns {string}
  */
-export function buildPrBody({summary, changeScope, closeLink, evidence}) {
+export function buildPrBody({summary, changeScope, closeLine, evidence}) {
   const ev = summarizeEvidence(evidence)
   const lines = [summary?.trim() || '(pr-drafter 요약 없음)', '']
-  if (closeLink?.ok) {
-    lines.push(`Closes #${closeLink.closes}`)
-    if (!closeLink.verified) lines.push('<!-- 주의: 이 이슈 소유가 원장에서 미확인 — 링크 전 확인 -->')
+  if (closeLine) {
+    lines.push(closeLine)
     lines.push('')
   }
   lines.push('## web-harness 추적성')
