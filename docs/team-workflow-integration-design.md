@@ -168,6 +168,24 @@ TicketProvider {                              // Jira / GitHub / Linear / Manual
 
 A를 먼저 하는 이유: 티켓이 있어야 B·C가 의미 있다.
 
+## 라이브 실증에서 확정된 mechanics (2026-08-21, throwaway repo)
+
+FEAT-007 청구를 GitHub Issues에 실제 발행하며 두 실버그를 잡아 수정했다 — mock으로는
+안 드러났을 것들이다:
+
+1. **라벨 사전 생성 필수.** GitHub은 `gh issue create --label X`로 붙이려면 라벨 X가 **먼저
+   존재**해야 한다("could not add label: not found"). provider가 발행 전 `gh label create
+   --force`(멱등)로 FEAT 고유 라벨을 보장한다.
+2. **멱등 가드는 로컬 원장이 1차, 트래커는 2차.** `gh issue list --label`은 **색인 지연**이
+   있어 직전 생성 이슈를 못 보고(~4초 뒤 재청구가 중복 이슈를 만드는 것을 실측), 신뢰할
+   멱등 가드가 아니다. **동기 기록·일관 조회인 로컬 원장을 1차 가드**로 두고, 트래커는
+   크로스-머신 2차 가드(다른 원장을 쓰는 개발자의 선행 청구)로 둔다. 잔여 race는 FEAT 고유
+   라벨이 사후 중복 감지·dedup의 기계 키가 된다. 이는 설계 §A "트래커가 권위"를 정밀화한다 —
+   트래커는 크로스-머신 *가시성*의 권위이나, *멱등*의 신뢰 가드는 원장이다.
+
+미해결(다음 증분): 닫힌 이슈의 재청구 의미(done=재생성 금지 vs abandoned=재청구 허용 —
+findByLabel의 `--state` 선택), 크로스-머신 잔여 race의 사후 dedup sweep.
+
 ## 정직한 한계 / 미해결
 
 - **맨몸 티켓의 AC↔TC 매칭**은 완전 자동이 어렵다 — 기존 TC와 의미 매칭은 휴리스틱이라, 실패 시

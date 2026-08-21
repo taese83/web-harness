@@ -15,7 +15,8 @@ import {buildIssueFields, featLabel} from './provider-github.mjs'
  * @param {Object} args
  * @param {{featureId: string, title?: string, body?: string, testCaseIds?: string[], type?: string}} args.unit
  * @param {{findByLabel: (label: string) => Promise<any>, createIssue: (fields: any) => Promise<any>}} args.provider
- * @param {{append: (record: any) => Promise<void>|void}} args.ledger
+ * @param {{append: (record: any) => Promise<void>|void, find?: (featureId: string) => any}} args.ledger
+ *   ledger.find는 원장의 기존 기록(있으면)을 반환 — **1차 멱등 가드**(동기·일관).
  * @param {string|null} [args.assignee]   미지정 시 미배정(혼자 개발/나중 분배)
  * @param {() => string} [args.now]
  * @returns {Promise<{claimed: boolean, alreadyClaimed: boolean, issue: any, record?: any, specWarning: string[]|null}>}
@@ -25,7 +26,13 @@ export async function claimFeature({unit, provider, ledger, assignee = null, now
   if (typeof featureId !== 'string' || !/^FEAT-\d{3,}$/.test(featureId)) {
     throw new Error(`INVALID_FEATURE_ID: ${featureId}`)
   }
-  // 1. 청구 경쟁 검사 — 트래커(권위)에서 FEAT 고유 라벨로 기존 이슈 조회.
+  // 1. 청구 경쟁 — **로컬 원장이 1차 가드**다. 트래커(`findByLabel`)는 GitHub 색인 지연으로
+  //    직전 생성 이슈를 못 보는 실측 갭이 있어(2026-08-21 라이브), 신뢰할 멱등 가드가 아니다.
+  //    원장은 동기 기록·일관 조회라 같은 원장을 보는 흐름의 재청구를 확실히 잡는다.
+  const recorded = ledger.find?.(featureId)
+  if (recorded) return {claimed: false, alreadyClaimed: true, issue: {ticketKey: recorded.ticketKey}, specWarning: null}
+  // 2. 트래커는 크로스-머신 2차 가드(다른 원장을 쓰는 개발자의 선행 청구). 지연은 잔여 race로
+  //    남고, FEAT 고유 라벨이 사후 중복 감지·dedup의 기계 키가 된다.
   const existing = await provider.findByLabel(featLabel(featureId))
   if (existing) return {claimed: false, alreadyClaimed: true, issue: existing, specWarning: null}
   // 2. draft → 이슈 필드(assignee=청구자). 스펙 미완이면 경고만 — 파서/발행은 게이트하지

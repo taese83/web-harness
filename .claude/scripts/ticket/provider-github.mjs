@@ -78,3 +78,29 @@ export function ghCreateArgs(fields) {
   if (fields.assignee) args.push('--assignee', fields.assignee)
   return args
 }
+
+/**
+ * `gh issue list --json number,title,url`의 stdout(JSON 배열)을 파싱한다. 순수.
+ * 손상/비배열은 빈 배열로 안전 처리(지어내지 않음).
+ * @param {string} stdout
+ * @returns {Array<{number: number, title: string, url: string}>}
+ */
+export function parseIssueListJson(stdout) {
+  try {
+    const parsed = JSON.parse(stdout)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(item => item && Number.isInteger(item.number))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * `gh issue create`가 마지막 줄에 출력하는 이슈 URL에서 번호를 뽑는다. 순수.
+ * @param {string} stdout
+ * @returns {{number: number, url: string}|null}
+ */
+export function parseCreatedIssueUrl(stdout) {
+  const match = String(stdout).match(/(https?:\/\/[^\s]*\/issues\/(\d+))\s*$/m)
+  return match ? {number: Number(match[2]), url: match[1]} : null
+}

@@ -17,7 +17,7 @@ const mockProvider = (existing = null) => {
     createIssue: async fields => { created.push(fields); return {number: 101, ...fields} },
   }
 }
-const mockLedger = () => { const records = []; return {records, append: rec => { records.push(rec) }} }
+const mockLedger = () => { const records = []; return {records, append: rec => { records.push(rec) }, find: id => records.find(r => r.featureId === id) ?? null} }
 const unit = (over = {}) => ({featureId: 'FEAT-042', title: '레이스 기록', body: '레이스를 기록한다', testCaseIds: ['TC-008-1'], ...over})
 
 test('신규 청구: 이슈 생성 + assignee + 원장 append', async () => {
@@ -49,6 +49,18 @@ test('스펙 미완 단위: 청구는 성공하되 specWarning(파서 미게이�
   const result = await claimFeature({unit: {featureId: 'FEAT-007', title: 't'}, provider, ledger})
   assert.equal(result.claimed, true)
   assert.deepEqual(result.specWarning, ['behavior', 'testCaseIds'])
+})
+
+test('원장-우선 멱등: 같은 원장을 보면 트래커 색인 지연과 무관하게 재청구 차단', async () => {
+  const provider = mockProvider(null) // 트래커는 아직 못 봄(지연 모사: null)
+  const ledger = mockLedger()
+  const first = await claimFeature({unit: unit(), provider, ledger, assignee: 'devX'})
+  assert.equal(first.claimed, true)
+  // 2차: 트래커는 여전히 null(지연)이지만 원장에 기록됨 → alreadyClaimed
+  const second = await claimFeature({unit: unit(), provider, ledger, assignee: 'devX'})
+  assert.equal(second.claimed, false)
+  assert.equal(second.alreadyClaimed, true)
+  assert.equal(provider.created.length, 1) // 두 번째는 생성 안 함
 })
 
 test('잘못된 featureId: loud-fail', async () => {
