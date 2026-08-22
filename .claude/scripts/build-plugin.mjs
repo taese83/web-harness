@@ -167,6 +167,14 @@ copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, 'agents'), 
 copyTree(join(repositoryRoot, '.claude', 'skills'), join(outputRoot, '.claude', 'skills'), {exclude: excludeDevSkills})
 copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, '.claude', 'agents'), {exclude: excludeDevAgents})
 
+// 배포 README 인벤토리는 산출물 실측에서 파생한다 — 하드코딩 문자열은 루트 README와 달리
+// 어떤 ratchet도 대조하지 않아 스킬/에이전트 추가 시 조용히 드리프트한다(실측: team-flow 추가로
+// '30 skills'가 실제 31과 어긋난 채 배포됨).
+const shippedSkillCount = readdirSync(join(outputRoot, 'skills'), {withFileTypes: true})
+  .filter(entry => entry.isDirectory()).length
+const shippedAgentCount = readdirSync(join(outputRoot, 'agents'), {withFileTypes: true})
+  .filter(entry => entry.isFile() && entry.name.endsWith('.md')).length
+
 // 2. 런타임 스크립트 서브셋 — 저장소와 같은 .claude/scripts 위치에 둔다.
 copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude', 'scripts'), {
   exclude: (relativePath, entry) => {
@@ -287,7 +295,7 @@ These are the commands you invoke directly. Everything else this plugin ships is
 First app, cost expectations, and the brownfield path: see the [quickstart](${PLUGIN_REPO_URL}/blob/main/docs/quickstart.md).
 
 - Version: ${PLUGIN_VERSION}
-- 30 skills · 98 agents · 5 safety hooks
+- ${shippedSkillCount} skills · ${shippedAgentCount} agents · ${PLUGIN_HOOKS.length} safety hooks
 - Always-on context cost ≈10k tokens/session (plus a few SessionStart re-entry lines only in \`_workspace/\` harness-managed projects) — disable when idle: \`/plugin disable ${PLUGIN_NAME}@web-harness-marketplace\`
 `)
 
