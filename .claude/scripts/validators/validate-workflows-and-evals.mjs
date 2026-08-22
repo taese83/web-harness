@@ -736,4 +736,22 @@ export const validateWorkflowsAndEvals = ({
     if (!existsSync(join(repositoryRoot, requiredAIFile))) fail(`${requiredAIFile}: required AI harness file is missing`)
   }
   pass('AI harness manifest, scenarios, and staged test scripts checked')
+
+  // canonical CI 제안본(.claude/ci/<name>)이 .github/workflows/<name>로 활성 배치된 경우 두 사본은
+  // 바이트 동일해야 한다 — 남은 배포 사본 표면(I4)이며, 드리프트하면 CI가 canonical과 다른 게이트를
+  // 조용히 실행한다. 활성 미러가 없는 제안본(예: hybrid-t1 활성화 전)은 검사 대상이 아니다.
+  const canonicalCiRoot = join(claudeDirectory, 'ci')
+  if (existsSync(canonicalCiRoot)) {
+    let mirroredWorkflowCount = 0
+    for (const entry of readdirSync(canonicalCiRoot, {withFileTypes: true})) {
+      if (!entry.isFile() || !entry.name.endsWith('.yml')) continue
+      const activeMirrorPath = join(repositoryRoot, '.github', 'workflows', entry.name)
+      if (!existsSync(activeMirrorPath)) continue
+      mirroredWorkflowCount += 1
+      if (readFileSync(join(canonicalCiRoot, entry.name), 'utf8') !== readFileSync(activeMirrorPath, 'utf8')) {
+        fail(`CI_MIRROR_DRIFT: .claude/ci/${entry.name} and .github/workflows/${entry.name} have diverged — update both copies in the same commit`)
+      }
+    }
+    pass(`${mirroredWorkflowCount} activated CI workflow mirror(s) checked against canonical proposals`)
+  }
 }

@@ -11,7 +11,7 @@ CI/CD 구성은 org·플랫폼 결합(워크플로 승인·러너·시크릿·�
 
 | 아티팩트 | 위치 | 상태 |
 |---|---|---|
-| 하네스 자가 CI 워크플로 제안본 | `.claude/ci/harness-ci.yml` | canonical 제안본. Node 22.22.3·pnpm 11.18.0 직접 설치, block-style·persist-credentials:false·timeout·SHA-pin |
+| 하네스 자가 CI 워크플로 | `.claude/ci/harness-ci.yml` | canonical 정본 — **활성 미러** `.github/workflows/harness-ci.yml`와 바이트 동일해야 한다(`validate-harness`가 드리프트를 `CI_MIRROR_DRIFT`로 fail). Node 22.22.3·pnpm 11.18.0 직접 설치, block-style·persist-credentials:false·timeout·SHA-pin |
 | Hybrid T1 워크플로 제안본 | `.claude/ci/hybrid-t1.yml` | 비활성 canonical 제안본. 수동 trigger·보호 environment·격리 runner·frozen install·단일 cohort·bounded artifact upload |
 | 로컬 dogfooding 게이트 | `package.json` → `pnpm run ci` | mirror·toolchain·validate·ai — 승인 전에도 로컬/PR 실행 |
 | SPA 골든 레퍼런스 | `golden/react-vite-spa/` | 정적·유닛·빌드·boundary **5/7 로컬 green** |
@@ -27,8 +27,9 @@ Hybrid 제안본의 artifact upload는 GHES 지원용 `actions/upload-artifact@v
 > org-specific 값(호스트 도메인·워크플로 승인 주체 등)은 조직마다 다르다 — 아래는 형식 예시다.
 > 다른 org는 자기 플랫폼 승인 경로·러너·시크릿 이름으로 치환한다. 계약은 중립.
 
-- [ ] **1. 자가 CI 워크플로 활성화** — `.claude/ci/harness-ci.yml`를 `.github/workflows/harness-ci.yml`로
-      배치 승인. (이 org는 워크플로 파일 push를 플랫폼 승인으로 게이트한다.)
+- [x] **1. 자가 CI 워크플로 활성화** — 완료(2026-08-18): `.claude/ci/harness-ci.yml`가
+      `.github/workflows/harness-ci.yml`로 배치·활성화됐고 첫 유효 실행이 green
+      (`docs/ci-activation-runbook.md` 단계 A). 두 사본의 동기화는 기계 검사가 지킨다.
 - [ ] **2. 골든 T1 job 활성화** — `.claude/ci/hybrid-t1.yml`을 플랫폼 검토 후
       `.github/workflows/hybrid-t1.yml`로 배치한다. 워크플로가 골든을 격리 실행하며, 먼저 frozen install 후:
       `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --write-evidence --verify-t1 --expected-revision <full-sha>`.
