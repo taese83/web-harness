@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.1.0
+  version: 0.1.1
   maturity: contract-only
-  updated: 2026-08-21
-  changelog: 진입점 초판 — 일괄 청구(기획자)·보드/픽업(개발자)·PR 연결을 순수 코어 + gh/git 실행부로 엮음. 실행부 executor CLI·feature-plan→units 파서는 후속.
+  updated: 2026-08-23
+  changelog: 실행 환경 한계 공시 — repo-내 세션은 bash policy가 gh/git을 차단해 미리보기까지만 가능(플러그인 배포판에서만 실행부 동작). 이전 — 진입점 초판(일괄 청구·보드/픽업·PR 연결, 실행부 executor CLI·feature-plan→units 파서는 후속).
 ---
 
 # Team Flow
@@ -19,6 +19,11 @@ gh/git 실행부를 **confirm 게이트**로 엮는다. 이 스킬은 pr-drafter
 
 설계 정본은 `docs/team-workflow-integration-design.md`, 불변식은 `docs/protected-core.md`. 시작 전 설계 doc의
 "형상 규율 4점(VCS 게이트)"과 "청구≠픽업" 절을 읽는다.
+
+> **실행 환경 한계(정직 공시)**: gh/git 실행부는 **플러그인 배포판에서만** 동작한다. 하네스 저장소
+> 자체 세션은 global Bash policy가 `git`/`gh`를 `DENY_NETWORK`로 차단하고 ticket 스크립트를
+> allowlist하지 않으므로, repo-내에서는 미리보기(순수 코어)까지만 가능하다. 실행부 executor CLI
+> 배선 시 allowlist 등재를 재검토한다(protected-core §4 "티켓 식별자 원장" 행의 선행 조건과 함께).
 
 ## Start — 자연어 의도 매핑
 
