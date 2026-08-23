@@ -65,9 +65,14 @@ export function inspectCertifiedEvidence(repositoryRoot) {
       try {
         const locked = JSON.parse(readFileSync(lockedPath, 'utf8'));
         const lockedId = locked.profileId ?? locked.id;
-        if (lockedId !== id || locked.supportLevel !== 'certified') {
+        // locked profile은 supportLevel을 top-level이 아니라 adapter.supportLevel에 내장한다
+        // (validateLockedProjectProfile 형상). 첫 실전 승격(2026-08-23, hybrid)이 드러낸 형상
+        // 불일치 — 이전 검사는 top-level만 읽어 실제 트리에서 항상 MISMATCH였고 seed도 가짜
+        // 형상이었다. seed를 실형상으로 맞췄고 top-level 폴백은 두지 않는다(느슨해지는 방향).
+        const lockedSupportLevel = locked.adapter?.supportLevel;
+        if (lockedId !== id || lockedSupportLevel !== 'certified') {
           errors.push(
-            `certified-evidence: '${id}' locked profile이 라벨과 어긋난다(id=${lockedId}, supportLevel=${locked.supportLevel}) — ` +
+            `certified-evidence: '${id}' locked profile이 라벨과 어긋난다(id=${lockedId}, adapter.supportLevel=${lockedSupportLevel}) — ` +
               '증거 트리 안에서 certified가 재현돼야 한다(CERTIFIED_LOCK_MISMATCH, I1)',
           );
         }
@@ -118,7 +123,10 @@ export function inspectCertifiedEvidence(repositoryRoot) {
 
 // seed — certified 0개인 현재 상태에서 게이트가 공회전-장식이 되지 않도록, 매 실행마다 합성
 // 트리로 무장 상태를 증명한다(양성 1·음성 3). contract-hygiene의 seed 회귀와 같은 관례.
-const buildSeedTree = ({withGolden, withLock, lockId = 'seed-profile', t1Status, qaPass, withQaReport = true}) => {
+const buildSeedTree = ({
+  withGolden, withLock, lockId = 'seed-profile', lockLevel = 'certified', lockShape = 'nested',
+  t1Status, qaPass, withQaReport = true,
+}) => {
   const root = mkdtempSync(join(tmpdir(), 'certified-seed-'));
   const adapterDir = join(root, '.claude', 'adapters', 'seed-profile');
   mkdirSync(adapterDir, {recursive: true});
@@ -128,9 +136,14 @@ const buildSeedTree = ({withGolden, withLock, lockId = 'seed-profile', t1Status,
     mkdirSync(join(root, 'golden', 'seed-profile', '_workspace', '01_plan'), {recursive: true});
     mkdirSync(qaDir, {recursive: true});
     if (withLock) {
+      // 실형상은 adapter.supportLevel 중첩. 'legacy'는 2026-08-23 이전 게이트가 읽던 가짜 top-level
+      // 형상 — 이 형상이 통과하면 형상 결함이 재발한 것이므로 음성 seed로 고정한다.
+      const lock = lockShape === 'legacy'
+        ? {profileId: lockId, supportLevel: lockLevel}
+        : {profileId: lockId, adapter: {supportLevel: lockLevel}};
       writeFileSync(
         join(root, 'golden', 'seed-profile', '_workspace', '01_plan', 'project-profile.json'),
-        JSON.stringify({profileId: lockId, supportLevel: 'certified'}),
+        JSON.stringify(lock),
       );
     }
     if (t1Status !== null) {
@@ -152,6 +165,10 @@ export function validateCertifiedEvidence({repositoryRoot, pass, fail}) {
     {label: 'no-golden', tree: {withGolden: false, withLock: false, t1Status: null, qaPass: true}, expectErrors: true},
     {label: 'no-lock', tree: {withGolden: true, withLock: false, t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
     {label: 'lock-mismatch', tree: {withGolden: true, withLock: true, lockId: 'other-profile', t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
+    // 2026-08-23 리뷰 지적: lock-mismatch는 id 불일치만 트리거해 supportLevel 절을 지워도 armed였다 —
+    // 절 단위 음성 seed 2종으로 고정(level 불일치 + 형상 결함 회귀).
+    {label: 'lock-level-mismatch', tree: {withGolden: true, withLock: true, lockLevel: 'compatible', t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
+    {label: 'lock-legacy-shape', tree: {withGolden: true, withLock: true, lockShape: 'legacy', t1Status: 'ISOLATED_VERIFIED', qaPass: true}, expectErrors: true},
     {label: 'no-t1', tree: {withGolden: true, withLock: true, t1Status: null, qaPass: true}, expectErrors: true},
     {label: 't1-not-verified', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_FAILED', qaPass: true}, expectErrors: true},
     {label: 'no-qa-report', tree: {withGolden: true, withLock: true, t1Status: 'ISOLATED_VERIFIED', qaPass: true, withQaReport: false}, expectErrors: true},

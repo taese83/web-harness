@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "ISOLATED_VERIFIED",
+  "qualification": "isolated-ci-declared",
+  "profileId": "vite-serverless-hybrid",
+  "declaredRevision": "48b96b34e502701a6ae7b47ffe504abde4a18772",
+  "sourceFingerprint": "d7ec0014b981707ddc6fb327ccbf22deb26c17d52f78e3715d5f6718a6456780",
+  "qualityCohortId": "c9702408-5f27-4c8b-ac93-f759e003ed11",
+  "reports": [
+    {
+      "id": "code",
+      "status": "PASS"
+    },
+    {
+      "id": "ux",
+      "status": "PASS"
+    },
+    {
+      "id": "integration",
+      "status": "PASS"
+    },
+    {
+      "id": "security",
+      "status": "PASS"
+    },
+    {
+      "id": "api-contract",
+      "status": "PASS"
+    },
+    {
+      "id": "test",
+      "status": "PASS"
+    },
+    {
+      "id": "browser",
+      "status": "PASS"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "api.guards",
+      "status": "PASS"
+    },
+    {
+      "id": "api.unit",
+      "status": "PASS"
+    },
+    {
+      "id": "audit",
+      "status": "PASS"
+    },
+    {
+      "id": "browser",
+      "status": "PASS"
+    },
+    {
+      "id": "build",
+      "status": "PASS"
+    },
+    {
+      "id": "coverage",
+      "status": "PASS"
+    },
+    {
+      "id": "lint",
+      "status": "PASS"
+    },
+    {
+      "id": "test",
+      "status": "PASS"
+    },
+    {
+      "id": "typecheck",
+      "status": "PASS"
+    },
+    {
+      "id": "vite.production-mock-boundary",
+      "status": "PASS"
+    }
+  ],
+  "generatedAt": "2026-08-23T03:04:44.247Z",
+  "nextTier": "T2 externally binds revision and evidence through Ed25519 attestation"
+}
