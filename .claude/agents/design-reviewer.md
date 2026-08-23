@@ -3,7 +3,7 @@ name: design-reviewer
 description: Read-only pre-implementation review of information hierarchy, layout stability, interaction states, accessibility, and design consistency.
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 20
 ---
 

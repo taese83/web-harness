@@ -3,7 +3,7 @@ name: code-reviewer
 description: Reviews generated code for TypeScript/ESLint/FSD violations and conventions; produces a QA report with file/line references.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 20
 ---
 

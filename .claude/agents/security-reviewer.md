@@ -3,7 +3,7 @@ name: security-reviewer
 description: Read-only security review of generated apps — token storage, authz, CSRF/CORS, injection, secrets, supply chain; returns qa-security.md.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 20
 ---
 

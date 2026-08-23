@@ -3,7 +3,7 @@ name: harness-change-reviewer
 description: Read-only adversarial reviewer for harness control-plane changes against protected-core invariants — overfit, gate weakening, proxy gaming, budget growth, claim-vs-proof.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 25
 ---
 

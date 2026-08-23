@@ -3,7 +3,7 @@ name: plan-reviewer
 description: Read-only pre-implementation review of requirement clarity, MVP scope, scenario coverage, assumptions, and blockers.
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 20
 ---
 

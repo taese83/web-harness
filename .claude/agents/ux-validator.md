@@ -3,7 +3,7 @@ name: ux-validator
 description: Compares implemented screens against ux-brief.md and component-spec.md to find missing screens and spec deviations.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
 maxTurns: 20
 ---
 
