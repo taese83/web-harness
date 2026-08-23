@@ -2,7 +2,7 @@
 name: design-system-architect
 description: Defines design system tokens (color, typography, spacing, shadows), component inventory, and visual identity.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 20
 ---
 
