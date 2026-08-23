@@ -196,7 +196,7 @@ export const validateGoldenProfiles = ({repositoryRoot, pass, fail}) => {
       "WEB_HARNESS_ISOLATED_EXECUTION: '1'",
       'run-package-operation.mjs --project golden/vite-serverless-hybrid --operation install',
       'run-golden-profile.mjs --profile vite-serverless-hybrid --write-evidence --verify-t1 --expected-revision',
-      'actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de',
+      'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
       'if-no-files-found: error',
       'retention-days: 7',
     ]) {

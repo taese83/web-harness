@@ -1,5 +1,5 @@
-# Inactive canonical proposal. Platform approval must place this file at
-# .github/workflows/hybrid-t1.yml and provision the protected environment and runner labels.
+# Canonical source, mirrored byte-identically to .github/workflows/hybrid-t1.yml (CI_MIRROR_DRIFT
+# keeps both copies in sync). Runner labels and the protected environment are provisioned out-of-band.
 name: hybrid-t1
 on:
   workflow_dispatch:
@@ -38,7 +38,8 @@ jobs:
         run: node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --write-evidence --verify-t1 --expected-revision "${{ github.sha }}"
       - name: Upload bounded T1 evidence
         if: always()
-        uses: actions/upload-artifact@c6a3b2bd78b3985e4b2f15397fec357f0fd808de
+        # actions/upload-artifact v4.6.2 — tag→commit verified 2026-08-23 via api.github.com (v3 API retired on GitHub.com)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: hybrid-t1-${{ github.run_id }}
           path: |

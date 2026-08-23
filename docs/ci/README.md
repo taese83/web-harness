@@ -19,8 +19,8 @@ CI/CD 구성은 org·플랫폼 결합(워크플로 승인·러너·시크릿·�
 | 골든 독립-root runner | `.claude/scripts/run-golden-profile.mjs` | 상위 repo ingestion marker와 fixture를 분리하고 receipt를 현재 fingerprint에 결속 |
 | 릴리스-루프 스크립트 | `.claude/scripts/` | `run-quality-gates.mjs`·`prepare-quality-attestation.mjs`·`validate-release-gate.mjs` (이미 존재) |
 
-Hybrid 제안본의 artifact upload는 GHES 지원용 `actions/upload-artifact@v3.2.2-node20` 커밋 SHA에
-고정했다. 플랫폼이 GitHub.com/GHEC이면 v4+ 전환을 별도 검토하되 mutable tag로 바꾸지 않는다.
+Hybrid 제안본의 artifact upload는 `actions/upload-artifact@v4.6.2` 커밋 SHA(`ea165f8d…`)에
+고정했다(태그→커밋 대응은 api.github.com으로 확인). v3 artifact API는 GitHub.com에서 퇴역했다 — 첫 T1 run(32613714281, 2026-08-23)이 cohort 검증까지 전부 성공한 뒤 upload 단계에서만 실패해 실측됐고, 이 전환의 계기다. GHES 배포 시에만 v3 계열을 재검토하며 mutable tag는 쓰지 않는다.
 
 ## (b) 플랫폼 요청 체크리스트
 
@@ -30,18 +30,18 @@ Hybrid 제안본의 artifact upload는 GHES 지원용 `actions/upload-artifact@v
 - [x] **1. 자가 CI 워크플로 활성화** — 완료(2026-08-18): `.claude/ci/harness-ci.yml`가
       `.github/workflows/harness-ci.yml`로 배치·활성화됐고 첫 유효 실행이 green
       (`docs/ci-activation-runbook.md` 단계 A). 두 사본의 동기화는 기계 검사가 지킨다.
-- [ ] **2. 골든 T1 job 활성화** — `.claude/ci/hybrid-t1.yml`을 플랫폼 검토 후
+- [x] **2. 골든 T1 job 활성화** — 배치 완료(2026-08-23, 미러 동기화 검사 적용) — `.claude/ci/hybrid-t1.yml`을 플랫폼 검토 후
       `.github/workflows/hybrid-t1.yml`로 배치한다. 워크플로가 골든을 격리 실행하며, 먼저 frozen install 후:
       `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --write-evidence --verify-t1 --expected-revision <full-sha>`.
       runner는 같은 임시 실행 경계에서 isolated cohort를 판정한다. 실제 artifact의 `t1-summary.json`이
       `ISOLATED_VERIFIED`여야 T1이다.
 - [x] **2-a. Registry audit 데이터 승인(T0 host)** — full `--all`의 `pnpm audit --prod --registry=https://registry.npmjs.org`가 사용자 승인 아래 실행됐고 단일 host cohort 10/10이 통과했다. 다른 CI나 조직 환경에서는 destination/payload 승인을 새로 확인하며, 이 host 승인을 T1 격리 CI 승인으로 재사용하지 않는다.
-- [ ] **2-b. 활성 workflow 등록 확인** — 활성화 후 GitHub Actions UI에서 `hybrid-t1`이 수동 실행 항목으로
+- [x] **2-b. 활성 workflow 등록 확인** — 확인(2026-08-23, workflow_dispatch 노출·첫 run 생성) — 활성화 후 GitHub Actions UI에서 `hybrid-t1`이 수동 실행 항목으로
       노출되는지 확인한다. 등록만으로 T1은 아니며, 아래 러너·보호 environment 준비와 실제 green run이 필요하다.
 - [ ] **3. attestation 신뢰 identity** — `prepare-quality-attestation --issuer-run-id <trusted-ci-run-id>`는
       **checkout 밖의 신뢰 CI identity**(OIDC/CI run id)를 요구한다(로컬 위조 차단 설계). 플랫폼이 이 identity를 제공.
-- [ ] **4. 러너·시크릿** — 필요한 러너 라벨과 (해당 시) 시크릿을 최소 권한으로 등록. 워크플로는 `permissions: contents: read` 기본.
-- [ ] **4-a. Hybrid T1 러너 계약** — `web-harness-isolated` label은 ephemeral filesystem, process-group teardown,
+- [x] **4. 러너·시크릿** — 러너 등록 완료(2026-08-23, 시크릿 불요) — 필요한 러너 라벨과 (해당 시) 시크릿을 최소 권한으로 등록. 워크플로는 `permissions: contents: read` 기본.
+- [x] **4-a. Hybrid T1 러너 계약** — WSL2 Ubuntu ephemeral 러너로 충족(2026-08-23) — `web-harness-isolated` label은 ephemeral filesystem, process-group teardown,
       deny-by-default outbound와 npm registry allowlist, Node 22.22.3·pnpm 11.18.0·stable Chrome을 제공한다.
       `hybrid-t1-audit` protected environment는 수동 승인자를 설정한다.
 
