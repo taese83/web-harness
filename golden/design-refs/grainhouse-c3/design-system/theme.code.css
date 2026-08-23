@@ -1,0 +1,131 @@
+/* Grainhouse — tailwind-shadcn 레인 테마 토큰 (설계 문서의 코드 재료)
+   출처: _workspace/02_design/approved-render.html (승인 정본)에서 추출.
+   Phase 3에서 app-shell-builder가 src/app/style.css로 생성한다. 직접 import 금지. */
+
+/* ── 서체 3분할 계약 — tokens.md §서체. 폴백 나열로 대체 금지 ──
+   Noto Serif KR을 라틴·기호 범위만 잘라 재명명한다. 한글은 이 범위 밖이므로
+   폴백 Pretendard가 적용된다. self-host 시에도 이 구조를 유지한다. */
+@font-face {
+  font-family: "GH Latin Serif";
+  src: url(https://fonts.gstatic.com/s/notoserifkr/v31/3Jn7SDn90Gmq2mr3blnHaTZXRudj1Q.woff2) format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Fira Mono는 Google Fonts, Pretendard는 CDN(jsdelivr)에서 빌더가 로드한다 */
+
+@import "tailwindcss";
+
+@theme {
+  /* ── 색: 잉크와 인화지 (대비 계산표: accessibility.md) ── */
+  --color-paper: #f3efe7;       /* 앱 배경 — 섬유 인화지 */
+  --color-paper-2: #eae5da;     /* 패널·행 hover·모달 대지 */
+  --color-ink: #413c34;         /* 본문·완료 잉크·구조 괘선 */
+  --color-ink-2: #575248;       /* 보조 텍스트·마이크로 라벨 */
+  --color-accent: #2b4a9e;      /* 플로터 블루 — 진행·활성·주 액션 전용 */
+  --color-accent-hover: #23407f;
+  --color-on-accent: #ffffff;
+  /* 구조 괘선 — 레일·readout·표 헤더·섹션 구획. 2026-08-23 신설:
+     초판은 구조선에 --color-ink(14.67:1)를 썼는데 이는 본문 텍스트와 같은 농도라
+     선이 글자만큼 무겁게 읽혔다(실측 지적: "라인 색상이 투박하다"). 구조는 또렷하되
+     텍스트보다 물러서야 한다 — paper 5.10 / paper-2 4.65로 기능 보더 하한(3:1)도 넘는다. */
+  --color-rule-structural: #6b6459;
+  --color-rule-strong: #867e72; /* 기능 보더 — 두 배경 모두 3:1 통과 (프로브 실측) */
+  --color-rule: #b5ad9c;        /* 장식 괘선(각주) — 대비 하한 비적용 */
+  --color-grid: #e0d9ca;        /* 대지 괘선(행 구분·스켈레톤) — 장식 */
+  --color-scrim: rgb(31 29 25 / 0.5); /* 모달 하부 차폐 (파생) */
+  /* semantic — 승인 렌더에 없음, 원리 4에서 파생. solid가 텍스트·보더 하한 동시 통과 */
+  --color-error: #9e2b2b;
+  --color-success: #2b6b40;
+  --color-warning: #8a5a00;
+  --color-info: #2b4a9e;        /* = accent 별칭 */
+
+  /* ── 서체: 두 개의 목소리 ── */
+  --font-body: "GH Latin Serif", "Pretendard Variable", "Pretendard", sans-serif; /* 서술 — 순서 고정 */
+  /* 계측 — 수치·ID·라벨·상태. Fira Mono에는 한글 글리프가 없으므로
+     폴백에 Pretendard를 둔다(2026-08-23 실측 수정): 없으면 한글 계측 라벨이 시스템 대체 폰트로 떨어져
+     본문과 다른 글꼴로 보이고, tracking 0.18~0.2em이 그 대체 폰트에 그대로 적용돼
+     "이 름"처럼 벌어진다. 폴백이 있으면 영문·숫자는 Fira Mono, 한글은 산세리프로 갈린다. */
+  --font-mono: "Fira Mono", "Pretendard Variable", "Pretendard", monospace;
+
+  /* ── 타입 역할 (tokens.md §타입 역할의 제약 참조) ── */
+  --text-micro: 9.5px;       /* mono caps + tracking-micro 전용 — 표 헤더·readout 라벨 */
+  --text-sublabel: 10px;     /* mono caps 서브라벨 */
+  --text-annot: 11.5px;      /* mono 상태 주석 */
+  --text-data: 12.5px;       /* mono 수치·날짜 */
+  --text-data-strong: 13px;  /* mono 500 식별자 */
+  --text-body-sm: 13.5px;
+  --text-ui: 14px;           /* 내비·버튼 */
+  --text-body: 15px;
+  --text-emphasis: 15.5px;   /* 셀 주 항목·CTA */
+  --text-form: 16px;         /* 폼 인풋 — iOS 포커스 줌 방지 하한 */
+  --text-h2: 17px;
+  --text-h1: 20px;
+  --text-display: 22px;
+
+  --leading-body: 1.7;
+  --leading-dense: 1.4;      /* 다층 셀·상태 주석 */
+  --leading-heading: 1.2;
+
+  --tracking-micro: 0.2em;   /* mono 라틴 caps 전용 — 한글에 양수 자간 금지 */
+  --tracking-sublabel: 0.18em;
+  --tracking-badge: 0.12em;
+  --tracking-display: 0.01em;
+
+  /* ── 간격: 4px 배수, 허용 단계 4/8/12/16/24/32/40/56 (tokens.md §간격) ── */
+  --spacing: 4px;
+
+  /* ── 형태: 그림자 없음은 유지, radius는 스케일로 도입 (원리 2 개정, 2026-08-23) ──
+     초판의 radius 0은 승인 시안의 "선언 부재"를 금지로 읽은 것이었다. 사용자 판정으로
+     4px 스케일 채택 — 면·컨트롤은 md, 소형 요소는 sm, 라디오만 full. 그림자·글로우
+     금지는 그대로다(원리 1: 발광이 아니라 잉크). */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-full: 50%;
+  --border-hair: 1px;        /* 잉크 괘선 */
+  --border-active: 2px;      /* 활성 내비 보더·포커스 링 */
+
+  /* ── 구조 치수 ── */
+  --size-rail: 232px;
+  --size-main-max: 1120px;
+  --size-prose-max: 36em;    /* 문서형 본문 줄 길이 */
+  --size-form-max: 52em;     /* 양식지 줄 길이 — 원리 5: 폼은 문서와 기록지의 중간.
+                                문서 폭(36em)은 읽는 문장용이라 입력 필드엔 답답하다(2026-08-23 실측) */
+  --size-seg-w: 34px;        /* 공정 세그먼트 */
+  --size-seg-h: 10px;
+  --size-target: 44px;       /* 인터랙티브 최소 타깃 */
+
+  /* ── 모션 ──
+     목적: 진행 중 상태의 잉크 명멸(무한 루프 전용) — 진행 세그먼트·라이브 tick·로딩.
+     인터랙션 전환(hover·open)에는 쓰지 않는다. 전환 duration 토큰은 의도적으로 없다. */
+  --animate-ink: ink-blink 2.4s ease-in-out infinite;
+
+  @keyframes ink-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.48; }
+  }
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+  }
+  :focus-visible {
+    outline: var(--border-active) solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+  @media (forced-colors: active) {
+    /* 잉크 채움(완료/진행 세그먼트·체크 표시)은 배경색이라 강제 색상에서 소실된다.
+       채움형 상태 요소에만 국소 적용 — 전역 해제 금지 (accessibility.md) */
+    [data-ink-fill] { forced-color-adjust: none; }
+  }
+}
