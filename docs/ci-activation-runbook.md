@@ -16,9 +16,13 @@
   `ISOLATED_VERIFIED`(revision 48b96b3). receipt를 `golden/vite-serverless-hybrid/_workspace/04_qa/`에
   커밋했다. **provenance 대조 완료**: 사용자가 내려받은 artifact zip(`hybrid-t1-32614388125.zip`, 53,736B)
   내 `evidence/t1-summary.json`의 sha256 `b3c24f7209e013bc…`가 커밋본과 바이트 일치(2026-08-23).
-- **단계 C(승격) 진행**: adapter `certified` + locked profile 재잠금 + SKILL `SUPPORT_STATUS` 동기화 →
-  `validate-certified-evidence` green이 곧 증명. 이 과정에서 게이트의 locked profile `supportLevel`
-  필드 형상 오류(top-level 읽기 → 실제는 `adapter.supportLevel`)를 실측으로 잡아 정정했다.
+- **단계 C(승격) 완료(2026-08-23, c6f7143)**: adapter `certified` + locked profile 재잠금 + SKILL
+  `SUPPORT_STATUS` 동기화 → harness-ci에서 `validate-certified-evidence` green — **첫 certified 레인**.
+  이 과정에서 게이트의 locked profile `supportLevel` 필드 형상 오류(top-level 읽기 → 실제는
+  `adapter.supportLevel`)를 실측으로 잡아 정정했다.
+- **B-7 완료(2026-08-23)**: 승격 후 트리(head 97936f1)에서 `hybrid-t1` 재실행 run 32636870973 success →
+  receipt를 **artifact zip에서 직접** 채취해 교체(`declaredRevision` 97936f1, sha256 `bccfd5fbbbef8af3…`,
+  artifact = 커밋본). 이제 receipt의 revision·fingerprint가 certified 잠금 트리를 가리킨다.
 - hybrid 골든은 T1 실행 준비 완료: 골든 fixture 완비, `run-golden-profile.mjs --verify-t1`,
   `validate-isolated-cohort.mjs`(격리 컨텍스트·24h freshness 검증) 구현됨.
 
