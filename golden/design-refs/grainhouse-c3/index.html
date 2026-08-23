@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<!--
+  Candidate C3 — "감광 기록지 × 계기반" (C 스타일 + A 디자인)
+  스타일은 C: 섬유 인화지 웜 화이트(#f3efe7) · 플로터 잉크 블루(#2b4a9e) · 영문 Noto Serif KR(C) + 한글 IBM Plex Sans KR(A) / Fira Mono ·
+  계측 조판(괘선·눈금·각주).
+  디자인(구조)은 A: 좌측 레일 앱셸 + 상단 readout 스트립 + 밀도 높은 공정 테이블 + 4세그먼트 미터.
+  이식 판단 — A의 다크 계기반은 '어두운 방의 발광 계기'였지만, C의 인화지 위에서는 발광이 성립하지
+  않는다. 그래서 계기의 은유를 '빛나는 LED'에서 '기록계의 잉크 눈금'으로 옮겼다: 세그먼트는 채워진
+  잉크 블록, 진행 중 표시는 발광 펄스가 아니라 잉크가 번지는 듯한 저강도 명멸이다. 그레인 오버레이는
+  발광 화면의 노이즈였으므로 제거하고, 대신 인화지의 재료감을 괘선 대지로 대체했다.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grainhouse — 접수 현황</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* 서체 분리 — 영문은 C의 세리프(Noto Serif KR의 라틴 글리프), 한글은 A의 IBM Plex Sans KR.
+     Noto Serif KR은 한글 글리프도 포함하므로 폴백 나열만으로는 한글까지 세리프가 잡힌다.
+     unicode-range로 라틴·기호 범위만 잘라 "C Latin Serif"로 재명명해 문자별로 갈라 쓴다.
+     (한글은 이 @font-face의 범위 밖이므로 다음 폴백인 IBM Plex Sans KR이 적용된다.) */
+  @font-face {
+    font-family: "C Latin Serif";
+    src: url(https://fonts.gstatic.com/s/notoserifkr/v31/3Jn7SDn90Gmq2mr3blnHaTZXRudj1Q.woff2) format('woff2');
+    font-weight: 400 700; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  :root {
+    --paper: #f3efe7;      /* 섬유 인화지 베이스 */
+    --paper-2: #eae5da;    /* 패널·헤더 대지 */
+    --ink: #1f1d19;        /* 본문 14.7:1 */
+    --ink-2: #575248;      /* 보조 6.8:1 */
+    --blue: #2b4a9e;       /* 플로터 잉크 7.1:1 */
+    --blue-hover: #23407f;
+    --rule: #b5ad9c;       /* 기능 괘선 (paper 대비 2.4 — 장식/구획용) */
+    /* 기능 보더(미완료 세그먼트·뱃지). 실측(2026-08-23): #8d8579는 기본 배경 3.18:1로 통과하나
+       행 hover 배경(#eae5da) 위에서 2.90:1로 하한 미달 — 상태를 전달하는 그래픽이므로 두 배경
+       모두에서 3:1을 넘는 가장 부드러운 값으로 조정했다(3.49 / 3.19). */
+    --rule-strong: #867e72;
+    --grid: #e0d9ca;       /* 대지 괘선 (장식) */
+  }
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    font-family: "C Latin Serif", "IBM Plex Sans KR", sans-serif; background: var(--paper); color: var(--ink);
+    font-size: 15px; line-height: 1.7; min-height: 100vh;
+  }
+  .mono { font-family: "Fira Mono", monospace; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* ── A의 레일 앱셸, C의 재료로 ── */
+  .frame { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  .rail {
+    border-right: 1px solid var(--ink); padding: 32px 24px;
+    display: flex; flex-direction: column; gap: 30px;
+    position: sticky; top: 0; align-self: start; min-height: 100vh;
+  }
+  .wordmark { font-weight: 700; font-size: 22px; letter-spacing: .01em; }
+  .wordmark .mono { display: block; font-size: 10px; letter-spacing: .24em; color: var(--ink-2); margin-top: 5px; text-transform: uppercase; }
+
+  .rail nav { display: flex; flex-direction: column; }
+  .rail nav a {
+    color: var(--ink-2); text-decoration: none; padding: 10px 12px;
+    border-left: 2px solid var(--grid); min-height: 42px; display: flex; align-items: center;
+    font-size: 14.5px;
+  }
+  .rail nav a:hover { color: var(--ink); background: var(--paper-2); }
+  .rail nav a[aria-current="page"] { color: var(--ink); border-left-color: var(--blue); font-weight: 600; background: var(--paper-2); }
+
+  .rail .cta {
+    margin-top: auto; background: var(--blue); color: #fff; border: 0;
+    font-family: "C Latin Serif", "IBM Plex Sans KR", sans-serif; font-weight: 700; font-size: 15.5px;
+    padding: 14px 18px; cursor: pointer; text-align: left; min-height: 52px; width: 100%;
+  }
+  .rail .cta .mono { display: block; font-weight: 400; font-size: 10px; letter-spacing: .18em; margin-top: 3px; opacity: .92; }
+  .rail .cta:hover { background: var(--blue-hover); }
+
+  main { padding: 32px 40px 56px; max-width: 1120px; }
+
+  /* ── A의 readout 스트립, 기록계 어투로 ── */
+  .readout {
+    display: flex; gap: 34px; flex-wrap: wrap;
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+    padding: 14px 2px; margin-bottom: 34px;
+    font-family: "Fira Mono", monospace; font-size: 12.5px;
+  }
+  .readout dt { color: var(--ink-2); text-transform: uppercase; font-size: 9.5px; letter-spacing: .2em; }
+  .readout dd { margin: 3px 0 0; }
+  .readout .live { color: var(--blue); font-weight: 500; }
+  .tick {
+    display: inline-block; width: 3px; height: 11px; background: var(--blue);
+    margin-right: 7px; vertical-align: -1px; animation: ink 2.4s ease-in-out infinite;
+  }
+
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .sub { color: var(--ink-2); font-size: 13.5px; margin-bottom: 26px; }
+
+  /* ── A의 밀도 높은 테이블, C의 괘선 조판으로 ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    font-family: "Fira Mono", monospace; font-weight: 400; font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: .2em; color: var(--ink-2);
+    text-align: left; padding: 0 14px 10px; border-bottom: 1px solid var(--ink);
+  }
+  tbody td { padding: 17px 14px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  tbody tr:hover { background: var(--paper-2); }
+  .roll-id { font-family: "Fira Mono", monospace; font-weight: 500; font-size: 13px; }
+  .stock { font-weight: 700; font-size: 15.5px; }
+  .meta { color: var(--ink-2); font-size: 12.5px; }
+  .badge {
+    font-family: "Fira Mono", monospace; font-size: 9.5px; letter-spacing: .12em;
+    border: 1px solid var(--rule-strong); padding: 2px 7px; color: var(--ink-2); margin-left: 8px;
+  }
+
+  /* ── A의 4세그먼트 미터, 잉크 블록으로 ── */
+  .meter { display: flex; gap: 4px; align-items: center; }
+  .seg { width: 34px; height: 10px; border: 1px solid var(--rule-strong); }
+  .seg.done   { background: var(--ink); border-color: var(--ink); }
+  .seg.active { background: var(--blue); border-color: var(--blue); animation: ink 2.4s ease-in-out infinite; }
+  .stage-label { font-family: "Fira Mono", monospace; font-size: 11.5px; color: var(--ink-2); margin-top: 7px; }
+  .stage-label .now { color: var(--blue); font-weight: 500; }
+  .stage-label .done-txt { color: var(--ink); }
+
+  .eta { font-family: "Fira Mono", monospace; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .eta .fin { color: var(--ink); }
+
+  .dl {
+    background: var(--blue); color: #fff; border: 0;
+    font-family: "C Latin Serif", "IBM Plex Sans KR", sans-serif; font-weight: 700; font-size: 14px;
+    padding: 11px 18px; cursor: pointer; min-height: 44px; white-space: nowrap;
+  }
+  .dl:hover { background: var(--blue-hover); }
+  .dl .mono { font-weight: 400; font-size: 10px; letter-spacing: .1em; }
+  .pending { font-family: "Fira Mono", monospace; font-size: 12px; color: var(--ink-2); }
+
+  footer {
+    margin-top: 36px; color: var(--ink-2); font-size: 12.5px;
+    border-top: 1px solid var(--rule); padding-top: 16px;
+  }
+  footer sup { color: var(--blue); }
+
+  /* 발광 펄스가 아니라 잉크의 저강도 명멸 */
+  @keyframes ink { 0%,100% { opacity: 1; } 50% { opacity: .48; } }
+  @media (prefers-reduced-motion: reduce) { .seg.active, .tick { animation: none; } }
+  @media (max-width: 900px) {
+    .frame { grid-template-columns: 1fr; }
+    .rail {
+      position: static; min-height: 0; flex-direction: row; align-items: center; gap: 20px;
+      border-right: 0; border-bottom: 1px solid var(--ink); padding: 18px 20px;
+    }
+    .rail nav { flex-direction: row; }
+    .rail nav a { border-left: 0; border-bottom: 2px solid transparent; }
+    .rail nav a[aria-current="page"] { border-left: 0; border-bottom-color: var(--blue); }
+    .rail .cta { margin-top: 0; margin-left: auto; width: auto; }
+    main { padding: 22px 20px 48px; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <aside class="rail">
+    <div class="wordmark">Grainhouse<span class="mono">Film process lab</span></div>
+    <nav aria-label="주 메뉴">
+      <a href="#" aria-current="page">접수 현황</a>
+      <a href="#">스캔 보관함</a>
+      <a href="#">가격 · 공정 안내</a>
+      <a href="#">계정</a>
+    </nav>
+    <button class="cta" type="button">새 롤 접수<span class="mono">NEW ENTRY — 마감 17:00</span></button>
+  </aside>
+
+  <main>
+    <dl class="readout">
+      <div><dt>라인 상태</dt><dd class="live"><span class="tick" aria-hidden="true"></span>C-41 · B&amp;W 가동 중</dd></div>
+      <div><dt>금일 배치 마감</dt><dd>17:00 KST</dd></div>
+      <div><dt>처리 중</dt><dd>4 ROLLS</dd></div>
+      <div><dt>다운로드 가능</dt><dd class="live">1 ROLL</dd></div>
+      <div><dt>배치 번호</dt><dd>№184</dd></div>
+    </dl>
+
+    <h1>접수 현황</h1>
+    <p class="sub">공정은 접수 → 현상 → 스캔 → 업로드 순서로 진행되며, 각 단계 완료 시 알림을 보냅니다.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Roll</th><th scope="col">필름 / 포맷</th><th scope="col">접수</th>
+          <th scope="col">공정<sup>†</sup></th><th scope="col">예상 완료</th><th scope="col">액션</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="roll-id">GH-2411</td>
+          <td><span class="stock">Ektachrome E100</span><span class="badge">E-6</span><br><span class="meta">135 · 36컷 · 3600dpi 스캔</span></td>
+          <td class="eta">08.15</td>
+          <td>
+            <div class="meter" role="img" aria-label="공정 4단계 중 4단계 완료: 업로드 완료">
+              <span class="seg done"></span><span class="seg done"></span><span class="seg done"></span><span class="seg done"></span>
+            </div>
+            <div class="stage-label"><span class="done-txt">업로드 완료</span> · 36컷</div>
+          </td>
+          <td class="eta"><span class="fin">완료 08.21</span></td>
+          <td><button class="dl" type="button">다운로드 <span class="mono">412MB</span></button></td>
+        </tr>
+        <tr>
+          <td class="roll-id">GH-2418</td>
+          <td><span class="stock">Portra 400</span><span class="badge">C-41</span><br><span class="meta">135 · 36컷 · 3600dpi 스캔</span></td>
+          <td class="eta">08.19</td>
+          <td>
+            <div class="meter" role="img" aria-label="공정 4단계 중 3단계 진행 중: 스캔 중">
+              <span class="seg done"></span><span class="seg done"></span><span class="seg active"></span><span class="seg"></span>
+            </div>
+            <div class="stage-label"><span class="now">스캔 중</span> · 22/36컷</div>
+          </td>
+          <td class="eta">08.24</td>
+          <td><span class="pending">대기</span></td>
+        </tr>
+        <tr>
+          <td class="roll-id">GH-2419</td>
+          <td><span class="stock">HP5 Plus 400</span><span class="badge">B&amp;W</span><br><span class="meta">120 · 12컷 · 고해상 스캔</span></td>
+          <td class="eta">08.19</td>
+          <td>
+            <div class="meter" role="img" aria-label="공정 4단계 중 2단계 진행 중: 현상 중">
+              <span class="seg done"></span><span class="seg active"></span><span class="seg"></span><span class="seg"></span>
+            </div>
+            <div class="stage-label"><span class="now">현상 중</span> · 탱크 №3</div>
+          </td>
+          <td class="eta">08.25</td>
+          <td><span class="pending">대기</span></td>
+        </tr>
+        <tr>
+          <td class="roll-id">GH-2423</td>
+          <td><span class="stock">Vision3 250D</span><span class="badge">ECN-2</span><br><span class="meta">135 · 27컷 · 리무젯 제거</span></td>
+          <td class="eta">08.22</td>
+          <td>
+            <div class="meter" role="img" aria-label="공정 4단계 중 1단계 완료: 접수 완료, 배치 대기">
+              <span class="seg active"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span>
+            </div>
+            <div class="stage-label"><span class="now">접수 완료</span> · 배치 대기</div>
+          </td>
+          <td class="eta">08.27</td>
+          <td><span class="pending">대기</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <footer><sup>†</sup> 공정 칸의 네 블록은 접수 · 현상 · 스캔 · 업로드 단계를 뜻하며, 채워진 블록이 완료,
+    파란 블록이 진행 중입니다. 스캔 원본은 업로드 후 90일간 보관되고, 원본 필름은 접수 시 선택한 방법으로 반송됩니다.</footer>
+  </main>
+</div>
+
+</body>
+</html>
