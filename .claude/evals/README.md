@@ -49,5 +49,22 @@ PASS assertion에는 비어 있지 않은 evidence가 필요하다. Critical sce
 
 정적 script는 실제 model, 외부 API, SCM, CRM, warehouse, browser를 호출하지 않는다. Runtime scenario와 서비스 품질 평가는 별도 격리 환경에서 실행해야 한다.
 
+## 실행 receipt — 커밋 대상 (2026-08-23 신설)
+
+실행 산출물 전체(`eval-runs/`)는 VCS 제외를 유지한다 — fixture·transcript는 크고 재현
+가능하다. **판정 결과만 커밋한다**:
+
+- **ai 카탈로그**(`ai-scenarios.json`): `run-ai-evals.mjs --verify-result`를 통과한 result JSON을
+  커밋한다 — receipt JSON만으로 사후 독립 재검증이 가능하다.
+- **web 카탈로그**(`scenarios.json`): 검증은 `run-eval-executor.mjs`의 인라인 verifyResult가
+  `--grade`/`--full` 실행 중에 수행한다(`eval-runs/`의 runDirectory 컨텍스트 필요) — **커밋된
+  receipt만으로 사후 독립 재검증하는 표준 명령은 아직 없다**(ai 카탈로그와의 비대칭,
+  protected-core §4 등록). web receipt는 실행 당시의 검증 통과 로그 요약을 JSON에 포함해야 한다.
+- 공통 경로: `.claude/evals/receipts/<scenario-id>/<run-id>.json`. 실행 메타(하네스 커밋 SHA·
+  모델·grader 판정·evidence 파일 경로)가 없으면 그 run은 receipt로 세지 않는다.
+- 현재 receipt 0건 — `maturity: eval-covered` 라벨과 receipt의 기계 결속(receipt 없는 라벨을
+  fail)은 **미배선**이다. protected-core §4 "maturity의 eval-언급 검사" 행의 승격 조건이며,
+  첫 receipt 배치 후 결속을 검토한다(소급 fail 금지 관례 — G3).
+
 실행 명령·파이프라인은 **이 문서가 현행 정본**이다. 서비스별 승격 순서와 최초 설계 배경은
 `docs/archive/AI_AGENT_HARNESS_TESTING.md`(2026-07-13 기록, archive 보존)를 참고한다.

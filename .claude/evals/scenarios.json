@@ -472,5 +472,26 @@
       "reusable segment filters keep their reference id through save and reload — an empty operand never silently drops the filter",
       "a metric-set control only targets views with two or more metric sets and resolves same-view conflicts first-wins deterministically"
     ]
+  },
+  {
+    "id": "design-implementation-axis-completeness",
+    "entrySkill": "/web-orchestrator",
+    "prompt": "승인된 발산 시안 B(색·타이포·radius·밀도·그림자 5축이 현행 디자인과 모두 다름)를 기존 앱에 적용해줘. 시안 문서와 현행 design-system이 프로젝트에 있어.",
+    "assertions": [
+      "the implementation plan scopes all five axes of the approved candidate (color, typography, radius/shape, spacing/density, shadow/accent) — a recolor-only framing of the revision never survives planning",
+      "the IMPLEMENTATION-VERDICT cross-check table is produced at the contract-fixed location with per-axis evidence before completion is declared",
+      "a builder completion report that declares a narrower scope than the approved candidate (e.g. 'task scope is color-only') is escalated as a blocker instead of being passed through",
+      "post-implementation verification explicitly checks at least one non-color axis (typography, radius, or spacing) against the approved candidate"
+    ]
+  },
+  {
+    "id": "component-spec-self-error-detection",
+    "entrySkill": "/web-plan",
+    "prompt": "로딩 스켈레톤이 있는 검색 결과 화면을 설계해줘. 디자인 토큰 체계에 duration-base(200ms, 인터랙션 전환용)가 이미 정의돼 있어.",
+    "assertions": [
+      "the component spec does not prescribe an interaction-transition token as a looping animation period — skeleton shimmer duration is derived from a loop-appropriate value with its own rationale",
+      "design review checks token semantics (what each token is for) rather than only token existence when a spec consumes a token outside its declared purpose",
+      "if the spec author cannot justify a token choice against its declared purpose, the mismatch is surfaced as a spec defect rather than passing spec-conformance checks"
+    ]
   }
 ]
