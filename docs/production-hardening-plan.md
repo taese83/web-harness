@@ -47,7 +47,7 @@
 | 레인 | ①adapter | ②골든 | ③폐곡선 | ④verifier | ⑤security | ⑥위생 | ⑦엔터프라이즈 | ⑧문서/tier |
 |---|---|---|---|---|---|---|---|---|
 | react-vite-spa | ✅ | 부분(5/7 로컬) | ❌(CI 미증명) | 부분 | ✅ | 부분 | ❌ | 부분 |
-| vite-serverless-hybrid | ✅ | ✅(fixture·10/10 T0 host cohort) | 준비(T1 workflow·QA·validator, 실제 CI·attestation 미완) | 부분 | ✅(가드·boundary·audit host) | ✅(golden/T1 validator) | ❌ | 부분 |
+| vite-serverless-hybrid | ✅ | ✅(fixture·10/10 T0 host cohort) | ✅ **T1**(격리 CI run 32614388125 `ISOLATED_VERIFIED`, 2026-08-23 — T2 attestation은 별도) | 부분 | ✅(가드·boundary·audit host) | ✅(golden/T1 validator) | ❌ | 부분 |
 | next-app-fullstack | ✅ | ❌ | ❌ | 부분 | 부분 | 부분 | 부분 | 부분 |
 | analytics-BI | ✅ | ❌ | ❌ | ❌ | — | 교정됨 | ❌ | 부분 |
 
@@ -62,6 +62,14 @@
 > ⑦enterprise·⑧문서가 별도로 필요하며, 게이트 통과는 그 전체 정의를 좁히지 않는다(리뷰 지적
 > 반영). T1 폐곡선을 그린으로 재현하는 레인이 기계 하한을 처음 통과하는 레인이 된다. CI 활성화
 > 절차는 `docs/ci-activation-runbook.md`.
+>
+> **2026-08-23 갱신 (B트랙 단계 B·C)**: `vite-serverless-hybrid`가 그 첫 레인이 됐다 — self-hosted
+> 격리 러너 + protected environment에서 `hybrid-t1`이 `ISOLATED_VERIFIED` receipt를 산출(run
+> 32614388125; 1차 run 32613714281은 cohort 성공 후 v3 artifact API 퇴역으로 upload만 실패 →
+> v4 전환 후 재실행)했고 `validate-certified-evidence`의 기계 하한을 통과해 certified 1개. 이
+> 과정에서 게이트 자체의 결함 1건을 실측으로 잡았다(locked profile의 `supportLevel` 위치를 top-level로
+> 읽던 필드 형상 오류 — seed도 가짜 형상이라 "armed"가 허위였음; 실형상으로 정정). 8/8
+> production-grade 판정은 여전히 ④verifier·⑦enterprise·⑧문서가 별도다.
 
 ## 3. 파일러 (레버리지 순, 가드레일 연결)
 
@@ -71,8 +79,8 @@
 - `react-vite-spa`에 골든 레퍼런스 프로젝트 체크인 → full 릴리스 폐곡선 그린. "certified"의 조작적
   정의이자 전 레인 템플릿.
 - hybrid-serverless 실패는 **올바른 모델링으로만** 수정(G1) — ingestion 오탐 제거 + serverless 프로파일화.
-- hybrid golden은 `golden/vite-serverless-hybrid/`와 전용 독립-root runner를 체크인하고, 승인된 registry audit을 포함한 단일 T0 host cohort 10/10을 통과했다. 실제 격리 CI/attestation/provider 증거가 없으므로 아직 T1/T2 또는 폐곡선 완료로 세지 않는다.
-- T1 canonical 제안본(`.claude/ci/hybrid-t1.yml`)과 필수 QA report·isolated cohort validator까지 준비했다. 플랫폼이 보호 environment와 격리 runner를 프로비저닝하고 실제 run artifact가 green이 되기 전에는 `ISOLATED_VERIFIED`로 승격하지 않는다.
+- hybrid golden은 `golden/vite-serverless-hybrid/`와 전용 독립-root runner를 체크인하고, 승인된 registry audit을 포함한 단일 T0 host cohort 10/10을 통과했다. **2026-08-23 갱신**: 격리 CI(`hybrid-t1`, run 32614388125)가 `ISOLATED_VERIFIED` receipt를 산출해 **T1 충족** — T2(외부 서명 attestation)·provider 증거는 여전히 미충족이며 폐곡선 완료(T2)로 세지 않는다.
+- T1 canonical 제안본(`.claude/ci/hybrid-t1.yml`)은 활성 미러(`.github/workflows/hybrid-t1.yml`)로 배치됐고 self-hosted 격리 runner + 보호 environment에서 실제 run artifact가 green이었다 — 그 전까지는 `ISOLATED_VERIFIED`로 승격하지 않는다는 원칙을 지켰다(1차 run은 upload 단계 실패로 불인정, 2차 run으로 충족).
 - 스크립트 재사용: `run-quality-gates.mjs`·`prepare-quality-attestation.mjs`·`validate-release-gate.mjs`(이미 존재).
 
 **B. 하네스 자체 CI (dogfooding) — 대화형 설정** 〔M·최우선, G5·G7〕

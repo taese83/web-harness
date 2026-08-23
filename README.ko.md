@@ -55,9 +55,11 @@ green 실행은 다음을 검증한다:
 
 - 31 skills <!-- inventory:skills -->
 - 99 agents <!-- inventory:agents -->
-- 3개 built-in 프로필: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — 모두
+- 3개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`·`next-app-fullstack`은
   `compatible`. `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼
-  있다; 아직 어떤 레인도 그 receipt를 산출하지 못했으므로 어느 것도 라벨을 달지 않는다
+  있다 — hybrid 레인의 receipt는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`
+  (격리 `hybrid-t1` 워크플로 run 32614388125, 2026-08-23, `ISOLATED_VERIFIED`). T1은 기계 하한이며
+  T2 서명 attestation은 별도다
 - agent별 파일 소유권
 - read-only verifier 경계
 - 문서 위생(깨진 repo-path 참조, 하드코딩 잔재, skill 버전, README 인벤토리)

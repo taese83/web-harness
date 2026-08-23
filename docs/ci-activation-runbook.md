@@ -9,8 +9,15 @@
 - **단계 A 완료(2026-08-18)**: `harness-ci.yml`이 `.github/workflows/`에 배치·활성화됐고
   첫 유효 실행(run #2)이 **success** — 저장소 최초의 독립 CI green 실증. 이제 모든 main
   push·PR이 자동 회귀를 받는다.
-- 잔여 제안서 1건이 `.claude/ci/`에 준비돼 있다(비활성 canonical):
-  - `hybrid-t1.yml` — vite-serverless-hybrid 골든의 T1 폐곡선. self-hosted runner 필요.
+- **단계 B 완료(2026-08-23)**: WSL2 Ubuntu self-hosted 러너(`web-harness-isolated`, ephemeral) +
+  protected environment `hybrid-t1-audit`(필수 reviewer) 위에서 `hybrid-t1`이 실행됐다. 1차 run
+  32613714281은 cohort 검증까지 성공한 뒤 upload 단계에서 실패(GitHub.com v3 artifact API 퇴역 —
+  v4.6.2 pin으로 전환), 2차 run 32614388125가 **success** + artifact 업로드 — `t1-summary.json` =
+  `ISOLATED_VERIFIED`(revision 48b96b3). receipt를 `golden/vite-serverless-hybrid/_workspace/04_qa/`에
+  커밋했다.
+- **단계 C(승격) 진행**: adapter `certified` + locked profile 재잠금 + SKILL `SUPPORT_STATUS` 동기화 →
+  `validate-certified-evidence` green이 곧 증명. 이 과정에서 게이트의 locked profile `supportLevel`
+  필드 형상 오류(top-level 읽기 → 실제는 `adapter.supportLevel`)를 실측으로 잡아 정정했다.
 - hybrid 골든은 T1 실행 준비 완료: 골든 fixture 완비, `run-golden-profile.mjs --verify-t1`,
   `validate-isolated-cohort.mjs`(격리 컨텍스트·24h freshness 검증) 구현됨.
 
@@ -41,8 +48,13 @@
 4. **첫 실행** — Actions → hybrid-t1 → `workflow_dispatch`.
 5. **성공 판정** — 산출물 `t1-summary.json`의 `status === 'ISOLATED_VERIFIED'`
    (`WEB_HARNESS_ISOLATED_EXECUTION=1` 컨텍스트 + 24h freshness + 전체 receipt cohort).
-6. **receipt 커밋** — `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`을 커밋하면
-   `validate-certified-evidence`의 요구 3번이 충족된다.
+6. **receipt 커밋** — artifact의 `evidence/t1-summary.json`을 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`
+   으로 커밋하면 `validate-certified-evidence`의 요구 3번이 충족된다. (`evidence/`는 24h receipt cohort라
+   gitignore 대상이고, summary만 영구 receipt로 04_qa 루트에 둔다.) 커밋 바이트는 **GitHub artifact에서
+   채취**하고 sha256을 JUDGMENT에 기록한다 — 러너 디스크 사본은 self-report다(§4).
+7. **승격 후 재실행** — 단계 C의 승격 커밋이 locked profile을 재잠금하므로 6의 receipt는 승격 *전*
+   트리의 증거다(fingerprint stale, §4 "T1 receipt의 트리 결속"). 승격 커밋 push 후 그 SHA로 `hybrid-t1`을
+   재dispatch해 receipt를 교체한다 — 이때 declaredRevision이 certified 잠금 트리를 가리킨다.
 
 ## 단계 C — 승격 (기계 게이트 통과가 곧 증명)
 
@@ -65,5 +77,9 @@ T1은 certified의 기계 하한이다. 완전한 릴리스 서명(T2 `RELEASED`
 ## 한계 고지
 
 - 이 runbook 자체는 절차 문서이지 증거가 아니다. 증거는 CI가 산출한 `t1-summary.json`뿐이다.
+- **신뢰 모델 고지(2026-08-23 실측)**: 첫 T1의 격리 러너는 저자 본인 PC의 WSL2 ephemeral 러너이고
+  protected environment 승인자도 동일인이다. `isolated-ci-declared`는 "워크플로가 선언한 격리 컨텍스트에서
+  실행됐다"는 뜻이지 제3자 인프라의 독립 검증이 아니다 — 외부 신뢰 결속은 T2 attestation(외부 서명자)이
+  담당한다.
 - hybrid 어댑터의 감지 범위는 앱 루트 `api/` — workspace/monorepo 레이아웃(`client/api/`,
   `apps/*/api/`)은 감지 밖(G-7). 감지 확장은 I3 증거(2형태+)가 필요한 별도 계약 변경이다.

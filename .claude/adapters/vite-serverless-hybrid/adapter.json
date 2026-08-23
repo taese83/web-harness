@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "id": "vite-serverless-hybrid",
   "version": "1.1.0",
-  "supportLevel": "compatible",
+  "supportLevel": "certified",
   "trust": {
     "tier": "builtin",
     "source": "web-harness-control-plane",

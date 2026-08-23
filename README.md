@@ -58,9 +58,12 @@ A green run verifies:
 
 - 32 skills <!-- inventory:skills -->
 - 99 agents <!-- inventory:agents -->
-- 3 built-in profiles: `react-vite-spa`, `next-app-fullstack`, `vite-serverless-hybrid` — all
-  `compatible`. The `certified` label is machine-bound to isolated-CI evidence
-  (`validate-certified-evidence`); no lane has produced that receipt yet, so none carries the label
+- 3 built-in profiles: `vite-serverless-hybrid` is `certified`; `react-vite-spa` and
+  `next-app-fullstack` are `compatible`. The `certified` label is machine-bound to isolated-CI
+  evidence (`validate-certified-evidence`): the hybrid lane's receipt is
+  `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`, minted `ISOLATED_VERIFIED` by the
+  isolated `hybrid-t1` workflow (run 32614388125, 2026-08-23). T1 is the machine floor — T2 signed
+  attestation is still separate
 - per-agent file ownership
 - read-only verifier boundaries
 - document hygiene (broken repo-path references, hardcoded remnants, skill versioning, README inventory)

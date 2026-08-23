@@ -1,14 +1,14 @@
 ---
 name: vite-serverless-hybrid
-description: Implementation contract for the built-in vite-serverless-hybrid profile (compatible) — a Vite React SPA with Vercel-style serverless functions under a root api/ directory. Used by web-orchestrator when HYBRID_SERVERLESS_MODE locks this profile, or standalone to add a thin serverless backend to an existing Vite SPA. Endpoint guard contract (§7) precedes any handler implementation and is enforced by the profile DAG's api.guards/api.unit machine receipts.
+description: Implementation contract for the built-in vite-serverless-hybrid profile (certified — T1 isolated-CI receipt) — a Vite React SPA with Vercel-style serverless functions under a root api/ directory. Used by web-orchestrator when HYBRID_SERVERLESS_MODE locks this profile, or standalone to add a thin serverless backend to an existing Vite SPA. Endpoint guard contract (§7) precedes any handler implementation and is enforced by the profile DAG's api.guards/api.unit machine receipts.
 argument-hint: "[project root or hybrid setup requirements]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.2.2
+  version: 1.2.3
   maturity: eval-covered
-  updated: 2026-08-05
-  changelog: Hybrid T1 격리 CI 제안본, 필수 QA report, 단일 cohort 검증기를 추가했다. 실제 보호 environment와 isolated runner가 실행하기 전에는 T1을 주장하지 않는다.
+  updated: 2026-08-23
+  changelog: certified 승격 — 격리 CI(hybrid-t1, run 32614388125)가 ISOLATED_VERIFIED t1-summary receipt를 산출해 validate-certified-evidence의 기계 하한을 처음 통과했다. T2 attestation은 여전히 별도. 이전 — T1 제안본·QA report·cohort 검증기 추가.
 ---
 
 # Vite + Serverless Hybrid
@@ -17,7 +17,7 @@ Vite React SPA에 얇은 backend를 붙이는 hybrid 구성. `next-app-fullstack
 
 ## Support gate
 
-`SUPPORT_STATUS: compatible` — built-in `vite-serverless-hybrid` profile이다 (`web-profile-contract.md`). 루트 `api/` 디렉토리가 감지 마커이며 `react-vite-spa`와 상호 배타로 감지된다. release는 profile DAG의 machine receipt(일반 Vite evidence + `api.unit`·`api.guards`)로 판정한다. 체크인된 golden fixture는 T0/T1 재현 경로이지 production 배포나 T2 attestation 증거가 아니다. SSR/SEO 핵심·실시간·장기 실행 job은 이 profile로 수용하지 않고 `next-app-fullstack` 또는 전용 backend로 안내한다. 워크스페이스 하위(`client/api/` 등) 배치는 아직 adapter 감지 밖 — app root 단일 배치로 정규화한다.
+`SUPPORT_STATUS: certified` — built-in `vite-serverless-hybrid` profile이다 (`web-profile-contract.md`). certified의 근거는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`(격리 CI run 32614388125, `ISOLATED_VERIFIED`)이며 `validate-certified-evidence`가 라벨을 이 receipt에 기계 결속한다 — T1 하한이지 T2 서명 attestation은 아니다. 루트 `api/` 디렉토리가 감지 마커이며 `react-vite-spa`와 상호 배타로 감지된다. release는 profile DAG의 machine receipt(일반 Vite evidence + `api.unit`·`api.guards`)로 판정한다. 체크인된 golden fixture는 T0/T1 재현 경로이지 production 배포나 T2 attestation 증거가 아니다. SSR/SEO 핵심·실시간·장기 실행 job은 이 profile로 수용하지 않고 `next-app-fullstack` 또는 전용 backend로 안내한다. 워크스페이스 하위(`client/api/` 등) 배치는 아직 adapter 감지 밖 — app root 단일 배치로 정규화한다.
 
 Read `references/architecture.md` before touching any config. `references/dev-middleware.md`는 로컬 개발 실행 방식, `references/env-management-hybrid.md`는 dotenv 통일, `references/vercel-config.md`는 배포 계약을 다룬다.
 

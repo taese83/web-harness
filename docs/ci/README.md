@@ -47,12 +47,14 @@ Hybrid 제안본의 artifact upload는 `actions/upload-artifact@v4.6.2` 커밋 S
 
 ## (c) 활성화 후 검증
 
-- [ ] `harness-ci`가 push/PR에서 **green**(mirror·toolchain·validate·ai).
-- [ ] `hybrid-t1` 수동 run이 **green**이고 업로드된 10개 receipt가 같은 cohort·source fingerprint·24h
-      freshness에 결속되며 7개 필수 QA report가 전부 PASS다. summary의 revision은 workflow 선언값이며,
-      commit과 증거의 외부 신뢰 결속은 T2 attestation에서 완성한다. 이때만 `ISOLATED_VERIFIED`로 기록한다.
-- [ ] 골든 릴리스-루프가 **서명 manifest까지 green** → 루브릭 기준 ③(폐곡선) 충족 → `react-vite-spa`가
-      **"certified(재현 증명)"**. (e2e·서명 attestation은 여기서만 증명된다.)
+- [x] `harness-ci`가 push/PR에서 **green**(mirror·toolchain·validate·ai) — 2026-08-18 이후 매 push.
+- [x] `hybrid-t1` 수동 run이 **green**이고 업로드된 10개 receipt가 같은 cohort·source fingerprint·24h
+      freshness에 결속되며 7개 필수 QA report가 전부 PASS다 — **run 32614388125(2026-08-23)**,
+      artifact `hybrid-t1-32614388125`, `t1-summary.json` = `ISOLATED_VERIFIED`(revision 48b96b3).
+      summary의 revision은 workflow 선언값이며, commit과 증거의 외부 신뢰 결속은 T2 attestation에서 완성한다.
+- [x] 루브릭 기준 ③(폐곡선) 충족 → `vite-serverless-hybrid`가 **"certified(T1 재현 증명)"**
+      (receipt 커밋 + `validate-certified-evidence` 통과). `react-vite-spa`는 골든 T1 미실행으로 compatible 유지.
+- [ ] 골든 릴리스-루프가 **서명 manifest까지 green**(T2) — `quality-attesters.json` 신뢰 키·외부 서명자 프로비저닝 후.
 - [ ] green이 아니면 **미완** — 게이트를 무르게 해 통과시키지 않는다(G1). 실패 지점이 곧 고칠 결함이다.
 
 ## 복붙용 — 플랫폼 요청 문구(예시)
