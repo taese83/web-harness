@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<!--
+  Grainhouse — 스타일 타일 (시스템 견본)
+
+  **역할이 뒤바뀐 타일이다.** 예전 프로토콜의 타일은 디자인 *앞*에 서서 13변수로 방향을
+  고르는 객관식이었고, 그래서 표현을 제약했다. 이 타일은 디자인 *뒤*에 선다 —
+  자유 발산 → 사용자 확정 → 시스템 추출 → **이 견본**.
+
+  용도: 신규 기능·화면을 만들 때의 **준거**. 다만 타일은 "무엇"만 보여주고 "왜"는 말하지
+  않으므로, 각 항목에 그 값을 낳은 **원리 번호**를 병기했다. 타일에 없는 상황을 만나면
+  design-system/principles.md의 해당 원리로 결정한다.
+
+  갱신 규약: 이 파일은 design-system/에서 파생된 산출물이다. 시스템이 바뀌면 이 타일도
+  갱신한다 — 준거가 낡으면 신규 화면이 옛 언어로 만들어진다.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grainhouse — 스타일 타일</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  /* 서체 3분할 계약 — tokens.md §서체. 폴백 나열로 대체 금지 */
+  @font-face {
+    font-family: "GH Latin Serif";
+    src: url(https://fonts.gstatic.com/s/notoserifkr/v31/3Jn7SDn90Gmq2mr3blnHaTZXRudj1Q.woff2) format("woff2");
+    font-weight: 400 700; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+      U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+      U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  :root {
+    --color-paper: #f3efe7; --color-paper-2: #eae5da;
+    --color-ink: #413c34; --color-ink-2: #575248;
+    --color-accent: #2b4a9e; --color-accent-hover: #23407f; --color-on-accent: #fff;
+    --color-rule-structural: #6b6459; --color-rule-strong: #867e72;
+    --color-rule: #b5ad9c; --color-grid: #e0d9ca;
+    --color-error: #9e2b2b; --color-success: #2b6b40; --color-warning: #8a5a00;
+    --radius-sm: 2px; --radius-md: 4px; --radius-full: 50%;
+    --font-body: "GH Latin Serif", "Pretendard Variable", "Pretendard", sans-serif;
+    --font-mono: "Fira Mono", "Pretendard Variable", "Pretendard", monospace;
+    --text-micro: 9.5px; --text-sublabel: 10px; --text-annot: 11.5px;
+    --text-data: 12.5px; --text-data-strong: 13px; --text-body-sm: 13.5px;
+    --text-ui: 14px; --text-body: 15px; --text-emphasis: 15.5px; --text-form: 16px;
+    --text-h2: 17px; --text-h1: 20px; --text-display: 22px;
+    --tracking-micro: .2em; --tracking-sublabel: .18em; --tracking-badge: .12em;
+    --border-hair: 1px; --border-active: 2px;
+    --size-seg-w: 34px; --size-seg-h: 10px; --size-target: 44px;
+  }
+  @keyframes ink-blink { 0%,100% { opacity: 1; } 50% { opacity: .48; } }
+
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-mono); font-size-adjust: 0.52;
+    background: var(--color-paper); color: var(--color-ink);
+    font-size: var(--text-body); line-height: 1.7; padding: 40px 44px 80px;
+  }
+  :focus-visible { outline: var(--border-active) solid var(--color-accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+
+  h1 { font-family: var(--font-body); font-size: var(--text-h1); font-weight: 700; line-height: 1.2; }
+  .lead { color: var(--color-ink-2); font-size: var(--text-body-sm); max-width: 40em; margin: 6px 0 4px; }
+  .lead b { color: var(--color-ink); }
+  .meta-line {
+    font-size: var(--text-data); color: var(--color-ink-2);
+    border-top: var(--border-hair) solid var(--color-rule-structural);
+    border-bottom: var(--border-hair) solid var(--color-rule-structural);
+    padding: 10px 0; margin: 20px 0 40px; display: flex; gap: 28px; flex-wrap: wrap;
+  }
+
+  section { margin-bottom: 44px; }
+  h2 {
+    font-family: var(--font-mono); font-size: var(--text-annot); color: var(--color-ink);
+    letter-spacing: var(--tracking-micro); text-transform: uppercase; font-weight: 400;
+    border-bottom: var(--border-hair) solid var(--color-rule); padding-bottom: 8px; margin-bottom: 6px;
+  }
+  .why { font-size: var(--text-data); color: var(--color-ink-2); margin-bottom: 18px; max-width: 46em; }
+  .why b { color: var(--color-accent); font-weight: 500; }
+
+  /* 색 */
+  .swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+  .sw { width: 150px; }
+  .sw .chip { height: 52px; border: var(--border-hair) solid var(--color-rule-strong); border-radius: var(--radius-sm); }
+  .sw .name { font-size: var(--text-sublabel); letter-spacing: .04em; margin-top: 6px; display: block; }
+  .sw .val { font-size: var(--text-micro); color: var(--color-ink-2); display: block; }
+  .sw .ratio { font-size: var(--text-micro); color: var(--color-accent); display: block; margin-top: 2px; }
+
+  /* 서체 */
+  .type-row { display: flex; align-items: baseline; gap: 16px; padding: 7px 0; border-bottom: var(--border-hair) solid var(--color-grid); }
+  .type-row .tag { font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--color-ink-2); width: 108px; flex: none; }
+  .type-row .px { font-size: var(--text-micro); color: var(--color-ink-2); margin-left: auto; flex: none; }
+  .voice { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 22px; }
+  .voice > div { border: var(--border-hair) solid var(--color-rule); border-radius: var(--radius-md); padding: 16px 18px; }
+  .voice .vt { font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--color-ink-2); margin-bottom: 8px; }
+  .voice .sample-serif { font-family: var(--font-body); font-size: var(--text-h1); font-weight: 700; }
+  .voice .sample-mono { font-size: var(--text-body); }
+  .voice .note { font-size: var(--text-data); color: var(--color-ink-2); margin-top: 8px; }
+
+  /* 컴포넌트 */
+  .comp { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .cell { display: flex; flex-direction: column; gap: 10px; }
+  .cl { font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase; color: var(--color-ink-2); }
+  .btn {
+    font-family: var(--font-body); font-weight: 700; font-size: var(--text-ui);
+    min-height: var(--size-target); padding: 13px 28px; cursor: pointer;
+    border-radius: var(--radius-md); border: 0;
+    background: var(--color-accent); color: var(--color-on-accent);
+    transition: background-color .14s ease, color .14s ease, border-color .14s ease;
+  }
+  .btn:hover { background: var(--color-accent-hover); }
+  .btn.sec { background: transparent; border: var(--border-hair) solid var(--color-rule-strong); color: var(--color-ink-2); }
+  .btn.sec:hover { background: var(--color-paper-2); border-color: var(--color-ink); color: var(--color-ink); }
+  .btn.danger { background: var(--color-error); }
+  .input {
+    font-family: var(--font-mono); height: 38px; margin: 3px 0; padding: 0 12px; width: 220px;
+    border: var(--border-hair) solid var(--color-rule-strong); border-radius: var(--radius-md);
+    background: var(--color-paper); color: var(--color-ink); font-size: var(--text-form);
+  }
+  .choice { display: flex; align-items: center; gap: 12px; min-height: var(--size-target); font-size: var(--text-ui); }
+  .choice input {
+    appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 0; flex: none;
+    border: var(--border-hair) solid var(--color-rule-structural); background: var(--color-paper);
+    border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .choice input[type="radio"] { border-radius: var(--radius-full); }
+  .choice input:checked { background: var(--color-accent); border-color: var(--color-accent); }
+  .badge {
+    font-size: var(--text-micro); letter-spacing: var(--tracking-badge); padding: 2px 7px;
+    border: var(--border-hair) solid var(--color-rule-strong); border-radius: var(--radius-sm);
+    color: var(--color-ink-2);
+  }
+  .meter { display: flex; gap: 4px; }
+  .seg { width: var(--size-seg-w); height: var(--size-seg-h); border: var(--border-hair) solid var(--color-rule-strong); border-radius: var(--radius-sm); }
+  .seg.done { background: var(--color-ink); border-color: var(--color-ink); }
+  .seg.active { background: var(--color-accent); border-color: var(--color-accent); animation: ink-blink 2.4s ease-in-out infinite; }
+  .stage { font-size: var(--text-annot); color: var(--color-ink-2); }
+  .stage .now { color: var(--color-accent); font-weight: 500; }
+
+  table { border-collapse: collapse; width: 100%; max-width: 620px; }
+  thead th {
+    font-size: var(--text-micro); letter-spacing: var(--tracking-micro); text-transform: uppercase;
+    color: var(--color-ink-2); font-weight: 400; text-align: left; padding: 0 12px 8px;
+    border-bottom: var(--border-hair) solid var(--color-rule);
+  }
+  tbody td { padding: 12px; border-bottom: var(--border-hair) solid var(--color-grid); }
+  tbody tr:hover { background: var(--color-paper-2); }
+  .stock { font-weight: 700; font-size: var(--text-emphasis); }
+  .empty { border: var(--border-hair) solid var(--color-grid); border-radius: var(--radius-md); padding: 28px; text-align: center; color: var(--color-ink-2); font-size: var(--text-body-sm); max-width: 620px; }
+
+  /* 형태·간격·괘선 */
+  .shape { display: flex; gap: 28px; flex-wrap: wrap; }
+  .shape .box { width: 92px; height: 56px; border: var(--border-hair) solid var(--color-rule-strong); background: var(--color-paper-2); }
+  .rules { display: grid; gap: 10px; max-width: 620px; }
+  .rules div { display: flex; align-items: center; gap: 14px; font-size: var(--text-data); color: var(--color-ink-2); }
+  .rules i { display: block; height: 0; flex: 1; }
+  .space { display: flex; align-items: flex-end; gap: 8px; }
+  .space span { background: var(--color-accent); width: 22px; display: block; }
+  .space b { font-size: var(--text-micro); color: var(--color-ink-2); font-weight: 400; display: block; text-align: center; margin-top: 4px; }
+
+  /* 원리 */
+  .principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+  .principles article { border: var(--border-hair) solid var(--color-rule); border-radius: var(--radius-md); padding: 16px 18px; }
+  .principles h3 { font-size: var(--text-emphasis); font-weight: 700; margin-bottom: 6px; font-family: var(--font-body); }
+  .principles p { font-size: var(--text-data); color: var(--color-ink-2); }
+  .principles .n { color: var(--color-accent); }
+
+  footer { margin-top: 48px; border-top: var(--border-hair) solid var(--color-rule); padding-top: 16px; font-size: var(--text-data); color: var(--color-ink-2); max-width: 46em; }
+  footer b { color: var(--color-ink); }
+
+  /* 탭 — Color / Font / Design 분면 보기. 원리 절은 어느 분면에서나 준거이므로 항상 노출한다. */
+  /* 탭 — 버튼 덩어리가 아니라 탭 줄이다. 활성 표시는 시스템의 내비 언어를 그대로 쓴다
+     (하단 2px accent = --border-active, components.md A 레일 앱셸의 활성 표시와 동일). */
+  .tabs {
+    display: flex; gap: 0; margin: 0 0 32px; flex-wrap: wrap;
+    border-bottom: var(--border-hair) solid var(--color-rule-structural);
+  }
+  .tabs button {
+    font-family: var(--font-mono); font-size: var(--text-ui);
+    min-height: var(--size-target); padding: 10px 20px; cursor: pointer;
+    background: transparent; color: var(--color-ink-2);
+    border: 0; border-bottom: var(--border-active) solid transparent;
+    margin-bottom: -1px; /* 탭 밑줄이 컨테이너 괘선 위에 앉는다 */
+    transition: color .14s ease, border-color .14s ease;
+  }
+  .tabs button:hover { color: var(--color-ink); border-bottom-color: var(--color-rule); }
+  .tabs button[aria-selected="true"] {
+    color: var(--color-ink); font-weight: 500; border-bottom-color: var(--color-accent);
+  }
+  .tabs .count { font-size: var(--text-micro); color: var(--color-ink-2); margin-left: 8px; }
+  body[data-view="color"]     section[data-pane]:not([data-pane="color"]),
+  body[data-view="font"]      section[data-pane]:not([data-pane="font"]),
+  body[data-view="component"] section[data-pane]:not([data-pane="component"]),
+  body[data-view="shape"]     section[data-pane]:not([data-pane="shape"]),
+  body[data-view="principle"] section[data-pane]:not([data-pane="principle"]) { display: none; }
+</style>
+</head>
+<body data-view="color">
+
+<h1>Grainhouse — 스타일 타일</h1>
+<p class="lead">확정된 디자인 언어의 <b>견본</b>이다. 신규 기능·화면은 이 타일과
+<b>design-system/principles.md</b>의 원리를 준거로 만든다 — 타일은 “무엇”을, 원리는 “왜”를 말한다.
+타일에 없는 상황을 만나면 원리로 결정하고, 결정한 값은 시스템에 되먹인다.</p>
+
+<p class="meta-line">
+  <span>SOURCE approved-render.html</span>
+  <span>SYSTEM design-system/ (토큰 49 · 원리 5)</span>
+  <span>대비 검증 14/14 PASS</span>
+  <span>2026-08-23</span>
+</p>
+
+<div class="tabs" role="tablist" aria-label="타일 분면">
+  <button type="button" data-v="color" role="tab" aria-selected="true">Color<span class="count">12</span></button>
+  <button type="button" data-v="font" role="tab" aria-selected="false">Font<span class="count">13</span></button>
+  <button type="button" data-v="component" role="tab" aria-selected="false">Component</button>
+  <button type="button" data-v="shape" role="tab" aria-selected="false">Shape<span class="count">간격·괘선</span></button>
+  <button type="button" data-v="principle" role="tab" aria-selected="false">Principle<span class="count">5</span></button>
+</div>
+
+<section data-pane="color">
+  <h2>색 — 잉크와 인화지</h2>
+  <p class="why">기본 언어는 잉크 블랙과 인화지다. 블루는 <b>“지금 살아있는 것”</b>에만 쓴다(원리 4).
+  잉크는 스케일이 아니라 <b>농도의 4단 위계</b>다 — 본문 &gt; 구조선 &gt; 기능 보더 &gt; 장식선(원리 2).</p>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#f3efe7"></div><span class="name">paper</span><span class="val">#f3efe7</span><span class="ratio">배경</span></div>
+    <div class="sw"><div class="chip" style="background:#eae5da"></div><span class="name">paper-2</span><span class="val">#eae5da</span><span class="ratio">대지·hover</span></div>
+    <div class="sw"><div class="chip" style="background:#413c34"></div><span class="name">ink</span><span class="val">#413c34</span><span class="ratio">9.53:1 본문</span></div>
+    <div class="sw"><div class="chip" style="background:#575248"></div><span class="name">ink-2</span><span class="val">#575248</span><span class="ratio">6.77:1 보조</span></div>
+    <div class="sw"><div class="chip" style="background:#6b6459"></div><span class="name">rule-structural</span><span class="val">#6b6459</span><span class="ratio">5.10:1 구조선</span></div>
+    <div class="sw"><div class="chip" style="background:#867e72"></div><span class="name">rule-strong</span><span class="val">#867e72</span><span class="ratio">3.49:1 기능보더</span></div>
+    <div class="sw"><div class="chip" style="background:#b5ad9c"></div><span class="name">rule</span><span class="val">#b5ad9c</span><span class="ratio">장식 전용</span></div>
+    <div class="sw"><div class="chip" style="background:#e0d9ca"></div><span class="name">grid</span><span class="val">#e0d9ca</span><span class="ratio">행 구분</span></div>
+    <div class="sw"><div class="chip" style="background:#2b4a9e"></div><span class="name">accent</span><span class="val">#2b4a9e</span><span class="ratio">7.11:1 살아있는 것</span></div>
+    <div class="sw"><div class="chip" style="background:#9e2b2b"></div><span class="name">error</span><span class="val">#9e2b2b</span><span class="ratio">6.46:1</span></div>
+    <div class="sw"><div class="chip" style="background:#2b6b40"></div><span class="name">success</span><span class="val">#2b6b40</span><span class="ratio">5.59:1</span></div>
+    <div class="sw"><div class="chip" style="background:#8a5a00"></div><span class="name">warning</span><span class="val">#8a5a00</span><span class="ratio">5.17:1</span></div>
+  </div>
+</section>
+
+<section data-pane="font">
+  <h2>서체 — 두 개의 목소리</h2>
+  <p class="why">기본은 <b>계측(mono)</b>이고, 서술 세리프는 <b>타이틀 전용</b>이다(원리 3, 2026-08-23 반전).
+  같은 성격의 정보를 서로 다른 목소리로 렌더하지 않는다. Pretendard는 x-height가 커서
+  <b>font-size-adjust: 0.52</b>로 광학 보정한다.</p>
+  <div class="voice">
+    <div>
+      <p class="vt">서술 — 타이틀 전용</p>
+      <p class="sample-serif">Grainhouse 스캔 보관함</p>
+      <p class="note">GH Latin Serif(영문) + Pretendard(한글). h1·h2·워드마크, 그리고 절 전체가 읽는 문단인 경우.</p>
+    </div>
+    <div>
+      <p class="vt">계측 — 기본값</p>
+      <p class="sample-mono">GH-2411 · Ektachrome E100 · 36컷 · 412MB · 08.21</p>
+      <p class="note">Fira Mono(영문·숫자) + Pretendard(한글). 본문·라벨·버튼·내비·데이터 전부.</p>
+    </div>
+  </div>
+  <div class="type-row"><span class="tag">display</span><span style="font-family:var(--font-body);font-size:var(--text-display);font-weight:700">Grainhouse</span><span class="px">22 · body 700</span></div>
+  <div class="type-row"><span class="tag">h1</span><span style="font-family:var(--font-body);font-size:var(--text-h1);font-weight:700">페이지 제목</span><span class="px">20 · body 700</span></div>
+  <div class="type-row"><span class="tag">h2</span><span style="font-family:var(--font-body);font-size:var(--text-h2);font-weight:600">문서 소제목</span><span class="px">17 · body 600</span></div>
+  <div class="type-row"><span class="tag">form</span><span style="font-size:var(--text-form)">입력 필드 값</span><span class="px">16 · iOS 하한</span></div>
+  <div class="type-row"><span class="tag">emphasis</span><span style="font-size:var(--text-emphasis);font-weight:700">Ektachrome E100</span><span class="px">15.5 · 700</span></div>
+  <div class="type-row"><span class="tag">body</span><span style="font-size:var(--text-body)">본문 기본 · 선택 라벨</span><span class="px">15</span></div>
+  <div class="type-row"><span class="tag">ui</span><span style="font-size:var(--text-ui)">내비 · 버튼</span><span class="px">14</span></div>
+  <div class="type-row"><span class="tag">body-sm</span><span style="font-size:var(--text-body-sm)">부제 · 보조 문단</span><span class="px">13.5</span></div>
+  <div class="type-row"><span class="tag">data-strong</span><span style="font-size:var(--text-data-strong);font-weight:500">GH-2411</span><span class="px">13 · mono 500</span></div>
+  <div class="type-row"><span class="tag">data</span><span style="font-size:var(--text-data)">36컷 · 412MB · 08.21</span><span class="px">12.5 · mono</span></div>
+  <div class="type-row"><span class="tag">annot</span><span style="font-size:var(--text-annot)">스캔 중 · 22/36컷</span><span class="px">11.5 · mono</span></div>
+  <div class="type-row"><span class="tag">sublabel</span><span style="font-size:var(--text-sublabel);letter-spacing:var(--tracking-sublabel);text-transform:uppercase">NEW ENTRY</span><span class="px">10 · caps</span></div>
+  <div class="type-row"><span class="tag">micro</span><span style="font-size:var(--text-micro);letter-spacing:var(--tracking-micro);text-transform:uppercase;color:var(--color-ink-2)">ROLL · 공정</span><span class="px">9.5 · overline 전용</span></div>
+</section>
+
+<section data-pane="component">
+  <h2>컴포넌트</h2>
+  <p class="why">상태는 <b>잉크의 유무·농도·색</b>으로 표현한다 — 글로우·그림자·스피너는 쓰지 않는다(원리 1).
+  진행 중 표시는 발광 펄스가 아니라 <b>잉크가 번지는 저강도 명멸</b>이다.</p>
+  <div class="comp">
+    <div class="cell"><span class="cl">버튼</span>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn">저장</button><button class="btn sec">취소</button><button class="btn danger">삭제</button>
+      </div>
+      <span class="cl" style="text-transform:none;letter-spacing:0">액션 줄은 오른쪽 정렬 · 보조 → 주 순서</span>
+    </div>
+    <div class="cell"><span class="cl">입력</span>
+      <input class="input" value="Portra 400">
+      <input class="input" value="" placeholder="도로명 주소" style="border-color:var(--color-error)">
+      <span class="cl" style="text-transform:none;letter-spacing:0;color:var(--color-error)">! 오류는 보더 + 아이콘 + 메시지</span>
+    </div>
+    <div class="cell"><span class="cl">선택</span>
+      <label class="choice"><input type="radio" name="t" checked>135</label>
+      <label class="choice"><input type="radio" name="t">120</label>
+      <label class="choice"><input type="checkbox" checked>더스트 리터치</label>
+    </div>
+    <div class="cell"><span class="cl">뱃지 · 공정 미터</span>
+      <div style="display:flex;gap:8px"><span class="badge">C-41</span><span class="badge">E-6</span><span class="badge">B&amp;W</span></div>
+      <div class="meter"><i class="seg done"></i><i class="seg done"></i><i class="seg active"></i><i class="seg"></i></div>
+      <span class="stage"><span class="now">스캔 중</span> · 22/36컷</span>
+    </div>
+  </div>
+  <div style="margin-top:26px;display:grid;gap:20px">
+    <div>
+      <span class="cl">표 — 기록지 밀도</span>
+      <table style="margin-top:10px">
+        <thead><tr><th>Roll</th><th>필름 / 포맷</th><th>공정</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:500;font-size:var(--text-data-strong)">GH-2411</td>
+              <td><span class="stock">Ektachrome E100</span> <span class="badge">E-6</span><br><span style="font-size:var(--text-data);color:var(--color-ink-2)">135 · 36컷 · 3600dpi</span></td>
+              <td><div class="meter"><i class="seg done"></i><i class="seg done"></i><i class="seg done"></i><i class="seg done"></i></div><span class="stage">업로드 완료</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <span class="cl">빈 상태 — 기록지의 빈 페이지</span>
+      <div class="empty" style="margin-top:10px">조건에 맞는 기록이 없습니다<br><span style="font-size:var(--text-data)">필터를 바꾸거나 새 롤을 접수하세요</span></div>
+    </div>
+  </div>
+</section>
+
+<section data-pane="shape">
+  <h2>형태 · 간격 · 괘선</h2>
+  <p class="why">radius는 <b>마감이지 분리 도구가 아니다</b> — 위계는 여전히 괘선·대지·간격이 만든다(원리 2).
+  그림자·그라데이션은 없다(부재가 결정이다).</p>
+  <div class="shape">
+    <div class="cell"><span class="cl">radius-sm 2px</span><div class="box" style="border-radius:var(--radius-sm)"></div><span class="cl" style="text-transform:none;letter-spacing:0">뱃지·세그먼트·체크박스</span></div>
+    <div class="cell"><span class="cl">radius-md 4px</span><div class="box" style="border-radius:var(--radius-md)"></div><span class="cl" style="text-transform:none;letter-spacing:0">버튼·인풋·패널</span></div>
+    <div class="cell"><span class="cl">radius-full</span><div class="box" style="width:56px;border-radius:var(--radius-full)"></div><span class="cl" style="text-transform:none;letter-spacing:0">라디오 전용</span></div>
+    <div class="cell"><span class="cl">간격 스케일</span>
+      <div class="space">
+        <div><span style="height:4px"></span><b>4</b></div><div><span style="height:8px"></span><b>8</b></div>
+        <div><span style="height:12px"></span><b>12</b></div><div><span style="height:16px"></span><b>16</b></div>
+        <div><span style="height:24px"></span><b>24</b></div><div><span style="height:32px"></span><b>32</b></div>
+        <div><span style="height:40px"></span><b>40</b></div><div><span style="height:56px"></span><b>56</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="rules" style="margin-top:24px">
+    <div><span style="width:130px">구조선</span><i style="border-top:1px solid var(--color-rule-structural)"></i><span>레일·readout·섹션 5.10:1</span></div>
+    <div><span style="width:130px">기능 보더</span><i style="border-top:1px solid var(--color-rule-strong)"></i><span>입력·뱃지·미완료 3.49:1</span></div>
+    <div><span style="width:130px">장식선</span><i style="border-top:1px solid var(--color-rule)"></i><span>각주·표 헤더 구분</span></div>
+    <div><span style="width:130px">행 구분</span><i style="border-top:1px solid var(--color-grid)"></i><span>반복 행</span></div>
+    <div><span style="width:130px">활성 표시 2px</span><i style="border-top:2px solid var(--color-accent)"></i><span>내비 활성·포커스 링</span></div>
+  </div>
+</section>
+
+<section data-pane="principle">
+  <h2>원리 — 타일에 없는 값을 정할 때</h2>
+  <p class="why">타일은 결과를 보여주고 <b>원리는 이유를 말한다</b>. 신규 화면에서 값을 찾지 못하면
+  아래 순서로 자문한다. 전문은 <b>design-system/principles.md</b>.</p>
+  <div class="principles">
+    <article><h3><span class="n">1</span> 발광이 아니라 잉크다</h3><p>강조가 필요하면 glow·그림자·네온을 쓰지 않고 잉크의 유무·농도·색으로 번역한다. “빛나야 할 것 같은” 요소를 만나면 — <b>종이 위에 인쇄된다면 어떻게 생겼을지</b> 묻는다.</p></article>
+    <article><h3><span class="n">2</span> 괘선이 구조다</h3><p>분리가 필요하면 잉크 괘선 1px · paper-2 대지 · 간격, 이 셋만 쓴다. 그림자는 도입하지 않는다. radius는 마감일 뿐 위계 수단이 아니다.</p></article>
+    <article><h3><span class="n">3</span> 두 개의 목소리</h3><p>기본은 계측(mono). 세리프는 타이틀 전용이다. 같은 성격의 정보를 서로 다른 목소리로 렌더하지 않는다.</p></article>
+    <article><h3><span class="n">4</span> 색은 파란 잉크 하나</h3><p>새 요소에 색을 주고 싶으면 기본 답은 “블랙·회색”이다. 블루는 사용자가 <b>지금 주목·행동해야 하는 단 하나</b>인지 검증 후에만.</p></article>
+    <article><h3><span class="n">5</span> 밀도는 내용이 정한다</h3><p>기록지(표) · 양식지(폼) · 문서(안내)의 세 모드. 폭은 화면이 아니라 <b>요소</b>가 정한다 — 줄 길이 제한은 문단에만 걸고 표는 넓게 둔다.</p></article>
+  </div>
+</section>
+
+<footer>
+  <b>갱신 규약</b> — 이 타일은 <b>design-system/</b>에서 파생된 산출물이다. 시스템이 바뀌면 타일도 갱신한다.
+  준거가 낡으면 신규 화면이 옛 언어로 만들어진다. 접근성 하한(텍스트 4.5:1 · 상태 전달 비텍스트 3:1 ·
+  기능 보더는 두 배경 모두 3:1 · 타깃 44px)은 원리보다 위이며 협상 대상이 아니다.
+</footer>
+
+<script>
+  // 분면 전환 — 원리 절과 머리말은 어느 분면에서나 준거이므로 항상 노출한다(data-pane 없음).
+  document.querySelectorAll('.tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', 'false'); });
+      btn.setAttribute("aria-selected", "true");
+      document.body.dataset.view = btn.dataset.v;
+    });
+  });
+</script>
+</body>
+</html>

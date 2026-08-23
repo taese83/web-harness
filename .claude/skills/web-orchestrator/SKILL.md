@@ -166,7 +166,7 @@ Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽
 - `api-schema-designer` → `_workspace/02_design/api-schema.md`
 - `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract-designer` → `_workspace/02_design/state-contract.md`. 성능 예산 요구·`TIMESERIES_MODE`·공개 서비스이면 `performance-budget-designer` → `_workspace/02_design/performance-budget.md`
 
-**Wave 2** — 단독 실행 (design-system.md + layout-spec.md 존재 후). **프리뷰 전에 방향 승인이 선행한다** — `design-approval-contract.md` 0단계(후보 타일 3종 → 사용자 선택). 방향 기각을 프리뷰에서 받으면 5배 비싸다(실측):
+**Wave 2** — 단독 실행 (design-system.md + layout-spec.md 존재 후). **프리뷰 전에 방향 승인이 선행한다** — `design-approval-contract.md` 0단계(**자유 렌더 후보 3종 → 사용자와 왕복 조정**, 2026-08-23 개정). 확정 후 시스템 추출 → 그다음 프리뷰. 방향 기각을 프리뷰에서 받으면 5배 비싸다(실측):
 - `component-designer` → `_workspace/02_design/component-spec.md`. 완료 후 `design-approval-contract.md`의 **Design Preview Loop**를 기본 실행한다: `design-preview-builder` → `validate-design-preview.mjs --write-source-snapshot`으로 FEAT/TC/DOM trace와 입력 digest 고정 → `preview-server.mjs` 서빙 → 피드백은 스펙에 먼저 반영 후 재생성(≤3라운드) → 명시적 사용자 승인 뒤 `validate-design-preview.mjs --record-approval`로 승인 해시 기록
 - `VISUAL_QA_MODE`이면 `visual-contract-designer` → `_workspace/02_design/visual-qa-contract.md`, `visual-qa-contract.json`
 
