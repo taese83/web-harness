@@ -14,7 +14,8 @@
   32613714281은 cohort 검증까지 성공한 뒤 upload 단계에서 실패(GitHub.com v3 artifact API 퇴역 —
   v4.6.2 pin으로 전환), 2차 run 32614388125가 **success** + artifact 업로드 — `t1-summary.json` =
   `ISOLATED_VERIFIED`(revision 48b96b3). receipt를 `golden/vite-serverless-hybrid/_workspace/04_qa/`에
-  커밋했다.
+  커밋했다. **provenance 대조 완료**: 사용자가 내려받은 artifact zip(`hybrid-t1-32614388125.zip`, 53,736B)
+  내 `evidence/t1-summary.json`의 sha256 `b3c24f7209e013bc…`가 커밋본과 바이트 일치(2026-08-23).
 - **단계 C(승격) 진행**: adapter `certified` + locked profile 재잠금 + SKILL `SUPPORT_STATUS` 동기화 →
   `validate-certified-evidence` green이 곧 증명. 이 과정에서 게이트의 locked profile `supportLevel`
   필드 형상 오류(top-level 읽기 → 실제는 `adapter.supportLevel`)를 실측으로 잡아 정정했다.
