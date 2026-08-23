@@ -25,7 +25,8 @@
 // 종료 코드: 0 = 일치, 1 = 불일치, 2 = 사용법/입력 오류.
 
 import {createHash} from 'node:crypto'
-import {appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
+import {appendEvidenceLine, readEvidenceLog, detectRebind} from './evidence-log-lib.mjs'
 import {join, resolve} from 'node:path'
 
 // before 인벤토리의 digest. 원장과 delta 파일의 대조에 쓴다.
@@ -119,23 +120,21 @@ export function detectNoStableIds(fileCount, idCount, allowNoIds = false) {
 // 원장이 있으면 최초 스냅샷의 digest가 남아, 지우고 다시 떠도 RESNAPSHOT으로 드러난다.
 export const snapshotLedgerPath = deltaDir => join(deltaDir, '.plan-snapshots.jsonl')
 
-export function readSnapshotLedger(deltaDir, {exists = existsSync, read = readFileSync} = {}) {
+// 공유 evidence-log 판독. 부재 시 null(호출부가 "원장 없음"과 "빈 원장"을 구분).
+export function readSnapshotLedger(deltaDir, {exists = existsSync} = {}) {
   const path = snapshotLedgerPath(deltaDir)
   if (!exists(path)) return null
-  const out = []
-  for (const line of read(path, 'utf8').split('\n')) {
-    if (!line.trim()) continue
-    try { out.push(JSON.parse(line)) } catch { /* 손상 줄 무시 */ }
-  }
-  return out
+  return readEvidenceLog(path)
 }
 
 // 원장의 **최초** 기록과 현재 before가 다르면 기준선이 갈아치워진 것이다. 순수.
+// 공유 detectRebind(최초-vs-현재, key·digestField)에 정확히 매핑된다.
 export function detectResnapshot(changeId, beforeDigest, ledgerEntries) {
-  const rows = (ledgerEntries ?? []).filter(e => e && e.changeId === changeId && typeof e.beforeDigest === 'string')
-  if (rows.length === 0) return []
-  if (rows[0].beforeDigest === beforeDigest) return []
-  return [{code: 'RESNAPSHOT', id: `${rows[0].beforeDigest}≠${beforeDigest}`}]
+  const rebind = detectRebind(ledgerEntries ?? [], beforeDigest, {
+    digestField: 'beforeDigest',
+    key: {field: 'changeId', value: changeId},
+  })
+  return rebind ? [{code: 'RESNAPSHOT', id: `${rebind.firstDigest}≠${rebind.currentDigest}`}] : []
 }
 
 // 승인된 TC가 before 인벤토리에 없으면 스냅샷이 이미 오염된 상태에서 떠진 것이다. 순수.
@@ -192,6 +191,10 @@ function main() {
       console.error('delta 파일을 지워도 원장은 남는다. 범위를 바꾸려면 새 변경 ID로 시작하라.')
       process.exit(2)
     }
+    // 원장을 **먼저** append하고 delta 파일을 나중에 쓴다(원장-먼저). append가 던지면(신규
+    // 실패 경로) delta 파일이 안 남아 재실행이 `이미 존재` exit 2로 막히지 않는다 — 같은
+    // beforeDigest 재시도는 RESNAPSHOT이 아니라 멱등 복구다.
+    appendEvidenceLine(snapshotLedgerPath(deltaDir), {changeId: opts.change, at: new Date().toISOString(), beforeDigest: digest, beforeCount: before.length})
     writeFileSync(deltaPath, `${JSON.stringify({
       schemaVersion: 1,
       changeId: opts.change,
@@ -199,7 +202,6 @@ function main() {
       before,
       declared: {added: [], modified: [], removed: []},
     }, null, 2)}\n`)
-    appendFileSync(snapshotLedgerPath(deltaDir), `${JSON.stringify({changeId: opts.change, at: new Date().toISOString(), beforeDigest: digest, beforeCount: before.length})}\n`)
     const noIds = detectNoStableIds(files.length, before.length, opts.allowNoIds)
     const late = detectLateSnapshot(before, approvedTestCaseIds(root))
     console.log(`스냅샷 기록: ${opts.change} — 계획 산출물 ${files.length}개, 안정 ID ${before.length}개`)

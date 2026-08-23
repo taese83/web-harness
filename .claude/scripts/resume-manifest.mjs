@@ -30,6 +30,7 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {extname, join, relative, resolve} from 'node:path'
 import {lockLedgerPath, planDigest} from './validate-spawn-plan.mjs'
+import {readEvidenceLog} from './evidence-log-lib.mjs'
 import {SCANNABLE, scanSource} from './verify-spawn-completion.mjs'
 
 const SKIP_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'coverage', '__tests__'])
@@ -90,16 +91,12 @@ export function verifyPlanLock(manifest, ledgerEntries = null) {
     : {status: 'TAMPERED', source: 'manifest', expected: lock.digest, actual, at: lock.at ?? null, relocked: false}
 }
 
-// 원장 로드 — 없으면 null(=원장 미사용). 손상된 줄은 건너뛴다.
-export function readLockLedger(manifestPath, {read = readFileSync, exists = existsSync} = {}) {
+// 원장 로드 — 없으면 null(=원장 미사용, "빈 원장"과 구분). 판독은 공유 evidence-log
+// (validate-spawn-plan의 writer가 append하는 바로 그 .plan-locks.jsonl — 쓰기/읽기 단일 관용구).
+export function readLockLedger(manifestPath, {exists = existsSync} = {}) {
   const path = lockLedgerPath(manifestPath)
   if (!exists(path)) return null
-  const out = []
-  for (const line of read(path, 'utf8').split('\n')) {
-    if (!line.trim()) continue
-    try { out.push(JSON.parse(line)) } catch { /* 손상 줄 무시 */ }
-  }
-  return out
+  return readEvidenceLog(path)
 }
 
 // 단일 산출물 분류 — done | truncated | missing. 순수(파일시스템 read만).

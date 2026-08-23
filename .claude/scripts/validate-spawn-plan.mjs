@@ -31,7 +31,8 @@
 // resume-manifest와 같은 파일을 공유해 교차 확인이 가능하다는 점에서 강하다.
 
 import {createHash} from 'node:crypto'
-import {appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
+import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
+import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {dirname, join, relative, resolve} from 'node:path'
 
 // 잠금 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
@@ -241,14 +242,9 @@ function main() {
     // **재잠금 사전 거부**(사후 탐지보다 강하다). 이미 다른 digest로 잠긴 계획을 조용히
     // 덮어쓰면 축소된 범위가 "정상 잠금"으로 둔갑한다. 원장·매니페스트 어느 쪽에든 다른
     // digest의 잠금이 있으면 거부하고, 재계획은 새 task로 하게 한다.
-    const ledgerPath = lockLedgerPath(planPath)
-    const ledgerEntries = []
-    if (existsSync(ledgerPath)) {
-      for (const line of readFileSync(ledgerPath, 'utf8').split('\n')) {
-        if (!line.trim()) continue
-        try { ledgerEntries.push(JSON.parse(line)) } catch { /* 손상 줄 무시 */ }
-      }
-    }
+    // 원장 판독은 공유 evidence-log(readEvidenceLog). "전부 반환" 충돌 판정은 이 게이트
+    // 고유 의미라 로컬 유지(공유 detectRebind는 최초-vs-현재만 — 욱여넣지 않는다).
+    const ledgerEntries = readEvidenceLog(lockLedgerPath(planPath))
     const conflicting = conflictingLockDigests(plan, ledgerEntries)
     if (conflicting.length > 0) {
       console.error(`재잠금 거부: 이 task는 이미 다른 계획으로 잠겨 있다(기록 ${conflicting.join(', ')} ≠ 현재 ${digest}).`)
@@ -256,12 +252,14 @@ function main() {
       process.exit(2)
     }
     const at = new Date().toISOString()
+    // 원장을 **먼저** append하고 매니페스트를 나중에 stamp한다(원장-먼저). append가 던지면
+    // (O_NOFOLLOW·cap 신규 실패 경로) 매니페스트에 planLock이 안 박혀 "planLock이 매니페스트
+    // 안에만 있는" 약점 상태(§4)가 남지 않는다 — 같은 digest 재시도는 conflict가 아니라 멱등
+    // 복구다. 원장은 매니페스트 바깥이라, 안에만 두면 지우거나(→unlocked) 축소 후 재잠금해
+    // 위조가 통하던 것을 최초 잠금 한 줄로 드러낸다(실측 확인).
+    appendEvidenceLine(lockLedgerPath(planPath), {task: plan.task ?? null, digest, at})
     const stamped = {...plan, planLock: {digest, at}}
     writeFileSync(planPath, `${JSON.stringify(stamped, null, 2)}\n`)
-    // 원장은 매니페스트 **바깥**에 append-only로 남긴다. 매니페스트 안에만 두면 planLock을
-    // 지우거나(→unlocked) 축소 후 재잠금해(→새 digest) 위조가 통한다(실측 확인).
-    // 원장이 있으면 최초 잠금이 남고, 재잠금은 두 번째 줄로 드러난다.
-    appendFileSync(lockLedgerPath(planPath), `${JSON.stringify({task: plan.task ?? null, digest, at})}\n`)
     locked = digest
   }
   report.planLock = locked

@@ -21,8 +21,9 @@
 // Node 14 호환 유지 — 세션 기본 Node가 낮아도 receipt 기록은 항상 동작해야 한다.
 
 import {spawnSync} from 'node:child_process';
-import {appendFileSync, mkdirSync, realpathSync} from 'node:fs';
+import {mkdirSync, realpathSync} from 'node:fs';
 import {join, resolve} from 'node:path';
+import {appendEvidenceLine} from './evidence-log-lib.mjs';
 
 const argv = process.argv.slice(2);
 const separatorIndex = argv.indexOf('--');
@@ -71,7 +72,8 @@ const receipt = {
 try {
   const receiptDir = join(projectRoot, '_workspace', '03_dev');
   mkdirSync(receiptDir, {recursive: true});
-  appendFileSync(join(receiptDir, 'verification-receipts.jsonl'), JSON.stringify(receipt) + '\n');
+  // 공유 evidence-log — O_NOFOLLOW(POSIX)·0o600·크기 상한을 얻는다(구 plain appendFileSync 대체).
+  appendEvidenceLine(join(receiptDir, 'verification-receipts.jsonl'), receipt);
   console.log(`[receipt] ${label} exit=${exitCode} cwd=${projectRoot}`);
 } catch (error) {
   console.error(`receipt 기록 실패: ${error instanceof Error ? error.message : String(error)}`);
