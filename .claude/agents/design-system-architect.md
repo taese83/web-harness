@@ -40,6 +40,10 @@ maxTurns: 20
 5. light/dark/high-contrast 상태와 forced-colors/reduced-motion 동작을 명세한다
 6. 색상만으로 상태를 전달하지 않고 focus ring과 error/success semantics를 정의한다
 7. 외부 design token source가 있으면 DTCG 2025.10의 type/value field, alias와 Figma variable → CSS variable → MUI theme mapping을 명세한다. DTCG Community Group Report를 W3C Recommendation으로 표현하지 않는다.
+8. 이름만으로 목적이 자명하지 않은 토큰(특히 duration/motion, 용도 한정 타입 토큰)에는 **선언
+   목적 한 줄**을 함께 명세한다 — 무엇을 위한 값인지(예: 인터랙션 전환용 vs 루프 애니메이션용).
+   소비측(component-designer 규칙 14, design-reviewer 목적 대조)이 추론이 아니라 명시 계약을
+   읽게 하는 전제다.
 
 ## 출력 구조
 

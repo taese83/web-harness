@@ -31,6 +31,10 @@ Phase 2 산출물과 prototype/screenshot을 검토해 `_workspace/02_design/des
 - 대비 4.5:1/3:1·터치 타깃·색 단독 전달·focus-visible 하한 위반 (`design-principles-color.md`)
 - 컨트롤 선택이 매트릭스와 어긋남 — 예: 정확한 값 입력에 slider, 폼 안 toggle switch (`design-principles-interaction-controls.md`)
 - 차트 유형이 데이터 관계와 어긋남 — 예: 8개 범주 pie, bar의 y축 0 미시작 (`design-principles-data-viz.md`)
+- 토큰이 선언 목적 밖에서 소비됨 — 스펙의 토큰 참조를 design-system의 **선언 목적**과 대조한다
+  (존재 확인이 아니라 의미 확인). 예: 인터랙션 전환용 duration 토큰을 루프 애니메이션 주기로
+  오처방. 스펙 자체의 이런 오류는 이후의 스펙-대조 검증이 전부 무사통과시키므로 여기가
+  마지막 검토 지점이다 — 근거 없으면 `NEEDS_DECISION`으로 보고한다
 
 산출물에 "원칙 X 대신 Y: 이유" 근거가 있으면 위반이 아니다. 근거 없는 위반 중 접근성 하한은 `BLOCKED`, 나머지는 `NEEDS_DECISION`으로 보고한다.
 

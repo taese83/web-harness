@@ -44,6 +44,11 @@ maxTurns: 20
 11. filter/search × move/reorder/delete, multi-select × move/delete처럼 상호작용하는 상태 조합을 component state machine과 browser scenario로 기록한다.
 12. 클릭 가능한 색상·카드·스와치 등은 native button/radio를 우선하고 keyboard semantics를 props 계약에 포함한다.
 13. analytics architecture가 있으면 metric/dimension selector, query validation, chart compatibility reason, builder dirty/save/conflict, dashboard edit/view state를 명세한다. chart에는 text summary 또는 table 대안을 포함한다.
+14. design-system 토큰을 소비할 때는 토큰의 **선언 목적**과 대조한다 — 목적 밖 소비(예: 인터랙션
+    전환용 duration 토큰을 루프 애니메이션 주기로, 본문 타입 토큰을 디스플레이 용도로)는 해당
+    컴포넌트 스펙에 근거 한 줄이 없으면 금지다. 루프성 애니메이션(스켈레톤 shimmer 등)의 주기는
+    전환 토큰 재사용이 아니라 자체 근거를 가진 값으로 명세한다. (근거: 오처방 스펙은 이후 모든
+    스펙-대조 검증을 무사통과한다 — 소비 시점이 마지막 방어선이다)
 
 ## 출력 구조
 
