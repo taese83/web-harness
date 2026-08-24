@@ -43,6 +43,17 @@ test('브랜치 스탬프(§4-1 레지스트리): 마커 branch= 필드 + branch
   assert.equal(parseIssueRefs('산문에 branch=main 이 있어도\n\n<!-- web-harness:refs feat=FEAT-001 tc=TC-001-1 -->').branch, null)
 })
 
+test('브랜치 스탬프 방어(리뷰 LOW 3건): 마커 손상 loud·빈 라벨 잔여·절단 마커 fail-closed', () => {
+  // 마커를 침묵 손상시키는 브랜치명(공백·-->)은 조용히 틀리는 대신 loud 거부
+  assert.throws(() => buildIssueFields(draft, {branch: 'a-->b'}), /INVALID_BRANCH_STAMP/)
+  assert.throws(() => buildIssueFields(draft, {branch: 'has space'}), /INVALID_BRANCH_STAMP/)
+  // 빈 라벨 잔여('branch:')는 ''가 아니라 null(반환 계약 준수)
+  assert.equal(parseBranchFromLabels(['branch:']), null)
+  // 마커 시작만 있고 --> 부재(절단 본문) → refs 빈 값(→ pickup spec-incomplete 되돌림, fail-closed 방향)
+  const truncated = parseIssueRefs('<!-- web-harness:refs feat=FEAT-001 tc=TC-001-1 branch=main')
+  assert.deepEqual(truncated, {featureIds: [], testCaseIds: [], branch: null})
+})
+
 test('assignee 지정 시 반영 (선택적 분배)', () => {
   assert.equal(buildIssueFields(draft, {assignee: 'devX'}).assignee, 'devX')
 })

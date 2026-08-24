@@ -34,7 +34,7 @@ export const branchLabel = branch => {
  */
 export function parseBranchFromLabels(labels) {
   const found = (labels ?? []).find(l => typeof l === 'string' && l.startsWith('branch:'))
-  return found ? found.slice('branch:'.length) : null
+  return found ? (found.slice('branch:'.length) || null) : null // 빈 잔여('branch:')도 null(계약 준수)
 }
 
 /**

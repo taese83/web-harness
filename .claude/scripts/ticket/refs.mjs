@@ -24,6 +24,10 @@ const BRANCH_FIELD = /\bbranch=([^\s]+)/
  * @returns {string}
  */
 export function buildRefsMarker(featureIds, testCaseIds, {branch = null} = {}) {
+  // 마커 정본을 침묵 손상시키는 브랜치명은 loud 거부(리뷰 지적): 공백은 branch= 필드를 절단하고,
+  // "-->"는 HTML 주석을 조기 종결해 왕복이 조용히 틀린다. git ref 규칙은 "-->"를 허용하므로
+  // 병적이지만 가능 — 정본 주장을 유지하려면 손상은 시끄러워야 한다.
+  if (branch && /\s|-->/.test(branch)) throw new Error(`INVALID_BRANCH_STAMP: 마커를 손상시키는 브랜치명(공백/-->): ${branch}`)
   const branchField = branch ? ` branch=${branch}` : ''
   return `${MARKER_BEGIN} feat=${(featureIds ?? []).join(',')} tc=${(testCaseIds ?? []).join(',')}${branchField} ${MARKER_END}`
 }
