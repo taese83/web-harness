@@ -27,6 +27,8 @@ export const currentBranchArgs = () => ['rev-parse', '--abbrev-ref', 'HEAD']
 export const originExistsArgs = (base, planPath) => ['cat-file', '-e', `${base}:${planPath}`]
 export const originDiffArgs = (base, planPath) => ['diff', '--quiet', base, '--', planPath]
 export const conflictArgs = () => ['diff', '--name-only', '--diff-filter=U']
+export const showFileArgs = (ref, path) => ['show', `${ref}:${path}`]
+export const remoteBranchExistsArgs = ref => ['rev-parse', '--verify', '--quiet', ref]
 
 /**
  * 청구 전제(점 1): 로컬 feature-plan이 origin에 푸시돼 있고 일치하는지 읽는다.
@@ -57,6 +59,32 @@ export async function resolveCurrentBranch({repoRoot, exec = null}) {
     const name = (await run(currentBranchArgs())).out.trim()
     return name && name !== 'HEAD' ? name : null
   } catch { return null }
+}
+
+/**
+ * 다른 브랜치의 파일을 **체크아웃 없이** 읽는다(read-only, 설계 §4-2 크로스-브랜치 창).
+ * 없으면(브랜치/파일 부재) null — 지어내지 않음. exec 주입 가능(테스트).
+ * @param {{repoRoot: string, branch: string, path: string, remote?: string, exec?: (a:string[])=>Promise<{code:number,out:string}>}} config
+ * @returns {Promise<string|null>}
+ */
+export async function readBranchFile({repoRoot, branch, path, remote = 'origin', exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  try {
+    return (await run(showFileArgs(`${remote}/${branch}`, path))).out
+  } catch {
+    return null
+  }
+}
+
+/** 원격 브랜치 존재 여부(설계 §4-1 "브랜치 소실" 경고 판정). 조회 실패는 false(보수). */
+export async function remoteBranchExists({repoRoot, branch, remote = 'origin', exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  try {
+    await run(remoteBranchExistsArgs(`${remote}/${branch}`))
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** working-tree에 미해결 컨플릭(점 4)이 있는지. --diff-filter=U 결과가 있으면 conflicted. */
