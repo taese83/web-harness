@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>후보 A — Gate Rail (계기판형)</title>
+<style>
+  :root{
+    --bg:#0d1321; --panel:#141c2f; --card:#1a2440; --line:#28324d; --line-soft:#1f2941;
+    --text:#e8edf7; --muted:#93a0bb; --dim:#5c6a8a;
+    --go:#3ddc97; --warn:#ffc555; --stop:#ff6b6b; --accent:#6ea8ff;
+    --go-dim:rgba(61,220,151,.14); --warn-dim:rgba(255,197,85,.14); --accent-dim:rgba(110,168,255,.14);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:grid;grid-template-columns:248px 1fr}
+  /* ── 사이드바: 프로젝트 = 소형 게이지 행 ── */
+  aside{background:#0a0f1b;border-right:1px solid var(--line-soft);padding:18px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:2px 8px 18px}
+  .brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#9b7bff);display:grid;place-items:center;font-weight:800;font-size:13px;color:#0a0f1b}
+  .brand b{font-size:14px;letter-spacing:.2px}
+  .brand small{display:block;color:var(--dim);font-size:11px;font-weight:400}
+  .side-label{font-size:10px;letter-spacing:.14em;color:var(--dim);padding:0 8px 8px;text-transform:uppercase}
+  .proj{width:100%;text-align:left;background:none;border:0;color:var(--text);padding:9px 8px;border-radius:8px;cursor:pointer;display:block}
+  .proj:hover{background:var(--panel)}
+  .proj.sel{background:var(--card);outline:1px solid var(--line)}
+  .proj .nm{font-weight:650;font-size:13px}
+  .proj .meta{display:flex;align-items:center;gap:6px;margin-top:4px}
+  .gauge{flex:1;height:3px;border-radius:2px;background:#232e49;overflow:hidden}
+  .gauge i{display:block;height:100%;border-radius:2px}
+  .st{font-size:9.5px;font-weight:700;letter-spacing:.06em}
+  .st.ok{color:var(--go)} .st.warn{color:var(--warn)} .st.off{color:var(--dim)}
+  /* ── 본문 ── */
+  main{padding:22px 30px 40px;min-width:0}
+  header{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}
+  header h1{font-size:21px;font-weight:750;letter-spacing:-.01em}
+  header .path{color:var(--dim);font-size:12px}
+  header .scan{margin-left:auto;color:var(--dim);font-size:12px}
+  header .refresh{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer}
+  /* 게이트 레일 — 이 후보의 정체성 척추 */
+  .rail{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:16px 22px;margin-bottom:14px}
+  .gate{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:86px}
+  .gate .node{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;border:2px solid var(--line)}
+  .gate.pass .node{background:var(--go-dim);border-color:var(--go);color:var(--go);box-shadow:0 0 14px rgba(61,220,151,.25)}
+  .gate.now .node{background:var(--warn-dim);border-color:var(--warn);color:var(--warn);box-shadow:0 0 16px rgba(255,197,85,.35);animation:pulse 2.2s ease-in-out infinite}
+  .gate.wait .node{color:var(--dim)}
+  @keyframes pulse{50%{box-shadow:0 0 26px rgba(255,197,85,.55)}}
+  .gate .lb{font-size:11px;font-weight:700}
+  .gate .sub{font-size:10px;color:var(--dim);margin-top:-4px}
+  .gate.pass .lb{color:var(--go)} .gate.now .lb{color:var(--warn)} .gate.wait .lb{color:var(--dim)}
+  .link{flex:1;height:2px;background:var(--line);position:relative;top:-14px;min-width:20px}
+  .link.done{background:var(--go);box-shadow:0 0 8px rgba(61,220,151,.4)}
+  /* 지금 존 — 위계의 답: 다음 행동이 화면의 주인공 */
+  .now-zone{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px}
+  .next{background:linear-gradient(160deg,var(--card),#1c2136);border:1px solid var(--warn);border-radius:14px;padding:20px 22px;position:relative;overflow:hidden}
+  .next::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--warn)}
+  .next .tag{font-size:10px;letter-spacing:.16em;color:var(--warn);font-weight:800}
+  .next h2{font-size:18px;font-weight:750;margin:8px 0 4px}
+  .next p{color:var(--muted);font-size:13px;max-width:46ch}
+  .next .acts{display:flex;gap:10px;margin-top:16px}
+  .btn-p{background:var(--warn);color:#1a1405;border:0;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:750;cursor:pointer}
+  .btn-s{background:none;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .pulse-list{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:16px 18px}
+  .pulse-list h3{font-size:11px;letter-spacing:.14em;color:var(--dim);margin-bottom:10px}
+  .pulse{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line-soft);font-size:12.5px}
+  .pulse:first-of-type{border-top:0}
+  .pulse b{font-variant-numeric:tabular-nums}
+  .pulse .ok{color:var(--go)} .pulse .warn{color:var(--warn)}
+  /* 탭 + 보조 통계(뒤로 물러남) */
+  nav{display:flex;gap:2px;border-bottom:1px solid var(--line-soft);margin:6px 0 16px}
+  nav button{background:none;border:0;color:var(--dim);padding:10px 15px;font-size:13px;font-weight:650;cursor:pointer;border-bottom:2px solid transparent}
+  nav button.on{color:var(--text);border-bottom-color:var(--accent)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .stat{background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px}
+  .stat .k{font-size:10.5px;letter-spacing:.12em;color:var(--dim)}
+  .stat .v{font-size:24px;font-weight:780;font-variant-numeric:tabular-nums;margin-top:4px}
+  .stat .d{font-size:11px;color:var(--muted);margin-top:2px}
+  .stat .v .u{font-size:13px;color:var(--dim);font-weight:600}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><span class="mark">WH</span><span><b>Web Harness</b><small>Console</small></span></div>
+  <div class="side-label">Projects · 17</div>
+  <button class="proj"><span class="nm">bootstrap-probe</span><span class="meta"><span class="gauge"><i style="width:12%;background:var(--dim)"></i></span><span class="st off">ABSENT</span></span></button>
+  <button class="proj"><span class="nm">minicar-laptime</span><span class="meta"><span class="gauge"><i style="width:55%;background:var(--warn)"></i></span><span class="st warn">MISSING</span></span></button>
+  <button class="proj"><span class="nm">nocode-builder</span><span class="meta"><span class="gauge"><i style="width:88%;background:var(--go)"></i></span><span class="st ok">APPROVED</span></span></button>
+  <button class="proj sel"><span class="nm">search-portal</span><span class="meta"><span class="gauge"><i style="width:74%;background:var(--go)"></i></span><span class="st ok">APPROVED</span></span></button>
+  <button class="proj"><span class="nm">seminar-booking</span><span class="meta"><span class="gauge"><i style="width:81%;background:var(--go)"></i></span><span class="st ok">APPROVED</span></span></button>
+  <button class="proj"><span class="nm">tamiya-motor-lab</span><span class="meta"><span class="gauge"><i style="width:62%;background:var(--warn)"></i></span><span class="st warn">UNAPPROVED</span></span></button>
+</aside>
+<main>
+  <header>
+    <h1>search-portal</h1><span class="path">workspace/search-portal</span>
+    <span class="scan">Last scan 오후 2:10</span><button class="refresh">↻ 디스크 새로고침</button>
+  </header>
+
+  <!-- 게이트 레일: 증거-게이트 파이프라인이 곧 정체성 -->
+  <div class="rail" role="img" aria-label="파이프라인 게이트: Source 통과, Plan 통과, Design 통과, Dev 진행 중, QA 대기, Release 대기">
+    <div class="gate pass"><span class="node">✓</span><span class="lb">Source</span><span class="sub">0 docs</span></div><span class="link done"></span>
+    <div class="gate pass"><span class="node">✓</span><span class="lb">Plan</span><span class="sub">44 docs</span></div><span class="link done"></span>
+    <div class="gate pass"><span class="node">✓</span><span class="lb">Design</span><span class="sub">33 · 승인</span></div><span class="link done"></span>
+    <div class="gate now"><span class="node">4</span><span class="lb">Dev</span><span class="sub">진행 중</span></div><span class="link"></span>
+    <div class="gate wait"><span class="node">5</span><span class="lb">QA</span><span class="sub">18/21</span></div><span class="link"></span>
+    <div class="gate wait"><span class="node">6</span><span class="lb">Release</span><span class="sub">—</span></div>
+  </div>
+
+  <!-- 지금 존: 다음 행동이 주인공 -->
+  <div class="now-zone">
+    <section class="next">
+      <span class="tag">NEXT · 지금 필요한 행동 2건</span>
+      <h2>변경 요청 1건 검토 · stale TC 3건 재실행</h2>
+      <p>CHG-20260822-001이 검토 대기 중이고, 소스 변경 이후 TC-004-2·TC-007-1·TC-013-1의 실행 기록이 낡았습니다.</p>
+      <div class="acts"><button class="btn-p">CR 검토 열기</button><button class="btn-s">stale TC 재실행</button></div>
+    </section>
+    <section class="pulse-list">
+      <h3>PULSE</h3>
+      <div class="pulse"><span>Design preview</span><b class="ok">APPROVED · R4</b></div>
+      <div class="pulse"><span>TC 실행</span><b><span class="ok">18 pass</span> · <span class="warn">3 stale</span></b></div>
+      <div class="pulse"><span>Change requests</span><b class="warn">1 open</b></div>
+      <div class="pulse"><span>Session changes</span><b>0</b></div>
+    </section>
+  </div>
+
+  <nav>
+    <button class="on">Overview</button><button>Documents</button><button>Features</button>
+    <button>Design</button><button>Development</button><button>QA</button>
+  </nav>
+
+  <div class="stats">
+    <div class="stat"><div class="k">SOURCE</div><div class="v">0</div><div class="d">00_source documents</div></div>
+    <div class="stat"><div class="k">PLAN</div><div class="v">44</div><div class="d">01_plan documents</div></div>
+    <div class="stat"><div class="k">DESIGN</div><div class="v">33</div><div class="d">02_design documents</div></div>
+    <div class="stat"><div class="k">FEATURES / TCS</div><div class="v">13 <span class="u">/ 21</span></div><div class="d">feature-plan traceability</div></div>
+  </div>
+</main>
+</body>
+</html>

@@ -574,3 +574,22 @@ ROUND_RESULT: LOCAL_PASS + E2E_PASS
 ROUND_TEST_EVIDENCE:
 - `pnpm run console:test` 48/48 PASS — argv에 positional 부재·stdin 캡처 assertion으로 갱신
 - live E2E: 서버 재시작 후 CHG-20260807-001 impact 재실행 → COMPLETED/READY, 영향 파일 4개 식별, usage 실측(inputTokens 21 · cachedInputTokens 276,392 · outputTokens 6,793) — Round 20이 NON_GOALS로 미룬 live run 검증이 hotfix 2건으로 완료됨
+
+## R1 — 콘솔 디자인 개편 1단계: 토큰 이식 + 전역 표면 (2026-08-24)
+
+- **TARGET_BEHAVIOR**: 승인 렌더(Gate Rail)에서 추출한 디자인 시스템의 토큰을 콘솔에 이식해
+  전 화면이 다크 시각 언어로 렌더된다. 기능·DOM 구조·문구는 변경하지 않는다(시각 층만).
+- **ALLOWED_PATHS**: `packages/web-harness-console/public/styles.css`,
+  `packages/web-harness-console/public/index.html`(color-scheme meta 1줄)
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 클래스명·DOM 구조·app.js가 참조하는 셀렉터,
+  기존 CSS 변수명(`--surface`·`--primary`·`--success` 등 — 레거시 alias로 재피복해 보존),
+  `preview-frame` iframe 문서 배경(#fff — 생성 앱 자체 테마 영역, 콘솔 토큰 대상 아님)
+- **NON_GOALS**: 게이트 레일·NEXT 존 등 신규 컴포넌트(2단계), 탭별 레이아웃 재배치(3단계),
+  라이트 모드(시스템에 값 없음 — 승인 대기)
+- **CHANGE_BUDGET**: 2파일 · CSS 변수 블록 교체 + 하드코딩 색 소탕(≈45개소)
+- **TEST_EVIDENCE**: `console:check` 통과 · 라이브 브라우저 검증(4탭 렌더, 콘솔 에러 0) ·
+  **자동 대비 스윕**: 가시 텍스트 전수 WCAG AA 검사 위반 0건(brand-mark는 gradient라
+  스크립트 미측정 — 시스템 계산치 on-accent/accent 7.9:1로 대체 확인)
+- **CAPABILITY_ESCALATION**: none (CSS·meta만, 서버·권한·데이터 경로 무변경)
+- **DOCS_TO_UPDATE**: none — 02_design/design-system/이 이번 변경의 상류 정본이며 이미 반영됨
+  (구 `design-system.md`는 3단계 완료 시 대체 표기 예정)

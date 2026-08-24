@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>후보 B — Evidence Ledger (지면·타이포형)</title>
+<style>
+  :root{
+    --paper:#faf8f3; --paper-deep:#f2efe6; --ink:#1c1a15; --ink-soft:#5b564a; --ink-faint:#8f8878;
+    --rule:#d8d2c2; --rule-strong:#1c1a15;
+    --approve:#1d6b4a; --pending:#9a6a00; --blocked:#a3352b; --accent:#274690;
+    --serif:ui-serif,"Iowan Old Style",Georgia,"Times New Roman","Apple SD Gothic Neo",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font:15px/1.65 var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;display:grid;grid-template-columns:216px 1fr}
+  /* ── 사이드바 = 얇은 목차(index) ── */
+  aside{border-right:1px solid var(--rule);padding:26px 0 26px 22px;background:var(--paper-deep)}
+  .brand{font-family:var(--serif);font-size:17px;font-weight:700;letter-spacing:.01em;padding-right:22px}
+  .brand small{display:block;font-family:var(--sans);font-size:10px;letter-spacing:.22em;color:var(--ink-faint);text-transform:uppercase;margin-top:2px}
+  .idx-label{font-size:10px;letter-spacing:.2em;color:var(--ink-faint);text-transform:uppercase;margin:26px 0 8px}
+  .idx{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 22px 7px 0;cursor:pointer;font:inherit;color:var(--ink-soft);font-size:13.5px;border-right:2px solid transparent}
+  .idx:hover{color:var(--ink)}
+  .idx.sel{color:var(--ink);font-weight:700;border-right-color:var(--rule-strong)}
+  .idx .st{display:block;font-size:10px;letter-spacing:.08em;color:var(--ink-faint)}
+  .idx .st.ok{color:var(--approve)} .idx .st.warn{color:var(--pending)}
+  /* ── 본문 = 단일 지면, 난외주(margin) 좌측 ── */
+  main{padding:34px 56px 60px;max-width:980px}
+  .doc-head{border-bottom:3px double var(--rule-strong);padding-bottom:14px;margin-bottom:6px}
+  .doc-head .kicker{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
+  .doc-head h1{font-family:var(--serif);font-size:34px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+  .doc-head .sub{display:flex;gap:18px;color:var(--ink-soft);font-size:12.5px;margin-top:6px}
+  .doc-head .sub .re{margin-left:auto;text-decoration:underline;text-underline-offset:3px;cursor:pointer;color:var(--accent);background:none;border:0;font:inherit;font-size:12.5px}
+  nav{display:flex;gap:26px;padding:12px 0;border-bottom:1px solid var(--rule);margin-bottom:30px}
+  nav button{background:none;border:0;font:inherit;font-size:13px;letter-spacing:.04em;color:var(--ink-faint);cursor:pointer;padding:0}
+  nav button.on{color:var(--ink);font-weight:700;text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px}
+  /* 결정 필요 고지 — 법정 고지문 형식이 위계의 답 */
+  .notice{border:1.5px solid var(--rule-strong);padding:18px 22px 18px 26px;margin:0 0 34px;position:relative;background:#fff}
+  .notice::before{content:"※";position:absolute;left:-1px;top:-1px;background:var(--rule-strong);color:var(--paper);width:26px;height:26px;display:grid;place-items:center;font-size:13px}
+  .notice h2{font-family:var(--serif);font-size:17px;margin-bottom:6px}
+  .notice p{font-size:13.5px;color:var(--ink-soft);max-width:62ch}
+  .notice .acts{margin-top:12px;display:flex;gap:18px}
+  .notice a{color:var(--accent);font-weight:650;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  /* 절(section) — 번호 + 난외주 카운트 */
+  section{display:grid;grid-template-columns:88px 1fr;gap:0 22px;padding:20px 0;border-top:1px solid var(--rule)}
+  .mgn{text-align:right}
+  .mgn .no{font-family:var(--serif);font-size:13px;color:var(--ink-faint)}
+  .mgn .cnt{font-family:var(--serif);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  .mgn .cnt small{font-size:14px;color:var(--ink-faint);font-weight:400}
+  section h3{font-family:var(--serif);font-size:16.5px;font-weight:700;margin-bottom:3px}
+  section .desc{font-size:13px;color:var(--ink-soft);max-width:58ch}
+  .row{display:flex;gap:10px;align-items:baseline;margin-top:8px;font-size:13px}
+  .row .k{color:var(--ink-faint);min-width:120px}
+  .row .v{font-variant-numeric:tabular-nums}
+  /* 스탬프 — 칩 대신 인장 */
+  .stamp{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.12em;padding:3px 9px;border:1.5px solid currentColor;border-radius:3px;transform:rotate(-1.6deg);text-transform:uppercase}
+  .stamp.ok{color:var(--approve)} .stamp.warn{color:var(--pending)} .stamp.info{color:var(--accent)}
+  .foot{margin-top:34px;padding-top:12px;border-top:3px double var(--rule-strong);font-size:11px;color:var(--ink-faint);display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">Web Harness<small>Evidence Ledger</small></div>
+  <div class="idx-label">Index · 17</div>
+  <button class="idx">bootstrap-probe<span class="st">absent</span></button>
+  <button class="idx">minicar-laptime<span class="st warn">missing</span></button>
+  <button class="idx">nocode-builder<span class="st ok">approved</span></button>
+  <button class="idx sel">search-portal<span class="st ok">approved · P44 D33</span></button>
+  <button class="idx">seminar-booking<span class="st ok">approved</span></button>
+  <button class="idx">tamiya-motor-lab<span class="st warn">unapproved</span></button>
+</aside>
+<main>
+  <div class="doc-head">
+    <div class="kicker">Local Workspace — Project Record</div>
+    <h1>search-portal</h1>
+    <div class="sub"><span>workspace/search-portal</span><span>Last scan 오후 2:10</span><button class="re">디스크 새로고침</button></div>
+  </div>
+  <nav>
+    <button class="on">Overview</button><button>Documents</button><button>Features</button>
+    <button>Design</button><button>Development</button><button>QA</button>
+  </nav>
+
+  <!-- 위계의 답: 결정이 필요한 것은 고지문 한 장으로 최상단에 -->
+  <div class="notice">
+    <h2>검토가 필요한 항목 — 2건</h2>
+    <p>변경 요청 <b>CHG-20260822-001</b>이 검토 대기 중입니다. 소스 변경 이후 test case 3건
+    (TC-004-2 · TC-007-1 · TC-013-1)의 실행 기록이 낡아 재실행이 필요합니다.</p>
+    <div class="acts"><a>→ 변경 요청 검토</a><a>→ stale TC 재실행</a></div>
+  </div>
+
+  <section>
+    <div class="mgn"><div class="no">01 · 02</div><div class="cnt">0<small> / 44</small></div></div>
+    <div><h3>Source · Plan</h3>
+      <p class="desc">외부 원본 문서 0건, 기획 산출물 44건. 기획은 승인 체크포인트를 통과했습니다.</p>
+    </div>
+  </section>
+  <section>
+    <div class="mgn"><div class="no">03</div><div class="cnt">33</div></div>
+    <div><h3>Design <span class="stamp ok">Approved · R4</span></h3>
+      <p class="desc">설계 산출물 33건. 디자인 프리뷰는 2026-08-21 라운드 4에서 승인되어 해시로 고정됐습니다.</p>
+    </div>
+  </section>
+  <section>
+    <div class="mgn"><div class="no">04</div><div class="cnt">13<small> / 21</small></div></div>
+    <div><h3>Features · Test Cases</h3>
+      <div class="row"><span class="k">TC 실행</span><span class="v">18 pass · <b style="color:var(--pending)">3 stale</b> — 재실행 대상은 상단 고지 참조</span></div>
+      <div class="row"><span class="k">Traceability</span><span class="v">FEAT 13종 전부 TC 연결됨</span></div>
+    </div>
+  </section>
+  <section>
+    <div class="mgn"><div class="no">05</div><div class="cnt">1<small> / 0</small></div></div>
+    <div><h3>Change Requests · Session Changes <span class="stamp warn">1 Open</span></h3>
+      <div class="row"><span class="k">영구 요청 이력</span><span class="v">1건 — Preview 검토에서 생성</span></div>
+      <div class="row"><span class="k">세션 변경 감지</span><span class="v">서버 시작 이후 없음</span></div>
+    </div>
+  </section>
+
+  <div class="foot"><span>web-harness console — evidence-gated record</span><span>인쇄 가능한 지면 · 스탬프는 실제 승인 해시에 연결</span></div>
+</main>
+</body>
+</html>

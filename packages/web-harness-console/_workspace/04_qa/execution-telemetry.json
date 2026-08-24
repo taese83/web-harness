@@ -1,0 +1,35 @@
+{
+ "schemaVersion": 1,
+ "spawns": [
+  {
+   "run": "2026-08-24T13:00+iterate",
+   "phase": "direction-gate",
+   "agent": "design-system-architect",
+   "retry": false,
+   "tokens": null,
+   "toolUses": null,
+   "durationMs": null,
+   "outcome": "crashed"
+  },
+  {
+   "run": "2026-08-24T13:00+iterate",
+   "phase": "direction-gate",
+   "agent": "design-system-architect",
+   "retry": true,
+   "tokens": null,
+   "toolUses": null,
+   "durationMs": null,
+   "outcome": "crashed"
+  },
+  {
+   "run": "2026-08-24T13:00+iterate",
+   "phase": "design-extract",
+   "agent": "design-system-architect",
+   "retry": false,
+   "tokens": 102598,
+   "toolUses": 24,
+   "durationMs": 749243,
+   "outcome": "complete"
+  }
+ ]
+}

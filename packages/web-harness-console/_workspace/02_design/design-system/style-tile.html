@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Style Tile — Web Harness Console "Gate Rail" (확정 언어 참조표)</title>
+<style>
+  :root{
+    color-scheme:dark;
+    --bg-deep:#0a0f1b; --bg:#0d1321; --panel:#141c2f; --card:#1a2440;
+    --card-grad:linear-gradient(160deg,#1a2440,#1c2136); --gauge-track:#232e49;
+    --line-soft:#1f2941; --line:#28324d; --line-strong:#66759a;
+    --text:#e8edf7; --muted:#93a0bb; --faint:#8290ad; --dim:#5c6a8a;
+    --go:#3ddc97; --warn:#ffc555; --stop:#ff6b6b; --accent:#6ea8ff;
+    --go-dim:rgba(61,220,151,.14); --warn-dim:rgba(255,197,85,.14);
+    --stop-dim:rgba(255,107,107,.14); --accent-dim:rgba(110,168,255,.14);
+    --on-go:#0b2417; --on-warn:#1a1405; --on-stop:#1f0808; --on-accent:#0a0f1b;
+    --glow-go:0 0 14px rgba(61,220,151,.25); --glow-go-line:0 0 8px rgba(61,220,151,.4);
+    --glow-warn:0 0 16px rgba(255,197,85,.35);
+    --r-ctl:8px; --r-panel:12px; --r-hero:14px; --r-round:999px;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);padding:32px;max-width:1080px;margin:0 auto}
+  .notice{border:1px solid var(--warn);border-left:4px solid var(--warn);border-radius:var(--r-ctl);background:var(--warn-dim);padding:12px 16px;font-size:13px;margin-bottom:24px}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+  .sub{color:var(--faint);font-size:12px;margin-bottom:24px}
+  section{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-hero);padding:16px 24px;margin-bottom:16px}
+  section>h2{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .sw{width:132px;border-radius:var(--r-ctl);border:1px solid var(--line-soft);padding:10px;font-size:11px}
+  .sw b{display:block;font-family:ui-monospace,Menlo,monospace;font-weight:400;color:var(--muted);margin-top:14px}
+  .lbl{color:var(--faint);font-size:11px;letter-spacing:.06em;font-weight:700}
+  /* 텍스트 사다리 */
+  .type p{margin:6px 0}
+  /* 게이트 */
+  .gate{display:inline-flex;flex-direction:column;align-items:center;gap:6px;min-width:88px}
+  .node{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;border:2px solid var(--line)}
+  .pass .node{background:var(--go-dim);border-color:var(--go);color:var(--go);box-shadow:var(--glow-go)}
+  .now .node{background:var(--warn-dim);border-color:var(--warn);color:var(--warn);box-shadow:var(--glow-warn)}
+  .wait .node{color:var(--faint)}
+  .gate span{font-size:11px;font-weight:700}
+  .pass span{color:var(--go)} .now span{color:var(--warn)} .wait span{color:var(--faint)}
+  .link{display:inline-block;width:48px;height:2px;background:var(--line);vertical-align:16px}
+  .link.done{background:var(--go);box-shadow:var(--glow-go-line)}
+  /* 칩 */
+  .chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 12px;border-radius:var(--r-round);font-size:11px;font-weight:800;letter-spacing:.06em}
+  .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .c-go{color:var(--go);background:var(--go-dim)} .c-warn{color:var(--warn);background:var(--warn-dim)}
+  .c-stop{color:var(--stop);background:var(--stop-dim)} .c-acc{color:var(--accent);background:var(--accent-dim)}
+  .c-neutral{color:var(--faint);background:var(--bg)}
+  /* 버튼 */
+  button{font:inherit;cursor:pointer;min-height:40px;border-radius:var(--r-ctl);font-size:13px}
+  .btn-p{background:var(--warn);color:var(--on-warn);border:0;padding:8px 18px;font-weight:700}
+  .btn-s{background:none;border:1px solid var(--line);color:var(--text);padding:8px 16px;font-weight:600}
+  .btn-d{background:none;border:1px solid var(--stop);color:var(--stop);padding:8px 16px;font-weight:600}
+  .btn-armed{background:var(--stop);border:0;color:var(--on-stop);padding:8px 16px;font-weight:700}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* 계기 */
+  .stat{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-panel);padding:14px 16px;min-width:160px}
+  .stat .k{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+  .stat .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:4px}
+  .stat .v .u{font-size:13px;color:var(--faint);font-weight:600}
+  .stat .d{font-size:12px;color:var(--muted);margin-top:2px}
+  /* 게이지 행 */
+  .proj{background:var(--bg-deep);border-radius:var(--r-ctl);padding:8px;width:220px}
+  .proj .nm{font-weight:600;font-size:13px}
+  .proj .meta{display:flex;align-items:center;gap:6px;margin-top:4px}
+  .gauge{flex:1;height:3px;border-radius:2px;background:var(--gauge-track);overflow:hidden}
+  .gauge i{display:block;height:100%}
+  .st{font-size:11px;font-weight:700;letter-spacing:.06em}
+  /* 탭 */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line-soft)}
+  .tabs button{background:none;border:0;color:var(--faint);padding:10px 15px;font-weight:600;border-bottom:2px solid transparent;border-radius:0;min-height:44px}
+  .tabs .on{color:var(--text);border-bottom-color:var(--accent)}
+  input{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-ctl);color:var(--text);padding:8px 12px;font:inherit}
+  .next{background:var(--card-grad);border:1px solid var(--warn);border-left:4px solid var(--warn);border-radius:var(--r-hero);padding:16px 20px;max-width:520px}
+  .next .tag{font-size:11px;letter-spacing:.14em;color:var(--warn);font-weight:800}
+  .next h3{font-size:18px;font-weight:700;margin:6px 0 4px}
+  .next p{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<h1>Web Harness Console — "Gate Rail" 스타일 타일</h1>
+<p class="sub">design-system v2 · 근거: approved-render.html (라운드 1 확정)</p>
+<div class="notice"><b>이 문서는 확정 언어의 참조표다.</b> 방향 선택용 시안이 아니다 — 방향은 이미 승인 렌더로 확정됐고, 여기 있는 값은 tokens.md의 토큰을 그대로 렌더한 견본이다.</div>
+
+<section>
+  <h2>표면 — 밝기 사다리 (elevation = 표면 밝기)</h2>
+  <div class="row">
+    <div class="sw" style="background:var(--bg-deep)"><span class="lbl">bg-deep</span><b>#0a0f1b</b></div>
+    <div class="sw" style="background:var(--bg)"><span class="lbl">bg</span><b>#0d1321</b></div>
+    <div class="sw" style="background:var(--panel)"><span class="lbl">panel</span><b>#141c2f</b></div>
+    <div class="sw" style="background:var(--card)"><span class="lbl">card</span><b>#1a2440</b></div>
+    <div class="sw" style="background:var(--card-grad)"><span class="lbl">card-grad (히어로 전용)</span><b>160deg</b></div>
+  </div>
+</section>
+
+<section>
+  <h2>텍스트 사다리 · 상태 4색</h2>
+  <div class="type" style="background:var(--card);border-radius:var(--r-panel);padding:12px 16px">
+    <p style="color:var(--text)">--text 1위계 — 제목·본문 (card 위 13.1:1)</p>
+    <p style="color:var(--muted)">--muted 2위계 — 설명·보조 (5.8:1)</p>
+    <p style="color:var(--faint)">--faint 3위계 — 경로·타임스탬프, 읽기 텍스트 하한 (4.8:1)</p>
+    <p style="color:var(--dim)">--dim — 텍스트 금지(2.8:1): 장식·비활성 윤곽 전용 (이 줄이 유일한 반례 시연)</p>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <span class="chip c-go">APPROVED</span>
+    <span class="chip c-acc">RUNNING</span>
+    <span class="chip c-warn">STALE</span>
+    <span class="chip c-stop">FAILED</span>
+    <span class="chip c-neutral">ABSENT</span>
+  </div>
+</section>
+
+<section>
+  <h2>게이트 레일 — 발광은 상태의 전유물</h2>
+  <span class="gate pass"><span class="node">✓</span><span>Plan</span></span><span class="link done"></span><span class="gate now"><span class="node">4</span><span>Dev</span></span><span class="link"></span><span class="gate wait"><span class="node">5</span><span>QA</span></span>
+</section>
+
+<section>
+  <h2>지금 존 · 버튼 위계 (amber filled는 화면당 1개)</h2>
+  <div class="next">
+    <span class="tag">NEXT · 지금 필요한 행동</span>
+    <h3>변경 요청 1건 검토</h3>
+    <p>CHG-20260822-001이 검토 대기 중입니다.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn-p">CR 검토 열기</button>
+      <button class="btn-s">보류</button>
+    </div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <button class="btn-d">실행 중단</button>
+    <button class="btn-armed">정말 중단 (armed 2단)</button>
+    <input value="폼 필드 — line-strong 보더" size="24">
+  </div>
+</section>
+
+<section>
+  <h2>계기 · 게이지 행 · 탭</h2>
+  <div class="row">
+    <div class="stat"><div class="k">Features / TCs</div><div class="v">13 <span class="u">/ 21</span></div><div class="d">feature-plan traceability</div></div>
+    <div class="proj"><span class="nm">search-portal</span><span class="meta"><span class="gauge"><i style="width:74%;background:var(--go)"></i></span><span class="st" style="color:var(--go)">APPROVED</span></span></div>
+    <div class="proj"><span class="nm">tamiya-motor-lab</span><span class="meta"><span class="gauge"><i style="width:62%;background:var(--warn)"></i></span><span class="st" style="color:var(--warn)">UNAPPROVED</span></span></div>
+  </div>
+  <div class="tabs" style="margin-top:14px">
+    <button class="on">Overview</button><button>Documents</button><button>Features</button><button>QA</button>
+  </div>
+</section>
+</body>
+</html>
