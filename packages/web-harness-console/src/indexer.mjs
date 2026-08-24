@@ -516,6 +516,19 @@ export const hasTcRunCommand = root => {
   }
 }
 
+// 파이프라인 단계 증거 — 게이트 레일이 소비한다. **존재 사실만** 읽고 진척률을 추정하지
+// 않는다(파일이 있다 ≠ 완료). 없으면 false이며, 그 자체가 "증거 없음"이라는 정직한 사실이다.
+const summarizeStage = root => {
+  const exists = (...segments) => {
+    try { return lstatSync(join(root, ...segments)).isFile() } catch { return false }
+  }
+  return {
+    changeScope: exists('_workspace', '03_dev', 'change-scope.md'),
+    handoff: exists('_workspace', 'RELEASE', 'HANDOFF.md'),
+    releaseReadiness: exists('_workspace', 'RELEASE', 'release-readiness.md'),
+  }
+}
+
 const summarizeQa = root => {
   const qaRoot = join(root, '_workspace', '04_qa')
   let exists = false
@@ -693,6 +706,7 @@ export class WorkspaceCatalog {
       changeRequests: project.changeRequests,
       // 실행 직후 신선도를 위해 스캔 캐시가 아니라 조회 시점에 계산한다(저비용 파일 읽기).
       qa: summarizeQa(project.root),
+      stage: summarizeStage(project.root),
       changes,
     }
   }

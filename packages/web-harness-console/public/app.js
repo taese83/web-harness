@@ -4,6 +4,7 @@ import {
   isTrustedPreviewMessageSource,
   parsePreviewChangeRequestMessage,
 } from './preview-message-contract.mjs'
+import {currentGateId, deriveGates, deriveNextActions, derivePulse} from './gate-rail.mjs'
 
 const elements = {
   projectList: document.querySelector('#project-list'),
@@ -573,6 +574,53 @@ const openChangeRequestDialog = ({feature = null, subFeature = null, anchor = nu
   form.elements.title.focus()
 }
 
+// 게이트 레일 — 파이프라인 6단계를 화면 척추로(정체성). 상태·근거는 전부 실측 파생이며
+// 근거 없는 단계는 '판정 불가'로 표기한다(지어내지 않음).
+const renderGateRail = detail => {
+  const gates = deriveGates(detail)
+  const nowId = currentGateId(gates)
+  const nodes = []
+  gates.forEach((gate, index) => {
+    if (index > 0) nodes.push(create('span', {className: `gate-link${gates[index - 1].status === 'pass' ? ' is-done' : ''}`}))
+    const tone = gate.id === nowId && gate.status !== 'pass' ? 'is-now' : `is-${gate.status}`
+    nodes.push(create('div', {className: `gate ${tone}`, title: `${gate.label} — ${gate.detail}`}, [
+      create('span', {className: 'gate-node', text: gate.status === 'pass' ? '✓' : gate.status === 'unknown' ? '?' : String(index + 1)}),
+      create('span', {className: 'gate-label', text: gate.label}),
+      create('span', {className: 'gate-detail', text: gate.detail}),
+    ]))
+  })
+  return create('div', {className: 'gate-rail', role: 'img',
+    'aria-label': `파이프라인 게이트: ${gates.map(gate => `${gate.label} ${gate.detail}`).join(', ')}`}, nodes)
+}
+
+// '지금 존' — 다음 행동이 주인공(위계). 행동이 없으면 그 사실을 말한다.
+const renderNowZone = detail => {
+  const actions = deriveNextActions(detail)
+  const primary = actions[0] ?? null
+  const nextCard = create('section', {className: `next-card${primary ? '' : ' is-clear'}`}, [
+    create('span', {className: 'next-tag', text: primary ? `NEXT · 지금 필요한 행동 ${actions.length}건` : 'NEXT · 대기 중인 행동 없음'}),
+    create('h2', {text: primary ? primary.title : '지금 필요한 행동이 없습니다'}),
+    create('p', {className: 'next-why', text: primary ? primary.why : '열린 변경 요청·실패 TC·프리뷰 대기·세션 변경이 모두 없습니다. 다음 게이트로 진행할 수 있습니다.'}),
+  ])
+  if (primary) {
+    const acts = create('div', {className: 'next-acts'})
+    for (const action of actions.slice(0, 3)) {
+      const button = create('button', {type: 'button', className: action === primary ? 'next-primary' : 'next-secondary', text: action.title})
+      button.addEventListener('click', () => setTab(action.tab))
+      acts.append(button)
+    }
+    nextCard.append(acts)
+  }
+  const pulse = create('section', {className: 'pulse-card'}, [create('h3', {text: 'PULSE'})])
+  for (const item of derivePulse(detail)) {
+    pulse.append(create('div', {className: 'pulse-row'}, [
+      create('span', {className: 'pulse-label', text: item.label}),
+      create('b', {className: `pulse-value tone-${item.tone}`, text: item.value}),
+    ]))
+  }
+  return create('div', {className: 'now-zone'}, [nextCard, pulse])
+}
+
 const renderOverview = () => {
   const detail = state.detail
   const metrics = create('div', {className: 'metric-grid'}, [
@@ -606,7 +654,14 @@ const renderOverview = () => {
     ]))
     changePanel.append(list)
   }
-  return create('div', {}, [heading('Project overview', '기획과 디자인의 현재 상태를 한눈에 확인합니다.'), metrics, create('div', {className: 'overview-grid'}, [previewPanel, changePanel])])
+  // 순서가 곧 위계(원리 2): 게이트 레일(정체성) → 지금 존(주인공) → 통계·패널(물러남).
+  return create('div', {}, [
+    heading('Project overview', '파이프라인 게이트와 지금 필요한 행동을 먼저 보여줍니다 — 표시는 전부 실측에서 파생합니다.'),
+    renderGateRail(detail),
+    renderNowZone(detail),
+    metrics,
+    create('div', {className: 'overview-grid'}, [previewPanel, changePanel]),
+  ])
 }
 
 const appendMarkdown = (container, source) => {

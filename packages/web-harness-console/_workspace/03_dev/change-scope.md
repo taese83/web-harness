@@ -593,3 +593,28 @@ ROUND_TEST_EVIDENCE:
 - **CAPABILITY_ESCALATION**: none (CSS·meta만, 서버·권한·데이터 경로 무변경)
 - **DOCS_TO_UPDATE**: none — 02_design/design-system/이 이번 변경의 상류 정본이며 이미 반영됨
   (구 `design-system.md`는 3단계 완료 시 대체 표기 예정)
+
+## R2 — 콘솔 디자인 개편 2단계: 게이트 레일 + '지금 존' (2026-08-24)
+
+- **TARGET_BEHAVIOR**: Overview 상단에 파이프라인 게이트 레일(정체성)과 NEXT/PULSE 존(위계)이
+  렌더되고, 표시되는 모든 상태·행동이 detail payload의 **실측 사실에서만** 파생된다. 근거 없는
+  단계는 '판정 불가(unknown)'로 표기하고 pass로 격상하지 않는다.
+- **ALLOWED_PATHS**: `public/gate-rail.mjs`(신규 순수 파생), `public/app.js`(렌더 3함수),
+  `public/styles.css`(컴포넌트 스타일), `src/indexer.mjs`(summarizeStage — 단계 파일 존재 사실),
+  `test/gate-rail.test.mjs`(신규), `package.json`(check 등재)
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 기존 Overview 패널(metric-grid·preview·change)과 그 동작,
+  detail payload의 기존 필드(추가만 — `stage` 신설), 탭 전환 API(setTab)
+- **NON_GOALS**: 나머지 탭 정합(3단계), 사이드바 게이지(3단계), 라이트 모드
+- **CHANGE_BUDGET**: 6파일 · 신규 모듈 1 + 렌더 3함수 + CSS 1블록 + indexer 1함수
+- **TEST_EVIDENCE**: gate-rail 8/8(픽스처 7 + **실제 인덱서 payload 계약 1**) · console:check ·
+  전체 CI green · 라이브 검증(레일 6게이트 실측 일치, 대비 스윕: 텍스트 위반 0 / 노드 보더
+  최소 3.7:1) · **반증 확인**: preview 필드명을 되돌리면 계약 테스트가 실제로 fail
+- **CAPABILITY_ESCALATION**: none (읽기 전용 파생 · 파일 존재 확인만, 쓰기·권한·네트워크 없음)
+- **DOCS_TO_UPDATE**: none — design-system/components.md가 상류 정본이며 구현이 그것을 따름
+
+### 라운드 중 발견·수정한 결함 (라이브 검증이 잡음)
+1. **필드명 드리프트**: `preview.state`로 읽어 APPROVED 프로젝트가 "프리뷰 없음"으로 오표시.
+   손수 만든 픽스처가 같은 오해를 담아 테스트는 통과했다 → 실제 인덱서 payload로 판정하는
+   계약 테스트를 추가하고 반증(필드 되돌리면 fail)으로 실효 확인.
+2. **기능 보더 하한**: 중립 게이트 노드가 `--line`(1.34:1)이라 원이 사실상 비가시 →
+   accessibility.md 규칙대로 `--line-strong`(3.7:1) 적용.
