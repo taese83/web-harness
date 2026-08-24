@@ -1,9 +1,9 @@
 # 티켓 주도 팀 워크플로우 통합 — 설계
 
-*설계 + 구현 상태(2026-08-24 갱신). **A/B/C 순수 코어 구현·라이브 실증(GitHub Issues 실발행)
-완료, 형상 규율 4점 게이트·원장 writer(evidence-log 공유 lib)·team-flow 진입점 스킬 구현.
-실행부 executor CLI(bash allowlist 등재 선행)·콘솔 workflow 표면은 진행 중.** web-harness를
-이슈 트래커(Jira·Linear·GitHub
+*설계 + 구현 상태(2026-08-24 갱신). **A/B/C 순수 코어·형상 규율 4점 게이트·원장 writer·
+team-flow 스킬·콘솔 Work flow 표면·선택 라우팅·executor CLI(claim/board/pickup/link)까지
+구현 완료.** 실행 환경: CLI는 플러그인 런타임 전용 — repo bash policy allowlist에는 **등재하지
+않기로 결정**(정책 비약화). web-harness를 이슈 트래커(Jira·Linear·GitHub
 Issues 등)와 연결해, **기능을 티켓 단위로 분해 → 각 개발자가 티켓대로 개발 → 증거 실린
 PR**의 흐름을 지원하기 위한 설계다. "혼자 + 티켓 분할"이 1차 대상이며, 멀티 개발자는
 같은 계약 위에서 자연스럽게 확장된다.*

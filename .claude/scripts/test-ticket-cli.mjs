@@ -132,6 +132,63 @@ test('runLink: STALE 차단 · verified closeLine · 멱등 · confirm append', 
     seedClaim(dir)
     const stale = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units}})
     assert.equal(stale.blocked, 'stale-change-scope')
+    assert.equal(stale.staleCheck, 'stale')
+    // 대조 미수행은 침묵 스킵이 아니다(리뷰 HIGH fail-open 금지): change-scope 부재 + confirm → 차단
+    rmSync(join(dir, CHANGE_SCOPE_RELATIVE))
+    const unavailable = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true}})
+    assert.equal(unavailable.blocked, 'stale-check-unavailable')
+    assert.match(unavailable.staleCheck, /not-performed/)
+    // 명시 인수(--accept-unverified-scope)만 통과 — staleCheck 정직 표기 유지
+    const accepted = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true, 'accept-unverified-scope': true}})
+    assert.equal(accepted.ok, true)
+    assert.match(accepted.staleCheck, /not-performed/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runClaim: 권한 차단은 부분 성공이 아니라 ok:false(exit 2 정렬) + 내역 보존', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    const blocked = await runClaim({
+      root: dir, repo: 'o/r', flags: {units, confirm: true},
+      io: {
+        currentBranch: async () => 'feature/dash',
+        originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/feature/dash'}),
+        permission: async () => 'read', // 이슈 생성 불가 등급 → runner가 blocked 반환
+        provider: {findByLabel: async () => null, createIssue: async () => { throw new Error('도달하면 안 됨') }},
+      },
+    })
+    assert.equal(blocked.ok, false)                       // 기계 신호 정렬(exit 2 방향)
+    assert.match(blocked.blocked, /^claim-blocked:/)
+    assert.equal(blocked.results.length, 1)               // 차단 내역 보존(유실 없음)
+    assert.equal(blocked.results[0].blocked, true)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runPickup: 다른 FEAT의 활성 change-scope 침묵 덮어쓰기 금지(--replace-scope 명시만)', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    seedClaim(dir)
+    const {writeChangeScopeFile} = await import('./ticket/cli.mjs')
+    writeChangeScopeFile(dir, {featureId: 'FEAT-002', ticketKey: '9', sourceDigest: 'x'}) // 진행 중인 다른 FEAT
+    const okSeq = () => {
+      const seq = [
+        {number: 7, title: 't', body: issueBody, assignees: []},
+        {number: 7, title: 't', body: issueBody, assignees: []},
+        {number: 7, title: 't', body: issueBody, assignees: ['me']},
+      ]
+      return async () => seq.shift()
+    }
+    const cleanIo = {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false}), gh: async () => ''}
+    const guarded = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units, confirm: true}, io: {...cleanIo, resolveIssue: okSeq()}})
+    assert.equal(guarded.ok, false)
+    assert.equal(guarded.bounce.reason, 'active-change-scope')
+    assert.equal(guarded.bounce.activeFeatureId, 'FEAT-002')
+    assert.equal(readChangeScopeFile(dir).featureId, 'FEAT-002') // 미덮어씀
+    const replaced = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units, confirm: true, 'replace-scope': true}, io: {...cleanIo, resolveIssue: okSeq()}})
+    assert.equal(replaced.ok, true)
+    assert.equal(readChangeScopeFile(dir).featureId, 'FEAT-001') // 명시 교체만 허용
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
 

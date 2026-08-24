@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.1.1
+  version: 0.2.0
   maturity: contract-only
-  updated: 2026-08-23
-  changelog: 실행 환경 한계 공시 — repo-내 세션은 bash policy가 gh/git을 차단해 미리보기까지만 가능(플러그인 배포판에서만 실행부 동작). 이전 — 진입점 초판(일괄 청구·보드/픽업·PR 연결, 실행부 executor CLI·feature-plan→units 파서는 후속).
+  updated: 2026-08-24
+  changelog: executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -111,7 +111,11 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 ### `link <FEAT> <pr-url>` — PR 연결
 
-1. `pr.completionGate`(STALE·failing-TC 하드 차단) 통과 확인.
+1. `pr.completionGate`(STALE·failing-TC 하드 차단) 통과 확인. **정직 표기**: CLI `link`가
+   기계 강제하는 것은 STALE 대조(미수행이면 `stale-check-unavailable` 차단, `--accept-unverified-scope`
+   명시 인수만 통과)와 원장 대조 close 참조까지다 — **failing-TC 차단은 아직 CLI에 evidence
+   입력이 배선되지 않아** 이 절차(TC 결과를 completionGate에 넣어 확인)를 스킬 수행자가 지켜야
+   한다(후속: evidence 입력 배선).
 2. `pr.computeCloseLink`(원장 대조) → `provider-github.renderCloseReference`(verified만 `Closes #N`,
    미확인은 non-closing) → `pr.buildPrBody`(증거 tier 정직 라벨). base=기능 브랜치.
 3. `pr.computePrLinkPlan` 멱등 → 원장에 prUrl append(`ledger-writer`).
