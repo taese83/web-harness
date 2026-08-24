@@ -8,7 +8,14 @@
 // 기존 게이트이므로, 파서가 병합으로 그것을 가리면 안 된다.
 // body는 섹션 원문(trim)이라 결정적 — unitContentHash(청구 형상 대조)의 입력으로 안전하다.
 
-const FEAT_HEADING = /^#{1,6}\s+(FEAT-\d{3,})\s*(?:[-—:]\s*)?(.*)$/
+// **커버리지 한계(정직 표기, 리뷰 2026-08-24)**: 이 파서는 FEAT **헤딩** 형식만 지원한다.
+// 표(feature-list 테이블) 형식 계획은 unit 0개가 나온다 — 그 상태로 emit에 들어가면 close-all
+// 방향이므로 computeEmitPlan의 EMPTY_UNITS_CLOSE_ALL loud 가드가 막는다(침묵 폐기 방지).
+// body는 섹션 원문 그대로 해시 입력이라 공백·소제목 등 사소 편집에도 contentHash가 변해
+// stale/update가 과발화할 수 있다 — 방향은 보수적(재확인 유도)이라 안전하나 노이즈 비용 있음.
+// 서브피처 헤딩(FEAT-NNN-NN)은 부정 선독으로 배제한다 — 안 하면 부모 ID 절단+제목 오염으로
+// **오수집**된다(FEAT-001-01 → featureId=FEAT-001, title="01 …"). 과소(미수집) 방향이 정직.
+const FEAT_HEADING = /^#{1,6}\s+(FEAT-\d{3,})(?!-\d)\s*(?:[-—:]\s*)?(.*)$/
 
 /**
  * feature-plan 마크다운(단일 텍스트)에서 티켓 unit들을 뽑는다(순수). 분할(sharded) 계획이면

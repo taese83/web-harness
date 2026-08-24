@@ -33,6 +33,8 @@ export function discoverBranchRegistry(issues, {labelBranchOf = () => null} = {}
     register(labelBranch, 'label', issue.number)
     if (markerBranch && labelBranch && markerBranch !== labelBranch) {
       // 라벨은 탈부착 가능해 정본(마커)과 어긋날 수 있다 — 조용히 한쪽을 고르지 않고 노출.
+      // 소비자 계약: 불일치 이슈는 두 브랜치 모두 등록되므로(phantom 후보), 소비자(콘솔/보드)는
+      // mismatches를 교차 참조해 라벨측 phantom을 경고 표시해야 한다(억제는 소비자 결정).
       mismatches.push({issueNumber: issue.number, markerBranch, labelBranch})
     }
   }
@@ -45,10 +47,23 @@ export function discoverBranchRegistry(issues, {labelBranchOf = () => null} = {}
 /**
  * 한 브랜치의 오버뷰 카드를 만든다(순수, 설계 §4-2 Level 1 한 행). 보드(가용성+범위 강등)를
  * 상태 분포로 접고, 병목(blocked 의존 체인의 머리)을 역집계한다.
- * @param {Object} args {branch, units, ledgerState, issuesByFeature, developer, foundationRoots?, foundationComplete?, mergedFeatureIds?, exists?}
+ * **입력 사실의 출처(정직 표기, 리뷰 2026-08-24)**: mergedFeatureIds·foundationComplete는
+ * caller가 주입하는 사실이며 그 진실 출처(gh PR merge state·원장 closed 등)는 실행부 배선
+ * 커밋에서 명세해야 한다 — 출처 없는 주입은 위조 가능한 자기선언이다. board 상태엔 'merged'가
+ * 없어 **머지 표시는 미구현**(닫힌 이슈가 issuesByFeature에서 빠지면 unclaimed로 보임 — 소비자
+ * 배선 시 결정). units에 dependsOn/paths가 없으면(현 plan-units 산출) blocked/병목이 항상
+ * 공집합이다 — "정보 없음"이지 "무병목" 증명이 아니다(카드 표기 시 구분 필요).
+ * @param {Object} args {branch, units, ledgerState, issuesByFeature, developer, planTitle?, foundationRoots?, foundationComplete?, mergedFeatureIds?, exists?}
  * @returns {{branch: string, exists: boolean, title: string|null, counts: Object, bottlenecks: Array<{featureId: string, blocking: number}>, board: Array}}
  */
-export function buildBranchCard({branch, units = [], ledgerState = new Map(), issuesByFeature = new Map(), developer = null, foundationRoots = [], foundationComplete = true, mergedFeatureIds = [], exists = true}) {
+export function buildBranchCard({branch, units = [], ledgerState = new Map(), issuesByFeature = new Map(), developer = null, planTitle = null, foundationRoots = [], foundationComplete = true, mergedFeatureIds = [], exists = true}) {
+  // 중복 featureId는 emit 경로에선 computeEmitPlan이 loud-fail하지만 이 경로는 그걸 안 거친다 —
+  // 조용히 이중 계산·Map 덮어쓰기 하는 대신 같은 관용구로 여기서도 loud(리뷰 지적).
+  const seen = new Set()
+  for (const unit of units) {
+    if (seen.has(unit.featureId)) throw new Error(`DUPLICATE_FEATURE_ID: ${unit.featureId} (branch card)`)
+    seen.add(unit.featureId)
+  }
   const opts = {foundationRoots}
   const board = annotateBoardScope(
     buildAvailabilityBoard({units, ledgerState, issuesByFeature, developer}),
@@ -73,7 +88,7 @@ export function buildBranchCard({branch, units = [], ledgerState = new Map(), is
   return {
     branch,
     exists, // false = 청구는 있는데 origin에 브랜치 없음 → "브랜치 소실" 경고(§4-1)
-    title: units[0]?.title ?? null,
+    title: planTitle, // 계획 H1은 caller가 주입(units에서 발명하지 않음 — 첫 FEAT 제목은 기획 제목이 아니다)
     counts,
     bottlenecks,
     board,

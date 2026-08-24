@@ -68,6 +68,13 @@ export function unitContentHash(unit) {
  * @returns {{create: Array, update: Array, close: Array, unchanged: Array}}
  */
 export function computeEmitPlan(units, ledgerState = new Map()) {
+  // vacuous close-all 가드(리뷰 HIGH, plan-delta NO_STABLE_IDS와 같은 관용구): 파서가 형식
+  // 미커버(예: 표 형식 계획)로 unit 0개를 조용히 반환하면, 열린 원장과 결합 시 "전 티켓 닫기"
+  // 계획이 나온다. 빈 units + 열린 청구 존재는 정당한 상태가 아니라 상류 결함 신호 — loud fail.
+  const openClaims = [...ledgerState.values()].filter(entry => !entry.closed)
+  if ((units?.length ?? 0) === 0 && openClaims.length > 0) {
+    throw new Error(`EMPTY_UNITS_CLOSE_ALL: 계획에서 unit 0개인데 열린 청구 ${openClaims.length}건 — 전 티켓 닫기 방지(파서 형식 커버리지 확인: 표 형식 계획은 미지원)`)
+  }
   const create = []
   const update = []
   const unchanged = []

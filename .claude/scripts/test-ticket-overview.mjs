@@ -11,7 +11,7 @@ import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 import {showFileArgs, readBranchFile} from './ticket/git-origin.mjs'
 import {discoverBranchRegistry, buildBranchCard} from './ticket/overview.mjs'
 import {buildIssueFields, parseBranchFromLabels} from './ticket/provider-github.mjs'
-import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
+import {buildTicketDraft, unitContentHash, computeEmitPlan} from './ticket/emit.mjs'
 import {ledgerState} from './ticket/ledger.mjs'
 
 const PLAN = `# 모터 대시보드 계획
@@ -45,6 +45,17 @@ test('parseFeaturePlanUnits: FEAT 섹션만·자기 번호 TC만·제목 구분�
   // 중복 FEAT 헤딩 → 병합하지 않고 두 unit(하류 computeEmitPlan DUPLICATE loud-fail 보존)
   const dup = parseFeaturePlanUnits('### FEAT-003 a\n\n### FEAT-003 b')
   assert.equal(dup.length, 2)
+  // 서브피처 헤딩(FEAT-NNN-NN)은 unit이 아님 — 부모 ID 절단·제목 오염 오수집 방지(리뷰 지적)
+  const sub = parseFeaturePlanUnits('### FEAT-001-01 — 서브피처\n본문 TC-001-1')
+  assert.deepEqual(sub, [])
+})
+
+test('EMPTY_UNITS_CLOSE_ALL: unit 0개 + 열린 청구 → loud fail(전 티켓 닫기 방지, 리뷰 HIGH)', () => {
+  const ledger = ledgerState([{schemaVersion: 1, featureId: 'FEAT-001', ticketKey: '5', contentHash: 'h', createdAt: 't'}])
+  // 표 형식 계획(헤딩 없음) → 파서 0 unit → emit이 close-all 대신 loud
+  assert.throws(() => computeEmitPlan(parseFeaturePlanUnits('| FEAT ID | 기능 |\n| FEAT-001 | 모터 |'), ledger), /EMPTY_UNITS_CLOSE_ALL/)
+  // 원장이 비었으면(초기 상태) 빈 units는 정상(닫을 게 없음)
+  assert.deepEqual(computeEmitPlan([], ledgerState([])).close, [])
 })
 
 test('readBranchFile: 체크아웃 없이 타 브랜치 파일, 부재는 null', async () => {
@@ -87,13 +98,17 @@ test('buildBranchCard: 상태 분포·병목 역집계·소실 브랜치', () =>
     ledgerState: ledgerState([]),
     issuesByFeature: new Map([['FEAT-001', {number: 2, assignees: ['dev-a']}]]),
     developer: 'me',
+    planTitle: '모터 대시보드',
     foundationRoots: ['src/shared/'],
     foundationComplete: true,
   })
+  assert.equal(card.title, '모터 대시보드') // 계획 H1은 주입(첫 FEAT 제목으로 발명 안 함)
   assert.equal(card.counts['in-progress'], 1)   // FEAT-001 남이 진행
   assert.equal(card.counts.blocked, 2)          // 002·003 의존 미충족
   assert.deepEqual(card.bottlenecks, [{featureId: 'FEAT-001', blocking: 2}]) // 병목 역집계
   assert.equal(card.exists, true)
   // 청구는 있는데 origin에 브랜치 없음 → 소실 표기(§4-1)
   assert.equal(buildBranchCard({branch: 'gone', units: [], exists: false}).exists, false)
+  // 중복 featureId units → 조용한 이중 계산 대신 loud(오버뷰 경로는 emit loud-fail 미경유, 리뷰 지적)
+  assert.throws(() => buildBranchCard({branch: 'b', units: [{featureId: 'FEAT-009'}, {featureId: 'FEAT-009'}]}), /DUPLICATE_FEATURE_ID/)
 })

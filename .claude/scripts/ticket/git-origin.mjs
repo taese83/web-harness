@@ -64,6 +64,12 @@ export async function resolveCurrentBranch({repoRoot, exec = null}) {
 /**
  * 다른 브랜치의 파일을 **체크아웃 없이** 읽는다(read-only, 설계 §4-2 크로스-브랜치 창).
  * 없으면(브랜치/파일 부재) null — 지어내지 않음. exec 주입 가능(테스트).
+ *
+ * **fetch 신선도 전제(정직 표기, 리뷰 2026-08-24)**: `origin/<br>` 참조는 실서버가 아니라
+ * **마지막 fetch 시점의 로컬 remote-tracking 스냅샷**이다 — prune 없는 상태에선 서버에서
+ * 삭제된 브랜치가 살아 보이고, 방금 생긴 브랜치는 없어 보인다(remoteBranchExists도 동일).
+ * 소비자(콘솔/실행부)는 판정 전 fetch --prune(또는 ls-remote)을 선행하거나 스냅샷 기준임을
+ * 표기해야 한다 — 배선 커밋에서 결정.
  * @param {{repoRoot: string, branch: string, path: string, remote?: string, exec?: (a:string[])=>Promise<{code:number,out:string}>}} config
  * @returns {Promise<string|null>}
  */
