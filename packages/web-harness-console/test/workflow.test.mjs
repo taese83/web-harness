@@ -13,21 +13,44 @@ import {unitContentHash} from '../../../.claude/scripts/ticket/emit.mjs'
 
 const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature'}
 
-test('foldBranchTickets: 증명 가능 상태만 + stale + plan-removed', () => {
+test('foldBranchTickets: 기준은 push된 형상(origin) — 발행 상태 + 로컬 차이 표기', () => {
   const claimedFresh = {schemaVersion: 1, featureId: 'FEAT-001', ticketKey: '3', contentHash: unitContentHash(unit), createdAt: 't'}
-  const rows = foldBranchTickets([unit], [claimedFresh])
+  const rows = foldBranchTickets([unit], [claimedFresh], {localUnits: [unit]})
   assert.equal(rows[0].status, 'claimed')     // 배정은 미상 — claimed는 "청구됨"만
-  assert.equal(rows[0].stale, false)          // 청구 시점 해시 = 현재 해시
-  // 상류 계획 변경 → stale true
-  assert.equal(foldBranchTickets([{...unit, body: '명세 변경'}], [claimedFresh])[0].stale, true)
-  // 원장 없음 → unclaimed / prUrl → pr-linked / closed → closed
-  assert.equal(foldBranchTickets([unit], [])[0].status, 'unclaimed')
-  assert.equal(foldBranchTickets([unit], [{...claimedFresh, prUrl: 'https://x/pull/9'}])[0].status, 'pr-linked')
-  assert.equal(foldBranchTickets([unit], [{...claimedFresh, closed: true}])[0].status, 'closed')
-  // 원장엔 있는데 계획에서 사라진 청구 → plan-removed로 노출(침묵 실종 금지)
-  const removed = foldBranchTickets([], [claimedFresh])
+  assert.equal(rows[0].stale, false)          // 청구 시점 해시 = origin 해시
+  assert.equal(rows[0].localDrift, null)      // 로컬 = origin 일치
+  // push된 상류 계획 변경 → stale true (origin 기준 — 로컬 편집은 stale이 아님)
+  assert.equal(foldBranchTickets([{...unit, body: 'push된 명세 변경'}], [claimedFresh], {localUnits: [unit]})[0].stale, true)
+  // 원장 없음 → unclaimed(발행 대기 — 청구 가능한 유일한 미발급) / prUrl / closed
+  assert.equal(foldBranchTickets([unit], [], {localUnits: [unit]})[0].status, 'unclaimed')
+  assert.equal(foldBranchTickets([unit], [{...claimedFresh, prUrl: 'https://x/pull/9'}], {localUnits: [unit]})[0].status, 'pr-linked')
+  assert.equal(foldBranchTickets([unit], [{...claimedFresh, closed: true}], {localUnits: [unit]})[0].status, 'closed')
+  // 원장엔 있는데 push된 계획에서 사라진 청구 → plan-removed(침묵 실종 금지)
+  const removed = foldBranchTickets([], [claimedFresh], {localUnits: []})
   assert.equal(removed[0].status, 'plan-removed')
-  assert.equal(removed[0].stale, true)
+})
+
+test('foldBranchTickets: 로컬 차이 3분할 — 발행/미푸시 혼재 금지(사용자 지적)', () => {
+  const other = {featureId: 'FEAT-002', title: '신규', body: 'y', testCaseIds: ['TC-002-1'], type: 'feature'}
+  // 로컬 전용(origin에 없음) → local-new "push 안 됨" — unclaimed와 섞이지 않음
+  const mixed = foldBranchTickets([unit], [], {localUnits: [unit, other]})
+  const byId = Object.fromEntries(mixed.map(r => [r.featureId, r]))
+  assert.equal(byId['FEAT-001'].status, 'unclaimed')   // push됨·발행 대기(청구 가능)
+  assert.equal(byId['FEAT-002'].status, 'local-new')   // 미푸시 — 청구 불가
+  // 로컬 수정(origin과 다름) + 미발행 → local-modified(청구 불가 — push 먼저)
+  assert.equal(foldBranchTickets([unit], [], {localUnits: [{...unit, body: '로컬 수정'}]})[0].status, 'local-modified')
+  // 발행된 행의 로컬 수정은 상태 유지 + localDrift 배지(표기)
+  const claimed = {schemaVersion: 1, featureId: 'FEAT-001', ticketKey: '3', contentHash: unitContentHash(unit), createdAt: 't'}
+  const drift = foldBranchTickets([unit], [claimed], {localUnits: [{...unit, body: '로컬 수정'}]})[0]
+  assert.equal(drift.status, 'claimed')
+  assert.equal(drift.localDrift, 'modified-locally')
+  // 로컬 삭제 → deleted-locally 표기(침묵 소실 금지)
+  assert.equal(foldBranchTickets([unit], [], {localUnits: []})[0].localDrift, 'deleted-locally')
+  // origin에 브랜치/계획 없음(미푸시 브랜치) → 기준 0 + 로컬 전부 local-new
+  const unpushed = foldBranchTickets(null, [], {localUnits: [unit, other]})
+  assert.deepEqual(unpushed.map(r => r.status), ['local-new', 'local-new'])
+  // 타 브랜치(origin 스냅샷) 카드 — 로컬 오버레이 없음 → drift 미표기
+  assert.equal(foldBranchTickets([unit], [])[0].localDrift, null)
 })
 
 test('selfMatchedBranches: 원장 자기-일치만 등록(§4-1 청구=등록)', () => {

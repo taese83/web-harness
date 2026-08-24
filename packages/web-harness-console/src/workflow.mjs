@@ -32,7 +32,10 @@ const runGit = (root, args) => {
   }
 }
 
-const showFile = (root, branch, path) => runGit(root, ['show', `origin/${branch}:${path}`])
+// `ref:./path`의 './'가 핵심 — 없으면 경로가 **repo 루트 상대**라 workspace 하위 프로젝트
+// (예: workspace/search-portal)에서 origin 조회가 항상 null이 된다(잠복 버그, 3분할 작업 중
+// 발견). './'는 cwd(프로젝트 루트) 상대로 해석돼 단독 repo·하위 디렉토리 모두에서 옳다.
+const showFile = (root, branch, path) => runGit(root, ['show', `origin/${branch}:./${path}`])
 
 // 계획 텍스트 — flat(feature-plan.md)과 sharded(feature-plan/*.md) 모두 지원. sharded의
 // `git show ref:dir`는 트리 목록을 내므로 .md 항목만 정렬해 이어붙인다(단위 해시는 섹션
@@ -62,16 +65,34 @@ const readLocalPlanText = root => {
 }
 
 /**
- * 순수: 한 브랜치의 계획 units + 원장 항목 → 티켓 행. 로컬 증명 가능 상태만:
- *  unclaimed(원장 기록 없음) / claimed(청구됨 — 배정 미상) / pr-linked(prUrl) / closed /
- *  plan-removed(원장엔 있는데 계획에서 사라짐 — 침묵 실종 대신 노출). stale = 청구 시점
- *  contentHash ≠ 현재 단위 해시(상류 계획 변경).
+ * 순수: 한 브랜치의 티켓 행 — **기준은 origin에 push된 형상**(2026-08-24 사용자 확정: 로컬에서
+ * 바로 발행은 불가하므로 보드의 정본은 공유된 형상이고, 로컬은 그 위의 차이 표기다).
+ *
+ *  기준 행(originUnits — push된 계획 단위):
+ *    unclaimed(발행 대기 — **청구 가능한 유일한 미발급 상태**) / claimed / pr-linked / closed.
+ *    stale = 청구 시점 contentHash ≠ **origin** 단위 해시(push된 상류 변경만 STALE — 정확해짐).
+ *    localDrift = 로컬이 origin과 다름(수정 'modified-locally'·삭제 'deleted-locally') — 표기용,
+ *    unclaimed+drift는 청구 불가(push 먼저)라 상태를 local-modified로 강등.
+ *  로컬 전용 행(localUnits에만 있음): local-new — "push 안 됨, 청구 불가" 안내 대상.
+ *  plan-removed: 원장 청구가 origin 계획에서 사라짐(침묵 실종 대신 노출).
+ *
+ *  originUnits=null = origin에 브랜치/계획 없음(미푸시) → 기준 행 0, 로컬 전부 local-new.
+ *  localUnits 미지정 = 로컬 오버레이 없음(타 브랜치 origin 스냅샷 카드) — drift 표기 생략.
  */
-export const foldBranchTickets = (units, entries) => {
+export const foldBranchTickets = (originUnits, entries, {localUnits} = {}) => {
   const state = ledgerState(entries)
-  const rows = units.map(unit => {
+  const base = Array.isArray(originUnits) ? originUnits : []
+  const localById = Array.isArray(localUnits) ? new Map(localUnits.map(unit => [unit.featureId, unit])) : null
+  const rows = base.map(unit => {
     const record = state.get(unit.featureId) ?? null
-    const status = !record ? 'unclaimed' : record.closed ? 'closed' : record.prUrl ? 'pr-linked' : 'claimed'
+    let status = !record ? 'unclaimed' : record.closed ? 'closed' : record.prUrl ? 'pr-linked' : 'claimed'
+    let localDrift = null
+    if (localById !== null) {
+      const localUnit = localById.get(unit.featureId) ?? null
+      if (!localUnit) localDrift = 'deleted-locally'
+      else if (unitContentHash(localUnit) !== unitContentHash(unit)) localDrift = 'modified-locally'
+    }
+    if (status === 'unclaimed' && localDrift === 'modified-locally') status = 'local-modified' // 청구 불가 — push 먼저
     return {
       featureId: unit.featureId,
       title: unit.title,
@@ -79,12 +100,20 @@ export const foldBranchTickets = (units, entries) => {
       ticketKey: record?.ticketKey ?? null,
       prUrl: record?.prUrl ?? null,
       stale: record ? record.contentHash !== unitContentHash(unit) : false,
+      localDrift,
     }
   })
-  const known = new Set(units.map(unit => unit.featureId))
+  const inBase = new Set(base.map(unit => unit.featureId))
+  if (localById !== null) {
+    for (const [featureId, unit] of localById) {
+      if (inBase.has(featureId)) continue
+      rows.push({featureId, title: unit.title, status: 'local-new', ticketKey: state.get(featureId)?.ticketKey ?? null, prUrl: null, stale: false, localDrift: null})
+    }
+  }
   for (const [featureId, record] of state) {
-    if (known.has(featureId) || record.closed) continue
-    rows.push({featureId, title: null, status: 'plan-removed', ticketKey: record.ticketKey, prUrl: record.prUrl ?? null, stale: true})
+    if (inBase.has(featureId) || record.closed) continue
+    if (localById?.has(featureId)) continue // local-new로 이미 표시됨
+    rows.push({featureId, title: null, status: 'plan-removed', ticketKey: record.ticketKey, prUrl: record.prUrl ?? null, stale: true, localDrift: null})
   }
   return rows
 }
@@ -110,17 +139,20 @@ export const currentBranchOf = root => {
 
 const planTitleOf = text => text?.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? null
 
-const branchCard = (branch, planText, ledgerText, {current, basis}) => {
-  const units = planText ? parseFeaturePlanUnits(planText) : []
-  const tickets = foldBranchTickets(units, ledgerText ? parseLedger(ledgerText) : [])
+const branchCard = (branch, originPlanText, ledgerText, {current, basis, localPlanText}) => {
+  // **기준은 push된 형상**(origin 계획) — 개발자는 push된 형상을 기반으로 확인한다(사용자 확정).
+  // 현재 브랜치 카드만 로컬 계획을 오버레이로 넘겨 차이(local-new/modified/deleted)를 표기한다.
+  const originUnits = originPlanText != null ? parseFeaturePlanUnits(originPlanText) : null
+  const localUnits = current ? (localPlanText != null ? parseFeaturePlanUnits(localPlanText) : []) : undefined
+  const tickets = foldBranchTickets(originUnits, ledgerText ? parseLedger(ledgerText) : [], {localUnits})
   const counts = {}
   for (const row of tickets) counts[row.status] = (counts[row.status] ?? 0) + 1
   return {
     branch,
     current,
-    basis, // 'local'(현재 브랜치 작업트리) | 'origin-snapshot'(마지막 fetch 기준)
-    planTitle: planTitleOf(planText ?? ''),
-    planMissing: planText === null,
+    basis, // 'origin'(push된 형상 정본 — 현재 브랜치는 +로컬 차이 표기) | 'origin-snapshot'(타 브랜치)
+    planTitle: planTitleOf(originPlanText ?? localPlanText ?? ''),
+    planMissing: originPlanText === null, // 기준(push된 계획) 부재 — 로컬만 있으면 전부 local-new
     tickets,
     counts,
     staleCount: tickets.filter(ticket => ticket.stale).length,
@@ -169,14 +201,16 @@ export const buildWorkflowPayload = root => {
     .map(name => name.slice('origin/'.length))
   const ledgerTexts = new Map(candidates.map(branch => [branch, showFile(root, branch, LEDGER_PATH)]))
   const branches = selfMatchedBranches(ledgerTexts)
-    .filter(branch => branch !== current) // 현재 브랜치는 로컬 기준으로 아래에서 선두 추가
+    .filter(branch => branch !== current) // 현재 브랜치는 아래에서 선두 추가(로컬 차이 오버레이 포함)
     .map(branch => branchCard(branch, readPlanText(root, branch), ledgerTexts.get(branch) ?? null, {current: false, basis: 'origin-snapshot'}))
   if (current) {
-    // 현재 브랜치는 개발자 자신의 컨텍스트 — §4-1 등록 규칙(청구=공표)은 *타* 브랜치 발견에
-    // 적용되고, 자기 브랜치는 미청구여도 로컬 상태를 보여준다(청구 전이라는 사실 자체가 정보).
+    // 현재 브랜치도 **기준은 push된 형상**(origin) — §4-1 예외는 "미청구여도 카드가 보인다"이지
+    // 기준 축이 로컬이라는 뜻이 아니다(사용자 확정: 개발자는 push된 형상을 기반으로 확인).
+    // 로컬 계획은 오버레이로만(local-new/modified/deleted 차이 표기), 원장은 로컬이 최신
+    // (청구·픽업 기록이 로컬에 먼저 쌓임).
     const localLedgerPath = join(root, LEDGER_PATH)
     const localLedger = existsSync(localLedgerPath) ? readFileSync(localLedgerPath, 'utf8') : null
-    branches.unshift(branchCard(current, readLocalPlanText(root), localLedger, {current: true, basis: 'local'}))
+    branches.unshift(branchCard(current, readPlanText(root, current), localLedger, {current: true, basis: 'origin', localPlanText: readLocalPlanText(root)}))
   }
   return {
     currentBranch: current,
@@ -185,6 +219,7 @@ export const buildWorkflowPayload = root => {
       '타 브랜치는 마지막 fetch 시점의 origin 스냅샷 기준(자동 fetch 안 함) — 최신화: git fetch --prune',
       '배정(누가 진행 중)은 트래커 미연동으로 미상 — claimed는 "청구됨"만 뜻합니다',
       '브랜치 발견은 원장 자기-일치(청구=등록) — 브랜치 스탬프 도입 전 구세대 원장의 브랜치는 나타나지 않습니다',
+      'local-new/local-modified는 origin과의 FEAT 단위 대조(fetch 스냅샷 기준) — 커밋·푸시 후 청구 가능해집니다',
     ],
   }
 }

@@ -34,6 +34,8 @@ const state = {
   designPane: 'design',
   // Development 서브탭(2026-08-24): 팀 워크플로우 보드(workflow)가 기본, 라이브 서버 운영(live).
   developmentPane: 'workflow',
+  // Work flow 상태 필터(all|issued|unclaimed|local) — 탭 재진입에도 유지.
+  workflowFilter: 'all',
   // QA 탭이 TC 상세(given/when/then)의 집 — Features에서 링크로 들어오면 이 TC로 포커스.
   qaFocusTestCaseId: null,
   focusChangeRequestId: null,
@@ -1999,14 +2001,46 @@ const renderWorkflow = () => {
   const body = create('div', {className: 'workflow-body'}, [create('p', {className: 'panel-copy', text: '불러오는 중…'})])
   container.append(body)
   const statusChip = status => {
-    const tone = {unclaimed: 'status-pending', claimed: 'status-connected', 'pr-linked': 'status-approved', closed: 'status-approved', 'plan-removed': 'status-failed'}[status] ?? 'status-pending'
+    const tone = {unclaimed: 'status-pending', claimed: 'status-connected', 'pr-linked': 'status-approved', closed: 'status-approved', 'plan-removed': 'status-failed', 'local-new': 'status-stale', 'local-modified': 'status-stale'}[status] ?? 'status-pending'
     return create('span', {className: `status-chip ${tone}`, text: status})
   }
+  // 상태 그룹(필터 축): 발급됨 / 발행 대기 / 로컬 작업(미공유) — 미발급 3분할(origin 대조)과 정합.
+  const groupOf = status => (status === 'unclaimed' ? 'unclaimed' : status === 'local-new' || status === 'local-modified' ? 'local' : 'issued')
+  const GROUP_LABELS = [['all', '전체'], ['issued', '발급됨'], ['unclaimed', '발행 대기'], ['local', '로컬 작업(미공유)']]
   ;(async () => {
     try {
       const payload = await fetch(`/api/projects/${encodeURIComponent(state.projectId)}/workflow`).then(r => r.json())
       if (!document.contains(body)) return
       const children = []
+      // 상태 그룹 필터 — 전체/발급됨/발행 대기/로컬 작업을 모아본다(사용자 요청). 필터는 표시만
+      // 바꾸며(행 hidden 토글) 데이터 재조회 없음. 그룹 수는 전 브랜치 합산.
+      const groupCounts = {all: 0, issued: 0, unclaimed: 0, local: 0}
+      for (const card of payload.branches ?? []) for (const ticket of card.tickets ?? []) {
+        groupCounts.all++
+        groupCounts[groupOf(ticket.status)]++
+      }
+      const applyFilter = () => {
+        const filter = state.workflowFilter ?? 'all'
+        for (const rowEl of body.querySelectorAll('.workflow-ticket')) {
+          rowEl.hidden = filter !== 'all' && rowEl.dataset.group !== filter
+        }
+        // 카드 안내 줄도 필터 연동 — 전체 탭에선 모든 안내, 그룹 탭에선 그 그룹 안내만.
+        for (const noticeEl of body.querySelectorAll('[data-notice-group]')) {
+          noticeEl.hidden = filter !== 'all' && noticeEl.dataset.noticeGroup !== filter
+        }
+      }
+      // 상태 필터는 탭으로(사용자 지정) — Work flow|Live 서브탭과 같은 시각 언어(paneTabBar).
+      const filterWrap = create('div', {className: 'workflow-filter'})
+      const renderFilterBar = () => {
+        filterWrap.replaceChildren(paneTabBar(
+          '티켓 상태 필터',
+          GROUP_LABELS.map(([group, label]) => [group, `${label} ${groupCounts[group] ?? 0}`]),
+          state.workflowFilter ?? 'all',
+          group => { state.workflowFilter = group; renderFilterBar(); applyFilter() },
+        ))
+      }
+      renderFilterBar()
+      children.push(filterWrap)
       if ((payload.branches ?? []).length === 0) {
         children.push(create('article', {className: 'panel'}, [
           create('h3', {text: '표시할 작업 브랜치가 없습니다'}),
@@ -2022,10 +2056,13 @@ const renderWorkflow = () => {
             statusChip(ticket.status),
             create('span', {className: 'workflow-ticket-title', text: `${ticket.featureId}${ticket.title ? ` · ${ticket.title}` : ''}${ticket.ticketKey ? `  #${ticket.ticketKey}` : ''}`}),
             ...(ticket.stale ? [create('span', {className: 'status-chip status-stale', text: 'stale'})] : []),
+            ...(ticket.localDrift ? [create('span', {className: 'status-chip status-stale', text: ticket.localDrift === 'deleted-locally' ? '로컬 삭제됨' : '로컬 수정 미푸시'})] : []),
             ...(ticket.prUrl ? [create('a', {href: ticket.prUrl, target: '_blank', rel: 'noopener', text: 'PR'})] : []),
           ])
-          // 선택 라우팅(§4-3, read-only 판정): 집을 수 있는 상태만 라우트 확인 버튼 노출.
-          if (ticket.status === 'unclaimed' || ticket.status === 'claimed') {
+          row.dataset.group = groupOf(ticket.status)
+          // 선택 라우팅(§4-3, read-only 판정): 발급돼 집을 수 있는 상태(claimed)만 버튼 노출.
+          // 발행 대기·로컬 작업 안내는 행 반복 대신 카드 상단 한 줄(사용자 지정).
+          if (ticket.status === 'claimed') {
             row.append(create('button', {type: 'button', className: 'secondary-button', text: '픽업 경로 확인', onclick: async () => {
               routeDetail.hidden = false
               routeDetail.replaceChildren(create('span', {text: '판정 중…'}))
@@ -2057,12 +2094,30 @@ const renderWorkflow = () => {
             create('span', {className: 'panel-copy', text: card.planTitle ?? (card.planMissing ? '계획 문서 없음' : '')}),
             ...chips,
           ]),
-          create('p', {className: 'panel-copy', text: card.basis === 'local' ? '로컬 작업트리 기준' : '마지막 fetch 시점 origin 스냅샷 기준'}),
+          create('p', {className: 'panel-copy', text: card.basis === 'origin' ? 'push된 형상(origin) 기준 — 로컬 차이는 배지로 표기' : '마지막 fetch 시점 origin 스냅샷 기준'}),
+          // 상태별 안내는 카드당 한 줄(행 반복 금지) + **필터 연동**(선택 그룹의 안내만 —
+          // "발행 대기" 필터에서 로컬 안내가 나오던 문제, 사용자 지적).
+          ...(() => {
+            const notices = []
+            const localCount = ((card.counts ?? {})['local-new'] ?? 0) + ((card.counts ?? {})['local-modified'] ?? 0)
+            if (localCount > 0) {
+              const notice = create('p', {className: 'panel-copy', text: `⚠ 로컬 작업(미공유) ${localCount}건 — 커밋·푸시 후 청구 가능(로컬에서 바로 발행 불가)`})
+              notice.dataset.noticeGroup = 'local'
+              notices.push(notice)
+            }
+            if (((card.counts ?? {}).unclaimed ?? 0) > 0) {
+              const notice = create('p', {className: 'panel-copy', text: `발행 대기 ${(card.counts ?? {}).unclaimed}건 — 일괄 청구(claim)로 발행`})
+              notice.dataset.noticeGroup = 'unclaimed'
+              notices.push(notice)
+            }
+            return notices
+          })(),
           rows.length > 0 ? create('ul', {className: 'workflow-tickets'}, rows) : create('p', {className: 'panel-copy', text: card.planMissing ? '계획 문서 없음' : 'FEAT 헤딩 단위 없음 — 표 형식/구세대 계획은 워크플로우 파서가 아직 못 읽습니다(티켓 없음이 아니라 형식 미지원)'}),
         ]))
       }
       children.push(create('p', {className: 'panel-copy'}, (payload.notes ?? []).flatMap(note => [create('span', {text: `· ${note}`}), create('br')])))
       body.replaceChildren(...children)
+      applyFilter() // 이전 선택 필터 복원(탭 재진입 시)
     } catch {
       if (document.contains(body)) body.replaceChildren(create('p', {className: 'panel-copy', text: '워크플로우 정보를 불러오지 못했습니다'}))
     }
