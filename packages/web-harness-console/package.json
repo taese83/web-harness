@@ -10,6 +10,6 @@
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check src/indexer.mjs && node --check src/change-requests.mjs && node --check src/change-request-deletion.mjs && node --check src/change-request-reviews.mjs && node --check src/change-candidates.mjs && node --check src/codex-runs.mjs && node --check src/claude-code-cli.mjs && node --check src/executor-adapters.mjs && node --check src/live-base-preview.mjs && node --check public/preview-message-contract.mjs && node --check public/app.js"
+    "check": "node --check server.mjs && node --check src/indexer.mjs && node --check src/workflow.mjs && node --check src/change-requests.mjs && node --check src/change-request-deletion.mjs && node --check src/change-request-reviews.mjs && node --check src/change-candidates.mjs && node --check src/codex-runs.mjs && node --check src/claude-code-cli.mjs && node --check src/executor-adapters.mjs && node --check src/live-base-preview.mjs && node --check public/preview-message-contract.mjs && node --check public/app.js"
   }
 }

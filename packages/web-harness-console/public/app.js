@@ -32,6 +32,8 @@ const state = {
   // 단계 탭 재구성(2026-08-20): Features(기능/변경), Design(시안/프리뷰) 서브탭 상태.
   featuresPane: 'features',
   designPane: 'design',
+  // Development 서브탭(2026-08-24): 팀 워크플로우 보드(workflow)가 기본, 라이브 서버 운영(live).
+  developmentPane: 'workflow',
   // QA 탭이 TC 상세(given/when/then)의 집 — Features에서 링크로 들어오면 이 TC로 포커스.
   qaFocusTestCaseId: null,
   focusChangeRequestId: null,
@@ -1990,7 +1992,65 @@ const renderDesignTab = () => {
   return create('div', {className: 'stage-tab'}, [bar, create('div', {className: 'stage-tab-body'}, [pane === 'preview' ? renderPreview() : renderDesign()])])
 }
 
-// Development — 라이브 dev 서버 운영(상태·시작/중지·launch 항목). 기획 확인 표면
+// Development › Work flow — 브랜치별 티켓 진행 보드(팀 워크플로우 §4-2). 서버가 로컬
+// git·원장·계획에서 증명 가능한 상태만 조립한다(배정·머지는 미주장 — notes로 정직 표기).
+const renderWorkflow = () => {
+  const container = create('div', {}, [heading('Work flow', '브랜치별 티켓 진행 — 청구(=등록)된 브랜치만 나타나고, 상태는 로컬 git·원장에서 증명 가능한 것만 표시합니다.')])
+  const body = create('div', {className: 'workflow-body'}, [create('p', {className: 'panel-copy', text: '불러오는 중…'})])
+  container.append(body)
+  const statusChip = status => {
+    const tone = {unclaimed: 'status-pending', claimed: 'status-connected', 'pr-linked': 'status-approved', closed: 'status-approved', 'plan-removed': 'status-failed'}[status] ?? 'status-pending'
+    return create('span', {className: `status-chip ${tone}`, text: status})
+  }
+  ;(async () => {
+    try {
+      const payload = await fetch(`/api/projects/${encodeURIComponent(state.projectId)}/workflow`).then(r => r.json())
+      if (!document.contains(body)) return
+      const children = []
+      if ((payload.branches ?? []).length === 0) {
+        children.push(create('article', {className: 'panel'}, [
+          create('h3', {text: '표시할 작업 브랜치가 없습니다'}),
+          create('p', {className: 'panel-copy', text: '브랜치 발견은 청구(=등록) 기반입니다 — 일괄 청구(/team-flow claim) 후 이 보드에 나타납니다.'}),
+        ]))
+      }
+      for (const card of payload.branches ?? []) {
+        const chips = Object.entries(card.counts ?? {}).map(([status, count]) => create('span', {className: 'status-chip status-chip', text: `${status} ${count}`}))
+        if (card.staleCount > 0) chips.push(create('span', {className: 'status-chip status-stale', text: `stale ${card.staleCount}`}))
+        const rows = (card.tickets ?? []).map(ticket => create('li', {className: 'workflow-ticket'}, [
+          statusChip(ticket.status),
+          create('span', {className: 'workflow-ticket-title', text: `${ticket.featureId}${ticket.title ? ` · ${ticket.title}` : ''}${ticket.ticketKey ? `  #${ticket.ticketKey}` : ''}`}),
+          ...(ticket.stale ? [create('span', {className: 'status-chip status-stale', text: 'stale'})] : []),
+          ...(ticket.prUrl ? [create('a', {href: ticket.prUrl, target: '_blank', rel: 'noopener', text: 'PR'})] : []),
+        ]))
+        children.push(create('article', {className: 'panel workflow-branch'}, [
+          create('div', {className: 'dev-live-head'}, [
+            create('h3', {text: `${card.branch}${card.current ? ' (현재 브랜치)' : ''}`}),
+            create('span', {className: 'panel-copy', text: card.planTitle ?? (card.planMissing ? '계획 문서 없음' : '')}),
+            ...chips,
+          ]),
+          create('p', {className: 'panel-copy', text: card.basis === 'local' ? '로컬 작업트리 기준' : '마지막 fetch 시점 origin 스냅샷 기준'}),
+          rows.length > 0 ? create('ul', {className: 'workflow-tickets'}, rows) : create('p', {className: 'panel-copy', text: card.planMissing ? '계획 문서 없음' : 'FEAT 헤딩 단위 없음 — 표 형식/구세대 계획은 워크플로우 파서가 아직 못 읽습니다(티켓 없음이 아니라 형식 미지원)'}),
+        ]))
+      }
+      children.push(create('p', {className: 'panel-copy'}, (payload.notes ?? []).flatMap(note => [create('span', {text: `· ${note}`}), create('br')])))
+      body.replaceChildren(...children)
+    } catch {
+      if (document.contains(body)) body.replaceChildren(create('p', {className: 'panel-copy', text: '워크플로우 정보를 불러오지 못했습니다'}))
+    }
+  })()
+  return container
+}
+
+const renderDevelopmentTab = () => {
+  const pane = state.developmentPane === 'live' ? 'live' : 'workflow'
+  const bar = paneTabBar('개발 단계 보기', [['workflow', 'Work flow'], ['live', 'Live']], pane, id => {
+    state.developmentPane = id
+    renderContent()
+  })
+  return create('div', {className: 'stage-tab'}, [bar, create('div', {className: 'stage-tab-body'}, [pane === 'live' ? renderDevelopment() : renderWorkflow()])])
+}
+
+// Development › Live — 라이브 dev 서버 운영(상태·시작/중지·launch 항목). 기획 확인 표면
 // (델타 임베드)은 Design > Preview 소관이고, 여기는 서버 운영 상세만 담당한다.
 const renderDevelopment = () => {
   const live = state.detail.livePreview
@@ -2268,7 +2328,7 @@ const renderContent = () => {
     design: renderDesignTab,
     documents: renderDocuments,
     features: renderFeaturesTab,
-    development: renderDevelopment,
+    development: renderDevelopmentTab,
     qa: renderQa,
   }[state.tab]?.() ?? renderOverview()
   elements.content.replaceChildren(view)

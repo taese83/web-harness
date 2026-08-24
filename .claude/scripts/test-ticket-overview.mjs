@@ -42,12 +42,17 @@ test('parseFeaturePlanUnits: FEAT 섹션만·자기 번호 TC만·제목 구분�
   assert.deepEqual(f2.testCaseIds, ['TC-002-1'])
   assert.ok(unitContentHash(f1).length === 64)                 // 청구 형상 해시 입력으로 안전
   assert.deepEqual(parseFeaturePlanUnits(''), [])
-  // 중복 FEAT 헤딩 → 병합하지 않고 두 unit(하류 computeEmitPlan DUPLICATE loud-fail 보존)
-  const dup = parseFeaturePlanUnits('### FEAT-003 a\n\n### FEAT-003 b')
-  assert.equal(dup.length, 2)
+  // 다른 FEAT를 사이에 둔 같은 ID 재등장 → 병합하지 않고 두 unit(하류 DUPLICATE loud-fail 보존)
+  const dup = parseFeaturePlanUnits('### FEAT-003 a\n\n### FEAT-004 x\n\n### FEAT-003 b')
+  assert.equal(dup.filter(u => u.featureId === 'FEAT-003').length, 2)
   // 서브피처 헤딩(FEAT-NNN-NN)은 unit이 아님 — 부모 ID 절단·제목 오염 오수집 방지(리뷰 지적)
   const sub = parseFeaturePlanUnits('### FEAT-001-01 — 서브피처\n본문 TC-001-1')
   assert.deepEqual(sub, [])
+  // 같은 FEAT ID의 섹션 내 소제목 헤딩("FEAT-012 Sub Features")은 흡수 — 별도 unit 아님
+  // (실측: search-portal 샤드에서 중복 3건). 소제목 아래 TC도 같은 unit에 귀속.
+  const absorbed = parseFeaturePlanUnits('### FEAT-012 — 실패 처리\n본문 TC-012-1\n\n#### FEAT-012 Sub Features\n- TC-012-2')
+  assert.equal(absorbed.length, 1)
+  assert.deepEqual(absorbed[0].testCaseIds, ['TC-012-1', 'TC-012-2'])
 })
 
 test('EMPTY_UNITS_CLOSE_ALL: unit 0개 + 열린 청구 → loud fail(전 티켓 닫기 방지, 리뷰 HIGH)', () => {

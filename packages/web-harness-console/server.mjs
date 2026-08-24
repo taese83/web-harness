@@ -10,6 +10,7 @@ import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
 import {WorkspaceCatalog, computeTcSourceStamp, hasTcRunCommand} from './src/indexer.mjs'
 import {createLiveBasePreviewServer, extractHtmlTitle, parseLiveBaseTarget, parseLiveIdentity} from './src/live-base-preview.mjs'
+import {buildWorkflowPayload} from './src/workflow.mjs'
 
 const packageRoot = dirname(fileURLToPath(import.meta.url))
 const CONTENT_TYPES = {
@@ -183,6 +184,15 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     const projectReviewDecisions = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/review-decisions$/)
     const projectImplementationVerifications = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/implementation-verifications$/)
     const projectPreviewApproval = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-approval$/)
+    const projectWorkflow = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow$/)
+    if (request.method === 'GET' && projectWorkflow) {
+      const workflowProjectId = decodePathSegment(projectWorkflow[1])
+      if (workflowProjectId === null) return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
+      const workflowProject = catalog.project(workflowProjectId)
+      if (!workflowProject) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
+      // 팀 워크플로우 보드(설계 §4-2) — 로컬 git·원장·계획에서 증명 가능한 상태만(read-only).
+      return json(response, 200, buildWorkflowPayload(workflowProject.root))
+    }
     if (request.method === 'DELETE' && projectChangeRequest) {
       if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== 'delete-change-request') {
         return json(response, 403, errorBody('CHANGE_REQUEST_DELETE_FORBIDDEN', 'Change request deletion origin or intent was rejected'))

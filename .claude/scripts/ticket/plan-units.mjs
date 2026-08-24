@@ -47,6 +47,13 @@ export function parseFeaturePlanUnits(markdown) {
   for (const line of lines) {
     const match = line.match(FEAT_HEADING)
     if (match) {
+      // 같은 FEAT ID의 헤딩이 열린 섹션 안에서 다시 나오면(예: "#### FEAT-012 Sub Features")
+      // 새 unit이 아니라 그 섹션의 소제목이다 — 흡수한다(실측: search-portal 샤드에서 중복
+      // unit 3건 발생). 다른 FEAT를 사이에 둔 재등장은 여전히 별개 unit → 하류 DUPLICATE loud.
+      if (current && match[1] === current.featureId) {
+        current.bodyLines.push(line)
+        continue
+      }
       flush()
       current = {featureId: match[1], title: match[2].trim(), bodyLines: []}
       continue
