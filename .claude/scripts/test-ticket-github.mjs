@@ -6,7 +6,7 @@
 // (5) featLabel이 FEAT당 고유 라벨(claim 경쟁 키).
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {buildIssueFields, parseIssueRefs, ghCreateArgs, featLabel, parseIssueListJson, parseCreatedIssueUrl} from './ticket/provider-github.mjs'
+import {buildIssueFields, parseIssueRefs, ghCreateArgs, featLabel, branchLabel, parseBranchFromLabels, parseIssueListJson, parseCreatedIssueUrl} from './ticket/provider-github.mjs'
 import {buildTicketDraft} from './ticket/emit.mjs'
 
 const draft = buildTicketDraft({featureId: 'FEAT-042', title: '레이스 기록', body: '레이스를 기록한다', testCaseIds: ['TC-008-1', 'TC-008-2']})
@@ -21,19 +21,41 @@ test('buildIssueFields: draft → gh 이슈 필드(마커·AC·라벨)', () => {
   assert.equal(f.assignee, null)                               // 분배 미지정 기본
 })
 
+test('브랜치 스탬프(§4-1 레지스트리): 마커 branch= 필드 + branch: 라벨 왕복', () => {
+  const f = buildIssueFields(draft, {branch: 'feature/motor-dashboard'})
+  // 마커에 branch= 정본 스탬프 + 라벨(50자 이내) 병행
+  assert.match(f.body, /<!-- web-harness:refs feat=FEAT-042 tc=TC-008-1,TC-008-2 branch=feature\/motor-dashboard -->/)
+  assert.ok(f.labels.includes('branch:feature/motor-dashboard'))
+  // 되읽기: parseIssueRefs가 branch 복원(왕복), 라벨 파서도 동일 값
+  assert.equal(parseIssueRefs(f.body).branch, 'feature/motor-dashboard')
+  assert.equal(parseBranchFromLabels(f.labels), 'feature/motor-dashboard')
+  // branch 미지정 → 기존 마커 형식 그대로(하위호환), branch null
+  const bare = buildIssueFields(draft)
+  assert.doesNotMatch(bare.body, /branch=/)
+  assert.equal(parseIssueRefs(bare.body).branch, null)
+  // 50자 초과 브랜치명 → 라벨 생략(자르지 않음 — 충돌 방지), 마커는 전체 유지
+  const long = 'feature/' + 'x'.repeat(60)
+  assert.equal(branchLabel(long), null)
+  const longFields = buildIssueFields(draft, {branch: long})
+  assert.ok(!longFields.labels.some(l => l.startsWith('branch:')))
+  assert.equal(parseIssueRefs(longFields.body).branch, long) // 마커가 정본
+  // 본문 산문의 branch= 언급은 마커 밖이라 무시(오탐 방지)
+  assert.equal(parseIssueRefs('산문에 branch=main 이 있어도\n\n<!-- web-harness:refs feat=FEAT-001 tc=TC-001-1 -->').branch, null)
+})
+
 test('assignee 지정 시 반영 (선택적 분배)', () => {
   assert.equal(buildIssueFields(draft, {assignee: 'devX'}).assignee, 'devX')
 })
 
 test('parseIssueRefs: 왕복 마커에서 FEAT/TC 되읽기', () => {
   const body = buildIssueFields(draft).body
-  assert.deepEqual(parseIssueRefs(body), {featureIds: ['FEAT-042'], testCaseIds: ['TC-008-1', 'TC-008-2']})
+  assert.deepEqual(parseIssueRefs(body), {featureIds: ['FEAT-042'], testCaseIds: ['TC-008-1', 'TC-008-2'], branch: null})
 })
 
 test('parseIssueRefs: 마커 없는 맨몸 이슈 → 본문 폴백(형식 엄격)', () => {
   const refs = parseIssueRefs('사람이 쓴 이슈. FEAT-005 관련, TC-005-1을 만족해야 함. (TC-QA는 비규격이라 미추출)')
-  assert.deepEqual(refs, {featureIds: ['FEAT-005'], testCaseIds: ['TC-005-1']})
-  assert.deepEqual(parseIssueRefs(null), {featureIds: [], testCaseIds: []})
+  assert.deepEqual(refs, {featureIds: ['FEAT-005'], testCaseIds: ['TC-005-1'], branch: null})
+  assert.deepEqual(parseIssueRefs(null), {featureIds: [], testCaseIds: [], branch: null})
 })
 
 test('ghCreateArgs: gh 인자 구성(실행 아님)', () => {

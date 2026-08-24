@@ -50,7 +50,7 @@ export async function claimFeature({unit, provider, ledger, assignee = null, bra
   // 2. draft → 이슈 필드(assignee=청구자). 스펙 미완이면 경고만 — 파서/발행은 게이트하지
   //    않고 pickup(단계 5)이 되돌림을 결정한다(스펙 상류 규율).
   const draft = buildTicketDraft(unit)
-  const fields = buildIssueFields(draft, {assignee})
+  const fields = buildIssueFields(draft, {assignee, branch}) // 브랜치 스탬프(마커+라벨, §4-1 레지스트리)
   // 3. 발행(side-effect via provider). 권한 감지를 pre-check로 못 한 경우(등급 미제공)의
   //    reactive 안전망: gh 오류를 분류해 권한/미접근이면 친절한 결과로 전환, 그 외는 loud.
   let issue

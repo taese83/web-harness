@@ -18,18 +18,39 @@ export {parseIssueRefs}
 // FEAT당 고유 라벨 — claim 경쟁 검사·중복 감지의 기계 키(gh issue list --label 로 조회).
 export const featLabel = featureId => `feat:${featureId}`
 
+// 브랜치 레지스트리 라벨(설계 §4-1) — `branch:*` 라벨 목록이 곧 공식 작업 브랜치 명단.
+// GitHub 라벨은 50자 제한이라 초과 브랜치명은 라벨 생략(null) — 마커의 branch= 필드가 정본이고
+// 라벨은 gh issue list 필터용 편의다(정직: 자르면 다른 브랜치와 충돌 가능하므로 안 자름).
+export const branchLabel = branch => {
+  if (!branch) return null
+  const label = `branch:${branch}`
+  return label.length <= 50 ? label : null
+}
+
+/**
+ * 이슈 라벨 배열에서 브랜치 스탬프를 되읽는다(집계용, 순수). 없으면 null.
+ * @param {string[]} labels
+ * @returns {string|null}
+ */
+export function parseBranchFromLabels(labels) {
+  const found = (labels ?? []).find(l => typeof l === 'string' && l.startsWith('branch:'))
+  return found ? found.slice('branch:'.length) : null
+}
+
 /**
  * TicketDraft(emit.buildTicketDraft 산출) → gh issue create 필드. 순수.
  * 본문에 동작 명세 + AC(TC) + 왕복 마커(FEAT/TC)를 담고, 라벨에 FEAT 고유 라벨을 넣는다.
  * @param {Object} draft  TicketDraft {sourceKey(FEAT), title, body, acceptanceCriteria, harnessRefs}
- * @param {{assignee?: string}} [options]  assignee 미지정 시 미배정(혼자 개발/나중 분배)
+ * @param {{assignee?: string, branch?: string|null}} [options]  assignee 미지정 시 미배정(혼자
+ *   개발/나중 분배). branch는 브랜치 레지스트리 스탬프(설계 §4-1) — 마커 branch= 필드(정본) +
+ *   `branch:` 라벨(50자 이내일 때, 필터 편의)로 실린다.
  * @returns {{title: string, body: string, labels: string[], assignee: string|null}}
  */
 export function buildIssueFields(draft, options = {}) {
   const featureIds = draft.harnessRefs?.featureIds ?? (draft.sourceKey ? [draft.sourceKey] : [])
   const testCaseIds = draft.harnessRefs?.testCaseIds ?? []
   const acLines = (draft.acceptanceCriteria ?? []).map(ac => `- [ ] ${ac}`).join('\n')
-  const refsMarker = buildRefsMarker(featureIds, testCaseIds)
+  const refsMarker = buildRefsMarker(featureIds, testCaseIds, {branch: options.branch ?? null})
   const body = [
     draft.body ?? '',
     '',
@@ -38,7 +59,8 @@ export function buildIssueFields(draft, options = {}) {
     '',
     refsMarker,
   ].join('\n')
-  const labels = unique([...featureIds.map(featLabel)])
+  const branchTag = branchLabel(options.branch ?? null)
+  const labels = unique([...featureIds.map(featLabel), ...(branchTag ? [branchTag] : [])])
   return {
     title: draft.title ?? (featureIds[0] ?? 'untitled'),
     body,
