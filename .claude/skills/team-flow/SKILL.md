@@ -22,8 +22,27 @@ gh/git 실행부를 **confirm 게이트**로 엮는다. 이 스킬은 pr-drafter
 
 > **실행 환경 한계(정직 공시)**: gh/git 실행부는 **플러그인 배포판에서만** 동작한다. 하네스 저장소
 > 자체 세션은 global Bash policy가 `git`/`gh`를 `DENY_NETWORK`로 차단하고 ticket 스크립트를
-> allowlist하지 않으므로, repo-내에서는 미리보기(순수 코어)까지만 가능하다. 실행부 executor CLI
-> 배선 시 allowlist 등재를 재검토한다(protected-core §4 "티켓 식별자 원장" 행의 선행 조건과 함께).
+> allowlist하지 않으므로, repo-내에서는 미리보기(순수 코어)까지만 가능하다.
+> **allowlist 재검토 결론(2026-08-24)**: 등재하지 않는다 — repo 안전 정책을 약화하지 않고
+> executor CLI(`.claude/scripts/ticket/cli.mjs`)는 플러그인 런타임 전용으로 둔다.
+
+## 실행부 executor CLI
+
+각 모드의 실행은 `node .claude/scripts/ticket/cli.mjs <cmd>`가 담당한다(결과 JSON, 게이트 차단
+= exit 2). **side-effect는 `--confirm` 없이는 절대 실행되지 않는다** — 스킬이 미리보기를 사람에게
+보여주고 확인받은 뒤에만 `--confirm`을 단다.
+
+```
+cli.mjs claim  --repo <o/r> [--units u.json] [--assignee me] [--confirm]   # origin 게이트→미리보기→발행
+cli.mjs board  --repo <o/r> [--developer me]                               # 배정·merged(gh pr state) 실측 보드
+cli.mjs pickup <FEAT> --repo <o/r> --developer me [--confirm]              # 게이트→TOCTOU 재판정→self-assign→change-scope 발급
+cli.mjs link   <FEAT> <pr-url> [--confirm]                                 # STALE 차단→verified Closes→원장 링크(멱등)
+```
+
+내장 안전장치: 청구 원장 append는 최초-digest 가드(`LEDGER_REBIND_REFUSED`), pickup은 assign
+직전 재조회·재판정 + 사후 다중배정 감지(동시 배정이면 사람 조율로 되돌림 — 자동 판정 안 함),
+link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh pr view --json state`
+(`resolveMergedFeatures`)다 — 추측하지 않는다.
 
 ## Start — 자연어 의도 매핑
 

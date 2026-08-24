@@ -40,6 +40,35 @@ export const prCreateArgs = (repo, {title, body, base, head}) => {
 export const issueCommentArgs = (repo, number, body) => ['issue', 'comment', String(number), '--repo', repo, '--body', body]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
+// 보드 강화(배정 표시)·merged 출처 명세용 read-only argv.
+export const issueListAllArgs = repo => ['issue', 'list', '--repo', repo, '--state', 'all', '--json', 'number,title,body,labels,assignees', '--limit', '200']
+export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state']
+
+// 범용 gh 러너(실행부 경계 재노출) — executor CLI가 assign/comment 등 argv를 실제 스폰할 때
+// 쓴다. side-effect이므로 caller(cli)의 --confirm 게이트 뒤에서만 호출된다.
+export function runGh(args, options = {}) {
+  return gh(args, options)
+}
+
+/**
+ * merged 출처 명세(§4-2 리뷰 조건): 원장의 prUrl 실린 레코드마다 `gh pr view --json state`로
+ * **실제 머지 상태**를 조회해 merged FEAT 집합을 돌려준다(read-only). 조회 실패/미링크는
+ * merged로 치지 않는다(낙관 위조 금지 — 미상은 제외).
+ * @param {{records: Array<{featureId: string, prUrl?: string}>, exec?: (a: string[]) => Promise<string>, host?: string}} config
+ * @returns {Promise<string[]>} merged featureIds
+ */
+export async function resolveMergedFeatures({records, exec = null, host = 'github.com'}) {
+  const run = exec ?? (args => gh(args, {host}))
+  const merged = []
+  for (const record of records ?? []) {
+    if (!record?.prUrl) continue
+    try {
+      const parsed = JSON.parse(await run(prStateArgs(record.prUrl)))
+      if (parsed?.state === 'MERGED') merged.push(record.featureId)
+    } catch { /* 조회 실패 = 미상 → merged 아님(보수) */ }
+  }
+  return merged
+}
 
 /**
  * runner에 주입할 GitHub provider(실행부). findByLabel/createIssue를 gh로 구현.

@@ -131,9 +131,10 @@ OLD** — 이면 픽업자는 청구가 참조한 레퍼런스 없이 개발하�
 트래커(브랜치 스탬프)와 `git show origin/<br>:<path>`(체크아웃 없이 타 브랜치의 plan·원장 읽기).
 - **Level 1 오버뷰**: 브랜치 카드 목록(레지스트리 = 라벨-마커 union, §4-1 한계 참조) — 기획 제목·티켓 분포(진행/
   미선택/blocked)·병목 뱃지. 브랜치는 "한정"이 아니라 **1차 그룹 축**이고 집계가 그 위에 얹힘.
-  **머지 표시는 미구현**(리뷰 지적): board 상태에 merged가 없고 `mergedFeatureIds`·
-  `foundationComplete`의 진실 출처(gh PR merge state·원장 closed)도 미명세 — 실행부/콘솔 배선
-  커밋에서 출처를 명세하고 merged 행 표현을 결정하기 전까지 카드는 머지 여부를 주장하지 않는다.
+  **merged 출처 명세(2026-08-24, executor CLI)**: `resolveMergedFeatures` — 원장의 prUrl 레코드마다
+  `gh pr view --json state`로 실제 머지 상태를 조회(조회 실패/미링크 = 미상 → merged 아님, 낙관
+  위조 금지). CLI board가 이 실측을 `mergedFeatureIds`로 주입한다. **콘솔(로컬-only v1)은 여전히
+  merged를 주장하지 않는다**(gh 미연동 — notes 표기 그대로).
   units에 dependsOn/paths 메타가 없으면 병목·blocked이 공집합인데 이는 "정보 없음"이지 "무병목"
   증명이 아니다 — 카드 표기에서 두 상태를 구분한다(메타 소스 규약은 후속 증분).
 - **Level 2 상세**: 카드 클릭 → 그 브랜치의 계층 보드(foundation→feature·선행 순서·차단 사유,

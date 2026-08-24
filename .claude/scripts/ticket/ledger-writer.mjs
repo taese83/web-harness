@@ -11,7 +11,7 @@
 // 실행부 writer 소비자가 생길 때 배선한다(§4). 멱등은 writer가 아니라 caller(원장-우선 가드)의 몫이다.
 import {existsSync, readFileSync} from 'node:fs'
 import {parseLedger, ledgerState, serializeLedgerRecord} from './ledger.mjs'
-import {appendEvidenceLine} from '../evidence-log-lib.mjs'
+import {appendEvidenceLine, detectRebind} from '../evidence-log-lib.mjs'
 
 /** 원장 파일을 읽어 파싱한다(없으면 빈 배열). 판독은 도메인 파서(parseLedger — 스키마 검증)라
  * 공유 readEvidenceLog가 아니라 이것을 쓴다(altitude: 안전 append는 공유, 스키마 파싱은 로컬). */
@@ -44,4 +44,23 @@ export function appendLedgerRecord(path, record) {
     },
   })
   return record
+}
+
+/**
+ * **청구(create) 전용** 가드 append — §4 "티켓 식별자 원장" 행의 최초-digest 가드(detectRebind)
+ * 배선(executor CLI가 첫 writer 소비자가 되는 시점). 같은 FEAT의 최초 청구 contentHash와 다른
+ * 해시로 재청구를 시도하면 REBIND_REFUSED loud 거부 — 재청구 위조·계획 변경 후 무단 재바인드를
+ * within-file 수준에서 막는다(파일 통삭제 재구성은 여전히 못 잡음 — tamper-evident 한계는 §4
+ * 그대로). 계획 변경의 정당한 갱신·prUrl 링크는 appendLedgerRecord(비가드)를 쓰되 emit update
+ * 경로/링크 멱등 판정을 거친다(경로 분리가 곧 계약).
+ */
+export function appendClaimRecord(path, record) {
+  const rebind = detectRebind(readLedger(path), record.contentHash, {
+    digestField: 'contentHash',
+    key: {field: 'featureId', value: record.featureId},
+  })
+  if (rebind) {
+    throw new Error(`LEDGER_REBIND_REFUSED: ${record.featureId} 최초 청구 digest와 불일치(최초 ${rebind.firstDigest.slice(0, 12)}… ≠ 현재 ${rebind.currentDigest.slice(0, 12)}…) — 재청구는 emit update 경로로`)
+  }
+  return appendLedgerRecord(path, record)
 }
