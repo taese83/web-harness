@@ -11,7 +11,8 @@
  *  - 추적 파일 dirty               → blocked: dirty-worktree (커밋/스태시 먼저 — 침묵 스태시 금지)
  *  - 다른 티켓 개발 진행 중         → switch + 강한 경고(active-pickup) — 명시 확인 시에만
  *  - 클린                          → switch + 확인 1회(needsConfirm — 자동이되 침묵 아님)
- * untracked-only는 checkout을 막지 않으므로 차단하지 않되 note로 표기(정직).
+ * untracked-only는 차단하지 않되 표기한다 — 대부분 전환 가능하나 **대상 브랜치에 같은 경로의
+ * 추적 파일이 있으면 git이 checkout을 거부**한다(loud fail — 안전 방향, 그때 안내는 실행부 몫).
  * @param {Object} args {targetBranch, currentBranch, worktree: {dirty, conflicted, untrackedOnly?}, activePickup?: {featureId}|null}
  * @returns {{action: 'none'|'switch'|'blocked', needsConfirm: boolean, reason?: string, warnings: string[], guidance: string|null}}
  */
@@ -19,6 +20,11 @@ export function computeSwitchPlan({targetBranch, currentBranch, worktree = {}, a
   if (!targetBranch) return {action: 'blocked', needsConfirm: false, reason: 'no-target-branch', warnings: [], guidance: '대상 브랜치를 알 수 없습니다(티켓의 브랜치 스탬프 확인)'}
   if (targetBranch === currentBranch) {
     return {action: 'none', needsConfirm: false, warnings: [], guidance: null}
+  }
+  if (worktree.statusUnknown) {
+    // 상태 조회 실패 = 미상 — dirty라고 단정하지 않고 미상을 미상으로 말한다(리뷰 지적:
+    // '변경 감지 불가' 정직 표기 관용구). 방향은 동일하게 보수적 차단.
+    return {action: 'blocked', needsConfirm: false, reason: 'worktree-status-unknown', warnings: [], guidance: '작업트리 상태를 확인할 수 없습니다(git 상태 조회 실패) — 상태 확인 후 다시 시도하세요(보수적 차단)'}
   }
   if (worktree.conflicted) {
     return {action: 'blocked', needsConfirm: false, reason: 'conflicts-unresolved', warnings: [], guidance: '병합 컨플릭을 해결한 뒤 전환하세요(하네스는 자동 해결하지 않음)'}

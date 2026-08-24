@@ -127,21 +127,37 @@ const branchCard = (branch, planText, ledgerText, {current, basis}) => {
   }
 }
 
+// 활성 픽업 감지(§4-3 "다른 티켓 개발 진행 중" 행의 산출자, 리뷰 조건): 로컬
+// _workspace/03_dev/change-scope.md 존재 = 픽업이 발급된 개발 진행 상태. 그 안의 첫 FEAT ID가
+// 진행 중 티켓이다. team-flow pickup 0단계도 **같은 소스**를 쓴다(두 채널 판정 일치의 근거).
+const CHANGE_SCOPE_PATH = '_workspace/03_dev/change-scope.md'
+export const detectActivePickup = root => {
+  try {
+    const text = readFileSync(join(root, CHANGE_SCOPE_PATH), 'utf8')
+    const featureId = text.match(/\bFEAT-\d{3,}\b/)?.[0] ?? null
+    return featureId ? {featureId} : null
+  } catch {
+    return null
+  }
+}
+
 /**
- * 티켓 선택의 라우트 판정(§4-3, read-only) — 실 worktree 상태(porcelain)로 computeSwitchPlan/
- * describeRoute를 돌려 단계·차단 사유를 돌려준다. **콘솔은 판정·안내까지만**이고 실행(전환·픽업
- * side-effect)은 team-flow/executor 몫이다(콘솔 read-only 유지 — v1 결정).
+ * 티켓 선택의 라우트 판정(§4-3, read-only) — 실 worktree 상태(porcelain)·활성 픽업으로
+ * computeSwitchPlan/describeRoute를 돌려 단계·차단 사유를 돌려준다. **콘솔은 판정·안내까지만**
+ * 이고 실행(전환·픽업 side-effect)은 team-flow/executor 몫이다(콘솔 read-only 유지 — v1 결정).
+ * gitRun 주입은 테스트용(기본 실 git).
  */
-export const buildRoutePayload = (root, {targetBranch, featureId}) => {
-  const current = currentBranchOf(root)
-  const porcelain = runGit(root, worktreeStatusArgsLocal)
-  // 조회 실패 = 상태 미상 → 보수적으로 dirty(라우팅 차단 방향)
-  const worktree = porcelain === null ? {dirty: true, conflicted: false, untrackedOnly: false} : parseWorktreeStatus(porcelain)
-  const route = describeRoute({targetBranch, currentBranch: current, worktree, featureId})
-  return {currentBranch: current, targetBranch, featureId, worktree, ...route,
+export const buildRoutePayload = (root, {targetBranch, featureId}, {gitRun = runGit} = {}) => {
+  const current = (gitRun(root, ['rev-parse', '--abbrev-ref', 'HEAD']) ?? '').trim() || null
+  const porcelain = gitRun(root, ['status', '--porcelain'])
+  // 조회 실패 = 상태 **미상**(statusUnknown) — dirty 단정 대신 미상 표기(라우팅이 보수 차단)
+  const worktree = porcelain === null ? {dirty: true, conflicted: false, untrackedOnly: false, statusUnknown: true} : parseWorktreeStatus(porcelain)
+  const active = detectActivePickup(root)
+  const activePickup = active && active.featureId !== featureId ? active : null // 같은 티켓 재픽업은 "다른 티켓 진행"이 아님
+  const route = describeRoute({targetBranch, currentBranch: current === 'HEAD' ? null : current, worktree, activePickup, featureId})
+  return {currentBranch: current, targetBranch, featureId, worktree, activePickup, ...route,
     note: '콘솔은 판정·안내까지 — 전환·픽업 실행은 team-flow(프롬프트)에서 확인 후 진행합니다'}
 }
-const worktreeStatusArgsLocal = ['status', '--porcelain']
 
 /** Development › Work flow payload — 서버 라우트가 프로젝트 루트로 호출한다. */
 export const buildWorkflowPayload = root => {

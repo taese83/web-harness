@@ -159,13 +159,16 @@ OLD** — 이면 픽업자는 청구가 참조한 레퍼런스 없이 개발하�
 | 다른 티켓 개발 진행 중 | 경고 + 명시 확인 시에만 전환 |
 | 현재 브랜치 티켓 | 전환 불필요 — 바로 픽업 게이트로(오버뷰에서 현재 브랜치 섹션 우선 표시) |
 
-**구현(2026-08-24, 증분 4)**: 판정은 순수 `route.mjs`(`computeSwitchPlan`/`describeRoute` —
-결정표 그대로, untracked-only는 비차단 표기, 컨플릭이 dirty보다 우선), worktree 사실은
-`git-origin.parseWorktreeStatus`(porcelain, 조회 실패는 dirty 보수 폴백), 전환 실행은
-`switchBranch`(§4-3의 유일한 쓰기 — 판정 통과+확인 뒤 caller가 호출, 가드 재검사 안 함:
-판정/실행 분리). 콘솔 "픽업 경로 확인"(GET /workflow/route)과 team-flow pickup 0단계가 같은
-`describeRoute`를 소비 — 두 채널 판정 일치. **콘솔은 판정·안내까지**(read-only 유지)이고
-전환·픽업 실행은 team-flow/executor 몫.
+**구현(2026-08-24, 증분 4 — 리뷰 조건 반영)**: 판정은 순수 `route.mjs`(`computeSwitchPlan`/
+`describeRoute` — 결정표 그대로, 컨플릭 > dirty > 진행중 우선, untracked-only는 비차단 표기 —
+단 대상 브랜치의 추적 파일과 겹치면 git이 checkout을 loud 거부), worktree 사실은
+`git-origin.parseWorktreeStatus`(porcelain). 조회 실패는 **statusUnknown**으로 정직 표기하고
+보수 차단한다(dirty로 단정하지 않음 — '변경 감지 불가' 관용구). 전환 실행 `switchBranch`는
+§4-3의 유일한 쓰기이며 **checkout 직전 재검사를 내장**(판정↔실행 TOCTOU 봉합 — 간극에 생긴
+dirty/컨플릭은 `SWITCH_BLOCKED` loud 거부, 재검사~checkout 미시 창은 잔존 명시). "다른 티켓
+진행 중"의 산출자는 `_workspace/03_dev/change-scope.md` 존재(+FEAT ID)로 명세 — 콘솔
+(`detectActivePickup`)과 team-flow가 같은 소스를 소비해 두 채널 판정이 일치한다. **콘솔은
+판정·안내까지**(read-only 유지)이고 전환·픽업 실행은 team-flow/executor 몫.
 
 ---
 

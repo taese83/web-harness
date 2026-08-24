@@ -122,18 +122,29 @@ export async function resolveWorktreeStatus({repoRoot, exec = null}) {
   try {
     return parseWorktreeStatus((await run(worktreeStatusArgs())).out)
   } catch {
-    // 조회 실패 = 상태 미상 → 라우팅은 보수적으로 차단해야 하므로 dirty로 정직 폴백
-    return {dirty: true, conflicted: false, untrackedOnly: false}
+    // 조회 실패 = 상태 **미상** — dirty로 단정하지 않고 statusUnknown으로 정직 표기(라우팅은
+    // 이를 보수적으로 차단하되 "미커밋 변경 있음"이라는 잘못된 처방을 내지 않는다 — 리뷰 지적).
+    return {dirty: true, conflicted: false, untrackedOnly: false, statusUnknown: true}
   }
 }
 
 /**
- * 브랜치 전환(**쓰기** side-effect, §4-3의 유일한 쓰기). 반드시 computeSwitchPlan이
- * 'switch'를 반환하고 사람이 확인한 뒤에만 호출한다 — 이 함수는 가드를 재검사하지 않는다
- * (판정과 실행의 분리, 판정은 순수 route.mjs 소유).
+ * 브랜치 전환(**쓰기** side-effect, §4-3의 유일한 쓰기). computeSwitchPlan이 'switch'를
+ * 반환하고 사람이 확인한 뒤에만 호출한다. 판정↔실행 간극(TOCTOU, 리뷰 지적)은 **기본 내장
+ * 재검사**로 봉합한다: checkout 직전 worktree를 재조회해 dirty/컨플릭/미상이 새로 생겼으면
+ * loud 거부 — git checkout은 비중첩 변경을 새 브랜치로 조용히 운반하므로, 재검사 없이는
+ * dirty 차단 취지가 그 창에서 무력해진다. 재검사~checkout 사이의 미시적 창은 남는다(정직 —
+ * 단일 프로세스 직렬 실행이라 실질 위험은 낮음). recheck=false는 테스트 전용.
  */
-export async function switchBranch({repoRoot, branch, exec = null}) {
+export async function switchBranch({repoRoot, branch, exec = null, recheck = true}) {
   const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  if (recheck) {
+    const status = await resolveWorktreeStatus({repoRoot, exec: run})
+    if (status.statusUnknown || status.dirty || status.conflicted) {
+      const cause = status.statusUnknown ? '상태 미상' : status.conflicted ? '미해결 컨플릭' : '미커밋 변경'
+      throw new Error(`SWITCH_BLOCKED: 전환 직전 재검사에서 ${cause} 감지 — checkout 중단(판정 이후 상태가 변함)`)
+    }
+  }
   await run(checkoutArgs(branch))
   return {switched: true, branch}
 }

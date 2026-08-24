@@ -47,12 +47,44 @@ test('describeRoute: 전환해도 픽업 게이트는 그대로(라우팅≠게�
   assert.equal(blocked.blocked.reason, 'dirty-worktree')
 })
 
-test('parseWorktreeStatus: porcelain → dirty/conflicted/untracked-only', () => {
+test('parseWorktreeStatus: porcelain → dirty/conflicted/untracked-only (엣지 포함)', () => {
   assert.deepEqual(parseWorktreeStatus(''), {dirty: false, conflicted: false, untrackedOnly: false})
   assert.deepEqual(parseWorktreeStatus(' M src/a.ts\n'), {dirty: true, conflicted: false, untrackedOnly: false})
   assert.deepEqual(parseWorktreeStatus('?? notes.txt\n'), {dirty: false, conflicted: false, untrackedOnly: true})
   assert.equal(parseWorktreeStatus('UU src/a.ts\n').conflicted, true)
   assert.equal(parseWorktreeStatus('AA src/b.ts\n').conflicted, true)
+  // 리뷰 보강: unmerged 나머지 코드·rename·혼합 케이스
+  assert.equal(parseWorktreeStatus('DD src/c.ts\n').conflicted, true)   // both deleted
+  assert.equal(parseWorktreeStatus('AU src/d.ts\n').conflicted, true)   // added by us
+  assert.deepEqual(parseWorktreeStatus('R  old.ts -> new.ts\n'), {dirty: true, conflicted: false, untrackedOnly: false}) // rename = 추적 변경
+  const mixed = parseWorktreeStatus('UU src/a.ts\n?? scratch.txt\n')    // 컨플릭 + untracked 혼합
+  assert.deepEqual(mixed, {dirty: true, conflicted: true, untrackedOnly: false})
+})
+
+test('statusUnknown: 미상은 미상으로(dirty 단정 안 함) + 보수 차단', async () => {
+  const unknown = await resolveWorktreeStatus({repoRoot: '.', exec: async () => { throw new Error('no git') }})
+  assert.equal(unknown.statusUnknown, true)
+  const plan = computeSwitchPlan({targetBranch: 'f/x', currentBranch: 'main', worktree: unknown})
+  assert.equal(plan.reason, 'worktree-status-unknown')          // "미커밋 변경" 오처방 아님
+  assert.match(plan.guidance, /확인할 수 없습니다/)
+})
+
+test('switchBranch: checkout 직전 재검사 내장(판정↔실행 TOCTOU 봉합)', async () => {
+  // 판정 이후 dirty가 생긴 시나리오 — 재검사가 SWITCH_BLOCKED로 loud 거부, checkout 미실행
+  const calls = []
+  await assert.rejects(
+    switchBranch({repoRoot: '.', branch: 'f/x', exec: async args => {
+      calls.push(args)
+      if (args[0] === 'status') return {code: 0, out: ' M src/a.ts\n'}
+      throw new Error('checkout이 호출되면 안 됨')
+    }}),
+    /SWITCH_BLOCKED.*미커밋 변경/,
+  )
+  assert.deepEqual(calls, [['status', '--porcelain']])          // checkout 미도달
+  // 재검사 클린 → status 후 checkout 순서로 실행
+  const okCalls = []
+  await switchBranch({repoRoot: '.', branch: 'f/x', exec: async args => { okCalls.push(args); return {code: 0, out: ''} }})
+  assert.deepEqual(okCalls, [['status', '--porcelain'], ['checkout', 'f/x']])
 })
 
 test('실행부: checkout argv·switchBranch·상태 조회 실패는 dirty 보수 폴백', async () => {
@@ -61,7 +93,7 @@ test('실행부: checkout argv·switchBranch·상태 조회 실패는 dirty 보�
   const calls = []
   const done = await switchBranch({repoRoot: '.', branch: 'f/x', exec: async args => { calls.push(args); return {code: 0, out: ''} }})
   assert.deepEqual(done, {switched: true, branch: 'f/x'})
-  assert.deepEqual(calls, [['checkout', 'f/x']])
+  assert.deepEqual(calls, [['status', '--porcelain'], ['checkout', 'f/x']]) // 재검사 내장(기본)
   // 상태 조회 실패 → dirty 폴백(라우팅이 보수적으로 차단하게)
   const fallback = await resolveWorktreeStatus({repoRoot: '.', exec: async () => { throw new Error('no git') }})
   assert.equal(fallback.dirty, true)
