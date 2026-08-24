@@ -29,6 +29,29 @@ export const originDiffArgs = (base, planPath) => ['diff', '--quiet', base, '--'
 export const conflictArgs = () => ['diff', '--name-only', '--diff-filter=U']
 export const showFileArgs = (ref, path) => ['show', `${ref}:${path}`]
 export const remoteBranchExistsArgs = ref => ['rev-parse', '--verify', '--quiet', ref]
+export const worktreeStatusArgs = () => ['status', '--porcelain']
+// 라우팅(§4-3)의 유일한 쓰기 argv — 실행은 computeSwitchPlan 통과 + 사람 확인 뒤 caller 몫.
+export const checkoutArgs = branch => ['checkout', branch]
+
+/**
+ * `git status --porcelain` 출력 → 라우팅 판정 입력(순수). XY 코드 기준:
+ * 컨플릭(U 포함·AA·DD), 추적 변경(?? 아닌 나머지), untracked-only 구분.
+ * @param {string} porcelain
+ * @returns {{dirty: boolean, conflicted: boolean, untrackedOnly: boolean}}
+ */
+export function parseWorktreeStatus(porcelain) {
+  const lines = String(porcelain ?? '').split(/\r?\n/).filter(line => line.trim())
+  const conflicted = lines.some(line => {
+    const xy = line.slice(0, 2)
+    return xy.includes('U') || xy === 'AA' || xy === 'DD'
+  })
+  const tracked = lines.filter(line => !line.startsWith('??'))
+  return {
+    dirty: tracked.length > 0,
+    conflicted,
+    untrackedOnly: tracked.length === 0 && lines.length > 0,
+  }
+}
 
 /**
  * 청구 전제(점 1): 로컬 feature-plan이 origin에 푸시돼 있고 일치하는지 읽는다.
@@ -91,6 +114,28 @@ export async function remoteBranchExists({repoRoot, branch, remote = 'origin', e
   } catch {
     return false
   }
+}
+
+/** 라우팅 판정용 worktree 상태(§4-3) — status --porcelain 실측을 parseWorktreeStatus로. */
+export async function resolveWorktreeStatus({repoRoot, exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  try {
+    return parseWorktreeStatus((await run(worktreeStatusArgs())).out)
+  } catch {
+    // 조회 실패 = 상태 미상 → 라우팅은 보수적으로 차단해야 하므로 dirty로 정직 폴백
+    return {dirty: true, conflicted: false, untrackedOnly: false}
+  }
+}
+
+/**
+ * 브랜치 전환(**쓰기** side-effect, §4-3의 유일한 쓰기). 반드시 computeSwitchPlan이
+ * 'switch'를 반환하고 사람이 확인한 뒤에만 호출한다 — 이 함수는 가드를 재검사하지 않는다
+ * (판정과 실행의 분리, 판정은 순수 route.mjs 소유).
+ */
+export async function switchBranch({repoRoot, branch, exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  await run(checkoutArgs(branch))
+  return {switched: true, branch}
 }
 
 /** working-tree에 미해결 컨플릭(점 4)이 있는지. --diff-filter=U 결과가 있으면 conflicted. */

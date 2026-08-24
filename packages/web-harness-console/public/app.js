@@ -2016,12 +2016,41 @@ const renderWorkflow = () => {
       for (const card of payload.branches ?? []) {
         const chips = Object.entries(card.counts ?? {}).map(([status, count]) => create('span', {className: 'status-chip status-chip', text: `${status} ${count}`}))
         if (card.staleCount > 0) chips.push(create('span', {className: 'status-chip status-stale', text: `stale ${card.staleCount}`}))
-        const rows = (card.tickets ?? []).map(ticket => create('li', {className: 'workflow-ticket'}, [
-          statusChip(ticket.status),
-          create('span', {className: 'workflow-ticket-title', text: `${ticket.featureId}${ticket.title ? ` · ${ticket.title}` : ''}${ticket.ticketKey ? `  #${ticket.ticketKey}` : ''}`}),
-          ...(ticket.stale ? [create('span', {className: 'status-chip status-stale', text: 'stale'})] : []),
-          ...(ticket.prUrl ? [create('a', {href: ticket.prUrl, target: '_blank', rel: 'noopener', text: 'PR'})] : []),
-        ]))
+        const rows = (card.tickets ?? []).map(ticket => {
+          const routeDetail = create('div', {className: 'workflow-route', hidden: true})
+          const row = create('li', {className: 'workflow-ticket'}, [
+            statusChip(ticket.status),
+            create('span', {className: 'workflow-ticket-title', text: `${ticket.featureId}${ticket.title ? ` · ${ticket.title}` : ''}${ticket.ticketKey ? `  #${ticket.ticketKey}` : ''}`}),
+            ...(ticket.stale ? [create('span', {className: 'status-chip status-stale', text: 'stale'})] : []),
+            ...(ticket.prUrl ? [create('a', {href: ticket.prUrl, target: '_blank', rel: 'noopener', text: 'PR'})] : []),
+          ])
+          // 선택 라우팅(§4-3, read-only 판정): 집을 수 있는 상태만 라우트 확인 버튼 노출.
+          if (ticket.status === 'unclaimed' || ticket.status === 'claimed') {
+            row.append(create('button', {type: 'button', className: 'secondary-button', text: '픽업 경로 확인', onclick: async () => {
+              routeDetail.hidden = false
+              routeDetail.replaceChildren(create('span', {text: '판정 중…'}))
+              try {
+                const route = await fetch(`/api/projects/${encodeURIComponent(state.projectId)}/workflow/route?branch=${encodeURIComponent(card.branch)}&feat=${encodeURIComponent(ticket.featureId)}`).then(r => r.json())
+                const parts = []
+                if (!route.ok) {
+                  parts.push(create('span', {className: 'status-chip status-failed', text: route.blocked?.reason ?? 'blocked'}))
+                  if (route.blocked?.guidance) parts.push(create('span', {text: ` ${route.blocked.guidance}`}))
+                } else {
+                  for (const step of route.steps ?? []) {
+                    parts.push(create('span', {className: 'status-chip status-pending', text: `${step.step}${step.needsConfirm ? ' (확인 필요)' : ''}`}))
+                    for (const warning of step.warnings ?? []) parts.push(create('span', {className: 'status-chip status-stale', text: warning}))
+                  }
+                }
+                parts.push(create('span', {className: 'panel-copy', text: ` · ${route.note}`}))
+                routeDetail.replaceChildren(...parts)
+              } catch {
+                routeDetail.replaceChildren(create('span', {text: '라우트 판정을 불러오지 못했습니다'}))
+              }
+            }}))
+          }
+          row.append(routeDetail)
+          return row
+        })
         children.push(create('article', {className: 'panel workflow-branch'}, [
           create('div', {className: 'dev-live-head'}, [
             create('h3', {text: `${card.branch}${card.current ? ' (현재 브랜치)' : ''}`}),

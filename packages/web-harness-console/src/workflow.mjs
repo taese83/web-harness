@@ -16,6 +16,8 @@ import {join} from 'node:path'
 import {parseLedger, ledgerState} from '../../../.claude/scripts/ticket/ledger.mjs'
 import {parseFeaturePlanUnits} from '../../../.claude/scripts/ticket/plan-units.mjs'
 import {unitContentHash} from '../../../.claude/scripts/ticket/emit.mjs'
+import {parseWorktreeStatus} from '../../../.claude/scripts/ticket/git-origin.mjs'
+import {describeRoute} from '../../../.claude/scripts/ticket/route.mjs'
 
 const LEDGER_PATH = '_workspace/03_dev/identity-ledger.jsonl'
 const PLAN_FILE = '_workspace/01_plan/feature-plan.md'
@@ -124,6 +126,22 @@ const branchCard = (branch, planText, ledgerText, {current, basis}) => {
     staleCount: tickets.filter(ticket => ticket.stale).length,
   }
 }
+
+/**
+ * 티켓 선택의 라우트 판정(§4-3, read-only) — 실 worktree 상태(porcelain)로 computeSwitchPlan/
+ * describeRoute를 돌려 단계·차단 사유를 돌려준다. **콘솔은 판정·안내까지만**이고 실행(전환·픽업
+ * side-effect)은 team-flow/executor 몫이다(콘솔 read-only 유지 — v1 결정).
+ */
+export const buildRoutePayload = (root, {targetBranch, featureId}) => {
+  const current = currentBranchOf(root)
+  const porcelain = runGit(root, worktreeStatusArgsLocal)
+  // 조회 실패 = 상태 미상 → 보수적으로 dirty(라우팅 차단 방향)
+  const worktree = porcelain === null ? {dirty: true, conflicted: false, untrackedOnly: false} : parseWorktreeStatus(porcelain)
+  const route = describeRoute({targetBranch, currentBranch: current, worktree, featureId})
+  return {currentBranch: current, targetBranch, featureId, worktree, ...route,
+    note: '콘솔은 판정·안내까지 — 전환·픽업 실행은 team-flow(프롬프트)에서 확인 후 진행합니다'}
+}
+const worktreeStatusArgsLocal = ['status', '--porcelain']
 
 /** Development › Work flow payload — 서버 라우트가 프로젝트 루트로 호출한다. */
 export const buildWorkflowPayload = root => {

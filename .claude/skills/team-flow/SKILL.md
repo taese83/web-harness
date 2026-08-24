@@ -71,6 +71,11 @@ gh/git 실행부를 **confirm 게이트**로 엮는다. 이 스킬은 pr-drafter
 
 ### `pickup <FEAT>` — 개발자 착수
 
+0. **라우팅(§4-3)**: 티켓의 브랜치(원장 `branch`/이슈 스탬프)가 현재 브랜치와 다르면
+   `route.computeSwitchPlan`으로 판정 — dirty/컨플릭이면 **차단**(침묵 스태시·자동 해결 금지),
+   다른 티켓 진행 중이면 경고, 클린이면 **확인 1회** 뒤 `git-origin.switchBranch`로 전환.
+   전환해도 아래 게이트는 그대로 밟는다(라우팅 ≠ 게이트 우회). 콘솔 "픽업 경로 확인"과 같은
+   판정(`describeRoute`)을 쓴다 — 두 채널의 답이 항상 일치.
 1. **준비 게이트(점 2·3·4)**: `sync-guard.evaluatePickupReadiness`
    - 브랜치 대조(원장 `branch` vs 현재) — 불일치면 청구 브랜치로 전환 안내.
    - 컨플릭 감지(`resolveWorkingState`) — 미해결이면 **차단**(해결은 개발자 git 작업, 하네스는 자동 X).

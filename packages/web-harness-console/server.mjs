@@ -10,7 +10,7 @@ import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
 import {WorkspaceCatalog, computeTcSourceStamp, hasTcRunCommand} from './src/indexer.mjs'
 import {createLiveBasePreviewServer, extractHtmlTitle, parseLiveBaseTarget, parseLiveIdentity} from './src/live-base-preview.mjs'
-import {buildWorkflowPayload} from './src/workflow.mjs'
+import {buildRoutePayload, buildWorkflowPayload} from './src/workflow.mjs'
 
 const packageRoot = dirname(fileURLToPath(import.meta.url))
 const CONTENT_TYPES = {
@@ -185,6 +185,18 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     const projectImplementationVerifications = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/implementation-verifications$/)
     const projectPreviewApproval = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-approval$/)
     const projectWorkflow = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow$/)
+    const projectWorkflowRoute = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow\/route$/)
+    if (request.method === 'GET' && projectWorkflowRoute) {
+      const routeProjectId = decodePathSegment(projectWorkflowRoute[1])
+      if (routeProjectId === null) return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
+      const routeProject = catalog.project(routeProjectId)
+      if (!routeProject) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
+      const targetBranch = url.searchParams.get('branch')
+      const featureId = url.searchParams.get('feat')
+      if (!targetBranch || !/^FEAT-\d{3,}$/.test(featureId ?? '')) return json(response, 400, errorBody('BAD_ROUTE_QUERY', 'branch and feat query params are required'))
+      // §4-3 라우트 판정(read-only) — 실행은 콘솔 밖(team-flow/executor).
+      return json(response, 200, buildRoutePayload(routeProject.root, {targetBranch, featureId}))
+    }
     if (request.method === 'GET' && projectWorkflow) {
       const workflowProjectId = decodePathSegment(projectWorkflow[1])
       if (workflowProjectId === null) return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
