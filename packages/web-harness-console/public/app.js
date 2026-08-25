@@ -344,10 +344,12 @@ const renderProjectNavigation = () => {
     button.append(
       create('strong', {text: project.name}),
       create('small', {text: project.relativePath}),
+      // 상태 워드마크는 상태색+글자 병행(원리 5) — 게이지는 만들지 않는다: 목록 payload에
+      // 근거 있는 진행률 소스가 없어 추정 막대가 되기 때문(components.md 게이지 항목은 승인 대기).
       create('span', {className: 'project-button-meta'}, [
-        create('span', {text: `P ${project.phaseCounts.plan}`}),
-        create('span', {text: `D ${project.phaseCounts.design}`}),
-        create('span', {text: project.preview.status}),
+        create('span', {className: 'project-count', text: `P ${project.phaseCounts.plan}`}),
+        create('span', {className: 'project-count', text: `D ${project.phaseCounts.design}`}),
+        create('span', {className: `project-state state-${(project.preview.status ?? 'ABSENT').toLowerCase()}`, text: project.preview.status}),
       ]),
     )
     button.addEventListener('click', () => selectProject(project.id))

@@ -618,3 +618,24 @@ ROUND_TEST_EVIDENCE:
    계약 테스트를 추가하고 반증(필드 되돌리면 fail)으로 실효 확인.
 2. **기능 보더 하한**: 중립 게이트 노드가 `--line`(1.34:1)이라 원이 사실상 비가시 →
    accessibility.md 규칙대로 `--line-strong`(3.7:1) 적용.
+
+## R3 — 콘솔 디자인 개편 3단계: 컴포넌트 정합 (2026-08-24)
+
+- **TARGET_BEHAVIOR**: 남은 공용 컴포넌트(상태 칩·패널 제목·계기 숫자·사이드바 메타)가
+  design-system/components.md 스펙을 따른다. 전 탭에서 시각 언어가 일관된다.
+- **ALLOWED_PATHS**: `public/styles.css`, `public/app.js`(사이드바 메타 클래스 3개)
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 클래스명·DOM 구조, 칩 상태→색 매핑 의미(go/warn/stop/accent),
+  기존 status-* 변종 전부
+- **NON_GOALS**: 라이트 모드, 워크플로우 보드 축소 노드(레일 축소형 — 후속), 토스트/다이얼로그
+  세부(현 스타일이 토큰 위에서 이미 정합)
+- **CHANGE_BUDGET**: 2파일 · CSS 규칙 6개 갱신 + 신규 6개
+- **TEST_EVIDENCE**: console:check · 전체 CI green · **6개 탭 전수 대비 스윕 위반 0건**
+  (overview/documents/features/design/development/qa) · 라이브 스크린샷 3종
+- **CAPABILITY_ESCALATION**: none (CSS·클래스명만)
+- **DOCS_TO_UPDATE**: none
+
+### 승인 렌더에서 의도적으로 구현하지 않은 것 (정직 표기)
+- **사이드바 게이지**: 후보 렌더·components.md에 있으나 **구현하지 않음**. 목록 payload에
+  근거 있는 진행률 소스가 없어 만들면 추정 막대가 된다(I1). 상태 워드마크(상태색+글자)로
+  대체했고, components.md의 게이지 항목은 "승인 대기(B)" 상태로 남는다 — 진행률의 기계 증거가
+  생기면 그때 구현한다.
