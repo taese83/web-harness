@@ -94,9 +94,7 @@ export const useFormLeaveGuard = (isDirty: boolean) => {
 
 ```tsx
 // src/pages/{name}/ui/{Name}Page.tsx
-import type {FC} from 'react'
-
-const {Name}Page: FC = () => {
+function {Name}Page() {
   return <main>{/* 페이지 컨텐츠 */}</main>
 }
 

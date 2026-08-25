@@ -31,14 +31,13 @@ export {useFeatureMutation} from './api/mutations'
 
 ```tsx
 // UI_LANE: mui
-import {FC} from 'react'
 import {Box, Typography} from '@mui/material'
 
-interface FeatureComponentProps {
+type FeatureComponentProps = {
   // props 정의
 }
 
-export const FeatureComponent: FC<FeatureComponentProps> = ({}) => {
+export function FeatureComponent({}: FeatureComponentProps) {
   return (
     <Box>
       <Typography variant="body1">FeatureName</Typography>
@@ -49,13 +48,11 @@ export const FeatureComponent: FC<FeatureComponentProps> = ({}) => {
 
 ```tsx
 // UI_LANE: tailwind-shadcn
-import {FC} from 'react'
-
-interface FeatureComponentProps {
+type FeatureComponentProps = {
   className?: string
 }
 
-export const FeatureComponent: FC<FeatureComponentProps> = ({className}) => {
+export function FeatureComponent({className}: FeatureComponentProps) {
   return (
     <div className={className}>
       <p className="text-sm">FeatureName</p>
@@ -182,10 +179,9 @@ pages/{pageName}/
 
 ### `ui/PageNamePage.tsx`
 ```tsx
-import type {FC} from 'react'
 // UI_LANE: mui → <Box component="main"> / tailwind-shadcn → <main className="...">
 
-const PageNamePage: FC = () => {
+function PageNamePage() {
   return (
     <main>
       {/* 페이지 컨텐츠 */}
@@ -215,17 +211,16 @@ widgets/{widgetName}/
 
 ### `ui/WidgetName.tsx`
 ```tsx
-import {FC} from 'react'
 import {Box} from '@mui/material'
 // feature들을 조합 (features에서 import)
 import {FeatureA} from '@features/featureA'
 import {FeatureB} from '@features/featureB'
 
-interface WidgetNameProps {
+type WidgetNameProps = {
   // 외부에서 주입받을 props (IoC 패턴)
 }
 
-export const WidgetName: FC<WidgetNameProps> = ({}) => {
+export function WidgetName({}: WidgetNameProps) {
   return (
     <Box>
       <FeatureA />
@@ -277,7 +272,7 @@ interface FormValues {
   fieldName: string
 }
 
-export const FeatureForm: FC = () => {
+export function FeatureForm() {
   const {register, handleSubmit, formState: {errors}} = useForm<FormValues>({
     // 기본 mode: 'onSubmit' — 제출 후 각 필드가 onChange로 재검증
     // mode: 'onBlur' 로 변경 가능하나 기본값 유지 권장

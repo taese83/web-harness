@@ -209,7 +209,7 @@ export default tseslint.config(
     rules: {
       ...jsxA11y.configs.recommended.rules,
       ...reactHooks.configs.flat.recommended.rules,
-      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/consistent-type-imports': ['error', {fixStyle: 'separate-type-imports'}],
       '@typescript-eslint/no-floating-promises': 'error',
     },
   },
@@ -329,6 +329,7 @@ export default tseslint.config(
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "incremental": true,
