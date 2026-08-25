@@ -1,5 +1,10 @@
 # Design System — Web Harness Console
 
+> **대체됨(2026-08-24)**: 이 문서는 개편 이전(라이트) 시스템이다. **현재 정본은
+> `design-system/`**(INDEX·tokens·principles·components·accessibility·style-tile) — Gate Rail
+> 승인 렌더에서 추출한 다크 시각 언어다. 이 파일은 이력·대조용으로 남긴다(삭제하지 않음:
+> 구 토큰명과 신 토큰의 매핑 근거가 tokens.md 레거시 alias 절에 있다).
+
 ## Tokens
 
 - font: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`

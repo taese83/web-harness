@@ -639,3 +639,13 @@ ROUND_TEST_EVIDENCE:
   근거 있는 진행률 소스가 없어 만들면 추정 막대가 된다(I1). 상태 워드마크(상태색+글자)로
   대체했고, components.md의 게이지 항목은 "승인 대기(B)" 상태로 남는다 — 진행률의 기계 증거가
   생기면 그때 구현한다.
+
+### R1~R3 라운드 종료 게이트 3종 (execution-contract Iterate step 5)
+1. **승격 QA**: 해당 없음 — 3라운드 전부 `CAPABILITY_ESCALATION: none`(CSS·클래스·읽기 전용
+   파생만, 서버·권한·데이터 경로 무변경). security-reviewer 재투입 조건 미충족.
+2. **Evidence 재발급**: `_workspace/04_qa/evidence/`가 **없다** — 재발급 대상 없음.
+   기존 `qa-*.md` Markdown 리포트는 이번 UI 변경으로 **STALE**이며(과거 라운드 산출),
+   이번 라운드의 증거는 CI(console:check·console:test·전체 ci) + 라이브 검증(6탭 대비 스윕
+   0건·스크린샷·게이트 실측 일치)으로 대체 기록했다. Markdown을 PASS로 고쳐 쓰지 않았다.
+3. **문서 동기화**: R1~R3 모두 `DOCS_TO_UPDATE: none`. 상류 정본(design-system/)이 구현을
+   선행했고, 구 `design-system.md`에 대체 표기를 추가했다(이력 보존).
