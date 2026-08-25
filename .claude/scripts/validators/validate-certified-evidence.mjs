@@ -23,6 +23,7 @@
 import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {detectSourceRepository} from './validate-adapter-hygiene.mjs';
 
 const QA_RESULT_PASS = /^##\s*Result\b[^\n]*\n+\s*PASS\b/m;
 
@@ -188,7 +189,21 @@ export function validateCertifiedEvidence({repositoryRoot, pass, fail}) {
     }
   }
 
-  // 2) 실제 트리 검사
+  // 2) 실제 트리 검사 — source repo 전용.
+  //    golden/ 은 deploy-harness가 복사하지 않으므로(배포 대상은 .claude/ 하위만) 배포된
+  //    control plane에서는 이 검사의 입력 자체가 부재한다. 구 검사는 정당한 certified 배포조차
+  //    항상 실패시켰다. 약화가 아닌 근거는 **배포 시점 라벨에 한정**된다:
+  //    deploy-harness가 배포 전에 source의 validate-harness 통과를 이미 요구하므로, 라벨은
+  //    배포되는 순간 증거로 검증된 상태다.
+  //    남는 공백(정직 표기): **배포 후 라벨 변조 탐지**는 사라진다 — 배포본에서 adapter.json을
+  //    certified로 편집해도 재검증이 통과한다. 위 1)의 seed 무장은 배포본에서도 실행되지만
+  //    그것은 검사기 로직의 무장을 증명할 뿐 라벨-증거 결속에는 기여하지 않는다.
+  //    실해소는 deployment.json에 배포 시점 supportLevel 스냅샷을 실어 대조하는 것 —
+  //    docs/protected-core.md §4에 미해결 TODO로 등록.
+  if (!detectSourceRepository(repositoryRoot)) {
+    pass(`certified evidence gate armed (seeds: ${seeds.length}); golden/ tree check is source-repo only`);
+    return;
+  }
   const {errors, certifiedCount} = inspectCertifiedEvidence(repositoryRoot);
   for (const message of errors) fail(message);
   pass(

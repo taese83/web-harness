@@ -1,26 +1,35 @@
 import {spawnSync} from 'node:child_process'
 import {readFileSync} from 'node:fs'
 import {join} from 'node:path'
+import {detectSourceRepository} from './validate-adapter-hygiene.mjs'
 
 export const validateWebCoreIntegration = ({repositoryRoot, pass, fail}) => {
+  // console 패키지는 harness source repo에만 존재한다 — 배포된 control plane의 root
+  // package.json은 대상 프로젝트의 것이므로 이 계약을 물을 대상이 아니다. 아래 하위
+  // 스크립트 7종은 배포본에서도 그대로 실행한다(커버리지 유지).
+  const isSourceRepository = detectSourceRepository(repositoryRoot)
   const rootPackage = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'))
   const scripts = rootPackage.scripts ?? {}
   const expectedConsoleScripts = {
     'console:check': 'pnpm --filter @web-harness/console check',
     'console:test': 'pnpm --filter @web-harness/console test',
   }
-  for (const [scriptName, expected] of Object.entries(expectedConsoleScripts)) {
-    if (scripts[scriptName] !== expected) {
-      fail(`root package script ${scriptName} must be exactly: ${expected}`)
+  if (isSourceRepository) {
+    for (const [scriptName, expected] of Object.entries(expectedConsoleScripts)) {
+      if (scripts[scriptName] !== expected) {
+        fail(`root package script ${scriptName} must be exactly: ${expected}`)
+      }
     }
-  }
-  const ciScript = scripts.ci ?? ''
-  const checkIndex = ciScript.indexOf('pnpm run console:check')
-  const testIndex = ciScript.indexOf('pnpm run console:test')
-  if (checkIndex < 0 || testIndex < 0 || checkIndex > testIndex) {
-    fail('root ci must run console:check before console:test')
+    const ciScript = scripts.ci ?? ''
+    const checkIndex = ciScript.indexOf('pnpm run console:check')
+    const testIndex = ciScript.indexOf('pnpm run console:test')
+    if (checkIndex < 0 || testIndex < 0 || checkIndex > testIndex) {
+      fail('root ci must run console:check before console:test')
+    } else {
+      pass('Console package checks are wired into root CI')
+    }
   } else {
-    pass('Console package checks are wired into root CI')
+    pass('deployed control plane: console package CI wiring is a source-repo contract (skipped)')
   }
 
   for (const [label, relativeScript] of [

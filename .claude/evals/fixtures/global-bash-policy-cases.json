@@ -456,13 +456,13 @@
       "id": "artifact-sharding-bounded",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/validate-artifact-sharding.mjs --project workspace"
+      "command": "node .claude/scripts/validate-artifact-sharding.mjs --project .claude"
     },
     {
       "id": "artifact-sharding-json",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/validate-artifact-sharding.mjs --project workspace --json"
+      "command": "node .claude/scripts/validate-artifact-sharding.mjs --project .claude --json"
     },
     {
       "id": "artifact-sharding-requires-project",
@@ -546,13 +546,13 @@
       "id": "resume-manifest-owned",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned docs"
+      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned .claude"
     },
     {
       "id": "resume-manifest-owned-json",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned docs --json"
+      "command": "node .claude/scripts/resume-manifest.mjs --project . --manifest package.json --owned .claude --json"
     },
     {
       "id": "resume-manifest-owned-empty",

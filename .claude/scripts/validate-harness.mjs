@@ -18,6 +18,7 @@ import {validateVisualDesign} from './validators/validate-visual-design.mjs'
 import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-evals.mjs'; import {validateContractHygiene} from './validators/validate-contract-hygiene.mjs'
 import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mjs'; import {validateCertifiedEvidence} from './validators/validate-certified-evidence.mjs'
 import {validateSectionReaders} from './validators/validate-section-readers.mjs'
+import {detectSourceRepository} from './validators/validate-adapter-hygiene.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')
@@ -191,11 +192,22 @@ pass('critical instruction placement outside fenced examples checked')
 for (const agentName of legacyAgents) {
   if (activeSource.includes(agentName)) fail(`active harness still references legacy agent: ${agentName}`)
 }
-for (const relativePath of agentFiles) {
-  const agentName = relativePath.split('/').at(-1).replace(/\.md$/, '')
-  if (!skillSource.includes(agentName)) fail(`${relativePath}: agent is not referenced by any skill, skill reference, or the operator layer (CLAUDE.md)`)
+// 운영자 계층(CLAUDE.md)은 deploy-harness가 배포하지 않는다 — 배포된 control plane에서는
+// 운영자-전용 소비 에이전트(harness-change-reviewer 등)의 참조원이 부재하므로 이 검사는
+// source repo에서만 성립한다. source에서는 그대로 엄격하다.
+// 알려진 과다 범위: 스킬은 배포되므로 스킬-참조 reachability는 배포본에서도 검사 가능하다.
+// 실해소는 deployment.json에 운영자-전용 소비 에이전트 목록을 실어 그 목록만 면제하는 것 —
+// docs/protected-core.md §4에 미해결 TODO로 등록.
+const isSourceRepositoryRoot = detectSourceRepository(repositoryRoot)
+if (isSourceRepositoryRoot) {
+  for (const relativePath of agentFiles) {
+    const agentName = relativePath.split('/').at(-1).replace(/\.md$/, '')
+    if (!skillSource.includes(agentName)) fail(`${relativePath}: agent is not referenced by any skill, skill reference, or the operator layer (CLAUDE.md)`)
+  }
+  pass('agent reachability and legacy references checked')
+} else {
+  pass('legacy references checked; agent reachability is source-repo only (operator layer not deployed)')
 }
-pass('agent reachability and legacy references checked')
 
 validateContentPolicy({repositoryRoot, activeSource, read, pass, fail})
 
