@@ -1,6 +1,6 @@
 import {execFileSync} from 'node:child_process'
 import {createHash} from 'node:crypto'
-import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync} from 'node:fs'
+import {existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {inspectDesignPreview, readPreviewMode} from '../../../.claude/scripts/design-preview-status-lib.mjs'
 import {createChangeRequest, listChangeRequests, reviseChangeRequest} from './change-requests.mjs'
@@ -54,6 +54,55 @@ const isSafeDirectory = path => {
   }
 }
 
+// 미등록 후보 — "프로젝트로 보이지만 `_workspace`가 없는" 디렉터리. 콘솔이 아무 프로젝트도
+// 못 찾았을 때만 사용자에게 제시한다(등록은 항상 사용자의 명시 클릭 — 서버 기동이 남의 repo에
+// 디렉터리를 만들지 않는다). 판별은 실측 마커(.git·package.json)뿐이며 추측하지 않는다.
+const CANDIDATE_MARKERS = ['.git', 'package.json']
+export const discoverCandidates = (root, depth = 0, output = []) => {
+  if (!isSafeDirectory(root) || depth > MAX_DISCOVERY_DEPTH) return output
+  if (!existsSync(join(root, '_workspace')) && CANDIDATE_MARKERS.some(marker => existsSync(join(root, marker)))) {
+    output.push(root)
+    return output // 후보 안쪽은 더 내려가지 않는다(모노repo 패키지까지 나열하면 노이즈)
+  }
+  if (depth === MAX_DISCOVERY_DEPTH) return output
+  for (const entry of readdirSync(root, {withFileTypes: true})) {
+    if (!entry.isDirectory() || entry.isSymbolicLink() || EXCLUDED_DIRECTORIES.has(entry.name) || entry.name.startsWith('.')) continue
+    discoverCandidates(join(root, entry.name), depth + 1, output)
+  }
+  return output
+}
+
+// 등록 시 자동 발견하는 기존 문서 — repo 루트의 대표 문서와 docs/ 하위 markdown.
+// **복사하지 않는다**(정본 이원화 금지) — 경로만 sources.json에 선언하고 제자리에서 읽는다.
+const AUTO_SOURCE_ROOTS = ['docs']
+const AUTO_SOURCE_FILES = ['README.md', 'ARCHITECTURE.md', 'CONTRIBUTING.md']
+const MAX_AUTO_SOURCES = 50
+export const discoverExistingDocs = projectRoot => {
+  const found = []
+  for (const name of AUTO_SOURCE_FILES) {
+    if (existsSync(join(projectRoot, name))) found.push(name)
+  }
+  for (const dirName of AUTO_SOURCE_ROOTS) {
+    const dir = join(projectRoot, dirName)
+    if (!isSafeDirectory(dir)) continue
+    const visit = (current, prefix, depth) => {
+      if (depth > 2 || found.length >= MAX_AUTO_SOURCES) return
+      for (const entry of readdirSync(current, {withFileTypes: true})) {
+        if (found.length >= MAX_AUTO_SOURCES) return
+        if (entry.isSymbolicLink() || entry.name.startsWith('.')) continue
+        const next = join(current, entry.name)
+        const relative = `${prefix}/${entry.name}`
+        if (entry.isDirectory()) {
+          if (EXCLUDED_DIRECTORIES.has(entry.name)) continue
+          visit(next, relative, depth + 1)
+        } else if (/\.md$/.test(entry.name)) found.push(relative)
+      }
+    }
+    visit(dir, dirName, 0)
+  }
+  return found.sort()
+}
+
 const walkDirectories = (root, depth = 0, output = []) => {
   if (!isSafeDirectory(root) || depth > MAX_DISCOVERY_DEPTH) return output
   if (existsSync(join(root, '_workspace'))) output.push(root)
@@ -83,6 +132,9 @@ const walkDocuments = (projectRoot, phase) => {
         continue
       }
       if (!entry.isFile() || !TEXT_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue
+      // sources.json은 **선언 파일**이지 문서가 아니다 — 문서 트리를 오염시키지 않는다
+      // (프리뷰 자산·후보 렌더 제외와 같은 원칙). 선언이 가리키는 원본은 제자리로 인덱싱된다.
+      if (phase.id === 'source' && entry.name === 'sources.json') continue
       const stat = statSync(path)
       const relativePath = toPosix(relative(projectRoot, path))
       let content = null
@@ -399,11 +451,59 @@ const publicPreview = preview => {
   return summary
 }
 
+// 선언 소스(브라운필드 등록) — `_workspace/00_source/sources.json`이 **경로만** 선언하고
+// 원본은 제자리에 둔다. 복사(정본 이원화)도 symlink(인덱서가 스킵)도 쓰지 않는다.
+// 경계: 프로젝트 루트 안, 심볼릭 링크 아님, 크기 상한 — 기존 문서 읽기와 같은 방어선.
+const SOURCES_DECLARATION = '_workspace/00_source/sources.json'
+const readDeclaredSources = projectRoot => {
+  const raw = readBoundedFile(join(projectRoot, SOURCES_DECLARATION), MAX_QA_RECEIPT_BYTES)
+  if (raw === null) return []
+  let declared
+  try {
+    declared = JSON.parse(raw)
+  } catch {
+    return [] // 손상 선언은 조용히 무시하지 않고 빈 목록 — 문서 0건이 곧 "읽히지 않았다"는 신호
+  }
+  if (declared?.schemaVersion !== 1 || !Array.isArray(declared.paths)) return []
+  const documents = []
+  for (const declaredPath of declared.paths) {
+    if (typeof declaredPath !== 'string' || declaredPath.includes('\0')) continue
+    // 경로 탈출·절대경로 차단: 루트 기준 정규화 후 루트 안인지 실측 확인
+    let resolved
+    try {
+      resolved = realpathSync(join(projectRoot, declaredPath))
+    } catch { continue }
+    const rootReal = (() => { try { return realpathSync(projectRoot) } catch { return null } })()
+    if (!rootReal || (resolved !== rootReal && !resolved.startsWith(rootReal + sep))) continue
+    let stat
+    try {
+      stat = lstatSync(resolved)
+      if (!stat.isFile() || stat.isSymbolicLink()) continue
+    } catch { continue }
+    const content = readBoundedFile(resolved, MAX_DOCUMENT_BYTES)
+    documents.push({
+      phase: 'source',
+      phaseLabel: 'Source',
+      path: toPosix(declaredPath),
+      name: basename(declaredPath),
+      title: content?.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? basename(declaredPath),
+      bytes: stat.size,
+      modifiedAt: stat.mtime.toISOString(),
+      hash: content === null ? null : sha256(content),
+      lines: content === null ? null : content.split(/\r?\n/).length,
+      content,
+      readError: content === null ? 'DOCUMENT_UNREADABLE' : null,
+      declared: true, // 제자리 원본(복사본 아님) — UI가 출처를 정직하게 표기한다
+    })
+  }
+  return documents
+}
+
 const projectId = relativePath => `${basename(relativePath || 'root').replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase()}-${sha256(relativePath || '.').slice(0, 8)}`
 
 const scanProject = (repositoryRoot, root) => {
   const relativePath = toPosix(relative(repositoryRoot, root)) || '.'
-  const documents = PHASES.flatMap(phase => walkDocuments(root, phase))
+  const documents = [...PHASES.flatMap(phase => walkDocuments(root, phase)), ...readDeclaredSources(root)]
   // feature-plan은 sharding 계약상 flat(.md) 또는 디렉토리(feature-plan/) 형태다
   // (search-portal 파일럿 실측 — flat 완전 일치만 찾으면 sharded 프로젝트에서 FEAT 0으로 보임).
   // 디렉토리 형태면 절 파일들을 이어붙여 파싱한다: feature-list.md(FEAT 표)를 앞에 두어
@@ -704,6 +804,16 @@ export class WorkspaceCatalog {
       baselineAt: this.baselineAt,
       scanRoot: this.repositoryRoot,
       roots: [`**/_workspace (최대 깊이 ${MAX_DISCOVERY_DEPTH})`],
+      scanRoot: this.repositoryRoot,
+      // 후보는 프로젝트가 하나도 없을 때만 계산한다 — 정상 상태에서는 목록에 노이즈를 넣지
+      // 않고, "왜 안 보이지"인 상황에서만 다음 행동(연동)을 제시한다.
+      candidates: this.projects.length === 0
+        ? discoverCandidates(this.repositoryRoot).map(root => ({
+            path: toPosix(relative(this.repositoryRoot, root)) || '.',
+            absolutePath: root,
+            existingDocs: discoverExistingDocs(root).length,
+          }))
+        : [],
       projects: this.projects.map(project => publicProject(project, this.changes.get(project.id) ?? [])),
     }
   }
@@ -734,6 +844,24 @@ export class WorkspaceCatalog {
       stage: summarizeStage(project.root),
       changes,
     }
+  }
+
+  // 관측 대상 등록 — 사용자의 명시 클릭으로만 호출된다(서버 기동은 아무것도 쓰지 않는다).
+  // `_workspace/00_source/`를 만들고, 발견된 기존 문서의 **경로만** sources.json에 선언한다
+  // (복사 없음 — 원본이 정본).
+  registerProject(requestedPath) {
+    if (typeof requestedPath !== 'string' || requestedPath.includes('\0')) return {error: 'INVALID_PROJECT_PATH'}
+    // 후보 목록 안의 경로만 허용 — 임의 경로 쓰기를 막는 화이트리스트(경로 문자열 검사보다 강하다)
+    const candidate = discoverCandidates(this.repositoryRoot)
+      .find(root => (toPosix(relative(this.repositoryRoot, root)) || '.') === requestedPath)
+    if (!candidate) return {error: 'PROJECT_NOT_A_CANDIDATE'}
+    const sourceRoot = join(candidate, '_workspace', '00_source')
+    mkdirSync(sourceRoot, {recursive: true})
+    const paths = discoverExistingDocs(candidate)
+    writeFileSync(join(sourceRoot, 'sources.json'), `${JSON.stringify({schemaVersion: 1, paths}, null, 2)}\n`)
+    this.refresh()
+    const project = this.projects.find(item => item.root === candidate) ?? null
+    return {registered: true, path: requestedPath, declaredDocs: paths.length, projectId: project?.id ?? null}
   }
 
   document(id, requestedPath) {

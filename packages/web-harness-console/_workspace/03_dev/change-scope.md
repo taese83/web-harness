@@ -697,3 +697,33 @@ ROUND_TEST_EVIDENCE:
   **base 화이트리스트**(`candidates|style-tiles`)로 표면을 좁히고 경계 회귀 2건을 추가했다
   (설계 문서 raw 노출 방지).
 - **DOCS_TO_UPDATE**: none
+
+## R6 — 브라운필드 관측 등록: 후보 제시 → 클릭 연동 → 기존 문서 제자리 인덱싱 (2026-08-24)
+
+- **문제**: `_workspace`가 없는 기존 서비스는 콘솔에 아예 보이지 않는다. 사용자가 "자동 생성"을
+  제안했으나 **실행 위치 의존성**(콘솔은 --root를 깊이 4까지 재귀 스캔)이 있어, 기동 시 자동
+  쓰기는 하네스 repo·둘러보던 남의 repo에도 디렉터리를 만든다(사용자가 직접 지적).
+- **TARGET_BEHAVIOR**: 프로젝트 0건일 때만 스캔 루트와 발견된 후보를 보여주고, **사용자가
+  클릭한 것만** 등록한다. 등록은 `_workspace/00_source/sources.json`(경로 선언)만 만들고
+  기존 문서를 **복사하지 않고 제자리로** Source에 인덱싱한다.
+- **ALLOWED_PATHS**: `src/indexer.mjs`(discoverCandidates·discoverExistingDocs·
+  readDeclaredSources·registerProject), `server.mjs`(POST /api/projects/register),
+  `public/app.js`(후보 UI), `public/styles.css`, `test/project-registration.test.mjs`(신규)
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 기존 문서 인덱싱 규칙·경로 안전 방어선(심볼릭 링크 스킵·
+  크기 상한·루트 밖 차단), 승인 게이트(메서드 가드), 프로젝트 발견 조건(`_workspace` 존재)
+- **NON_GOALS**: 서버 기동 시 자동 생성(위치 의존성), 문서 복사·symlink(정본 이원화·인덱서
+  스킵), 전면 역추출(brownfield-adoption A안이 배제)
+- **CHANGE_BUDGET**: 5파일 · 순수 탐색 3함수 + 등록 메서드 1 + 라우트 1 + UI 1블록
+- **TEST_EVIDENCE**: registration 5/5(기동 무쓰기·마커 판별·화이트리스트 거부·복사 없음·
+  선언 경로 경계) · 전체 CI green · **라이브 E2E**: `_workspace` 없는 데모 repo로 콘솔 기동 →
+  후보 제시("my-service 연동 · 문서 2건") → 클릭 → Source 2건·게이트 레일 파생·문서 본문 열람,
+  **생성물은 sources.json 1개뿐**(복사본 0) 실측
+- **CAPABILITY_ESCALATION**: none — 단 **신규 쓰기 경로**가 생겼으므로 방어선을 명시한다:
+  후보 목록 화이트리스트(임의 경로 거부)·기존 `_workspace` 있으면 후보 아님(덮어쓰기 불가)·
+  생성물은 선언 파일 1개·선언 경로는 프로젝트 루트 안·심볼릭 링크 제외.
+- **DOCS_TO_UPDATE**: none (brownfield-adoption L0 "무간섭 관측"과 정합 — 등록은 여전히 사용자
+  행위이며 역추출을 요구하지 않는다)
+
+### 라이브 검증이 잡은 것
+콘솔의 메서드 가드가 새 POST 라우트를 **정상적으로 차단**했다("This endpoint does not allow
+mutations") — 라우트를 가드 앞 POST 구역으로 옮겨 정식 등재. 가드가 실제로 작동함을 확인한 셈.

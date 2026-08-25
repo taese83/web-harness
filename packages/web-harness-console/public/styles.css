@@ -706,3 +706,9 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .workflow-ticket-title { flex: 1; min-width: 0; font-size: var(--fs-compact); }
 .style-tile-switcher { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
 .style-tile-switcher button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* 미등록 후보 연동 — 프로젝트 0건일 때만 노출(실행 위치가 원인인 경우가 대부분이라 루트를 먼저 말한다) */
+.candidate-block { display: grid; gap: var(--sp-2); padding: var(--sp-3); }
+.candidate-block .panel-copy { margin: 0; font-size: var(--fs-caption); color: var(--muted); }
+.candidate-root { font-family: var(--font-mono); font-size: var(--fs-overline); color: var(--faint); overflow-wrap: anywhere; }
+.candidate-link { justify-self: stretch; text-align: left; }

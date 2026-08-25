@@ -572,6 +572,22 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         return json(response, status, errorBody(code, message))
       }
     }
+    if (request.method === 'POST' && url.pathname === '/api/projects/register') {
+      // 관측 대상 등록 — 사용자의 명시 클릭만 도달한다(서버 기동은 쓰지 않는다).
+      // 대상은 후보 목록 화이트리스트로 한정되고, 생성물은 _workspace/00_source/sources.json뿐이다.
+      let body
+      try {
+        body = await readJsonBody(request)
+      } catch (error) {
+        return json(response, error.status ?? 400, errorBody(error.code ?? 'INVALID_JSON', error.message))
+      }
+      const result = catalog.registerProject(body?.path)
+      if (result.error) {
+        const status = result.error === 'PROJECT_NOT_A_CANDIDATE' ? 409 : 400
+        return json(response, status, errorBody(result.error, result.error.replaceAll('_', ' ').toLowerCase()))
+      }
+      return json(response, 201, result)
+    }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return json(response, 405, errorBody('METHOD_NOT_ALLOWED', 'This endpoint does not allow mutations'), {allow: 'GET, HEAD'})
     }

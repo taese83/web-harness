@@ -336,7 +336,40 @@ const renderProjectNavigation = () => {
   const projects = state.catalog?.projects ?? []
   elements.projectCount.textContent = String(projects.length)
   if (projects.length === 0) {
-    elements.projectList.append(create('p', {className: 'panel-copy', text: '아직 _workspace 프로젝트가 없습니다. 기획을 시작하면 여기에 나타납니다.'}))
+    // "왜 안 보이지"의 원인은 대개 **실행 위치**다 — 스캔 루트를 먼저 말하고, 발견된 후보를
+    // 제시해 사용자가 고른 것만 연동한다(서버 기동은 아무것도 쓰지 않는다).
+    const catalog = state.catalog ?? {}
+    const empty = create('div', {className: 'candidate-block'}, [
+      create('p', {className: 'panel-copy', text: `이 루트에서 _workspace 프로젝트를 찾지 못했습니다.`}),
+      create('p', {className: 'panel-copy candidate-root', text: `스캔 루트: ${catalog.scanRoot ?? '(미상)'}`}),
+    ])
+    const candidates = catalog.candidates ?? []
+    if (candidates.length === 0) {
+      empty.append(create('p', {className: 'panel-copy', text: '연동할 후보(.git 또는 package.json이 있는 디렉터리)도 없습니다. 대상 서비스 위치에서 콘솔을 다시 실행하세요.'}))
+    } else {
+      empty.append(create('p', {className: 'panel-copy', text: '아래 프로젝트가 발견됐습니다. 연동하면 _workspace/00_source가 생기고 기존 문서를 Source에서 볼 수 있습니다(문서는 복사하지 않고 원본 그대로 읽습니다).'}))
+      for (const candidate of candidates) {
+        const error = create('p', {className: 'live-health-inline-error', hidden: true})
+        const button = create('button', {type: 'button', className: 'secondary-button candidate-link', text: `${candidate.path} 연동${candidate.existingDocs > 0 ? ` · 문서 ${candidate.existingDocs}건` : ' · 문서 없음'}`})
+        button.addEventListener('click', async () => {
+          button.disabled = true
+          button.textContent = '연동 중…'
+          error.hidden = true
+          try {
+            const result = await mutateApi('/api/projects/register', {path: candidate.path}, crypto.randomUUID(), 'register-project')
+            await loadCatalog({refresh: true})
+            if (result?.projectId) await selectProject(result.projectId)
+          } catch (failure) {
+            button.disabled = false
+            button.textContent = `${candidate.path} 연동`
+            error.textContent = `연동 실패: ${failure.message}`
+            error.hidden = false
+          }
+        })
+        empty.append(button, error)
+      }
+    }
+    elements.projectList.append(empty)
     return
   }
   for (const project of projects) {
