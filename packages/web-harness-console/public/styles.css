@@ -693,3 +693,14 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
    상태를 숨기지 않는다: 채움·발광 없이 보더·라벨만 warn. */
 .gate.is-attention .gate-node { border-color: var(--warn); color: var(--warn); }
 .gate.is-attention .gate-label { color: var(--warn); }
+
+/* 워크플로우 보드 행 — 게이트 레일 축소형(components.md: 노드 16px, 라벨 없이 sr-only/tooltip) */
+.mini-rail { display: inline-flex; align-items: center; flex-shrink: 0; }
+.mini-node { width: 16px; height: 16px; border: 2px solid var(--line-strong); border-radius: 50%; } /* components.md 스펙: 노드 16px */
+.mini-node.is-done { border-color: var(--go); background: var(--go-dim); box-shadow: var(--glow-go); }
+.mini-link { width: 12px; height: var(--stroke-link); background: var(--line); }
+.mini-link.is-done { background: var(--go); box-shadow: var(--glow-go-line); }
+.workflow-ticket { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--line-soft); }
+.workflow-tickets { display: grid; margin: 0; padding: 0; list-style: none; }
+.workflow-tickets > .workflow-ticket:first-child { border-top: 0; }
+.workflow-ticket-title { flex: 1; min-width: 0; font-size: var(--fs-compact); }

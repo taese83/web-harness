@@ -100,3 +100,16 @@ test('실제 인덱서 payload 계약 — 픽스처가 아닌 실측으로 Desig
   assert.equal(typeof detail.stage?.changeScope, 'boolean')
   assert.equal(typeof detail.stage?.handoff, 'boolean')
 })
+
+test('deriveTicketStages: 로컬 증명 가능한 3단계만 — 배정은 단계로 만들지 않음', async () => {
+  const {deriveTicketStages} = await import('../public/gate-rail.mjs')
+  const done = row => deriveTicketStages(row).map(stage => stage.done)
+  assert.deepEqual(deriveTicketStages({status: 'unclaimed'}).map(s => s.id), ['claim', 'pr', 'done'])
+  assert.deepEqual(done({status: 'unclaimed'}), [false, false, false])
+  assert.deepEqual(done({status: 'local-new'}), [false, false, false])      // push 이전 — 청구 불가
+  assert.deepEqual(done({status: 'local-modified'}), [false, false, false])
+  assert.deepEqual(done({status: 'claimed'}), [true, false, false])
+  assert.deepEqual(done({status: 'pr-linked'}), [true, true, false])
+  assert.deepEqual(done({status: 'closed'}), [true, true, true])
+  assert.deepEqual(done({status: 'plan-removed'}), [true, false, false])    // 청구는 실재
+})

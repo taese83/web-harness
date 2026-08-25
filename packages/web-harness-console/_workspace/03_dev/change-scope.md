@@ -649,3 +649,22 @@ ROUND_TEST_EVIDENCE:
    0건·스크린샷·게이트 실측 일치)으로 대체 기록했다. Markdown을 PASS로 고쳐 쓰지 않았다.
 3. **문서 동기화**: R1~R3 모두 `DOCS_TO_UPDATE: none`. 상류 정본(design-system/)이 구현을
    선행했고, 구 `design-system.md`에 대체 표기를 추가했다(이력 보존).
+
+## R4 — 워크플로우 보드 행: 게이트 레일 축소형 (2026-08-24)
+
+- **TARGET_BEHAVIOR**: Development › Work flow의 티켓 행이 게이트 레일과 같은 언어로 단계를
+  표시한다(노드 16px·라벨 없이 sr-only/tooltip, components.md 스펙).
+- **ALLOWED_PATHS**: `public/gate-rail.mjs`(deriveTicketStages), `public/app.js`(행 렌더),
+  `public/styles.css`(mini-rail), `test/gate-rail.test.mjs`
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 티켓 행 상태 칩·필터 그룹(data-group)·픽업 경로 버튼 동작
+- **NON_GOALS**: 배정(픽업) 단계 표시 — 트래커 미연동으로 미상(v1 로컬-only 경계)
+- **CHANGE_BUDGET**: 4파일 · 순수 함수 1 + 렌더 1블록 + CSS 1블록
+- **TEST_EVIDENCE**: gate-rail 9/9 · console:check · 전체 CI green · 라이브 검증
+  (노드 대비: done 9.61:1 / 중립 3.70:1 — 비텍스트 3:1 하한 통과, aria-label 단계 문장 확인)
+- **CAPABILITY_ESCALATION**: none
+- **DOCS_TO_UPDATE**: none
+
+### 단계를 3개로 둔 이유 (정직 표기)
+티켓 파이프라인은 청구→픽업(배정)→PR→완료지만, **로컬-only v1은 배정을 알 수 없다**
+(트래커 미연동 — 원장에는 ticketKey·prUrl·closed만 있다). 모르는 단계를 그리면 미도달인지
+미상인지 구분되지 않으므로 **증명 가능한 3단계(청구·PR 연결·완료)만** 표시한다.

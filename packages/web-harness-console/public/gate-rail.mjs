@@ -180,3 +180,23 @@ export function derivePulse(detail) {
     {label: 'Session changes', value: String(detail?.changeSummary?.total ?? 0), tone: (detail?.changeSummary?.total ?? 0) > 0 ? 'warn' : 'muted'},
   ]
 }
+
+/**
+ * 티켓 행의 파이프라인 단계(순수) — 워크플로우 보드의 게이트 레일 축소형.
+ * 로컬-only v1에서 **증명 가능한 3단계**만 쓴다: 청구(원장 ticketKey) → PR(prUrl) → 완료(closed).
+ * 배정(픽업)은 트래커 미연동이라 미상이므로 단계로 만들지 않는다(모르는 것을 그리지 않음).
+ * push 이전 상태(local-new/local-modified)는 청구 자체가 불가하므로 전 단계 미도달이다.
+ * @param {{status: string, ticketKey?: string|number|null, prUrl?: string|null}} row
+ * @returns {Array<{id: string, label: string, done: boolean}>}
+ */
+export function deriveTicketStages(row) {
+  const status = row?.status ?? 'unclaimed'
+  const claimed = status === 'claimed' || status === 'pr-linked' || status === 'closed' || status === 'plan-removed'
+  const linked = status === 'pr-linked' || status === 'closed'
+  const done = status === 'closed'
+  return [
+    {id: 'claim', label: '청구', done: claimed},
+    {id: 'pr', label: 'PR 연결', done: linked},
+    {id: 'done', label: '완료', done},
+  ]
+}

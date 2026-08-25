@@ -4,7 +4,7 @@ import {
   isTrustedPreviewMessageSource,
   parsePreviewChangeRequestMessage,
 } from './preview-message-contract.mjs'
-import {currentGateId, deriveGates, deriveNextActions, derivePulse} from './gate-rail.mjs'
+import {currentGateId, deriveGates, deriveNextActions, derivePulse, deriveTicketStages} from './gate-rail.mjs'
 
 const elements = {
   projectList: document.querySelector('#project-list'),
@@ -2109,7 +2109,17 @@ const renderWorkflow = () => {
         if (card.staleCount > 0) chips.push(create('span', {className: 'status-chip status-stale', text: `stale ${card.staleCount}`}))
         const rows = (card.tickets ?? []).map(ticket => {
           const routeDetail = create('div', {className: 'workflow-route', hidden: true})
+          // 게이트 레일 축소형(components.md: 노드 16px·라벨 없이 sr-only/tooltip) — 티켓도
+          // 파이프라인이다. 단계는 로컬 증명 가능한 3개(청구→PR→완료)뿐이며 배정은 미상이라 없다.
+          const stages = deriveTicketStages(ticket)
+          const miniRail = create('span', {className: 'mini-rail', role: 'img',
+            'aria-label': `단계: ${stages.map(stage => `${stage.label} ${stage.done ? '완료' : '미도달'}`).join(', ')}`})
+          stages.forEach((stage, index) => {
+            if (index > 0) miniRail.append(create('span', {className: `mini-link${stages[index - 1].done ? ' is-done' : ''}`}))
+            miniRail.append(create('span', {className: `mini-node${stage.done ? ' is-done' : ''}`, title: `${stage.label} — ${stage.done ? '완료' : '미도달'}`}))
+          })
           const row = create('li', {className: 'workflow-ticket'}, [
+            miniRail,
             statusChip(ticket.status),
             create('span', {className: 'workflow-ticket-title', text: `${ticket.featureId}${ticket.title ? ` · ${ticket.title}` : ''}${ticket.ticketKey ? `  #${ticket.ticketKey}` : ''}`}),
             ...(ticket.stale ? [create('span', {className: 'status-chip status-stale', text: 'stale'})] : []),
