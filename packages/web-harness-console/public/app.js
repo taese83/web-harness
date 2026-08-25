@@ -745,25 +745,62 @@ const renderDesign = () => {
     })
     return button
   }
+  // 표시 정본 결정(방향 승인 게이트 개정 2026-08-23 반영):
+  //  ① RENDER-VERDICT의 SELECTED_CANDIDATE 마커(구 타일 세대의 기계 근거)
+  //  ② 없으면 approved-render.html(자유 렌더 세대의 승인 정본 — 마커 규약이 없다)
+  //  ③ 둘 다 없으면 후보만 보여주고 "선정 기록 없음"을 말한다(추정 금지)
   const heroCandidate = latest.selectedCandidate
+  const tileSrc = candidate =>
+    `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__style-tiles/${encodeURIComponent(latest.base)}/${encodeURIComponent(latest.round)}/${encodeURIComponent(candidate)}/index.html`
+  const frame = create('iframe', {
+    className: 'style-tile-frame style-tile-hero-frame',
+    title: heroCandidate
+      ? `${latest.round} ${heroCandidate}`
+      : detail.approvedRender ? '승인 정본 렌더' : `${latest.round} ${latest.candidates[0]}`,
+    src: heroCandidate
+      ? tileSrc(heroCandidate)
+      : detail.approvedRender
+        ? `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__approved-render`
+        : tileSrc(latest.candidates[0]),
+  })
+  const heroLabel = heroCandidate
+    ? `현재 디자인 · ${heroCandidate}`
+    : detail.approvedRender ? '현재 디자인 · 승인 정본(approved-render)' : '현재 디자인 · 선정 기록 없음'
+  // 후보 전환 — 자유 렌더 라운드는 후보가 곧 비교 대상이라 전부 열람 가능해야 한다.
+  const switcher = create('div', {className: 'style-tile-switcher'})
+  const setActive = (button, src, title) => {
+    frame.src = src
+    frame.title = title
+    for (const sibling of switcher.querySelectorAll('button')) sibling.setAttribute('aria-pressed', String(sibling === button))
+  }
+  if (detail.approvedRender && !heroCandidate) {
+    const approvedButton = create('button', {type: 'button', className: 'secondary-button', text: '승인 정본'})
+    approvedButton.setAttribute('aria-pressed', 'true')
+    approvedButton.addEventListener('click', () => setActive(approvedButton, `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__approved-render`, '승인 정본 렌더'))
+    switcher.append(approvedButton)
+  }
+  for (const candidate of latest.candidates) {
+    const button = create('button', {type: 'button', className: 'secondary-button', text: candidate.replace(/^candidate-/, '후보 ')})
+    button.setAttribute('aria-pressed', String(candidate === heroCandidate || (!heroCandidate && !detail.approvedRender && candidate === latest.candidates[0])))
+    button.addEventListener('click', () => setActive(button, tileSrc(candidate), `${latest.round} ${candidate}`))
+    switcher.append(button)
+  }
   container.append(create('article', {className: 'panel style-tiles-panel'}, [
     create('div', {className: 'style-tile-hero-head'}, [
-      create('h3', {text: heroCandidate ? `현재 디자인 · ${heroCandidate}` : '현재 디자인 · 선정 기록 없음'}),
-      create('small', {text: `${latest.round} 라운드`}),
+      create('h3', {text: heroLabel}),
+      create('small', {text: `${latest.round} 라운드 · 후보 ${latest.candidates.length}종`}),
     ]),
     create('div', {className: 'style-tile-docs'}, [
       documentButton('README', latest.readmePath),
       documentButton('렌더 판정', latest.renderVerdictPath),
       documentButton('구현 대조표', latest.implementationVerdictPath),
     ]),
-    heroCandidate
-      ? create('figure', {className: 'style-tile-figure'}, [create('iframe', {
-          className: 'style-tile-frame style-tile-hero-frame',
-          title: `${latest.round} ${heroCandidate}`,
-          src: `${state.previewOrigin}/${encodeURIComponent(state.projectId)}/__style-tiles/${encodeURIComponent(latest.round)}/${encodeURIComponent(heroCandidate)}/index.html`,
-        })])
-      : create('p', {className: 'panel-copy', text: '이 라운드의 판정 기록(RENDER-VERDICT.md)에 SELECTED_CANDIDATE 마커가 없어 선정 시안을 표시하지 않습니다. 후보·판정 원문은 Documents 탭과 저장소의 style-tiles 라운드 디렉터리에 보존돼 있습니다.'}),
-  ]))
+    switcher,
+    create('figure', {className: 'style-tile-figure'}, [frame]),
+    heroCandidate || detail.approvedRender
+      ? null
+      : create('p', {className: 'panel-copy', text: '이 라운드에는 판정 마커(RENDER-VERDICT.md의 SELECTED_CANDIDATE)도 승인 정본(approved-render.html)도 없어 선정 시안을 단정하지 않습니다 — 후보만 열람할 수 있습니다.'}),
+  ].filter(Boolean)))
   return container
 }
 

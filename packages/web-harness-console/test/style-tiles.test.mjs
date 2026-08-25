@@ -64,17 +64,22 @@ test('시안 아카이브: 프리뷰 서버 __style-tiles read-only 서빙과 �
   const projects = await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())
   const projectId = projects.projects[0].id
 
-  const tile = await fetch(`${previewOrigin}/${projectId}/__style-tiles/2026-08-19-refresh/candidate-a/index.html`)
+  const tile = await fetch(`${previewOrigin}/${projectId}/__style-tiles/style-tiles/2026-08-19-refresh/candidate-a/index.html`)
   assert.equal(tile.status, 200)
   assert.match(await tile.text(), /tile a/)
-  const tokens = await fetch(`${previewOrigin}/${projectId}/__style-tiles/2026-08-19-refresh/candidate-a/tokens.css`)
+  const tokens = await fetch(`${previewOrigin}/${projectId}/__style-tiles/style-tiles/2026-08-19-refresh/candidate-a/tokens.css`)
   assert.equal(tokens.status, 200)
 
   const traversal = await fetch(`${previewOrigin}/${projectId}/__style-tiles/..%2F..%2F..%2F01_plan/ux-brief.md`)
   assert.notEqual(traversal.status, 200)
-  const unknownProject = await fetch(`${previewOrigin}/no-such-project/__style-tiles/2026-08-19-refresh/candidate-a/index.html`)
+  // 루트를 design-system으로 올린 뒤에도 서빙 표면은 시안 두 세대뿐 — 설계 문서는 열리지 않는다
+  const outsideBase = await fetch(`${previewOrigin}/${projectId}/__style-tiles/design-system.md`)
+  assert.equal(outsideBase.status, 404)
+  const escapeWithinRoot = await fetch(`${previewOrigin}/${projectId}/__style-tiles/style-tiles/..%2F..%2Flayout-spec.md`)
+  assert.notEqual(escapeWithinRoot.status, 200)
+  const unknownProject = await fetch(`${previewOrigin}/no-such-project/__style-tiles/style-tiles/2026-08-19-refresh/candidate-a/index.html`)
   assert.equal(unknownProject.status, 404)
-  const mutation = await fetch(`${previewOrigin}/${projectId}/__style-tiles/2026-08-19-refresh/candidate-a/index.html`, {method: 'POST'})
+  const mutation = await fetch(`${previewOrigin}/${projectId}/__style-tiles/style-tiles/2026-08-19-refresh/candidate-a/index.html`, {method: 'POST'})
   assert.equal(mutation.status, 405)
 })
 

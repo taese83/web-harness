@@ -712,15 +712,37 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     }
     // 발산 시안 아카이브 정적 서빙 — 프리뷰와 동일한 read-only·safeStaticFile 태세.
     // 시안은 승인 상태와 무관한 보존 증거물이라 preview.exists를 요구하지 않는다.
+    const approvedRender = pathname.match(/^\/([^/]+)\/__approved-render$/)
+    if (approvedRender) {
+      const renderProject = catalog.project(approvedRender[1])
+      if (!renderProject) return json(response, 404, errorBody('APPROVED_RENDER_NOT_FOUND', 'Approved render was not found'))
+      let designRoot
+      try {
+        designRoot = realpathSync(join(renderProject.root, '_workspace', '02_design'))
+      } catch {
+        return json(response, 404, errorBody('APPROVED_RENDER_NOT_FOUND', 'Approved render was not found'))
+      }
+      const renderFile = safeStaticFile(designRoot, '/approved-render.html')
+      if (!renderFile) return json(response, 404, errorBody('APPROVED_RENDER_NOT_FOUND', 'Approved render was not found'))
+      return streamFile(request, response, renderFile)
+    }
     const styleTiles = pathname.match(/^\/([^/]+)\/__style-tiles(\/.+)$/)
     if (styleTiles) {
       const tileProject = catalog.project(styleTiles[1])
       if (!tileProject) return json(response, 404, errorBody('STYLE_TILES_NOT_FOUND', 'Style tiles were not found'))
+      // 루트를 design-system으로 올린다 — URL이 <base>/<round>/<candidate>/…를 담아 신세대
+      // (candidates/)와 구세대(style-tiles/) 양쪽을 같은 라우트로 서빙한다(safeStaticFile이
+      // 경로 탈출을 계속 막는다).
       let tilesRoot
       try {
-        tilesRoot = realpathSync(join(tileProject.root, '_workspace', '02_design', 'design-system', 'style-tiles'))
+        tilesRoot = realpathSync(join(tileProject.root, '_workspace', '02_design', 'design-system'))
       } catch {
         return json(response, 404, errorBody('STYLE_TILES_NOT_FOUND', 'Style tiles were not found'))
+      }
+      // base 화이트리스트 — 루트를 design-system으로 올린 만큼 서빙 표면을 시안 두 세대로
+      // 좁힌다(설계 문서 전체가 raw로 열리지 않게).
+      if (!/^\/(candidates|style-tiles)\//.test(styleTiles[2])) {
+        return json(response, 404, errorBody('STYLE_TILE_ASSET_NOT_FOUND', 'Style tile asset was not found'))
       }
       const tileFile = safeStaticFile(tilesRoot, styleTiles[2])
       if (!tileFile) return json(response, 404, errorBody('STYLE_TILE_ASSET_NOT_FOUND', 'Style tile asset was not found'))

@@ -668,3 +668,32 @@ ROUND_TEST_EVIDENCE:
 티켓 파이프라인은 청구→픽업(배정)→PR→완료지만, **로컬-only v1은 배정을 알 수 없다**
 (트래커 미연동 — 원장에는 ticketKey·prUrl·closed만 있다). 모르는 단계를 그리면 미도달인지
 미상인지 구분되지 않으므로 **증명 가능한 3단계(청구·PR 연결·완료)만** 표시한다.
+
+## R5 — bug-fix: 시안 아카이브가 신세대(candidates/)를 못 읽던 드리프트 (2026-08-24)
+
+- **증상(사용자 보고)**: 디자인 시안이 있는데도 Design 탭이 "보존된 디자인 시안이 없습니다.
+  발산 라운드가 실행되면 여기에 나타납니다."를 표시.
+- **재현(변경 전)**: 콘솔 Design 탭 → web-harness-console 프로젝트 →
+  `_workspace/02_design/design-system/candidates/round-1/candidate-{a,b,c}/index.html`가 실재하는데
+  empty-state 표시(브라우저 실측).
+- **근본 원인(2중 드리프트)**: 콘솔이 방향 승인 게이트 개정(2026-08-23, `31a7438`)을 반영하지
+  못했다. ① 스캔 경로가 구세대 `design-system/style-tiles/`뿐 — 개정 계약은
+  `design-system/candidates/<round>/candidate-*/`에 보존한다. ② 후보 성립 조건이
+  `index.html`+`tokens.css` 완비 — 자유 렌더 후보는 **무의존 단일 HTML**이라 tokens.css가 없다
+  (고정 DOM·토큰 변수 제약 철폐가 개정의 핵심). ①만 고치면 ②에서 다시 걸린다.
+- **TARGET_BEHAVIOR**: 두 세대를 모두 읽고, 각 세대의 계약대로 후보를 판정하며, 자유 렌더
+  라운드는 승인 정본(approved-render.html)을 현재 방향으로 표시한다.
+- **ALLOWED_PATHS**: `src/indexer.mjs`, `server.mjs`, `public/app.js`, `public/styles.css`,
+  `test/style-tiles.test.mjs`, `test/style-tiles-generations.test.mjs`(신규)
+- **PUBLIC_CONTRACTS_TO_PRESERVE**: 구세대 판정(tokens.css 완비 요구·SELECTED_CANDIDATE 마커·
+  문서 인덱싱 경계·경로 탈출 차단·405), Documents 탭 인덱싱 규칙
+- **NON_GOALS**: 발산 라운드 실행, 판정 마커 규약 신설(자유 렌더 세대는 approved-render가 정본)
+- **CHANGE_BUDGET**: 6파일 · 스캐너 1함수 + 라우트 1개 추가 + 렌더 1블록
+- **TEST_EVIDENCE**: 신규 회귀 5건(2세대·세대별 조건·공존 정렬·빈 후보) + 구 회귀 3건 유지 ·
+  **반증**: `STYLE_TILE_BASES`에서 candidates 제거 시 2건 fail 확인 · 전체 CI green ·
+  **변경 후 재현**: 같은 화면이 "승인 정본 + 후보 3종 전환"으로 표시(스크린샷), 구세대
+  프로젝트(tamiya-motor-lab)는 `candidate-a` 선정 그대로(회귀 없음)
+- **CAPABILITY_ESCALATION**: none — 단 서빙 루트를 style-tiles → design-system으로 올렸으므로
+  **base 화이트리스트**(`candidates|style-tiles`)로 표면을 좁히고 경계 회귀 2건을 추가했다
+  (설계 문서 raw 노출 방지).
+- **DOCS_TO_UPDATE**: none

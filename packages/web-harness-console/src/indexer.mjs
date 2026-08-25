@@ -281,47 +281,69 @@ const boundedLineDiff = (before, after) => {
   }
 }
 
-// 발산 시안 아카이브(발산 기계화 §보존) — 라운드 디렉터리별 후보 타일·판정 문서를 열람용으로
-// 요약한다. 후보 성립 조건은 계약과 동일(템플릿 사본 index.html + tokens.css). 라운드
-// 디렉터리 규약(<날짜>-<라운드명>/) 이전의 flat 배치는 지원하지 않는다.
+// 발산 시안 아카이브(발산 기계화 §보존) — 라운드 디렉터리별 후보 렌더·판정 문서를 열람용으로
+// 요약한다. **두 세대를 모두 읽는다**(2026-08-24 드리프트 수정):
+//  - `candidates/<round>/candidate-*/` — 방향 승인 게이트 개정(2026-08-23) 이후의 자유 렌더.
+//    후보는 **무의존 단일 HTML**이라 index.html만 있으면 성립한다(고정 DOM·토큰 변수 제약 철폐가
+//    개정의 핵심이므로 tokens.css를 요구하면 신세대 후보가 통째로 안 보인다 — 실측 사고).
+//  - `style-tiles/<round>/candidate-*/` — 구 타일 객관식 세대(하위 호환). tokens.css는 선택.
+// 라운드 디렉터리 규약 이전의 flat 배치는 지원하지 않는다.
+// 세대별 후보 성립 조건이 다르다 — 계약이 다르기 때문이다.
+//  candidates: 자유 렌더(무의존 단일 HTML) → index.html만
+//  style-tiles: 구 타일 객관식(고정 DOM 템플릿 + 13변수) → index.html + tokens.css 완비
+const STYLE_TILE_BASES = [
+  {base: 'candidates', required: ['index.html']},
+  {base: 'style-tiles', required: ['index.html', 'tokens.css']},
+]
 const summarizeStyleTiles = projectRoot => {
-  const root = join(projectRoot, '_workspace', '02_design', 'design-system', 'style-tiles')
-  if (!isSafeDirectory(root)) return []
   const rounds = []
-  for (const entry of readdirSync(root, {withFileTypes: true})) {
-    if (!entry.isDirectory() || entry.isSymbolicLink()) continue
-    const roundRoot = join(root, entry.name)
-    const candidates = readdirSync(roundRoot, {withFileTypes: true})
-      .filter(candidate => candidate.isDirectory() && !candidate.isSymbolicLink()
-        && /^candidate-/.test(candidate.name)
-        && existsSync(join(roundRoot, candidate.name, 'index.html'))
-        && existsSync(join(roundRoot, candidate.name, 'tokens.css')))
-      .map(candidate => candidate.name)
-      .sort()
-    if (candidates.length === 0) continue
-    const documentPath = name =>
-      existsSync(join(roundRoot, name))
-        ? `_workspace/02_design/design-system/style-tiles/${entry.name}/${name}`
-        : null
-    // 선정 시안 식별은 판정 기록의 기계 마커가 유일 근거(계약 §발산의 기계화 5) —
-    // 마커가 없거나 후보 목록 밖이면 null(추정 금지, 소비자는 "선정 기록 없음" 표시)
-    let selectedCandidate = null
-    try {
-      const verdict = readFileSync(join(roundRoot, 'RENDER-VERDICT.md'), 'utf8')
-      const marker = verdict.match(/^SELECTED_CANDIDATE:\s*(candidate-[\w-]+)\s*$/m)
-      if (marker && candidates.includes(marker[1])) selectedCandidate = marker[1]
-    } catch { /* 판정 기록 없음 — null 유지 */ }
-    rounds.push({
-      round: entry.name,
-      candidates,
-      selectedCandidate,
-      readmePath: documentPath('README.md'),
-      renderVerdictPath: documentPath('RENDER-VERDICT.md'),
-      implementationVerdictPath: documentPath('IMPLEMENTATION-VERDICT.md'),
-    })
+  for (const {base, required} of STYLE_TILE_BASES) {
+    const root = join(projectRoot, '_workspace', '02_design', 'design-system', base)
+    if (!isSafeDirectory(root)) continue
+    for (const entry of readdirSync(root, {withFileTypes: true})) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue
+      const roundRoot = join(root, entry.name)
+      const candidates = readdirSync(roundRoot, {withFileTypes: true})
+        .filter(candidate => candidate.isDirectory() && !candidate.isSymbolicLink()
+          && /^candidate-/.test(candidate.name)
+          && required.every(file => existsSync(join(roundRoot, candidate.name, file))))
+        .map(candidate => candidate.name)
+        .sort()
+      if (candidates.length === 0) continue
+      const documentPath = name =>
+        existsSync(join(roundRoot, name))
+          ? `_workspace/02_design/design-system/${base}/${entry.name}/${name}`
+          : null
+      // 선정 시안 식별은 판정 기록의 기계 마커가 유일 근거(계약 §발산의 기계화 5) —
+      // 마커가 없거나 후보 목록 밖이면 null(추정 금지, 소비자는 "선정 기록 없음" 표시)
+      let selectedCandidate = null
+      try {
+        const verdict = readFileSync(join(roundRoot, 'RENDER-VERDICT.md'), 'utf8')
+        const marker = verdict.match(/^SELECTED_CANDIDATE:\s*(candidate-[\w-]+)\s*$/m)
+        if (marker && candidates.includes(marker[1])) selectedCandidate = marker[1]
+      } catch { /* 판정 기록 없음 — null 유지 */ }
+      rounds.push({
+        base,
+        round: entry.name,
+        candidates,
+        selectedCandidate,
+        readmePath: documentPath('README.md'),
+        renderVerdictPath: documentPath('RENDER-VERDICT.md'),
+        implementationVerdictPath: documentPath('IMPLEMENTATION-VERDICT.md'),
+      })
+    }
   }
-  // 최신 라운드 우선 (라운드명이 <YYYY-MM-DD>-… 규약이라 사전순 역순 = 시간 역순)
-  return rounds.sort((left, right) => right.round.localeCompare(left.round))
+  // 최신 라운드 우선. 신세대(candidates)를 구세대보다 앞에 둔다 — 같은 프로젝트에 두 세대가
+  // 공존하면 현재 방향은 신세대다.
+  return rounds.sort((left, right) =>
+    (left.base === right.base ? 0 : left.base === 'candidates' ? -1 : 1)
+    || right.round.localeCompare(left.round))
+}
+
+// 승인 정본(개정 계약 0단계 ③) — 존재 사실만 읽는다. 이것이 현재 적용 방향의 canon이며
+// 자유 렌더 라운드에는 RENDER-VERDICT 마커가 없으므로 선정 표시의 근거가 된다.
+const hasApprovedRender = projectRoot => {
+  try { return lstatSync(join(projectRoot, '_workspace', '02_design', 'approved-render.html')).isFile() } catch { return false }
 }
 
 const summarizePreview = projectRoot => {
@@ -394,6 +416,7 @@ const scanProject = (repositoryRoot, root) => {
     ?? (featurePlanShards.length ? featurePlanShards.map(document => document.content ?? '').join('\n\n') : undefined)
   const preview = summarizePreview(root)
   const styleTiles = summarizeStyleTiles(root)
+  const approvedRender = hasApprovedRender(root)
   const features = parseFeaturePlan(featurePlanSource).map(feature => {
     const previewFeature = preview.features.find(item => item.featureId === feature.featureId)
     const subFeatures = feature.subFeatures.map(subFeature => {
@@ -454,6 +477,7 @@ const scanProject = (repositoryRoot, root) => {
     features,
     preview,
     styleTiles,
+    approvedRender,
     changeRequests,
   }
 }
@@ -703,6 +727,7 @@ export class WorkspaceCatalog {
       features: project.features,
       preview: project.preview,
       styleTiles: project.styleTiles,
+      approvedRender: project.approvedRender,
       changeRequests: project.changeRequests,
       // 실행 직후 신선도를 위해 스캔 캐시가 아니라 조회 시점에 계산한다(저비용 파일 읽기).
       qa: summarizeQa(project.root),

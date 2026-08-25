@@ -704,3 +704,5 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .workflow-tickets { display: grid; margin: 0; padding: 0; list-style: none; }
 .workflow-tickets > .workflow-ticket:first-child { border-top: 0; }
 .workflow-ticket-title { flex: 1; min-width: 0; font-size: var(--fs-compact); }
+.style-tile-switcher { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
+.style-tile-switcher button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
