@@ -164,7 +164,7 @@ cache
   "bracketSameLine": true,
   "bracketSpacing": false,
   "singleQuote": true,
-  "semi": true
+  "semi": false
 }
 ```
 
@@ -351,9 +351,9 @@ export default tseslint.config(
 ## VITE_CONFIG
 
 ```ts
-import {defineConfig} from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
+import {defineConfig} from 'vite'
+import react from '@vitejs/plugin-react'
+import svgr from 'vite-plugin-svgr'
 
 export default defineConfig({
   plugins: [react(), svgr()],
@@ -363,7 +363,7 @@ export default defineConfig({
     host: '127.0.0.1',
   },
   build: {assetsInlineLimit: 4096},
-});
+})
 ```
 
 ---
@@ -881,10 +881,10 @@ APP_PACKAGE_JSON에서 dependencies의 `@emotion/react`·`@emotion/styled`·`@mu
 ## VITE_CONFIG_TAILWIND
 
 ```ts
-import {defineConfig} from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
-import tailwindcss from '@tailwindcss/vite';
+import {defineConfig} from 'vite'
+import react from '@vitejs/plugin-react'
+import svgr from 'vite-plugin-svgr'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), svgr(), tailwindcss()],
@@ -894,7 +894,7 @@ export default defineConfig({
     host: '127.0.0.1',
   },
   build: {assetsInlineLimit: 4096},
-});
+})
 ```
 
 Tailwind v4는 `@tailwindcss/vite` 플러그인만 쓴다 — `postcss.config.*`·`tailwind.config.*`를
