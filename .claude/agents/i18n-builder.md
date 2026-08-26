@@ -28,7 +28,7 @@ Read `.claude/skills/i18n-setup/SKILL.md` before writing.
 
 ## 금지
 
-- route/세그먼트 파일 수정 — locale routing은 `route-builder`/`next-runtime-builder` 소유이며 spec으로 전달한다
+- route/세그먼트 파일 수정 — locale routing은 `developer`/`next-runtime-builder` 소유이며 spec으로 전달한다
 - 컴포넌트 파일의 하드코딩 문자열 직접 치환 — 치환 목록을 spec에 기록해 해당 UI owner에게 전달한다
 - 라이브러리 설치 실행 — 의존성은 typed broker 경유 `package-scaffolder` 소유
 

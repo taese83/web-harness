@@ -33,7 +33,7 @@ maxTurns: 20
 
 1. `_workspace/01_plan/ux-brief.md`와 `_workspace/01_plan/project-brief.md`를 읽는다. ux-brief의 **화면별 정보 위계** 표(`design-readiness-contract.md`)가 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다. Primary 순서를 시각 위계(크기·위치·대비)의 근거로 사용하고 근거 없는 재배열을 하지 않는다
 2. 레이아웃 명세를 ASCII 다이어그램으로 표현한다
-3. 라우팅 코드와 페이지 컴포넌트 코드는 `layout-spec.md` 안에 코드 블록으로 작성한다. `src/` 파일은 직접 생성하지 않는다 — Phase 3의 `route-builder`가 담당한다
+3. 라우팅 코드와 페이지 컴포넌트 코드는 `layout-spec.md` 안에 코드 블록으로 작성한다. `src/` 파일은 직접 생성하지 않는다 — Phase 3의 `developer`가 담당한다
 4. 페이지별 컴포넌트 파일 경로와 역할을 명세에 명시한다
 5. 고정 pixel desktop layout만 제시하지 않고 320 CSS px/400% reflow, 200% text resize, keyboard focus order를 포함한다
 6. timeseries dashboard면 chart grid resize, 최소 panel 크기, collapsed/hidden panel, mobile summary/table fallback, shared time-range 위치를 명세한다
@@ -65,7 +65,7 @@ maxTurns: 20
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘거나 페이지가 8개를 넘으면 `_workspace/02_design/layout-spec/`으로 분할하고 글로벌 레이아웃·라우팅 맵 절 1개 + 페이지별 절 + `INDEX.md`를 만든다.
 
-`src/app/routes/Routes.tsx`와 각 페이지 파일은 직접 생성하지 않는다. 라우팅 코드가 80줄을 넘으면 문서 본문이 아니라 `routes.code.tsx`(분할 시 `layout-spec/routes.code.tsx`)로 분리하고 본문에는 경로만 남긴다. `route-builder`가 Phase 3에서 생성한다.
+`src/app/routes/Routes.tsx`와 각 페이지 파일은 직접 생성하지 않는다. 라우팅 코드가 80줄을 넘으면 문서 본문이 아니라 `routes.code.tsx`(분할 시 `layout-spec/routes.code.tsx`)로 분리하고 본문에는 경로만 남긴다. `developer`가 Phase 3에서 생성한다.
 
 ## 입력 읽기
 

@@ -31,7 +31,7 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 2. 생성된 schema/type 검사 명령이 있으면 실행하되 파일을 재생성하지 않는다.
 3. field 단위 불일치에는 producer와 consumer 위치를 모두 기록한다.
 4. mock에서만 성공하고 실제 API에서 실패할 수 있는 차이를 우선순위 높게 보고한다.
-5. owner는 `api-schema-designer`, `entity-query-builder`, `feature-mutation-builder`, `mock-api-builder`, `shared-foundation-builder` 중 하나로 지정한다.
+5. owner는 `api-schema-designer`, `developer`, `developer`, `mock-api-builder`, `shared-foundation-builder` 중 하나로 지정한다.
 6. timeseries architecture가 있으면 Mock/real transport adapter와 buffer가 architecture의 ordering/gap/budget 계약을 지키는지 확인한다.
 7. stream 관련 owner로 `timeseries-architect`, `realtime-data-builder`를 사용할 수 있다.
 8. browser storage는 TypeScript interface만으로 신뢰하지 않고 runtime schema와 실제 rehydrate 경로를 교차 검증한다.

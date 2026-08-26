@@ -1,6 +1,6 @@
 # Performance Patterns
 
-`tooling-scaffolder`, `app-shell-builder`, `component-builder`가 이 패턴을 적용한다.
+`tooling-scaffolder`, `developer`, `developer`가 이 패턴을 적용한다.
 Read this file before configuring Vite build options or writing any lazy-loaded component.
 
 Grafana-like dashboard, realtime metric, high-volume chart 요구가 있으면 `.claude/skills/timeseries-dashboard/references/chart-performance.md`와 `streaming-contract.md`를 추가로 적용한다. 일반 list 가상화 규칙을 chart point 처리에 그대로 적용하지 않는다.
@@ -9,7 +9,7 @@ Grafana-like dashboard, realtime metric, high-volume chart 요구가 있으면 `
 
 ## 1. 번들 분할 (Code Splitting)
 
-### 라우트 레벨 — 측정 후 적용 (app-shell-builder 책임)
+### 라우트 레벨 — 측정 후 적용 (developer 책임)
 
 ```tsx
 // src/app/routes/Routes.tsx
@@ -19,7 +19,7 @@ const SettingsPage  = lazy(() => import('@pages/settings/ui/SettingsPage'))
 
 모든 페이지를 기계적으로 분할하지 않는다. 초기 route와 작은 페이지는 정적 import가 더 빠를 수 있다. route 크기, 이동 빈도, waterfall을 bundle report와 브라우저 trace로 측정한 뒤 분할하고 `<Suspense fallback={<PageSkeleton />}>`으로 감싼다.
 
-### 컴포넌트 레벨 — 조건부 적용 (component-builder 책임)
+### 컴포넌트 레벨 — 조건부 적용 (developer 책임)
 
 조건부로 렌더링되는 무거운 컴포넌트(모달, 드로어, 차트, 에디터 등)는 컴포넌트 레벨에서도 분할한다.
 
@@ -138,7 +138,7 @@ const handleDelete = useCallback((id: string) => {
 
 ---
 
-## 5. Preload 힌트 (app-shell-builder 책임)
+## 5. Preload 힌트 (developer 책임)
 
 중요 리소스는 `<link rel="preload">`로 우선 로드한다.
 
@@ -162,7 +162,7 @@ Declarative mode의 일반 `<Link>`에 `prefetch`를 붙이지 않는다. preloa
 
 ---
 
-## 6. Web Vitals 측정 (app-shell-builder 책임)
+## 6. Web Vitals 측정 (developer 책임)
 
 ```ts
 // src/shared/utils/webVitals.ts

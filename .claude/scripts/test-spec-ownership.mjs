@@ -19,25 +19,25 @@ const owns = (patterns, path) => patterns.some(pattern => pattern.test(path))
 // ── (1) 비-FSD 어휘가 열린다 ─────────────────────────────────────────────────
 test('layerMap이 소유권 경로를 공급한다 — FSD가 아닌 어휘도 열린다', () => {
   // 실측된 브라운필드 형태: entities/features/widgets가 아니라 stores/components/hooks
-  const lock = {layerMap: {domainModel: 'src/stores', routes: 'src/pages/', featureUI: 'src/components'}}
-  const patterns = resolveSpecOwnership(lock, 'entity-query-builder')
+  const lock = {layerMap: {domainModel: 'src/stores', clientState: 'src/state', featureUI: 'src/components'}}
+  const patterns = resolveSpecOwnership(lock, 'client-domain-state-builder')
   assert.ok(patterns, '역할 매핑이 있으면 스팩에서 패턴이 나와야 한다')
   assert.ok(owns(patterns, 'src/stores/editor.ts'), '기존 등록부라면 소유자 없음으로 막혔을 경로')
   assert.equal(owns(patterns, 'src/entities/item/model.ts'), false, 'FSD 기본 경로는 이 스팩의 소유가 아니다')
 })
 
 test('모노레포 접두를 포섭한다', () => {
-  const lock = {layerMap: {routes: 'src/pages/'}}
-  const patterns = resolveSpecOwnership(lock, 'route-builder')
-  assert.ok(owns(patterns, 'packages/widget-builder/src/pages/Home.tsx'))
+  const lock = {layerMap: {unitTests: 'src/tests/'}}
+  const patterns = resolveSpecOwnership(lock, 'test-writer')
+  assert.ok(owns(patterns, 'packages/widget-builder/src/tests/a.spec.ts'))
 })
 
 test('여러 역할이 매핑된 에이전트는 선언된 레이어만 갖는다', () => {
-  const lock = {layerMap: {sharedKernel: 'src/shared', featureUI: 'src/components'}}
-  const patterns = resolveSpecOwnership(lock, 'component-builder')
-  assert.ok(owns(patterns, 'src/shared/ui/Button.tsx'))
-  assert.ok(owns(patterns, 'src/components/editor/Pane.tsx'))
-  // composedUI는 layerMap에 없으므로 그 영역은 열리지 않는다
+  const lock = {layerMap: {domainModel: 'src/stores', clientState: 'src/state'}}
+  const patterns = resolveSpecOwnership(lock, 'client-domain-state-builder')
+  assert.ok(owns(patterns, 'src/stores/editor.ts'))
+  assert.ok(owns(patterns, 'src/state/session.ts'))
+  // 선언되지 않은 레이어는 열리지 않는다
   assert.equal(owns(patterns, 'src/widgets/Panel.tsx'), false)
 })
 
@@ -48,16 +48,15 @@ test('회귀 반증: 스팩이 없으면 null — 호출자가 AGENT_OWNERSHIP�
   }
 })
 
-test('회귀 반증: DEFAULT_LAYER_MAP을 폴백으로 쓰면 carve-out이 무너진다', () => {
-  // 실측(2026-08-26): DEFAULT_LAYER_MAP을 폴백으로 쓰자 validate-agent-boundaries가 회귀를
-  // 잡았다. AGENT_OWNERSHIP은 레이어 이름보다 많은 것을 인코딩한다 —
-  // feature-mutation-builder는 live-mode를 제외하는데 평면 layerMap은 그걸 표현 못 한다.
-  const viaDefault = new RegExp(`src/features/`)
-  assert.ok(viaDefault.test('src/features/live-mode/api/connect.ts'),
-    '평면 layerMap은 live-mode를 걸러내지 못한다 — 그래서 폴백으로 쓸 수 없다')
-  const registry = AGENT_OWNERSHIP['feature-mutation-builder']
-  assert.equal(registry.some(r => r.test('src/features/live-mode/api/connect.ts')), false,
-    '등록부는 carve-out을 지킨다')
+test('회귀 반증: 구조 지시 빌더 6종은 제거됐고 폴백으로 되살아나지 않는다', () => {
+  // 2026-08-26: 6종의 소유권이 실측으로 성립하지 않았다(3중 겹침 + 비-FSD 어휘 무소유).
+  // 되살리면 다시 FSD 경로 처방이 된다. carve-out(live-mode 제외)은 그 6종의 유일한
+  // 정당한 기능이었으나, layerMap이 표현하지 못하는 한계로 protected-core §4에 남아 있다.
+  for (const gone of ['app-shell-builder', 'route-builder', 'component-builder',
+                      'entity-query-builder', 'feature-mutation-builder', 'data-ui-binder']) {
+    assert.equal(AGENT_OWNERSHIP[gone], undefined, `${gone}이 등록부에 되살아났다`)
+    assert.equal(AGENT_LAYER_ROLES[gone], undefined, `${gone}이 역할 매핑에 되살아났다`)
+  }
 })
 
 test('DEFAULT_LAYER_MAP은 참조 표현이며 폴백이 아니다', () => {

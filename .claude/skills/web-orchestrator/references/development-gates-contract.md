@@ -56,7 +56,7 @@ TIMESERIES_MODE에서 Mock이 의도적으로 뒤로 미뤄졌으면 transport i
 
 ## Gate C — Integrated Source
 
-entity query, mutation/form/domain/realtime owner와 `data-ui-binder`가 완료된 뒤:
+entity query, mutation/form/domain/realtime owner와 `developer`가 완료된 뒤:
 
 1. requirement/UX risk → screen → owner → source trace
 2. loading/error/empty/partial/permission/destructive 연결

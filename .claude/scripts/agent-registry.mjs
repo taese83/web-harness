@@ -81,16 +81,8 @@ export const AGENT_OWNERSHIP = {
     appPath('src/widgets/(?:chart-panel|dashboard-grid)/'),
   ],
   'api-schema-designer': [/^_workspace\/02_design\/api-schema(?:\.md|\/.+)$/],
-  'app-shell-builder': [
-    exactAppFile('index\\.html'),
-    exactAppFile('src/main\\.tsx'),
-    appPath('src/app/(?:App\\.tsx|theme\\.ts|style\\.css|providers/RouterProvider\\.tsx|routes/(?:Routes\\.tsx|index\\.ts))$'),
-    appPath('src/pages/home/'),
-    exactAppFile('src/shared/utils/webVitals\\.ts'),
-  ],
   'changelog-writer': [/^_workspace\/RELEASE\/changelog-draft\.md$/, /^CHANGELOG\.md$/, /^\.changeset\/[^/]+\.md$/],
   'changeset-setup': [/^\.changeset\/config\.json$/],
-  'component-builder': [appPath('src/shared/ui/'), appPath('src/features/[^/]+/ui/'), appPath('src/widgets/')],
   'component-designer': [/^_workspace\/02_design\/component-spec(?:\.md|\/.+)$/],
   'client-domain-state-builder': [
     appPath('src/entities/[^/]+/model/(?:store|schema|selectors|invariants)\\.ts$'),
@@ -104,7 +96,6 @@ export const AGENT_OWNERSHIP = {
     /^packages\/customer-support\//,
     appPath('src/features/ai-support/'),
   ],
-  'data-ui-binder': [appPath('src/pages/'), appPath('src/widgets/'), appPath('src/features/[^/]+/ui/')],
   'data-governance-architect': [/^_workspace\/02_design\/data-governance\.md$/],
   'db-migration-writer': [
     appPath('migrations/'),
@@ -127,12 +118,10 @@ export const AGENT_OWNERSHIP = {
   ],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
-  'entity-query-builder': [appPath('src/entities/')],
   'enterprise-search-builder': [
     /^workers\/ingestion\//,
     /^packages\/enterprise-search\//,
   ],
-  'feature-mutation-builder': [appPath('src/features/(?!live-mode/)[^/]+/api/')],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
   'form-state-builder': [appPath('src/features/(?!live-mode/)[^/]+/model/'), appPath('src/shared/modal/')],
   'human-approval-builder': [
@@ -186,7 +175,6 @@ export const AGENT_OWNERSHIP = {
   'publish-ci-writer': [/^\.github\/workflows\/publish\.ya?ml$/],
   'release-manager': [/^_workspace\/RELEASE\//],
   'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
-  'route-builder': [appPath('src/app/routes/'), appPath('src/pages/'), appPath('src/widgets/layout/')],
   'shared-foundation-builder': [
     appPath('src/shared/(?!realtime/)'),
     appPath('src/mocks/(?:handlers/index\\.ts|browser\\.ts|server\\.ts)$'),
@@ -304,14 +292,8 @@ const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
 
 // 역할 → 논리 레이어. 레이어 이름은 layerMap의 키와 맞춘다.
 export const AGENT_LAYER_ROLES = {
-  'entity-query-builder': ['domainModel'],
   'client-domain-state-builder': ['domainModel', 'clientState'],
-  'feature-mutation-builder': ['featureLogic'],
   'form-state-builder': ['featureLogic'],
-  'component-builder': ['sharedKernel', 'featureUI', 'composedUI'],
-  'route-builder': ['routes'],
-  'data-ui-binder': ['routes', 'composedUI', 'featureUI'],
-  'app-shell-builder': ['entry', 'appShell'],
   'test-writer': ['unitTests'],
   'i18n-builder': ['i18n'],
   'seo-meta-builder': ['seo'],

@@ -349,7 +349,9 @@ for (const keyword of ['그라파나', '시계열', '날짜별', '실시간', '�
 pass('bilingual timeseries detection contract checked')
 
 const streamingSource = read('.claude/skills/timeseries-dashboard/references/streaming-contract.md')
-const entityBuilderSource = read('.claude/agents/entity-query-builder.md')
+  // entity-query-builder는 2026-08-26에 제거됐다(구조 지시 빌더 6종). 종전에는 그것과
+  // shared-foundation-builder의 timestamp 스키마 소유 선언이 **일치하는지**를 봤다.
+  // 이제 소유자가 하나이므로 그 선언의 존속만 확인한다.
 const foundationBuilderSource = read('.claude/agents/shared-foundation-builder.md')
 for (const requiredStreamingPattern of [
   '.pipe(unixMsSchema)',
@@ -360,9 +362,9 @@ for (const requiredStreamingPattern of [
   if (!streamingSource.includes(requiredStreamingPattern)) fail(`streaming contract is missing ${requiredStreamingPattern}`)
 }
 if (streamingSource.includes("src/shared/realtime/timestamp.ts")) fail('timestamp schema is still owned by the later realtime phase')
-for (const source of [entityBuilderSource, foundationBuilderSource]) {
-  if (!source.includes('src/shared/lib/timeseries/timestamp.ts')) fail('shared timestamp schema ownership is inconsistent')
-}
+  if (!foundationBuilderSource.includes('src/shared/lib/timeseries/timestamp.ts')) {
+    fail('shared timestamp schema ownership is inconsistent')
+  }
 // realtime Mock 빌드 순서 규칙의 존속은 validate-marker-integrity가 앵커
 // (timeseries-realtime-build-order)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
 pass('timeseries timestamp and Worker contracts checked')

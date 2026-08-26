@@ -165,8 +165,8 @@ for (const relativeDirectory of pendingDirectories) {
     //
     // 새 식별: **절 행 = 2열에 백틱 절 파일(`x.md`)이 있는 행**. 헤더(2열이 '파일'/'File' 산문)·
     // 구분선·INDEX 안의 다른 4열 표(값에 백틱 .md 없음)가 언어와 무관하게 자동 제외된다.
-    // 정규화 2종(실측 지배 패턴): (a) 괄호 한정어 제거 — `component-builder (shared layer)`,
-    // `entity-query-builder(해당 시)` (b) 다중 값은 괄호 밖 구분자(,·)로만 분리 —
+    // 정규화 2종(실측 지배 패턴): (a) 괄호 한정어 제거 — `test-writer (shared layer)`,
+    // `client-domain-state-builder(해당 시)` (b) 다중 값은 괄호 밖 구분자(,·)로만 분리 —
     // `component-builder(widgets/*, pages/*)`의 괄호 안 쉼표는 분리하지 않는다.
     // sentinel은 언어 중립 확장: `전체` | `*` | `all`(대소문자 무관).
     const splitTopLevel = cell => {

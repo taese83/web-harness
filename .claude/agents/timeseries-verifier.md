@@ -32,7 +32,7 @@ maxTurns: 25
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/test/config/snapshot을 수정하지 않는다.
-- 실패 owner 후보: `timeseries-architect`(계약), `realtime-data-builder`(transport/buffer), `mock-api-builder`(fake), `entity-query-builder`(historical query), `component-builder`/`data-ui-binder`(chart UI), `test-writer`(fixture).
+- 실패 owner 후보: `timeseries-architect`(계약), `realtime-data-builder`(transport/buffer), `mock-api-builder`(fake), `developer`(historical query), `developer`/`developer`(chart UI), `test-writer`(fixture).
 
 ## 출력 구조
 

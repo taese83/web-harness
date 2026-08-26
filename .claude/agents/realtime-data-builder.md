@@ -41,8 +41,8 @@ skills: timeseries-dashboard
 3. event마다 React state나 TanStack Query cache 전체를 갱신하지 않는다.
 4. buffer, pending queue, reconnect 횟수와 timer에 상한을 둔다.
 5. transport auth는 `/auth-setup` 계약을 따르고 credential을 browser storage에 저장하지 않는다.
-6. Mock transport는 `mock-api-builder`, historical query는 `entity-query-builder`에 맡긴다.
-7. UI 연결은 `data-ui-binder`, chart lifecycle은 `component-builder`에 맡긴다.
+6. Mock transport는 `mock-api-builder`, historical query는 `developer`에 맡긴다.
+7. UI 연결은 `developer`, chart lifecycle은 `developer`에 맡긴다.
 8. 추가 dependency가 필요하면 package 변경 대신 이름, 버전 제약, 이유를 반환한다.
 9. Worker를 사용하면 timestamp/value/quality를 함께 전달하고 runtime crash·timeout·stale response fallback을 구현한다. 값만 전달하거나 nullable 값을 0으로 치환하지 않는다.
 

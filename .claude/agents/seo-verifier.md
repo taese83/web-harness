@@ -23,7 +23,7 @@ maxTurns: 20
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/test/config를 수정하지 않는다.
-- 실패는 owner 후보(`seo-meta-builder`, `app-shell-builder`, `route-builder`, `next-runtime-builder`)와 함께 기록한다.
+- 실패는 owner 후보(`seo-meta-builder`, `developer`, `developer`, `next-runtime-builder`)와 함께 기록한다.
 
 ## 출력 구조
 

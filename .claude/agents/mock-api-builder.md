@@ -28,7 +28,7 @@ MSW로 Mock API를 구현해서 백엔드 없이 개발 가능한 환경을 만�
 5. `VITE_PHASE === 'dev'`일 때만 MSW를 활성화한다
 6. `src/mocks/server.ts`를 생성해 Vitest/Node 환경에서 같은 핸들러를 재사용한다
 7. `package.json`에 `msw`가 없으면 설치가 필요하다고 보고하고 사용자 확인 후 추가한다
-8. **`src/main.tsx`는 직접 생성하지 않는다.** `app-shell-builder`가 이미 생성한 `main.tsx`에서 MSW 초기화 블록(`if (import.meta.env.VITE_PHASE === 'dev') { ... }`)만 append한다. `main.tsx`가 존재하지 않으면 `app-shell-builder`가 선행 완료되지 않은 것이므로 중단하고 보고한다
+8. **`src/main.tsx`는 직접 생성하지 않는다.** `developer`가 이미 생성한 `main.tsx`에서 MSW 초기화 블록(`if (import.meta.env.VITE_PHASE === 'dev') { ... }`)만 append한다. `main.tsx`가 존재하지 않으면 `developer`가 선행 완료되지 않은 것이므로 중단하고 보고한다
 9. timeseries architecture가 있으면 `.claude/skills/timeseries-dashboard/references/mock-and-migration.md`를 읽고 `src/mocks/realtime/**`에 동일 `TimeseriesTransport` interface의 fake를 만든다
 10. realtime fake는 seed/fake clock, normal/max/burst, duplicate, out-of-order, gap, disconnect, heartbeat timeout, malformed message를 재현할 수 있어야 한다
 11. Mock queue와 sample history도 architecture의 count/time budget을 넘지 않는다

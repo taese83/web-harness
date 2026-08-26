@@ -23,7 +23,7 @@ route별 표로 작성한다: path, title 규칙, meta description, canonical UR
 ## 출력 2: 구현 (profile별 소유 경계)
 
 - **공통**: `public/robots.txt`, `public/sitemap.xml`(정적 route) 또는 sitemap 생성 스크립트 위치 제안, `src/shared/seo/` 유틸(문서 title/meta 갱신 헬퍼, JSON-LD 직렬화).
-- **react-vite-spa**: CSR의 SEO 한계(초기 HTML 빈 상태, 크롤러 렌더링 큐)를 spec에 명시하고, route별 `document.title`/meta 갱신을 `src/shared/seo/` 유틸로 제공한다. `index.html`의 기본 meta는 `app-shell-builder` 소유이므로 필요한 변경을 spec에 기록해 전달한다.
+- **react-vite-spa**: CSR의 SEO 한계(초기 HTML 빈 상태, 크롤러 렌더링 큐)를 spec에 명시하고, route별 `document.title`/meta 갱신을 `src/shared/seo/` 유틸로 제공한다. `index.html`의 기본 meta는 `developer` 소유이므로 필요한 변경을 spec에 기록해 전달한다.
 - **next-app-fullstack**: `app/` 구현은 `next-runtime-builder` 소유다 — 이 에이전트는 seo-spec과 Route Matrix의 metadata column을 채우는 근거만 제공하고 `app/**`를 수정하지 않는다.
 
 ## 금지

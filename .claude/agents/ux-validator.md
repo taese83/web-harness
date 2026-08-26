@@ -24,7 +24,7 @@ maxTurns: 20
 
 - Read-only QA 에이전트다.
 - 화면, 라우트, 컴포넌트, 스타일, 테스트 파일을 수정하지 않는다.
-- 누락/불일치가 있으면 owner agent 후보(`layout-designer`, `component-designer`, `route-builder`, `component-builder`, `data-ui-binder`)와 함께 기록한다.
+- 누락/불일치가 있으면 owner agent 후보(`layout-designer`, `component-designer`, `developer`, `developer`, `developer`)와 함께 기록한다.
 
 ## 검사 항목
 

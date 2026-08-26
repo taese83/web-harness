@@ -6,19 +6,19 @@ Use this reference before retrying after Phase 4 QA.
 
 | Failing report | Common signal | Retry agent |
 |---|---|---|
-| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `tooling-scaffolder`, `shared-foundation-builder`, `component-builder`, `entity-query-builder`, `feature-mutation-builder`, or `data-ui-binder` |
-| `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer`, `component-designer`, `route-builder`, `component-builder`, or `data-ui-binder` |
-| `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `package-scaffolder`, `tooling-scaffolder`, `shared-foundation-builder`, `app-shell-builder`, `mock-api-builder`, or `route-builder` |
-| `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `shared-foundation-builder`, `route-builder`, `deploy-ci-writer`, `publish-ci-writer`, or `/auth-setup` owner |
-| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `timeseries-architect`, `api-schema-designer`, `shared-foundation-builder`, `entity-query-builder`, `realtime-data-builder`, `feature-mutation-builder`, or `mock-api-builder` |
-| `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer`, `client-domain-state-builder`, `data-ui-binder`, or `test-writer` |
+| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `tooling-scaffolder`, `shared-foundation-builder`, `developer`, `developer`, `developer`, or `developer` |
+| `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer`, `component-designer`, `developer`, `developer`, or `developer` |
+| `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `package-scaffolder`, `tooling-scaffolder`, `shared-foundation-builder`, `developer`, `mock-api-builder`, or `developer` |
+| `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `shared-foundation-builder`, `developer`, `deploy-ci-writer`, `publish-ci-writer`, or `/auth-setup` owner |
+| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `timeseries-architect`, `api-schema-designer`, `shared-foundation-builder`, `developer`, `realtime-data-builder`, `developer`, or `mock-api-builder` |
+| `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer`, `client-domain-state-builder`, `developer`, or `test-writer` |
 | `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer`, `external-data-pipeline-builder`, `package-scaffolder`, `deploy-ci-writer`, or `test-writer` |
-| `qa-test.md` | test failures (not WARN) | `test-scaffolder`, `test-writer`, `entity-query-builder`, `feature-mutation-builder`, `mock-api-builder`, or `component-builder` |
-| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `realtime-data-builder`, `app-shell-builder`, `route-builder`, `component-builder`, `data-ui-binder`, `test-scaffolder`, or `test-writer` |
-| `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer`, `visual-test-writer`, `visual-baseline-manager`, `test-scaffolder`, `component-builder`, or `data-ui-binder` |
-| `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect`, `realtime-data-builder`, `mock-api-builder`, `entity-query-builder`, `component-builder`, or `test-writer` |
-| `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `seo-meta-builder`, `app-shell-builder`, `route-builder`, or `next-runtime-builder` |
-| `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer`, `tooling-scaffolder`, `component-builder`, `data-ui-binder`, or `entity-query-builder` |
+| `qa-test.md` | test failures (not WARN) | `test-scaffolder`, `test-writer`, `developer`, `developer`, `mock-api-builder`, or `developer` |
+| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `realtime-data-builder`, `developer`, `developer`, `developer`, `developer`, `test-scaffolder`, or `test-writer` |
+| `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer`, `visual-test-writer`, `visual-baseline-manager`, `test-scaffolder`, `developer`, or `developer` |
+| `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect`, `realtime-data-builder`, `mock-api-builder`, `developer`, `developer`, or `test-writer` |
+| `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `seo-meta-builder`, `developer`, `developer`, or `next-runtime-builder` |
+| `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer`, `tooling-scaffolder`, `developer`, `developer`, or `developer` |
 
 ## Retry Rules
 

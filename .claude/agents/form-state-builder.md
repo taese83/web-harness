@@ -20,7 +20,7 @@ maxTurns: 25
 
 1. 입력 폼이 명시된 feature에만 Zod/RHF schema를 만든다.
 2. 서버 상태를 Zustand나 `useState`로 복사하지 않는다.
-3. API mutation hook 생성은 `feature-mutation-builder`가 담당한다.
+3. API mutation hook 생성은 `developer`가 담당한다.
 4. UI 컴포넌트 직접 수정은 최소화하고 필요한 타입만 export한다.
 5. **URL 상태 동기화**: 필터·정렬·탭·페이지 번호처럼 북마크/공유가 가능해야 하는 UI 상태는 Zustand가 아닌 URL 쿼리 파라미터로 관리한다.
 6. **모달 상태**: feature-local state를 우선하고 실제로 여러 bounded context가 공유할 때만 전역 store를 사용한다.

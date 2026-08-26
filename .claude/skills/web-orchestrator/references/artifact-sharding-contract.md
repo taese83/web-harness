@@ -88,7 +88,7 @@ _workspace/02_design/design-system/
 | 절 | 파일 | 담당 범위 | 주 소비자 |
 |---|---|---|---|
 | 공통 envelope | `common-envelope.md` | 응답 형식, 에러 코드, 페이지네이션 | 전체 |
-| 주문 | `orders.md` | `/api/orders/*` 5개 엔드포인트 | entity-query-builder, mock-api-builder |
+| 주문 | `orders.md` | `/api/orders/*` 5개 엔드포인트 | developer, mock-api-builder |
 
 ## 전역 결정
 절 하나에 귀속되지 않는 결정만 3~5줄로 기재한다.
@@ -97,7 +97,7 @@ _workspace/02_design/design-system/
 ```
 
 `주 소비자` 열은 소비자가 자기 절을 고르는 근거다. 비워 두지 않는다. 값은 **에이전트
-이름 그대로**(한정어가 필요하면 괄호로 — 예: `component-builder (shared layer)`) 또는
+이름 그대로**(한정어가 필요하면 괄호로 — 예: `developer (shared layer)`) 또는
 전체-소비 sentinel(`전체` / 중립 표기 `*` / `all`)이다. 검증기는 절 행을 **구조**(2열의
 백틱 절 파일)로 식별하므로 표 헤더 표기는 언어 자유다(`주 소비자`든 `Primary consumer`든).
 

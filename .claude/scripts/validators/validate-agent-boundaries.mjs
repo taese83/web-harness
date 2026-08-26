@@ -112,7 +112,7 @@ export const validateAgentBoundaries = ({
     runVerifierBashHook('test-executor', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status !== 2
   ) fail('verifier Bash hook allowed a mutating package operation')
   if (runVerifierBashHook('security-reviewer', 'rm -rf src').status !== 2) fail('verifier Bash hook allowed a mutating command')
-  if (runVerifierBashHook('component-builder', 'rm -rf src').status !== 0) fail('verifier Bash hook affected a non-verifier')
+  if (runVerifierBashHook('test-writer', 'rm -rf src').status !== 0) fail('verifier Bash hook affected a non-verifier')
   pass('verifier Bash allow/deny behavior checked')
 
   const ownershipHook = read('.claude/scripts/enforce-agent-ownership.mjs')
@@ -140,23 +140,23 @@ export const validateAgentBoundaries = ({
     })
 
   const cases = [
-    ['owned path', 'entity-query-builder', join(repositoryRoot, 'src/entities/item/model/types.ts'), 0],
+    ['owned path', 'client-domain-state-builder', join(repositoryRoot, 'src/entities/item/model/store.ts'), 0],
     ['package scaffolder root nvmrc', 'package-scaffolder', join(repositoryRoot, '.nvmrc'), 0],
     ['package scaffolder app nvmrc', 'package-scaffolder', join(repositoryRoot, 'apps/web/.nvmrc'), 0],
     ['other agent nvmrc stays blocked', 'tooling-scaffolder', join(repositoryRoot, '.nvmrc'), 2],
     ['package scaffolder root claude-md marker', 'package-scaffolder', join(repositoryRoot, 'CLAUDE.md'), 0],
-    ['other agent claude-md stays blocked', 'app-shell-builder', join(repositoryRoot, 'CLAUDE.md'), 2],
+    ['other agent claude-md stays blocked', 'client-domain-state-builder', join(repositoryRoot, 'CLAUDE.md'), 2],
     ['tooling scaffolder vite-env stub', 'tooling-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
     ['tooling scaffolder app eslint config', 'tooling-scaffolder', join(repositoryRoot, 'apps/web/eslint.config.js'), 0],
-    ['other agent vite-env stays blocked', 'component-builder', join(repositoryRoot, 'src/vite-env.d.ts'), 2],
-    ['another agent path', 'entity-query-builder', join(repositoryRoot, 'src/app/App.tsx'), 2],
-    ['outside-project path', 'entity-query-builder', resolve(repositoryRoot, '../outside.ts'), 2],
+    ['other agent vite-env stays blocked', 'test-writer', join(repositoryRoot, 'src/vite-env.d.ts'), 2],
+    ['another agent path', 'client-domain-state-builder', join(repositoryRoot, 'src/app/App.tsx'), 2],
+    ['outside-project path', 'client-domain-state-builder', resolve(repositoryRoot, '../outside.ts'), 2],
     ['timeseries architecture output', 'timeseries-architect', join(repositoryRoot, '_workspace/02_design/timeseries-architecture.md'), 0],
     ['realtime infrastructure output', 'realtime-data-builder', join(repositoryRoot, 'src/shared/realtime/ringBuffer.ts'), 0],
     ['realtime builder chart UI', 'realtime-data-builder', join(repositoryRoot, 'src/features/live-mode/ui/LiveBadge.tsx'), 2],
     ['foundation builder realtime scope', 'shared-foundation-builder', join(repositoryRoot, 'src/shared/realtime/transport.ts'), 2],
     ['form builder live-mode scope', 'form-state-builder', join(repositoryRoot, 'src/features/live-mode/model/store.ts'), 2],
-    ['mutation builder live-mode scope', 'feature-mutation-builder', join(repositoryRoot, 'src/features/live-mode/api/connect.ts'), 2],
+    ['form builder live-mode api scope', 'form-state-builder', join(repositoryRoot, 'src/features/live-mode/api/connect.ts'), 2],
     ['deploy writer Renovate config', 'deploy-ci-writer', join(repositoryRoot, '.github/renovate.json'), 0],
     ['deploy writer Dependabot config', 'deploy-ci-writer', join(repositoryRoot, '.github/dependabot.yml'), 0],
     ['AI requirements output', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements.md'), 0],
@@ -223,9 +223,9 @@ export const validateAgentBoundaries = ({
     ['visual test writer baseline', 'visual-test-writer', join(repositoryRoot, 'e2e/home.visual.spec.ts-snapshots/home.png'), 2],
     ['visual baseline manifest', 'visual-baseline-manager', join(repositoryRoot, '_workspace/02_design/visual-baseline-manifest.json'), 0],
     ['visual baseline manager PNG', 'visual-baseline-manager', join(repositoryRoot, 'e2e/home.visual.spec.ts-snapshots/home.png'), 2],
-    ['own development journal', 'component-builder', join(repositoryRoot, '_workspace/03_dev/change-journal/component-builder.md'), 0],
-    ['another agent development journal', 'component-builder', join(repositoryRoot, '_workspace/03_dev/change-journal/entity-query-builder.md'), 2],
-    ['legacy shared development journal', 'component-builder', join(repositoryRoot, '_workspace/03_dev/change-journal.md'), 2],
+    ['own development journal', 'test-writer', join(repositoryRoot, '_workspace/03_dev/change-journal/test-writer.md'), 0],
+    ['another agent development journal', 'test-writer', join(repositoryRoot, '_workspace/03_dev/change-journal/form-state-builder.md'), 2],
+    ['legacy shared development journal', 'test-writer', join(repositoryRoot, '_workspace/03_dev/change-journal.md'), 2],
     ['next contract matrices output', 'next-contract-designer', join(repositoryRoot, '_workspace/02_design/next-contract-matrices.md'), 0],
     ['next build environment manifest', 'next-contract-designer', join(repositoryRoot, '_workspace/02_design/build-environment.json'), 0],
     ['next contract designer runtime source', 'next-contract-designer', join(repositoryRoot, 'src/app/dashboard/page.tsx'), 2],

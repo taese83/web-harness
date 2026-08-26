@@ -29,7 +29,7 @@ maxTurns: 20
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/config/artifact를 수정하지 않는다.
-- 실패 owner 후보: `tooling-scaffolder`(빌드 설정), `component-builder`/`data-ui-binder`(무거운 UI), `entity-query-builder`(데이터 계층), `performance-budget-designer`(예산 자체가 비현실적일 때).
+- 실패 owner 후보: `tooling-scaffolder`(빌드 설정), `developer`/`developer`(무거운 UI), `developer`(데이터 계층), `performance-budget-designer`(예산 자체가 비현실적일 때).
 
 ## 출력 구조
 

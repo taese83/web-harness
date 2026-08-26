@@ -91,7 +91,7 @@ static export는 cookie/request identity, Server Action, ISR, request-dependent 
 
 - 공통 Plan/Design은 기존 Phase를 사용한다.
 - `react-vite-spa`만 Vite tooling/app shell/FSD 구현 wave를 사용한다.
-- `next-app-fullstack`은 `/next-app`으로 위임하고 Vite 전용 `tooling-scaffolder`, `app-shell-builder`, Vite template을 호출하지 않는다.
+- `next-app-fullstack`은 `/next-app`으로 위임하고 Vite 전용 `tooling-scaffolder`, `developer`, Vite template을 호출하지 않는다.
 - 공통 quality receipt와 release manifest는 유지하되 Next adapter 전용 contract check와 verifier를 추가한다.
 
 profile JSON, enabled capability, execution plan, adapter manifest, package/toolchain, build-environment 또는 deployment matrix가 바뀌면 downstream evidence는 stale이다.

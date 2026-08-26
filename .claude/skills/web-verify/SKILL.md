@@ -71,7 +71,7 @@ FAIL 항목은 아래 형식으로 출력한다:
 ```
 ❌ FAIL: qa-code.md
   원인: src/features/xxx/ui/Foo.tsx:12 — TS2345 타입 불일치
-  수정 agent: component-builder (minimal-change-contract 적용)
+  수정 agent: developer (minimal-change-contract 적용)
   다음 단계: 수정 후 /web-verify를 다시 실행
 ```
 

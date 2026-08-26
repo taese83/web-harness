@@ -85,7 +85,7 @@ license 검사를 담당한다. 이 산출은 `pack-verifier`와 `pack.publish-m
   `main`·`types`가 `dist/`를 가리키고 `build.lib.entry`가 단일 진입점이다. `index.html`이 있지만
   `src/main.ts` 주석이 "라이브러리 빌드에 포함되지 않습니다"로 명시해 web-app을 배제했다 —
   **같은 신호(`index.html`)가 형태를 가르지 못하고 소비 방식이 갈랐다.** Phase 3은 `lib-*` 셋이
-  맞고, 현재 파이프라인은 여기에 `app-shell-builder`·`route-builder`를 돌린다(실측된 오류).
+  맞고, 현재 파이프라인은 여기에 `developer`·`developer`를 돌린다(실측된 오류).
 
 빌더 이름이 표에 등장하는 것은 하네스가 그 에이전트를 소유하기 때문이며, 프로젝트의 디렉토리
 구조나 라이브러리 선택을 강제하지 않는다 — 그것은 스팩의 `layerMap`·`libraries`가 프로젝트마다

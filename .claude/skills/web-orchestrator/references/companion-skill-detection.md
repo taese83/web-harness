@@ -65,7 +65,7 @@
 - 이미 tRPC 등 end-to-end typed 솔루션 사용 중
 
 **Phase 3 삽입 지점**:
-- shared-foundation-builder 이후, entity-query-builder 이전
+- shared-foundation-builder 이후, developer 이전
 - Schema 정의가 있어야 entity/feature builder가 참조 가능
 
 ### MOCK_SERVICE_MODE — `mock-service-setup`
@@ -99,7 +99,7 @@
 
 **Phase 3 삽입 지점**:
 - SERVER_DB_MODE 이후 (user upsert 필요)
-- feature-mutation-builder 이전 (protected endpoint가 auth를 요구)
+- developer 이전 (protected endpoint가 auth를 요구)
 
 ### I18N_MODE — `i18n-setup`
 
@@ -112,7 +112,7 @@
 - 단일 언어 고정 서비스 (하드코딩 문자열이 정당)
 - 안내문 한두 개만 바꾸는 단순 언어 토글
 
-**Phase 3 삽입 지점**: `shared-foundation-builder` 이후(빈 `src/shared/lang/` 생성 뒤), `component-builder` 이전(UI가 catalog key를 사용해야 함). `/i18n-setup`을 실행하고 파일 작성은 `i18n-builder`가 담당한다.
+**Phase 3 삽입 지점**: `shared-foundation-builder` 이후(빈 `src/shared/lang/` 생성 뒤), `developer` 이전(UI가 catalog key를 사용해야 함). `/i18n-setup`을 실행하고 파일 작성은 `i18n-builder`가 담당한다.
 
 ### OBSERVABILITY_MODE — `web-observability-builder`
 
