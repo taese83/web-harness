@@ -26,6 +26,8 @@ import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec-lock.json'
+const EVIDENCE_DIR = '_workspace/04_qa/evidence'
+const SHAPE_CHECKS_PATH = new URL('../shape-checks.json', import.meta.url)
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
 
 // substrate 키별 실측 근거. 여기 없는 키는 "검증 불가"로 보고한다 — 조용히 통과시키지 않는다.
@@ -95,6 +97,52 @@ export const checkLayerMap = (specLock, projectRoot) => {
     if (!existsSync(resolve(root, path))) failures.push({layer, path, reason: '경로가 존재하지 않는다'})
   }
   return failures
+}
+
+// ── 형태 → 요구 검증 (Stage 2b) ──────────────────────────────────────────────
+// 형태가 검증을 고른다. targetShapes가 배열이므로 요구 세트는 **합집합**이다 —
+// 라이브러리이면서 CLI인 패키지는 두 세트를 모두 요구받는다.
+export const readShapeChecks = () => JSON.parse(readFileSync(SHAPE_CHECKS_PATH, 'utf8'))
+
+export const resolveRequiredChecks = (targetShapes, catalog = readShapeChecks()) => {
+  const required = new Set(catalog.common?.checks ?? [])
+  const unknownShapes = []
+  for (const shape of targetShapes ?? []) {
+    const entry = catalog.shapes?.[shape]
+    if (!entry) {
+      unknownShapes.push(shape)
+      continue
+    }
+    for (const check of entry.checks ?? []) required.add(check)
+  }
+  return {required: [...required].sort(), unknownShapes}
+}
+
+// 수행된 검증을 evidence receipt에서 읽는다. receipt는 evidence/{id}.json이고 status를 갖는다.
+export const readEvidence = projectRoot => {
+  const dir = resolve(projectRoot, EVIDENCE_DIR)
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return null
+  const receipts = new Map()
+  for (const entry of readdirSync(dir, {withFileTypes: true})) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+    const receipt = readJsonIfExists(join(dir, entry.name))
+    if (receipt === null) continue
+    receipts.set(receipt.id ?? entry.name.replace(/\.json$/, ''), receipt.status ?? null)
+  }
+  return receipts
+}
+
+// 요구된 검증이 실제로 수행됐는가. **이것이 2b가 게이트가 되는 지점이다.**
+// evidence 디렉토리 자체가 없으면 아직 검증 단계가 아니므로 판정하지 않는다(NOT_RUN).
+export const checkShapeEvidence = (specLock, projectRoot) => {
+  const {required, unknownShapes} = resolveRequiredChecks(specLock.targetShapes)
+  const receipts = readEvidence(projectRoot)
+  if (receipts === null) {
+    return {evidenceState: 'NOT_RUN', required, missing: [], failing: [], unknownShapes}
+  }
+  const missing = required.filter(check => !receipts.has(check))
+  const failing = required.filter(check => receipts.has(check) && receipts.get(check) !== 'PASS')
+  return {evidenceState: 'RUN', required, missing, failing, unknownShapes}
 }
 
 // 선언된 형태를 package.json 필드와 대조한다(조사 2026-08-26).
@@ -280,6 +328,22 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   for (const item of shapes.unverifiable) unverifiable.push(item)
   for (const note of shapes.notes) notes.push(note)
 
+  // 형태가 요구하는 검증이 수행됐는가(2b)
+  const evidence = checkShapeEvidence(specLock, root)
+  if (evidence.evidenceState === 'RUN') {
+    for (const check of evidence.missing) {
+      failures.push({kind: 'shapeEvidence', reason: `선언된 형태가 요구하는 검증 '${check}'의 receipt가 없다`})
+    }
+    for (const check of evidence.failing) {
+      failures.push({kind: 'shapeEvidence', reason: `요구 검증 '${check}'이 PASS가 아니다`})
+    }
+  } else {
+    notes.push(`요구 검증 ${evidence.required.length}종(${evidence.required.join(', ')}) — evidence 디렉토리가 없어 아직 판정하지 않는다`)
+  }
+  for (const shape of evidence.unknownShapes) {
+    unverifiable.push({kind: 'shapeEvidence', reason: `'${shape}' 형태의 요구 검증 목록이 없다 — 이 형태는 아무것도 요구하지 않는다`})
+  }
+
   const uncovered = checkLayerMapCoverage(specLock, root)
   if (uncovered.length > 0) {
     notes.push(`layerMap이 덮지 않는 소스 디렉토리 ${uncovered.length}개: ${uncovered.join(', ')} — 이 경로는 어떤 에이전트도 쓸 수 없다`)
@@ -288,9 +352,9 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   if (specLock.specTier === 'unverifiable') {
     notes.push('specTier가 unverifiable이다 — 수용 기준이 없어 이 설계가 옳은지는 판정할 수 없다. 형식 정합만 확인했다')
   }
-  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} — 형태별 게이트 선택은 아직 배선되지 않았다(Stage 2b)`)
+  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} → 요구 검증 ${evidence.required.length}종`)
 
-  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, notes}
+  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, requiredChecks: evidence.required, evidenceState: evidence.evidenceState, notes}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

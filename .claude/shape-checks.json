@@ -1,0 +1,22 @@
+{
+  "$comment": "산출물 형태 → 그 형태가 요구하는 검증 id. targetShapes가 배열이므로 요구 세트는 선언된 형태의 합집합이다. id는 evidence/{id}.json 파일명과 맞춘다. cli 항목의 근거는 외부 표준이 아니라 관례 집합이다(exit 0/1/2, 에러는 stderr, 에러 텍스트에 프로그램 이름, bin+shebang) — 조사 2026-08-26.",
+  "schemaVersion": 1,
+  "common": {
+    "$comment": "형태와 무관하게 요구된다 — substrate 층에 대응한다.",
+    "checks": ["quality.lint", "quality.typecheck", "quality.unit"]
+  },
+  "shapes": {
+    "web-app": {
+      "checks": ["vite.build", "vite.browser"],
+      "$comment": "어댑터 checks에 이미 존재한다. next 프로필은 next.* 세트를 추가로 갖는다."
+    },
+    "library": {
+      "checks": ["pack.contents", "pack.publish-metadata", "lib.public-api"],
+      "$comment": "pack-verifier·package-publish-metadata·lib-api-designer가 이미 수행하는 것들이다. 어댑터 checks 체계 밖에 있어 릴리스 게이트가 알지 못한다 — 편입이 남은 작업이다."
+    },
+    "cli": {
+      "checks": ["cli.bin-entrypoint", "cli.exit-codes", "cli.stderr-errors"],
+      "$comment": "이 세 검사는 아직 구현체가 없다. 요구는 선언되고 evidence 부재로 보고된다 — 요구를 숨기지 않는 것이 요점이다."
+    }
+  }
+}

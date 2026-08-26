@@ -14,7 +14,8 @@ import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkSubstrate, checkTargetShapes, checkToolchainAlignment,
+  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkShapeEvidence, checkSubstrate, checkTargetShapes, checkToolchainAlignment,
+  readShapeChecks, resolveRequiredChecks,
   collectDeclaredPackages, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './lock-spec.mjs'
@@ -323,5 +324,74 @@ test('대조 규칙이 없는 형태는 unverifiable로 보고한다', () => {
     const {failures, unverifiable} = checkTargetShapes({targetShapes: ['browser-extension']}, root)
     assert.equal(failures.length, 0, '모르는 것을 실패로 만들지 않는다')
     assert.equal(unverifiable.length, 1, '침묵으로 통과시키지도 않는다')
+  })
+})
+
+// ── (9) 형태 → 요구 검증 (Stage 2b) ──────────────────────────────────────────
+test('요구 검증은 형태의 합집합이다 — 라이브러리+CLI는 둘 다 요구받는다', () => {
+  const {required} = resolveRequiredChecks(['library', 'cli'])
+  assert.ok(required.includes('pack.contents'), 'library 요구')
+  assert.ok(required.includes('cli.bin-entrypoint'), 'cli 요구')
+  assert.ok(required.includes('quality.lint'), '공통 요구')
+})
+
+test('공통 검사는 형태와 무관하게 요구된다', () => {
+  const catalog = readShapeChecks()
+  for (const shape of Object.keys(catalog.shapes)) {
+    const {required} = resolveRequiredChecks([shape])
+    for (const common of catalog.common.checks) {
+      assert.ok(required.includes(common), `${shape}에 공통 ${common}이 빠졌다`)
+    }
+  }
+})
+
+test('요구 목록이 없는 형태는 unknownShapes로 보고된다 — 조용히 0을 요구하지 않는다', () => {
+  const {required, unknownShapes} = resolveRequiredChecks(['browser-extension'])
+  assert.deepEqual(unknownShapes, ['browser-extension'])
+  assert.deepEqual(required, readShapeChecks().common.checks.slice().sort())
+})
+
+test('evidence 디렉토리가 없으면 판정하지 않는다(NOT_RUN)', () => {
+  withLockedProject({}, root => {
+    const result = checkShapeEvidence({targetShapes: ['web-app']}, root)
+    assert.equal(result.evidenceState, 'NOT_RUN')
+    assert.deepEqual(result.missing, [])
+  })
+})
+
+test('회귀 반증: 요구 검증의 receipt가 없으면 FAIL', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['web-app']}),
+    files: ['_workspace/04_qa/evidence/quality.lint.json'],
+  }, root => {
+    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
+      JSON.stringify({id: 'quality.lint', status: 'PASS'}))
+    const result = checkShapeEvidence({targetShapes: ['web-app']}, root)
+    assert.equal(result.evidenceState, 'RUN')
+    assert.ok(result.missing.includes('vite.build'), '요구되는데 없는 검증이 보고돼야 한다')
+    assert.equal(result.missing.includes('quality.lint'), false, '수행된 것은 빠진다')
+  })
+})
+
+test('회귀 반증: receipt가 있어도 PASS가 아니면 FAIL로 잡는다', () => {
+  withLockedProject({decision: baseDecision(), files: ['_workspace/04_qa/evidence/quality.lint.json']}, root => {
+    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
+      JSON.stringify({id: 'quality.lint', status: 'FAIL'}))
+    const result = checkShapeEvidence({targetShapes: []}, root)
+    assert.ok(result.failing.includes('quality.lint'))
+  })
+})
+
+test('evidence 커버리지 실패가 정합 검사 FAIL로 올라온다', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['web-app']}),
+    files: ['_workspace/04_qa/evidence/quality.lint.json'],
+  }, root => {
+    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
+      JSON.stringify({id: 'quality.lint', status: 'PASS'}))
+    const result = inspectSpecConformance({projectRoot: root})
+    assert.equal(result.status, 'FAIL')
+    assert.ok(result.failures.some(f => f.kind === 'shapeEvidence'))
+    assert.equal(result.evidenceState, 'RUN')
   })
 })
