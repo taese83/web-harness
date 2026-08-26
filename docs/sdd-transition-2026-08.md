@@ -67,9 +67,9 @@ CLI 의무, 최대 3 프로젝트)을 섞어 놨다. 그 의견들은 "라이브
 | 기획 | 기존 스킬 유지. FEAT/TC ID가 수용 기준이 된다 |
 | 디자인 | 기존 스킬 유지 (선택). 디자인 없는 개발도 있다 |
 | **설계** ★ | `system-architect` — 아키텍처 패턴·레이어 맵·라이브러리·통신·동시성·모듈 경계를 기록. 브라운필드는 실측이 제안을 이기고, 갈리는 결정은 확정하지 않고 사용자에게 올린다 |
-| **잠금** ★ | `lock-spec` — **확정되지 않은 결정이 하나라도 남으면 잠기지 않는다.** 잠금 자신의 해시가 append-only 원장에 기록된다 |
-| 개발 | 가이드라인 + 잠긴 스팩. 소유권 경계가 `layerMap`에서 나온다 — 역할은 하네스가 고정하고 경로는 프로젝트가 정한다 |
-| **검증** ★ | `validate-spec-conformance` → 릴리스 게이트. 잠긴 프로젝트는 릴리스가 스팩에 묶인다 |
+| **스팩 확정** ★ | `lock-spec` — **확정되지 않은 결정이 하나라도 남으면 확정되지 않는다.** 스팩 확정 자신의 해시가 append-only 원장에 기록된다 |
+| 개발 | 가이드라인 + 확정된 스팩. 소유권 경계가 `layerMap`에서 나온다 — 역할은 하네스가 고정하고 경로는 프로젝트가 정한다 |
+| **검증** ★ | `validate-spec-conformance` → 릴리스 게이트. 확정된 프로젝트는 릴리스가 스팩에 묶인다 |
 
 ### 주요 명령
 
@@ -79,7 +79,7 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root <path> --json
 node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes library,cli
 ```
 
-### 잠금 거부 조건 (fail-closed)
+### 확정 거부 조건 (fail-closed)
 
 - `status: "open"`인 미결정 잔존 — 착수 전 확정이 전제다
 - 결정 블록 부재·중복(정본 모호)·JSON 오류
@@ -88,7 +88,7 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 
 ### 거부하지 않고 라벨로 표기
 
-수용 기준이 없으면 `specTier: "unverifiable"`로 잠긴다. 기획 없는 브라운필드 개선을 막지
+수용 기준이 없으면 `specTier: "unverifiable"`로 확정된다. 기획 없는 브라운필드 개선을 막지
 않으면서 그 상태를 숨기지도 않는다.
 
 ### 형태 → 요구 검증 (합집합)
@@ -109,11 +109,11 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 
 | 판정 | 뜻 |
 |---|---|
-| `OK` | 원장의 어느 기록과든 일치 — 재잠금 정상 |
-| `SPEC_TAMPERED` | 잠금 해시가 원장 어디와도 불일치 — 사후 수정 |
+| `OK` | 원장의 어느 기록과든 일치 — 재확정 정상 |
+| `SPEC_TAMPERED` | 스팩 해시가 원장 어디와도 불일치 — 사후 수정 |
 | `SPEC_DELETED` | 원장에 기록이 있는데 파일이 없음 — 삭제로 결박 해제 |
 | `NO_LEDGER` | 원장 없음 — 실패가 아니라 **결박 부재**로 보고 |
-| `INVALID_SPEC` | 파일이 있는데 읽을 수 없음 — 잠금 없음으로 강등되지 않는다 |
+| `INVALID_SPEC` | 파일이 있는데 읽을 수 없음 — 스팩 확정 없음으로 강등되지 않는다 |
 
 ---
 
@@ -126,14 +126,14 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 | 단일 `targetShape` | 라이브러리이면서 CLI인 패키지가 정상 패턴이다. 하나로 강제하면 검증의 절반을 잃는다 | 배선 전 조사 |
 | lockfile 근거 | 설치 증거를 채택 증거로 오귀속. webpack+vitest 앱이 react-vite-spa로 조용히 오탐 | 적대 리뷰 |
 | FSD를 기본 layerMap으로 | 등록부는 레이어 이름보다 많은 것을 인코딩한다(`live-mode` carve-out). 평면 map이 경계를 무너뜨림 | **게이트가 잡음** |
-| 깨진 잠금 → `NO_SPEC` | 파일 한 바이트만 깨뜨리면 결박이 꺼진다. 보고까지 거짓(있는 파일을 없다고) | 적대 리뷰 |
-| receipt 이름 `quality.lint` | 러너는 `lint.json`을 쓴다. 잠근 프로젝트 전원이 오탐 블록될 뻔 | 적대 리뷰 |
+| 깨진 스팩 확정 → `NO_SPEC` | 파일 한 바이트만 깨뜨리면 결박이 꺼진다. 보고까지 거짓(있는 파일을 없다고) | 적대 리뷰 |
+| receipt 이름 `quality.lint` | 러너는 `lint.json`을 쓴다. 확정한 프로젝트 전원이 오탐 블록될 뻔 | 적대 리뷰 |
 | scoped 패키지 파싱 | `@scope/pkg`가 빈 문자열이 돼 검증을 통째로 건너뜀. 위조가 PASS | 적대 리뷰 |
 
 세 번째가 특히 그렇다 — **내가 게이트를 약화시켰고 게이트가 그것을 잡았다.**
 
 다섯째·여섯째는 내 테스트가 못 잡은 이유가 자기일관적이었다. fixture를 손으로 잘못된 이름으로
-써서 버그와 같은 방향으로 오염돼 있었고, 깨진 잠금 테스트는 `assert.ok(Array.isArray(errors))`
+써서 버그와 같은 방향으로 오염돼 있었고, 깨진 스팩 확정 테스트는 `assert.ok(Array.isArray(errors))`
 라는 vacuous assertion으로 fail-open을 회귀에 고정하고 있었다.
 
 ---
@@ -143,7 +143,7 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 0 설계자 | 구현 설계 결정 기록 | ✅ |
-| 1 스팩 잠금 | 미결정 잔존 시 거부 · 원장 결박 | ✅ |
+| 1 스팩 스팩 확정 | 미결정 잔존 시 거부 · 원장 결박 | ✅ |
 | 2a 정합 검사 | `measured` 실측 대조 · staleness | ✅ |
 | 2b 형태 → 검증 | 합집합 요구 · 릴리스 배선 | ◐ runtime 3종 미구현 |
 | 3b 스팩 유래 소유권 | `layerMap`이 쓰기 경계 공급 | ✅ |
@@ -155,11 +155,11 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 
 ## 6. 정직하게 남긴 한계
 
-**실사용 잠금이 0건이다.** 골든 레퍼런스 3종이 전부 `NO_SPEC`이고 이 전환 전체가
-**fixture 회귀로만 무장**돼 있다. "릴리스가 스팩에 묶인다"는 잠금 실사용이 발생하는 시점부터
+**실사용 스팩이 0건이다.** 골든 레퍼런스 3종이 전부 `NO_SPEC`이고 이 전환 전체가
+**fixture 회귀로만 무장**돼 있다. "릴리스가 스팩에 묶인다"는 스팩 확정 실사용이 발생하는 시점부터
 참이다.
 
-**원장도 파일이다.** 잠금과 함께 지우면 탐지되지 않는다. 로컬 신뢰 모델의 명시적 리스크
+**원장도 파일이다.** 스팩과 함께 지우면 탐지되지 않는다. 로컬 신뢰 모델의 명시적 리스크
 인수이며(티켓 원장과 같은 판단), 실질 방어는 원장이 git에 커밋되어 삭제가 히스토리에 남는 것이다.
 
 **`measured`는 여전히 자기보고다.** 실존 대조가 붙었지만 도구명이 npm 패키지명과 다르고
@@ -182,5 +182,5 @@ aliases 미등록이면 `unverifiable`로 샌다. 그리고 그 오탐이 이제
    표현할 수 있어야 FSD 하드코딩을 걷어낼 수 있다
 3. **22단계 파이프라인 제거** — 가장 큰 해제. 1·2가 서야 검증을 잃지 않고 할 수 있다
 
-**순서와 무관하게 값이 큰 것**: 실사용 잠금 하나. 골든에 잠긴 변형을 넣으면 이 전환이 fixture
+**순서와 무관하게 값이 큰 것**: 실사용 스팩 확정 하나. 골든에 확정된 변형을 넣으면 이 전환이 fixture
 밖에서 처음 발화하고, 그때 무엇이 더 틀렸는지가 드러난다 — §4의 여섯 항목이 그렇게 나왔다.

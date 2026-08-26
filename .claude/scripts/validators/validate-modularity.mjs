@@ -10,8 +10,13 @@ export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, acti
   for (const relativePath of agentFiles) {
     if (lineCount(read(relativePath)) > 300) fail(`${relativePath}: agent exceeds the 300-line single-role limit`)
   }
+  // 참조 한도는 400줄이다(2026-08-26 상향, 사용자 결정). SKILL.md·에이전트는 300줄로 남긴다 —
+  // 그 둘은 always-read 고정 비용이고 참조는 시점 로드라 성격이 다르다.
+  // 프록시 표기: 줄 수는 읽기 비용의 대리 지표다. 실제 비용은 바이트이며 always-read는 이미
+  // contract-hygiene이 바이트로 잰다. 줄바꿈을 없애 같은 내용을 긴 줄로 밀어넣으면 이 게이트는
+  // 통과하는데 비용은 줄지 않는다 — 실측 확인된 우회이며 protected-core §4에 등록했다.
   for (const relativePath of activeMarkdown.filter(path => path.includes('/references/'))) {
-    if (lineCount(read(relativePath)) > 300) fail(`${relativePath}: active reference exceeds 300 lines; split it or make it an asset`)
+    if (lineCount(read(relativePath)) > 400) fail(`${relativePath}: active reference exceeds 400 lines; split it or make it an asset`)
   }
 
   const movedCatalogs = [
