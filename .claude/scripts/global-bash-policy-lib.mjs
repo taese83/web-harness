@@ -786,7 +786,7 @@ const validationScriptContract = (script, args, context) => {
     return args.length === 0 || withoutDirectoryOption(args, '--project', context).length === 0
   }
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
-  if (script === '.claude/scripts/lock-spec.mjs') return lockSpecContract(args, context)
+  if (script === '.claude/scripts/spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)

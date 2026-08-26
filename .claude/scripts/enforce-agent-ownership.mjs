@@ -4,13 +4,13 @@ import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, resolveSpecOwnership} from './agent-registry.mjs'
 
-// 잠긴 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
+// 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
 // 스팩이 우회 벡터가 되지 않는 근거: (1) spec-lock은 어떤 에이전트도 소유하지 않는다,
 // (2) layerMap 경로의 실존은 validate-spec-conformance가 대조한다,
 // (3) 레이어가 서로 겹치면 resolveSpecOwnership이 null을 돌려 스팩을 신뢰하지 않는다.
 const readSpecLock = projectRoot => {
-  const path = join(projectRoot, '_workspace/03_dev/spec-lock.json')
+  const path = join(projectRoot, '_workspace/03_dev/spec.json')
   if (!existsSync(path) || !statSync(path).isFile()) return null
   try {
     return JSON.parse(readFileSync(path, 'utf8'))

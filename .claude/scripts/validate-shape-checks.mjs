@@ -52,7 +52,7 @@ export const checkPublishMetadata = (manifest, projectRoot = '.') => {
     problems.push('exports도 main도 없다 — 소비 진입점이 없다')
   }
   // files 허용목록이 없으면 의도치 않은 파일이 배포된다. npmignore가 있으면 그것으로 대체된다.
-  // 실사용 잠금 2호(2026-08-26)에서 잡힘: 이 줄만 상대 경로라 **하네스 cwd**의 .npmignore를
+  // 실사용 스팩 확정 2호(2026-08-26)에서 잡힘: 이 줄만 상대 경로라 **하네스 cwd**의 .npmignore를
   // 봤다. 외부 project-root를 검사하면 대상과 무관하게 판정이 갈렸다(오탐·누락 양방향).
   if (!Array.isArray(manifest.files) && !existsSync(resolve(projectRoot, '.npmignore'))) {
     problems.push('files 허용목록도 .npmignore도 없다 — 배포 내용물이 통제되지 않는다')
@@ -61,7 +61,7 @@ export const checkPublishMetadata = (manifest, projectRoot = '.') => {
 }
 
 // ── library: 공개 API 진입점 실존 ────────────────────────────────────────────
-// 실사용 잠금 2호(2026-08-26)에서 잡힘: 이 검사는 kind:"static"인데 **대상이 빌드 산출물**이다.
+// 실사용 스팩 확정 2호(2026-08-26)에서 잡힘: 이 검사는 kind:"static"인데 **대상이 빌드 산출물**이다.
 // 컴파일해 배포하는 정상 라이브러리는 빌드 전에 반드시 FAIL했다 — "미빌드"를 "결함"으로 보고한
 // 것이다. 미판정을 PASS로 승격하지 않는 규율의 반대 방향(미판정을 FAIL로 강등)이 뚫려 있었다.
 // 선언 정합(루트 이탈·진입점 부재)은 여전히 정적으로 판정하고, 파일 실존은 진입점의 최상위

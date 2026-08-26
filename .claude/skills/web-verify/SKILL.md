@@ -28,7 +28,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 
 경로가 확인되면:
 
-1. source를 수정하기 전에 built-in profile을 다시 잠근다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 잠기지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
+1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 확정되지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
 2. 테스트 기반을 준비한다:
    - test-scaffolder
    - test-writer

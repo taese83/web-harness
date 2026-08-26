@@ -1,26 +1,26 @@
 #!/usr/bin/env node
-// lock-spec.mjs — 개발 착수 전 구현 스팩을 확정·잠근다 (Stage 1).
+// spec.mjs — 개발 착수 전 구현 스팩을 확정·확정한다 (Stage 1).
 //
 // solution-design.md의 `web-harness:solution-design` 블록을 읽어 검증하고, 그것이 유래한
 // 입력들의 해시를 함께 묶어 spec-lock을 stdout으로 낸다. 오케스트레이터가 stdout을 그대로
-// `_workspace/03_dev/spec-lock.json`에 저장한다 — project-profile.json·web-execution-plan.json과
+// `_workspace/03_dev/spec.json`에 저장한다 — project-profile.json·web-execution-plan.json과
 // 같은 관례다. 어떤 에이전트도 이 파일을 소유하지 않으므로 구현 에이전트의 스팩 자기수정이
 // **Edit/Write 채널에서** 차단된다 — 차단의 실체는 ORCHESTRATOR_AUTHORED_ARTIFACTS(비강제
 // 명세)가 아니라 enforce-agent-ownership의 default-deny다. Bash 채널과 메인 스레드는 훅 밖이며
 // 이는 protected-core에 기등록된 한계다.
 //
-// 왜 잠그는가: 협업 때문이다. 여러 사람이 같은 스팩에 맞춰 개발하려면 그 스팩이 개발 중에
+// 왜 확정하는가: 협업 때문이다. 여러 사람이 같은 스팩에 맞춰 개발하려면 그 스팩이 개발 중에
 // 흔들리지 않아야 한다. 모델 능력이 좋아져도 이 필요는 사라지지 않는다 — 능력 보상형
 // 스캐폴딩이 아니라 협업 계약형이다.
 //
-// 잠금 거부 조건(fail-closed):
+// 확정 거부 조건(fail-closed):
 //   · 결정 블록 부재·중복·JSON 오류
 //   · 스키마 위반
 //   · **status: "open"인 미결정이 하나라도 있음** — 스팩 확정이 착수 전제다
 //
-// 잠금은 하되 라벨로 표기하는 것(이진 거부가 아님):
+// 스팩은 하되 라벨로 표기하는 것(이진 거부가 아님):
 //   · 수용 기준 부재(`acceptanceSource: "absent"`) → `specTier: "unverifiable"`
-//     설계는 확정됐으나 그것이 맞는지 판정할 기준이 없다는 뜻이다. 잠금 자체는 유효하다 —
+//     설계는 확정됐으나 그것이 맞는지 판정할 기준이 없다는 뜻이다. 스팩 확정 자체는 유효하다 —
 //     기획 없는 브라운필드 개선을 막지 않으면서 그 상태를 숨기지도 않는다.
 //     이 tier를 게이트가 어떻게 다룰지는 Stage 2의 결정이며 여기서 정하지 않는다.
 import {createHash} from 'node:crypto'
@@ -30,24 +30,24 @@ import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 
 const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
 
-// 잠금이 유래한 입력. 없으면 없다고 기록한다 — 부재도 잠금의 일부다.
+// 스팩이 유래한 입력. 없으면 없다고 기록한다 — 부재도 스팩의 일부다.
 // 한계(적대 리뷰 2026-08-26): flat 경로 고정이라 하네스가 허용하는 sharded 형태
 // (api-schema/INDEX.md 등)를 포섭하지 못한다. sharded 프로젝트에서는 실제 입력이
 // present:false로 기록돼 변경이 staleness에 안 잡힌다 — Stage 2에서 stale 게이트가 생기면
 // fail-open 방향이다. §4 등록, 해소는 Stage 2 전제조건.
-// 잠금 원장(append-only). 잠금 자신의 해시를 기록해 **삭제와 사후 수정**을 탐지한다.
-// 배경(적대 리뷰 2026-08-26): sourceDigest는 잠금의 *입력*만 다이제스트하고 잠금 *자신*은
+// 스팩 원장(append-only). 스팩 확정 자신의 해시를 기록해 **삭제와 사후 수정**을 탐지한다.
+// 배경(적대 리뷰 2026-08-26): sourceDigest는 스팩의 *입력*만 다이제스트하고 스팩 확정 *자신*은
 // 아니므로, layerMap·libraries를 사후 실측에 맞게 고쳐 써도 어떤 기계도 잡지 못했다.
-// spec-lock.json을 지우면 NOT_LOCKED로 결박이 풀리는 것도 같은 구멍이다.
+// spec.json을 지우면 NO_SPEC로 결박이 풀리는 것도 같은 구멍이다.
 // planLock 삭제 우회(§4 "재개 매니페스트" 행)와 같은 클래스이며 그때의 해법을 그대로 쓴다.
 //
 // **한계(정직)**: 원장도 파일이라 함께 지우면 탐지되지 않는다. 이것은 로컬 신뢰 모델의
 // 명시적 리스크 인수이며 ticket/ledger-writer.mjs와 같은 판단이다 — 실질 방어는 원장이
 // git에 커밋되어 삭제가 히스토리에 남는 것이다.
-export const SPEC_LOCK_LEDGER = '_workspace/03_dev/spec-lock-ledger.jsonl'
+export const SPEC_LEDGER = '_workspace/03_dev/spec-ledger.jsonl'
 
-// 잠금 내용 자체의 해시. 원장 기록과 대조해 사후 수정을 잡는다.
-export const specLockDigest = specLock => sha256(JSON.stringify(specLock))
+// 스팩 확정 내용 자체의 해시. 원장 기록과 대조해 사후 수정을 잡는다.
+export const specDigest = spec => sha256(JSON.stringify(spec))
 
 export const LOCK_INPUTS = [
   '_workspace/01_plan/feature-plan.md',
@@ -122,7 +122,7 @@ export const digestInputs = (projectRoot, inputs = LOCK_INPUTS) => {
     const candidate = resolve(root, relativePath)
     const offset = relative(root, candidate)
     if (offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)) {
-      throw new LockError('LOCK_INPUT_ESCAPES_ROOT', `잠금 입력이 프로젝트 루트를 벗어난다: ${relativePath}`)
+      throw new LockError('LOCK_INPUT_ESCAPES_ROOT', `확정 입력이 프로젝트 루트를 벗어난다: ${relativePath}`)
     }
     if (!existsSync(candidate) || !statSync(candidate).isFile()) {
       return {path: relativePath, present: false}
@@ -147,8 +147,8 @@ export const mergeSubstrate = (declaredSubstrate, defaults = readSubstrateDefaul
   const merged = {}
   for (const [key, entry] of Object.entries(declared)) {
     requireNonEmptyString(entry?.value, 'SUBSTRATE_VALUE_MISSING', `constitution.substrate.${key}.value가 없다`)
-    if (!['default', 'measured', 'declared'].includes(entry?.source)) {
-      throw new LockError('SUBSTRATE_SOURCE_INVALID', `constitution.substrate.${key}.source는 default|measured|declared여야 한다`)
+    if (!['default', 'measured', 'inferred', 'declared'].includes(entry?.source)) {
+      throw new LockError('SUBSTRATE_SOURCE_INVALID', `constitution.substrate.${key}.source는 default|measured|inferred|declared여야 한다`)
     }
     if (entry.source === 'declared') {
       requireNonEmptyString(
@@ -182,7 +182,7 @@ export const mergeSubstrate = (declaredSubstrate, defaults = readSubstrateDefaul
 }
 
 
-export const buildSpecLock = ({decision, digest}) => {
+export const buildSpec = ({decision, digest}) => {
   if (decision === null || typeof decision !== 'object' || Array.isArray(decision)) {
     throw new LockError('DECISION_BLOCK_INVALID_SHAPE', '결정 블록이 객체가 아니다')
   }
@@ -219,8 +219,11 @@ export const buildSpecLock = ({decision, digest}) => {
   const libraries = decision.libraries ?? {}
   for (const [role, entry] of Object.entries(libraries)) {
     requireNonEmptyString(entry?.choice, 'LIBRARY_CHOICE_MISSING', `libraries.${role}.choice가 없다`)
-    if (!['measured', 'measured-absent', 'proposed'].includes(entry?.source)) {
-      throw new LockError('LIBRARY_SOURCE_INVALID', `libraries.${role}.source는 measured|measured-absent|proposed여야 한다`)
+    // 근거 티어(2026-08-26): 실측 → 추론 → 질의 순서를 표현한다. 브라운필드는 코드에서 읽고
+    // (measured), 그린필드는 사용자 요청에서 추론하며(inferred), 둘 다 안 되면 묻는다(confirmed).
+    // proposed는 셋 중 어느 근거도 없는 설계자 제안이다 — 남겨두되 구분한다.
+    if (!['measured', 'measured-absent', 'inferred', 'confirmed', 'proposed'].includes(entry?.source)) {
+      throw new LockError('LIBRARY_SOURCE_INVALID', `libraries.${role}.source는 measured|measured-absent|inferred|confirmed|proposed여야 한다`)
     }
   }
 
@@ -263,41 +266,41 @@ export const buildSpecLock = ({decision, digest}) => {
   }
 }
 
-// 잠금이 유래한 입력이 그 뒤로 바뀌었는지 판정한다. Stage 2의 게이트가 소비할 지점이다.
-export const isSpecLockStale = (specLock, projectRoot) =>
-  digestInputs(projectRoot).combined !== specLock?.sourceDigest?.combined
+// 스팩이 유래한 입력이 그 뒤로 바뀌었는지 판정한다. Stage 2의 게이트가 소비할 지점이다.
+export const isSpecStale = (spec, projectRoot) =>
+  digestInputs(projectRoot).combined !== spec?.sourceDigest?.combined
 
-// 잠금을 원장에 기록한다. 잠금이 stdout으로 나가 저장되는 시점과 같은 시점에 호출한다.
-export const recordSpecLock = (projectRoot, specLock) => {
+// 스팩을 원장에 기록한다. 스팩이 stdout으로 나가 저장되는 시점과 같은 시점에 호출한다.
+export const recordSpec = (projectRoot, spec) => {
   const record = {
     at: new Date().toISOString(),
-    lockDigest: specLockDigest(specLock),
-    sourceDigest: specLock.sourceDigest?.combined ?? null,
-    specTier: specLock.specTier ?? null,
-    targetShapes: specLock.targetShapes ?? [],
+    digest: specDigest(spec),
+    sourceDigest: spec.sourceDigest?.combined ?? null,
+    specTier: spec.specTier ?? null,
+    targetShapes: spec.targetShapes ?? [],
   }
-  appendEvidenceLine(join(resolve(projectRoot), SPEC_LOCK_LEDGER), record)
+  appendEvidenceLine(join(resolve(projectRoot), SPEC_LEDGER), record)
   return record
 }
 
-// 원장과 현재 잠금을 대조한다. 셋을 구분한다:
-//   NO_LEDGER   원장이 없다 — 잠금 이력이 없거나 원장까지 지워졌다
-//   DELETED     원장에 기록이 있는데 잠금 파일이 없다 — 삭제 탐지
-//   TAMPERED    잠금이 있는데 해시가 원장 최신 기록과 다르다 — 사후 수정 탐지
+// 원장과 현재 스팩을 대조한다. 셋을 구분한다:
+//   NO_LEDGER   원장이 없다 — 스팩 확정 이력이 없거나 원장까지 지워졌다
+//   DELETED     원장에 기록이 있는데 스팩 파일이 없다 — 삭제 탐지
+//   TAMPERED    스팩이 있는데 해시가 원장 최신 기록과 다르다 — 사후 수정 탐지
 //   OK          일치
-export const inspectSpecLockLedger = (projectRoot, specLock) => {
-  const path = join(resolve(projectRoot), SPEC_LOCK_LEDGER)
+export const inspectSpecLedger = (projectRoot, spec) => {
+  const path = join(resolve(projectRoot), SPEC_LEDGER)
   if (!existsSync(path)) return {state: 'NO_LEDGER', rows: 0}
-  const rows = readEvidenceLog(path).filter(row => typeof row?.lockDigest === 'string')
+  const rows = readEvidenceLog(path).filter(row => typeof row?.digest === 'string')
   if (rows.length === 0) return {state: 'NO_LEDGER', rows: 0}
-  if (specLock === null || specLock === undefined) {
-    return {state: 'DELETED', rows: rows.length, lastDigest: rows[rows.length - 1].lockDigest}
+  if (spec === null || spec === undefined) {
+    return {state: 'DELETED', rows: rows.length, lastDigest: rows[rows.length - 1].digest}
   }
-  const current = specLockDigest(specLock)
-  const known = rows.some(row => row.lockDigest === current)
+  const current = specDigest(spec)
+  const known = rows.some(row => row.digest === current)
   return known
     ? {state: 'OK', rows: rows.length}
-    : {state: 'TAMPERED', rows: rows.length, currentDigest: current, lastDigest: rows[rows.length - 1].lockDigest}
+    : {state: 'TAMPERED', rows: rows.length, currentDigest: current, lastDigest: rows[rows.length - 1].digest}
 }
 
 export const lockSpec = projectRoot => {
@@ -307,7 +310,7 @@ export const lockSpec = projectRoot => {
     throw new LockError('SOLUTION_DESIGN_MISSING', 'solution-design.md가 없다 — 설계 단계를 먼저 실행하라', {path: designPath})
   }
   const decision = extractDecisionBlock(readFileSync(designPath, 'utf8'))
-  return buildSpecLock({decision, digest: digestInputs(root)})
+  return buildSpec({decision, digest: digestInputs(root)})
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -315,19 +318,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const rootIndex = argv.indexOf('--project-root')
   const projectRoot = rootIndex >= 0 ? argv[rootIndex + 1] : undefined
   if (!projectRoot) {
-    process.stderr.write('사용법: node .claude/scripts/lock-spec.mjs --project-root <path>\n')
+    process.stderr.write('사용법: node .claude/scripts/spec.mjs --project-root <path>\n')
     process.exit(2)
   }
   try {
-    const specLock = lockSpec(projectRoot)
-    // 원장 먼저 기록한다 — stdout이 저장되지 않아도 잠금 시도는 남는다.
-    recordSpecLock(projectRoot, specLock)
-    process.stdout.write(`${JSON.stringify(specLock, null, 2)}\n`)
+    const spec = lockSpec(projectRoot)
+    // 원장 먼저 기록한다 — stdout이 저장되지 않아도 스팩 확정 시도는 남는다.
+    recordSpec(projectRoot, spec)
+    process.stdout.write(`${JSON.stringify(spec, null, 2)}\n`)
   } catch (error) {
     const payload = error instanceof LockError
       ? {ok: false, error: {code: error.code, message: error.message, details: error.details}}
       : {ok: false, error: {code: 'LOCK_FAILED', message: error.message, details: {}}}
-    // 오류는 stderr로 낸다 — stdout은 "그대로 저장" 관례라 오류 객체가 잠금으로 위장될 수 있다.
+    // 오류는 stderr로 낸다 — stdout은 "그대로 저장" 관례라 오류 객체가 스팩 확정으로 위장될 수 있다.
     process.stderr.write(`${JSON.stringify(payload, null, 2)}\n`)
     process.exit(1)
   }

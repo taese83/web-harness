@@ -24,7 +24,7 @@
 - 실시간·장기 실행 job — 전용 backend 영역으로 안내하고 이 profile로 수용하지 않는다
 
 **처리 (감지 시)**:
-- profile resolver를 `--requested vite-serverless-hybrid`로 실행해 built-in profile을 잠근다. 루트 `api/`가 이미 있으면 auto 감지로도 잠긴다 (`react-vite-spa`는 루트 `api/`를 forbidden marker로 배제).
+- profile resolver를 `--requested vite-serverless-hybrid`로 실행해 built-in profile을 확정한다. 루트 `api/`가 이미 있으면 auto 감지로도 확정된다 (`react-vite-spa`는 루트 `api/`를 forbidden marker로 배제).
 - 구현 계약은 `/vite-serverless-hybrid` skill을 따른다 — **§7 엔드포인트 공통 가드 5종**(method allowlist·인증·body 캡·스키마 검증·rate limit)이 handler 구현보다 앞선다. release 시 profile DAG의 `api.guards`(security)·`api.unit` machine receipt가 이를 강제한다.
 - `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`·`API_CONTRACT_MODE`가 이 profile 위에서 자연스럽게 조합된다.
 - supportLevel은 `compatible`이다 — 체크인된 golden/host diagnostics가 있어도 실제 provider 배포·격리 CI·외부 attestation 전에는 certified evidence가 아니다. workspace/monorepo의 `client/api/`, `apps/*/api/` 배치는 아직 adapter 감지 밖이므로 app root 단일 배치로 정규화하거나 `NEEDS_DECISION`으로 확인한다.
@@ -150,7 +150,7 @@
 
 지원되는 Phase 3 companion 실행 순서:
 
-1. `HYBRID_SERVERLESS_MODE`이면 profile을 `vite-serverless-hybrid`로 잠그고 `/vite-serverless-hybrid`의 §7 가드 계약을 로드
+1. `HYBRID_SERVERLESS_MODE`이면 profile을 `vite-serverless-hybrid`로 확정하고 `/vite-serverless-hybrid`의 §7 가드 계약을 로드
 2. `SERVER_DB_MODE` — DB migration 파일 세트
 3. `API_CONTRACT_MODE` — shared request/response schema
 4. `OAUTH_SERVER_MODE` — auth 흐름과 보호 handler

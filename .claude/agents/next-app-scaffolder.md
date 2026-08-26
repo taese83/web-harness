@@ -23,7 +23,7 @@ maxTurns: 25
 - `.claude/adapters/next-app-fullstack/references/app-router-boundary-contract.md`
 - `.claude/adapters/next-app-fullstack/references/rendering-deployment-contract.md`
 
-profile이 `next-app-fullstack`이 아니거나 exact Next.js/Node/pnpm version, app root, cache model, deployment target, public build environment allowlist가 잠기지 않았으면 `BLOCKED`로 반환한다.
+profile이 `next-app-fullstack`이 아니거나 exact Next.js/Node/pnpm version, app root, cache model, deployment target, public build environment allowlist가 확정되지 않았으면 `BLOCKED`로 반환한다.
 
 ## Owned scope
 

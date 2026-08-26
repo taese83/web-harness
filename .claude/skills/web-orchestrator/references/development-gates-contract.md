@@ -63,7 +63,7 @@ entity query, mutation/form/domain/realtime owner와 `data-ui-binder`가 완료�
 3. `typecheck`, `build`
 4. source mutation, unexpected lockfile/config change, production Mock boundary
 
-Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 잠근다.
+Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.
 
 ## Gate R — 요구사항 표기 (의무 진술의 존재)
 

@@ -82,13 +82,13 @@ test('computeRemaining: 전부 완결 → remaining 0 (COMPLETE)', () => {
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-// --- GIGO 대응 (2026-08-12): 계획 잠금 + owned 교차검증 ---
+// --- GIGO 대응 (2026-08-12): 계획 스팩 확정 + owned 교차검증 ---
 
-test('verifyPlanLock: 잠금 없는 매니페스트는 unlocked로 정직 보고', () => {
+test('verifyPlanLock: 스팩 확정 없는 매니페스트는 unlocked로 정직 보고', () => {
   assert.equal(verifyPlanLock({task: 'x', outputs: ['a.ts']}).status, 'unlocked')
 })
 
-test('verifyPlanLock: 잠근 그대로면 locked', () => {
+test('verifyPlanLock: 확정한 그대로면 locked', () => {
   const plan = {task: 'x', outputs: ['a.ts', 'b.ts'], reads: ['spec']}
   const locked = {...plan, planLock: {digest: planDigest(plan), at: '2026-08-12T00:00:00.000Z'}}
   const result = verifyPlanLock(locked)
@@ -135,7 +135,7 @@ test('scanOwned: node_modules 등은 제외한다', () => {
   try { assert.deepEqual(scanOwned(root, ['src/e']), ['src/e/a.ts']) } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-// --- 잠금 원장: 매니페스트 내부 잠금의 두 우회를 막는다 (2026-08-12 실측) ---
+// --- 스팩 원장: 매니페스트 내부 스팩의 두 우회를 막는다 (2026-08-12 실측) ---
 
 test('원장 우선: planLock을 지워도 원장이 있으면 TAMPERED', () => {
   const plan = {task: 'x', outputs: ['a.ts', 'b.ts', 'c.ts'], reads: ['spec']}
@@ -146,16 +146,16 @@ test('원장 우선: planLock을 지워도 원장이 있으면 TAMPERED', () => 
   assert.equal(result.source, 'ledger')
 })
 
-test('원장 우선: 축소 후 재잠금해도 최초 항목과 대조해 TAMPERED + relocked', () => {
+test('원장 우선: 축소 후 재확정해도 최초 항목과 대조해 TAMPERED + relocked', () => {
   const plan = {task: 'x', outputs: ['a.ts', 'b.ts'], reads: ['spec']}
   const shrunk = {task: 'x', outputs: ['a.ts'], reads: ['spec']}
   const ledger = [
     {task: 'x', digest: planDigest(plan), at: 'T0'},
-    {task: 'x', digest: planDigest(shrunk), at: 'T1'}, // 재잠금 시도
+    {task: 'x', digest: planDigest(shrunk), at: 'T1'}, // 재확정 시도
   ]
   const result = verifyPlanLock({...shrunk, planLock: {digest: planDigest(shrunk), at: 'T1'}}, ledger)
   assert.equal(result.status, 'TAMPERED')
-  assert.equal(result.relocked, true, '재잠금이 드러나야 한다')
+  assert.equal(result.relocked, true, '재확정이 드러나야 한다')
 })
 
 test('원장 일치면 locked(source=ledger)', () => {

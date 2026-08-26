@@ -35,11 +35,11 @@ import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'no
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {dirname, join, relative, resolve} from 'node:path'
 
-// 잠금 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
-export const lockLedgerPath = manifestPath => join(dirname(manifestPath), '.plan-locks.jsonl')
+// 스팩 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
+export const specLedgerPath = manifestPath => join(dirname(manifestPath), '.plan-locks.jsonl')
 
-// 이 계획과 **다른** digest로 이미 잠긴 기록들. 비어 있지 않으면 재잠금을 거부한다.
-// 사후 탐지(TAMPERED)보다 강한 사전 차단 — 축소된 계획이 "정상 잠금"으로 둔갑하는 것을
+// 이 계획과 **다른** digest로 이미 확정된 기록들. 비어 있지 않으면 재확정을 거부한다.
+// 사후 탐지(TAMPERED)보다 강한 사전 차단 — 축소된 계획이 "정상 스팩 확정"으로 둔갑하는 것을
 // 애초에 성립시키지 않는다. 순수.
 export function conflictingLockDigests(plan, ledgerEntries = null) {
   const digest = planDigest(plan)
@@ -52,7 +52,7 @@ export function conflictingLockDigests(plan, ledgerEntries = null) {
   return [...prior].filter(d => d !== digest)
 }
 
-// 계획 잠금(plan lock) — 계획 **내용**의 digest. `planLock` 자신은 제외한다.
+// 계획 스팩 확정(plan lock) — 계획 **내용**의 digest. `planLock` 자신은 제외한다.
 // 왜: outputs가 자기선언인 한, 빌더가 죽은 뒤 매니페스트를 실제로 쓰인 파일에 맞춰
 // 줄이면 resume-manifest는 COMPLETE를 낸다(사후 축소). 스폰 **전에** digest를 고정하면
 // 그 축소가 기계적으로 드러난다. validate-design-preview의 source-snapshot과 같은 관용구.
@@ -234,30 +234,30 @@ function main() {
 
   const report = analyzePlan(root, plan, {maxOutputs: opts.maxOutputs, maxReadTokens: opts.maxReadTokens})
 
-  // 계획 잠금은 **FITS일 때만** 쓴다 — REFUSE된 계획을 잠그면 "거부된 계획"에 정당성을
-  // 부여하는 꼴이 된다. 잠금 이후의 사후 축소는 resume-manifest가 TAMPERED로 잡는다.
+  // 계획 스팩은 **FITS일 때만** 쓴다 — REFUSE된 계획을 확정하면 "거부된 계획"에 정당성을
+  // 부여하는 꼴이 된다. 확정 이후의 사후 축소는 resume-manifest가 TAMPERED로 잡는다.
   let locked = null
   if (opts.lock && report.verdict === 'FITS') {
     const digest = planDigest(plan)
-    // **재잠금 사전 거부**(사후 탐지보다 강하다). 이미 다른 digest로 잠긴 계획을 조용히
-    // 덮어쓰면 축소된 범위가 "정상 잠금"으로 둔갑한다. 원장·매니페스트 어느 쪽에든 다른
-    // digest의 잠금이 있으면 거부하고, 재계획은 새 task로 하게 한다.
+    // **재확정 사전 거부**(사후 탐지보다 강하다). 이미 다른 digest로 확정된 계획을 조용히
+    // 덮어쓰면 축소된 범위가 "정상 스팩 확정"으로 둔갑한다. 원장·매니페스트 어느 쪽에든 다른
+    // digest의 스팩이 있으면 거부하고, 재계획은 새 task로 하게 한다.
     // 원장 판독은 공유 evidence-log(readEvidenceLog). "전부 반환" 충돌 판정은 이 게이트
     // 고유 의미라 로컬 유지(공유 detectRebind는 최초-vs-현재만 — 욱여넣지 않는다).
-    const ledgerEntries = readEvidenceLog(lockLedgerPath(planPath))
+    const ledgerEntries = readEvidenceLog(specLedgerPath(planPath))
     const conflicting = conflictingLockDigests(plan, ledgerEntries)
     if (conflicting.length > 0) {
-      console.error(`재잠금 거부: 이 task는 이미 다른 계획으로 잠겨 있다(기록 ${conflicting.join(', ')} ≠ 현재 ${digest}).`)
-      console.error('축소·변경된 계획을 덮어써 정상 잠금으로 만들 수 없다. 범위를 바꾸려면 새 task 이름으로 재계획하라.')
+      console.error(`재확정 거부: 이 task는 이미 다른 계획으로 잠겨 있다(기록 ${conflicting.join(', ')} ≠ 현재 ${digest}).`)
+      console.error('축소·변경된 계획을 덮어써 정상 스팩 확정으로 만들 수 없다. 범위를 바꾸려면 새 task 이름으로 재계획하라.')
       process.exit(2)
     }
     const at = new Date().toISOString()
     // 원장을 **먼저** append하고 매니페스트를 나중에 stamp한다(원장-먼저). append가 던지면
     // (O_NOFOLLOW·cap 신규 실패 경로) 매니페스트에 planLock이 안 박혀 "planLock이 매니페스트
     // 안에만 있는" 약점 상태(§4)가 남지 않는다 — 같은 digest 재시도는 conflict가 아니라 멱등
-    // 복구다. 원장은 매니페스트 바깥이라, 안에만 두면 지우거나(→unlocked) 축소 후 재잠금해
-    // 위조가 통하던 것을 최초 잠금 한 줄로 드러낸다(실측 확인).
-    appendEvidenceLine(lockLedgerPath(planPath), {task: plan.task ?? null, digest, at})
+    // 복구다. 원장은 매니페스트 바깥이라, 안에만 두면 지우거나(→unlocked) 축소 후 재확정해
+    // 위조가 통하던 것을 최초 스팩 확정 한 줄로 드러낸다(실측 확인).
+    appendEvidenceLine(specLedgerPath(planPath), {task: plan.task ?? null, digest, at})
     const stamped = {...plan, planLock: {digest, at}}
     writeFileSync(planPath, `${JSON.stringify(stamped, null, 2)}\n`)
     locked = digest
@@ -277,8 +277,8 @@ function main() {
     }
     if (report.verdict === 'FITS') {
       console.log('FITS ✅ — 한 스폰에 들어가는 규모. 스폰 진행 가능.')
-      if (locked) console.log(`계획 잠금 기록: ${locked} — 이후 outputs를 줄이면 resume-manifest가 TAMPERED로 잡는다.`)
-      else if (opts.lock) console.log('계획 잠금 실패(내부 오류)')
+      if (locked) console.log(`계획 스팩 기록: ${locked} — 이후 outputs를 줄이면 resume-manifest가 TAMPERED로 잡는다.`)
+      else if (opts.lock) console.log('계획 스팩 확정 실패(내부 오류)')
       // 즉시-쓰기 리마인더(execution-budget-contract 규칙 4) — 이 게이트는 큰 산출 스폰
       // *직전에* 실행되고 출력이 곧바로 프롬프트 작성에 소비되므로, 규칙을 계약 산문에만
       // 두지 않고 이 시점에 되짚는다. 실측 근거: 무산출(읽기만 하고 산출물 0) 10건/90스폰,

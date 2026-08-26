@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// test-marker-integrity.mjs — 마커 무결성 게이트 회귀 (M1 마커 탈잠금의 안전망).
+// test-marker-integrity.mjs — 마커 무결성 게이트 회귀 (M1 마커 탈스팩의 안전망).
 //
 // 왜 이 테스트가 있나: 마커를 언어 중립 앵커로 승격하는 리팩터(docs/marker-delock-plan.md)의
 // 실패 모드는 "편집 실수 → 매칭 0건 → 조용히 통과"다. validate-marker-integrity가 그 실수를

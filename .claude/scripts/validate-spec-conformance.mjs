@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// validate-spec-conformance.mjs — 잠긴 스팩이 실제와 맞는지 검사한다 (Stage 2a).
+// validate-spec-conformance.mjs — 확정된 스팩이 실제와 맞는지 검사한다 (Stage 2a).
 //
 // 순서에 대한 판단: Stage 2의 목표는 "게이트를 프로필 적합성 → 스팩 적합성으로" 바꾸는 것이다.
 // 그런데 **스팩이 게이트를 고르게 하려면 스팩 자체가 먼저 검증돼야 한다** — 검증되지 않은
@@ -8,7 +8,7 @@
 // 얹는다.
 //
 // 이 검사가 §4 이월 전제조건에 대해 실제로 한 일(**부분 이행**이며 과장하지 않는다):
-//   · `isSpecLockStale` 배선 — **이행**
+//   · `isSpecStale` 배선 — **이행**
 //   · layerMap 경로 실존·루트 이탈 — **이행**
 //   · libraries·substrate의 `measured` 실존 대조 — **이행**, 단 대조 불가한 형태는
 //     unverifiable로 보고된다(도구명이 npm 패키지명과 다르고 aliases 미등록인 경우 등)
@@ -16,7 +16,7 @@
 //     나머지 6키는 pin과 결속되지 않는다. 기준값은 substrate-defaults에서 파생한다
 //
 // 판정:
-//   NOT_LOCKED  spec-lock이 없다. 실패가 아니다 — 잠금은 아직 선택이다
+//   NO_SPEC  spec-lock이 없다. 실패가 아니다 — 스팩은 아직 선택이다
 //   FAIL        위조·모순·stale. measured 주장이 실측과 어긋나면 여기다(I1)
 //   PASS        검증 가능한 주장이 전부 실측과 맞다
 // 어느 경우든 검증할 수 **없었던** 것을 함께 보고한다 — 침묵한 미검증은 통과로 읽힌다.
@@ -24,9 +24,9 @@ import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
-import {inspectSpecLockLedger, isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
+import {inspectSpecLedger, isSpecStale, readSubstrateDefaults} from './spec.mjs'
 
-const SPEC_LOCK_PATH = '_workspace/03_dev/spec-lock.json'
+const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
 const EVIDENCE_DIR = '_workspace/04_qa/evidence'
 const SHAPE_CHECKS_PATH = new URL('../shape-checks.json', import.meta.url)
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
@@ -85,10 +85,10 @@ const withinRoot = (root, relativePath) => {
 }
 
 // layerMap이 가리키는 경로가 실제로 있는가. 없는 경로를 measured로 적었다면 위조다.
-export const checkLayerMap = (specLock, projectRoot) => {
+export const checkLayerMap = (spec, projectRoot) => {
   const root = resolve(projectRoot)
   const failures = []
-  for (const [layer, path] of Object.entries(specLock.layerMap ?? {})) {
+  for (const [layer, path] of Object.entries(spec.layerMap ?? {})) {
     // 괄호 주석으로 부재를 표기한 경우는 경로 주장이 아니다.
     if (/^\(.*\)$/.test(path.trim())) continue
     if (!withinRoot(root, path)) {
@@ -131,7 +131,7 @@ export const resolveRequiredChecks = (targetShapes, catalog = readShapeChecks())
 
 // 수행된 검증을 evidence receipt에서 읽는다. receipt는 evidence/{id}.json이고 status를 갖는다.
 // 요구 id를 실제 receipt 파일명으로 옮긴다. 러너는 quality.lint를 lint.json으로 쓴다 —
-// 이 정합이 없으면 잠근 프로젝트 전원이 "receipt가 없다"로 오탐 블록된다(적대 리뷰 실측).
+// 이 정합이 없으면 확정한 프로젝트 전원이 "receipt가 없다"로 오탐 블록된다(적대 리뷰 실측).
 export const receiptNameFor = checkId => COMMON_RECEIPT_ALIASES[checkId] ?? checkId
 
 export const readEvidence = projectRoot => {
@@ -149,8 +149,8 @@ export const readEvidence = projectRoot => {
 
 // 요구된 검증이 실제로 수행됐는가. **이것이 2b가 게이트가 되는 지점이다.**
 // evidence 디렉토리 자체가 없으면 아직 검증 단계가 아니므로 판정하지 않는다(NOT_RUN).
-export const checkShapeEvidence = (specLock, projectRoot) => {
-  const {required, unimplemented, unknownShapes} = resolveRequiredChecks(specLock.targetShapes)
+export const checkShapeEvidence = (spec, projectRoot) => {
+  const {required, unimplemented, unknownShapes} = resolveRequiredChecks(spec.targetShapes)
   const receipts = readEvidence(projectRoot)
   if (receipts === null) {
     return {evidenceState: 'NOT_RUN', required, unimplemented, missing: [], failing: [], unknownShapes}
@@ -164,14 +164,14 @@ export const checkShapeEvidence = (specLock, projectRoot) => {
 // 선언된 형태를 package.json 필드와 대조한다(조사 2026-08-26).
 // 형태가 게이트를 고르게 되면(2b) **형태 자기보고 하나로 검증 세트 전체를 회피**할 수 있다 —
 // `library`라고 적어서 웹앱 검증 22종을 건너뛰는 식이다. 그래서 형태가 게이트를 고르기 전에
-// 대조가 먼저 서야 한다. 잠금의 verifiable 라벨을 feature-plan 실존에 결박한 것과 같은 이유다.
+// 대조가 먼저 서야 한다. 스팩의 verifiable 라벨을 feature-plan 실존에 결박한 것과 같은 이유다.
 //
 // 대조 근거는 npm 관례 그대로다: `bin`이 있으면 CLI, `exports`/`main`이 있고 private이 아니면
 // 배포 라이브러리. 모순만 FAIL로 잡고 근거 부재는 unverifiable로 보고한다 — 근거가 없다는 것이
 // 거짓이라는 뜻은 아니다.
-export const checkTargetShapes = (specLock, projectRoot) => {
+export const checkTargetShapes = (spec, projectRoot) => {
   const manifest = readJsonIfExists(join(resolve(projectRoot), 'package.json'))
-  const shapes = Array.isArray(specLock.targetShapes) ? specLock.targetShapes : []
+  const shapes = Array.isArray(spec.targetShapes) ? spec.targetShapes : []
   const failures = []
   const unverifiable = []
   const notes = []
@@ -195,7 +195,7 @@ export const checkTargetShapes = (specLock, projectRoot) => {
   }
   // 반대 방향: 신호가 있는데 선언하지 않으면 그 형태의 검사가 돌지 않는다.
   // 배포되는 패키지에서 신호를 선언하지 않으면 그 형태의 검증이 조용히 빠진다. 소비자에게
-  // 노출되는 표면이므로 note가 아니라 FAIL이다 — 실사용 잠금(2026-08-26)에서 드러난 우회다.
+  // 노출되는 표면이므로 note가 아니라 FAIL이다 — 실사용 스팩 확정(2026-08-26)에서 드러난 우회다.
   if (hasBin && !shapes.includes('cli')) {
     if (isPrivate) {
       notes.push('package.json에 bin이 있는데 targetShapes에 cli가 없다 — private 패키지라 내부 스크립트일 수 있으나 CLI 검증은 선택되지 않는다')
@@ -237,11 +237,11 @@ const hasSourceFiles = directory => {
   }
 }
 
-export const checkLayerMapCoverage = (specLock, projectRoot, appRoot = 'src') => {
+export const checkLayerMapCoverage = (spec, projectRoot, appRoot = 'src') => {
   const root = resolve(projectRoot)
   const base = resolve(root, appRoot)
   if (!existsSync(base) || !statSync(base).isDirectory()) return []
-  const covered = Object.values(specLock.layerMap ?? {})
+  const covered = Object.values(spec.layerMap ?? {})
     .filter(value => typeof value === 'string' && !/^\(.*\)$/.test(value.trim()))
     .map(value => resolve(root, value.trim()))
   const uncovered = []
@@ -257,11 +257,17 @@ export const checkLayerMapCoverage = (specLock, projectRoot, appRoot = 'src') =>
 }
 
 // libraries의 measured / measured-absent 주장을 선언과 대조한다.
-export const checkLibraries = (specLock, declared) => {
+export const checkLibraries = (spec, declared) => {
   const failures = []
   const unverifiable = []
-  for (const [role, entry] of Object.entries(specLock.libraries ?? {})) {
-    if (entry.source === 'proposed') continue
+  const unbacked = []
+  for (const [role, entry] of Object.entries(spec.libraries ?? {})) {
+    // 코드에서 읽었다고 주장하지 않는 티어는 대조 대상이 아니다(그린필드는 아직 설치 전이다).
+    // 침묵시키지는 않는다 — 아래에서 근거 없는 항목 수를 보고한다.
+    if (['proposed', 'inferred', 'confirmed'].includes(entry.source)) {
+      unbacked.push({role, source: entry.source, choice: entry.choice})
+      continue
+    }
     if (entry.source === 'measured-absent') {
       if (entry.choice !== 'none') {
         unverifiable.push({role, reason: `measured-absent인데 choice가 'none'이 아니라 대조 대상이 모호하다: ${entry.choice}`})
@@ -280,15 +286,15 @@ export const checkLibraries = (specLock, declared) => {
       failures.push({role, claim: entry.choice, reason: `measured라 주장하나 의존성 선언에 ${candidate}가 없다`})
     }
   }
-  return {failures, unverifiable}
+  return {failures, unverifiable, unbacked}
 }
 
 // substrate의 measured 주장을 대조한다. 근거 규칙이 없는 키는 검증 불가로 보고한다.
-export const checkSubstrate = (specLock, declared, projectRoot) => {
+export const checkSubstrate = (spec, declared, projectRoot) => {
   const root = resolve(projectRoot)
   const failures = []
   const unverifiable = []
-  for (const [key, entry] of Object.entries(specLock.constitution?.substrate ?? {})) {
+  for (const [key, entry] of Object.entries(spec.constitution?.substrate ?? {})) {
     if (entry.source !== 'measured') continue
     const rule = SUBSTRATE_EVIDENCE[key]
     if (!rule) {
@@ -317,8 +323,8 @@ export const checkSubstrate = (specLock, declared, projectRoot) => {
 // 하드코딩 리터럴 대신 substrate-defaults에서 파생한다 — 리터럴은 pin의 N번째 사본이 된다.
 export const defaultToolchain = () => ({packageManager: readSubstrateDefaults().packageManager})
 
-export const checkToolchainAlignment = (specLock, toolchain) => {
-  const substrate = specLock.constitution?.substrate ?? {}
+export const checkToolchainAlignment = (spec, toolchain) => {
+  const substrate = spec.constitution?.substrate ?? {}
   const declared = substrate.packageManager?.value
   if (!declared || !toolchain?.packageManager) return []
   return declared === toolchain.packageManager
@@ -330,66 +336,72 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   const root = resolve(projectRoot)
   const lockPath = join(root, SPEC_LOCK_PATH)
   // 부재와 손상을 구분한다(적대 리뷰 2026-08-26). 이전 구현은 파싱 실패를 null로 삼켜
-  // **잠금 파일을 한 바이트만 깨뜨리면 결박 전체가 꺼졌고**, 보고까지 거짓이었다(파일이
+  // **스팩 파일을 한 바이트만 깨뜨리면 결박 전체가 꺼졌고**, 보고까지 거짓이었다(파일이
   // 실존하는데 "없다"고 말했다). 삭제보다 나쁘다 — 삭제는 정직한 opt-out처럼이라도 보인다.
   // 이 repo의 판례와도 배치된다: 깨진 live.json은 침묵 폴백 없이 INVALID_LIVE_CONFIG로 loud fail.
   if (!existsSync(lockPath) || !statSync(lockPath).isFile()) {
-    // 원장에 잠금 이력이 있는데 파일이 없으면 삭제다 — opt-out이 아니라 결박 해제 시도다.
-    const ledger = inspectSpecLockLedger(root, null)
+    // 원장에 스팩 확정 이력이 있는데 파일이 없으면 삭제다 — opt-out이 아니라 결박 해제 시도다.
+    const ledger = inspectSpecLedger(root, null)
     if (ledger.state === 'DELETED') {
       return {
         status: 'FAIL',
-        failures: [{kind: 'lockLedger', reason: `SPEC_LOCK_DELETED — 원장에 잠금 기록 ${ledger.rows}건이 있는데 ${SPEC_LOCK_PATH}가 없다`}],
+        failures: [{kind: 'specLedger', reason: `SPEC_DELETED — 원장에 스팩 기록 ${ledger.rows}건이 있는데 ${SPEC_LOCK_PATH}가 없다`}],
         unverifiable: [],
-        notes: ['잠금을 지워 결박을 푸는 경로다. 의도적으로 잠금을 해제하려면 원장도 함께 정리하고 그 사실이 커밋에 남아야 한다'],
+        notes: ['스팩을 지워 결박을 푸는 경로다. 의도적으로 스팩을 해제하려면 원장도 함께 정리하고 그 사실이 커밋에 남아야 한다'],
       }
     }
-    return {status: 'NOT_LOCKED', failures: [], unverifiable: [], notes: [`${SPEC_LOCK_PATH}가 없다 — 잠금은 아직 선택이다`]}
+    return {status: 'NO_SPEC', failures: [], unverifiable: [], notes: [`${SPEC_LOCK_PATH}가 없다 — 스팩은 아직 선택이다`]}
   }
-  let specLock
+  let spec
   try {
-    specLock = JSON.parse(readFileSync(lockPath, 'utf8'))
-    if (specLock === null || typeof specLock !== 'object' || Array.isArray(specLock)) throw new Error('객체가 아니다')
+    spec = JSON.parse(readFileSync(lockPath, 'utf8'))
+    if (spec === null || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('객체가 아니다')
   } catch (error) {
     return {
       status: 'FAIL',
-      failures: [{kind: 'lock', reason: `INVALID_SPEC_LOCK — ${SPEC_LOCK_PATH}가 존재하나 읽을 수 없다: ${error instanceof Error ? error.message : String(error)}`}],
+      failures: [{kind: 'lock', reason: `INVALID_SPEC — ${SPEC_LOCK_PATH}가 존재하나 읽을 수 없다: ${error instanceof Error ? error.message : String(error)}`}],
       unverifiable: [],
-      notes: ['손상된 잠금은 잠금 없음으로 강등되지 않는다 — 그러면 파일 하나 깨뜨려 결박을 끌 수 있다'],
+      notes: ['손상된 스팩은 스팩 확정 없음으로 강등되지 않는다 — 그러면 파일 하나 깨뜨려 결박을 끌 수 있다'],
     }
   }
 
   const declared = collectDeclaredPackages(root)
   const failures = []
-  const ledger = inspectSpecLockLedger(root, specLock)
+  const ledger = inspectSpecLedger(root, spec)
   if (ledger.state === 'TAMPERED') {
-    failures.push({kind: 'lockLedger', reason: `SPEC_LOCK_TAMPERED — 잠금 해시가 원장의 어떤 기록과도 맞지 않는다(현재 ${ledger.currentDigest.slice(0, 12)}…, 원장 최신 ${ledger.lastDigest.slice(0, 12)}…)`})
+    failures.push({kind: 'specLedger', reason: `SPEC_TAMPERED — 스팩 해시가 원장의 어떤 기록과도 맞지 않는다(현재 ${ledger.currentDigest.slice(0, 12)}…, 원장 최신 ${ledger.lastDigest.slice(0, 12)}…)`})
   }
   const ledgerNotes = ledger.state === 'NO_LEDGER'
-    ? ['잠금 원장이 없다 — 이 잠금은 삭제·사후 수정 탐지에 결박되지 않는다']
+    ? ['스팩 원장이 없다 — 이 스팩은 삭제·사후 수정 탐지에 결박되지 않는다']
     : []
   const unverifiable = []
   const notes = [...ledgerNotes]
 
-  if (isSpecLockStale(specLock, root)) {
-    failures.push({kind: 'stale', reason: '잠금 이후 입력이 바뀌었다 — 재잠금이 필요하다'})
+  if (isSpecStale(spec, root)) {
+    failures.push({kind: 'stale', reason: '확정 이후 입력이 바뀌었다 — 재확정이 필요하다'})
   }
-  for (const item of checkLayerMap(specLock, root)) failures.push({kind: 'layerMap', ...item})
-  const libraries = checkLibraries(specLock, declared)
+  for (const item of checkLayerMap(spec, root)) failures.push({kind: 'layerMap', ...item})
+  const libraries = checkLibraries(spec, declared)
   for (const item of libraries.failures) failures.push({kind: 'libraries', ...item})
   for (const item of libraries.unverifiable) unverifiable.push({kind: 'libraries', ...item})
-  const substrate = checkSubstrate(specLock, declared, root)
+  if (libraries.unbacked?.length) {
+    // 코드 근거가 없는 선택을 실패로 만들지 않는다(그린필드는 설치 전이다). 다만 몇 건이
+    // 어떤 티어로 정해졌는지는 보고한다 — 스팩이 실제보다 강해 보이면 안 된다.
+    const summary = libraries.unbacked.map(item => `${item.role}=${item.choice}(${item.source})`).join(', ')
+    notes.push(`libraries ${libraries.unbacked.length}건은 코드 대조 대상이 아니다 — ${summary}`)
+  }
+  const substrate = checkSubstrate(spec, declared, root)
   for (const item of substrate.failures) failures.push({kind: 'substrate', ...item})
   for (const item of substrate.unverifiable) unverifiable.push({kind: 'substrate', ...item})
-  for (const item of checkToolchainAlignment(specLock, toolchain)) failures.push({kind: 'toolchain', ...item})
+  for (const item of checkToolchainAlignment(spec, toolchain)) failures.push({kind: 'toolchain', ...item})
 
-  const shapes = checkTargetShapes(specLock, root)
+  const shapes = checkTargetShapes(spec, root)
   for (const item of shapes.failures) failures.push(item)
   for (const item of shapes.unverifiable) unverifiable.push(item)
   for (const note of shapes.notes) notes.push(note)
 
   // 형태가 요구하는 검증이 수행됐는가(2b)
-  const evidence = checkShapeEvidence(specLock, root)
+  const evidence = checkShapeEvidence(spec, root)
   if (evidence.evidenceState === 'RUN') {
     for (const check of evidence.missing) {
       failures.push({kind: 'shapeEvidence', reason: `선언된 형태가 요구하는 검증 '${check}'의 receipt가 없다`})
@@ -407,15 +419,15 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
     unverifiable.push({kind: 'shapeEvidence', reason: `'${shape}' 형태의 요구 검증 목록이 없다 — 이 형태는 아무것도 요구하지 않는다`})
   }
 
-  const uncovered = checkLayerMapCoverage(specLock, root)
+  const uncovered = checkLayerMapCoverage(spec, root)
   if (uncovered.length > 0) {
     notes.push(`layerMap이 덮지 않는 소스 디렉토리 ${uncovered.length}개: ${uncovered.join(', ')} — 이 경로는 어떤 에이전트도 쓸 수 없다`)
   }
 
-  if (specLock.specTier === 'unverifiable') {
+  if (spec.specTier === 'unverifiable') {
     notes.push('specTier가 unverifiable이다 — 수용 기준이 없어 이 설계가 옳은지는 판정할 수 없다. 형식 정합만 확인했다')
   }
-  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} → 수행 가능 요구 ${evidence.required.length}종`
+  notes.push(`targetShapes: ${(spec.targetShapes ?? []).join(', ')} → 수행 가능 요구 ${evidence.required.length}종`
     + (evidence.unimplemented.length > 0 ? `, 미구현 요구 ${evidence.unimplemented.length}종` : ''))
 
   return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, requiredChecks: evidence.required, unimplementedChecks: evidence.unimplemented, evidenceState: evidence.evidenceState, notes}

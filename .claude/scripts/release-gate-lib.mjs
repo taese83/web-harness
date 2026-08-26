@@ -298,8 +298,8 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
   return {errors: [...new Set(errors)], manifest}
 }
 
-// 잠긴 스팩이 있으면 릴리스가 그 스팩에 묶인다(Stage 2b 배선).
-// **잠금이 없으면 발화하지 않는다** — 잠금은 opt-in이고, 한 번 잠그면 구속력을 갖는다.
+// 확정된 스팩이 있으면 릴리스가 그 스팩에 묶인다(Stage 2b 배선).
+// **스팩이 없으면 발화하지 않는다** — 스팩은 opt-in이고, 한 번 확정하면 구속력을 갖는다.
 // visual-qa-contract.json 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
 // 정합 검사가 판정하지 못한 것(unverifiable)은 여기서 errors로 올리지 않는다 — 미판정을
 // 실패로 바꾸는 것도, 통과로 바꾸는 것도 아니다.

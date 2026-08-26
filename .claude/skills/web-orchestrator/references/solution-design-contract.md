@@ -111,7 +111,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 
 ## 5. 기계 판독 가능 블록 (전방 호환)
 
-문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 잠금 아티팩트로 승격되므로
+문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격되므로
 **형식을 임의로 바꾸지 않는다.**
 
 ````
@@ -179,30 +179,30 @@ E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확�
   할 수 있지만 그것이 맞는지 판정할 기준이 없다
 - 수용 기준을 여기서 지어내지 않는다(§2). 필요하면 feature-plan을 선행하라는 것이 답이다
 
-**Stage 1 전제조건**: 잠금 아티팩트로 승격할 때 `acceptanceSource: "absent"`를 허용할지
+**Stage 1 전제조건**: 스팩 확정 아티팩트로 승격할 때 `acceptanceSource: "absent"`를 허용할지
 결정해야 한다. 허용하면 검증 기준 없는 스팩이 잠기고, 불허하면 기획 없는 브라운필드 개선이
 막힌다. 이 판단은 Stage 1의 몫이며 여기서 미리 정하지 않는다.
 
-## 6. 스팩 잠금 (Stage 1)
+## 6. 스팩 스팩 확정 (Stage 1)
 
-결정이 전부 확정되면 잠근다. 잠금은 **협업 계약**이다 — 여러 사람이 같은 스팩에 맞춰
+결정이 전부 확정되면 확정한다. 스팩은 **협업 계약**이다 — 여러 사람이 같은 스팩에 맞춰
 개발하려면 그 스팩이 개발 중에 흔들리지 않아야 하고, 이 필요는 모델 능력과 무관하다.
 
 ```bash
-node .claude/scripts/lock-spec.mjs --project-root {project-root}
+node .claude/scripts/spec.mjs --project-root {project-root}
 ```
 
-stdout을 `_workspace/03_dev/spec-lock.json`에 그대로 저장한다 — `project-profile.json`·
-`web-execution-plan.json`과 같은 관례다. 스키마는 `.claude/schemas/spec-lock.schema.json`.
+stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다 — `project-profile.json`·
+`web-execution-plan.json`과 같은 관례다. 스키마는 `.claude/schemas/spec.schema.json`.
 
 **어떤 에이전트도 이 파일을 소유하지 않는다.** 따라서 구현 에이전트의 스팩 자기수정이
 **Edit/Write 채널에서** 차단된다 — 차단의 실체는 `ORCHESTRATOR_AUTHORED_ARTIFACTS`(비강제
 명세)가 아니라 소유권 훅의 default-deny다. Bash 채널과 메인 스레드는 훅 밖이며 이는
 protected-core에 기등록된 한계다.
 
-**잠금 거부(fail-closed)**
+**확정 거부(fail-closed)**
 
-- `status: "open"`인 미결정이 **하나라도** 있으면 잠기지 않는다 — 착수 전 확정이 전제다.
+- `status: "open"`인 미결정이 **하나라도** 있으면 확정되지 않는다 — 착수 전 확정이 전제다.
   확정하거나 `ASSUMPTION`으로 기록해야 한다
 - 결정 블록 부재·중복(정본이 모호)·JSON 오류
 - `acceptanceSource`와 `acceptanceRefs`의 자기 모순
@@ -210,7 +210,7 @@ protected-core에 기등록된 한계다.
 
 **거부하지 않고 라벨로 표기하는 것**
 
-수용 기준이 없으면(`acceptanceSource: "absent"`) `specTier: "unverifiable"`로 잠긴다.
+수용 기준이 없으면(`acceptanceSource: "absent"`) `specTier: "unverifiable"`로 확정된다.
 설계는 확정됐으나 맞는지 판정할 기준이 없다는 뜻이다. 기획 없는 브라운필드 개선을 막지
 않으면서 그 상태를 숨기지도 않는다 — 이 tier를 게이트가 어떻게 다룰지는 **Stage 2의 결정**이다.
 
@@ -220,18 +220,18 @@ protected-core에 기등록된 한계다.
 않는다(형제 패키지가 소비할 수 있다). 카탈로그에 없는 형태는 FAIL이 아니라 `unverifiable`이다 —
 하네스가 모르는 것을 프로젝트 실패로 보고하지 않는다.
 
-**원장 결박**: 잠금 시 `spec-lock-ledger.jsonl`에 **잠금 자신의 해시**가 append된다.
-`sourceDigest`는 *입력*만 다이제스트하므로 잠금을 사후에 고쳐 써도 잡지 못한다. 원장이
-`SPEC_LOCK_TAMPERED`(사후 수정)와 `SPEC_LOCK_DELETED`(삭제)를 막는다. 재잠금은 정상이고,
+**원장 결박**: 스팩 확정 시 `spec-ledger.jsonl`에 **스팩 확정 자신의 해시**가 append된다.
+`sourceDigest`는 *입력*만 다이제스트하므로 스팩을 사후에 고쳐 써도 잡지 못한다. 원장이
+`SPEC_TAMPERED`(사후 수정)와 `SPEC_DELETED`(삭제)를 막는다. 재확정은 정상이고,
 원장이 없으면 실패가 아니라 **결박 부재**로 보고된다. **한계**: 원장도 파일이라 함께 지우면
 탐지되지 않는다 — 실질 방어는 원장이 git에 커밋되어 삭제가 히스토리에 남는 것이다.
 
-**staleness**: 잠금은 유래한 입력의 해시를 함께 담는다. 입력이 바뀌면 stale이며
-`isSpecLockStale()`이 판정한다. 부재였던 입력이 생긴 것도 변경이다.
+**staleness**: 스팩은 유래한 입력의 해시를 함께 담는다. 입력이 바뀌면 stale이며
+`isSpecStale()`이 판정한다. 부재였던 입력이 생긴 것도 변경이다.
 
 ## 7. 스팩 정합 검사 (Stage 2a)
 
-잠긴 스팩이 **실제와 맞는지** 검사한다. Phase 3 착수 전과 Phase 4 판정 전에 실행한다.
+확정된 스팩이 **실제와 맞는지** 검사한다. Phase 3 착수 전과 Phase 4 판정 전에 실행한다.
 
 ```bash
 node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root} --json
@@ -244,14 +244,14 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 **FAIL 조건**
 
 - `measured` 주장이 실측과 어긋난다 — libraries가 의존성 선언에 없거나, substrate 도구의
-  선언·설정 파일이 둘 다 없다. **이 검사가 없으면 잠금은 자기보고 봉인일 뿐이다**
+  선언·설정 파일이 둘 다 없다. **이 검사가 없으면 스팩은 자기보고 봉인일 뿐이다**
 - `layerMap`이 존재하지 않는 경로를 가리키거나 루트를 벗어난다
-- 잠금 이후 입력이 바뀌었다(stale) — 재잠금이 필요하다
+- 확정 이후 입력이 바뀌었다(stale) — 재확정이 필요하다
 - substrate가 하네스 toolchain pin과 어긋난다
 
 **FAIL이 아닌 것**
 
-- `spec-lock` 부재 → `NOT_LOCKED`. 잠금은 아직 선택이다
+- `spec-lock` 부재 → `NO_SPEC`. 스팩은 아직 선택이다
 - `specTier: unverifiable` → note. 형식 정합만 확인했고 설계가 옳은지는 판정하지 않았음을 보고
 - `proposed`는 대조하지 않는다 — 아직 실측이 아니다
 

@@ -40,9 +40,9 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/web-execution-plan.json', // compile-execution-plan.mjs stdout을 그대로 저장
   '_workspace/02_design/integration-overlay.json', // 기존 프로젝트 통합 지점 스캔 결과
   '_workspace/03_dev/change-scope.md', // minimal-change-contract의 변경 범위 brief
-  '_workspace/03_dev/spec-lock.json', // lock-spec.mjs stdout — 어떤 에이전트도 소유하지 않는다(구현 에이전트의 스팩 자기수정 차단)
+  '_workspace/03_dev/spec.json', // spec.mjs stdout — 어떤 에이전트도 소유하지 않는다(구현 에이전트의 스팩 자기수정 차단)
   '_workspace/03_dev/build-manifest/', // 스폰 계획(fit 게이트 입력 = 재개 매니페스트)
-  '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 잠금 원장(append-only)
+  '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 스팩 원장(append-only)
 ]
 
 export const AGENT_OWNERSHIP = {
@@ -344,11 +344,11 @@ export const findLayerOverlaps = layerMap => {
 // 스팩에서 이 에이전트의 쓰기 패턴을 만든다.
 // fail-closed: 역할 매핑이 없거나, 매핑된 레이어가 layerMap에 선언되지 않았으면 **null**을
 // 돌려 호출자가 기본 등록부로 돌아가게 한다. 절대 "선언 없음 → 전체 허용"이 되지 않는다.
-export const resolveSpecOwnership = (specLock, agentType) => {
+export const resolveSpecOwnership = (spec, agentType) => {
   const roles = AGENT_LAYER_ROLES[agentType]
   if (!roles) return null
   // 스팩이 layerMap을 주면 그것이 이긴다. 없으면 null → 호출자가 AGENT_OWNERSHIP으로 돌아간다.
-  const layerMap = specLock?.layerMap
+  const layerMap = spec?.layerMap
   if (!layerMap || typeof layerMap !== 'object' || Object.keys(layerMap).length === 0) return null
   if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
   const patterns = roles

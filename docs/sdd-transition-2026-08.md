@@ -74,7 +74,7 @@ CLI 의무, 최대 3 프로젝트)을 섞어 놨다. 그 의견들은 "라이브
 ### 주요 명령
 
 ```bash
-node .claude/scripts/lock-spec.mjs --project-root <path>
+node .claude/scripts/spec.mjs --project-root <path>
 node .claude/scripts/validate-spec-conformance.mjs --project-root <path> --json
 node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes library,cli
 ```
@@ -110,10 +110,10 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 | 판정 | 뜻 |
 |---|---|
 | `OK` | 원장의 어느 기록과든 일치 — 재잠금 정상 |
-| `SPEC_LOCK_TAMPERED` | 잠금 해시가 원장 어디와도 불일치 — 사후 수정 |
-| `SPEC_LOCK_DELETED` | 원장에 기록이 있는데 파일이 없음 — 삭제로 결박 해제 |
+| `SPEC_TAMPERED` | 잠금 해시가 원장 어디와도 불일치 — 사후 수정 |
+| `SPEC_DELETED` | 원장에 기록이 있는데 파일이 없음 — 삭제로 결박 해제 |
 | `NO_LEDGER` | 원장 없음 — 실패가 아니라 **결박 부재**로 보고 |
-| `INVALID_SPEC_LOCK` | 파일이 있는데 읽을 수 없음 — 잠금 없음으로 강등되지 않는다 |
+| `INVALID_SPEC` | 파일이 있는데 읽을 수 없음 — 잠금 없음으로 강등되지 않는다 |
 
 ---
 
@@ -126,7 +126,7 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 | 단일 `targetShape` | 라이브러리이면서 CLI인 패키지가 정상 패턴이다. 하나로 강제하면 검증의 절반을 잃는다 | 배선 전 조사 |
 | lockfile 근거 | 설치 증거를 채택 증거로 오귀속. webpack+vitest 앱이 react-vite-spa로 조용히 오탐 | 적대 리뷰 |
 | FSD를 기본 layerMap으로 | 등록부는 레이어 이름보다 많은 것을 인코딩한다(`live-mode` carve-out). 평면 map이 경계를 무너뜨림 | **게이트가 잡음** |
-| 깨진 잠금 → `NOT_LOCKED` | 파일 한 바이트만 깨뜨리면 결박이 꺼진다. 보고까지 거짓(있는 파일을 없다고) | 적대 리뷰 |
+| 깨진 잠금 → `NO_SPEC` | 파일 한 바이트만 깨뜨리면 결박이 꺼진다. 보고까지 거짓(있는 파일을 없다고) | 적대 리뷰 |
 | receipt 이름 `quality.lint` | 러너는 `lint.json`을 쓴다. 잠근 프로젝트 전원이 오탐 블록될 뻔 | 적대 리뷰 |
 | scoped 패키지 파싱 | `@scope/pkg`가 빈 문자열이 돼 검증을 통째로 건너뜀. 위조가 PASS | 적대 리뷰 |
 
@@ -155,7 +155,7 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 
 ## 6. 정직하게 남긴 한계
 
-**실사용 잠금이 0건이다.** 골든 레퍼런스 3종이 전부 `NOT_LOCKED`이고 이 전환 전체가
+**실사용 잠금이 0건이다.** 골든 레퍼런스 3종이 전부 `NO_SPEC`이고 이 전환 전체가
 **fixture 회귀로만 무장**돼 있다. "릴리스가 스팩에 묶인다"는 잠금 실사용이 발생하는 시점부터
 참이다.
 

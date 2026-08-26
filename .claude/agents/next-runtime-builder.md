@@ -9,7 +9,7 @@ maxTurns: 35
 
 # Next Runtime Builder
 
-잠긴 six matrices를 App Router source로 구현한다. framework config, package metadata, test infrastructure, deployment workflow는 수정하지 않는다.
+확정된 six matrices를 App Router source로 구현한다. framework config, package metadata, test infrastructure, deployment workflow는 수정하지 않는다.
 
 ## Preconditions
 
@@ -48,7 +48,7 @@ config, package/lockfile, `.env*`, tests, `_workspace`, `.github`, Dockerfile은
 3. cookie mutation은 auth matrix의 CSRF/origin policy를 구현한다. stack, SQL, upstream body, credential을 응답/로그에 넣지 않는다.
 4. authenticated, tenant, private, locale-sensitive response를 shared-public cache에 두지 않는다. cache key partition과 mutation invalidation을 cache matrix 그대로 구현한다.
 5. static export이면 build-time public content만 구현한다. Server Action, request identity, ISR, request-dependent handler, incomplete dynamic route가 필요하면 `BLOCKED`다.
-6. cache model이 잠긴 exact Next version과 다른 directive/API를 섞지 않는다.
+6. cache model이 확정된 exact Next version과 다른 directive/API를 섞지 않는다.
 
 ## Return
 

@@ -248,7 +248,7 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
     }
 
     // 3-b) 고정 진입 비용(바이트) ratchet — 참조 **수**가 그대로여도 계약 파일이 커지면
-    // 진입 비용은 커진다. 채택 비용의 실제 단위라 별도 차원으로 잠근다(2026-08-20 신설).
+    // 진입 비용은 커진다. 채택 비용의 실제 단위라 별도 차원으로 확정한다(2026-08-20 신설).
     // baseline에 없는 스킬은 미측정으로 두고 fail하지 않는다(소급 fail 금지 — G2/G3 관례).
     if (Object.hasOwn(baseline.alwaysReadBytes ?? {}, skill)) {
       const {bytes, missing} = measureAlwaysReadBytes(skillMd, join(skillsDir, skill));

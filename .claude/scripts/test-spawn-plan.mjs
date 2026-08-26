@@ -210,15 +210,15 @@ test('회귀(seminar-booking): "도메인 계층 전체" 스폰은 사전에 REF
   })
 })
 
-// --- 재잠금 사전 거부 (2026-08-12, 리뷰 지적: 사후 탐지보다 사전 차단이 근본) ---
+// --- 재확정 사전 거부 (2026-08-12, 리뷰 지적: 사후 탐지보다 사전 차단이 근본) ---
 
-test('conflictingLockDigests: 같은 계획 재잠금은 충돌 아님(멱등)', () => {
+test('conflictingLockDigests: 같은 계획 재확정은 충돌 아님(멱등)', () => {
   const plan = {task: 'x', outputs: ['a.ts'], reads: ['s']}
   const ledger = [{task: 'x', digest: planDigest(plan), at: 'T0'}]
   assert.deepEqual(conflictingLockDigests(plan, ledger), [])
 })
 
-test('conflictingLockDigests: 축소된 계획은 원장 최초 digest와 충돌 → 재잠금 거부', () => {
+test('conflictingLockDigests: 축소된 계획은 원장 최초 digest와 충돌 → 재확정 거부', () => {
   const original = {task: 'x', outputs: ['a.ts', 'b.ts', 'c.ts'], reads: ['s']}
   const shrunk = {task: 'x', outputs: ['a.ts'], reads: ['s']}
   const ledger = [{task: 'x', digest: planDigest(original), at: 'T0'}]
@@ -233,14 +233,14 @@ test('conflictingLockDigests: 매니페스트 내장 planLock만 있어도 충�
   assert.deepEqual(conflictingLockDigests(shrunk, null), [planDigest(original)])
 })
 
-test('conflictingLockDigests: 다른 task의 잠금은 간섭하지 않는다', () => {
+test('conflictingLockDigests: 다른 task의 스팩은 간섭하지 않는다', () => {
   const plan = {task: 'mine', outputs: ['a.ts'], reads: ['s']}
   const ledger = [{task: 'other', digest: 'deadbeefdeadbeef', at: 'T0'}]
   assert.deepEqual(conflictingLockDigests(plan, ledger), [])
 })
 
 test('한계 고지(회귀): 원장·planLock을 모두 지우면 충돌이 사라진다 — 위조 성립', () => {
-  // 로컬 증거를 전부 파기하면 최초 잠금과 구분할 수 없다(tamper-evident의 구조적 한계).
+  // 로컬 증거를 전부 파기하면 최초 스팩과 구분할 수 없다(tamper-evident의 구조적 한계).
   // 이 테스트는 "막았다"가 아니라 "여기까지가 한계"임을 코드로 고정한다(§4 등록).
   const shrunk = {task: 'x', outputs: ['a.ts'], reads: ['s']}
   assert.deepEqual(conflictingLockDigests(shrunk, null), [], '증거 전부 파기 시 기계는 막지 못한다')

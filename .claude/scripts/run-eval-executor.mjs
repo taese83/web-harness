@@ -105,7 +105,7 @@ const runScenario = ({scenario}) => {
   // OFF 암은 **runaway 방어 3게이트만** 끈다. 품질 게이트(run-quality-gates)·소유권 훅은
   // 그대로 둔다 — 이 실험의 종속변수는 스폰 실패율이지 앱 품질이 아니다(계획서 §7).
   const armInstruction = arm === 'off'
-    ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 잠금) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt·telemetry 기록)은 평소대로 지킨다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOff`를 붙여 기록하라.'
+    ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 스팩 확정) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt·telemetry 기록)은 평소대로 지킨다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOff`를 붙여 기록하라.'
     : '\n\n[A/B 실험 지시 — 이 실행은 게이트 ON 암이다] 평소대로 runaway 방어 3게이트를 모두 사용한다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOn`을 붙여 기록하라.'
 
   // 비대화 실행 규약 — **암과 무관하게 양쪽에 동일 적용**한다(교란 아님).

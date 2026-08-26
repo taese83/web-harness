@@ -94,7 +94,7 @@ test('detectRebind: keyed — only compares same-key entries', () => {
     {task: 'y', digest: 'y1'},
     {task: 'x', digest: 'x2'},
   ]
-  // task x가 x1으로 최초 잠겼는데 현재 x2 → 재잠금 실측
+  // task x가 x1으로 최초 잠겼는데 현재 x2 → 재확정 실측
   assert.deepEqual(
     detectRebind(rows, 'x2', {key: {field: 'task', value: 'x'}}),
     {firstDigest: 'x1', currentDigest: 'x2'},

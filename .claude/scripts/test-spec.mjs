@@ -1,22 +1,22 @@
 #!/usr/bin/env node
-// test-lock-spec.mjs — 스팩 잠금 회귀 (Stage 1의 안전망).
+// test-spec.mjs — 스팩 스팩 확정 회귀 (Stage 1의 안전망).
 //
 // 여기서 고정하는 사실:
 //   (1) 미결정이 하나라도 open이면 잠글 수 없다 — "착수 전 스팩 확정"의 기계 표현
 //   (2) 결정 블록은 정확히 1개여야 한다 (0개·2개 이상 거부)
 //   (3) acceptanceSource와 acceptanceRefs의 자기 모순을 거부한다
 //   (4) 수용 기준 부재는 거부가 아니라 specTier: unverifiable 라벨이다
-//   (5) 입력이 바뀌면 잠금은 stale이다 (부재 → 존재도 변경이다)
-//   (6) 잠금 입력은 프로젝트 루트를 벗어날 수 없다
+//   (5) 입력이 바뀌면 스팩은 stale이다 (부재 → 존재도 변경이다)
+//   (6) 확정 입력은 프로젝트 루트를 벗어날 수 없다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  buildSpecLock, digestInputs, extractDecisionBlock, isSpecLockStale,
+  buildSpec, digestInputs, extractDecisionBlock, isSpecStale,
   lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions,
-} from './lock-spec.mjs'
+} from './spec.mjs'
 
 const decisionBlock = decision => [
   '# Solution Design', '', '```json web-harness:solution-design',
@@ -100,7 +100,7 @@ test('블록이 유효한 JSON이 아니면 거부한다', () => {
 // ── (3) 자기 모순 차단 ───────────────────────────────────────────────────────
 test('feature-plan이라 주장하면서 참조가 비면 거부한다', () => {
   expectLockError(
-    () => buildSpecLock({
+    () => buildSpec({
       decision: baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: []}),
       digest: {inputs: [], combined: 'x'.repeat(64)},
     }),
@@ -110,7 +110,7 @@ test('feature-plan이라 주장하면서 참조가 비면 거부한다', () => {
 
 test('absent라 주장하면서 참조가 있으면 거부한다', () => {
   expectLockError(
-    () => buildSpecLock({
+    () => buildSpec({
       decision: baseDecision({acceptanceSource: 'absent', acceptanceRefs: ['FEAT-001']}),
       digest: {inputs: [], combined: 'x'.repeat(64)},
     }),
@@ -118,9 +118,9 @@ test('absent라 주장하면서 참조가 있으면 거부한다', () => {
   )
 })
 
-test('architecture.rationale이 없으면 거부한다 — 무엇을 골랐는지만으로는 못 잠근다', () => {
+test('architecture.rationale이 없으면 거부한다 — 무엇을 골랐는지만으로는 못 확정한다', () => {
   expectLockError(
-    () => buildSpecLock({
+    () => buildSpec({
       decision: baseDecision({architecture: {pattern: 'fsd'}}),
       digest: {inputs: [], combined: 'x'.repeat(64)},
     }),
@@ -130,7 +130,7 @@ test('architecture.rationale이 없으면 거부한다 — 무엇을 골랐는�
 
 test('libraries.source 어휘 밖 값을 거부한다', () => {
   expectLockError(
-    () => buildSpecLock({
+    () => buildSpec({
       decision: baseDecision({libraries: {state: {choice: 'zustand', source: 'guessed'}}}),
       digest: {inputs: [], combined: 'x'.repeat(64)},
     }),
@@ -170,8 +170,8 @@ test('회귀 반증: 결정에 id·question이 없으면 거부한다(스키마 
   expectLockError(() => settleDecisions([{id: 'OD-1', status: 'assumed'}]), 'DECISION_QUESTION_MISSING')
 })
 
-test('스키마 required와 잠금 출력 키가 일치한다', () => {
-  const schema = JSON.parse(readFileSync('.claude/schemas/spec-lock.schema.json', 'utf8'))
+test('스키마 required와 스팩 확정 출력 키가 일치한다', () => {
+  const schema = JSON.parse(readFileSync('.claude/schemas/spec.schema.json', 'utf8'))
   withProject(baseDecision(), root => {
     const lock = lockSpec(root)
     for (const key of schema.required) {
@@ -190,13 +190,13 @@ test('measured-absent를 유효한 source로 받는다', () => {
 })
 
 // ── (5) staleness ────────────────────────────────────────────────────────────
-test('입력이 바뀌면 잠금은 stale이다', () => {
+test('입력이 바뀌면 스팩은 stale이다', () => {
   withProject(baseDecision(), root => {
     const lock = lockSpec(root)
-    assert.equal(isSpecLockStale(lock, root), false)
+    assert.equal(isSpecStale(lock, root), false)
     mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
     writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n')
-    assert.equal(isSpecLockStale(lock, root), true, '부재였던 입력이 생긴 것도 변경이다')
+    assert.equal(isSpecStale(lock, root), true, '부재였던 입력이 생긴 것도 변경이다')
   })
 })
 
@@ -213,7 +213,7 @@ test('digest는 부재를 present:false로 기록한다', () => {
 })
 
 // ── (6) 경로 탈출 ────────────────────────────────────────────────────────────
-test('잠금 입력이 프로젝트 루트를 벗어나면 거부한다', () => {
+test('확정 입력이 프로젝트 루트를 벗어나면 거부한다', () => {
   withProject(baseDecision(), root => {
     expectLockError(() => digestInputs(root, ['../escape.md']), 'LOCK_INPUT_ESCAPES_ROOT')
   })
@@ -298,11 +298,11 @@ test('하네스 기본값 파일을 읽을 수 있고 핵심 키를 갖는다', 
 test('targetShapes가 없거나 비면 잠글 수 없다 — 형태가 검증 방식을 정한다', () => {
   const {targetShapes, ...without} = baseDecision()
   expectLockError(
-    () => buildSpecLock({decision: without, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    () => buildSpec({decision: without, digest: {inputs: [], combined: 'x'.repeat(64)}}),
     'TARGET_SHAPES_MISSING',
   )
   expectLockError(
-    () => buildSpecLock({decision: {...baseDecision(), targetShapes: []}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    () => buildSpec({decision: {...baseDecision(), targetShapes: []}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
     'TARGET_SHAPES_MISSING',
   )
 })
@@ -310,7 +310,7 @@ test('targetShapes가 없거나 비면 잠글 수 없다 — 형태가 검증 �
 test('회귀 반증: 구 단수 필드는 조용히 받지 않고 거부한다', () => {
   const {targetShapes, ...rest} = baseDecision()
   expectLockError(
-    () => buildSpecLock({decision: {...rest, targetShape: 'library'}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    () => buildSpec({decision: {...rest, targetShape: 'library'}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
     'TARGET_SHAPE_SINGULAR',
   )
 })
@@ -329,7 +329,7 @@ test('형태는 열린 문자열이다', () => {
   }
 })
 
-test('communication·concurrency는 없으면 빈 배열로 잠긴다', () => {
+test('communication·concurrency는 없으면 빈 배열로 확정된다', () => {
   withProject(baseDecision(), root => {
     const lock = lockSpec(root)
     assert.deepEqual(lock.communication, [])

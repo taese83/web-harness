@@ -21,7 +21,7 @@ Adapter는 source를 보고 rendering을 추측해 profile을 바꾸지 않는�
 
 ## Cache safety
 
-1. exact Next.js version과 cache model을 profile에 잠근다. 서로 다른 cache model의 directive/API를 섞어 검증하지 않는다.
+1. exact Next.js version과 cache model을 profile에 확정한다. 서로 다른 cache model의 directive/API를 섞어 검증하지 않는다.
 2. public immutable/TTL data만 `shared-public` cache 후보로 둔다.
 3. session, authorization, tenant, locale-sensitive private response는 shared cache에 저장하지 않는다.
 4. cache key에는 contract가 요구하는 tenant, locale, variant 등 모든 public partition dimension이 반영되어야 한다.

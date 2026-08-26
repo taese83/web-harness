@@ -160,7 +160,7 @@ export const validateAgentBoundaries = ({
     ['deploy writer Renovate config', 'deploy-ci-writer', join(repositoryRoot, '.github/renovate.json'), 0],
     ['deploy writer Dependabot config', 'deploy-ci-writer', join(repositoryRoot, '.github/dependabot.yml'), 0],
     ['AI requirements output', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements.md'), 0],
-    // ai-requirements sharded ownership — 실측(24KB>20KB) 재현에 따른 정합화. autonomy-risk-matrix는 실측 없어 flat 잠금 유지
+    // ai-requirements sharded ownership — 실측(24KB>20KB) 재현에 따른 정합화. autonomy-risk-matrix는 실측 없어 flat 스팩 확정 유지
     ['AI requirements sharded section', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements/INDEX.md'), 0],
     ['AI requirements adjacent name not owned', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements-v2.md'), 2],
     ['autonomy risk matrix stays flat-only', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/autonomy-risk-matrix/INDEX.md'), 2],

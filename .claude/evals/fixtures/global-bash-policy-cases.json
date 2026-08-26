@@ -636,19 +636,19 @@
       "id": "lock-spec-project-root",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/lock-spec.mjs --project-root ."
+      "command": "node .claude/scripts/spec.mjs --project-root ."
     },
     {
       "id": "lock-spec-no-args",
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
-      "command": "node .claude/scripts/lock-spec.mjs"
+      "command": "node .claude/scripts/spec.mjs"
     },
     {
       "id": "lock-spec-extra-arg",
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
-      "command": "node .claude/scripts/lock-spec.mjs --project-root . --write"
+      "command": "node .claude/scripts/spec.mjs --project-root . --write"
     },
     {
       "id": "spec-conformance-root",

@@ -41,7 +41,7 @@ chart type registry는 **개수를 고정하지 않는다**. 코어는 seed set(
    **라이선스 필요 여부를 알리고 선택을 제시**한다(`NEEDS_DECISION`):
    - 라이선스 보유/가능 → 상용 adapter 채택
    - 없음/원치 않음 → 무료 adapter(대용량=canvas, 표준=SVG) — 커버 type·특성 차이 고지
-3. **기록·잠금** — 선택과 근거를 `decision-log.md`에 남기고 그때 capability를 잠근다
+3. **기록·스팩 확정** — 선택과 근거를 `decision-log.md`에 남기고 그때 capability를 확정한다
    (예: `chart-registry(<adapterId>)`, 상용 선택 시 `chart-engine.licensed` 표식).
    기존 프로젝트가 상용 엔진을 이미 쓰면 자동 감지하되 "라이선스 확인됨"을 decision-log에 명시.
 

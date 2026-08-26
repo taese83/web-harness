@@ -11,9 +11,9 @@
 // truncation 검출은 verify-spawn-completion.mjs의 scanSource를 재사용한다(단일 출처).
 //
 // GIGO 대응 2종(2026-08-12 — §4의 "owned 전체 스캔 교차검증" TODO 해소분):
-//   1. **계획 잠금 검증** — validate-spawn-plan --lock이 스폰 **전에** 찍은 planLock.digest를
+//   1. **계획 스팩 확정 검증** — validate-spawn-plan --lock이 스폰 **전에** 찍은 planLock.digest를
 //      대조한다. 빌더가 죽은 뒤 매니페스트를 실제 쓰인 파일에 맞춰 줄이는 사후 축소가
-//      TAMPERED로 드러난다. 잠금이 없으면 그 사실을 정직하게 보고한다(자기선언 상태).
+//      TAMPERED로 드러난다. 스팩이 없으면 그 사실을 정직하게 보고한다(자기선언 상태).
 //   2. **owned 교차검증** — `--owned <prefix...>`를 주면 그 범위의 실제 파일과 선언 목록을
 //      대조해 **선언되지 않은 산출물**을 보고한다. 매니페스트가 현실과 어긋났다는 신호다.
 //
@@ -29,7 +29,7 @@
 
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {extname, join, relative, resolve} from 'node:path'
-import {lockLedgerPath, planDigest} from './validate-spawn-plan.mjs'
+import {specLedgerPath, planDigest} from './validate-spawn-plan.mjs'
 import {readEvidenceLog} from './evidence-log-lib.mjs'
 import {SCANNABLE, scanSource} from './verify-spawn-completion.mjs'
 
@@ -62,12 +62,12 @@ export function crossCheckOwned(root, outputs, prefixes, deps) {
   return {present: present.length, undeclared: present.filter(f => !declared.has(f))}
 }
 
-// 계획 잠금 검증 — locked | TAMPERED | unlocked. 순수.
+// 계획 스팩 확정 검증 — locked | TAMPERED | unlocked. 순수.
 //
 // 증거 우선순위: **원장(.plan-locks.jsonl) > 매니페스트 내 planLock**. 실측(2026-08-12)에서
 // 매니페스트 안에만 두면 두 경로로 뚫렸다 — planLock 삭제(→unlocked, exit 0), 축소 후
-// 재잠금(→새 digest, exit 0). 원장은 위조 대상 파일 **바깥**에 있어 최초 잠금이 남고,
-// 재잠금은 두 번째 항목으로 드러난다(relocked 보고). 원장 자체를 지우는 것까지는 막지
+// 재확정(→새 digest, exit 0). 원장은 위조 대상 파일 **바깥**에 있어 최초 스팩이 남고,
+// 재확정은 두 번째 항목으로 드러난다(relocked 보고). 원장 자체를 지우는 것까지는 막지
 // 못한다 — 로컬 증거는 tamper-**evident**이지 tamper-proof가 아니다(§4).
 export function verifyPlanLock(manifest, ledgerEntries = null) {
   const actual = planDigest(manifest)
@@ -94,7 +94,7 @@ export function verifyPlanLock(manifest, ledgerEntries = null) {
 // 원장 로드 — 없으면 null(=원장 미사용, "빈 원장"과 구분). 판독은 공유 evidence-log
 // (validate-spawn-plan의 writer가 append하는 바로 그 .plan-locks.jsonl — 쓰기/읽기 단일 관용구).
 export function readLockLedger(manifestPath, {exists = existsSync} = {}) {
-  const path = lockLedgerPath(manifestPath)
+  const path = specLedgerPath(manifestPath)
   if (!exists(path)) return null
   return readEvidenceLog(path)
 }
@@ -160,12 +160,12 @@ function main() {
     for (const f of missing) console.log(`  ❌ MISSING ${f}`)
     console.log(`\n재개 매니페스트${manifest.task ? ` [${manifest.task}]` : ''}: 전체 ${outputs.length} · done ${done.length} · truncated ${truncated.length} · missing ${missing.length}`)
     if (lock.status === 'TAMPERED') {
-      console.log(`  ⛔ TAMPERED — 계획 잠금 불일치(기록 ${lock.expected} ≠ 현재 ${lock.actual})`)
+      console.log(`  ⛔ TAMPERED — 계획 스팩 확정 불일치(기록 ${lock.expected} ≠ 현재 ${lock.actual})`)
       console.log(`      스폰 전 고정된 계획이 사후에 바뀌었다[${lock.source}]. 축소된 범위로 COMPLETE를 주장하지 말 것.`)
     } else if (lock.status === 'locked') {
-      console.log(`  🔒 계획 잠금 확인 ${lock.digest} [${lock.source}]${lock.at ? ` (${lock.at})` : ''}`)
+      console.log(`  🔒 계획 스팩 확정 확인 ${lock.digest} [${lock.source}]${lock.at ? ` (${lock.at})` : ''}`)
     } else {
-      console.log('  ⚠️  계획 잠금 없음 — outputs는 검증되지 않은 자기선언이다(validate-spawn-plan --lock 권장).')
+      console.log('  ⚠️  계획 스팩 확정 없음 — outputs는 검증되지 않은 자기선언이다(validate-spawn-plan --lock 권장).')
     }
     if (cross && cross.undeclared.length > 0) {
       console.log(`  ⚠️  owned 범위에 선언되지 않은 산출물 ${cross.undeclared.length}개 — 매니페스트가 현실과 어긋난다:`)

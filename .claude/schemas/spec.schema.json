@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "spec-lock",
-  "description": "개발 착수 전 확정된 구현 스팩. solution-design.md의 결정 블록을 검증·잠금한 결과이며 lock-spec.mjs stdout을 그대로 저장한다. 어떤 에이전트도 이 파일을 소유하지 않는다.",
+  "description": "개발 착수 전 확정된 구현 스팩. solution-design.md의 결정 블록을 검증·스팩 확정한 결과이며 spec.mjs stdout을 그대로 저장한다. 어떤 에이전트도 이 파일을 소유하지 않는다.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -94,8 +94,11 @@
             "enum": [
               "measured",
               "measured-absent",
+              "inferred",
+              "confirmed",
               "proposed"
-            ]
+            ],
+            "description": "근거의 출처. measured=대상 코드·선언에서 실측. measured-absent=찾아보고 없음을 확인. inferred=사용자 요청에서 추론(그린필드의 기본 경로). confirmed=사용자가 직접 골랐다. proposed=설계자 제안이며 실측·추론·확인 어느 근거도 없다."
           }
         }
       }
@@ -130,7 +133,7 @@
     },
     "decisions": {
       "type": "array",
-      "description": "잠금 시점에 open이 하나라도 있으면 잠글 수 없다 — 스팩 확정이 착수 전제다.",
+      "description": "확정 시점에 open이 하나라도 있으면 잠글 수 없다 — 스팩 확정이 착수 전제다.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -173,7 +176,7 @@
         "inputs",
         "combined"
       ],
-      "description": "잠금이 유래한 입력의 해시. 입력이 바뀌면 잠금은 stale이다.",
+      "description": "스팩이 유래한 입력의 해시. 입력이 바뀌면 스팩은 stale이다.",
       "properties": {
         "inputs": {
           "type": "array",
@@ -232,9 +235,10 @@
                 "enum": [
                   "default",
                   "measured",
+                  "inferred",
                   "declared"
                 ],
-                "description": "default=하네스 기본값 / measured=기존 프로젝트에서 실측 / declared=기본값을 의도적으로 덮어씀(rationale 필수)"
+                "description": "default=하네스 기본값. measured=대상에서 실측. inferred=사용자 요청에서 추론. declared=사용자가 명시(rationale 필수)."
               },
               "rationale": {
                 "type": "string",

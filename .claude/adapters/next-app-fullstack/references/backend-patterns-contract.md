@@ -30,7 +30,7 @@ Route Handler·Server Action의 실전 백엔드 패턴 계약이다. `app-route
 destructive/retriable mutation의 "idempotency 또는 precondition" 요구를 다음 중 하나로 구현한다:
 
 1. **Idempotency key**: 클라이언트가 생성한 key를 unique 컬럼에 저장 — 중복 요청은 최초 결과를 반환 (결제·생성 계열).
-2. **Precondition(낙관적 잠금)**: `updated_at`/version을 조건에 포함한 조건부 UPDATE — 충돌 시 409 + 최신 상태 반환 (수정 계열).
+2. **Precondition(낙관적 스팩 확정)**: `updated_at`/version을 조건에 포함한 조건부 UPDATE — 충돌 시 409 + 최신 상태 반환 (수정 계열).
 3. **자연 멱등**: DELETE는 "이미 없음"을 성공(204)으로 처리 (삭제 계열).
 
 재시도 가능한 실패(네트워크·타임아웃)와 불가능한 실패(검증·권한)를 응답 코드로 구분한다 — 클라이언트 재시도 정책이 이 구분에 의존한다.

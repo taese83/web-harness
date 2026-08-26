@@ -37,13 +37,13 @@ node .claude/scripts/web-core/compile-execution-plan.mjs --profile-file _workspa
 
 execution plan stdout은 `_workspace/03_dev/web-execution-plan.json`에 기록한다. adapter manifest의 shell 문자열을 실행하지 않으며 built-in allowlist와 argv-only command contract만 사용한다.
 
-adapter의 `provides`는 지원 가능한 capability 목록이고 profile JSON의 `capabilities`는 현재 요구에서 실제 활성화한 목록이다. 둘을 동일시하지 않는다. Next 기본값은 공개 App Router/RSC/SSG/SSR/streaming 최소 집합이며 auth, cookie identity, BFF, handler mutation, Server Action은 명시적 요구가 있을 때만 enable한다. package metadata가 완성되면 같은 선택으로 profile과 plan을 다시 잠근다.
+adapter의 `provides`는 지원 가능한 capability 목록이고 profile JSON의 `capabilities`는 현재 요구에서 실제 활성화한 목록이다. 둘을 동일시하지 않는다. Next 기본값은 공개 App Router/RSC/SSG/SSR/streaming 최소 집합이며 auth, cookie identity, BFF, handler mutation, Server Action은 명시적 요구가 있을 때만 enable한다. package metadata가 완성되면 같은 선택으로 profile과 plan을 다시 확정한다.
 
 deployment `provider`는 Vercel 같은 운영 서비스이고 `target`은 `static-cdn`, `node-server`, `static-export` 같은 runtime 형태다. 둘을 같은 값으로 취급하지 않는다. `vercel` provider는 React/Vite의 `static-cdn`, Next의 `node-server|static-export`만 허용한다.
 
 Vercel provider 선택 시 static `vercel.json`은 profile-bound machine validator 대상이다. official schema URL, frozen install, external ingestion의 pre-build semantic validation과 post-build `public → dist|out` digest validation, framework/output matrix, internal-only routing, global baseline security headers와 non-immutable runtime data cache를 만족하지 못하거나 `vercel.ts`/Vercel Cron/inline environment value로 책임을 우회하면 quality runner와 release를 `BLOCKED` 처리한다. wrapper는 preview/build parity 검증이며 악의적 detached process를 격리하는 신뢰 경계가 아니다. static external-ingestion production은 격리 build 종료 후 attested prebuilt digest를 동일 Vercel deployment에 전달하는 protected broker adapter가 추가되기 전까지 release `BLOCKED`다.
 
-crawler script, ingestion package, scheduled refresh workflow 또는 ingestion contract가 탐지되면 resolver는 두 ingestion contract를 요구하고 `external-ingestion`을 잠근다. runtime contract가 `static-snapshot`+`scheduled`이면 `scheduled-static-ingestion`도 잠근다. 명시 capability 목록이 이를 생략하거나 marker가 있는데 계약이 없으면 일반 web profile로 downgrade하지 않고 `BLOCKED`다.
+crawler script, ingestion package, scheduled refresh workflow 또는 ingestion contract가 탐지되면 resolver는 두 ingestion contract를 요구하고 `external-ingestion`을 확정한다. runtime contract가 `static-snapshot`+`scheduled`이면 `scheduled-static-ingestion`도 확정한다. 명시 capability 목록이 이를 생략하거나 marker가 있는데 계약이 없으면 일반 web profile로 downgrade하지 않고 `BLOCKED`다.
 
 locked profile을 읽는 quality/release/provider consumer도 현재 project를 다시 탐지한다. profile 생성 뒤 ingestion contract나 crawler가 추가되어 `external-ingestion` 또는 `scheduled-static-ingestion` capability가 빠진 상태는 stale profile로 즉시 `BLOCKED`다. detector는 bounded consistency check이며 임의 난독화 코드 부재의 증명은 아니므로 intake와 review에서 외부 수집 여부를 명시적으로 선언한다.
 

@@ -2,12 +2,12 @@
 // test-spec-conformance.mjs — 스팩 정합 검사 회귀 (Stage 2a의 안전망).
 //
 // 여기서 고정하는 사실:
-//   (1) measured 주장이 실측과 어긋나면 FAIL — 잠금이 자기보고 봉인이 되지 않게 하는 핵심
+//   (1) measured 주장이 실측과 어긋나면 FAIL — 스팩이 자기보고 봉인이 되지 않게 하는 핵심
 //   (2) layerMap이 없는 경로를 가리키면 FAIL
-//   (3) 잠금 이후 입력이 바뀌면 FAIL (staleness 소비)
+//   (3) 확정 이후 입력이 바뀌면 FAIL (staleness 소비)
 //   (4) substrate가 하네스 toolchain pin과 어긋나면 FAIL
 //   (5) 검증할 수 없었던 것은 침묵하지 않고 unverifiable로 보고한다
-//   (6) spec-lock이 없으면 실패가 아니라 NOT_LOCKED
+//   (6) spec-lock이 없으면 실패가 아니라 NO_SPEC
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
@@ -18,7 +18,7 @@ import {
   readShapeChecks, resolveRequiredChecks,
   collectDeclaredPackages, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
-import {lockSpec, readSubstrateDefaults} from './lock-spec.mjs'
+import {lockSpec, readSubstrateDefaults} from './spec.mjs'
 import {readFileSync} from 'node:fs'
 
 const decisionBlock = decision => [
@@ -38,7 +38,7 @@ const baseDecision = (overrides = {}) => ({
   ...overrides,
 })
 
-// 잠금까지 만들어 둔 프로젝트를 세운다.
+// 스팩 확정까지 만들어 둔 프로젝트를 세운다.
 const withLockedProject = ({decision = baseDecision(), manifest = {}, files = []}, run) => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-conf-'))
   try {
@@ -51,19 +51,19 @@ const withLockedProject = ({decision = baseDecision(), manifest = {}, files = []
       writeFileSync(join(root, file), '')
     }
     writeFileSync(join(root, '_workspace/02_design/solution-design.md'), decisionBlock(decision))
-    writeFileSync(join(root, '_workspace/03_dev/spec-lock.json'), `${JSON.stringify(lockSpec(root), null, 2)}\n`)
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), `${JSON.stringify(lockSpec(root), null, 2)}\n`)
     return run(root)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
 }
 
-// ── (6) 잠금 부재 ────────────────────────────────────────────────────────────
-test('spec-lock이 없으면 NOT_LOCKED이지 실패가 아니다', () => {
+// ── (6) 스팩 확정 부재 ────────────────────────────────────────────────────────────
+test('spec-lock이 없으면 NO_SPEC이지 실패가 아니다', () => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-conf-empty-'))
   try {
     const result = inspectSpecConformance({projectRoot: root})
-    assert.equal(result.status, 'NOT_LOCKED')
+    assert.equal(result.status, 'NO_SPEC')
     assert.equal(result.failures.length, 0)
   } finally {
     rmSync(root, {recursive: true, force: true})
@@ -76,7 +76,7 @@ test('회귀 반증: libraries가 measured라 주장하나 의존성에 없으�
   const {failures} = checkLibraries(
     {libraries: {state: {choice: 'zustand', source: 'measured'}}}, declared,
   )
-  assert.equal(failures.length, 1, '위조가 통과하면 잠금이 자기보고 봉인이 된다')
+  assert.equal(failures.length, 1, '위조가 통과하면 스팩이 자기보고 봉인이 된다')
   assert.match(failures[0].reason, /zustand가 없다/)
 })
 
@@ -125,14 +125,14 @@ test('루트를 벗어나는 경로를 거부한다', () => {
 })
 
 // ── (3) staleness 소비 ───────────────────────────────────────────────────────
-test('회귀 반증: 잠금 이후 입력이 바뀌면 FAIL', () => {
+test('회귀 반증: 확정 이후 입력이 바뀌면 FAIL', () => {
   withLockedProject({}, root => {
     assert.equal(inspectSpecConformance({projectRoot: root}).status, 'PASS')
     mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
     writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n')
     const after = inspectSpecConformance({projectRoot: root})
     assert.equal(after.status, 'FAIL')
-    assert.ok(after.failures.some(f => f.kind === 'stale'), 'staleness가 소비되지 않으면 잠금이 무의미하다')
+    assert.ok(after.failures.some(f => f.kind === 'stale'), 'staleness가 소비되지 않으면 스팩이 무의미하다')
   })
 })
 
@@ -312,7 +312,7 @@ test('조합 형태가 각각 대조된다', () => {
   })
 })
 
-// 2026-08-26 계약 변경: 이 자리는 원래 "신호 미선언은 note"를 고정하고 있었다. 실사용 잠금에서
+// 2026-08-26 계약 변경: 이 자리는 원래 "신호 미선언은 note"를 고정하고 있었다. 실사용 스팩에서
 // note가 검증 생략을 통과시킨다는 것이 드러나 배포되는 패키지는 FAIL로 올렸다((11) 참조).
 // 이 테스트는 그 위에 남는 우산 불변식이다 — 어느 갈래로도 침묵하지 않는다.
 test('신호가 있는데 선언하지 않으면 어느 경로로도 침묵하지 않는다', () => {
@@ -422,8 +422,8 @@ test('evidence 커버리지 실패가 정합 검사 FAIL로 올라온다', () =>
   })
 })
 
-// ── (11) 형태 생략 우회 (실사용 잠금 2026-08-26) ──────────────────────────────
-// golden/vite-serverless-hybrid를 실제로 잠그면서 드러났다. (8)이 고정한 것은 "없는 형태를
+// ── (11) 형태 생략 우회 (실사용 스팩 확정 2026-08-26) ──────────────────────────────
+// golden/vite-serverless-hybrid를 실제로 확정하면서 드러났다. (8)이 고정한 것은 "없는 형태를
 // 주장하면 FAIL"이었는데, 반대 방향 — **있는 형태를 선언하지 않으면 그 검증이 조용히 빠진다** —
 // 는 note로만 보고되고 있었다. 합집합 규칙은 형태를 더하는 것만 안전하게 만들지, 빼는 것을
 // 막지 않는다. 형태가 게이트를 고르는 이상 생략도 대조 대상이다.
@@ -461,7 +461,7 @@ test('회귀 반증: 배포되는 진입점을 선언하지 않으면 FAIL', () 
 })
 
 test('회귀 반증: 미지 형태를 FAIL로 만들지 않는다 — 프로필 DAG가 독립 요구를 갖는다', () => {
-  // 실사용 잠금(2026-08-26)에서 ["banana"]가 vite.build·vite.browser를 형태 층에서 뺀다는 것을
+  // 실사용 스팩 확정(2026-08-26)에서 ["banana"]가 vite.build·vite.browser를 형태 층에서 뺀다는 것을
   // 발견하고 FAIL로 올렸다가 되돌렸다. 되돌린 이유가 이 테스트다:
   //   (1) 프로필 실행계획이 vite.build·vite.browser를 독립적으로 요구한다(실측). 형태 층은
   //       가산이지 유일 경로가 아니므로 형태명을 지어내도 릴리스에서 그 검증이 빠지지 않는다.
