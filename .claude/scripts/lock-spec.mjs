@@ -120,6 +120,52 @@ export const digestInputs = (projectRoot, inputs = LOCK_INPUTS) => {
 }
 
 const FEATURE_PLAN_INPUT = '_workspace/01_plan/feature-plan.md'
+const SUBSTRATE_DEFAULTS_PATH = new URL('../substrate-defaults.json', import.meta.url)
+
+export const readSubstrateDefaults = () => JSON.parse(readFileSync(SUBSTRATE_DEFAULTS_PATH, 'utf8')).substrate ?? {}
+
+// 고정 기반 병합. 규칙 하나 — **기본값은 미지정 키만 채운다.**
+// 프로젝트가 measured(기존 코드에서 실측)나 declared(의도적 덮어쓰기)를 적었으면 그것이 이긴다.
+// declared는 rationale을 요구한다: 기본값을 벗어나는 것은 판단이므로 근거가 남아야 한다.
+export const mergeSubstrate = (declaredSubstrate, defaults = readSubstrateDefaults()) => {
+  const declared = declaredSubstrate ?? {}
+  const merged = {}
+  for (const [key, entry] of Object.entries(declared)) {
+    requireNonEmptyString(entry?.value, 'SUBSTRATE_VALUE_MISSING', `constitution.substrate.${key}.value가 없다`)
+    if (!['default', 'measured', 'declared'].includes(entry?.source)) {
+      throw new LockError('SUBSTRATE_SOURCE_INVALID', `constitution.substrate.${key}.source는 default|measured|declared여야 한다`)
+    }
+    if (entry.source === 'declared') {
+      requireNonEmptyString(
+        entry.rationale, 'SUBSTRATE_DECLARED_WITHOUT_RATIONALE',
+        `constitution.substrate.${key}가 declared인데 rationale이 없다 — 기본값을 벗어나는 것은 판단이다`,
+      )
+    }
+    // default라 주장하는데 하네스 기본값에 그런 키가 없으면 출처 날조다(적대 리뷰 2026-08-26).
+    // 이 구멍이 열려 있으면 새 키 이름 하나로 declared의 rationale 의무를 우회할 수 있다.
+    if (entry.source === 'default' && !(key in defaults)) {
+      throw new LockError(
+        'SUBSTRATE_DEFAULT_UNKNOWN_KEY',
+        `constitution.substrate.${key}가 default라는데 하네스 기본값에 그런 키가 없다 — 존재하지 않는 출처다`,
+      )
+    }
+    // default라 주장하면서 하네스 기본값과 다르면 거짓이다.
+    if (entry.source === 'default' && key in defaults && entry.value !== defaults[key]) {
+      throw new LockError(
+        'SUBSTRATE_DEFAULT_MISMATCH',
+        `constitution.substrate.${key}가 default라는데 값이 기본값과 다르다(${entry.value} ≠ ${defaults[key]}) — declared로 적고 rationale을 남겨라`,
+      )
+    }
+    const settled = {value: entry.value, source: entry.source}
+    if (typeof entry.rationale === 'string' && entry.rationale.trim() !== '') settled.rationale = entry.rationale
+    merged[key] = settled
+  }
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!(key in merged)) merged[key] = {value, source: 'default'}
+  }
+  return merged
+}
+
 
 export const buildSpecLock = ({decision, digest}) => {
   if (decision === null || typeof decision !== 'object' || Array.isArray(decision)) {
@@ -163,12 +209,22 @@ export const buildSpecLock = ({decision, digest}) => {
     }
   }
 
+  const constitution = {substrate: mergeSubstrate(decision.constitution?.substrate)}
+  const targetShape = requireNonEmptyString(
+    decision.targetShape, 'TARGET_SHAPE_MISSING',
+    'targetShape가 없다 — 산출물 형태(web-app·library·cli 등)가 정해져야 검증 방식이 정해진다',
+  )
+
   return {
     schemaVersion: 1,
     specTier: acceptanceSource === 'feature-plan' ? 'verifiable' : 'unverifiable',
     acceptanceSource,
     acceptanceRefs,
+    constitution,
+    targetShape,
     architecture: {pattern: architecture.pattern, rationale: architecture.rationale},
+    communication: Array.isArray(decision.communication) ? decision.communication : [],
+    concurrency: Array.isArray(decision.concurrency) ? decision.concurrency : [],
     layerMap: decision.layerMap ?? {},
     libraries,
     moduleBoundaries: Array.isArray(decision.moduleBoundaries) ? decision.moduleBoundaries : [],

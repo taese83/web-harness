@@ -1,0 +1,13 @@
+{
+  "$comment": "하네스가 제공하는 기본 substrate. 프로젝트가 실측(measured)하거나 명시 선언(declared)하면 그것이 이긴다 — 기본값은 미지정 키를 채울 뿐이다. lock-spec.mjs가 읽는다. 한계(미해결 TODO): 이 파일은 아직 tooling-scaffolder·validate-toolchain·ts-conventions의 단일 소스가 아니다. 네 곳이 각자 값을 갖고 있으며 통합은 후속 단계다.",
+  "schemaVersion": 1,
+  "substrate": {
+    "packageManager": "pnpm",
+    "language": "typescript",
+    "bundler": "vite",
+    "testRunner": "vitest",
+    "lint": "eslint",
+    "formatter": "prettier",
+    "e2e": "playwright"
+  }
+}

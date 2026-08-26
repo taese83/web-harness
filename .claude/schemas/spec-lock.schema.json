@@ -9,6 +9,8 @@
     "specTier",
     "acceptanceSource",
     "acceptanceRefs",
+    "constitution",
+    "targetShape",
     "architecture",
     "layerMap",
     "libraries",
@@ -18,37 +20,83 @@
     "sourceDigest"
   ],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {
+      "const": 1
+    },
     "specTier": {
-      "enum": ["verifiable", "unverifiable"],
+      "enum": [
+        "verifiable",
+        "unverifiable"
+      ],
       "description": "verifiable = feature-plan의 수용 기준에 묶여 있다. unverifiable = 수용 기준이 없는 채로 잠겼다 — 설계는 확정됐으나 그것이 맞는지 판정할 기준이 없다."
     },
-    "acceptanceSource": {"enum": ["feature-plan", "absent"]},
-    "acceptanceRefs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "acceptanceSource": {
+      "enum": [
+        "feature-plan",
+        "absent"
+      ]
+    },
+    "acceptanceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "architecture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["pattern", "rationale"],
+      "required": [
+        "pattern",
+        "rationale"
+      ],
       "properties": {
-        "pattern": {"type": "string", "minLength": 1, "description": "열린 문자열 — fsd·layered·domain-modules·existing·hexagonal 등"},
-        "rationale": {"type": "string", "minLength": 1}
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "열린 문자열 — fsd·layered·domain-modules·existing·hexagonal 등"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "layerMap": {
       "type": "object",
       "description": "논리 레이어 → 실제 경로. 레이어 이름과 경로 어휘를 둘 다 프로젝트가 정한다.",
-      "additionalProperties": {"type": "string", "minLength": 1}
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "libraries": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["choice", "source"],
+        "required": [
+          "choice",
+          "source"
+        ],
         "properties": {
-          "choice": {"type": "string", "minLength": 1},
-          "alternatives": {"type": "array", "items": {"type": "string"}},
-          "source": {"enum": ["measured", "measured-absent", "proposed"]}
+          "choice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "enum": [
+              "measured",
+              "measured-absent",
+              "proposed"
+            ]
+          }
         }
       }
     },
@@ -57,34 +105,74 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["scope", "rationale"],
+        "required": [
+          "scope",
+          "rationale"
+        ],
         "properties": {
-          "scope": {"type": "string", "minLength": 1},
-          "rationale": {"type": "string", "minLength": 1}
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
-    "nonGoals": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "nonGoals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "decisions": {
       "type": "array",
       "description": "잠금 시점에 open이 하나라도 있으면 잠글 수 없다 — 스팩 확정이 착수 전제다.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "question", "status"],
+        "required": [
+          "id",
+          "question",
+          "status"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "question": {"type": "string", "minLength": 1},
-          "options": {"type": "array", "items": {"type": "string"}},
-          "recommended": {"type": "string"},
-          "status": {"enum": ["assumed", "confirmed"]}
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommended": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "assumed",
+              "confirmed"
+            ]
+          }
         }
       }
     },
     "sourceDigest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["inputs", "combined"],
+      "required": [
+        "inputs",
+        "combined"
+      ],
       "description": "잠금이 유래한 입력의 해시. 입력이 바뀌면 잠금은 stale이다.",
       "properties": {
         "inputs": {
@@ -92,16 +180,91 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "present"],
+            "required": [
+              "path",
+              "present"
+            ],
             "properties": {
-              "path": {"type": "string", "minLength": 1},
-              "present": {"type": "boolean"},
-              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "present": {
+                "type": "boolean"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             }
           }
         },
-        "combined": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "combined": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
+    },
+    "constitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "substrate"
+      ],
+      "description": "프로젝트 단위로 고정되는 것. 서비스마다 달라지는 유동 선택(architecture·libraries·communication 등)과 구분된다. 원칙 층(test-first·증거 요구·안전 하한)은 하네스 protected-core가 소유하며 여기서 재선언하지 않는다.",
+      "properties": {
+        "substrate": {
+          "type": "object",
+          "description": "도구 기반. 미지정 키는 하네스 기본값(.claude/substrate-defaults.json)으로 채워지고 source가 default로 기록된다.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "source"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "enum": [
+                  "default",
+                  "measured",
+                  "declared"
+                ],
+                "description": "default=하네스 기본값 / measured=기존 프로젝트에서 실측 / declared=기본값을 의도적으로 덮어씀(rationale 필수)"
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "targetShape": {
+      "type": "string",
+      "minLength": 1,
+      "description": "산출물 형태. web-app·library·cli 등 열린 문자열이며 예시일 뿐이다. 형태가 다르면 검증도 다르므로 이후 단계에서 게이트 선택의 입력이 된다."
+    },
+    "communication": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "통신 방식. rest·graphql·websocket·sse·streaming 등. 라이브러리가 아니라 접근 방식이라 libraries와 분리한다."
+    },
+    "concurrency": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "동시성 접근. web-worker·service-worker·worker-thread 등. 없으면 빈 배열."
     }
   }
 }

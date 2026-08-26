@@ -15,7 +15,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   buildSpecLock, digestInputs, extractDecisionBlock, isSpecLockStale,
-  lockSpec, LockError, settleDecisions,
+  lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions,
 } from './lock-spec.mjs'
 
 const decisionBlock = decision => [
@@ -25,6 +25,7 @@ const decisionBlock = decision => [
 
 const baseDecision = (overrides = {}) => ({
   stage: 0,
+  targetShape: 'web-app',
   architecture: {pattern: 'existing', rationale: '기존 lint 설정이 레이어 어휘를 강제한다'},
   layerMap: {routes: 'src/pages/', 'pure-logic': 'src/utils/'},
   libraries: {'client-state': {choice: 'zustand', alternatives: [], source: 'measured'}},
@@ -225,4 +226,103 @@ test('solution-design.md가 없으면 잠글 수 없다', () => {
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
+})
+
+// ── (7) 고정 기반: 기본 제공 + 브라운필드 실측 우선 ──────────────────────────
+test('미지정 substrate는 하네스 기본값으로 채워지고 source가 default다', () => {
+  const merged = mergeSubstrate(undefined, {packageManager: 'pnpm', bundler: 'vite'})
+  assert.deepEqual(merged.packageManager, {value: 'pnpm', source: 'default'})
+  assert.deepEqual(merged.bundler, {value: 'vite', source: 'default'})
+})
+
+test('회귀 반증: 실측값이 기본값을 이긴다', () => {
+  const merged = mergeSubstrate(
+    {packageManager: {value: 'npm', source: 'measured'}},
+    {packageManager: 'pnpm', bundler: 'vite'},
+  )
+  assert.equal(merged.packageManager.value, 'npm', '기본값이 실측을 덮으면 브라운필드가 깨진다')
+  assert.equal(merged.packageManager.source, 'measured')
+  assert.equal(merged.bundler.source, 'default', '미지정 키는 여전히 기본값')
+})
+
+test('declared는 rationale을 요구한다 — 기본값 이탈은 판단이다', () => {
+  expectLockError(
+    () => mergeSubstrate({bundler: {value: 'rspack', source: 'declared'}}, {bundler: 'vite'}),
+    'SUBSTRATE_DECLARED_WITHOUT_RATIONALE',
+  )
+  const ok = mergeSubstrate(
+    {bundler: {value: 'rspack', source: 'declared', rationale: '기존 모노레포가 rspack이다'}},
+    {bundler: 'vite'},
+  )
+  assert.equal(ok.bundler.rationale, '기존 모노레포가 rspack이다')
+})
+
+test('회귀 반증: default라 주장하면서 값이 기본값과 다르면 거부한다', () => {
+  expectLockError(
+    () => mergeSubstrate({bundler: {value: 'webpack', source: 'default'}}, {bundler: 'vite'}),
+    'SUBSTRATE_DEFAULT_MISMATCH',
+  )
+})
+
+test('회귀 반증: 기본값에 없는 키를 default라 주장하면 거부한다', () => {
+  // 이 구멍이 열리면 새 키 이름 하나로 declared의 rationale 의무를 우회할 수 있다.
+  expectLockError(
+    () => mergeSubstrate({styling: {value: 'tailwind', source: 'default'}}, {bundler: 'vite'}),
+    'SUBSTRATE_DEFAULT_UNKNOWN_KEY',
+  )
+})
+
+test('기본값에 없는 키도 measured·declared로는 적을 수 있다', () => {
+  const merged = mergeSubstrate(
+    {styling: {value: 'tailwind', source: 'measured'}},
+    {bundler: 'vite'},
+  )
+  assert.equal(merged.styling.source, 'measured')
+})
+
+test('substrate.source 어휘 밖 값을 거부한다', () => {
+  expectLockError(
+    () => mergeSubstrate({bundler: {value: 'vite', source: 'guessed'}}, {bundler: 'vite'}),
+    'SUBSTRATE_SOURCE_INVALID',
+  )
+})
+
+test('하네스 기본값 파일을 읽을 수 있고 핵심 키를 갖는다', () => {
+  const defaults = readSubstrateDefaults()
+  for (const key of ['packageManager', 'language', 'bundler', 'testRunner', 'lint']) {
+    assert.ok(typeof defaults[key] === 'string' && defaults[key].length > 0, `기본값에 ${key}가 없다`)
+  }
+})
+
+// ── (8) targetShape ──────────────────────────────────────────────────────────
+test('targetShape가 없으면 잠글 수 없다 — 형태가 검증 방식을 정한다', () => {
+  const {targetShape, ...withoutShape} = baseDecision()
+  expectLockError(
+    () => buildSpecLock({decision: withoutShape, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    'TARGET_SHAPE_MISSING',
+  )
+})
+
+test('targetShape는 열린 문자열이다 — library도 cli도 유효하다', () => {
+  for (const shape of ['web-app', 'library', 'cli', 'browser-extension']) {
+    withProject(baseDecision({targetShape: shape}), root => {
+      assert.equal(lockSpec(root).targetShape, shape)
+    })
+  }
+})
+
+test('communication·concurrency는 없으면 빈 배열로 잠긴다', () => {
+  withProject(baseDecision(), root => {
+    const lock = lockSpec(root)
+    assert.deepEqual(lock.communication, [])
+    assert.deepEqual(lock.concurrency, [])
+  })
+})
+
+test('communication·concurrency가 보존된다', () => {
+  withProject(baseDecision({communication: ['rest', 'websocket'], concurrency: ['web-worker']}), root => {
+    const lock = lockSpec(root)
+    assert.deepEqual(lock.communication, ['rest', 'websocket'])
+    assert.deepEqual(lock.concurrency, ['web-worker'])
+  })
 })

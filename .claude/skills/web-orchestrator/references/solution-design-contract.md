@@ -13,7 +13,44 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 이 지위는 문서에 명시된다. 산출물 상단에 `STAGE: 0 (observational — not a gate)`를 적고,
 읽는 쪽이 이것을 계약으로 오해하지 않게 한다. 지위가 바뀌면 이 절을 갱신한다.
 
-## 1. 무엇을 담고 무엇을 담지 않는가
+## 1. 두 층 — 고정 기반과 유동 선택
+
+스팩은 **고정되는 것**과 **서비스마다 달라지는 것**을 구분해 담는다. 이 구분이 무너지면
+유동 선택을 기반처럼 강요하거나(범위가 좁아진다) 기반을 매번 재결정하게 된다(일관성이 없어진다).
+
+| 층 | 성격 | 담는 곳 |
+|---|---|---|
+| **원칙** | 프로세스 법 — test-first·증거 요구·안전 하한 | `docs/protected-core.md`가 소유. **스팩에서 재선언하지 않는다** |
+| **고정 기반** | 도구 substrate — 패키지 매니저·번들러·테스트 러너·언어·lint·formatter·e2e | `constitution.substrate` |
+| **유동 선택** | 서비스마다 답이 다른 것 | `targetShape`·`architecture`·`layerMap`·`libraries`·`communication`·`concurrency`·`moduleBoundaries` |
+
+**고정 기반은 기본 제공 + 브라운필드 실측 우선이다.** 하네스가 `.claude/substrate-defaults.json`으로
+기본값을 주고, 프로젝트가 지정하지 않은 키만 그 값으로 채워진다(`source: "default"`).
+
+- `measured` — 기존 코드에서 실측했다. **기본값을 이긴다**
+- `declared` — 기본값을 의도적으로 덮어쓴다. **`rationale` 필수** — 이탈은 판단이므로 근거가 남아야 한다.
+  실측 근거 없이 기본값을 벗어나면 rationale만으로 확정하지 말고 §4로 제시한다 — 고정 기반의
+  이탈 문턱이 유동 선택보다 낮아선 안 된다
+- `default`라 적으면서 값이 기본값과 다르면 거부한다(`SUBSTRATE_DEFAULT_MISMATCH`)
+
+**`targetShape`는 필수다.** `web-app`·`library`·`cli` 등 열린 문자열이며, 형태가 다르면 검증도
+다르므로 이후 단계에서 게이트 선택의 입력이 된다. 라이브러리를 만들든 웹앱을 만들든 같은
+흐름을 쓰되 검증만 형태를 따른다.
+
+**누가 정하나**: 설계자가 근거를 대고 정한다. 근거 순서는 (1) 기존 source 실측 —
+`package.json`의 `private`·`exports`·`bin`, 진입점 형태가 형태를 말해 준다, (2) `feature-plan`과
+`requirements`가 서술하는 소비 방식(사용자가 화면을 쓰는가, 다른 코드가 import 하는가),
+(3) 그래도 갈리면 확정하지 말고 `openDecisions`로 올린다. **형태는 되돌리기 비용이 가장 큰
+결정 중 하나이므로 추정으로 확정하지 않는다.**
+
+**한계(미해결)** — 둘 다 §4 등록:
+- `substrate-defaults.json`은 아직 `tooling-scaffolder`·`validate-toolchain`·`ts-conventions`의
+  단일 소스가 아니다. 네 곳이 각자 값을 갖고 있으며 통합은 후속 단계다
+- **기본값은 web-app 형태 기준이다.** `targetShape`가 `library`·`cli`여도 `e2e: playwright`·
+  `bundler: vite`가 default로 채워진다 — 형태별 조건화는 미해결이다. 형태에 맞지 않는 기본값은
+  `measured`·`declared`로 덮어써야 한다
+
+## 2. 무엇을 담고 무엇을 담지 않는가
 
 이 구분이 계약의 핵심이다. 지키지 않으면 산문 파이프라인을 다른 파일로 옮긴 것뿐이다.
 
@@ -23,12 +60,12 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 |---|---|
 | 아키텍처 패턴 | FSD · 레이어드 · 도메인 모듈 · 기존 관례 준수 중 무엇이며 **왜** |
 | 레이어 맵 | 논리 레이어 → 실제 경로. 브라운필드는 `integration-overlay.json` 실측이 우선 |
-| 라이브러리 결정 | 데이터 계층·상태·폼·mock·UI 레인. 각 항목에 대안과 선택 사유. **확인된 부재도 결정이다**(§4 `measured-absent`) |
+| 라이브러리 결정 | 데이터 계층·상태·폼·mock·UI 레인. 각 항목에 대안과 선택 사유. **확인된 부재도 결정이다**(§5 `measured-absent`) |
 | 모듈 경계 | 병렬 작업이 서로 침범하지 않을 쓰기 범위 후보 |
-| 수용 기준 참조 | `feature-plan.md`의 FEAT/TC ID — **여기서 새로 만들지 않는다**. 부재하면 §4 `acceptanceSource`로 그 사실을 명시한다 |
+| 수용 기준 참조 | `feature-plan.md`의 FEAT/TC ID — **여기서 새로 만들지 않는다**. 부재하면 §5 `acceptanceSource`로 그 사실을 명시한다 |
 | 데이터 계약 참조 | `api-schema.md` · `state-contract.md` — 참조만, 복제 금지 |
 | 비목표 | 이번 범위 밖임을 명시할 것 |
-| 미결정 | 사용자 결정이 필요한 항목 (§3) |
+| 미결정 | 사용자 결정이 필요한 항목 (§4) |
 
 **담지 않는다 — "어떻게 만드는가"**
 
@@ -38,7 +75,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 
 판단 기준: **그 문장이 검증 가능한 명제인가, 아니면 작업 지시인가.** 후자면 빼라.
 
-## 2. 브라운필드 우선 규칙
+## 3. 브라운필드 우선 규칙
 
 **이미 확정된 결정은 재결정하지 않는다.** `tech-stack.md`와 해석된 프로필이 고정한 것(특히
 `UI_LANE`·프레임워크·배포 target)은 정본이 하나여야 한다 — 다르게 가야 한다고 판단하면
@@ -54,7 +91,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 - 기존 프로젝트에 아키텍처 관례가 없으면 그 사실을 그대로 기록한다 — 없는 관례를 지어내
   기록하지 않는다
 
-## 3. 사용자 제시 — 결정을 대신하지 않는다
+## 4. 사용자 제시 — 결정을 대신하지 않는다
 
 설계자는 **판단하되 확정하지 않는다.** 다음은 반드시 선택지로 제시한다:
 
@@ -67,7 +104,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 
 명백한 것은 묻지 않는다. 기존 관례가 있고 그것을 따르면 되는 항목은 기록만 한다.
 
-## 4. 기계 판독 가능 블록 (전방 호환)
+## 5. 기계 판독 가능 블록 (전방 호환)
 
 문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 잠금 아티팩트로 승격되므로
 **형식을 임의로 바꾸지 않는다.**
@@ -76,6 +113,10 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 ```json web-harness:solution-design
 {
   "stage": 0,
+  "targetShape": "web-app|library|cli|<기타>",
+  "constitution": {"substrate": {"<키>": {"value": "...", "source": "default|measured|declared", "rationale": "declared면 필수"}}},
+  "communication": ["rest|graphql|websocket|sse|streaming"],
+  "concurrency": ["web-worker|service-worker|worker-thread"],
   "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},
   "layerMap": {"<논리 레이어>": "<실제 경로>"},
   "libraries": {"<역할>": {"choice": "...", "alternatives": ["..."], "source": "measured|measured-absent|proposed"}},
@@ -131,13 +172,13 @@ E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확�
 - `acceptanceSource: "absent"`, `acceptanceRefs: []`로 적고 **부재를 본문에도 명시한다**
 - 그 상태의 설계 결정은 **검증 대상이 없는 채로 확정된다**는 사실을 함께 적는다 — 설계는
   할 수 있지만 그것이 맞는지 판정할 기준이 없다
-- 수용 기준을 여기서 지어내지 않는다(§1). 필요하면 feature-plan을 선행하라는 것이 답이다
+- 수용 기준을 여기서 지어내지 않는다(§2). 필요하면 feature-plan을 선행하라는 것이 답이다
 
 **Stage 1 전제조건**: 잠금 아티팩트로 승격할 때 `acceptanceSource: "absent"`를 허용할지
 결정해야 한다. 허용하면 검증 기준 없는 스팩이 잠기고, 불허하면 기획 없는 브라운필드 개선이
 막힌다. 이 판단은 Stage 1의 몫이며 여기서 미리 정하지 않는다.
 
-## 5. 스팩 잠금 (Stage 1)
+## 6. 스팩 잠금 (Stage 1)
 
 결정이 전부 확정되면 잠근다. 잠금은 **협업 계약**이다 — 여러 사람이 같은 스팩에 맞춰
 개발하려면 그 스팩이 개발 중에 흔들리지 않아야 하고, 이 필요는 모델 능력과 무관하다.
@@ -174,7 +215,7 @@ protected-core에 기등록된 한계다.
 **Stage 1의 한계(정직 표기)**: 잠금이 생기고 검증되지만 **아직 아무 게이트도 이것을 읽지
 않는다**. 게이트 전환은 Stage 2다.
 
-## 6. Stage 0에서 하지 않는 것
+## 7. Stage 0에서 하지 않는 것
 
 - 이 산출물로 무엇도 차단하지 않는다
 - `layerMap`·`moduleBoundaries`를 근거로 **다른 에이전트의** 소유권 경로를 바꾸지 않는다 —
