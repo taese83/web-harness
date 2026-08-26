@@ -667,6 +667,24 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-spec-conformance.mjs"
+    },
+    {
+      "id": "shape-checks-ok",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-shape-checks.mjs --project-root . --shapes library,cli"
+    },
+    {
+      "id": "shape-checks-no-shapes",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-shape-checks.mjs --project-root ."
+    },
+    {
+      "id": "shape-checks-bad-shapes",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-shape-checks.mjs --project-root . --shapes \"lib; rm -rf /\""
     }
   ]
 }

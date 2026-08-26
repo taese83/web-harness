@@ -599,6 +599,14 @@ const specConformanceContract = (args, context) => {
   return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
 }
 
+// shape checks는 --project-root와 --shapes(쉼표 구분)를 요구한다.
+const shapeChecksContract = (args, context) => {
+  if (args.length !== 4) return false
+  if (args[0] !== '--project-root' || args[2] !== '--shapes') return false
+  readablePath(args[1], context, 'directory')
+  return /^[a-z0-9-]+(?:,[a-z0-9-]+)*$/.test(args[3])
+}
+
 const lockSpecContract = (args, context) => {
   if (args.length !== 2 || args[0] !== '--project-root') return false
   readablePath(args[1], context, 'directory')
@@ -780,6 +788,7 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
   if (script === '.claude/scripts/lock-spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
+  if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)
   if (script === '.claude/scripts/web-core/compile-execution-plan.mjs') return executionPlanContract(args, context)
   return false

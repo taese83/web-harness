@@ -104,18 +104,28 @@ export const checkLayerMap = (specLock, projectRoot) => {
 // 라이브러리이면서 CLI인 패키지는 두 세트를 모두 요구받는다.
 export const readShapeChecks = () => JSON.parse(readFileSync(SHAPE_CHECKS_PATH, 'utf8'))
 
+// 요구 검사를 구현 여부로 가른다.
+// **하네스가 못 하는 것을 프로젝트 실패로 보고하지 않는다** — implemented: false는 요구되지만
+// 수행할 방법이 없는 것이고, 그것을 FAIL로 내면 "프로젝트가 뭔가 잘못했다"는 뜻이 된다.
+// 잘못한 건 하네스다. 그래서 별도 상태로 보고한다.
 export const resolveRequiredChecks = (targetShapes, catalog = readShapeChecks()) => {
-  const required = new Set(catalog.common?.checks ?? [])
+  const entries = new Map()
   const unknownShapes = []
+  for (const entry of catalog.common?.checks ?? []) entries.set(entry.id, entry)
   for (const shape of targetShapes ?? []) {
-    const entry = catalog.shapes?.[shape]
-    if (!entry) {
+    const definition = catalog.shapes?.[shape]
+    if (!definition) {
       unknownShapes.push(shape)
       continue
     }
-    for (const check of entry.checks ?? []) required.add(check)
+    for (const entry of definition.checks ?? []) entries.set(entry.id, entry)
   }
-  return {required: [...required].sort(), unknownShapes}
+  const all = [...entries.values()]
+  return {
+    required: all.filter(entry => entry.implemented !== false).map(entry => entry.id).sort(),
+    unimplemented: all.filter(entry => entry.implemented === false).map(entry => entry.id).sort(),
+    unknownShapes,
+  }
 }
 
 // 수행된 검증을 evidence receipt에서 읽는다. receipt는 evidence/{id}.json이고 status를 갖는다.
@@ -135,14 +145,14 @@ export const readEvidence = projectRoot => {
 // 요구된 검증이 실제로 수행됐는가. **이것이 2b가 게이트가 되는 지점이다.**
 // evidence 디렉토리 자체가 없으면 아직 검증 단계가 아니므로 판정하지 않는다(NOT_RUN).
 export const checkShapeEvidence = (specLock, projectRoot) => {
-  const {required, unknownShapes} = resolveRequiredChecks(specLock.targetShapes)
+  const {required, unimplemented, unknownShapes} = resolveRequiredChecks(specLock.targetShapes)
   const receipts = readEvidence(projectRoot)
   if (receipts === null) {
-    return {evidenceState: 'NOT_RUN', required, missing: [], failing: [], unknownShapes}
+    return {evidenceState: 'NOT_RUN', required, unimplemented, missing: [], failing: [], unknownShapes}
   }
   const missing = required.filter(check => !receipts.has(check))
   const failing = required.filter(check => receipts.has(check) && receipts.get(check) !== 'PASS')
-  return {evidenceState: 'RUN', required, missing, failing, unknownShapes}
+  return {evidenceState: 'RUN', required, unimplemented, missing, failing, unknownShapes}
 }
 
 // 선언된 형태를 package.json 필드와 대조한다(조사 2026-08-26).
@@ -340,6 +350,9 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   } else {
     notes.push(`요구 검증 ${evidence.required.length}종(${evidence.required.join(', ')}) — evidence 디렉토리가 없어 아직 판정하지 않는다`)
   }
+  for (const check of evidence.unimplemented) {
+    unverifiable.push({kind: 'shapeEvidence', reason: `요구 검증 '${check}'은 하네스가 아직 수행할 수 없다 — 프로젝트 실패가 아니다`})
+  }
   for (const shape of evidence.unknownShapes) {
     unverifiable.push({kind: 'shapeEvidence', reason: `'${shape}' 형태의 요구 검증 목록이 없다 — 이 형태는 아무것도 요구하지 않는다`})
   }
@@ -352,9 +365,10 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   if (specLock.specTier === 'unverifiable') {
     notes.push('specTier가 unverifiable이다 — 수용 기준이 없어 이 설계가 옳은지는 판정할 수 없다. 형식 정합만 확인했다')
   }
-  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} → 요구 검증 ${evidence.required.length}종`)
+  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} → 수행 가능 요구 ${evidence.required.length}종`
+    + (evidence.unimplemented.length > 0 ? `, 미구현 요구 ${evidence.unimplemented.length}종` : ''))
 
-  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, requiredChecks: evidence.required, evidenceState: evidence.evidenceState, notes}
+  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, requiredChecks: evidence.required, unimplementedChecks: evidence.unimplemented, evidenceState: evidence.evidenceState, notes}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

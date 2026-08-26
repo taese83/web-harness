@@ -329,18 +329,29 @@ test('대조 규칙이 없는 형태는 unverifiable로 보고한다', () => {
 
 // ── (9) 형태 → 요구 검증 (Stage 2b) ──────────────────────────────────────────
 test('요구 검증은 형태의 합집합이다 — 라이브러리+CLI는 둘 다 요구받는다', () => {
-  const {required} = resolveRequiredChecks(['library', 'cli'])
-  assert.ok(required.includes('pack.contents'), 'library 요구')
+  const {required, unimplemented} = resolveRequiredChecks(['library', 'cli'])
+  assert.ok(required.includes('pack.publish-metadata'), 'library 요구')
   assert.ok(required.includes('cli.bin-entrypoint'), 'cli 요구')
   assert.ok(required.includes('quality.lint'), '공통 요구')
+  assert.ok(unimplemented.includes('pack.contents'), '미구현은 required가 아니라 별도로 보고된다')
+})
+
+test('회귀 반증: 미구현 요구를 프로젝트 실패로 섞지 않는다', () => {
+  // 하네스가 못 하는 것을 FAIL로 내면 "프로젝트가 잘못했다"는 뜻이 된다. 잘못한 건 하네스다.
+  const {required, unimplemented} = resolveRequiredChecks(['cli'])
+  for (const id of unimplemented) {
+    assert.equal(required.includes(id), false, `${id}가 required에 섞이면 통과할 방법이 없어진다`)
+  }
+  assert.ok(unimplemented.length > 0, '현재 cli에는 미구현 요구가 있다')
 })
 
 test('공통 검사는 형태와 무관하게 요구된다', () => {
   const catalog = readShapeChecks()
+  const commonIds = catalog.common.checks.filter(c => c.implemented !== false).map(c => c.id)
   for (const shape of Object.keys(catalog.shapes)) {
     const {required} = resolveRequiredChecks([shape])
-    for (const common of catalog.common.checks) {
-      assert.ok(required.includes(common), `${shape}에 공통 ${common}이 빠졌다`)
+    for (const id of commonIds) {
+      assert.ok(required.includes(id), `${shape}에 공통 ${id}이 빠졌다`)
     }
   }
 })
@@ -348,7 +359,8 @@ test('공통 검사는 형태와 무관하게 요구된다', () => {
 test('요구 목록이 없는 형태는 unknownShapes로 보고된다 — 조용히 0을 요구하지 않는다', () => {
   const {required, unknownShapes} = resolveRequiredChecks(['browser-extension'])
   assert.deepEqual(unknownShapes, ['browser-extension'])
-  assert.deepEqual(required, readShapeChecks().common.checks.slice().sort())
+  const commonIds = readShapeChecks().common.checks.filter(c => c.implemented !== false).map(c => c.id).sort()
+  assert.deepEqual(required, commonIds)
 })
 
 test('evidence 디렉토리가 없으면 판정하지 않는다(NOT_RUN)', () => {
