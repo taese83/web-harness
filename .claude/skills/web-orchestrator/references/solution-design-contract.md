@@ -212,10 +212,46 @@ protected-core에 기등록된 한계다.
 **staleness**: 잠금은 유래한 입력의 해시를 함께 담는다. 입력이 바뀌면 stale이며
 `isSpecLockStale()`이 판정한다. 부재였던 입력이 생긴 것도 변경이다.
 
-**Stage 1의 한계(정직 표기)**: 잠금이 생기고 검증되지만 **아직 아무 게이트도 이것을 읽지
-않는다**. 게이트 전환은 Stage 2다.
+## 7. 스팩 정합 검사 (Stage 2a)
 
-## 7. Stage 0에서 하지 않는 것
+잠긴 스팩이 **실제와 맞는지** 검사한다. Phase 3 착수 전과 Phase 4 판정 전에 실행한다.
+
+```bash
+node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root} --json
+```
+
+**왜 게이트 선택 전환보다 먼저인가**: 스팩이 게이트를 고르게 하려면 스팩 자체가 먼저 검증돼야
+한다. 검증되지 않은 자기보고에 게이트 선택을 맡기는 것이 검증 약화다. 2a가 서야 2b(형태별
+게이트 선택)를 얹을 수 있다.
+
+**FAIL 조건**
+
+- `measured` 주장이 실측과 어긋난다 — libraries가 의존성 선언에 없거나, substrate 도구의
+  선언·설정 파일이 둘 다 없다. **이 검사가 없으면 잠금은 자기보고 봉인일 뿐이다**
+- `layerMap`이 존재하지 않는 경로를 가리키거나 루트를 벗어난다
+- 잠금 이후 입력이 바뀌었다(stale) — 재잠금이 필요하다
+- substrate가 하네스 toolchain pin과 어긋난다
+
+**FAIL이 아닌 것**
+
+- `spec-lock` 부재 → `NOT_LOCKED`. 잠금은 아직 선택이다
+- `specTier: unverifiable` → note. 형식 정합만 확인했고 설계가 옳은지는 판정하지 않았음을 보고
+- `proposed`는 대조하지 않는다 — 아직 실측이 아니다
+
+**검증 불가를 침묵하지 않는다.** 근거 규칙이 없는 substrate 키, 패키지 이름 형태가 아닌
+`measured` choice는 `unverifiable`로 보고된다 — 모르는 것을 실패로 만들지도, 통과로 만들지도
+않는다.
+
+**Stage 2a의 한계(정직 표기)**
+
+- **형태별 게이트 선택이 배선되지 않았다.** `targetShape`는 기록·보고되지만 어떤 검증을
+  고를지는 정하지 않는다 — 그것이 2b다
+- **기계 소비자가 없다.** 이 검사를 호출하는 것은 이 계약 산문뿐이고 release gate도
+  `validate-harness`도 읽지 않는다. **게이트가 아니라 검사기다**
+- substrate ↔ toolchain 정합은 7키 중 `packageManager` 1키만 대조한다
+- 근거표(`SUBSTRATE_EVIDENCE`)가 수기라 미등록 도구명은 오탐 FAIL 또는 unverifiable이 된다
+
+## 8. Stage 0에서 하지 않는 것
 
 - 이 산출물로 무엇도 차단하지 않는다
 - `layerMap`·`moduleBoundaries`를 근거로 **다른 에이전트의** 소유권 경로를 바꾸지 않는다 —

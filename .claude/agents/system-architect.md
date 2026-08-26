@@ -13,7 +13,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 빌더를 지시하지 않는다 — 개발이 무엇에 맞춰 진행될지를 고정하는 것이 역할이다.
 
 계약은 `.claude/skills/web-orchestrator/references/solution-design-contract.md`가 canonical이다.
-시작 전에 읽고 그 §2(담는 것/담지 않는 것)와 §7(Stage 0에서 하지 않는 것)을 지킨다.
+시작 전에 읽고 그 §2(담는 것/담지 않는 것)와 §8(Stage 0에서 하지 않는 것)을 지킨다.
 
 산출물: `_workspace/02_design/solution-design.md` 하나.
 

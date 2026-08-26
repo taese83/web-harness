@@ -649,6 +649,24 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/lock-spec.mjs --project-root . --write"
+    },
+    {
+      "id": "spec-conformance-root",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spec-conformance.mjs --project-root ."
+    },
+    {
+      "id": "spec-conformance-json",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/validate-spec-conformance.mjs --project-root . --json"
+    },
+    {
+      "id": "spec-conformance-no-args",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/validate-spec-conformance.mjs"
     }
   ]
 }

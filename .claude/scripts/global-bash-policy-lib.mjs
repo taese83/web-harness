@@ -591,6 +591,14 @@ const skillSectionContract = args => {
 }
 
 // lock-spec은 --project-root 하나만 받는다. 경로는 읽기 가능한 디렉토리여야 한다.
+// spec conformance는 --project-root + 선택적 --json.
+const specConformanceContract = (args, context) => {
+  const rest = args[0] === '--project-root' && args.length >= 2 ? args.slice(2) : null
+  if (rest === null) return false
+  readablePath(args[1], context, 'directory')
+  return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
+}
+
 const lockSpecContract = (args, context) => {
   if (args.length !== 2 || args[0] !== '--project-root') return false
   readablePath(args[1], context, 'directory')
@@ -771,6 +779,7 @@ const validationScriptContract = (script, args, context) => {
   }
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
   if (script === '.claude/scripts/lock-spec.mjs') return lockSpecContract(args, context)
+  if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)
   if (script === '.claude/scripts/web-core/compile-execution-plan.mjs') return executionPlanContract(args, context)
   return false

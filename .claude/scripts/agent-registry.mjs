@@ -265,3 +265,73 @@ export const AGENT_OWNERSHIP = {
     appPath('src/.+\\.visual\\.stories\\.tsx$'),
   ],
 }
+
+// ── 스팩 유래 소유권 (Stage 3b) ───────────────────────────────────────────────
+// 배경: 위 AGENT_OWNERSHIP은 경계를 **FSD 경로 리터럴**로 표현한다. 소유권 경계 자체는
+// 필요하지만(병렬 에이전트가 서로 덮어쓰지 않게) 그것이 왜 `src/entities/`여야 하는지는
+// 근거가 없다. 기존 저장소가 `src/domain/`이나 `src/stores/`를 쓰면 훅이 전부 차단한다 —
+// 실측(2026-08-26): 한 브라운필드 패키지의 레이어 10개 중 5개가 소유자 없음으로 막혔다.
+// 그런데 브라운필드 계약(integration-overlay)은 "app root·alias·router를 기존 설정에서
+// 감지하고 임의 기본값으로 덮어쓰지 않는다"고 요구한다 — 계약과 훅이 모순이었다.
+//
+// 해소: 경계는 **역할**로 표현하고 경로는 스팩(spec-lock의 layerMap)이 공급한다.
+// 소유권 강도는 그대로다 — 이름만 프로젝트가 정한다.
+
+// 역할 → 논리 레이어. 레이어 이름은 layerMap의 키와 맞춘다.
+export const AGENT_LAYER_ROLES = {
+  'entity-query-builder': ['domainModel'],
+  'client-domain-state-builder': ['domainModel', 'clientState'],
+  'feature-mutation-builder': ['featureLogic'],
+  'form-state-builder': ['featureLogic'],
+  'component-builder': ['sharedKernel', 'featureUI', 'composedUI'],
+  'route-builder': ['routes'],
+  'data-ui-binder': ['routes', 'composedUI', 'featureUI'],
+  'app-shell-builder': ['entry', 'appShell'],
+  'test-writer': ['unitTests'],
+  'i18n-builder': ['i18n'],
+  'seo-meta-builder': ['seo'],
+}
+
+// 경로를 정규화한다 — 선행 ./ 제거, 후행 / 보장(디렉토리 접두 매칭용).
+const normalizeLayerPath = value => {
+  const trimmed = String(value).trim().replace(/^\.\//, '')
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+}
+
+// 부재 표기(괄호 주석)와 빈 값은 경로가 아니다.
+export const isLayerPathDeclared = value =>
+  typeof value === 'string' && value.trim() !== '' && !/^\(.*\)$/.test(value.trim())
+
+// 레이어는 서로 겹치면 안 된다. 소유권의 목적이 병렬 안전인데 겹치면 그 목적이 무너지고,
+// 넓은 레이어 하나로 다른 에이전트의 영역을 삼키는 권한 확대가 가능해진다.
+export const findLayerOverlaps = layerMap => {
+  const entries = Object.entries(layerMap ?? {})
+    .filter(([, value]) => isLayerPathDeclared(value))
+    .map(([layer, value]) => [layer, normalizeLayerPath(value)])
+  const overlaps = []
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      const [aLayer, aPath] = entries[i]
+      const [bLayer, bPath] = entries[j]
+      if (aPath === bPath || aPath.startsWith(bPath) || bPath.startsWith(aPath)) {
+        overlaps.push({layers: [aLayer, bLayer].sort(), paths: [aPath, bPath]})
+      }
+    }
+  }
+  return overlaps
+}
+
+// 스팩에서 이 에이전트의 쓰기 패턴을 만든다.
+// fail-closed: 역할 매핑이 없거나, 매핑된 레이어가 layerMap에 선언되지 않았으면 **null**을
+// 돌려 호출자가 기본 등록부로 돌아가게 한다. 절대 "선언 없음 → 전체 허용"이 되지 않는다.
+export const resolveSpecOwnership = (specLock, agentType) => {
+  const roles = AGENT_LAYER_ROLES[agentType]
+  if (!roles) return null
+  const layerMap = specLock?.layerMap
+  if (!layerMap || typeof layerMap !== 'object') return null
+  if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
+  const patterns = roles
+    .filter(role => isLayerPathDeclared(layerMap[role]))
+    .map(role => new RegExp(`^${appPrefix}${normalizeLayerPath(layerMap[role]).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+  return patterns.length > 0 ? patterns : null
+}
