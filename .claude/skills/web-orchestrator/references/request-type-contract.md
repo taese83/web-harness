@@ -22,8 +22,15 @@
 
 **진입점이 게이트 강도를 바꾸지 않는다.** 어느 쪽이든 ① change brief 전 필드 기록(`CAPABILITY_ESCALATION`·`DOCS_TO_UPDATE` 포함)
 ② 라운드 종료 게이트 3종(승격 QA·evidence 재발급·문서 동기화) ③ 유형별 필수 증거(아래)가 동일하게 적용된다.
-차이는 체크포인트 형식과 Plan/Design 산출물 재생성 여부뿐이다 — Iterate mode는 intake 배너와 설계 재생성을 생략하고,
-`/feature-add`는 기획·설계 확인 체크포인트를 사용자에게 명시적으로 제시한다.
+차이는 체크포인트 형식뿐이다 — Iterate mode는 intake 배너를 생략하고, `/feature-add`는 기획·설계 확인
+체크포인트를 명시적으로 제시한다.
+
+**산출물 생성은 진입점이 아니라 요청 유형이 정한다(2026-08-26 정정 — 종전 "Iterate는 설계 재생성을
+항상 생략"은 §0-1과 모순이었다).** `feature`는 기획·디자인이 없으면 요청 범위에 맞춰 최소로 만든다.
+`bug-fix`·`refactor`·`verification-only`는 만들지 않는다. `ui-change`·`api-integration`은 바뀌는
+산출물만 개정한다. 스팩은 어느 유형이든 없으면 실측으로 만들고, 레이어·라이브러리·형태가 바뀔 때만
+재확정한다(재확정은 receipt를 stale로 만든다). **사용자는 `/feature-add`를 직접 부르지 않는다** —
+`/web-orchestrator`가 유형을 판정해 진행하고, `/feature-add`는 명시 호출용으로 남는다.
 
 경량 경로라는 이유로 게이트를 건너뛰는 것은 진입점 선택으로 QA를 우회하는 것이며 허용되지 않는다.
 

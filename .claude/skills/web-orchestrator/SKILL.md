@@ -59,11 +59,11 @@ metadata:
 
 `EXTERNAL_DATA_INGESTION_MODE`이면 source와 사용 권한, payload/문서 형식, 갱신 주기, freshness SLO, 최소 count·coverage, invalid candidate의 promotion rejection, serving fallback의 `last-known-good|unavailable`, `static-snapshot|live-api|hybrid`, root/provider build cwd를 한 번에 확인한다. scheduled refresh에는 manual recovery도 함께 요구한다. 모르는 운영 값은 보수적 baseline을 `ASSUMPTION`으로 제안하되 source 사용 권한과 authoritative source가 불명확하면 `BLOCKER`로 둔다.
 
-## Workspace 초기화
+## Workspace 초기화 — 최소 환경
 
-intake 완료 후 즉시 실행:
+디렉토리 6종 + `_workspace/web-harness.md`(재진입 마커 + 실측 기본 정보)가 전부다. 기획·디자인 문서는 **요청이 있을 때 그 요청에 맞춰** 생성한다 — 미리 만들지 않는다. 마커가 이미 있으면 덮어쓰지 않는다. 브라운필드 재진입도 같은 명령이다(멱등):
 ```bash
-mkdir -p _workspace/00_source _workspace/01_plan _workspace/02_design _workspace/03_dev _workspace/04_qa _workspace/RELEASE
+node .claude/scripts/init-workspace.mjs --project-root {project-root}
 ```
 
 ## 입력 모드 판별
