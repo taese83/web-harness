@@ -408,7 +408,9 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
           hostFilesystemIsolated: null,
           networkIsolated: null,
         },
-        profileBinding: null,
+        // 환경 결속은 어댑터와 무관하게 항상 검증된다(2026-08-26 조건부 스킵 해소).
+        // 프로필이 없어도 receipt는 이 둘을 가져야 한다.
+        profileBinding: {buildEnvironmentSha256: null, publicEnvironmentSha256: sha256('{}')},
         ...(ingestionValidation ? {ingestionValidation: ingestionReceiptEvidence(ingestionValidation)} : {}),
       }
       writeFileSync(join(releaseEvidenceDirectory, `${id}.json`), `${JSON.stringify(receipt, null, 2)}\n`)

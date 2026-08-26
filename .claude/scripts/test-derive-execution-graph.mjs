@@ -4,7 +4,11 @@
 // 등가성을 증명한 뒤에 지운다. 재현하지 못하면 어댑터가 뭔가 더 담고 있었다는 뜻이다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {existsSync, readFileSync} from 'node:fs'
+import {readFileSync} from 'node:fs'
+import {fileURLToPath} from 'node:url'
+import {dirname, join} from 'node:path'
+
+const BASELINE_PATH = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/adapter-baseline.json')
 import {deriveGraph, readShapeChecks, RECEIPT_ALIASES} from './derive-execution-graph.mjs'
 
 const checksFor = shapes => {
@@ -18,15 +22,16 @@ test('어댑터 tasks를 재현한다 (알려진 차이 2종 제외)', () => {
   //     능력에 걸려 있어 shape-checks에 없다. 미해결로 §4에 등록한다.
   //   release.assemble — 도출이 evidence.typecheck를 명시한다. 어댑터는 build가 이미 requires하니
   //     전이적이라고 보고 생략했다. **도출이 더 엄격하다** — 게이트 강화 방향이라 허용한다.
+  // 어댑터는 2026-08-26에 삭제됐다. 삭제 직전의 tasks를 fixtures/adapter-baseline.json에
+  // 동결했다 — 도출이 그 그래프를 재현한다는 증거를 잃지 않기 위해서다.
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
+  const SHAPES = {'react-vite-spa': ['web-app'], 'vite-serverless-hybrid': ['web-app', 'serverless-functions']}
   let compared = 0
-  for (const [profile, shapes] of [['react-vite-spa', ['web-app']], ['vite-serverless-hybrid', ['web-app', 'serverless-functions']]]) {
-    const adapterPath = `.claude/adapters/${profile}/adapter.json`
-    if (!existsSync(adapterPath)) continue
-    const {tasks, errors} = deriveGraph({checks: checksFor(shapes)})
+  for (const [profile, entry] of Object.entries(baseline)) {
+    const {tasks, errors} = deriveGraph({checks: checksFor(SHAPES[profile])})
     assert.deepEqual(errors, [], `${profile}: 도출이 실패했다`)
     const derived = new Map(tasks.map(t => [t.id, t.requires.slice().sort().join(',')]))
-    const adapter = JSON.parse(readFileSync(adapterPath, 'utf8'))
-    for (const task of adapter.tasks) {
+    for (const task of entry.tasks) {
       // 어댑터의 vite.production-boundary는 receipt 파일명(vite.production-mock-boundary)과
       // 어긋나 있었다. 형태 카탈로그는 receipt 이름을 정본으로 쓴다.
       const id = task.id.replace('vite.production-boundary', 'vite.production-mock-boundary')

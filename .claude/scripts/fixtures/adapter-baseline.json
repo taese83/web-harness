@@ -1,0 +1,410 @@
+{
+  "react-vite-spa": {
+    "commands": [
+      {
+        "id": "dependencies.install",
+        "executable": "pnpm",
+        "args": [
+          "install",
+          "--frozen-lockfile",
+          "--ignore-scripts"
+        ]
+      },
+      {
+        "id": "quality.lint",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "lint"
+        ]
+      },
+      {
+        "id": "quality.typecheck",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "typecheck"
+        ]
+      },
+      {
+        "id": "quality.unit",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test"
+        ]
+      },
+      {
+        "id": "ingestion.validate",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "validate:ingestion"
+        ]
+      },
+      {
+        "id": "vite.build",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "build"
+        ]
+      },
+      {
+        "id": "vite.browser",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:e2e"
+        ]
+      },
+      {
+        "id": "vite.production-mock-boundary",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:production-boundary"
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "id": "core.resolve-profile",
+        "requires": [
+          "requirements.locked"
+        ],
+        "provides": [
+          "profile.resolved"
+        ]
+      },
+      {
+        "id": "adapter.scaffold",
+        "requires": [
+          "profile.resolved"
+        ],
+        "provides": [
+          "source.ready"
+        ]
+      },
+      {
+        "id": "dependencies.install",
+        "requires": [
+          "source.ready"
+        ],
+        "provides": [
+          "dependencies.installed"
+        ]
+      },
+      {
+        "id": "quality.lint",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.lint"
+        ]
+      },
+      {
+        "id": "quality.typecheck",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.typecheck"
+        ]
+      },
+      {
+        "id": "quality.unit",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.unit"
+        ]
+      },
+      {
+        "id": "ingestion.validate",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.ingestion"
+        ]
+      },
+      {
+        "id": "vite.build",
+        "requires": [
+          "dependencies.installed",
+          "evidence.typecheck"
+        ],
+        "provides": [
+          "artifact.built"
+        ]
+      },
+      {
+        "id": "vite.production-boundary",
+        "requires": [
+          "artifact.built"
+        ],
+        "provides": [
+          "evidence.production-boundary"
+        ]
+      },
+      {
+        "id": "vite.browser",
+        "requires": [
+          "artifact.built"
+        ],
+        "provides": [
+          "evidence.browser"
+        ]
+      },
+      {
+        "id": "release.assemble",
+        "requires": [
+          "evidence.browser",
+          "evidence.lint",
+          "evidence.production-boundary",
+          "evidence.unit"
+        ],
+        "provides": [
+          "release.candidate",
+          "release.container-static",
+          "release.static-cdn"
+        ]
+      }
+    ],
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "typecheck": "tsc --noEmit",
+      "lint": "eslint .",
+      "test": "vitest run",
+      "test:e2e": "playwright test",
+      "test:production-boundary": "node scripts/check-production-boundary.mjs"
+    }
+  },
+  "vite-serverless-hybrid": {
+    "commands": [
+      {
+        "id": "dependencies.install",
+        "executable": "pnpm",
+        "args": [
+          "install",
+          "--frozen-lockfile",
+          "--ignore-scripts"
+        ]
+      },
+      {
+        "id": "quality.lint",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "lint"
+        ]
+      },
+      {
+        "id": "quality.typecheck",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "typecheck"
+        ]
+      },
+      {
+        "id": "quality.unit",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test"
+        ]
+      },
+      {
+        "id": "ingestion.validate",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "validate:ingestion"
+        ]
+      },
+      {
+        "id": "api.unit",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:api"
+        ]
+      },
+      {
+        "id": "api.guards",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:api-guards"
+        ]
+      },
+      {
+        "id": "vite.build",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "build"
+        ]
+      },
+      {
+        "id": "vite.browser",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:e2e"
+        ]
+      },
+      {
+        "id": "vite.production-mock-boundary",
+        "executable": "pnpm",
+        "args": [
+          "run",
+          "test:production-boundary"
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "id": "core.resolve-profile",
+        "requires": [
+          "requirements.locked"
+        ],
+        "provides": [
+          "profile.resolved"
+        ]
+      },
+      {
+        "id": "adapter.scaffold",
+        "requires": [
+          "profile.resolved"
+        ],
+        "provides": [
+          "source.ready"
+        ]
+      },
+      {
+        "id": "dependencies.install",
+        "requires": [
+          "source.ready"
+        ],
+        "provides": [
+          "dependencies.installed"
+        ]
+      },
+      {
+        "id": "quality.lint",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.lint"
+        ]
+      },
+      {
+        "id": "quality.typecheck",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.typecheck"
+        ]
+      },
+      {
+        "id": "quality.unit",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.unit"
+        ]
+      },
+      {
+        "id": "ingestion.validate",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.ingestion"
+        ]
+      },
+      {
+        "id": "api.unit",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.api-unit"
+        ]
+      },
+      {
+        "id": "api.guards",
+        "requires": [
+          "dependencies.installed"
+        ],
+        "provides": [
+          "evidence.api-guards"
+        ]
+      },
+      {
+        "id": "vite.build",
+        "requires": [
+          "dependencies.installed",
+          "evidence.typecheck"
+        ],
+        "provides": [
+          "artifact.built"
+        ]
+      },
+      {
+        "id": "vite.production-boundary",
+        "requires": [
+          "artifact.built"
+        ],
+        "provides": [
+          "evidence.production-boundary"
+        ]
+      },
+      {
+        "id": "vite.browser",
+        "requires": [
+          "artifact.built"
+        ],
+        "provides": [
+          "evidence.browser"
+        ]
+      },
+      {
+        "id": "release.assemble",
+        "requires": [
+          "evidence.api-guards",
+          "evidence.api-unit",
+          "evidence.browser",
+          "evidence.lint",
+          "evidence.production-boundary",
+          "evidence.unit"
+        ],
+        "provides": [
+          "release.candidate",
+          "release.vercel-hybrid"
+        ]
+      }
+    ],
+    "scripts": {
+      "dev": "vite",
+      "build": "tsc --noEmit && vite build",
+      "typecheck": "tsc --noEmit",
+      "lint": "eslint .",
+      "test": "vitest run tests/app.unit.test.ts",
+      "test:coverage": "vitest run --coverage tests/app.unit.test.ts tests/api.unit.test.ts tests/api.guards.test.ts tests/api.loopback.test.ts",
+      "test:api": "vitest run tests/api.unit.test.ts tests/api.loopback.test.ts",
+      "test:api-guards": "vitest run tests/api.guards.test.ts",
+      "test:e2e": "playwright test",
+      "test:production-boundary": "vitest run --config vitest.production.config.ts"
+    }
+  }
+}

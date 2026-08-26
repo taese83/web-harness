@@ -5,10 +5,14 @@
 // 내는지 실측으로 보여야 한다 — 재현하지 못하면 어댑터가 뭔가 더 담고 있었다는 뜻이다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
+import {fileURLToPath} from 'node:url'
+import {dirname, join as pathJoin} from 'node:path'
 import {resolveCommand, resolveCommands, TOOL_COMMANDS} from './resolve-commands.mjs'
+
+const BASELINE_PATH = pathJoin(dirname(fileURLToPath(import.meta.url)), 'fixtures/adapter-baseline.json')
 
 const withManifest = (manifest, run) => {
   const root = mkdtempSync(join(tmpdir(), 'wh-cmd-'))
@@ -17,30 +21,30 @@ const withManifest = (manifest, run) => {
 }
 
 // ── (1) 등가성 — 어댑터를 걷어낼 근거 ────────────────────────────────────────
-test('골든에서 어댑터 commands를 재현한다 (알려진 차이 2종 제외)', () => {
+test('어댑터 commands를 재현한다 (알려진 차이 2종 제외)', () => {
+  // 어댑터는 2026-08-26에 삭제됐다. 등가성 증거를 잃지 않도록 삭제 직전의 commands와 골든
+  // package.json scripts를 fixtures/adapter-baseline.json에 동결했다 — 이 테스트가 그 증거다.
+  //
   // 알려진 차이:
   //   dependencies.install — --ignore-scripts를 뺐다. 브라운필드는 개발자가 이미 install을
-  //     돌리므로 막는 게 없고, playwright 브라우저·네이티브 빌드를 깨뜨려 "하네스 탓 실패"를
-  //     만든다(2026-08-26 판단).
+  //     돌리므로 막는 게 없고, playwright 브라우저·네이티브 빌드를 깨뜨린다.
   //   ingestion.validate — requires:["external-ingestion"] 조건부 검사다. 골든에 그 능력이
-  //     없어 script도 없는 것이 정상이며, 즉시 판단은 NO_SCRIPT로 정확히 보고한다.
+  //     없어 script도 없는 것이 정상이며 즉시 판단은 NO_SCRIPT로 정확히 보고한다.
   const KNOWN_DELTA = new Set(['dependencies.install', 'ingestion.validate'])
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
   let compared = 0
-  for (const [profile, root] of [['react-vite-spa', 'golden/react-vite-spa'], ['vite-serverless-hybrid', 'golden/vite-serverless-hybrid']]) {
-    const adapterPath = `.claude/adapters/${profile}/adapter.json`
-    if (!existsSync(adapterPath) || !existsSync(`${root}/package.json`)) continue
-    const adapter = JSON.parse(readFileSync(adapterPath, 'utf8'))
-    const manifest = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'))
-    for (const command of adapter.commands) {
+  for (const [profile, entry] of Object.entries(baseline)) {
+    const manifest = {scripts: entry.scripts}
+    for (const command of entry.commands) {
       if (KNOWN_DELTA.has(command.id)) continue
       const resolved = resolveCommand(command.id, manifest)
       assert.equal(resolved.status, undefined, `${profile}/${command.id}: script를 찾지 못했다`)
       assert.equal(`${resolved.executable} ${resolved.args.join(' ')}`,
-        `${command.executable} ${(command.args ?? []).join(' ')}`, `${profile}/${command.id}`)
+        `${command.executable} ${command.args.join(' ')}`, `${profile}/${command.id}`)
       compared++
     }
   }
-  assert.ok(compared >= 12, `비교가 ${compared}건뿐이다 — 골든을 못 읽었으면 vacuous PASS다`)
+  assert.ok(compared >= 12, `비교가 ${compared}건뿐이다 — fixture를 못 읽었으면 vacuous PASS다`)
 })
 
 // ── (2) 없는 것을 지어내지 않는다 ────────────────────────────────────────────
@@ -94,4 +98,24 @@ test('빈 문자열 script는 없는 것으로 본다', () => {
   withManifest({name: 'x', scripts: {lint: '   '}}, root => {
     assert.equal(resolveCommands({projectRoot: root, checkIds: ['quality.lint']}).missing.length, 1)
   })
+})
+
+// ── 배선 회귀 (2026-08-26) ───────────────────────────────────────────────────
+// 오늘 두 번 확인했다: 검증 호출을 지워도 CI가 exit 0이었다. 테스트가 lib을 직접 부르고
+// **배선 지점을 지나가지 않아서**다. 게이트를 만들어도 호출부가 끊기면 아무도 모른다.
+// 아래는 receipt-validation-lib의 환경 결속 호출이 살아 있는지를 배선으로 확인한다.
+test('배선 회귀: 환경 결속이 프로필 없이도 검증된다', async () => {
+  const {readReceipt} = await import('./receipt-validation-lib.mjs')
+  const {mkdirSync} = await import('node:fs')
+  const root = mkdtempSync(join(tmpdir(), 'wh-envbind-'))
+  try {
+    mkdirSync(join(root, '_workspace/04_qa/evidence'), {recursive: true})
+    // 환경 결속이 없는 receipt — 종전에는 if (expectedProfile) 안이라 프로필이 없으면 통과했다
+    writeFileSync(join(root, '_workspace/04_qa/evidence/lint.json'),
+      JSON.stringify({schemaVersion: 1, id: 'lint', status: 'PASS'}))
+    const errors = []
+    readReceipt(root, 'lint', null, errors)  // expectedProfile 없이 호출
+    assert.ok(errors.some(e => /environment binding/.test(e)),
+      '조건부 스킵이 되살아나면 이 단언이 깨진다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })

@@ -133,18 +133,24 @@ export const readReceipt = (
   // (2026-08-26). Score·OAM은 워크로드 스펙과 배포를 분리하고 SLSA build provenance는 배포
   // 대상을 묶지 않는다 — 하네스가 들 자리가 아니다. 남은 것은 빌드 provenance뿐이며,
   // "코드가 바뀌었나"는 이미 sourceFingerprint가 (spec.json 포함해) 덮는다.
+  // 환경 결속은 어댑터와 무관하다 — **항상** 검증한다. 종전에는 아래 `if (expectedProfile)`
+  // 안에 있어 프로필이 없으면 통째로 미검증이었다(조건부 스킵, 2026-08-26 해소).
+  // 빌드 환경·공개 환경 변수가 바뀌면 그 receipt는 다른 조건에서 나온 것이다.
+  const binding = receipt.profileBinding
+  const environmentPath = join(projectRoot, '_workspace/02_design/build-environment.json')
+  const environmentSha256 = existsSync(environmentPath) ? sha256(readFileSync(environmentPath, 'utf8')) : null
+  if (
+    binding?.buildEnvironmentSha256 !== environmentSha256 ||
+    binding?.publicEnvironmentSha256 !== receipt.environmentPolicy?.publicEnvironmentSha256
+  ) errors.push(`${relativePath}: environment binding is missing or stale`)
+
   if (expectedProfile) {
-    const binding = receipt.profileBinding
-    const environmentPath = join(projectRoot, '_workspace/02_design/build-environment.json')
-    const environmentSha256 = existsSync(environmentPath) ? sha256(readFileSync(environmentPath, 'utf8')) : null
     if (
       binding?.profileId !== expectedProfile.adapter.id ||
       binding?.adapterVersion !== expectedProfile.adapter.version ||
       binding?.adapterSha256 !== expectedProfile.profile.adapter.sha256 ||
       binding?.profileSha256 !== expectedProfile.executionPlan.plan.profileBinding.profileSha256 ||
-      binding?.executionPlanSha256 !== expectedProfile.executionPlan.sha256 ||
-      binding?.buildEnvironmentSha256 !== environmentSha256 ||
-      binding?.publicEnvironmentSha256 !== receipt.environmentPolicy?.publicEnvironmentSha256
+      binding?.executionPlanSha256 !== expectedProfile.executionPlan.sha256
     ) errors.push(`${relativePath}: project profile binding is missing or stale`)
 
     if (expectedProfile.selection.selectedCapabilities.includes('scheduled-static-ingestion')) {
