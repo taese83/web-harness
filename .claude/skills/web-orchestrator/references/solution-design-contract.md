@@ -23,9 +23,9 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 |---|---|
 | 아키텍처 패턴 | FSD · 레이어드 · 도메인 모듈 · 기존 관례 준수 중 무엇이며 **왜** |
 | 레이어 맵 | 논리 레이어 → 실제 경로. 브라운필드는 `integration-overlay.json` 실측이 우선 |
-| 라이브러리 결정 | 데이터 계층·상태·폼·mock·UI 레인. 각 항목에 대안과 선택 사유 |
+| 라이브러리 결정 | 데이터 계층·상태·폼·mock·UI 레인. 각 항목에 대안과 선택 사유. **확인된 부재도 결정이다**(§4 `measured-absent`) |
 | 모듈 경계 | 병렬 작업이 서로 침범하지 않을 쓰기 범위 후보 |
-| 수용 기준 참조 | `feature-plan.md`의 FEAT/TC ID — **여기서 새로 만들지 않는다** |
+| 수용 기준 참조 | `feature-plan.md`의 FEAT/TC ID — **여기서 새로 만들지 않는다**. 부재하면 §4 `acceptanceSource`로 그 사실을 명시한다 |
 | 데이터 계약 참조 | `api-schema.md` · `state-contract.md` — 참조만, 복제 금지 |
 | 비목표 | 이번 범위 밖임을 명시할 것 |
 | 미결정 | 사용자 결정이 필요한 항목 (§3) |
@@ -78,8 +78,9 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
   "stage": 0,
   "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},
   "layerMap": {"<논리 레이어>": "<실제 경로>"},
-  "libraries": {"<역할>": {"choice": "...", "alternatives": ["..."], "source": "measured|proposed"}},
+  "libraries": {"<역할>": {"choice": "...", "alternatives": ["..."], "source": "measured|measured-absent|proposed"}},
   "moduleBoundaries": [{"scope": "<glob>", "rationale": "..."}],
+  "acceptanceSource": "feature-plan|absent",
   "acceptanceRefs": ["FEAT-001", "TC-001-1"],
   "nonGoals": ["..."],
   "openDecisions": [{"id": "...", "question": "...", "options": ["..."], "recommended": "...", "status": "open|assumed|confirmed"}]
@@ -89,8 +90,18 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 
 `pattern`의 나열값은 **예시이며 열린 문자열이다** — hexagonal 등 미등재 패턴도 유효하다.
 
-`source` 필드는 정직성 장치다 — `measured`는 기존 코드에서 실측한 값, `proposed`는 설계자가
-새로 제안한 값이다. 이 둘을 섞어 적으면 나중에 무엇이 근거였는지 복원할 수 없다.
+`source` 필드는 정직성 장치다. 세 값의 구분이 요점이다:
+
+| 값 | 뜻 |
+|---|---|
+| `measured` | 기존 코드에서 실측해 **있음**을 확인한 값 |
+| `measured-absent` | 실측해 **없음**을 확인했다. `choice: "none"`과 짝을 이룬다 |
+| `proposed` | 설계자가 새로 제안한 값 — 실측 근거가 없다 |
+
+`measured-absent`가 별도 값인 이유(실사용 발견, 2026-08-26): `choice: "none"` + `source:
+"measured"`로는 **"찾아봤는데 없다"와 "안 찾아봤다"가 구분되지 않는다**. 네트워크 계층·mock·
+E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확인은 이후 단계에서 전혀 다르게 다뤄야
+한다. 확인하지 않았으면 `measured-absent`를 쓰지 말고 미결정으로 올려라.
 
 ## 일반화 근거
 
@@ -112,6 +123,19 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 **진실 검증 수준: 명명 수준.** 위 세 형태는 스키마가 표현 가능함을 보인 것이고, 실제 산출물이
 유용한지는 아직 실측되지 않았다 — Stage 0의 관측 목적이 정확히 그것이다. eval fixture로
 검증되기 전까지 이 계약은 "형태를 담을 수 있다"까지만 주장한다.
+
+### 수용 기준이 없을 때 (실사용 발견, 2026-08-26)
+
+기획 없이 기존 코드만 있는 상태에서는 `feature-plan.md`가 없어 참조할 FEAT/TC가 없다. 이때:
+
+- `acceptanceSource: "absent"`, `acceptanceRefs: []`로 적고 **부재를 본문에도 명시한다**
+- 그 상태의 설계 결정은 **검증 대상이 없는 채로 확정된다**는 사실을 함께 적는다 — 설계는
+  할 수 있지만 그것이 맞는지 판정할 기준이 없다
+- 수용 기준을 여기서 지어내지 않는다(§1). 필요하면 feature-plan을 선행하라는 것이 답이다
+
+**Stage 1 전제조건**: 잠금 아티팩트로 승격할 때 `acceptanceSource: "absent"`를 허용할지
+결정해야 한다. 허용하면 검증 기준 없는 스팩이 잠기고, 불허하면 기획 없는 브라운필드 개선이
+막힌다. 이 판단은 Stage 1의 몫이며 여기서 미리 정하지 않는다.
 
 ## 5. Stage 0에서 하지 않는 것
 
