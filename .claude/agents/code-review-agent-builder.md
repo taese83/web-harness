@@ -2,7 +2,7 @@
 name: code-review-agent-builder
 description: Implements an AI SCM review pipeline — signed webhooks, queued jobs, grounded findings, line mapping, deduplication.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 35
 skills: ai-code-review-bot
 ---

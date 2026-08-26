@@ -2,7 +2,7 @@
 name: i18n-builder
 description: Implements the i18n contract — specification, consistent message catalogs, ICU rules, shared language module.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

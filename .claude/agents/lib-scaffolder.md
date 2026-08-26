@@ -2,7 +2,7 @@
 name: lib-scaffolder
 description: Sets up an npm library skeleton — validated exports, ESM-first, strict TypeScript, Vitest, package-consumer verification.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

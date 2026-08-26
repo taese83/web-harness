@@ -2,7 +2,7 @@
 name: enterprise-search-builder
 description: Implements enterprise connectors, ACL-preserving ingestion, hybrid search, reranking, grounded answers with citations.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 40
 skills: enterprise-search-ai
 ---

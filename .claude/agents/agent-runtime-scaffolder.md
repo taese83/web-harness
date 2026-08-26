@@ -2,7 +2,7 @@
 name: agent-runtime-scaffolder
 description: Implements the trusted agent API runtime — workflow state machine, sessions, streaming, cancellation, checkpoints, retries.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 35
 skills: ai-runtime-setup
 ---

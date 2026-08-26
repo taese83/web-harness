@@ -2,7 +2,7 @@
 name: test-writer
 description: Writes focused unit, integration, browser, and accessibility tests without running them or modifying production source.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

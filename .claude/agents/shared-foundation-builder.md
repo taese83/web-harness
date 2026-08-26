@@ -2,7 +2,7 @@
 name: shared-foundation-builder
 description: Creates shared runtime foundations — FSD directories, API client, queryClient, typed config, env files, MSW foundations.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

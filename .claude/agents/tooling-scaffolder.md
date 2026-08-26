@@ -2,7 +2,7 @@
 name: tooling-scaffolder
 description: Creates TypeScript/Vite/ESLint/Prettier/Vitest/Playwright configuration. Owns tool config files only; no runtime source.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

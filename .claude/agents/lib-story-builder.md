@@ -2,7 +2,7 @@
 name: lib-story-builder
 description: Creates Storybook stories (Vite builder) covering each public component's props and states. React component libraries only.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

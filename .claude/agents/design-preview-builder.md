@@ -2,7 +2,7 @@
 name: design-preview-builder
 description: Generates a dependency-free interactive prototype from approved design specs where every Feature List behavior actually works, so users validate behavior before implementation.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 80
 ---
 

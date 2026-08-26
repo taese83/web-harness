@@ -2,7 +2,7 @@
 name: test-scaffolder
 description: Ensures Vitest/Testing Library/MSW/Playwright/axe infrastructure exists. Owns test configuration only; writes no product tests.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 25
 ---
 

@@ -2,7 +2,7 @@
 name: mock-api-builder
 description: Sets up MSW with handlers for every api-schema.md endpoint, realistic sample data, and browser service worker.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 25
 ---
 

@@ -2,7 +2,7 @@
 name: customer-support-agent-builder
 description: Implements AI support conversation state, grounded responses, CRM/ticket adapters, transaction policy, human handoff.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 40
 skills: customer-support-ai
 ---

@@ -2,7 +2,7 @@
 name: realtime-data-builder
 description: Implements bounded realtime time-series infrastructure from timeseries-architecture.md. Owns transport/buffer utilities and live-mode model/API; no chart UI.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 skills: timeseries-dashboard
 ---

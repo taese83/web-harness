@@ -2,7 +2,7 @@
 name: lib-core-builder
 description: Implements npm library core logic and Vitest unit tests from api-design.md, keeping public exports on contract.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

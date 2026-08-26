@@ -2,7 +2,7 @@
 name: seo-meta-builder
 description: Designs per-route SEO specs and implements crawler artifacts (robots.txt, sitemap, shared SEO utilities) for public apps.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 30
 ---
 

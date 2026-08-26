@@ -2,7 +2,7 @@
 name: analytics-implementation-builder
 description: Implements the semantic query model, chart registry, builder state, and dashboard editor from analytics-architecture.md.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: fable
 maxTurns: 35
 skills: analytics-chart-builder
 ---
