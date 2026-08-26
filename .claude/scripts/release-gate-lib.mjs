@@ -22,6 +22,7 @@ import {
 } from './runtime-data-contract-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
 import {inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
+import {inspectSpecConformance} from './validate-spec-conformance.mjs'
 export {computeSourceFingerprint, listSourceFiles, normalizePath, sha256} from './evidence-lib.mjs'
 export {releaseReportRequirements} from './release-report-policy.mjs'
 export const REQUIRED_CHECKS = new Map([
@@ -297,11 +298,31 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
   return {errors: [...new Set(errors)], manifest}
 }
 
+// 잠긴 스팩이 있으면 릴리스가 그 스팩에 묶인다(Stage 2b 배선).
+// **잠금이 없으면 발화하지 않는다** — 잠금은 opt-in이고, 한 번 잠그면 구속력을 갖는다.
+// visual-qa-contract.json 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
+// 정합 검사가 판정하지 못한 것(unverifiable)은 여기서 errors로 올리지 않는다 — 미판정을
+// 실패로 바꾸는 것도, 통과로 바꾸는 것도 아니다.
+const collectSpecConformanceErrors = (projectRoot, errors) => {
+  let result
+  try {
+    result = inspectSpecConformance({projectRoot})
+  } catch (error) {
+    errors.push(`Spec conformance could not be inspected: ${error instanceof Error ? error.message : String(error)}`)
+    return
+  }
+  if (result.status !== 'FAIL') return
+  for (const failure of result.failures) {
+    errors.push(`Spec conformance [${failure.kind}]: ${failure.reason}`)
+  }
+}
+
 export const validateReleaseGate = projectPath => {
   const projectRoot = resolve(projectPath)
   const manifestPath = join(projectRoot, '_workspace/04_qa/qa-manifest.json')
   const expected = buildReleaseManifest(projectRoot)
   const errors = [...expected.errors]
+  collectSpecConformanceErrors(projectRoot, errors)
 
   if (!existsSync(manifestPath)) {
     errors.push('QA manifest is missing: _workspace/04_qa/qa-manifest.json')

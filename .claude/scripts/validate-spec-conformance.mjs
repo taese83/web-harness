@@ -23,6 +23,7 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
+import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
 import {isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec-lock.json'
@@ -129,6 +130,10 @@ export const resolveRequiredChecks = (targetShapes, catalog = readShapeChecks())
 }
 
 // 수행된 검증을 evidence receipt에서 읽는다. receipt는 evidence/{id}.json이고 status를 갖는다.
+// 요구 id를 실제 receipt 파일명으로 옮긴다. 러너는 quality.lint를 lint.json으로 쓴다 —
+// 이 정합이 없으면 잠근 프로젝트 전원이 "receipt가 없다"로 오탐 블록된다(적대 리뷰 실측).
+export const receiptNameFor = checkId => COMMON_RECEIPT_ALIASES[checkId] ?? checkId
+
 export const readEvidence = projectRoot => {
   const dir = resolve(projectRoot, EVIDENCE_DIR)
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return null
@@ -150,8 +155,9 @@ export const checkShapeEvidence = (specLock, projectRoot) => {
   if (receipts === null) {
     return {evidenceState: 'NOT_RUN', required, unimplemented, missing: [], failing: [], unknownShapes}
   }
-  const missing = required.filter(check => !receipts.has(check))
-  const failing = required.filter(check => receipts.has(check) && receipts.get(check) !== 'PASS')
+  const missing = required.filter(check => !receipts.has(receiptNameFor(check)))
+  const failing = required.filter(check =>
+    receipts.has(receiptNameFor(check)) && receipts.get(receiptNameFor(check)) !== 'PASS')
   return {evidenceState: 'RUN', required, unimplemented, missing, failing, unknownShapes}
 }
 
@@ -311,9 +317,24 @@ export const checkToolchainAlignment = (specLock, toolchain) => {
 export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchain()}) => {
   const root = resolve(projectRoot)
   const lockPath = join(root, SPEC_LOCK_PATH)
-  const specLock = readJsonIfExists(lockPath)
-  if (specLock === null) {
+  // 부재와 손상을 구분한다(적대 리뷰 2026-08-26). 이전 구현은 파싱 실패를 null로 삼켜
+  // **잠금 파일을 한 바이트만 깨뜨리면 결박 전체가 꺼졌고**, 보고까지 거짓이었다(파일이
+  // 실존하는데 "없다"고 말했다). 삭제보다 나쁘다 — 삭제는 정직한 opt-out처럼이라도 보인다.
+  // 이 repo의 판례와도 배치된다: 깨진 live.json은 침묵 폴백 없이 INVALID_LIVE_CONFIG로 loud fail.
+  if (!existsSync(lockPath) || !statSync(lockPath).isFile()) {
     return {status: 'NOT_LOCKED', failures: [], unverifiable: [], notes: [`${SPEC_LOCK_PATH}가 없다 — 잠금은 아직 선택이다`]}
+  }
+  let specLock
+  try {
+    specLock = JSON.parse(readFileSync(lockPath, 'utf8'))
+    if (specLock === null || typeof specLock !== 'object' || Array.isArray(specLock)) throw new Error('객체가 아니다')
+  } catch (error) {
+    return {
+      status: 'FAIL',
+      failures: [{kind: 'lock', reason: `INVALID_SPEC_LOCK — ${SPEC_LOCK_PATH}가 존재하나 읽을 수 없다: ${error instanceof Error ? error.message : String(error)}`}],
+      unverifiable: [],
+      notes: ['손상된 잠금은 잠금 없음으로 강등되지 않는다 — 그러면 파일 하나 깨뜨려 결박을 끌 수 있다'],
+    }
   }
 
   const declared = collectDeclaredPackages(root)

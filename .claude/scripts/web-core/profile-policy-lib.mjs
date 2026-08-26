@@ -10,7 +10,7 @@ import {
   SCHEDULED_STATIC_INGESTION_CAPABILITY,
 } from './ingestion-detection-lib.mjs'
 
-const COMMON_RECEIPT_ALIASES = Object.freeze({
+export const COMMON_RECEIPT_ALIASES = Object.freeze({
   'ingestion.validate': 'ingestion',
   'quality.lint': 'lint',
   'quality.typecheck': 'typecheck',

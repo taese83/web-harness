@@ -374,10 +374,10 @@ test('evidence 디렉토리가 없으면 판정하지 않는다(NOT_RUN)', () =>
 test('회귀 반증: 요구 검증의 receipt가 없으면 FAIL', () => {
   withLockedProject({
     decision: baseDecision({targetShapes: ['web-app']}),
-    files: ['_workspace/04_qa/evidence/quality.lint.json'],
+    files: ['_workspace/04_qa/evidence/lint.json'],
   }, root => {
-    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
-      JSON.stringify({id: 'quality.lint', status: 'PASS'}))
+    writeFileSync(join(root, '_workspace/04_qa/evidence/lint.json'),
+      JSON.stringify({id: 'lint', status: 'PASS'}))
     const result = checkShapeEvidence({targetShapes: ['web-app']}, root)
     assert.equal(result.evidenceState, 'RUN')
     assert.ok(result.missing.includes('vite.build'), '요구되는데 없는 검증이 보고돼야 한다')
@@ -386,9 +386,9 @@ test('회귀 반증: 요구 검증의 receipt가 없으면 FAIL', () => {
 })
 
 test('회귀 반증: receipt가 있어도 PASS가 아니면 FAIL로 잡는다', () => {
-  withLockedProject({decision: baseDecision(), files: ['_workspace/04_qa/evidence/quality.lint.json']}, root => {
-    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
-      JSON.stringify({id: 'quality.lint', status: 'FAIL'}))
+  withLockedProject({decision: baseDecision(), files: ['_workspace/04_qa/evidence/lint.json']}, root => {
+    writeFileSync(join(root, '_workspace/04_qa/evidence/lint.json'),
+      JSON.stringify({id: 'lint', status: 'FAIL'}))
     const result = checkShapeEvidence({targetShapes: []}, root)
     assert.ok(result.failing.includes('quality.lint'))
   })
@@ -397,10 +397,10 @@ test('회귀 반증: receipt가 있어도 PASS가 아니면 FAIL로 잡는다', 
 test('evidence 커버리지 실패가 정합 검사 FAIL로 올라온다', () => {
   withLockedProject({
     decision: baseDecision({targetShapes: ['web-app']}),
-    files: ['_workspace/04_qa/evidence/quality.lint.json'],
+    files: ['_workspace/04_qa/evidence/lint.json'],
   }, root => {
-    writeFileSync(join(root, '_workspace/04_qa/evidence/quality.lint.json'),
-      JSON.stringify({id: 'quality.lint', status: 'PASS'}))
+    writeFileSync(join(root, '_workspace/04_qa/evidence/lint.json'),
+      JSON.stringify({id: 'lint', status: 'PASS'}))
     const result = inspectSpecConformance({projectRoot: root})
     assert.equal(result.status, 'FAIL')
     assert.ok(result.failures.some(f => f.kind === 'shapeEvidence'))
