@@ -200,6 +200,7 @@ export const AGENT_OWNERSHIP = {
     appPath('src/shared/seo/'),
   ],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
+  'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],

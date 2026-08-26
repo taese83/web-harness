@@ -21,7 +21,7 @@ metadata:
 **시점 로드** — 앵커 밖 계약은 전부 그 시점 직전에 읽는다(선행 로드 금지). **시점 표기가 곧 계약이다.**
 - **Fresh mode 첫 intake 전** `../web-plan/references/planning-facilitation-contract.md`, `../web-plan/references/planning-readiness-contract.md` — Iterate/Resume mode는 Phase 1 intake를 반복하지 않으므로 읽지 않는다
 - **첫 스폰 전** `references/execution-budget-contract.md` — 이후 **스폰이 끝날 때마다 결과 usage를 `_workspace/04_qa/execution-telemetry.json`에 기록한다** (usage 미제공 환경이면 `null`, 지어내지 않는다)
-- **기존 source 변경 감지 시** `references/change-journal-contract.md`, `references/integration-overlay.md` · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
+- **기존 source 변경 감지 시** `references/change-journal-contract.md`, `references/integration-overlay.md` · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 3 착수 전** `references/solution-design-contract.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
 - **재진입**(후속 턴·새 세션·압축 후 재관여)은 이 스킬 전체를 재로드하지 않는다 — `references/reentry-map.md`의 상황별 최소 로드가 정본이다. 전체 진입은 신규 서비스·모드 미판별에서만 필요하다
 
 자연어 설명 하나 또는 기존 기획/디자인/API 문서로 완성된 웹 애플리케이션을 만든다. 입력 상태를 먼저 판별한 뒤 필요한 Phase만 실행한다.
@@ -177,7 +177,7 @@ Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽
 
 ### ✋ Phase 2 완료 체크포인트
 
-`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로 화면·컴포넌트·API·시각 자료·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다.
+`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로 화면·컴포넌트·API·시각 자료·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다. 확인 후 Phase 3 착수 전에 `references/solution-design-contract.md`로 `system-architect`를 실행해 구현 설계 결정(아키텍처·레이어 맵·라이브러리·모듈 경계)을 기록하고 사용자에게 선택지를 제시한다 — **관측 단계이며 게이트가 아니다**: 이 산출물로 무엇도 BLOCKED시키지 않고, `system-architect`가 실패하거나 산출이 없으면 그 사실만 기록하고 Phase 3을 그대로 진행한다(재시도하지 않는다).
 
 ### Phase 3 — 개발 (순서 있음)
 
