@@ -97,6 +97,53 @@ export const checkLayerMap = (specLock, projectRoot) => {
   return failures
 }
 
+// 선언된 형태를 package.json 필드와 대조한다(조사 2026-08-26).
+// 형태가 게이트를 고르게 되면(2b) **형태 자기보고 하나로 검증 세트 전체를 회피**할 수 있다 —
+// `library`라고 적어서 웹앱 검증 22종을 건너뛰는 식이다. 그래서 형태가 게이트를 고르기 전에
+// 대조가 먼저 서야 한다. 잠금의 verifiable 라벨을 feature-plan 실존에 결박한 것과 같은 이유다.
+//
+// 대조 근거는 npm 관례 그대로다: `bin`이 있으면 CLI, `exports`/`main`이 있고 private이 아니면
+// 배포 라이브러리. 모순만 FAIL로 잡고 근거 부재는 unverifiable로 보고한다 — 근거가 없다는 것이
+// 거짓이라는 뜻은 아니다.
+export const checkTargetShapes = (specLock, projectRoot) => {
+  const manifest = readJsonIfExists(join(resolve(projectRoot), 'package.json'))
+  const shapes = Array.isArray(specLock.targetShapes) ? specLock.targetShapes : []
+  const failures = []
+  const unverifiable = []
+  const notes = []
+  if (manifest === null) {
+    unverifiable.push({kind: 'targetShapes', reason: 'package.json이 없어 형태를 대조할 수 없다'})
+    return {failures, unverifiable, notes}
+  }
+  const hasBin = manifest.bin !== undefined && manifest.bin !== null
+  const hasEntry = manifest.exports !== undefined || typeof manifest.main === 'string'
+  const isPrivate = manifest.private === true
+
+  if (shapes.includes('cli') && !hasBin) {
+    failures.push({kind: 'targetShapes', reason: 'cli를 주장하나 package.json에 bin 필드가 없다 — bin이 CLI의 정의다'})
+  }
+  if (shapes.includes('library')) {
+    if (isPrivate) {
+      failures.push({kind: 'targetShapes', reason: 'library를 주장하나 private: true다 — 배포할 수 없는 패키지다'})
+    } else if (!hasEntry) {
+      failures.push({kind: 'targetShapes', reason: 'library를 주장하나 exports도 main도 없다 — 소비 진입점이 없다'})
+    }
+  }
+  // 반대 방향: 신호가 있는데 선언하지 않으면 그 형태의 검사가 돌지 않는다.
+  if (hasBin && !shapes.includes('cli')) {
+    notes.push('package.json에 bin이 있는데 targetShapes에 cli가 없다 — CLI 검증이 선택되지 않는다')
+  }
+  if (!isPrivate && hasEntry && !shapes.includes('library')) {
+    notes.push('배포 가능한 진입점이 있는데 targetShapes에 library가 없다 — 패키지 검증이 선택되지 않는다')
+  }
+  for (const shape of shapes) {
+    if (!['cli', 'library'].includes(shape)) {
+      unverifiable.push({kind: 'targetShapes', reason: `'${shape}' 형태의 기계 대조 규칙이 없다`})
+    }
+  }
+  return {failures, unverifiable, notes}
+}
+
 // layerMap이 실제 트리를 얼마나 덮는가(Stage 3c).
 // 실측 근거: 한 브라운필드 패키지에서 hooks·stores·consts·styles가 소유자 없음으로 막혔다.
 // 설계자가 레이어를 빠뜨리면 그 디렉토리는 **아무 에이전트도 쓸 수 없게** 되는데, 지금은
@@ -228,6 +275,11 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   for (const item of substrate.unverifiable) unverifiable.push({kind: 'substrate', ...item})
   for (const item of checkToolchainAlignment(specLock, toolchain)) failures.push({kind: 'toolchain', ...item})
 
+  const shapes = checkTargetShapes(specLock, root)
+  for (const item of shapes.failures) failures.push(item)
+  for (const item of shapes.unverifiable) unverifiable.push(item)
+  for (const note of shapes.notes) notes.push(note)
+
   const uncovered = checkLayerMapCoverage(specLock, root)
   if (uncovered.length > 0) {
     notes.push(`layerMap이 덮지 않는 소스 디렉토리 ${uncovered.length}개: ${uncovered.join(', ')} — 이 경로는 어떤 에이전트도 쓸 수 없다`)
@@ -236,7 +288,7 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   if (specLock.specTier === 'unverifiable') {
     notes.push('specTier가 unverifiable이다 — 수용 기준이 없어 이 설계가 옳은지는 판정할 수 없다. 형식 정합만 확인했다')
   }
-  notes.push(`targetShape: ${specLock.targetShape} — 형태별 게이트 선택은 아직 배선되지 않았다(Stage 2b)`)
+  notes.push(`targetShapes: ${(specLock.targetShapes ?? []).join(', ')} — 형태별 게이트 선택은 아직 배선되지 않았다(Stage 2b)`)
 
   return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, notes}
 }

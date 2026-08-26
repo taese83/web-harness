@@ -25,7 +25,7 @@ const decisionBlock = decision => [
 
 const baseDecision = (overrides = {}) => ({
   stage: 0,
-  targetShape: 'web-app',
+  targetShapes: ['web-app'],
   architecture: {pattern: 'existing', rationale: '기존 lint 설정이 레이어 어휘를 강제한다'},
   layerMap: {routes: 'src/pages/', 'pure-logic': 'src/utils/'},
   libraries: {'client-state': {choice: 'zustand', alternatives: [], source: 'measured'}},
@@ -295,18 +295,36 @@ test('하네스 기본값 파일을 읽을 수 있고 핵심 키를 갖는다', 
 })
 
 // ── (8) targetShape ──────────────────────────────────────────────────────────
-test('targetShape가 없으면 잠글 수 없다 — 형태가 검증 방식을 정한다', () => {
-  const {targetShape, ...withoutShape} = baseDecision()
+test('targetShapes가 없거나 비면 잠글 수 없다 — 형태가 검증 방식을 정한다', () => {
+  const {targetShapes, ...without} = baseDecision()
   expectLockError(
-    () => buildSpecLock({decision: withoutShape, digest: {inputs: [], combined: 'x'.repeat(64)}}),
-    'TARGET_SHAPE_MISSING',
+    () => buildSpecLock({decision: without, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    'TARGET_SHAPES_MISSING',
+  )
+  expectLockError(
+    () => buildSpecLock({decision: {...baseDecision(), targetShapes: []}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    'TARGET_SHAPES_MISSING',
   )
 })
 
-test('targetShape는 열린 문자열이다 — library도 cli도 유효하다', () => {
-  for (const shape of ['web-app', 'library', 'cli', 'browser-extension']) {
-    withProject(baseDecision({targetShape: shape}), root => {
-      assert.equal(lockSpec(root).targetShape, shape)
+test('회귀 반증: 구 단수 필드는 조용히 받지 않고 거부한다', () => {
+  const {targetShapes, ...rest} = baseDecision()
+  expectLockError(
+    () => buildSpecLock({decision: {...rest, targetShape: 'library'}, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    'TARGET_SHAPE_SINGULAR',
+  )
+})
+
+test('형태는 조합 가능하다 — 라이브러리이면서 CLI인 것이 정상이다', () => {
+  withProject(baseDecision({targetShapes: ['library', 'cli']}), root => {
+    assert.deepEqual(lockSpec(root).targetShapes, ['library', 'cli'])
+  })
+})
+
+test('형태는 열린 문자열이다', () => {
+  for (const shapes of [['web-app'], ['library'], ['cli'], ['browser-extension', 'library']]) {
+    withProject(baseDecision({targetShapes: shapes}), root => {
+      assert.deepEqual(lockSpec(root).targetShapes, shapes)
     })
   }
 })

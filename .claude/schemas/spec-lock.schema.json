@@ -10,7 +10,7 @@
     "acceptanceSource",
     "acceptanceRefs",
     "constitution",
-    "targetShape",
+    "targetShapes",
     "architecture",
     "layerMap",
     "libraries",
@@ -245,11 +245,6 @@
         }
       }
     },
-    "targetShape": {
-      "type": "string",
-      "minLength": 1,
-      "description": "산출물 형태. web-app·library·cli 등 열린 문자열이며 예시일 뿐이다. 형태가 다르면 검증도 다르므로 이후 단계에서 게이트 선택의 입력이 된다."
-    },
     "communication": {
       "type": "array",
       "items": {
@@ -265,6 +260,15 @@
         "minLength": 1
       },
       "description": "동시성 접근. web-worker·service-worker·worker-thread 등. 없으면 빈 배열."
+    },
+    "targetShapes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "산출물 형태. **배열이다** — 하나의 패키지가 라이브러리이면서 CLI인 것은 정상 패턴이다(exports + bin의 dual entry point). 형태가 다르면 검증도 다르므로 검사 세트는 선언된 형태의 **합집합**이 된다. web-app·library·cli 등 열린 문자열이며 예시일 뿐이다."
     }
   }
 }

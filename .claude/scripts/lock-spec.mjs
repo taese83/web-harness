@@ -210,10 +210,24 @@ export const buildSpecLock = ({decision, digest}) => {
   }
 
   const constitution = {substrate: mergeSubstrate(decision.constitution?.substrate)}
-  const targetShape = requireNonEmptyString(
-    decision.targetShape, 'TARGET_SHAPE_MISSING',
-    'targetShape가 없다 — 산출물 형태(web-app·library·cli 등)가 정해져야 검증 방식이 정해진다',
-  )
+  // 형태는 배열이다(조사 2026-08-26): 라이브러리이면서 CLI인 패키지가 정상 패턴이고,
+  // 하나로 강제하면 나머지 절반의 검증을 잃는다. 구 단수 필드는 조용히 받지 않고 거부한다 —
+  // 같은 것을 두 가지로 말할 수 있으면 나중에 어느 쪽이 정본인지 모호해진다.
+  if (decision.targetShape !== undefined) {
+    throw new LockError(
+      'TARGET_SHAPE_SINGULAR',
+      'targetShape(단수)는 더 이상 쓰지 않는다 — targetShapes 배열로 적어라(라이브러리+CLI 같은 조합이 정상이다)',
+    )
+  }
+  const targetShapes = Array.isArray(decision.targetShapes)
+    ? decision.targetShapes.filter(shape => typeof shape === 'string' && shape.trim() !== '')
+    : []
+  if (targetShapes.length === 0) {
+    throw new LockError(
+      'TARGET_SHAPES_MISSING',
+      'targetShapes가 비어 있다 — 산출물 형태(web-app·library·cli 등)가 정해져야 검증 방식이 정해진다',
+    )
+  }
 
   return {
     schemaVersion: 1,
@@ -221,7 +235,7 @@ export const buildSpecLock = ({decision, digest}) => {
     acceptanceSource,
     acceptanceRefs,
     constitution,
-    targetShape,
+    targetShapes,
     architecture: {pattern: architecture.pattern, rationale: architecture.rationale},
     communication: Array.isArray(decision.communication) ? decision.communication : [],
     concurrency: Array.isArray(decision.concurrency) ? decision.concurrency : [],

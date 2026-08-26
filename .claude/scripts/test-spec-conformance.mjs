@@ -14,7 +14,7 @@ import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkSubstrate, checkToolchainAlignment,
+  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkSubstrate, checkTargetShapes, checkToolchainAlignment,
   collectDeclaredPackages, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './lock-spec.mjs'
@@ -25,7 +25,7 @@ const decisionBlock = decision => [
 ].join('\n')
 
 const baseDecision = (overrides = {}) => ({
-  targetShape: 'web-app',
+  targetShapes: ['web-app'],
   architecture: {pattern: 'existing', rationale: '기존 관례'},
   layerMap: {},
   libraries: {},
@@ -266,5 +266,62 @@ test('커버리지 공백은 FAIL이 아니라 note다 — 소유자 없어도 �
     assert.equal(result.status, 'PASS')
     assert.deepEqual(result.uncoveredPaths, ['src/consts'])
     assert.ok(result.notes.some(n => n.includes('src/consts')))
+  })
+})
+
+// ── (8) 형태 기계 대조 (조사 2026-08-26) ─────────────────────────────────────
+// 형태가 게이트를 고르게 되면 형태 자기보고 하나로 검증 세트 전체를 회피할 수 있다.
+// 그래서 형태가 게이트를 고르기 전에 대조가 먼저 서야 한다.
+test('회귀 반증: bin 없이 cli를 주장하면 FAIL', () => {
+  withLockedProject({decision: baseDecision({targetShapes: ['cli']})}, root => {
+    const {failures} = checkTargetShapes({targetShapes: ['cli']}, root)
+    assert.equal(failures.length, 1, '형태 자기보고가 대조 없이 통과하면 검증 회피가 된다')
+    assert.match(failures[0].reason, /bin 필드가 없다/)
+  })
+})
+
+test('bin이 있으면 cli 주장이 통과한다', () => {
+  withLockedProject({decision: baseDecision({targetShapes: ['cli']}), manifest: {bin: {tool: './cli.js'}}}, root => {
+    assert.equal(checkTargetShapes({targetShapes: ['cli']}, root).failures.length, 0)
+  })
+})
+
+test('회귀 반증: private:true인데 library를 주장하면 FAIL', () => {
+  withLockedProject({decision: baseDecision({targetShapes: ['library']}), manifest: {private: true, main: './index.js'}}, root => {
+    const {failures} = checkTargetShapes({targetShapes: ['library']}, root)
+    assert.equal(failures.length, 1)
+    assert.match(failures[0].reason, /배포할 수 없는 패키지/)
+  })
+})
+
+test('진입점 없이 library를 주장하면 FAIL', () => {
+  withLockedProject({decision: baseDecision({targetShapes: ['library']})}, root => {
+    const {failures} = checkTargetShapes({targetShapes: ['library']}, root)
+    assert.equal(failures.length, 1)
+    assert.match(failures[0].reason, /exports도 main도 없다/)
+  })
+})
+
+test('조합 형태가 각각 대조된다', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['library', 'cli']}),
+    manifest: {exports: './index.js', bin: {tool: './cli.js'}},
+  }, root => {
+    assert.equal(checkTargetShapes({targetShapes: ['library', 'cli']}, root).failures.length, 0)
+  })
+})
+
+test('신호가 있는데 선언하지 않으면 note로 알린다 — 그 검증이 선택되지 않는다', () => {
+  withLockedProject({decision: baseDecision(), manifest: {bin: {tool: './cli.js'}}}, root => {
+    const {notes} = checkTargetShapes({targetShapes: ['web-app']}, root)
+    assert.ok(notes.some(n => n.includes('cli가 없다')))
+  })
+})
+
+test('대조 규칙이 없는 형태는 unverifiable로 보고한다', () => {
+  withLockedProject({decision: baseDecision()}, root => {
+    const {failures, unverifiable} = checkTargetShapes({targetShapes: ['browser-extension']}, root)
+    assert.equal(failures.length, 0, '모르는 것을 실패로 만들지 않는다')
+    assert.equal(unverifiable.length, 1, '침묵으로 통과시키지도 않는다')
   })
 })

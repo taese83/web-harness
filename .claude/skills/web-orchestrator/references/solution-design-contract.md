@@ -33,12 +33,17 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
   이탈 문턱이 유동 선택보다 낮아선 안 된다
 - `default`라 적으면서 값이 기본값과 다르면 거부한다(`SUBSTRATE_DEFAULT_MISMATCH`)
 
-**`targetShape`는 필수다.** `web-app`·`library`·`cli` 등 열린 문자열이며, 형태가 다르면 검증도
-다르므로 이후 단계에서 게이트 선택의 입력이 된다. 라이브러리를 만들든 웹앱을 만들든 같은
-흐름을 쓰되 검증만 형태를 따른다.
+**`targetShapes`는 필수이고 배열이다.** 하나의 패키지가 **라이브러리이면서 CLI인 것이 정상
+패턴**이다(`exports` + `bin`의 dual entry point). 하나로 강제하면 나머지 절반의 검증을 잃으므로
+검사 세트는 선언된 형태의 **합집합**이 된다. `web-app`·`library`·`cli` 등 열린 문자열이다.
+
+**형태는 기계로 대조된다.** 정합 검사가 `package.json`과 맞춰 본다 — `bin` 없이 `cli`를
+주장하면 FAIL, `private: true`인데 `library`를 주장하면 FAIL. 반대로 `bin`이 있는데 `cli`를
+선언하지 않으면 그 검증이 선택되지 않으므로 note로 알린다. 대조 없이 형태가 게이트를 고르면
+**형태 자기보고 하나로 검증 세트 전체를 회피**할 수 있다.
 
 **누가 정하나**: 설계자가 근거를 대고 정한다. 근거 순서는 (1) 기존 source 실측 —
-`package.json`의 `private`·`exports`·`bin`, 진입점 형태가 형태를 말해 준다, (2) `feature-plan`과
+`package.json`의 `private`·`exports`·`bin`이 형태를 말해 준다(이 신호가 곧 기계 대조 기준이다), (2) `feature-plan`과
 `requirements`가 서술하는 소비 방식(사용자가 화면을 쓰는가, 다른 코드가 import 하는가),
 (3) 그래도 갈리면 확정하지 말고 `openDecisions`로 올린다. **형태는 되돌리기 비용이 가장 큰
 결정 중 하나이므로 추정으로 확정하지 않는다.**
@@ -113,7 +118,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 ```json web-harness:solution-design
 {
   "stage": 0,
-  "targetShape": "web-app|library|cli|<기타>",
+  "targetShapes": ["web-app|library|cli|<기타>"],
   "constitution": {"substrate": {"<키>": {"value": "...", "source": "default|measured|declared", "rationale": "declared면 필수"}}},
   "communication": ["rest|graphql|websocket|sse|streaming"],
   "concurrency": ["web-worker|service-worker|worker-thread"],
