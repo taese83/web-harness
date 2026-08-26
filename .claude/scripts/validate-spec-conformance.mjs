@@ -24,7 +24,7 @@ import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
-import {isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
+import {inspectSpecLockLedger, isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec-lock.json'
 const EVIDENCE_DIR = '_workspace/04_qa/evidence'
@@ -322,6 +322,16 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   // 실존하는데 "없다"고 말했다). 삭제보다 나쁘다 — 삭제는 정직한 opt-out처럼이라도 보인다.
   // 이 repo의 판례와도 배치된다: 깨진 live.json은 침묵 폴백 없이 INVALID_LIVE_CONFIG로 loud fail.
   if (!existsSync(lockPath) || !statSync(lockPath).isFile()) {
+    // 원장에 잠금 이력이 있는데 파일이 없으면 삭제다 — opt-out이 아니라 결박 해제 시도다.
+    const ledger = inspectSpecLockLedger(root, null)
+    if (ledger.state === 'DELETED') {
+      return {
+        status: 'FAIL',
+        failures: [{kind: 'lockLedger', reason: `SPEC_LOCK_DELETED — 원장에 잠금 기록 ${ledger.rows}건이 있는데 ${SPEC_LOCK_PATH}가 없다`}],
+        unverifiable: [],
+        notes: ['잠금을 지워 결박을 푸는 경로다. 의도적으로 잠금을 해제하려면 원장도 함께 정리하고 그 사실이 커밋에 남아야 한다'],
+      }
+    }
     return {status: 'NOT_LOCKED', failures: [], unverifiable: [], notes: [`${SPEC_LOCK_PATH}가 없다 — 잠금은 아직 선택이다`]}
   }
   let specLock
@@ -339,8 +349,15 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
 
   const declared = collectDeclaredPackages(root)
   const failures = []
+  const ledger = inspectSpecLockLedger(root, specLock)
+  if (ledger.state === 'TAMPERED') {
+    failures.push({kind: 'lockLedger', reason: `SPEC_LOCK_TAMPERED — 잠금 해시가 원장의 어떤 기록과도 맞지 않는다(현재 ${ledger.currentDigest.slice(0, 12)}…, 원장 최신 ${ledger.lastDigest.slice(0, 12)}…)`})
+  }
+  const ledgerNotes = ledger.state === 'NO_LEDGER'
+    ? ['잠금 원장이 없다 — 이 잠금은 삭제·사후 수정 탐지에 결박되지 않는다']
+    : []
   const unverifiable = []
-  const notes = []
+  const notes = [...ledgerNotes]
 
   if (isSpecLockStale(specLock, root)) {
     failures.push({kind: 'stale', reason: '잠금 이후 입력이 바뀌었다 — 재잠금이 필요하다'})

@@ -26,6 +26,7 @@
 import {createHash} from 'node:crypto'
 import {existsSync, readFileSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
+import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 
 const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
 
@@ -34,6 +35,20 @@ const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
 // (api-schema/INDEX.md 등)를 포섭하지 못한다. sharded 프로젝트에서는 실제 입력이
 // present:false로 기록돼 변경이 staleness에 안 잡힌다 — Stage 2에서 stale 게이트가 생기면
 // fail-open 방향이다. §4 등록, 해소는 Stage 2 전제조건.
+// 잠금 원장(append-only). 잠금 자신의 해시를 기록해 **삭제와 사후 수정**을 탐지한다.
+// 배경(적대 리뷰 2026-08-26): sourceDigest는 잠금의 *입력*만 다이제스트하고 잠금 *자신*은
+// 아니므로, layerMap·libraries를 사후 실측에 맞게 고쳐 써도 어떤 기계도 잡지 못했다.
+// spec-lock.json을 지우면 NOT_LOCKED로 결박이 풀리는 것도 같은 구멍이다.
+// planLock 삭제 우회(§4 "재개 매니페스트" 행)와 같은 클래스이며 그때의 해법을 그대로 쓴다.
+//
+// **한계(정직)**: 원장도 파일이라 함께 지우면 탐지되지 않는다. 이것은 로컬 신뢰 모델의
+// 명시적 리스크 인수이며 ticket/ledger-writer.mjs와 같은 판단이다 — 실질 방어는 원장이
+// git에 커밋되어 삭제가 히스토리에 남는 것이다.
+export const SPEC_LOCK_LEDGER = '_workspace/03_dev/spec-lock-ledger.jsonl'
+
+// 잠금 내용 자체의 해시. 원장 기록과 대조해 사후 수정을 잡는다.
+export const specLockDigest = specLock => sha256(JSON.stringify(specLock))
+
 export const LOCK_INPUTS = [
   '_workspace/01_plan/feature-plan.md',
   '_workspace/01_plan/tech-stack.md',
@@ -252,6 +267,39 @@ export const buildSpecLock = ({decision, digest}) => {
 export const isSpecLockStale = (specLock, projectRoot) =>
   digestInputs(projectRoot).combined !== specLock?.sourceDigest?.combined
 
+// 잠금을 원장에 기록한다. 잠금이 stdout으로 나가 저장되는 시점과 같은 시점에 호출한다.
+export const recordSpecLock = (projectRoot, specLock) => {
+  const record = {
+    at: new Date().toISOString(),
+    lockDigest: specLockDigest(specLock),
+    sourceDigest: specLock.sourceDigest?.combined ?? null,
+    specTier: specLock.specTier ?? null,
+    targetShapes: specLock.targetShapes ?? [],
+  }
+  appendEvidenceLine(join(resolve(projectRoot), SPEC_LOCK_LEDGER), record)
+  return record
+}
+
+// 원장과 현재 잠금을 대조한다. 셋을 구분한다:
+//   NO_LEDGER   원장이 없다 — 잠금 이력이 없거나 원장까지 지워졌다
+//   DELETED     원장에 기록이 있는데 잠금 파일이 없다 — 삭제 탐지
+//   TAMPERED    잠금이 있는데 해시가 원장 최신 기록과 다르다 — 사후 수정 탐지
+//   OK          일치
+export const inspectSpecLockLedger = (projectRoot, specLock) => {
+  const path = join(resolve(projectRoot), SPEC_LOCK_LEDGER)
+  if (!existsSync(path)) return {state: 'NO_LEDGER', rows: 0}
+  const rows = readEvidenceLog(path).filter(row => typeof row?.lockDigest === 'string')
+  if (rows.length === 0) return {state: 'NO_LEDGER', rows: 0}
+  if (specLock === null || specLock === undefined) {
+    return {state: 'DELETED', rows: rows.length, lastDigest: rows[rows.length - 1].lockDigest}
+  }
+  const current = specLockDigest(specLock)
+  const known = rows.some(row => row.lockDigest === current)
+  return known
+    ? {state: 'OK', rows: rows.length}
+    : {state: 'TAMPERED', rows: rows.length, currentDigest: current, lastDigest: rows[rows.length - 1].lockDigest}
+}
+
 export const lockSpec = projectRoot => {
   const root = resolve(projectRoot)
   const designPath = join(root, '_workspace/02_design/solution-design.md')
@@ -271,7 +319,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(2)
   }
   try {
-    process.stdout.write(`${JSON.stringify(lockSpec(projectRoot), null, 2)}\n`)
+    const specLock = lockSpec(projectRoot)
+    // 원장 먼저 기록한다 — stdout이 저장되지 않아도 잠금 시도는 남는다.
+    recordSpecLock(projectRoot, specLock)
+    process.stdout.write(`${JSON.stringify(specLock, null, 2)}\n`)
   } catch (error) {
     const payload = error instanceof LockError
       ? {ok: false, error: {code: error.code, message: error.message, details: error.details}}
