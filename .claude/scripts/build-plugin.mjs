@@ -14,7 +14,7 @@ const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
   : 'dist/web-harness-plugin')
 
 const PLUGIN_NAME = 'web-harness'
-const PLUGIN_VERSION = '0.4.1'
+const PLUGIN_VERSION = '0.4.2'
 
 // 배포 메타데이터는 소스에 특정 저장소·개인을 박지 않고 환경에서 파생한다.
 // WEB_HARNESS_PLUGIN_AUTHOR / _REPO_URL / _MARKETPLACE_GIT 로 override, 없으면 git remote,
@@ -187,8 +187,29 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
 copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, '.claude', 'schemas'))
 cpSync(join(repositoryRoot, '.claude', 'ai-harness.json'), join(outputRoot, '.claude', 'ai-harness.json'))
-// lock-spec.mjs가 런타임에 읽는다 — 없으면 배포본에서 스팩 잠금이 깨진다.
-cpSync(join(repositoryRoot, '.claude', 'substrate-defaults.json'), join(outputRoot, '.claude', 'substrate-defaults.json'))
+// 스크립트가 런타임에 import.meta.url 상대 경로로 읽는 .claude 루트 카탈로그는
+// 전부 배포본에 있어야 한다. 손으로 유지하던 목록이 두 번 연속 누락을 냈다 —
+// substrate-defaults.json(0.3.x), shape-checks.json(0.4.0~0.4.1, 형태 층 전체가 배포본에서
+// 깨져 있었다). 목록을 늘리는 대신 참조를 스캔해 강제한다.
+const runtimeRootCatalogs = new Set()
+for (const entry of readdirSync(join(repositoryRoot, '.claude', 'scripts'), {recursive: true})) {
+  const name = String(entry)
+  if (!name.endsWith('.mjs') || name === 'build-plugin.mjs') continue  // 빌더 자신은 런타임 소비자가 아니다
+  const source = readFileSync(join(repositoryRoot, '.claude', 'scripts', name), 'utf8')
+  for (const match of source.matchAll(/new URL\(\s*['"`]\.\.\/([\w.-]+\.json)['"`]/g)) {
+    runtimeRootCatalogs.add(match[1])
+  }
+}
+if (runtimeRootCatalogs.size === 0) {
+  throw new Error('build-plugin: 런타임 카탈로그 참조를 하나도 찾지 못했다 — 스캔이 깨졌다(무산출을 통과로 만들지 않는다)')
+}
+for (const catalog of [...runtimeRootCatalogs].sort()) {
+  const source = join(repositoryRoot, '.claude', catalog)
+  if (!existsSync(source)) {
+    throw new Error(`build-plugin: 스크립트가 읽는 ${catalog}가 .claude에 없다`)
+  }
+  cpSync(source, join(outputRoot, '.claude', catalog))
+}
 
 // 3. 콘솔 — 상대 import(../../../.claude/scripts/...)가 그대로 풀리는 위치에 복사한다.
 copyTree(join(repositoryRoot, 'packages', 'web-harness-console'), join(outputRoot, 'packages', 'web-harness-console'), {
