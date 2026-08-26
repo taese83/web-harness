@@ -1,5 +1,15 @@
 #!/usr/bin/env node
-// validate-spec-conformance.mjs — 확정된 스팩이 실제와 맞는지 검사한다 (Stage 2a).
+// validate-spec-conformance.mjs
+//
+// 2026-08-26 축소: `measured` 대조(libraries·substrate)를 걷어냈다. 빌드가 돌면 vite가 있는
+// 것이고 테스트가 통과하면 그 라이브러리가 있는 것이다 — **실행이 증명하는 것을 정적으로
+// 흉내내면 중복이고, 흉내가 어긋나면 오탐이다**(SUBSTRATE_EVIDENCE 수기 근거표 오탐,
+// 모노레포 dep/config 비대칭이 둘 다 그 부작용이었다).
+//
+// 남는 것은 **실행이 증명하지 못하는 것**뿐이다:
+//   layerMap 실존·겹침 — 소유권 공급원이며 아무도 실행하지 않는다
+//   staleness · 원장   — 기록 무결성. 확정 후 고쳐 쓰면 다음 사람이 거짓말을 읽는다
+//   형태 → 요구 검증   — TC는 "옳은 검사를 돌렸는가"를 자기 자신에 대해 말할 수 없다 — 확정된 스팩이 실제와 맞는지 검사한다 (Stage 2a).
 //
 // 순서에 대한 판단: Stage 2의 목표는 "게이트를 프로필 적합성 → 스팩 적합성으로" 바꾸는 것이다.
 // 그런데 **스팩이 게이트를 고르게 하려면 스팩 자체가 먼저 검증돼야 한다** — 검증되지 않은
@@ -33,20 +43,15 @@ const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies'
 
 // substrate 키별 실측 근거. 여기 없는 키는 "검증 불가"로 보고한다 — 조용히 통과시키지 않는다.
 // value는 도구 이름이므로 의존성 선언이 1차 근거이고, 설정 파일 존재가 보조 근거다.
-export const SUBSTRATE_EVIDENCE = {
-  packageManager: {kind: 'packageManagerField'},
-  // 도구명과 npm 패키지명이 다른 것들은 aliases로 잇는다 — 없으면 정당한 실측이 오탐 FAIL 난다.
-  bundler: {
-    kind: 'dependency',
-    aliases: {rspack: ['@rspack/core'], rolldown: ['rolldown', '@rolldown/binding'], turbopack: ['next']},
-    configs: {vite: ['vite.config.ts', 'vite.config.js', 'vite.config.mjs'], rspack: ['rspack.config.ts', 'rspack.config.js']},
-  },
-  testRunner: {kind: 'dependency'},
-  lint: {kind: 'dependency', aliases: {biome: ['@biomejs/biome'], oxlint: ['oxlint']}},
-  formatter: {kind: 'dependency', aliases: {biome: ['@biomejs/biome']}},
-  e2e: {kind: 'dependency', aliases: {playwright: ['@playwright/test', 'playwright'], cypress: ['cypress']}},
-  language: {kind: 'dependency', aliases: {typescript: ['typescript']}},
+
+
+const withinRoot = (root, relativePath) => {
+  const candidate = resolve(root, relativePath)
+  const offset = relative(root, candidate)
+  return !(offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset))
 }
+
+// layerMap이 가리키는 경로가 실제로 있는가. 없는 경로를 measured로 적었다면 위조다.
 
 const readJsonIfExists = path => {
   if (!existsSync(path) || !statSync(path).isFile()) return null
@@ -58,33 +63,7 @@ const readJsonIfExists = path => {
 }
 
 // 프로젝트와 워크스페이스 루트의 선언을 합친다 — 모노레포 호이스팅을 포섭한다.
-export const collectDeclaredPackages = projectRoot => {
-  const root = resolve(projectRoot)
-  const roots = [root]
-  const workspaceRoot = findWorkspaceRoot(root)
-  if (workspaceRoot && workspaceRoot !== root) roots.push(workspaceRoot)
-  const names = new Set()
-  let packageManagerField = null
-  for (const dir of roots) {
-    const manifest = readJsonIfExists(join(dir, 'package.json'))
-    if (!manifest) continue
-    if (packageManagerField === null && typeof manifest.packageManager === 'string') {
-      packageManagerField = manifest.packageManager
-    }
-    for (const field of DEPENDENCY_FIELDS) {
-      for (const name of Object.keys(manifest[field] ?? {})) names.add(name)
-    }
-  }
-  return {names, packageManagerField}
-}
 
-const withinRoot = (root, relativePath) => {
-  const candidate = resolve(root, relativePath)
-  const offset = relative(root, candidate)
-  return !(offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset))
-}
-
-// layerMap이 가리키는 경로가 실제로 있는가. 없는 경로를 measured로 적었다면 위조다.
 export const checkLayerMap = (spec, projectRoot) => {
   const root = resolve(projectRoot)
   const failures = []
@@ -257,70 +236,11 @@ export const checkLayerMapCoverage = (spec, projectRoot, appRoot = 'src') => {
 }
 
 // libraries의 measured / measured-absent 주장을 선언과 대조한다.
-export const checkLibraries = (spec, declared) => {
-  const failures = []
-  const unverifiable = []
-  const unbacked = []
-  for (const [role, entry] of Object.entries(spec.libraries ?? {})) {
-    // 코드에서 읽었다고 주장하지 않는 티어는 대조 대상이 아니다(그린필드는 아직 설치 전이다).
-    // 침묵시키지는 않는다 — 아래에서 근거 없는 항목 수를 보고한다.
-    if (['proposed', 'inferred', 'confirmed'].includes(entry.source)) {
-      unbacked.push({role, source: entry.source, choice: entry.choice})
-      continue
-    }
-    if (entry.source === 'measured-absent') {
-      if (entry.choice !== 'none') {
-        unverifiable.push({role, reason: `measured-absent인데 choice가 'none'이 아니라 대조 대상이 모호하다: ${entry.choice}`})
-      }
-      continue
-    }
-    // measured — choice에서 패키지 이름을 뽑는다. scoped(@scope/name)를 먼저 시도한다.
-    // 이전 구현은 선두 @에서 split해 빈 문자열이 나왔고, 결과적으로 **scoped 패키지 전체가
-    // 검증을 건너뛰었다**(fail-open — 위조가 통과). 적대 리뷰 2026-08-26 실측.
-    const candidate = (entry.choice.match(/^(@[^/@\s(]+\/[^@\s(]+|[^@\s(]+)/)?.[0] ?? '').trim()
-    if (candidate === '' || candidate === 'none') {
-      unverifiable.push({role, reason: `measured인데 choice가 패키지 이름 형태가 아니다: ${entry.choice}`})
-      continue
-    }
-    if (!declared.names.has(candidate)) {
-      failures.push({role, claim: entry.choice, reason: `measured라 주장하나 의존성 선언에 ${candidate}가 없다`})
-    }
-  }
-  return {failures, unverifiable, unbacked}
-}
 
 // substrate의 measured 주장을 대조한다. 근거 규칙이 없는 키는 검증 불가로 보고한다.
-export const checkSubstrate = (spec, declared, projectRoot) => {
-  const root = resolve(projectRoot)
-  const failures = []
-  const unverifiable = []
-  for (const [key, entry] of Object.entries(spec.constitution?.substrate ?? {})) {
-    if (entry.source !== 'measured') continue
-    const rule = SUBSTRATE_EVIDENCE[key]
-    if (!rule) {
-      unverifiable.push({key, reason: '이 키의 실측 근거 규칙이 없다'})
-      continue
-    }
-    if (rule.kind === 'packageManagerField') {
-      if (declared.packageManagerField === null) {
-        unverifiable.push({key, reason: 'package.json에 packageManager 필드가 없어 대조할 수 없다'})
-      } else if (!declared.packageManagerField.startsWith(entry.value)) {
-        failures.push({key, claim: entry.value, reason: `measured라 주장하나 packageManager는 ${declared.packageManagerField}다`})
-      }
-      continue
-    }
-    const names = rule.aliases?.[entry.value] ?? [entry.value]
-    const declaredHit = names.some(name => declared.names.has(name))
-    const configHit = (rule.configs?.[entry.value] ?? []).some(file => existsSync(resolve(root, file)))
-    if (!declaredHit && !configHit) {
-      failures.push({key, claim: entry.value, reason: `measured라 주장하나 ${names.join('|')} 선언도 설정 파일도 없다`})
-    }
-  }
-  return {failures, unverifiable}
-}
 
-// substrate가 하네스 toolchain pin과 어긋나는지. 지금은 packageManager만 기계 대조 가능하다.
-// 하드코딩 리터럴 대신 substrate-defaults에서 파생한다 — 리터럴은 pin의 N번째 사본이 된다.
+// substrate 기본값은 하네스가 쥔다. 스팩이 그와 다른 패키지 매니저를 확정하면 실행 명령과
+// 어긋나므로 모순으로 보고한다 — 실측 대조가 아니라 **두 선언 사이의 충돌 검출**이다.
 export const defaultToolchain = () => ({packageManager: readSubstrateDefaults().packageManager})
 
 export const checkToolchainAlignment = (spec, toolchain) => {
@@ -365,7 +285,6 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
     }
   }
 
-  const declared = collectDeclaredPackages(root)
   const failures = []
   const ledger = inspectSpecLedger(root, spec)
   if (ledger.state === 'TAMPERED') {
@@ -381,18 +300,6 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
     failures.push({kind: 'stale', reason: '확정 이후 입력이 바뀌었다 — 재확정이 필요하다'})
   }
   for (const item of checkLayerMap(spec, root)) failures.push({kind: 'layerMap', ...item})
-  const libraries = checkLibraries(spec, declared)
-  for (const item of libraries.failures) failures.push({kind: 'libraries', ...item})
-  for (const item of libraries.unverifiable) unverifiable.push({kind: 'libraries', ...item})
-  if (libraries.unbacked?.length) {
-    // 코드 근거가 없는 선택을 실패로 만들지 않는다(그린필드는 설치 전이다). 다만 몇 건이
-    // 어떤 티어로 정해졌는지는 보고한다 — 스팩이 실제보다 강해 보이면 안 된다.
-    const summary = libraries.unbacked.map(item => `${item.role}=${item.choice}(${item.source})`).join(', ')
-    notes.push(`libraries ${libraries.unbacked.length}건은 코드 대조 대상이 아니다 — ${summary}`)
-  }
-  const substrate = checkSubstrate(spec, declared, root)
-  for (const item of substrate.failures) failures.push({kind: 'substrate', ...item})
-  for (const item of substrate.unverifiable) unverifiable.push({kind: 'substrate', ...item})
   for (const item of checkToolchainAlignment(spec, toolchain)) failures.push({kind: 'toolchain', ...item})
 
   const shapes = checkTargetShapes(spec, root)

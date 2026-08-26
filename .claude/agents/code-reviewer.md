@@ -14,6 +14,29 @@ maxTurns: 20
 
 Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` before reviewing an existing-code change.
 
+## 보고 필터 — 무엇을 보고 무엇을 버리는가 (2026-08-26)
+
+**이 필터가 아래 모든 검사에 우선한다.** 리뷰의 값은 찾은 개수가 아니라 **읽을 가치가 있는
+것만 남기는 것**이다. 노이즈가 섞이면 진짜 결함이 목록에 묻힌다.
+
+**보고한다**
+- **심각한 오류** — 동작이 틀리거나 깨진다
+- **변경점의 사이드 이펙트** — 이 변경이 건드리지 않은 곳을 망가뜨린다
+- **예상 가능한 엣지 케이스** — 실제로 발생할 입력·상태에서 깨진다
+
+**보고하지 않는다**
+- 리팩토링 제안
+- 권장 사항 ("이렇게 하면 더 좋다")
+- 심각하지 않은 단순 이슈
+- **변경점이 아닌 부분** — 이번 diff 밖은 리뷰 대상이 아니다
+- 아주 극소수의 엣지 케이스 — 실제로 안 일어나는 것
+
+**예외 — 안전 하한은 심각도 판정 대상이 아니다**: 접근성·보안·receipt는 protected-core가
+비협상으로 정한 하한이라 "사소함"으로 버리지 않는다(I6). 다만 이것도 **변경점 범위 안**에서만
+본다 — 이번 변경이 만들거나 건드린 것만이며, 기존 코드의 오래된 위반을 캐러 가지 않는다.
+
+발견이 없으면 "없음"이라고 적는다. 채우지 않는다.
+
 ## 핵심 역할
 
 - profile-bound `typecheck.json` receipt의 실제 command/exit를 확인
@@ -45,6 +68,27 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 6. 이번 작업 전부터 존재한 사용자 변경은 finding에서 분리하고 구현 agent의 변경으로 오인하지 않는다.
 7. **기획 이력 검사** (`.claude/skills/web-plan/references/plan-history-contract.md`): 이번 diff에 `_workspace/01_plan/` 기획 문서 변경이 있는데 대응하는 `decision-log.md`의 `PC-NNN` 엔트리가 없으면 WARN(미기록 변경), 기존 PC 엔트리가 수정·삭제됐으면 FAIL(append-only 위반). 기능 추가·변경인데 Feature List가 현재화되지 않았으면 write-back 누락으로 WARN.
 8. **canonical 문서 동기화 검사**: 이번 변경이 `_workspace/02_design/` canonical 계약(state-contract·api-schema·layout-spec·component-spec)과 충돌하는 동작을 구현했는데 해당 문서 개정이 diff에 없고 change-scope의 `DOCS_TO_UPDATE`에도 없으면 WARN(문서 드리프트 — 다음 라운드 에이전트가 낡은 계약을 믿게 된다). change-scope에 `CAPABILITY_ESCALATION: detected`가 기록됐는데 승격 QA(security-reviewer 재투입) 증거가 없으면 FAIL.
+
+## 확정 스팩 대조 (2026-08-26)
+
+`_workspace/03_dev/spec.json`이 있으면 **구현이 확정된 결정을 따랐는지** 대조한다. 정합 검사는
+이것을 못 한다 — 실존 여부는 기계가 보지만 **결정을 따랐는지는 코드를 읽어야 안다.**
+
+1. **`libraries`** — 스팩이 정한 선택을 실제로 썼는가. 선언에 있어도 코드가 안 쓰면 의미가 없고,
+   `choice: "none"`(확인된 부재)인데 새로 들여왔으면 스팩 밖 결정이다. `measured-absent`를
+   깨는 변경은 스팩 재확정 없이 통과해선 안 된다.
+2. **`moduleBoundaries`** — 분리하라고 기록된 범위를 한 변경이 가로질렀는가. rationale에 그
+   이유가 적혀 있으므로 위반이면 그 이유가 무너진 것이다.
+3. **`nonGoals`** — 범위 밖으로 기록된 것을 만들었는가. 만들었으면 스팩이 낡았거나 범위가
+   샌 것이며 둘 다 보고 대상이다.
+4. **`layerMap` 어휘** — 새 디렉토리가 어느 레이어에도 안 속하면 그 경로는 **아무 에이전트도
+   쓸 수 없다**. 다음 라운드가 막힌다.
+5. **`architecture.pattern`** — `existing`이면 기존 관례를 따랐는지, 특정 패턴이면 그 패턴을
+   지켰는지 본다.
+
+스팩이 없으면 이 절을 건너뛰고 그 사실을 리포트에 적는다 — 침묵하지 않는다.
+**스팩과 코드가 어긋나면 어느 쪽이 옳은지 판정하지 않는다.** 둘 다 보고하고 owner 후보를
+적는다 — 스팩을 고칠 일인지 코드를 고칠 일인지는 사람의 결정이다.
 
 ## 검사 순서
 

@@ -14,9 +14,8 @@ import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkShapeEvidence, checkSubstrate, checkTargetShapes, checkToolchainAlignment,
-  readShapeChecks, resolveRequiredChecks,
-  collectDeclaredPackages, inspectSpecConformance,
+  checkLayerMap, checkLayerMapCoverage, checkShapeEvidence, checkTargetShapes, checkToolchainAlignment,
+  readShapeChecks, resolveRequiredChecks, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './spec.mjs'
 import {readFileSync} from 'node:fs'
@@ -71,32 +70,6 @@ test('spec-lock이 없으면 NO_SPEC이지 실패가 아니다', () => {
 })
 
 // ── (1) measured 위조 차단 — 이 검사의 존재 이유 ─────────────────────────────
-test('회귀 반증: libraries가 measured라 주장하나 의존성에 없으면 FAIL', () => {
-  const declared = {names: new Set(['react']), packageManagerField: null}
-  const {failures} = checkLibraries(
-    {libraries: {state: {choice: 'zustand', source: 'measured'}}}, declared,
-  )
-  assert.equal(failures.length, 1, '위조가 통과하면 스팩이 자기보고 봉인이 된다')
-  assert.match(failures[0].reason, /zustand가 없다/)
-})
-
-test('선언에 있으면 통과하고, 버전 접미가 붙어도 이름으로 대조한다', () => {
-  const declared = {names: new Set(['zustand']), packageManagerField: null}
-  assert.equal(checkLibraries({libraries: {state: {choice: 'zustand@^5.0.0', source: 'measured'}}}, declared).failures.length, 0)
-})
-
-test('proposed는 대조하지 않는다 — 아직 실측이 아니다', () => {
-  const declared = {names: new Set(), packageManagerField: null}
-  assert.equal(checkLibraries({libraries: {state: {choice: 'zustand', source: 'proposed'}}}, declared).failures.length, 0)
-})
-
-test('substrate가 measured라 주장하나 근거가 없으면 FAIL', () => {
-  const declared = {names: new Set(['vite']), packageManagerField: null}
-  const {failures} = checkSubstrate({constitution: {substrate: {testRunner: {value: 'vitest', source: 'measured'}}}}, declared, '/tmp')
-  assert.equal(failures.length, 1)
-  assert.match(failures[0].reason, /vitest 선언도 설정 파일도 없다/)
-})
-
 test('substrate measured가 설정 파일로도 충족된다', () => {
   withLockedProject({
     decision: baseDecision({constitution: {substrate: {bundler: {value: 'vite', source: 'measured'}}}}),
@@ -150,15 +123,6 @@ test('일치하면 통과한다', () => {
 })
 
 // ── (5) 검증 불가를 침묵하지 않는다 ──────────────────────────────────────────
-test('근거 규칙이 없는 substrate 키는 unverifiable로 보고한다', () => {
-  const declared = {names: new Set(), packageManagerField: null}
-  const {failures, unverifiable} = checkSubstrate(
-    {constitution: {substrate: {styling: {value: 'tailwind', source: 'measured'}}}}, declared, '/tmp',
-  )
-  assert.equal(failures.length, 0, '모르는 것을 실패로 만들지 않는다')
-  assert.equal(unverifiable.length, 1, '모르는 것을 침묵으로 통과시키지도 않는다')
-})
-
 test('unverifiable tier는 실패가 아니라 note로 보고된다', () => {
   withLockedProject({}, root => {
     const result = inspectSpecConformance({projectRoot: root})
@@ -169,56 +133,6 @@ test('unverifiable tier는 실패가 아니라 note로 보고된다', () => {
 })
 
 // ── 워크스페이스 호이스팅 포섭 ───────────────────────────────────────────────
-test('워크스페이스 루트 선언까지 합쳐서 대조한다', () => {
-  const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-conf-ws-'))
-  try {
-    writeFileSync(join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
-    writeFileSync(join(root, 'package.json'), `${JSON.stringify({name: 'ws', dependencies: {vite: '^8'}})}\n`)
-    const app = join(root, 'packages/app')
-    mkdirSync(app, {recursive: true})
-    writeFileSync(join(app, 'package.json'), `${JSON.stringify({name: 'app', dependencies: {react: '^19'}})}\n`)
-    const declared = collectDeclaredPackages(app)
-    assert.ok(declared.names.has('react'), '자기 선언')
-    assert.ok(declared.names.has('vite'), '워크스페이스 루트 선언')
-  } finally {
-    rmSync(root, {recursive: true, force: true})
-  }
-})
-
-// ── scoped 패키지 (적대 리뷰 2026-08-26) ─────────────────────────────────────
-// 이전 구현은 선두 @에서 split해 candidate가 빈 문자열이 됐고, 결과적으로 scoped 패키지
-// **전체가 검증을 건너뛰었다**(fail-open — 위조가 PASS로 통과). 사내 scoped 패키지를 쓰는
-// 프로젝트에서는 이 검사의 존재 이유가 사라진다.
-test('회귀 반증: scoped 패키지 위조를 잡는다', () => {
-  const declared = {names: new Set(['react']), packageManagerField: null}
-  const {failures, unverifiable} = checkLibraries(
-    {libraries: {sdk: {choice: '@scope/pkg', source: 'measured'}}}, declared,
-  )
-  assert.equal(failures.length, 1, 'scoped가 unverifiable로 새면 위조가 통과한다')
-  assert.equal(unverifiable.length, 0)
-  assert.match(failures[0].reason, /@scope\/pkg가 없다/)
-})
-
-test('scoped 패키지의 버전 접미도 이름으로 대조한다', () => {
-  const declared = {names: new Set(['@scope/pkg']), packageManagerField: null}
-  assert.equal(
-    checkLibraries({libraries: {sdk: {choice: '@scope/pkg@^1.2.0', source: 'measured'}}}, declared).failures.length,
-    0,
-  )
-})
-
-// ── 도구명 ≠ npm 패키지명 ────────────────────────────────────────────────────
-test('aliases가 도구명과 패키지명 차이를 잇는다', () => {
-  const declared = {names: new Set(['@rspack/core']), packageManagerField: null}
-  const {failures} = checkSubstrate(
-    {constitution: {substrate: {bundler: {value: 'rspack', source: 'measured'}}}}, declared, '/tmp',
-  )
-  assert.equal(failures.length, 0, 'aliases가 없으면 정당한 실측이 오탐 FAIL 난다')
-})
-
-// ── defaults ↔ validate-toolchain pin 정합 (§4 (b)항) ────────────────────────
-// 두 파일이 각자 값을 갖고 있어 조용히 갈라질 수 있다. 값이 통합되기 전까지 이 텍스트
-// 결속이 드리프트를 잡는다.
 test('substrate-defaults의 packageManager가 validate-toolchain pin과 일치한다', () => {
   const defaults = readSubstrateDefaults()
   const toolchainSource = readFileSync('.claude/scripts/validate-toolchain.mjs', 'utf8')
