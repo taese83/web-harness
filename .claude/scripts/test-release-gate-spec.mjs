@@ -124,8 +124,11 @@ test('회귀 반증: 실제 receipt 이름(lint.json 등)으로 요구가 충족
     const dir = join(root, '_workspace/04_qa/evidence')
     mkdirSync(dir, {recursive: true})
     // 러너가 실제로 쓰는 이름 — quality.lint가 아니라 lint
+    // 2026-08-26: web-app 형태에 vite.production-mock-boundary가 추가됐다(어댑터 profile-specific
+    // 이던 것을 형태로 이관). 요구가 늘면 fixture도 그 receipt를 가져야 한다 — 게이트가 옳게 발화했다.
     for (const [name, id] of [['lint', 'lint'], ['typecheck', 'typecheck'], ['test', 'test'],
-                              ['build', 'build'], ['browser', 'browser']]) {
+                              ['build', 'build'], ['browser', 'browser'],
+                              ['vite.production-mock-boundary', 'vite.production-mock-boundary']]) {
       writeFileSync(join(dir, `${name}.json`), JSON.stringify({id, status: 'PASS'}))
     }
     const spec = specErrors(validateReleaseGate(root).errors)

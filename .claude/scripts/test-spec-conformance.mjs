@@ -396,6 +396,10 @@ test('카탈로그에 있는 형태가 하나라도 있으면 미지 형태 병�
   // web-app이 vite.build·vite.browser를 가져오므로 요구는 줄지 않는다.
   {
     const {required} = resolveRequiredChecks(['web-app', 'serverless-functions'])
-    assert.deepEqual(required, resolveRequiredChecks(['web-app']).required, '형태 추가가 요구를 줄이지 않는다')
+    // 2026-08-26: serverless-functions가 카탈로그에 등록되면서 요구가 **늘어난다**.
+    // 원래 의도는 "줄지 않는다"였으므로 상등이 아니라 상위집합으로 고정한다.
+    const base = resolveRequiredChecks(['web-app']).required
+    for (const check of base) assert.ok(required.includes(check), `형태 추가가 ${check}를 없앴다`)
+    assert.ok(required.length >= base.length, '형태 추가가 요구를 줄이지 않는다')
   }
 })
