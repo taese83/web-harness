@@ -4,7 +4,7 @@ description: Read-only adversarial reviewer for harness control-plane changes ag
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: fable
-maxTurns: 25
+maxTurns: 45
 ---
 
 # Harness Change Reviewer
@@ -50,3 +50,17 @@ maxTurns: 25
 
 BLOCK은 불변식 위반(I1·I2·I5의 위조·약화·우회, I3의 명백한 과적합)에만 사용한다.
 근거 없는 의심은 LOW + "확인 질문"으로 남기고 BLOCK하지 않는다(오탐이 곧 퇴보 — G2).
+
+## 반환 마커 (필수)
+
+반환의 **맨 끝**에 다음 블록을 낸다. 오케스트레이터가 `verify-spawn-completion.mjs --return`으로
+기계 검사하며, 마커가 없으면 반환이 절단된 것으로 보고 판정을 채택하지 않는다 — turn 한도에
+걸린 스폰은 에러가 아니라 빈 보고로 끝나기 때문이다.
+
+```
+SPAWN_RESULT: complete | blocked
+FINDINGS: <건수 또는 none>
+SELF_CHECK: <직접 확인한 것 / 확인하지 못한 것>
+```
+
+작업을 끝내지 못했으면 `blocked`로 정직하게 낸다. `complete`를 내고 내용이 비면 그게 더 나쁘다.

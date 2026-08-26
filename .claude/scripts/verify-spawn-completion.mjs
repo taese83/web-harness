@@ -28,7 +28,7 @@ import {extname, join, relative, resolve} from 'node:path'
 export const SCANNABLE = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
 
 function parseArgs(argv) {
-  const out = {root: '.', paths: [], expect: [], json: false, allowEmpty: false, allowNoOutput: false}
+  const out = {root: '.', paths: [], expect: [], json: false, allowEmpty: false, allowNoOutput: false, ret: null}
   let bucket = null
   for (const arg of argv) {
     if (arg === '--json') { out.json = true; bucket = null; continue }
@@ -37,10 +37,12 @@ function parseArgs(argv) {
     if (arg === '--root') { bucket = 'root'; continue }
     if (arg === '--paths') { bucket = 'paths'; continue }
     if (arg === '--expect') { bucket = 'expect'; continue }
+    if (arg === '--return') { bucket = 'ret'; continue }
     if (arg.startsWith('--')) { bucket = null; continue }
     if (bucket === 'root') { out.root = arg; bucket = null; continue }
     if (bucket === 'paths') { out.paths.push(arg); continue }
     if (bucket === 'expect') { out.expect.push(arg); continue }
+    if (bucket === 'ret') { out.ret = arg; bucket = null; continue }
   }
   return out
 }
@@ -174,18 +176,75 @@ export function scanSource(text) {
   return reasons
 }
 
+
+// ── 판정 계열 스폰의 완결성 (2026-08-26) ────────────────────────────────────────
+// 구현 계열은 파일을 남기므로 --paths/--expect로 잡힌다. 설계자·리뷰어·verifier 같은
+// **판정 계열은 텍스트만 반환**해서 그 경로가 없었고, Layer 1(마커 프로토콜)은 산문이라
+// 오케스트레이터의 자기보고였다.
+//
+// 실측(2026-08-26): maxTurns에 걸린 서브에이전트는 **에러가 아니라 빈 보고로 끝난다**.
+// 리뷰어가 "Factual claims confirmed so far. Now run the test suite."로 끝났고 그대로
+// 받았으면 "적대 리뷰 통과"로 커밋될 뻔했다. 설계자도 "I'll start by reading..."만 반환했다.
+// 정상 종료와 한도 종료의 반환 형태가 같다 — 그래서 기계가 봐야 한다.
+
+// 조기 종료를 실행 환경이 직접 보고하는 문구.
+const TERMINATION_SIGNALS = [
+  'terminated early', 'API Error', 'API error', 'connection closed',
+  'went to sleep', 'context low', 'max turns', 'maxTurns',
+]
+// 미래형으로 끝나는 문장 — "이제 ~하겠다"에서 잘린 신호. 한도 종료의 전형이다.
+const INTENT_TAIL = /(하겠(다|습니다)|할 것이다|시작한다|진행한다|다음으로|이제\s|I'?ll\s|I will\s|Let me\s|Now\s+I|Next,?\s+I)/i
+
+export const inspectReturn = text => {
+  const reasons = []
+  const body = String(text ?? '')
+  const trimmed = body.trim()
+  if (trimmed === '') return {status: 'MISSING', reasons: ['반환이 비어 있다']}
+
+  for (const signal of TERMINATION_SIGNALS) {
+    if (body.includes(signal)) reasons.push(`실행 환경이 조기 종료를 보고: "${signal}"`)
+  }
+
+  const marker = body.match(/^SPAWN_RESULT:\s*(\S+)/m)
+  if (!marker) {
+    reasons.push('SPAWN_RESULT 마커가 없다 — 완결성을 주장하지 않았다')
+  } else if (marker[1] !== 'complete' && marker[1] !== 'blocked') {
+    reasons.push(`SPAWN_RESULT 값이 complete|blocked가 아니다: ${marker[1]}`)
+  } else if (marker[1] === 'blocked') {
+    reasons.push('SPAWN_RESULT: blocked — 스폰이 스스로 미완을 보고했다')
+  }
+
+  // 마커가 없을 때만 꼬리를 본다. 마커가 있으면 그 뒤에 문장이 없는 게 정상이다.
+  if (!marker) {
+    const lastLine = trimmed.split(/\r?\n/).filter(line => line.trim() !== '').pop() ?? ''
+    if (INTENT_TAIL.test(lastLine)) {
+      reasons.push(`반환이 "무엇을 하겠다"로 끝난다(절단 신호): ${lastLine.slice(0, 60)}`)
+    }
+  }
+  return {status: reasons.length === 0 ? 'OK' : 'SUSPECT', reasons}
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2))
   const root = resolve(opts.root)
   if (!existsSync(root)) { console.error(`root 없음: ${root}`); process.exit(2) }
-  if (opts.paths.length === 0 && opts.expect.length === 0) {
-    console.error('사용법: --paths <dir/file...> 또는 --expect <file...> 중 최소 하나 필요')
+  if (opts.paths.length === 0 && opts.expect.length === 0 && opts.ret === null) {
+    console.error('사용법: --paths <dir/file...> · --expect <file...> · --return <file> 중 최소 하나 필요')
     process.exit(2)
   }
 
   const results = []
   let suspect = 0
   let missing = 0
+
+  // --return: 판정 계열 스폰의 반환 텍스트 완결성
+  if (opts.ret !== null) {
+    if (!existsSync(opts.ret)) { console.error(`--return 파일 없음: ${opts.ret}`); process.exit(2) }
+    const verdict = inspectReturn(readFileSync(opts.ret, 'utf8'))
+    if (verdict.status === 'MISSING') missing++
+    else if (verdict.status === 'SUSPECT') suspect++
+    results.push({file: opts.ret, status: verdict.status, reasons: verdict.reasons})
+  }
 
   // --expect: 선언된 산출물이 실제 존재하는지 (crash로 미작성 감지)
   for (const rel of opts.expect) {

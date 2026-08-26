@@ -11,7 +11,7 @@ import test from 'node:test'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(scriptDir, 'verify-spawn-completion.mjs')
-const {scanSource} = await import(SCRIPT)
+const {scanSource, inspectReturn} = await import(SCRIPT)
 
 const run = (args) => {
   try {
@@ -134,4 +134,49 @@ test('=> 합성 경계: >=·제네릭·복합 연산자는 정규식으로 오�
   assert.deepEqual(scanSource('const xs: Array<number> = split / n'), []) // 제네릭 뒤 나눗셈
   assert.deepEqual(scanSource('let m = 0; m >>= 1; const q = t / 2'), [])  // 복합 시프트 뒤 나눗셈
   assert.deepEqual(scanSource('const f = (x: number): boolean => x > 1 / 2'), []) // 진짜 화살표 + 뒤 나눗셈
+})
+
+// ── 판정 계열 반환 완결성 (2026-08-26) ───────────────────────────────────────
+// 구현 계열은 파일을 남겨 --paths로 잡히지만 설계자·리뷰어는 텍스트만 반환한다.
+// 실측: maxTurns에 걸린 서브에이전트는 에러가 아니라 **빈 보고**로 끝나고, 정상 종료와
+// 반환 형태가 같다. 아래 두 문자열은 2026-08-26에 실제로 받은 절단 반환이다.
+test('회귀 반증: 실제 절단 반환 2종을 잡는다', () => {
+  for (const [label, text] of [
+    ['리뷰어', 'Factual claims confirmed so far. Now run the test suite and the validator against the real goldens.'],
+    ['설계자', "I'll start by reading the contract, then measure the target."],
+  ]) {
+    const verdict = inspectReturn(text)
+    assert.equal(verdict.status, 'SUSPECT', `${label} 절단 반환을 통과시키면 빈 보고가 "검토 완료"가 된다`)
+    assert.ok(verdict.reasons.some(r => /마커가 없다/.test(r)))
+  }
+})
+
+test('마커가 있으면 통과한다 — 오탐이 아니어야 한다', () => {
+  const verdict = inspectReturn(['## 리뷰 결과', '', '발견 3건.', '',
+    'SPAWN_RESULT: complete', 'FINDINGS: 3', 'SELF_CHECK: 골든 3종 실행 확인'].join('\n'))
+  assert.equal(verdict.status, 'OK')
+  assert.deepEqual(verdict.reasons, [])
+})
+
+test('실행 환경의 조기 종료 보고를 잡는다', () => {
+  const verdict = inspectReturn('분석 중이다. Agent terminated early due to an API error.')
+  assert.equal(verdict.status, 'SUSPECT')
+  assert.ok(verdict.reasons.some(r => /조기 종료/.test(r)))
+})
+
+test('스스로 blocked를 보고하면 완료로 처리하지 않는다', () => {
+  const verdict = inspectReturn('대상을 읽지 못했다.\n\nSPAWN_RESULT: blocked\nFINDINGS: none\nSELF_CHECK: none')
+  assert.equal(verdict.status, 'SUSPECT')
+  assert.ok(verdict.reasons.some(r => /blocked/.test(r)))
+})
+
+test('빈 반환은 MISSING이다 — SUSPECT보다 강한 신호다', () => {
+  assert.equal(inspectReturn('').status, 'MISSING')
+  assert.equal(inspectReturn('   \n  ').status, 'MISSING')
+})
+
+test('회귀 반증: 마커가 있으면 꼬리 문장을 절단으로 오인하지 않는다', () => {
+  // 정상 문서가 "다음 단계로 진행한다"로 끝나고 마커가 붙는 경우 — 오탐이면 정상 스폰이 막힌다
+  const verdict = inspectReturn('결론: 이 설계로 진행한다.\n\nSPAWN_RESULT: complete\nFINDINGS: none\nSELF_CHECK: none')
+  assert.equal(verdict.status, 'OK')
 })
