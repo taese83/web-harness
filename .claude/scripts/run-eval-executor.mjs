@@ -108,7 +108,26 @@ const runScenario = ({scenario}) => {
     ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 잠금) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt·telemetry 기록)은 평소대로 지킨다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOff`를 붙여 기록하라.'
     : '\n\n[A/B 실험 지시 — 이 실행은 게이트 ON 암이다] 평소대로 runaway 방어 3게이트를 모두 사용한다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOn`을 붙여 기록하라.'
 
-  const prompt = `${scenario.entrySkill} ${scenario.prompt}${armInstruction}`
+  // 비대화 실행 규약 — **암과 무관하게 양쪽에 동일 적용**한다(교란 아님).
+  // 배경(사전등록 변경 #2, 2026-08-26): executor는 `claude -p` 단일 턴이라 답할 사람이 없는데
+  // web-orchestrator의 상호작용 계약은 intake 질문·Phase 체크포인트에서 사람의 답을 기다린다.
+  // 실측: ON run이 모드 감지 → intake 3문 → "추천안으로 진행합니다."에서 턴 종료(스폰 0개, exit 0).
+  // 이 규약이 없으면 미완율이 "모델이 한 턴 안에서 self-continue했는가"에 지배돼 게이트 효과가
+  // 노이즈에 묻힌다. 측정 대상인 runaway 방어 3게이트는 이 지시가 건드리지 않는다.
+  const nonInteractiveInstruction =
+    '\n\n[실행 규약 — 비대화 세션] 이 세션에는 답할 사람이 없다. 사용자에게 질문하거나 승인을 기다리지 마라. ' +
+    'intake·Phase 체크포인트·설계 승인에서 확인이 필요하면 가장 보수적인 추천안을 `ASSUMPTION`으로 확정해 ' +
+    'decision-log에 기록하고 즉시 다음 단계로 진행하라. 질문을 출력하고 턴을 끝내는 것은 실패로 간주한다. ' +
+    '중간에 멈추지 말고 Phase 4 완료 또는 명시적 BLOCKER까지 이어서 실행하라. ' +
+    // 게이트 carve-out (적대 리뷰 2026-08-26): 이 문장이 없으면 "멈추지 말라"가 게이트가 실재하는
+    // ON 암에서만 압력이 되어(fit-gate REFUSE·완결성 FAIL 시 완화 플래그로 "이어가는" 선택이
+    // 합리화된다) 암 간 비대칭 채널을 만든다. 양쪽 암에 동일 문자열로 붙되 ON에서만 의미를 갖는다.
+    '단 게이트 FAIL·REFUSE는 이 규약이 말하는 "질문·승인 대기"가 아니다. 게이트가 막으면 평소 ' +
+    '계약대로 모델링을 고쳐 재시도하라. 이 규약을 이유로 게이트 완화 플래그(--allow-no-output, ' +
+    '--max-outputs, --accept-*)를 쓰거나 게이트를 건너뛰지 마라. 재시도가 소진되면 그것이 ' +
+    '명시적 BLOCKER이며, BLOCKER를 기록하고 종료하는 것은 실패가 아니다.'
+
+  const prompt = `${scenario.entrySkill} ${scenario.prompt}${armInstruction}${nonInteractiveInstruction}`
   const claudeArguments = ['-p', prompt, '--permission-mode', permissionMode]
   if (model) claudeArguments.push('--model', model)
 
