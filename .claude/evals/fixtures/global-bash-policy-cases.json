@@ -631,6 +631,24 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-requirements-notation.mjs --json"
+    },
+    {
+      "id": "lock-spec-project-root",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/lock-spec.mjs --project-root ."
+    },
+    {
+      "id": "lock-spec-no-args",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/lock-spec.mjs"
+    },
+    {
+      "id": "lock-spec-extra-arg",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/lock-spec.mjs --project-root . --write"
     }
   ]
 }

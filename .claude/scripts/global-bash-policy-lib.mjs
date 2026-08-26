@@ -590,6 +590,13 @@ const skillSectionContract = args => {
   return remaining.length === 2 && remaining[0] === '--section' && /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(remaining[1])
 }
 
+// lock-spec은 --project-root 하나만 받는다. 경로는 읽기 가능한 디렉토리여야 한다.
+const lockSpecContract = (args, context) => {
+  if (args.length !== 2 || args[0] !== '--project-root') return false
+  readablePath(args[1], context, 'directory')
+  return true
+}
+
 const resolveProfileContract = (args, context) => {
   if (!args.includes('--project-root')) return false
   const commandArgs = withoutDirectoryOption(args, '--project-root', context)
@@ -763,6 +770,7 @@ const validationScriptContract = (script, args, context) => {
     return args.length === 0 || withoutDirectoryOption(args, '--project', context).length === 0
   }
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
+  if (script === '.claude/scripts/lock-spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)
   if (script === '.claude/scripts/web-core/compile-execution-plan.mjs') return executionPlanContract(args, context)
   return false

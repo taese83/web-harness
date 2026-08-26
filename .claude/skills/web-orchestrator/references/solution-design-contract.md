@@ -137,7 +137,44 @@ E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확�
 결정해야 한다. 허용하면 검증 기준 없는 스팩이 잠기고, 불허하면 기획 없는 브라운필드 개선이
 막힌다. 이 판단은 Stage 1의 몫이며 여기서 미리 정하지 않는다.
 
-## 5. Stage 0에서 하지 않는 것
+## 5. 스팩 잠금 (Stage 1)
+
+결정이 전부 확정되면 잠근다. 잠금은 **협업 계약**이다 — 여러 사람이 같은 스팩에 맞춰
+개발하려면 그 스팩이 개발 중에 흔들리지 않아야 하고, 이 필요는 모델 능력과 무관하다.
+
+```bash
+node .claude/scripts/lock-spec.mjs --project-root {project-root}
+```
+
+stdout을 `_workspace/03_dev/spec-lock.json`에 그대로 저장한다 — `project-profile.json`·
+`web-execution-plan.json`과 같은 관례다. 스키마는 `.claude/schemas/spec-lock.schema.json`.
+
+**어떤 에이전트도 이 파일을 소유하지 않는다.** 따라서 구현 에이전트의 스팩 자기수정이
+**Edit/Write 채널에서** 차단된다 — 차단의 실체는 `ORCHESTRATOR_AUTHORED_ARTIFACTS`(비강제
+명세)가 아니라 소유권 훅의 default-deny다. Bash 채널과 메인 스레드는 훅 밖이며 이는
+protected-core에 기등록된 한계다.
+
+**잠금 거부(fail-closed)**
+
+- `status: "open"`인 미결정이 **하나라도** 있으면 잠기지 않는다 — 착수 전 확정이 전제다.
+  확정하거나 `ASSUMPTION`으로 기록해야 한다
+- 결정 블록 부재·중복(정본이 모호)·JSON 오류
+- `acceptanceSource`와 `acceptanceRefs`의 자기 모순
+- `architecture.rationale` 부재 — 무엇을 골랐는지만으로는 잠글 수 없다
+
+**거부하지 않고 라벨로 표기하는 것**
+
+수용 기준이 없으면(`acceptanceSource: "absent"`) `specTier: "unverifiable"`로 잠긴다.
+설계는 확정됐으나 맞는지 판정할 기준이 없다는 뜻이다. 기획 없는 브라운필드 개선을 막지
+않으면서 그 상태를 숨기지도 않는다 — 이 tier를 게이트가 어떻게 다룰지는 **Stage 2의 결정**이다.
+
+**staleness**: 잠금은 유래한 입력의 해시를 함께 담는다. 입력이 바뀌면 stale이며
+`isSpecLockStale()`이 판정한다. 부재였던 입력이 생긴 것도 변경이다.
+
+**Stage 1의 한계(정직 표기)**: 잠금이 생기고 검증되지만 **아직 아무 게이트도 이것을 읽지
+않는다**. 게이트 전환은 Stage 2다.
+
+## 6. Stage 0에서 하지 않는 것
 
 - 이 산출물로 무엇도 차단하지 않는다
 - `layerMap`·`moduleBoundaries`를 근거로 **다른 에이전트의** 소유권 경로를 바꾸지 않는다 —

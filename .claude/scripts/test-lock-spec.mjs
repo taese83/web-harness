@@ -1,0 +1,228 @@
+#!/usr/bin/env node
+// test-lock-spec.mjs — 스팩 잠금 회귀 (Stage 1의 안전망).
+//
+// 여기서 고정하는 사실:
+//   (1) 미결정이 하나라도 open이면 잠글 수 없다 — "착수 전 스팩 확정"의 기계 표현
+//   (2) 결정 블록은 정확히 1개여야 한다 (0개·2개 이상 거부)
+//   (3) acceptanceSource와 acceptanceRefs의 자기 모순을 거부한다
+//   (4) 수용 기준 부재는 거부가 아니라 specTier: unverifiable 라벨이다
+//   (5) 입력이 바뀌면 잠금은 stale이다 (부재 → 존재도 변경이다)
+//   (6) 잠금 입력은 프로젝트 루트를 벗어날 수 없다
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {join} from 'node:path'
+import {tmpdir} from 'node:os'
+import {
+  buildSpecLock, digestInputs, extractDecisionBlock, isSpecLockStale,
+  lockSpec, LockError, settleDecisions,
+} from './lock-spec.mjs'
+
+const decisionBlock = decision => [
+  '# Solution Design', '', '```json web-harness:solution-design',
+  JSON.stringify(decision, null, 2), '```', '',
+].join('\n')
+
+const baseDecision = (overrides = {}) => ({
+  stage: 0,
+  architecture: {pattern: 'existing', rationale: '기존 lint 설정이 레이어 어휘를 강제한다'},
+  layerMap: {routes: 'src/pages/', 'pure-logic': 'src/utils/'},
+  libraries: {'client-state': {choice: 'zustand', alternatives: [], source: 'measured'}},
+  moduleBoundaries: [{scope: 'src/utils/**', rationale: 'React 의존 0'}],
+  acceptanceSource: 'absent',
+  acceptanceRefs: [],
+  nonGoals: ['서버 도입'],
+  openDecisions: [],
+  ...overrides,
+})
+
+const withProject = (decision, run) => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-lock-'))
+  try {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/solution-design.md'), decisionBlock(decision))
+    return run(root)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+}
+
+const expectLockError = (fn, code) => {
+  try {
+    fn()
+  } catch (error) {
+    assert.ok(error instanceof LockError, `LockError가 아니다: ${error}`)
+    assert.equal(error.code, code)
+    return
+  }
+  assert.fail(`${code}로 거부해야 하는데 통과했다`)
+}
+
+// ── (1) 스팩 확정이 착수 전제다 ───────────────────────────────────────────────
+test('회귀 반증: open 미결정이 남아 있으면 잠글 수 없다', () => {
+  expectLockError(
+    () => settleDecisions([{id: 'OD-1', question: '?', status: 'open'}]),
+    'SPEC_NOT_SETTLED',
+  )
+})
+
+test('status 생략은 open으로 본다(fail-closed)', () => {
+  expectLockError(() => settleDecisions([{id: 'OD-1', question: '?'}]), 'SPEC_NOT_SETTLED')
+})
+
+test('assumed·confirmed는 잠글 수 있고 필드가 보존된다', () => {
+  const settled = settleDecisions([
+    {id: 'OD-1', question: 'a?', status: 'assumed', recommended: '(a)', options: ['(a)', '(b)']},
+    {id: 'OD-2', question: 'b?', status: 'confirmed'},
+  ])
+  assert.equal(settled.length, 2)
+  assert.equal(settled[0].recommended, '(a)')
+  assert.deepEqual(settled[0].options, ['(a)', '(b)'])
+  assert.equal(settled[1].status, 'confirmed')
+})
+
+// ── (2) 결정 블록 정본은 하나다 ──────────────────────────────────────────────
+test('결정 블록이 없으면 거부한다', () => {
+  expectLockError(() => extractDecisionBlock('# 설계\n본문뿐이다\n'), 'DECISION_BLOCK_MISSING')
+})
+
+test('결정 블록이 2개면 거부한다 — 정본이 모호해선 안 된다', () => {
+  const twice = decisionBlock(baseDecision()) + decisionBlock(baseDecision())
+  expectLockError(() => extractDecisionBlock(twice), 'DECISION_BLOCK_AMBIGUOUS')
+})
+
+test('블록이 유효한 JSON이 아니면 거부한다', () => {
+  const broken = '```json web-harness:solution-design\n{not json}\n```\n'
+  expectLockError(() => extractDecisionBlock(broken), 'DECISION_BLOCK_INVALID_JSON')
+})
+
+// ── (3) 자기 모순 차단 ───────────────────────────────────────────────────────
+test('feature-plan이라 주장하면서 참조가 비면 거부한다', () => {
+  expectLockError(
+    () => buildSpecLock({
+      decision: baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: []}),
+      digest: {inputs: [], combined: 'x'.repeat(64)},
+    }),
+    'ACCEPTANCE_SOURCE_CONTRADICTS_REFS',
+  )
+})
+
+test('absent라 주장하면서 참조가 있으면 거부한다', () => {
+  expectLockError(
+    () => buildSpecLock({
+      decision: baseDecision({acceptanceSource: 'absent', acceptanceRefs: ['FEAT-001']}),
+      digest: {inputs: [], combined: 'x'.repeat(64)},
+    }),
+    'ACCEPTANCE_SOURCE_CONTRADICTS_REFS',
+  )
+})
+
+test('architecture.rationale이 없으면 거부한다 — 무엇을 골랐는지만으로는 못 잠근다', () => {
+  expectLockError(
+    () => buildSpecLock({
+      decision: baseDecision({architecture: {pattern: 'fsd'}}),
+      digest: {inputs: [], combined: 'x'.repeat(64)},
+    }),
+    'ARCHITECTURE_RATIONALE_MISSING',
+  )
+})
+
+test('libraries.source 어휘 밖 값을 거부한다', () => {
+  expectLockError(
+    () => buildSpecLock({
+      decision: baseDecision({libraries: {state: {choice: 'zustand', source: 'guessed'}}}),
+      digest: {inputs: [], combined: 'x'.repeat(64)},
+    }),
+    'LIBRARY_SOURCE_INVALID',
+  )
+})
+
+// ── (4) 수용 기준 부재는 거부가 아니라 tier다 ────────────────────────────────
+test('수용 기준이 없어도 잠기되 unverifiable로 표기된다', () => {
+  withProject(baseDecision(), root => {
+    const lock = lockSpec(root)
+    assert.equal(lock.specTier, 'unverifiable')
+    assert.equal(lock.acceptanceSource, 'absent')
+    assert.deepEqual(lock.acceptanceRefs, [])
+  })
+})
+
+test('수용 기준이 있고 feature-plan이 실존하면 verifiable이다', () => {
+  withProject(baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-001', 'TC-001-1']}), root => {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n')
+    const lock = lockSpec(root)
+    assert.equal(lock.specTier, 'verifiable')
+    assert.deepEqual(lock.acceptanceRefs, ['FEAT-001', 'TC-001-1'])
+  })
+})
+
+test('회귀 반증: feature-plan이 없는데 verifiable을 주장하면 거부한다', () => {
+  // 라벨-증거 언바인딩 차단. 이전 구현은 acceptanceRefs가 비어 있지만 않으면 통과시켰다.
+  withProject(baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-999']}), root => {
+    expectLockError(() => lockSpec(root), 'ACCEPTANCE_SOURCE_WITHOUT_PLAN')
+  })
+})
+
+test('회귀 반증: 결정에 id·question이 없으면 거부한다(스키마 required 결속)', () => {
+  expectLockError(() => settleDecisions([{status: 'assumed'}]), 'DECISION_ID_MISSING')
+  expectLockError(() => settleDecisions([{id: 'OD-1', status: 'assumed'}]), 'DECISION_QUESTION_MISSING')
+})
+
+test('스키마 required와 잠금 출력 키가 일치한다', () => {
+  const schema = JSON.parse(readFileSync('.claude/schemas/spec-lock.schema.json', 'utf8'))
+  withProject(baseDecision(), root => {
+    const lock = lockSpec(root)
+    for (const key of schema.required) {
+      assert.ok(key in lock, `스키마 required '${key}'가 출력에 없다`)
+    }
+    for (const key of Object.keys(lock)) {
+      assert.ok(key in schema.properties, `출력 키 '${key}'가 스키마에 없다`)
+    }
+  })
+})
+
+test('measured-absent를 유효한 source로 받는다', () => {
+  withProject(baseDecision({libraries: {mock: {choice: 'none', alternatives: [], source: 'measured-absent'}}}), root => {
+    assert.equal(lockSpec(root).libraries.mock.source, 'measured-absent')
+  })
+})
+
+// ── (5) staleness ────────────────────────────────────────────────────────────
+test('입력이 바뀌면 잠금은 stale이다', () => {
+  withProject(baseDecision(), root => {
+    const lock = lockSpec(root)
+    assert.equal(isSpecLockStale(lock, root), false)
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n')
+    assert.equal(isSpecLockStale(lock, root), true, '부재였던 입력이 생긴 것도 변경이다')
+  })
+})
+
+test('digest는 부재를 present:false로 기록한다', () => {
+  withProject(baseDecision(), root => {
+    const digest = digestInputs(root)
+    const featurePlan = digest.inputs.find(item => item.path.endsWith('feature-plan.md'))
+    assert.equal(featurePlan.present, false)
+    assert.equal(featurePlan.sha256, undefined)
+    const design = digest.inputs.find(item => item.path.endsWith('solution-design.md'))
+    assert.equal(design.present, true)
+    assert.match(design.sha256, /^[0-9a-f]{64}$/)
+  })
+})
+
+// ── (6) 경로 탈출 ────────────────────────────────────────────────────────────
+test('잠금 입력이 프로젝트 루트를 벗어나면 거부한다', () => {
+  withProject(baseDecision(), root => {
+    expectLockError(() => digestInputs(root, ['../escape.md']), 'LOCK_INPUT_ESCAPES_ROOT')
+  })
+})
+
+test('solution-design.md가 없으면 잠글 수 없다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-lock-empty-'))
+  try {
+    expectLockError(() => lockSpec(root), 'SOLUTION_DESIGN_MISSING')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
