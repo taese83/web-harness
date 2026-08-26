@@ -14,7 +14,7 @@ import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  checkLayerMap, checkLibraries, checkSubstrate, checkToolchainAlignment,
+  checkLayerMap, checkLayerMapCoverage, checkLibraries, checkSubstrate, checkToolchainAlignment,
   collectDeclaredPackages, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './lock-spec.mjs'
@@ -227,4 +227,44 @@ test('substrate-defaults의 packageManager가 validate-toolchain pin과 일치�
     managers.includes(defaults.packageManager),
     `substrate-defaults는 ${defaults.packageManager}인데 validate-toolchain이 pin하는 것은 ${managers.join(', ')}다`,
   )
+})
+
+// ── (7) layerMap 커버리지 (Stage 3c) ─────────────────────────────────────────
+// 설계자가 레이어를 빠뜨리면 그 디렉토리는 아무 에이전트도 쓸 수 없게 되는데, 지금까지
+// 아무도 알려주지 않았다. 실측: 브라운필드 패키지에서 5개 레이어가 조용히 막혀 있었다.
+test('layerMap이 덮지 않는 소스 디렉토리를 이름을 들어 보고한다', () => {
+  withLockedProject({
+    decision: baseDecision({layerMap: {routes: 'src/pages'}}),
+    files: ['src/pages/Home.tsx', 'src/stores/editor.ts', 'src/hooks/useTheme.ts'],
+  }, root => {
+    const uncovered = checkLayerMapCoverage({layerMap: {routes: 'src/pages'}}, root)
+    assert.deepEqual(uncovered.sort(), ['src/hooks', 'src/stores'])
+  })
+})
+
+test('덮인 디렉토리는 보고하지 않는다', () => {
+  withLockedProject({
+    decision: baseDecision({layerMap: {routes: 'src/pages', clientState: 'src/stores'}}),
+    files: ['src/pages/Home.tsx', 'src/stores/editor.ts'],
+  }, root => {
+    assert.deepEqual(checkLayerMapCoverage({layerMap: {routes: 'src/pages', clientState: 'src/stores'}}, root), [])
+  })
+})
+
+test('소스 파일이 없는 디렉토리는 보고 대상이 아니다', () => {
+  withLockedProject({files: ['src/assets/logo.png']}, root => {
+    assert.deepEqual(checkLayerMapCoverage({layerMap: {}}, root), [])
+  })
+})
+
+test('커버리지 공백은 FAIL이 아니라 note다 — 소유자 없어도 되는 디렉토리가 있다', () => {
+  withLockedProject({
+    decision: baseDecision({layerMap: {routes: 'src/pages'}}),
+    files: ['src/pages/Home.tsx', 'src/consts/docs.ts'],
+  }, root => {
+    const result = inspectSpecConformance({projectRoot: root})
+    assert.equal(result.status, 'PASS')
+    assert.deepEqual(result.uncoveredPaths, ['src/consts'])
+    assert.ok(result.notes.some(n => n.includes('src/consts')))
+  })
 })

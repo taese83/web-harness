@@ -242,6 +242,23 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 `measured` choice는 `unverifiable`로 보고된다 — 모르는 것을 실패로 만들지도, 통과로 만들지도
 않는다.
 
+### layerMap이 소유권을 공급한다 (Stage 3)
+
+`layerMap`은 기록에 그치지 않는다. 병렬 에이전트의 **쓰기 경계**가 여기서 나온다.
+
+- 역할(도메인 모델을 만드는 자·라우트를 만드는 자)은 하네스가 고정하고, **그 역할이 어느
+  경로를 쓰는지는 스팩이 정한다**. 소유권 강도는 그대로고 어휘만 프로젝트가 정한다
+- 스팩이 `layerMap`을 주지 않으면 기존 등록부가 그대로 쓰인다. **FSD를 기본 layerMap으로
+  대체하려 했으나 게이트가 회귀를 잡았다**(실측 2026-08-26) — 등록부는 레이어 이름보다 많은
+  것을 인코딩한다. 예: `feature-mutation-builder`는 `src/features/*/api/`를 갖되 `live-mode`를
+  제외한다(그 영역은 `realtime-data-builder` 소유). 평면 `layerMap`은 이런 carve-out을 표현할
+  수 없어 기본값으로 쓰면 두 에이전트의 경계가 무너진다. **"FSD 기본값 제거"는 `layerMap`이
+  carve-out을 표현할 수 있게 된 뒤에야 가능하다** — 미해결
+- **레이어는 서로 겹치면 안 된다.** `src/`가 `src/pages/`를 삼키는 식이면 스팩을 신뢰하지
+  않고 기본값으로 돌아간다 — 넓은 레이어 하나로 남의 영역을 가져가는 권한 확대를 막는다
+- `layerMap`이 덮지 않는 소스 디렉토리는 **아무 에이전트도 쓸 수 없다.** 정합 검사가 그
+  디렉토리 이름을 들어 보고한다(FAIL은 아니다 — 소유자가 없어도 되는 곳이 있다)
+
 **Stage 2a의 한계(정직 표기)**
 
 - **형태별 게이트 선택이 배선되지 않았다.** `targetShape`는 기록·보고되지만 어떤 검증을

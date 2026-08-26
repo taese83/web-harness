@@ -277,6 +277,26 @@ export const AGENT_OWNERSHIP = {
 // 해소: 경계는 **역할**로 표현하고 경로는 스팩(spec-lock의 layerMap)이 공급한다.
 // 소유권 강도는 그대로다 — 이름만 프로젝트가 정한다.
 
+// FSD 레이어 어휘의 참조 표현 (Stage 3d).
+//
+// **이것을 no-spec 폴백으로 쓰지 않는다.** 시도했다가 게이트가 회귀를 잡았다(실측 2026-08-26):
+// `AGENT_OWNERSHIP`은 레이어 이름보다 많은 것을 인코딩한다 — `feature-mutation-builder`는
+// `src/features/(?!live-mode/)[^/]+/api/`로 **live-mode를 제외**한다(그 영역은
+// `realtime-data-builder` 소유). 평면 layerMap은 이런 carve-out을 표현할 수 없어서, 기본값으로
+// 쓰는 순간 두 에이전트의 경계가 무너진다.
+//
+// 그래서 폴백은 여전히 `AGENT_OWNERSHIP`이다 — 그쪽이 **엄밀히 더 정밀하다**. layerMap은
+// 그 정밀도가 의미 없는 곳(기존 저장소가 FSD를 안 쓰는 경우)에서만 이긴다.
+// **한계**: "FSD 기본값 제거"는 layerMap이 carve-out을 표현할 수 있게 된 뒤에야 가능하다.
+export const DEFAULT_LAYER_MAP = {
+  domainModel: 'src/entities',
+  featureLogic: 'src/features',
+  composedUI: 'src/widgets',
+  sharedKernel: 'src/shared',
+  routes: 'src/pages',
+}
+const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
+
 // 역할 → 논리 레이어. 레이어 이름은 layerMap의 키와 맞춘다.
 export const AGENT_LAYER_ROLES = {
   'entity-query-builder': ['domainModel'],
@@ -327,8 +347,9 @@ export const findLayerOverlaps = layerMap => {
 export const resolveSpecOwnership = (specLock, agentType) => {
   const roles = AGENT_LAYER_ROLES[agentType]
   if (!roles) return null
+  // 스팩이 layerMap을 주면 그것이 이긴다. 없으면 null → 호출자가 AGENT_OWNERSHIP으로 돌아간다.
   const layerMap = specLock?.layerMap
-  if (!layerMap || typeof layerMap !== 'object') return null
+  if (!layerMap || typeof layerMap !== 'object' || Object.keys(layerMap).length === 0) return null
   if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
   const patterns = roles
     .filter(role => isLayerPathDeclared(layerMap[role]))

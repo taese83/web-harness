@@ -20,7 +20,7 @@
 //   FAIL        위조·모순·stale. measured 주장이 실측과 어긋나면 여기다(I1)
 //   PASS        검증 가능한 주장이 전부 실측과 맞다
 // 어느 경우든 검증할 수 **없었던** 것을 함께 보고한다 — 침묵한 미검증은 통과로 읽힌다.
-import {existsSync, readFileSync, statSync} from 'node:fs'
+import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {isSpecLockStale, readSubstrateDefaults} from './lock-spec.mjs'
@@ -95,6 +95,42 @@ export const checkLayerMap = (specLock, projectRoot) => {
     if (!existsSync(resolve(root, path))) failures.push({layer, path, reason: '경로가 존재하지 않는다'})
   }
   return failures
+}
+
+// layerMap이 실제 트리를 얼마나 덮는가(Stage 3c).
+// 실측 근거: 한 브라운필드 패키지에서 hooks·stores·consts·styles가 소유자 없음으로 막혔다.
+// 설계자가 레이어를 빠뜨리면 그 디렉토리는 **아무 에이전트도 쓸 수 없게** 되는데, 지금은
+// 아무도 그 사실을 알려주지 않는다. FAIL은 아니다 — public/ 처럼 소유자가 없어도 되는
+// 디렉토리가 있다. 대신 이름을 들어 보고한다: 침묵한 공백은 개발 중에야 드러난다.
+const SOURCE_FILE = /\.(?:[cm]?[jt]sx?|vue|svelte|css|scss)$/
+const IGNORED_DIRECTORIES = new Set(['node_modules', 'dist', 'build', 'out', 'coverage', '.git', '_workspace'])
+
+const hasSourceFiles = directory => {
+  try {
+    return readdirSync(directory, {withFileTypes: true})
+      .some(entry => entry.isFile() && SOURCE_FILE.test(entry.name))
+  } catch {
+    return false
+  }
+}
+
+export const checkLayerMapCoverage = (specLock, projectRoot, appRoot = 'src') => {
+  const root = resolve(projectRoot)
+  const base = resolve(root, appRoot)
+  if (!existsSync(base) || !statSync(base).isDirectory()) return []
+  const covered = Object.values(specLock.layerMap ?? {})
+    .filter(value => typeof value === 'string' && !/^\(.*\)$/.test(value.trim()))
+    .map(value => resolve(root, value.trim()))
+  const uncovered = []
+  for (const entry of readdirSync(base, {withFileTypes: true})) {
+    if (!entry.isDirectory() || entry.isSymbolicLink() || IGNORED_DIRECTORIES.has(entry.name)) continue
+    const path = join(base, entry.name)
+    // 이 디렉토리나 그 상위가 어떤 레이어에 덮이는가
+    if (covered.some(layer => path === layer || path.startsWith(`${layer}${sep}`) || layer.startsWith(`${path}${sep}`))) continue
+    if (!hasSourceFiles(path)) continue
+    uncovered.push(relative(root, path))
+  }
+  return uncovered
 }
 
 // libraries의 measured / measured-absent 주장을 선언과 대조한다.
@@ -192,12 +228,17 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   for (const item of substrate.unverifiable) unverifiable.push({kind: 'substrate', ...item})
   for (const item of checkToolchainAlignment(specLock, toolchain)) failures.push({kind: 'toolchain', ...item})
 
+  const uncovered = checkLayerMapCoverage(specLock, root)
+  if (uncovered.length > 0) {
+    notes.push(`layerMap이 덮지 않는 소스 디렉토리 ${uncovered.length}개: ${uncovered.join(', ')} — 이 경로는 어떤 에이전트도 쓸 수 없다`)
+  }
+
   if (specLock.specTier === 'unverifiable') {
     notes.push('specTier가 unverifiable이다 — 수용 기준이 없어 이 설계가 옳은지는 판정할 수 없다. 형식 정합만 확인했다')
   }
   notes.push(`targetShape: ${specLock.targetShape} — 형태별 게이트 선택은 아직 배선되지 않았다(Stage 2b)`)
 
-  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, notes}
+  return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, notes}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

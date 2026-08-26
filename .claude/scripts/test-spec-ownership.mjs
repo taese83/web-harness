@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  AGENT_LAYER_ROLES, AGENT_OWNERSHIP, findLayerOverlaps,
+  AGENT_LAYER_ROLES, AGENT_OWNERSHIP, DEFAULT_LAYER_MAP, findLayerOverlaps,
   isLayerPathDeclared, resolveSpecOwnership,
 } from './agent-registry.mjs'
 
@@ -42,10 +42,29 @@ test('여러 역할이 매핑된 에이전트는 선언된 레이어만 갖는�
 })
 
 // ── (2) fail-closed ──────────────────────────────────────────────────────────
-test('회귀 반증: 스팩이 없으면 null — 호출자가 기존 등록부로 돌아간다', () => {
-  assert.equal(resolveSpecOwnership(null, 'entity-query-builder'), null)
-  assert.equal(resolveSpecOwnership({}, 'entity-query-builder'), null)
-  assert.equal(resolveSpecOwnership({layerMap: {}}, 'entity-query-builder'), null)
+test('회귀 반증: 스팩이 없으면 null — 호출자가 AGENT_OWNERSHIP으로 돌아간다', () => {
+  for (const lock of [null, {}, {layerMap: {}}]) {
+    assert.equal(resolveSpecOwnership(lock, 'entity-query-builder'), null)
+  }
+})
+
+test('회귀 반증: DEFAULT_LAYER_MAP을 폴백으로 쓰면 carve-out이 무너진다', () => {
+  // 실측(2026-08-26): DEFAULT_LAYER_MAP을 폴백으로 쓰자 validate-agent-boundaries가 회귀를
+  // 잡았다. AGENT_OWNERSHIP은 레이어 이름보다 많은 것을 인코딩한다 —
+  // feature-mutation-builder는 live-mode를 제외하는데 평면 layerMap은 그걸 표현 못 한다.
+  const viaDefault = new RegExp(`src/features/`)
+  assert.ok(viaDefault.test('src/features/live-mode/api/connect.ts'),
+    '평면 layerMap은 live-mode를 걸러내지 못한다 — 그래서 폴백으로 쓸 수 없다')
+  const registry = AGENT_OWNERSHIP['feature-mutation-builder']
+  assert.equal(registry.some(r => r.test('src/features/live-mode/api/connect.ts')), false,
+    '등록부는 carve-out을 지킨다')
+})
+
+test('DEFAULT_LAYER_MAP은 참조 표현이며 폴백이 아니다', () => {
+  assert.deepEqual(Object.keys(DEFAULT_LAYER_MAP).sort(),
+    ['composedUI', 'domainModel', 'featureLogic', 'routes', 'sharedKernel'])
+  assert.equal(resolveSpecOwnership(null, 'entity-query-builder'), null,
+    'DEFAULT_LAYER_MAP이 폴백으로 쓰이면 안 된다')
 })
 
 test('회귀 반증: 매핑된 레이어가 layerMap에 없으면 null이지 전체 허용이 아니다', () => {
