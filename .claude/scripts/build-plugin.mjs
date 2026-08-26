@@ -14,7 +14,7 @@ const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
   : 'dist/web-harness-plugin')
 
 const PLUGIN_NAME = 'web-harness'
-const PLUGIN_VERSION = '0.3.3'
+const PLUGIN_VERSION = '0.3.4'
 
 // 배포 메타데이터는 소스에 특정 저장소·개인을 박지 않고 환경에서 파생한다.
 // WEB_HARNESS_PLUGIN_AUTHOR / _REPO_URL / _MARKETPLACE_GIT 로 override, 없으면 git remote,
@@ -187,6 +187,8 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
 copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, '.claude', 'schemas'))
 cpSync(join(repositoryRoot, '.claude', 'ai-harness.json'), join(outputRoot, '.claude', 'ai-harness.json'))
+// lock-spec.mjs가 런타임에 읽는다 — 없으면 배포본에서 스팩 잠금이 깨진다.
+cpSync(join(repositoryRoot, '.claude', 'substrate-defaults.json'), join(outputRoot, '.claude', 'substrate-defaults.json'))
 
 // 3. 콘솔 — 상대 import(../../../.claude/scripts/...)가 그대로 풀리는 위치에 복사한다.
 copyTree(join(repositoryRoot, 'packages', 'web-harness-console'), join(outputRoot, 'packages', 'web-harness-console'), {
