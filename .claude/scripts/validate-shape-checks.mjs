@@ -40,7 +40,7 @@ export const collectTargets = value => {
 }
 
 // ── library: 배포 메타데이터 ─────────────────────────────────────────────────
-export const checkPublishMetadata = manifest => {
+export const checkPublishMetadata = (manifest, projectRoot = '.') => {
   const problems = []
   if (manifest.private === true) problems.push('private: true — 배포할 수 없다')
   for (const field of ['name', 'version', 'license']) {
@@ -52,13 +52,22 @@ export const checkPublishMetadata = manifest => {
     problems.push('exports도 main도 없다 — 소비 진입점이 없다')
   }
   // files 허용목록이 없으면 의도치 않은 파일이 배포된다. npmignore가 있으면 그것으로 대체된다.
-  if (!Array.isArray(manifest.files) && !existsSync('.npmignore')) {
+  // 실사용 잠금 2호(2026-08-26)에서 잡힘: 이 줄만 상대 경로라 **하네스 cwd**의 .npmignore를
+  // 봤다. 외부 project-root를 검사하면 대상과 무관하게 판정이 갈렸다(오탐·누락 양방향).
+  if (!Array.isArray(manifest.files) && !existsSync(resolve(projectRoot, '.npmignore'))) {
     problems.push('files 허용목록도 .npmignore도 없다 — 배포 내용물이 통제되지 않는다')
   }
   return problems
 }
 
 // ── library: 공개 API 진입점 실존 ────────────────────────────────────────────
+// 실사용 잠금 2호(2026-08-26)에서 잡힘: 이 검사는 kind:"static"인데 **대상이 빌드 산출물**이다.
+// 컴파일해 배포하는 정상 라이브러리는 빌드 전에 반드시 FAIL했다 — "미빌드"를 "결함"으로 보고한
+// 것이다. 미판정을 PASS로 승격하지 않는 규율의 반대 방향(미판정을 FAIL로 강등)이 뚫려 있었다.
+// 선언 정합(루트 이탈·진입점 부재)은 여전히 정적으로 판정하고, 파일 실존은 진입점의 최상위
+// 디렉토리가 통째로 없으면 **미빌드로 보고**한다(receipt를 쓰지 않는다).
+// 프록시 표기: "최상위 디렉토리 부재 = 미빌드"는 근사다. dist/가 있는데 파일만 빠진 경우는
+// 여전히 FAIL이며, 실판정은 runtime pack.contents가 npm pack으로 해야 한다(미구현).
 export const checkPublicApi = (manifest, projectRoot) => {
   const root = resolve(projectRoot)
   const targets = [
@@ -67,15 +76,22 @@ export const checkPublicApi = (manifest, projectRoot) => {
     ...(typeof manifest.types === 'string' ? [manifest.types] : []),
   ].filter(target => target.startsWith('.'))
   const problems = []
+  const unbuilt = []
   if (targets.length === 0) problems.push('해석할 진입점이 없다')
   for (const target of new Set(targets)) {
     if (!withinRoot(root, target)) {
       problems.push(`진입점이 패키지 루트를 벗어난다: ${target}`)
       continue
     }
-    if (!existsSync(resolve(root, target))) problems.push(`진입점 파일이 없다: ${target}`)
+    if (existsSync(resolve(root, target))) continue
+    const topLevel = target.replace(/^\.\/+/, '').split('/')[0]
+    if (topLevel && !existsSync(resolve(root, topLevel))) {
+      unbuilt.push(`${target}(${topLevel}/ 자체가 없다)`)
+      continue
+    }
+    problems.push(`진입점 파일이 없다: ${target}`)
   }
-  return problems
+  return {problems, unbuilt}
 }
 
 // ── cli: bin 진입점 ─────────────────────────────────────────────────────────
@@ -107,7 +123,7 @@ export const checkBinEntrypoint = (manifest, projectRoot) => {
 }
 
 const STATIC_CHECKS = {
-  'pack.publish-metadata': (manifest) => checkPublishMetadata(manifest),
+  'pack.publish-metadata': (manifest, root) => checkPublishMetadata(manifest, root),
   'lib.public-api': (manifest, root) => checkPublicApi(manifest, root),
   'cli.bin-entrypoint': (manifest, root) => checkBinEntrypoint(manifest, root),
 }
@@ -126,18 +142,29 @@ export const runShapeChecks = ({projectRoot, targetShapes, catalog = readShapeCh
     // 매니페스트가 없으면 판정하지 않는다 — receipt를 쓰지 않는 것이 정직하다.
     return {receipts: [], skipped: runnable.map(entry => ({id: entry.id, reason: 'package.json이 없다'}))}
   }
-  const receipts = runnable.map(entry => {
-    const problems = STATIC_CHECKS[entry.id](manifest, root)
-    return {
+  const receipts = []
+  const skipped = []
+  for (const entry of runnable) {
+    const outcome = STATIC_CHECKS[entry.id](manifest, root)
+    // 검사는 배열(문제 목록) 또는 {problems, unbuilt}를 낸다. unbuilt는 하네스가 판정할 수
+    // 없는 상태이지 프로젝트의 결함이 아니므로 receipt를 쓰지 않는다 — 미판정을 FAIL로
+    // 강등하지 않는다는 규율이며, 미판정을 PASS로 승격하지 않는 것과 같은 규율의 반대 방향이다.
+    const problems = Array.isArray(outcome) ? outcome : outcome.problems
+    const unbuilt = Array.isArray(outcome) ? [] : (outcome.unbuilt ?? [])
+    if (problems.length === 0 && unbuilt.length > 0) {
+      skipped.push({id: entry.id, reason: `빌드 산출물이 없다 — 미빌드로 보고한다: ${unbuilt.join(', ')}`})
+      continue
+    }
+    receipts.push({
       schemaVersion: 1,
       runner: 'validate-shape-checks',
       id: entry.id,
       kind: 'static',
       status: problems.length === 0 ? 'PASS' : 'FAIL',
       problems,
-    }
-  })
-  return {receipts, skipped: []}
+    })
+  }
+  return {receipts, skipped}
 }
 
 export const writeReceipts = (projectRoot, receipts) => {

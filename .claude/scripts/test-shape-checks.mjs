@@ -53,8 +53,11 @@ test('카탈로그의 static·implemented 항목만 구현체를 갖는다', () 
 
 // ── (2) 실제 결함 탐지 ──────────────────────────────────────────────────────
 test('회귀 반증: 진입점 파일이 없으면 FAIL', () => {
-  withPackage({manifest: {name: 'x', exports: './dist/index.js'}}, root => {
-    const problems = checkPublicApi({exports: './dist/index.js'}, root)
+  // 2026-08-26 계약 변경(실사용 잠금 2호): 산출 디렉토리 자체가 없으면 "미빌드"이지 결함이
+  // 아니다. 결함 판정은 디렉토리는 있는데 파일이 없을 때다 — fixture에 dist/를 둔다.
+  withPackage({manifest: {name: 'x', exports: './dist/index.js'}, files: {'dist/other.js': 'x'}}, root => {
+    const {problems, unbuilt} = checkPublicApi({exports: './dist/index.js'}, root)
+    assert.equal(unbuilt.length, 0, 'dist/가 있으면 미빌드가 아니다')
     assert.equal(problems.length, 1)
     assert.match(problems[0], /진입점 파일이 없다/)
   })
@@ -100,7 +103,58 @@ test('package.json이 없으면 receipt를 쓰지 않는다', () => {
 // ── (4) 경로 이탈 ───────────────────────────────────────────────────────────
 test('진입점·bin이 패키지 루트를 벗어나면 거부한다', () => {
   withPackage({manifest: {name: 'x'}}, root => {
-    assert.ok(checkPublicApi({exports: '../outside.js'}, root).some(p => /벗어난다/.test(p)))
+    assert.ok(checkPublicApi({exports: '../outside.js'}, root).problems.some(p => /벗어난다/.test(p)))
     assert.ok(checkBinEntrypoint({bin: {x: '../outside.js'}}, root).some(p => /벗어난다/.test(p)))
+  })
+})
+
+// ── 실사용 잠금 2호 (2026-08-26) ─────────────────────────────────────────────
+// 사내 SDK 모노레포 패키지(@kakao/ai-chatkit)를 잠그려다 형태 층의 다른 절반이 처음 돌면서
+// 결함 2건이 드러났다. 1호(web-app)는 static 검사가 없어 발화하지 않던 자리다.
+test('회귀 반증: 미빌드 라이브러리를 결함으로 보고하지 않는다', () => {
+  // lib.public-api는 kind:"static"인데 대상이 빌드 산출물이다. 컴파일해 배포하는 정상
+  // 라이브러리는 빌드 전에 반드시 FAIL했다 — 미판정을 FAIL로 강등하는 방향이 뚫려 있었다.
+  withPackage({manifest: {
+    name: '@scope/sdk', version: '1.0.0', files: ['dist'],
+    exports: {'.': {types: './dist/index.d.ts', import: './dist/index.js'}},
+  }}, root => {
+    const {receipts, skipped} = runShapeChecks({projectRoot: root, targetShapes: ['library']})
+    assert.ok(skipped.some(entry => entry.id === 'lib.public-api'), '미빌드는 receipt를 쓰지 않는다')
+    assert.equal(receipts.find(entry => entry.id === 'lib.public-api'), undefined)
+    // 같은 실행에서 진짜 결함(license 부재)은 그대로 잡는다 — 침묵으로 도피하지 않는다
+    const publish = receipts.find(entry => entry.id === 'pack.publish-metadata')
+    assert.equal(publish.status, 'FAIL')
+    assert.ok(publish.problems.some(problem => /license/.test(problem)))
+  })
+})
+
+test('회귀 반증: 산출 디렉토리는 있는데 파일이 없으면 여전히 FAIL', () => {
+  // "미빌드" 강등이 실제 결함까지 삼키면 게이트 약화다.
+  withPackage({
+    manifest: {name: 'x', version: '1.0.0', license: 'MIT', files: ['dist'], exports: './dist/index.js'},
+    files: {'dist/other.js': 'x'},
+  }, root => {
+    const {receipts, skipped} = runShapeChecks({projectRoot: root, targetShapes: ['library']})
+    assert.equal(skipped.length, 0, 'dist/가 있으면 미빌드가 아니다')
+    assert.equal(receipts.find(entry => entry.id === 'lib.public-api').status, 'FAIL')
+  })
+})
+
+test('회귀 반증: .npmignore 판정이 하네스 cwd에 오염되지 않는다', () => {
+  // 이 줄만 상대 경로라 process.cwd()의 .npmignore를 봤다. 외부 project-root 검사에서
+  // 대상과 무관하게 판정이 갈렸다(오탐·누락 양방향).
+  withPackage({manifest: {name: 'x', version: '1.0.0', license: 'MIT', exports: './i.js'}}, root => {
+    const polluted = mkdtempSync(join(tmpdir(), 'npmig-'))
+    writeFileSync(join(polluted, '.npmignore'), 'x')
+    const before = process.cwd()
+    try {
+      process.chdir(polluted)
+      const problems = checkPublishMetadata({name: 'x', version: '1.0.0', license: 'MIT', exports: './i.js'}, root)
+      assert.ok(problems.some(problem => /\.npmignore도 없다/.test(problem)),
+        'cwd의 .npmignore가 대상 판정을 바꾸면 안 된다')
+    } finally {
+      process.chdir(before)
+      rmSync(polluted, {recursive: true, force: true})
+    }
   })
 })
