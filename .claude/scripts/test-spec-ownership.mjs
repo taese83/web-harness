@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   AGENT_LAYER_ROLES, AGENT_OWNERSHIP, DEFAULT_LAYER_MAP, findLayerOverlaps,
-  isLayerPathDeclared, resolveSpecOwnership,
+  isLayerPathDeclared, resolveSpecOwnership, resolveDeveloperOwnership, intersectWithScope,
 } from './agent-registry.mjs'
 
 const owns = (patterns, path) => patterns.some(pattern => pattern.test(path))
@@ -107,4 +107,40 @@ test('역할 매핑에 등록된 에이전트는 전부 기존 등록부에도 �
   for (const agent of Object.keys(AGENT_LAYER_ROLES)) {
     assert.ok(AGENT_OWNERSHIP[agent], `${agent}가 기존 등록부에 없으면 폴백이 불가능하다`)
   }
+})
+
+// ── 단일 개발 에이전트 (2026-08-26) ──────────────────────────────────────────
+// 구조 지시 빌더 6종의 소유권이 실측으로 성립하지 않았다 — src/pages/**를 셋이 겹쳐 갖고,
+// 비-FSD 어휘는 소유자가 없었다. 격리가 아니라 FSD 경로 처방이었다.
+test('개발 에이전트가 비-FSD 어휘를 소유한다', () => {
+  // 실사용 확정 2호(@kakao/ai-chatkit)의 실제 layerMap
+  const spec = {layerMap: {'spa-ui': 'src', 'api-routes': 'api', e2e: 'playwright'}}
+  const patterns = resolveDeveloperOwnership(spec)
+  assert.ok(patterns, 'layerMap이 있으면 소유권이 나와야 한다')
+  for (const path of ['src/main.tsx', 'api/health.ts', 'playwright/specs/a.spec.ts']) {
+    assert.ok(owns(patterns, path), `${path}를 소유하지 못한다`)
+  }
+  assert.equal(owns(patterns, 'docs/x.md'), false, '선언되지 않은 경로는 소유하지 않는다')
+})
+
+test('회귀 반증: 스폰 범위는 소유권을 넓히지 못한다', () => {
+  const spec = {layerMap: {'spa-ui': 'src', 'api-routes': 'api'}}
+  const own = resolveDeveloperOwnership(spec)
+  const scoped = intersectWithScope(own, ['api'])
+  assert.ok(owns(scoped, 'api/health.ts'), '범위 안은 통과')
+  assert.equal(owns(scoped, 'src/main.tsx'), false, '범위 밖은 차단 — 소유해도 이번 스폰은 아니다')
+  // 범위가 layerMap 밖을 가리켜도 넓어지지 않는다
+  const wide = intersectWithScope(own, ['docs'])
+  assert.equal(owns(wide, 'docs/x.md'), false, '범위가 소유권을 넓히면 경계가 무너진다')
+})
+
+test('회귀 반증: 스팩이 없으면 개발 에이전트는 아무것도 못 쓴다', () => {
+  // FSD 기본 경로를 폴백으로 주면 그 순간 다시 경로 처방이 된다.
+  assert.equal(resolveDeveloperOwnership(null), null)
+  assert.equal(resolveDeveloperOwnership({layerMap: {}}), null)
+  assert.deepEqual(AGENT_OWNERSHIP.developer, [], '등록부 폴백이 비어 있어야 한다')
+})
+
+test('회귀 반증: layerMap이 겹치면 개발 에이전트도 신뢰하지 않는다', () => {
+  assert.equal(resolveDeveloperOwnership({layerMap: {a: 'src/', b: 'src/pages/'}}), null)
 })

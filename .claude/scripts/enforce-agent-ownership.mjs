@@ -2,7 +2,7 @@
 
 import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {AGENT_OWNERSHIP, resolveSpecOwnership} from './agent-registry.mjs'
+import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -59,14 +59,29 @@ try {
   if (relativePath.startsWith('../') || relativePath === '..') block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
 
   // 프로젝트 root가 workspace/<project>/로 중첩된 경우 ownership은 프로젝트 root 기준으로 판정한다
+  // change-scope.md의 ALLOWED_PATHS — 스폰별 범위. 없으면 범위 제한이 없다(소유권만 적용).
+  const readAllowedPaths = root => {
+    try {
+      const source = readFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'utf8')
+      const line = source.match(/^-?\s*\*\*?ALLOWED_PATHS\*\*?\s*[:：]\s*(.+)$/mi)
+      if (!line) return []
+      return line[1].split(/[,·]/).map(v => v.replace(/[`\s]/g, '')).filter(Boolean)
+    } catch { return [] }
+  }
+
   const ownershipPath = relativePath.replace(/^workspace\/[^/]+\//, '')
 
   // 플러그인 설치 시 agent_type은 `web-harness:<agent>`로 네임스페이스가 붙는다 — ownership
   // 등록부는 bare 이름 기준이므로 자기 플러그인 접두만 벗겨 판정한다. 임의 접두를 벗기면
   // 이름이 겹치는 서드파티 플러그인 에이전트가 ownership을 상속받으므로 반드시 고정한다.
   const agentType = String(input.agent_type).replace(/^web-harness:/, '')
-  const specPatterns = resolveSpecOwnership(readSpecLock(projectRoot), agentType)
-  const allowedPatterns = specPatterns ?? AGENT_OWNERSHIP[agentType]
+  const spec = readSpecLock(projectRoot)
+  // 개발 에이전트는 layerMap 전체를 소유하고, 스폰 범위(change-scope ALLOWED_PATHS)가 그 위에서
+  // 다시 좁힌다 — 병렬 격리가 에이전트 정체성이 아니라 모듈 경계에서 나온다(2026-08-26).
+  const specPatterns = agentType === DEVELOPER_AGENT
+    ? intersectWithScope(resolveDeveloperOwnership(spec) ?? [], readAllowedPaths(projectRoot))
+    : resolveSpecOwnership(spec, agentType)
+  const allowedPatterns = (specPatterns?.length ? specPatterns : null) ?? AGENT_OWNERSHIP[agentType]
   if (!allowedPatterns) block(`Blocked: no write ownership is defined for ${input.agent_type}.`)
   const ownJournalPath = `_workspace/03_dev/change-journal/${agentType}.md`
   if (ownershipPath === ownJournalPath) process.exit(0)

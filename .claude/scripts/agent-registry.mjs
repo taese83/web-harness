@@ -46,6 +46,11 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
 ]
 
 export const AGENT_OWNERSHIP = {
+  // developer는 **빈 소유권**이다. 스팩(layerMap)이 있으면 그것이 소유를 공급하고, 없으면
+  // 아무것도 쓸 수 없다. FSD 기본 경로를 폴백으로 주면 그 순간 다시 경로 처방이 된다 —
+  // 구조 지시 빌더 6종을 걷어낸 이유가 바로 그것이었다(2026-08-26).
+  developer: [],
+
   'agent-runtime-scaffolder': [
     /^apps\/agent-api\//,
     /^workers\/agent-jobs\//,
@@ -344,6 +349,40 @@ export const findLayerOverlaps = layerMap => {
 // 스팩에서 이 에이전트의 쓰기 패턴을 만든다.
 // fail-closed: 역할 매핑이 없거나, 매핑된 레이어가 layerMap에 선언되지 않았으면 **null**을
 // 돌려 호출자가 기본 등록부로 돌아가게 한다. 절대 "선언 없음 → 전체 허용"이 되지 않는다.
+// 단일 개발 에이전트(2026-08-26). 종전에는 구조 지시 빌더 6종이 각자 FSD 경로를 소유했다.
+// 실측으로 그 소유권이 이미 성립하지 않고 있었다 — `src/pages/**`를 셋이 겹쳐 갖고, 비-FSD
+// 어휘(`src/stores`·`src/hooks`·`src/components`)는 소유자가 아예 없었다. 즉 그 6종이 공급한
+// 것은 격리가 아니라 **FSD 경로 처방**이었다.
+//
+// 대신 개발 에이전트 하나가 **스팩이 선언한 레이어 전부**를 소유하고, 병렬 격리는 에이전트
+// 정체성이 아니라 스폰별 범위(change-scope의 ALLOWED_PATHS = moduleBoundaries)가 공급한다.
+// 그것이 스팩이 moduleBoundaries를 담는 이유다.
+export const DEVELOPER_AGENT = 'developer'
+
+// 개발 에이전트는 layerMap의 모든 선언 경로를 소유한다. 테스트·문서처럼 다른 에이전트가
+// 소유하는 레이어도 포함되지만, 스폰 범위가 그 위에서 다시 좁힌다.
+export const resolveDeveloperOwnership = spec => {
+  const layerMap = spec?.layerMap
+  if (!layerMap || typeof layerMap !== 'object' || Object.keys(layerMap).length === 0) return null
+  if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
+  const patterns = Object.values(layerMap)
+    .filter(path => isLayerPathDeclared(path))
+    .map(path => new RegExp(`^${appPrefix}${normalizeLayerPath(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+  return patterns.length > 0 ? patterns : null
+}
+
+// 스폰별 범위 — change-scope의 ALLOWED_PATHS. 소유권과 **교집합**이다. 범위가 소유권을
+// 넓히지 못하고, 소유권이 범위를 넓히지 못한다. 둘 다 통과해야 쓸 수 있다.
+export const intersectWithScope = (patterns, allowedPaths) => {
+  if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return patterns
+  const scoped = allowedPaths
+    .filter(path => isLayerPathDeclared(path))
+    .map(path => new RegExp(`^${appPrefix}${normalizeLayerPath(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+  if (scoped.length === 0) return patterns
+  return [{test: value => patterns.some(p => p.test(value)) && scoped.some(p => p.test(value)),
+           source: `scope(${allowedPaths.join(', ')})`}]
+}
+
 export const resolveSpecOwnership = (spec, agentType) => {
   const roles = AGENT_LAYER_ROLES[agentType]
   if (!roles) return null
