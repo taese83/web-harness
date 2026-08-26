@@ -129,6 +129,10 @@ export const readReceipt = (
     receipt.executionTargetMutationDetected !== false
   ) errors.push(`${relativePath}: resolved execution target binding is missing or stale`)
 
+  // 배포 메타(deploymentProvider·deploymentTarget·releaseTarget·selectedCapabilities)를 뺐다
+  // (2026-08-26). Score·OAM은 워크로드 스펙과 배포를 분리하고 SLSA build provenance는 배포
+  // 대상을 묶지 않는다 — 하네스가 들 자리가 아니다. 남은 것은 빌드 provenance뿐이며,
+  // "코드가 바뀌었나"는 이미 sourceFingerprint가 (spec.json 포함해) 덮는다.
   if (expectedProfile) {
     const binding = receipt.profileBinding
     const environmentPath = join(projectRoot, '_workspace/02_design/build-environment.json')
@@ -137,14 +141,10 @@ export const readReceipt = (
       binding?.profileId !== expectedProfile.adapter.id ||
       binding?.adapterVersion !== expectedProfile.adapter.version ||
       binding?.adapterSha256 !== expectedProfile.profile.adapter.sha256 ||
-      binding?.deploymentProvider !== expectedProfile.selection.provider.id ||
-      binding?.deploymentTarget !== expectedProfile.selection.target.id ||
       binding?.profileSha256 !== expectedProfile.executionPlan.plan.profileBinding.profileSha256 ||
-      binding?.releaseTarget !== expectedProfile.selection.releaseTarget ||
       binding?.executionPlanSha256 !== expectedProfile.executionPlan.sha256 ||
       binding?.buildEnvironmentSha256 !== environmentSha256 ||
-      binding?.publicEnvironmentSha256 !== receipt.environmentPolicy?.publicEnvironmentSha256 ||
-      JSON.stringify(binding?.selectedCapabilities ?? []) !== JSON.stringify(expectedProfile.selection.selectedCapabilities)
+      binding?.publicEnvironmentSha256 !== receipt.environmentPolicy?.publicEnvironmentSha256
     ) errors.push(`${relativePath}: project profile binding is missing or stale`)
 
     if (expectedProfile.selection.selectedCapabilities.includes('scheduled-static-ingestion')) {
