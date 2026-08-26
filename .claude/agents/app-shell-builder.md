@@ -2,7 +2,7 @@
 name: app-shell-builder
 description: Creates the minimal app shell (index.html, main.tsx, App.tsx, theme, router, home page) without feature UI.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

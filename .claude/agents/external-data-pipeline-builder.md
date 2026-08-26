@@ -2,7 +2,8 @@
 name: external-data-pipeline-builder
 description: Implements contract-driven external data adapters, normalization, quality gates, and atomic promotion; no application UI.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 45
 ---
 

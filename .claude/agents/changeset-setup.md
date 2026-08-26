@@ -2,7 +2,7 @@
 name: changeset-setup
 description: Creates Changesets configuration. Owns .changeset/config.json only; no publish workflows or commands.
 tools: Read, Glob, Grep, Write, Edit
-model: sonnet
+model: haiku
 maxTurns: 15
 ---
 

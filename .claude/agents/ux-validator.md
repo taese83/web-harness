@@ -4,6 +4,7 @@ description: Compares implemented screens against ux-brief.md and component-spec
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: opus
+effort: xhigh
 maxTurns: 20
 ---
 

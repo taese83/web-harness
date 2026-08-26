@@ -2,7 +2,7 @@
 name: form-state-builder
 description: Creates local form schemas and UI state stores (Zod/Zustand feature model files) without wiring API calls into components.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 25
 ---
 

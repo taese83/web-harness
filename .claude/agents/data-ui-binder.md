@@ -2,7 +2,7 @@
 name: data-ui-binder
 description: Wires existing components to query/mutation/form state. Owns component integration edits only, after those layers exist.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

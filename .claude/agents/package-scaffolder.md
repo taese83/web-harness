@@ -2,7 +2,7 @@
 name: package-scaffolder
 description: Creates package/workspace metadata (package.json, pnpm-workspace, turbo.json, install-gate notes) without source code.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 25
 ---
 

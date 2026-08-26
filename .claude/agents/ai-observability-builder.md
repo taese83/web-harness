@@ -2,7 +2,7 @@
 name: ai-observability-builder
 description: Implements AI traces, metrics, token/cost accounting, redaction, dashboards, and alert contracts.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 skills: ai-runtime-setup
 ---

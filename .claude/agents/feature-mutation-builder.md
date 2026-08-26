@@ -2,7 +2,7 @@
 name: feature-mutation-builder
 description: Implements feature mutation hooks and invalidation policy. Owns src/features/*/api mutation files; does not edit UI.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 25
 ---
 

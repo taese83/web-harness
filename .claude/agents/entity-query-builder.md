@@ -2,7 +2,7 @@
 name: entity-query-builder
 description: Implements entity model types and TanStack Query factories from api-schema.md. Owns src/entities/*/model and query files only.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 25
 ---
 

@@ -2,7 +2,7 @@
 name: component-builder
 description: Implements shared/feature/widget components from component-spec.md preserving FSD public APIs and accessibility.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

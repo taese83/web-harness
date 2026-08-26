@@ -2,7 +2,8 @@
 name: client-domain-state-builder
 description: Implements browser-owned domain state stores, mutation commands, selectors, and persistence migrations from state-contract.md; no UI.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 35
 ---
 

@@ -3,7 +3,8 @@ name: ai-security-reviewer
 description: Read-only AI security verification — prompt injection, excessive agency, MCP trust, tool authorization, denial-of-wallet.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
+effort: xhigh
 maxTurns: 30
 skills: ai-eval
 ---

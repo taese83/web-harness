@@ -2,7 +2,8 @@
 name: human-approval-builder
 description: Implements durable human approval policies and UI for high-impact agent actions — expiry, identity binding, resume, audit.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 30
 skills: ai-runtime-setup
 ---

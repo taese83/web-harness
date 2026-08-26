@@ -2,7 +2,7 @@
 name: next-app-scaffolder
 description: Creates configuration/tooling foundation only for the next-app-fullstack profile; never installs packages or writes routes.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: haiku
 maxTurns: 25
 ---
 

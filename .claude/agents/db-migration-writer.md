@@ -2,7 +2,7 @@
 name: db-migration-writer
 description: Writes idempotent SQL migrations, the thin runner script, and the DB changelog per the server-db-migration contract. Never executes migrations.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

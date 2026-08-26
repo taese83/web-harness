@@ -2,7 +2,8 @@
 name: next-runtime-builder
 description: Implements Next.js App Router runtime source — Server/Client Components, Route Handlers, Server Actions, auth boundaries, cache contracts.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 35
 ---
 

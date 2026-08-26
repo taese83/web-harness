@@ -4,6 +4,7 @@ description: Read-only security review of generated apps — token storage, auth
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: opus
+effort: xhigh
 maxTurns: 20
 ---
 

@@ -4,6 +4,7 @@ description: Read-only pre-implementation review of information hierarchy, layou
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
+effort: xhigh
 maxTurns: 20
 ---
 

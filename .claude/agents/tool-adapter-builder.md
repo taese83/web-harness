@@ -2,7 +2,8 @@
 name: tool-adapter-builder
 description: Implements validated AI tool registries and domain adapters — authorization, scopes, approvals, idempotency, audit, typed results.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 35
 skills: ai-runtime-setup
 ---

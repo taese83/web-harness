@@ -2,7 +2,7 @@
 name: visual-test-writer
 description: Writes Storybook stories and Playwright visual assertions from the approved visual contract; changes no production source or baselines.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

@@ -2,7 +2,7 @@
 name: route-builder
 description: Creates page components and React Router wiring from layout-spec.md with route splitting and recovery boundaries.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 30
 ---
 

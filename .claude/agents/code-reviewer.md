@@ -4,6 +4,7 @@ description: Reviews generated code for TypeScript/ESLint/FSD violations and con
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: opus
+effort: xhigh
 maxTurns: 20
 ---
 

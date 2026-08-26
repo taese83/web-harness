@@ -2,7 +2,7 @@
 name: web-observability-builder
 description: Implements frontend observability for non-AI apps — error tracking, release tagging, Web Vitals, PII scrubbing, source-map upload contract.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: sonnet
 maxTurns: 25
 ---
 

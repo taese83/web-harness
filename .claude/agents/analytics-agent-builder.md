@@ -2,7 +2,8 @@
 name: analytics-agent-builder
 description: Implements governed metric discovery, semantic query AST generation, policy/cost gates, and grounded analytics insights.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 40
 skills: ai-analytics-dashboard
 ---

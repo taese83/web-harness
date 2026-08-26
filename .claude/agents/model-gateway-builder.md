@@ -2,7 +2,8 @@
 name: model-gateway-builder
 description: Implements server-only model provider adapters — capability-aware routing, fallback, prompt versioning, token-cost accounting.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 30
 skills: ai-runtime-setup
 ---

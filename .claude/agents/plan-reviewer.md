@@ -4,6 +4,7 @@ description: Read-only pre-implementation review of requirement clarity, MVP sco
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
+effort: xhigh
 maxTurns: 20
 ---
 

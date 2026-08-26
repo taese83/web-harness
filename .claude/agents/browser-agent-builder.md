@@ -2,7 +2,8 @@
 name: browser-agent-builder
 description: Implements a constrained browser-agent runtime — policy compilation, isolated Playwright execution, approvals, evidence, replay.
 tools: Read, Glob, Grep, Write, Edit
-model: fable
+model: opus
+effort: xhigh
 maxTurns: 40
 skills: browser-agent
 ---
