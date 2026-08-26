@@ -14,6 +14,47 @@ const packageNames = packageJson => sortedUnique(
     .flatMap(key => Object.keys(packageJson[key] ?? {})),
 )
 
+// ── 증거 기반 판별 (2026-08-26) ────────────────────────────────────────────────
+// 배경(실측 2026-08-26): React 19 + Vite 8 SPA인 모노레포 패키지가 PROFILE_NOT_DETECTED로
+// 거부됐다. 원인은 `allPackages: ["react","vite"]`가 **그 패키지의 package.json만** 보는
+// AND 게이트인데, `vite`가 **워크스페이스 루트**에 선언돼 있었기 때문이다(모노레포 호이스팅).
+// 패키지를 루트로 잡으면 vite가 안 보이고, 저장소 루트를 잡으면 react가 안 보인다 —
+// **어느 쪽을 잡아도 실패**가 실측됐다. 정작 `vite.config.ts`가 그 패키지에 있었다.
+// 감지기가 통과시키던 형태는 사실상 **하네스가 스스로 생성한 단일 루트 프로젝트**뿐이다(I3).
+//
+// 근거 확대는 **workspace 하나뿐**이다 — 모노레포 호이스팅(위 실측 사례).
+//
+// lockfile 근거는 적대 리뷰(2026-08-26)에서 **기각**됐다. lockfile 등재는 "설치됨"의 증거이지
+// "이 패키지가 그것으로 빌드된다"의 증거가 아니다 — 모든 lockfile 형식이 전이 의존을 평탄하게
+// 등재하고 워크스페이스 lockfile은 형제 패키지 것까지 공유한다. 구체 반례:
+//   · webpack/CRA React 앱이 vitest를 쓰면 vite가 lockfile에 들어와 react-vite-spa로 오탐
+//   · 모노레포의 Vue+Vite 패키지가 형제의 react를 근거로 react-vite-spa에 매칭
+// AMBIGUOUS_PROFILE은 2개+ 매칭에서만 발화하므로 이 오탐은 **조용하다**. 실측 사건은
+// workspace 근거만으로 해소되므로 lock은 무실측 가설이었고, 도입하지 않는다.
+const WORKSPACE_MARKERS = ['pnpm-workspace.yaml', 'pnpm-workspace.yml']
+const WORKSPACE_SEARCH_DEPTH = 6
+
+// 워크스페이스 루트를 위로 탐색한다. pnpm-workspace 마커 또는 package.json의 workspaces 필드.
+export const findWorkspaceRoot = start => {
+  let current = resolve(start)
+  for (let depth = 0; depth <= WORKSPACE_SEARCH_DEPTH; depth += 1) {
+    if (WORKSPACE_MARKERS.some(marker => existsSync(join(current, marker)))) return current
+    const manifest = join(current, 'package.json')
+    if (existsSync(manifest)) {
+      try {
+        if (readJson(manifest).workspaces) return current
+      } catch {}
+    }
+    // 저장소 경계에서 멈춘다(리뷰 F4) — 없으면 얕은 프로젝트가 사용자 홈의 잔존
+    // package.json(workspaces 필드)이나 무관한 상위 저장소를 근거로 삼을 수 있다.
+    if (existsSync(join(current, '.git'))) break
+    const parent = resolve(current, '..')
+    if (parent === current) break
+    current = parent
+  }
+  return null
+}
+
 const inspectProject = projectRoot => {
   const root = resolve(projectRoot)
   if (!existsSync(root) || !lstatSync(root).isDirectory()) {
@@ -21,7 +62,19 @@ const inspectProject = projectRoot => {
   }
   const packagePath = join(root, 'package.json')
   const packageJson = existsSync(packagePath) ? readJson(packagePath) : {}
-  return {root, packageJson, packages: packageNames(packageJson)}
+  const workspaceRoot = findWorkspaceRoot(root)
+  const workspaceIsAncestor = workspaceRoot !== null && workspaceRoot !== root
+  const workspaceManifest = workspaceIsAncestor ? join(workspaceRoot, 'package.json') : null
+  const workspacePackages = workspaceManifest && existsSync(workspaceManifest)
+    ? packageNames(readJson(workspaceManifest))
+    : []
+  return {
+    root,
+    packageJson,
+    packages: packageNames(packageJson),
+    workspaceRoot,
+    workspacePackages,
+  }
 }
 
 const markerExists = (root, marker) => {
@@ -54,17 +107,33 @@ const containsEdgeRuntime = (root, appRoots) => {
 }
 
 export const detectAdapter = (adapter, project) => {
-  const packages = new Set(project.packages)
   const detection = adapter.detection
-  const allPackages = detection.allPackages.every(name => packages.has(name))
-  const anyPackages = detection.anyPackages.length === 0 || detection.anyPackages.some(name => packages.has(name))
+  const packages = new Set(project.packages)
+  const workspacePackages = new Set(project.workspacePackages ?? [])
+  // 요구 패키지의 충족 근거를 셋 중 하나로 인정하고, **어느 근거였는지 이름을 남긴다**(I1).
+  //   declared   — 이 패키지의 package.json 선언 (기존 동작)
+  //   workspace  — 워크스페이스 루트 package.json 선언 (모노레포 호이스팅)
+  //   lock       — lockfile 등재 = 실제 설치됨
+  const requiredEvidence = name => {
+    if (packages.has(name)) return 'declared'
+    if (workspacePackages.has(name)) return 'workspace'
+    return null
+  }
+  const requiredSources = new Map(detection.allPackages.map(name => [name, requiredEvidence(name)]))
+  const anyRequiredSources = new Map(detection.anyPackages.map(name => [name, requiredEvidence(name)]))
+  const allPackages = [...requiredSources.values()].every(source => source !== null)
+  const anyPackages = detection.anyPackages.length === 0
+    || [...anyRequiredSources.values()].some(source => source !== null)
   const allPaths = detection.allPaths.every(path => markerExists(project.root, path))
   const detectedNextRoots = adapter.id === 'next-app-fullstack' ? nextAppRoots(project.root) : []
   const edgeRuntime = adapter.id === 'next-app-fullstack' && containsEdgeRuntime(project.root, detectedNextRoots)
   const anyPaths = adapter.id === 'next-app-fullstack'
     ? detectedNextRoots.length > 0
     : detection.anyPaths.length === 0 || detection.anyPaths.some(path => markerExists(project.root, path))
-  const forbiddenPackages = detection.forbiddenPackages.filter(name => packages.has(name))
+  // forbidden도 workspace 선언까지 본다(리뷰 F3) — required가 워크스페이스 근거를 인정하는데
+  // forbidden만 패키지 선언에 한정하면, forbidden을 루트로 호이스트해 경계를 우회할 수 있다.
+  const forbiddenPackages = detection.forbiddenPackages
+    .filter(name => packages.has(name) || workspacePackages.has(name))
   const forbiddenPaths = detection.forbiddenPaths.filter(path => markerExists(project.root, path))
   const candidate = allPackages && anyPackages && allPaths && anyPaths
   const blockers = sortedUnique([
@@ -74,10 +143,13 @@ export const detectAdapter = (adapter, project) => {
     ...(edgeRuntime ? ['source:edge-runtime'] : []),
   ])
   const matched = candidate && blockers.length === 0
+  // 근거 출처를 문자열에 박는다 — `package:vite@lock`처럼. 어떤 증거가 판정을 만들었는지
+  // 보이지 않으면 감지 자체가 새 self-attestation 표면이 된다(I1).
   const evidence = matched
     ? sortedUnique([
-        ...detection.allPackages.map(name => `package:${name}`),
-        ...detection.anyPackages.filter(name => packages.has(name)).map(name => `package:${name}`),
+        ...[...requiredSources].map(([name, source]) => `package:${name}@${source}`),
+        ...[...anyRequiredSources].filter(([, source]) => source !== null)
+          .map(([name, source]) => `package:${name}@${source}`),
         ...detection.allPaths.map(path => `path:${path}`),
         ...(adapter.id === 'next-app-fullstack'
           ? detectedNextRoots.map(path => `path:${path}/layout`)

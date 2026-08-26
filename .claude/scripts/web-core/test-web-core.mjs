@@ -486,4 +486,79 @@ check(hybridCompilationRun.status === 0 && JSON.parse(hybridCompilationRun.stdou
 const rejectedRun = runScript('compile-execution-plan.mjs', ['--profile', 'unknown-profile'])
 check(rejectedRun.status === 1 && JSON.parse(rejectedRun.stderr).error.code === 'UNKNOWN_PROFILE', 'CLI failures must be structured and deterministic')
 
+
+// ── 증거 기반 판별 회귀 (2026-08-26) ─────────────────────────────────────────
+// 배경(실측): React 19 + Vite 8 SPA인 모노레포 패키지가 PROFILE_NOT_DETECTED로 거부됐다.
+// vite가 워크스페이스 루트에 선언돼 있어(호이스팅) 패키지 package.json만 보는 감지기가
+// 못 찾았다. 패키지를 루트로 잡으면 vite가, 저장소 루트를 잡으면 react가 안 보인다.
+{
+  const hoistRoot = mkdtempSync(join(tmpdir(), 'web-harness-evidence-hoist-'))
+  try {
+    writeFileSync(join(hoistRoot, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+    writeFileSync(join(hoistRoot, 'package.json'), `${JSON.stringify({
+      name: 'hoist-monorepo', private: true,
+      dependencies: {vite: '^8.0.12'},   // 루트에 선언 — 패키지에는 없다
+    })}\n`)
+    const appRoot = join(hoistRoot, 'packages/app')
+    mkdirSync(join(appRoot, 'src'), {recursive: true})
+    writeFileSync(join(appRoot, 'package.json'), `${JSON.stringify({
+      name: '@scope/app', private: true, dependencies: {react: '^19.2.0'},
+    })}\n`)
+    writeFileSync(join(appRoot, 'vite.config.ts'), 'export default {}\n')
+    writeFileSync(join(appRoot, 'src/main.tsx'), 'export {}\n')
+
+    const hoisted = resolveProjectProfile({projectRoot: appRoot, requested: 'auto'})
+    check(hoisted.profileId === 'react-vite-spa',
+      `워크스페이스 루트 선언을 근거로 감지해야 한다 (got ${hoisted.profileId})`)
+    check(JSON.stringify(hoisted.resolution ?? hoisted).includes('package:vite@workspace'),
+      'evidence에 workspace 근거가 노출되어야 한다')
+    check(JSON.stringify(hoisted.resolution ?? hoisted).includes('package:react@declared'),
+      'evidence에 declared 근거가 노출되어야 한다')
+
+    // forbidden도 workspace를 본다(리뷰 F3) — 루트로 호이스트해 경계를 우회할 수 없다.
+    writeFileSync(join(hoistRoot, 'package.json'), `${JSON.stringify({
+      name: 'hoist-monorepo', private: true,
+      dependencies: {vite: '^8.0.12', next: '^15.0.0'},
+    })}\n`)
+    let blocked = false
+    try {
+      resolveProjectProfile({projectRoot: appRoot, requested: 'auto'})
+    } catch (error) {
+      blocked = error.code !== undefined
+    }
+    check(blocked, '워크스페이스 루트의 forbidden 패키지도 경계로 작동해야 한다')
+  } finally {
+    rmSync(hoistRoot, {recursive: true, force: true})
+  }
+}
+
+// 기각된 설계 고정 — lockfile 근거는 **채택의 증거가 아니다**(적대 리뷰 2026-08-26).
+// webpack/CRA React 앱이 vitest를 쓰면 vite가 lockfile에 전이로 들어온다. 이때 감지되면
+// 지원 경계 밖 형태가 조용히 매칭되는 것이므로, 거부가 정답이다.
+{
+  const lockOnlyRoot = mkdtempSync(join(tmpdir(), 'web-harness-lock-only-'))
+  try {
+    mkdirSync(join(lockOnlyRoot, 'src'), {recursive: true})
+    writeFileSync(join(lockOnlyRoot, 'package.json'), `${JSON.stringify({
+      name: 'webpack-react-app', private: true,
+      dependencies: {react: '^19.2.0'},
+      devDependencies: {webpack: '^5.0.0', vitest: '^3.0.0'},   // vite 직접 선언 없음
+    })}\n`)
+    writeFileSync(join(lockOnlyRoot, 'pnpm-lock.yaml'),
+      'packages:\n  vite@8.0.12:\n    resolution: {integrity: sha512-x}\n' +
+      '  vitest@3.0.0:\n    resolution: {integrity: sha512-y}\n')
+    writeFileSync(join(lockOnlyRoot, 'src/main.tsx'), 'export {}\n')
+    let rejected = false
+    try {
+      resolveProjectProfile({projectRoot: lockOnlyRoot, requested: 'auto'})
+    } catch (error) {
+      rejected = error.code === 'PROFILE_NOT_DETECTED'
+    }
+    check(rejected,
+      'lockfile 전이 등재만으로는 감지되면 안 된다 — 설치 증거는 채택 증거가 아니다')
+  } finally {
+    rmSync(lockOnlyRoot, {recursive: true, force: true})
+  }
+}
+
 process.stdout.write(stableStringify({ok: true, assertions, profiles: BUILTIN_ADAPTER_IDS}))

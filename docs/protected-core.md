@@ -108,6 +108,8 @@
 
 | 에이전트 model/effort 프런트매터 계층 | 99종의 모델 티어 배정(sonnet 72/opus 21/haiku 4/fable 2)과 opus 티어 `effort: xhigh`는 **repo 실측 실패 데이터가 아니라 모델 포지셔닝 기반 판단**이다 — 실측 지지는 `client-domain-state-builder` runaway 1건뿐이다. `validate-harness`는 `model` 필드의 **존재만** 검사하고 값도 `effort`도 읽지 않으므로 오타·미지원 값·드리프트가 조용히 통과한다. `effort`는 런타임 반영 자체가 미관측이다(**설정 ≠ 효과**) — 스폰이 뜨는 것만 확인했다 | 실측(2026-08-26): 같은 날 사용자 지시로 38종을 fable로 상향했다가 포지셔닝 근거로 반전 — 배정이 증거가 아니라 판단·비용 인센티브에 흔들림을 자기 실증 | 배정 변경은 적대 리뷰 필수 + JUDGMENT에 근거 서열 명기. **미해결 TODO**: (1) `effort` 실적용 관측(스폰 텔레메트리), (2) `model`·`effort` 값 자체의 기계 검증. 오배정의 최종 진실은 파일럿 결과·완결성 게이트 텔레메트리이며, 티어 하향 에이전트(haiku 4종)의 산출 결함은 이 행에 추가 등록한다 |
 
+| 프로필 감지의 요구 패키지 근거(declared ∪ workspace) | 워크스페이스 루트 선언을 요구 패키지 충족 근거로 인정한다. **멤버십 glob을 확인하지 않는다** — `pnpm-workspace.yaml`의 `packages:` 패턴에 해당 프로젝트가 실제로 속하는지 검사 없이 상위 manifest를 채택한다. `.git` 보유 디렉터리에서 탐색을 멈추지만 그 안에서는 최대 6단계를 오른다 | 실측(2026-08-26): 모노레포 패키지가 `vite`를 루트에 선언해 감지 실패 → workspace 근거로 해소. **lockfile 근거는 적대 리뷰에서 기각** — 설치 증거를 채택 증거로 오귀속해 webpack+vitest 앱이 react-vite-spa로 조용히 오탐된다(AMBIGUOUS는 2개+ 매칭에서만 발화). 기각된 설계는 음성 테스트로 고정 | evidence 문자열의 근거 출처 표기(`package:vite@workspace`)가 사후 진단 채널. forbidden도 declared ∪ workspace로 대칭 유지(호이스트 우회 차단). **미해결 TODO**: 워크스페이스 멤버십 glob 확인 |
+
 ## 5. 이 문서의 갱신
 
 판단 질문·예산·프록시 등록부의 변경 자체가 "게이트/validator 변경" 클래스다 — 같은 게이트를
