@@ -312,11 +312,25 @@ test('조합 형태가 각각 대조된다', () => {
   })
 })
 
-test('신호가 있는데 선언하지 않으면 note로 알린다 — 그 검증이 선택되지 않는다', () => {
-  withLockedProject({decision: baseDecision(), manifest: {bin: {tool: './cli.js'}}}, root => {
-    const {notes} = checkTargetShapes({targetShapes: ['web-app']}, root)
-    assert.ok(notes.some(n => n.includes('cli가 없다')))
-  })
+// 2026-08-26 계약 변경: 이 자리는 원래 "신호 미선언은 note"를 고정하고 있었다. 실사용 잠금에서
+// note가 검증 생략을 통과시킨다는 것이 드러나 배포되는 패키지는 FAIL로 올렸다((11) 참조).
+// 이 테스트는 그 위에 남는 우산 불변식이다 — 어느 갈래로도 침묵하지 않는다.
+test('신호가 있는데 선언하지 않으면 어느 경로로도 침묵하지 않는다', () => {
+  // 리뷰 반영(2026-08-26): 원래 bin만 돌려서 제목이 과장이었다. private+진입점이 완전 침묵인
+  // 것을 이 테스트가 잡지 못했다. 두 신호 × private 두 갈래를 전부 돈다.
+  for (const [manifest, needle] of [
+    [{version: '1.0.0', license: 'MIT', bin: {tool: './cli.js'}}, 'cli가 없다'],
+    [{private: true, bin: {tool: './cli.js'}}, 'cli가 없다'],
+    [{version: '1.0.0', license: 'MIT', exports: './index.js'}, 'library가 없다'],
+    [{private: true, exports: './index.js'}, 'library가 없다'],
+  ]) {
+    withLockedProject({decision: baseDecision(), manifest}, root => {
+      const {failures, notes} = checkTargetShapes({targetShapes: ['web-app']}, root)
+      const reported = [...failures.map(f => f.reason), ...notes]
+      assert.ok(reported.some(text => text.includes(needle)),
+        `침묵하면 그 검증이 빠진 사실이 사라진다: ${JSON.stringify(manifest)}`)
+    })
+  }
 })
 
 test('대조 규칙이 없는 형태는 unverifiable로 보고한다', () => {
@@ -406,4 +420,68 @@ test('evidence 커버리지 실패가 정합 검사 FAIL로 올라온다', () =>
     assert.ok(result.failures.some(f => f.kind === 'shapeEvidence'))
     assert.equal(result.evidenceState, 'RUN')
   })
+})
+
+// ── (11) 형태 생략 우회 (실사용 잠금 2026-08-26) ──────────────────────────────
+// golden/vite-serverless-hybrid를 실제로 잠그면서 드러났다. (8)이 고정한 것은 "없는 형태를
+// 주장하면 FAIL"이었는데, 반대 방향 — **있는 형태를 선언하지 않으면 그 검증이 조용히 빠진다** —
+// 는 note로만 보고되고 있었다. 합집합 규칙은 형태를 더하는 것만 안전하게 만들지, 빼는 것을
+// 막지 않는다. 형태가 게이트를 고르는 이상 생략도 대조 대상이다.
+test('회귀 반증: 배포되는 패키지의 bin을 선언하지 않으면 FAIL', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['web-app']}),
+    manifest: {version: '1.0.0', license: 'MIT', bin: {tool: './cli.js'}},
+  }, root => {
+    const {failures} = checkTargetShapes({targetShapes: ['web-app']}, root)
+    assert.equal(failures.length, 1, 'note로 두면 CLI 검증이 조용히 빠진다')
+    assert.match(failures[0].reason, /bin이 있는데 targetShapes에 cli가 없다/)
+  })
+})
+
+test('private 패키지의 bin은 note다 — 내부 스크립트일 수 있다', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['web-app']}),
+    manifest: {private: true, bin: {tool: './cli.js'}},
+  }, root => {
+    const result = checkTargetShapes({targetShapes: ['web-app']}, root)
+    assert.equal(result.failures.length, 0, '배포되지 않으면 소비자에게 노출되지 않는다')
+    assert.ok(result.notes.some(n => /cli가 없다/.test(n)), '침묵시키지도 않는다')
+  })
+})
+
+test('회귀 반증: 배포되는 진입점을 선언하지 않으면 FAIL', () => {
+  withLockedProject({
+    decision: baseDecision({targetShapes: ['web-app']}),
+    manifest: {version: '1.0.0', license: 'MIT', exports: './index.js'},
+  }, root => {
+    const {failures} = checkTargetShapes({targetShapes: ['web-app']}, root)
+    assert.equal(failures.length, 1)
+    assert.match(failures[0].reason, /진입점이 있는데 targetShapes에 library가 없다/)
+  })
+})
+
+test('회귀 반증: 미지 형태를 FAIL로 만들지 않는다 — 프로필 DAG가 독립 요구를 갖는다', () => {
+  // 실사용 잠금(2026-08-26)에서 ["banana"]가 vite.build·vite.browser를 형태 층에서 뺀다는 것을
+  // 발견하고 FAIL로 올렸다가 되돌렸다. 되돌린 이유가 이 테스트다:
+  //   (1) 프로필 실행계획이 vite.build·vite.browser를 독립적으로 요구한다(실측). 형태 층은
+  //       가산이지 유일 경로가 아니므로 형태명을 지어내도 릴리스에서 그 검증이 빠지지 않는다.
+  //   (2) 하네스는 지어낸 이름(banana)과 아직 모르는 정당한 형태(browser-extension)를 구별할
+  //       수 없다. FAIL로 만들면 하네스의 공백이 프로젝트 실패로 보고된다.
+  // 대신 침묵하지 않는다 — unverifiable로 "이 형태는 아무것도 요구하지 않는다"를 낸다.
+  withLockedProject({decision: baseDecision({targetShapes: ['banana']})}, root => {
+    const result = inspectSpecConformance({projectRoot: root})
+    assert.equal(result.failures.filter(f => /카탈로그에 없다/.test(f.reason)).length, 0,
+      '하네스가 모르는 것을 프로젝트 실패로 만들지 않는다')
+    assert.ok(result.unverifiable.some(u => /아무것도 요구하지 않는다/.test(u.reason)),
+      '침묵으로 통과시키지도 않는다')
+  })
+})
+
+test('카탈로그에 있는 형태가 하나라도 있으면 미지 형태 병기는 약화가 아니다', () => {
+  // golden/vite-serverless-hybrid의 실제 선언. serverless-functions는 카탈로그에 없지만
+  // web-app이 vite.build·vite.browser를 가져오므로 요구는 줄지 않는다.
+  {
+    const {required} = resolveRequiredChecks(['web-app', 'serverless-functions'])
+    assert.deepEqual(required, resolveRequiredChecks(['web-app']).required, '형태 추가가 요구를 줄이지 않는다')
+  }
 })

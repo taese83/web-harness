@@ -194,11 +194,23 @@ export const checkTargetShapes = (specLock, projectRoot) => {
     }
   }
   // 반대 방향: 신호가 있는데 선언하지 않으면 그 형태의 검사가 돌지 않는다.
+  // 배포되는 패키지에서 신호를 선언하지 않으면 그 형태의 검증이 조용히 빠진다. 소비자에게
+  // 노출되는 표면이므로 note가 아니라 FAIL이다 — 실사용 잠금(2026-08-26)에서 드러난 우회다.
   if (hasBin && !shapes.includes('cli')) {
-    notes.push('package.json에 bin이 있는데 targetShapes에 cli가 없다 — CLI 검증이 선택되지 않는다')
+    if (isPrivate) {
+      notes.push('package.json에 bin이 있는데 targetShapes에 cli가 없다 — private 패키지라 내부 스크립트일 수 있으나 CLI 검증은 선택되지 않는다')
+    } else {
+      failures.push({kind: 'targetShapes', reason: '배포되는 패키지에 bin이 있는데 targetShapes에 cli가 없다 — 소비자에게 명령으로 노출되는데 CLI 검증이 선택되지 않는다'})
+    }
   }
-  if (!isPrivate && hasEntry && !shapes.includes('library')) {
-    notes.push('배포 가능한 진입점이 있는데 targetShapes에 library가 없다 — 패키지 검증이 선택되지 않는다')
+  if (hasEntry && !shapes.includes('library')) {
+    if (isPrivate) {
+      // 리뷰 반영(2026-08-26): 여기가 완전 침묵이었다. private이어도 워크스페이스 형제 패키지가
+      // 진입점을 소비하면 실소비자가 있다 — 배포되지 않을 뿐 검증이 빠진 사실은 같다.
+      notes.push('진입점이 있는데 targetShapes에 library가 없다 — private 패키지라 배포되지는 않으나 패키지 검증은 선택되지 않는다')
+    } else {
+      failures.push({kind: 'targetShapes', reason: '배포되는 패키지에 진입점이 있는데 targetShapes에 library가 없다 — 패키지 검증이 선택되지 않는다'})
+    }
   }
   for (const shape of shapes) {
     if (!['cli', 'library'].includes(shape)) {

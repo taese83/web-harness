@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "specTier": "unverifiable",
+  "acceptanceSource": "absent",
+  "acceptanceRefs": [],
+  "constitution": {
+    "substrate": {
+      "packageManager": {
+        "value": "pnpm",
+        "source": "measured"
+      },
+      "language": {
+        "value": "typescript",
+        "source": "measured"
+      },
+      "bundler": {
+        "value": "vite",
+        "source": "measured"
+      },
+      "testRunner": {
+        "value": "vitest",
+        "source": "measured"
+      },
+      "lint": {
+        "value": "eslint",
+        "source": "measured"
+      },
+      "e2e": {
+        "value": "playwright",
+        "source": "measured"
+      },
+      "formatter": {
+        "value": "prettier",
+        "source": "default"
+      }
+    }
+  },
+  "targetShapes": [
+    "web-app",
+    "serverless-functions"
+  ],
+  "architecture": {
+    "pattern": "existing",
+    "rationale": "이미 존재하고 certified된 코드의 관례를 실측해 기록한다. 관례는 런타임 표면별 분할(src=브라우저, api=Web 표준 핸들러, dev=Node↔Web 어댑터)이며 표면 안쪽은 평면이다. src/에 하위 디렉토리가 하나도 없어 FSD·레이어드로 부를 구조가 존재하지 않으므로 없는 관례를 지어내지 않는다. 표면 경계는 관습이 아니라 tests/production-boundary.ts가 dist/를 검사해 판정하며 그 receipt가 PASS다."
+  },
+  "communication": [
+    "rest"
+  ],
+  "concurrency": [],
+  "layerMap": {
+    "spa-ui": "src",
+    "api-routes": "api",
+    "runtime-adapter": "dev",
+    "unit-tests": "tests",
+    "e2e-tests": "e2e"
+  },
+  "libraries": {
+    "ui-runtime": {
+      "choice": "react",
+      "alternatives": [
+        "vue",
+        "svelte",
+        "solid"
+      ],
+      "source": "measured"
+    },
+    "dom-renderer": {
+      "choice": "react-dom",
+      "alternatives": [],
+      "source": "measured"
+    },
+    "build-integration": {
+      "choice": "@vitejs/plugin-react",
+      "alternatives": [
+        "@vitejs/plugin-react-swc"
+      ],
+      "source": "measured"
+    },
+    "routing": {
+      "choice": "none",
+      "alternatives": [
+        "react-router",
+        "wouter",
+        "@tanstack/react-router"
+      ],
+      "source": "measured-absent"
+    },
+    "state": {
+      "choice": "none",
+      "alternatives": [
+        "zustand",
+        "jotai",
+        "redux-toolkit"
+      ],
+      "source": "measured-absent"
+    },
+    "data-layer": {
+      "choice": "none",
+      "alternatives": [
+        "@tanstack/react-query",
+        "swr",
+        "axios"
+      ],
+      "source": "measured-absent"
+    },
+    "form": {
+      "choice": "none",
+      "alternatives": [
+        "react-hook-form",
+        "formik"
+      ],
+      "source": "measured-absent"
+    },
+    "schema-validation": {
+      "choice": "none",
+      "alternatives": [
+        "zod",
+        "valibot",
+        "yup"
+      ],
+      "source": "measured-absent"
+    },
+    "request-guard": {
+      "choice": "none",
+      "alternatives": [
+        "hono",
+        "express"
+      ],
+      "source": "measured-absent"
+    },
+    "mock": {
+      "choice": "none",
+      "alternatives": [
+        "msw"
+      ],
+      "source": "measured-absent"
+    },
+    "styling": {
+      "choice": "none",
+      "alternatives": [
+        "tailwindcss",
+        "styled-components",
+        "@emotion/react"
+      ],
+      "source": "measured-absent"
+    },
+    "coverage": {
+      "choice": "@vitest/coverage-v8",
+      "alternatives": [
+        "@vitest/coverage-istanbul"
+      ],
+      "source": "measured"
+    },
+    "accessibility-scan": {
+      "choice": "@axe-core/playwright",
+      "alternatives": [
+        "axe-playwright"
+      ],
+      "source": "measured"
+    }
+  },
+  "moduleBoundaries": [
+    {
+      "scope": "src/**",
+      "rationale": "브라우저 번들 전용. api/**·dev/**를 import 하면 dist/에 서버 마커가 남아 production-boundary가 실패한다"
+    },
+    {
+      "scope": "api/*.ts",
+      "rationale": "라우트 하나당 파일 하나. 라우트끼리 import 하지 않고 _lib/guard만 공유하므로 라우트 추가는 이 범위에서 닫힌다"
+    },
+    {
+      "scope": "api/_lib/**",
+      "rationale": "모든 라우트가 공유하는 가드. 변경이 전 라우트에 파급되므로 라우트 작업과 분리한다. layerMap이 이 carve-out을 표현하지 못한다(SD-003)"
+    },
+    {
+      "scope": "dev/**",
+      "rationale": "소비자가 vite.config.ts 미들웨어와 tests/api.loopback.test.ts 둘이라 시그니처 변경이 양쪽에 동시 파급된다"
+    },
+    {
+      "scope": "tests/**",
+      "rationale": "production-boundary.ts는 vitest.production.config.ts 전용 러너로 돌고 기본 러너에서 제외된다"
+    },
+    {
+      "scope": "e2e/**",
+      "rationale": "Playwright가 라이브 dev 서버를 띄우므로 단위 러너와 자원 모델이 다르다"
+    }
+  ],
+  "nonGoals": [
+    "영속 저장소 — notes는 프로세스 메모리 배열이며 DB·KV·파일 저장은 범위 밖이다",
+    "사용자 인증/세션 — bearer는 환경변수 단일 정적 토큰이고 계정·세션·RBAC은 없다",
+    "SSR/SSG — 프로필 rendering은 csr 단일이며 vercel.json이 전 경로를 index.html로 rewrite 한다",
+    "디자인 시스템·테마 — 스타일시트가 0개이고 시각 디자인은 이 골든의 목적이 아니다",
+    "i18n — index.html의 lang이 ko로 고정이고 UI 문자열은 하드코딩이다",
+    "다중 배포 provider — availableProviders가 vercel 단일이다",
+    "분산 rate limit — guard.ts의 rateBuckets는 프로세스 로컬 Map이라 serverless 다중 인스턴스 간 공유되지 않는다"
+  ],
+  "decisions": [
+    {
+      "id": "SD-001",
+      "question": "이 프로젝트에는 formatter 선언도 설정 파일도 없다. substrate의 formatter 키를 어떻게 적는가 — substrate source에는 measured-absent가 없다",
+      "status": "assumed",
+      "options": [
+        "미지정으로 두어 하네스 기본값 prettier가 source:default로 채워지게 한다",
+        "declared로 적고 rationale에 부재를 쓴다(값이 기본값과 같아 이탈이 아니므로 의미가 모호해진다)",
+        "measured로 prettier를 적는다(선언에 없으므로 정합 검사가 FAIL시킨다 — 채택 불가)"
+      ],
+      "recommended": "미지정으로 두어 하네스 기본값 prettier가 source:default로 채워지게 한다"
+    },
+    {
+      "id": "SD-002",
+      "question": "targetShapes에 serverless-functions를 포함하는가 — shape-checks.json에 항목이 없어 요구 검증을 하나도 고르지 않고 unknownShapes로 보고된다",
+      "status": "assumed",
+      "options": [
+        "web-app + serverless-functions 둘 다 선언해 api/ 표면을 형태 층에 드러내고 공백을 보고받는다",
+        "web-app만 선언해 기계 대조를 깨끗하게 유지하고 api/ 표면은 프로필·실행 계획에만 남긴다"
+      ],
+      "recommended": "web-app + serverless-functions 둘 다 선언해 api/ 표면을 형태 층에 드러내고 공백을 보고받는다"
+    },
+    {
+      "id": "SD-003",
+      "question": "api/_lib/ carve-out을 layerMap에 넣으면 api 레이어와 겹쳐 계약 §7 위반이다. 어디에 기록하는가",
+      "status": "assumed",
+      "options": [
+        "layerMap에는 api만 두고 carve-out은 moduleBoundaries에만 기록한다",
+        "layerMap에 api-routes=api와 api-shared=api/_lib를 둘 다 넣는다(겹침으로 스팩 신뢰가 깨진다)"
+      ],
+      "recommended": "layerMap에는 api만 두고 carve-out은 moduleBoundaries에만 기록한다"
+    }
+  ],
+  "sourceDigest": {
+    "inputs": [
+      {
+        "path": "_workspace/01_plan/feature-plan.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/tech-stack.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/project-profile.json",
+        "present": true,
+        "sha256": "990dcf64305e7803ae5ec4767f344df669cb5ce76ff3dd9a2a28df27e6b4f32b"
+      },
+      {
+        "path": "_workspace/02_design/api-schema.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/component-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/state-contract.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/integration-overlay.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/solution-design.md",
+        "present": true,
+        "sha256": "229cc32150d1aaabede35e34c619d9d2326bb59bcf9d8ac4eb8c076987c2b78a"
+      }
+    ],
+    "combined": "01e1929dcee461d640ff2d0c1667089ad4e50d0bb87f69e7a0c0d27ea3a43082"
+  }
+}
