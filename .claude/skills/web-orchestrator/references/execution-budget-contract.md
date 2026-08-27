@@ -280,7 +280,7 @@ P2 api-schema-designer 129.5k truncated, P3 developer 168.0k incomplete),
 
 | 계층 | 대상 | 강등 |
 |---|---|---|
-| 기계적 | `environment-scaffolder`, `environment-scaffolder`, `environment-scaffolder`, `environment-scaffolder`, `environment-scaffolder` | 저비용 모델 허용 |
+| 기계적 | `environment-scaffolder`(package·tooling·test 설정, 배포 config) | 저비용 모델 허용 |
 | 생성 | builder·designer 계열 | 기본 유지 |
 | 판단 | `plan-reviewer`, `design-reviewer`, `code-reviewer`, `security-reviewer`, verifier 전원, `planning-synthesizer`, `release-manager` | 강등 금지 |
 

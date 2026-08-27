@@ -29,14 +29,14 @@
 | # | 필드가이드 원칙 | 판정 | 코드 근거 |
 |---|---|---|---|
 | 01 | **정지 이유 검사 & 루프** (tool_use → 실행 · end_turn → 신뢰 게이트 · max_tokens → 부분) | ↗ 상속 | Claude Code 런타임이 에이전트 루프를 소유. web-harness는 그 위 플러그인 — 자기 `stop_reason` 처리를 구현하지 않으며, 자기 기여라 주장하지 않는다. |
-| 02 | **서브에이전트 전문화** (각 도구 1~2개; 제너럴리스트 금지) | ✅ 소유 | 99개 역할 특화 에이전트. 모든 verifier는 frontmatter로 `Read, Glob, Grep, Bash`에 제한; builder는 `Write, Edit`만 추가. 역할별 스코프이지 통째 로드가 아니다. |
+| 02 | **서브에이전트 전문화** (각 도구 1~2개; 제너럴리스트 금지) | ✅ 소유 | 46개 역할 특화 에이전트(2026-08-26/27에 101 → 46 트림). 모든 verifier는 frontmatter로 `Read, Glob, Grep, Bash`에 제한; builder는 `Write, Edit`만 추가. 역할별 스코프이지 통째 로드가 아니다. |
 | 03 | **컨텍스트 격리** (각 에이전트는 자기 슬라이스만) | ✅ 소유 | 파일 기반 `_workspace/` 계약이 아티팩트를 전달하고, `artifact-sharding-contract`가 각 에이전트의 읽기 범위를 바이트로 제한 — 관례가 아니라 측정. |
 | 04 | **요약만 핸드오프** (추론 체인 유입 금지) | ✅ 소유 | Agent 도구는 서브에이전트 최종 메시지만 반환(런타임)하고, web-harness는 더 좁힌다 — 핸드오프는 기록된 파일 계약이지 대화 로그가 아니다. 스필오버가 구조적으로 불가능. |
 | 05 | **비판 에이전트는 주장+증거만** (그것을 만든 추론 체인은 제외) | ✅ 소유 | read-only 검증자가 생성자와 분리. `harness-change-reviewer`는 diff와 주장만 받고(생성 세션 아님) I1 "주장 vs 증명"을 채점. CR 구현검증은 `affectedTestCaseIds` 증거만 대조. |
 | 06 | **토큰 게이트 & 압축** (~15만 토큰 초과 시 압축) | ↗ 상속 | 반응형 압축은 런타임의 것. 하지만 web-harness는 가이드가 서술하지 않는 **스폰 전** 상한을 더한다: `validate-spawn-plan.mjs`가 6만 읽기 토큰 초과가 예상되는 스폰을 거부 — 윈도우가 차기 전 예방이지, 찬 뒤 압축이 아니다. |
 | 07 | **CI 비대화형·권한 게이트 없음** (파이프라인이 게이트 없이 실행) | ✅ 소유 | `WEB_HARNESS_ISOLATED_EXECUTION`이 `run-quality-gates.mjs`를 격리·비대화형으로 구동 — 릴리스 receipt를 발급하는 바로 그 증거 경로. |
 | 08 | **지연 허용 작업엔 배치 모드** (~50% 비용, 24시간 내 결과) | ○ 해당없음 | 실제 Anthropic 기능이지만 — web-harness는 서브에이전트를 런타임 통해 디스패치하지 API 배치 소비자가 아니다. 이 최적화 축은 적용되지 않는다; 공백이 아니라 해당없음. |
-| 09 | **계층적 CLAUDE.md** (루트 → 폴더 → 디렉터리 스코프) | ✅ 소유 | 루트 `CLAUDE.md`가 판단 게이트를 담고, 프로젝트별 재진입 마커는 `package-scaffolder`가 소유·작성해 생성 프로젝트가 하네스로 되돌아오게 라우팅. |
+| 09 | **계층적 CLAUDE.md** (루트 → 폴더 → 디렉터리 스코프) | ✅ 소유 | 루트 `CLAUDE.md`가 판단 게이트를 담고, 프로젝트별 재진입 마커는 `environment-scaffolder`가 소유·작성해 생성 프로젝트가 하네스로 되돌아오게 라우팅. |
 | 10 | **컨텍스트 용량 규율** ("1M 윈도우를 있다고 다 채우지 마라") | ✅ 소유 | fit-gate + 시점 로드(references를 앞에서 다 읽지 않고 해당 Phase 직전에만) + 추적되는 always-read 예산이 고정 표면을 설계로 작게 유지. |
 
 ## 가이드가 닿지 못하는 것 — 그것을 넘는 세 속성
@@ -65,7 +65,7 @@
 
 각 판정은 repo의 지목된 파일·메커니즘으로 뒷받침되며 직접 코드 검사로 검증했다 — verifier
 도구 제한은 에이전트 frontmatter, 6만 읽기 토큰 상한은 `validate-spawn-plan.mjs`, 격리 실행은
-`WEB_HARNESS_ISOLATED_EXECUTION`, 계층 설정은 루트 `CLAUDE.md`와 `package-scaffolder` 마커.
+`WEB_HARNESS_ISOLATED_EXECUTION`, 계층 설정은 루트 `CLAUDE.md`와 `environment-scaffolder` 마커.
 출처 가이드: 3차 팟캐스트 요약(finance.biggo.com); 시험 세부는 미확인이라 채점 제외. 뒷받침
 패턴 — 비판자가 생성 추론 체인이 아니라 주장과 증거를 받는 설계 — 는 Anthropic이 공개한
 멀티에이전트 리서치 설계와 일치.

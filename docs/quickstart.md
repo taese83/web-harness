@@ -5,14 +5,17 @@ directory) and **repo mode** (full gates, for contributors and teams that want t
 own validation running locally).
 
 > **Honesty first.** This harness generates real, production-shaped services — and that costs
-> real tokens. The one fully recorded greenfield run (a booking service) consumed
-> **2.8M tokens across 22 agent spawns** (planning 844k · design 1,130k · implementation 831k).
-> The runaway gates *detect and contain* incomplete spawns (3 of 22 in that run, all recovered);
-> whether they *reduce* runaway rates versus running without them has not been measured yet.
-> No profile is currently `certified` — that label is machine-bound to isolated-CI evidence
-> (`validate-certified-evidence`), and no lane has produced that evidence yet. All three
-> built-in profiles are `compatible`: contracts, static fixtures, and DAGs are verified;
-> deployment closed-loops are not.
+> real tokens. Two greenfield runs are recorded: a booking service at **2.8M tokens across 22
+> agent spawns** (planning 844k · design 1,130k · implementation 831k), and a larger pilot at
+> **~12.7M tokens across ~90 spawns** with 10 incomplete spawns (11%). The runaway gates *detect
+> and contain* incomplete spawns (3 of 22 in the booking run, all recovered); whether they
+> *reduce* runaway rates versus running without them is **not established** — an A/B was
+> attempted in August 2026 and ended inconclusive because both arms stalled in planning.
+> One profile is `certified`: `vite-serverless-hybrid`. That label is machine-bound to
+> isolated-CI evidence (`validate-certified-evidence`) and its T1 receipt is committed at
+> `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`. The other two
+> (`react-vite-spa`, `next-app-fullstack`) are `compatible`: contracts, static fixtures, and
+> DAGs are verified; deployment closed-loops are not.
 
 ## Prerequisites
 
@@ -69,7 +72,7 @@ git clone https://github.com/taese83/web-harness
 cd web-harness
 nvm use
 pnpm install --frozen-lockfile
-pnpm run ci        # green = toolchain, mirrors, 58 validators, gate regressions, AI contracts
+pnpm run ci        # green = toolchain, console, 45 test suites, falsification gate, validate-harness
 ```
 
 New apps live **inside the checkout** under `workspace/` (gitignored):

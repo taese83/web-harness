@@ -109,7 +109,7 @@ export const metricHandlers = [
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘거나 리소스가 8개를 넘으면 `_workspace/02_design/api-schema/`로 분할하고 리소스별 절 + 공통 envelope·에러 절 1개 + `INDEX.md`를 만든다. 80줄을 넘는 Zod/MSW 코드 블록은 절 본문이 아니라 `{리소스}.code.ts`로 분리하고 본문에는 경로만 남긴다.
 
-다음 파일은 직접 만들지 않고 `api-schema.md`에 구현 계획으로만 적는다. 실제 생성은 Phase 3의 `developer`와 `developer`가 담당한다.
+다음 파일은 직접 만들지 않고 `api-schema.md`에 구현 계획으로만 적는다. 실제 생성은 Phase 3의 `developer` 스폰이 담당한다.
 
 - `src/mocks/handlers/{name}.ts` — MSW 핸들러 (엔티티별)
 - `src/mocks/handlers/index.ts` — 핸들러 통합 export

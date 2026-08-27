@@ -60,7 +60,7 @@ seminar-booking 파일럿(22 스폰·2.8M 토큰)의 ON-암 지표. → receipt:
 ```bash
 node docs/efficacy/run-synthetic-replay.mjs
 ```
-repo-내 코퍼스(126 .mjs) × 체계적 절단 1,200표본 + 임계 경계 스윕 + 분류 배터리. 결과:
+repo-내 코퍼스(측정 시점 126 .mjs — 현재 트리는 168이므로 재실행 시 분모가 다르다) × 체계적 절단 1,200표본 + 임계 경계 스윕 + 분류 배터리. 결과:
 byte-cut recall 88~98% / line-cut 77~93%(미탐=완결 지점 절단 — 원리적 한계, Layer 1·3 보완),
 **오탐 2/126 실측 발견**(정규식 리터럴 괄호 오인 — §4 등록·후속 TODO), 경계 정밀성 YES
 (60,000→FITS/60,001→REFUSE), 분류 5/5. → receipt: [`receipts/synthetic-replay.md`](receipts/synthetic-replay.md)
@@ -94,7 +94,7 @@ runaway율을 낮춘다"는 지금 증명 불가. 필요한 것 셋:
 | 탐지 — 로직 회귀 | unit test 3종 | ~0 | ✅ 46/46 pass |
 | 탐지 — 현장(ON) | 기록 트레이스 파싱 | ~0 | ✅ n=1 baseline |
 | 탐지 — 합성 precision/recall | pure-core replay | ~0 | ✅ 1,200표본 + 경계 + 분류 |
-| 결과 — ON/OFF × 2형태 | 라이브 A/B | 10~20M | ⛔ 예산 승인 대기 |
+| 결과 — ON/OFF × 2형태 | 라이브 A/B | 10~20M | ⛔ Stage 1 시도 → **결론 불가 종료**(2026-08-26, 양 암 모두 기획 단계에서 정지) |
 
 **탐지 효능 측정 완결(2026-08-18)** — 남은 것은 결과 효능뿐이다. 실행 계획은 [`outcome-efficacy-ab-plan.md`](outcome-efficacy-ab-plan.md)가 정본이다(사전등록: 주 엔드포인트=미완율, 클러스터-로버스트 분석, 3단계 설계). **검정력 정정(2026-08-20)**: 위 표의 10~20M은 run 수준 유의성 검정에 부족하다 — 클러스터 설계 효과 ≈5.5배라 arm당 run 4~5개가 필요하고 형태 1개만 해도 22~28M이다. 계획서는 이를 '유의성'이 아니라 단계적 효과 크기 추정으로 재설계했다.
 

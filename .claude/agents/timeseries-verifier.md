@@ -32,7 +32,7 @@ maxTurns: 25
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/test/config/snapshot을 수정하지 않는다.
-- 실패 owner 후보: `timeseries-architect`(계약), `developer`(transport/buffer), `developer`(fake), `developer`(historical query), `developer`/`developer`(chart UI), `developer`(fixture).
+- 실패 owner 후보: `timeseries-architect`(계약), `developer`(구현 — transport/buffer · fake · historical query · chart UI · fixture 중 실패가 속한 범위를 스폰 범위로).
 
 ## 출력 구조
 

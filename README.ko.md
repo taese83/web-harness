@@ -33,7 +33,9 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
   선언되며, 참조 개수와 바이트 크기 둘 다 ratchet된다: 증가하면 누군가 JUDGMENT 기록과 함께
   baseline을 갱신하기 전까지 빌드가 실패한다.
 - **앱당 토큰 비용**: 추정이 아니라 측정. 참조 파일럿 — intake에서 T0 receipt까지 간 중형 SPA
-  — 은 **~90 스폰에 걸쳐 약 12.7M 토큰**을 썼고, 스폰의 ~11%가 재시도를 필요로 했다. (그 파일럿의
+  — 은 **~90 스폰에 걸쳐 약 12.7M 토큰**을 썼고, **스폰의 11%가 미완으로 끝났다**(90개 중 10개).
+이것은 *미완율*이지 재시도율이 아니다 — 같은 파일럿의 재시도율은 **37%(91개 중 34개)**다.
+토큰 집계는 90개 중 77개만 계측됐으므로 12.7M은 하한이다. (그 파일럿의
   종료 시점 기준이며, telemetry 파일은 후속 작업으로 계속 누적되므로 이것을 라이브 카운터가 아니라
   기록된 자릿수로 취급하라. 정본 기록은 `docs/efficacy/greenfield-pilot-2-protocol.md` 부록 A.)
   이것이 정직한 헤드라인이다 — harness는 증거를 사는 것이고, 증거는 비싸다. 몇 분 만에
@@ -58,7 +60,9 @@ green 실행은 다음을 검증한다:
 - 3개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`·`next-app-fullstack`은
   `compatible`. `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼
   있다 — hybrid 레인의 receipt는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`
-  (격리 `hybrid-t1` 워크플로 run 32614388125, 2026-08-23, `ISOLATED_VERIFIED`). T1은 기계 하한이며
+  (격리 `hybrid-t1` 워크플로, `ISOLATED_VERIFIED`). 커밋된 receipt는 **B-7 재실행**(run 32636870973,
+`declaredRevision` 97936f1)이다 — 1차 receipt(run 32614388125, revision 48b96b3)는 승격 커밋 전
+트리에서 나와 fingerprint가 stale이라 교체됐다([docs/ci-activation-runbook.md](docs/ci-activation-runbook.md) B-7). T1은 기계 하한이며
   T2 서명 attestation은 별도다
 - agent별 파일 소유권
 - read-only verifier 경계
@@ -201,7 +205,7 @@ packages/           Web Harness Console(로컬 승인 UI)
 
 agent와 skill 본문은 여전히 한국어다. 파일 종류별로 번역할 수 없는데, **11개의 백틱 인용 한국어
 토큰이 파일 간에 매칭되는 기능적 식별자**이지 산문이 아니기 때문이다 — `주 소비자`와 `담당 범위`는
-26개 agent 정의에 나타나며 sharded-artifact 읽기 프로토콜과 대조되고; `ASSUMPTION(시안 확정)`은
+12개 agent 정의에 나타나며(`consumer-read-protocol` 앵커 기준으로는 13개) sharded-artifact 읽기 프로토콜과 대조되고; `ASSUMPTION(시안 확정)`은
 design readiness 계약과 대조된다. agent만 번역하면 반쪽 한국어로 남거나, 계약이 따라올 때까지 파일
 간 매칭이 조용히 깨질 것이다.
 

@@ -14,7 +14,7 @@
 
 | 단계 | 형식 | 책임 |
 |---|---|---|
-| API/stream 수신 | ISO 8601 문자열 또는 Unix ms | `developer`, `developer` |
+| API/stream 수신 | ISO 8601 문자열 또는 Unix ms | `developer`(transport·데이터 계층) |
 | Zod parse 직후 | `number` (Unix ms) 로 변환 | schema transform |
 | ring buffer 내부 | `number` (Unix ms) | `developer` |
 | chart wrapper 입력 | `number` (Unix ms) | `developer` |

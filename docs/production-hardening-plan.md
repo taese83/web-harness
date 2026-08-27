@@ -47,7 +47,7 @@
 | 레인 | ①adapter | ②골든 | ③폐곡선 | ④verifier | ⑤security | ⑥위생 | ⑦엔터프라이즈 | ⑧문서/tier |
 |---|---|---|---|---|---|---|---|---|
 | react-vite-spa | ✅ | 부분(5/7 로컬) | ❌(CI 미증명) | 부분 | ✅ | 부분 | ❌ | 부분 |
-| vite-serverless-hybrid | ✅ | ✅(fixture·10/10 T0 host cohort) | ✅ **T1**(격리 CI run 32614388125 `ISOLATED_VERIFIED`, 2026-08-23 — T2 attestation은 별도) | 부분 | ✅(가드·boundary·audit host) | ✅(golden/T1 validator) | ❌ | 부분 |
+| vite-serverless-hybrid | ✅ | ✅(fixture·10/10 T0 host cohort) | ✅ **T1**(격리 CI `ISOLATED_VERIFIED`; 커밋된 receipt는 B-7 재실행 run 32636870973 = revision 97936f1 — T2 attestation은 별도) | 부분 | ✅(가드·boundary·audit host) | ✅(golden/T1 validator) | ❌ | 부분 |
 | next-app-fullstack | ✅ | ❌ | ❌ | 부분 | 부분 | 부분 | 부분 | 부분 |
 | analytics-BI | ✅ | ❌ | ❌ | ❌ | — | 교정됨 | ❌ | 부분 |
 
@@ -79,7 +79,7 @@
 - `react-vite-spa`에 골든 레퍼런스 프로젝트 체크인 → full 릴리스 폐곡선 그린. "certified"의 조작적
   정의이자 전 레인 템플릿.
 - hybrid-serverless 실패는 **올바른 모델링으로만** 수정(G1) — ingestion 오탐 제거 + serverless 프로파일화.
-- hybrid golden은 `golden/vite-serverless-hybrid/`와 전용 독립-root runner를 체크인하고, 승인된 registry audit을 포함한 단일 T0 host cohort 10/10을 통과했다. **2026-08-23 갱신**: 격리 CI(`hybrid-t1`, run 32614388125)가 `ISOLATED_VERIFIED` receipt를 산출해 **T1 충족** — T2(외부 서명 attestation)·provider 증거는 여전히 미충족이며 폐곡선 완료(T2)로 세지 않는다.
+- hybrid golden은 `golden/vite-serverless-hybrid/`와 전용 독립-root runner를 체크인하고, 승인된 registry audit을 포함한 단일 T0 host cohort 10/10을 통과했다. **2026-08-23 갱신**: 격리 CI(`hybrid-t1`)가 `ISOLATED_VERIFIED` receipt를 산출해 **T1 충족** — 커밋된 정본은 B-7 재실행 run 32636870973(revision 97936f1)이고, 1차 run 32614388125는 승격 전 트리 기준이라 교체됐다 — T2(외부 서명 attestation)·provider 증거는 여전히 미충족이며 폐곡선 완료(T2)로 세지 않는다.
 - T1 canonical 제안본(`.claude/ci/hybrid-t1.yml`)은 활성 미러(`.github/workflows/hybrid-t1.yml`)로 배치됐고 self-hosted 격리 runner + 보호 environment에서 실제 run artifact가 green이었다 — 그 전까지는 `ISOLATED_VERIFIED`로 승격하지 않는다는 원칙을 지켰다(1차 run은 upload 단계 실패로 불인정, 2차 run으로 충족).
 - 스크립트 재사용: `run-quality-gates.mjs`·`prepare-quality-attestation.mjs`·`validate-release-gate.mjs`(이미 존재).
 

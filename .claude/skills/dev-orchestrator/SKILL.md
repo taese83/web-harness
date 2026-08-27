@@ -20,8 +20,8 @@ metadata:
 
 진입점이 둘이면 **산출물 형태 분류가 스팩 확정보다 앞에서 산문으로** 일어난다. 그 판단은
 확정된 `targetShapes`와 결속되지 않아, 스팩이 `["library"]`라고 확정해도 웹 경로로 들어온
-프로젝트는 `app-shell-builder`·`route-builder`를 돌았다(2026-08-26 실측 — 라이브러리에 라우터를
-만든다). 형태는 기획·디자인을 거쳐 **실측·추론·질의로 확정된 뒤** 빌더를 골라야 한다.
+프로젝트는 당시의 app-shell-builder·route-builder(2026-08-26 제거)를 돌았다 — 실측에서 라이브러리에
+라우터를 만들었다. 형태는 기획·디자인을 거쳐 **실측·추론·질의로 확정된 뒤** 빌더를 골라야 한다.
 
 `web-orchestrator`는 `dev-orchestrator`를 참조한 적이 없었다(언급 0회) — 위임이 단방향이라
 웹으로 넘어간 뒤에는 돌아올 길도 없었다.
@@ -32,5 +32,7 @@ metadata:
 - 형태별 빌더·검증 선택: `web-orchestrator/references/shape-routing-contract.md`
 - 기존 source 수정 규율: `web-orchestrator/references/minimal-change-contract.md`가 canonical이며
   형태와 무관하게 적용된다
-- 라이브러리 에이전트(`developer`·`developer`·`environment-scaffolder`·`developer`·
-  `lib-api-designer`·`pack-verifier`)는 그대로 있고 소유권 등록도 유지된다 — 호출자만 바뀐다
+- 라이브러리 경로의 에이전트는 `lib-api-designer`(설계) · `developer`(구현) ·
+  `environment-scaffolder`(설정·패키징) · `pack-verifier`(검증)다. 구 lib-scaffolder·
+  lib-core-builder·lib-story-builder·lib-docs-generator는 2026-08-26에 제거됐고 그 소유는
+  `developer`·`environment-scaffolder`가 흡수했다 — 라우팅 정본은 `shape-routing-contract.md` §2다

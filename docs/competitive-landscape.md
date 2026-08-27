@@ -39,7 +39,7 @@ opt-in pattern · ○ not found.
 | Anti-gaming invariants | ○ | ○ | ○ | ○ | ● |
 | Spec → impl traceability | ○ | ○ | ○ | ● core | ● same-TC-ID |
 | Runaway control | ◐ | ◐ iter caps | ● caps | ◐ | ● pre-spawn fit-gate |
-| Lazy / staged dispatch | ○ single loop | ◐ | ● | ◐ | ● ~99 agents |
+| Lazy / staged dispatch | ○ single loop | ◐ | ● | ◐ | ● 46 agents, point-in-time loaded |
 | Web-app specialized | ● | ○ general | ○ general | ○ general | ● |
 
 ## Mainstream architecture, distinctive discipline
@@ -157,8 +157,10 @@ a model's opinion.
 
 1. **Message.** Lead with proof-gated promotion and anti-gaming — never "another app
    builder" or "another SDLC plugin," both crowded.
-2. **Agent count.** Echo BMAD's trim — sell "each unit is thin and independently verifiable,"
-   not "we have ninety-nine."
+2. **Agent count.** The trim happened: 101 → 46 agents on 2026-08-26/27, after measurement showed
+   the structural builders' ownership did not hold (three-way overlap on `src/pages/**`, non-FSD
+   layers unowned). Ownership now comes from the confirmed spec's `layerMap` and isolation from
+   spawn scope. Sell "each unit is thin and independently verifiable," not a headcount.
 
 ## Sources & confidence
 

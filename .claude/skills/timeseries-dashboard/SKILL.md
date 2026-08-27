@@ -50,9 +50,9 @@ metadata:
    - `api-schema-designer`
    - `component-designer`
    - `developer`
-6. `developer`가 공통 timestamp schema를 만든 뒤 `developer`가 transport adapter, buffer, merge, reconnect 계층을 구현한다.
+6. `developer`가 공통 timestamp schema를 먼저 확정하고, 그 다음 스폰에서 transport adapter, buffer, merge, reconnect 계층을 구현한다 — schema가 나머지 전부의 입력이므로 순서가 있다.
 7. `developer`가 완성된 transport interface를 사용해 deterministic realtime fake를 구현한다.
-8. `developer`와 `developer`가 차트 UI와 historical/live 데이터를 연결한다.
+8. `developer`가 차트 UI와 historical/live 데이터를 연결한다(UI 범위와 데이터 범위는 별도 스폰).
 9. `developer`가 stream correctness와 고부하 경계 테스트를 작성한다.
 10. `timeseries-verifier`가 stream 계약·bounded buffer·재연결 복구·Mock 격리·성능 evidence를 단일 판정(`qa-timeseries.md`)으로 통합하고, `api-contract-verifier`, `browser-verifier`, `integration-verifier`가 계약·장시간 실행·성능 budget을 보조 검증한다.
 

@@ -34,7 +34,7 @@ intake (최대 3개씩):
 
 ## Workflow
 
-파일 작성은 **`developer`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트는 `developer`, Next `[locale]` 세그먼트는 `developer` 소유이므로 spec으로 전달만 한다.
+파일 작성은 **`developer`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트와 Next `[locale]` 세그먼트는 각각 라우팅 범위의 `developer` 스폰이 소유하므로 여기서는 spec으로 전달만 한다.
 
 ### 1. i18n Spec — `_workspace/02_design/i18n-spec.md`
 

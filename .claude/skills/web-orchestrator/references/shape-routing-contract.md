@@ -9,7 +9,7 @@
 
 `targetShapes`는 스팩 확정에서 실측·추론·질의를 거쳐 정해진다(`solution-design-contract.md` §4).
 그런데 그 값이 개발 경로에서 읽히지 않으면 확정이 헛돈다 — 스팩이 `["library"]`인데 Phase 3이
-`app-shell-builder`·`route-builder`를 돌려 **라이브러리에 라우터를 만든다**(2026-08-26 실측).
+당시의 app-shell-builder·route-builder(2026-08-26 제거)를 돌려 **라이브러리에 라우터를 만들었다**.
 
 `layerMap`이 소유권을 공급하는 것과 같은 구조다. 형태는 이미 **요구 검증**을 고르고 있고
 (`shape-checks.json`), 여기서 **빌더**도 고른다. 두 절반이 같은 값에서 나와야 어긋나지 않는다.
@@ -23,15 +23,15 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 | targetShape | Phase 2 설계 | Phase 3 빌더 | Phase 4 검증 |
 |---|---|---|---|
 | `web-app` | `design-system-architect` · `layout-designer` · `component-designer` | `WEB_PROFILE` 파이프라인(SKILL.md Phase 3) | `browser-verifier` · `ux-validator` · 조건부 `seo-verifier` |
-| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `developer` → `developer` → `environment-scaffolder` → `environment-scaffolder` | `pack-verifier` |
-| `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 셋 | `pack-verifier` |
+| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `environment-scaffolder`(패키지·빌드·테스트 설정) → `developer`(구현·단위 테스트·문서) | `pack-verifier` |
+| `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 두 단계 | `pack-verifier` |
 | `serverless-functions` | `api-schema-designer` | `/vite-serverless-hybrid` 계약의 `api/` handler | `api-contract-verifier` |
 
-**React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 Phase 3의 `developer`와
-병렬로 `developer`를 돌린다. 스토리는 구현과 같은 공개 API를 소비하므로 순서가 아니라
-병렬이다.
+**React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 스토리 작성은 구현과 **별도 스폰**이되
+순서가 아니라 병렬이다 — 스토리는 구현과 같은 공개 API를 소비하므로 구현 완료를 기다릴 필요가
+없다. 둘 다 `developer`이고 갈리는 것은 스폰 범위다(구현 = `moduleBoundaries`, 스토리 = 스토리 경로).
 
-**공통(형태 무관)**: `environment-scaffolder` · `environment-scaffolder`는 항상 먼저 돈다.
+**공통(형태 무관)**: `environment-scaffolder`가 항상 먼저 돈다.
 `code-reviewer` · `security-reviewer` · `test-executor`는 항상 돈다.
 
 ## 2-1. 보조 skill은 스팩이 고른다 (2026-08-26)
@@ -56,7 +56,7 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 ## 3. 합집합 — 형태가 여럿이면 세트를 합친다
 
 `targetShapes`는 배열이다(라이브러리이면서 CLI인 패키지가 정상 패턴). 세트는 **합집합**이며
-교집합이나 우선순위가 아니다. `["library","cli"]`이면 `lib-*` 셋이 한 번 돌고 Phase 4에
+교집합이나 우선순위가 아니다. `["library","cli"]`이면 §2 `library` 행의 빌더 세트가 한 번 돌고 Phase 4에
 CLI 검증이 더해진다. **형태를 더하는 것이 빌더를 줄이는 경로는 없다** — 요구 검증 합집합과
 같은 규율이다.
 
@@ -103,8 +103,9 @@ license 검사를 담당한다. 이 산출은 `pack-verifier`와 `pack.publish-m
 - **`library`** — `@kakao/ai-chatkit`(2026-08-26 확정, pnpm 모노레포의 배포 패키지). `exports`·
   `main`·`types`가 `dist/`를 가리키고 `build.lib.entry`가 단일 진입점이다. `index.html`이 있지만
   `src/main.ts` 주석이 "라이브러리 빌드에 포함되지 않습니다"로 명시해 web-app을 배제했다 —
-  **같은 신호(`index.html`)가 형태를 가르지 못하고 소비 방식이 갈랐다.** Phase 3은 `lib-*` 셋이
-  맞고, 현재 파이프라인은 여기에 `developer`·`developer`를 돌린다(실측된 오류).
+  **같은 신호(`index.html`)가 형태를 가르지 못하고 소비 방식이 갈랐다.** Phase 3은 §2 `library` 행의
+  세트가 맞다. 이 계약을 만들기 전 파이프라인은 여기에 웹 빌더(당시의 app-shell-builder·
+  route-builder, 2026-08-26 제거)를 돌렸다 — 라이브러리에 라우터를 만든 실측된 오류다.
 
 빌더 이름이 표에 등장하는 것은 하네스가 그 에이전트를 소유하기 때문이며, 프로젝트의 디렉토리
 구조나 라이브러리 선택을 강제하지 않는다 — 그것은 스팩의 `layerMap`·`libraries`가 프로젝트마다

@@ -1,6 +1,6 @@
 # Performance Patterns
 
-`environment-scaffolder`, `developer`, `developer`가 이 패턴을 적용한다.
+`environment-scaffolder`(빌드·번들 설정)와 `developer`(라우트 분할·데이터 계층)가 이 패턴을 적용한다.
 Read this file before configuring Vite build options or writing any lazy-loaded component.
 
 Grafana-like dashboard, realtime metric, high-volume chart 요구가 있으면 `.claude/skills/timeseries-dashboard/references/chart-performance.md`와 `streaming-contract.md`를 추가로 적용한다. 일반 list 가상화 규칙을 chart point 처리에 그대로 적용하지 않는다.

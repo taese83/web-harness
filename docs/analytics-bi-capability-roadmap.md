@@ -4,7 +4,7 @@
 
 harness가 **semantic 분석/대시보드 빌더 부류(analytics-BI)**의 웹 프런트엔드를 생성할 수 있도록
 기존 역량(`analytics-chart-builder` 스킬, `ANALYTICS_BUILDER_MODE`, `react-vite-spa` 프로파일,
-`auth-setup`, `web-observability-builder`)을 **계약·companion 플래그·capability·eval fixture**로 심화한다.
+`auth-setup`, 그리고 관측 계약)을 **계약·companion 플래그·capability·eval fixture**로 심화한다.
 
 이 문서는 특정 서비스가 아니라 **부류 역량**을 대상으로 한다. 어떤 사내 BI 서비스(참조 사례)는
 검증용 **eval fixture 하나**로만 등장하며, 계약 본문에는 그 서비스의 이름·백엔드·고유 수치가 들어가지 않는다.
@@ -42,7 +42,7 @@ harness가 **semantic 분석/대시보드 빌더 부류(analytics-BI)**의 웹 �
 | E. 엔터프라이즈 SSO | P1 | `auth-setup/references/auth-patterns.md` 확장 + companion `EXTERNAL_COOKIE_SSO_MODE` | 외부 게이트웨이 세션 쿠키 + 401→IdP 전체페이지 리다이렉트(프로젝트 auth 서버 미소유) |
 | F. 테넌시·임베드 | P1/P2 | 신설 `tenant-scoping-contract.md`·`embed-share-contract.md` + companion `MULTITENANT_SPA_MODE`·`EMBED_SHARE_MODE` | tenant-header 주입 + query-key 격리 + 크로스테넌트 음성 테스트 / 익명 토큰 스코프 읽기전용 공유 |
 | G. 상태 유연성·브라운필드 | P2 | `tech-advisor.md`·`minimal-change-contract.md` 확장 | greenfield=Zustand 유지, **브라운필드는 감지된 상태 라이브러리 존중** + 대규모 코드베이스 채택 경로 |
-| H. 벤더 SDK 계측 | P2/P3 | `web-observability-builder.md` 확장 | analytics-event 계측(트래킹 SDK) 일반 계약 (에러추적은 기존) |
+| H. 벤더 SDK 계측 | P2/P3 | 관측 계약 확장(에이전트 소유자는 `developer`) | analytics-event 계측(트래킹 SDK) 일반 계약 (에러추적은 기존) |
 
 ## 로드맵
 

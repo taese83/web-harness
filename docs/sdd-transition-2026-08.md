@@ -165,7 +165,7 @@ node .claude/scripts/validate-shape-checks.mjs --project-root <path> --shapes li
 **`measured`는 여전히 자기보고다.** 실존 대조가 붙었지만 도구명이 npm 패키지명과 다르고
 aliases 미등록이면 `unverifiable`로 샌다. 그리고 그 오탐이 이제 릴리스 블록으로 격상됐다.
 
-**`substrate-defaults.json`은 4번째 사본이다.** `tooling-scaffolder`·`validate-toolchain`·
+**`substrate-defaults.json`은 여러 사본 중 하나다.** `environment-scaffolder`(구 tooling-scaffolder)·`validate-toolchain`·
 `ts-conventions`와 값을 공유하지 않는다. `packageManager` 하나만 텍스트 결속 테스트가 있다.
 
 **결과 효능은 여전히 미측정이다.** 같은 날 A/B가 결론 불가로 종료됐고, 이 전환이 실제로 더

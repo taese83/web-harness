@@ -106,7 +106,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 
 1. **토큰**: 프리뷰 `tokens.css`는 design-system의 theme 산출물(`theme.code.ts`, tailwind-shadcn 레인은 `theme.code.css`)에서 파생한다. production theme(`src/app/theme.ts` 또는 `src/app/style.css`)도 같은 산출물에서 나온다 → 색·타이포·밀도가 구조적으로 동일. 프리뷰가 토큰을 임의로 지어내면 이 보장이 깨지므로 금지.
 2. **동작(TC)**: 프리뷰 `behaviors.md`가 통과시킨 `TC-NNN-N`을 Phase 4 `developer`가 **동일 ID로 실제 구현에 대해 자동 검증**한다. 프리뷰에서 "이렇게 동작한다"가 구현에서 test로 재확인된다.
-3. **구조**: 프리뷰의 정보 위계·상태별 내용·컴포넌트 경계는 `layout-spec`/`component-spec`을 그대로 따른다. `developer`/`developer`도 같은 스펙을 구현 입력으로 쓴다.
+3. **구조**: 프리뷰의 정보 위계·상태별 내용·컴포넌트 경계는 `layout-spec`/`component-spec`을 그대로 따른다. Phase 3의 `developer`도 같은 스펙을 구현 입력으로 쓴다.
 
 즉 프리뷰 승인 = 토큰·동작 TC·구조 스펙의 승인이고, 구현이 그 세 소스를 따르면 승인 내용이 자동 재현된다. `behaviors.md`에 각 TC가 어느 스펙(토큰/component-spec 항목/layout 화면)에 대응하는지 명시해 이 연결을 추적 가능하게 남긴다.
 

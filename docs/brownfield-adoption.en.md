@@ -51,7 +51,7 @@ Higher levels never require lower ones — L1 stands without any preview.
 
 **Re-entry marker (optional, valid from L0):** brownfield repos never met the scaffolder, so
 append the `web-harness-managed` marker block to the root `CLAUDE.md` by hand (the exact
-block from package-scaffolder rule 18); future sessions then recognize the repo as
+block from the `environment-scaffolder` re-entry marker rule); future sessions then recognize the repo as
 harness-managed and enter via the minimal re-entry map. With the plugin installed, the
 SessionStart hook injects the same guidance automatically on `_workspace/` detection — the
 marker covers hook-less environments.
@@ -83,7 +83,7 @@ produces:
 **The writing burden never falls on the human**: register the CR (title, request, reason,
 expected behavior) → an agent auto-drafts the mini-plan from the CR and the code → **one
 user confirmation** → the usual loop from impact analysis onward. TC IDs live in the file
-because of three links: Phase 4 test-writer verifies under the same TC IDs, the console's
+because of three links: the Phase 4 test-authoring spawn verifies under the same TC IDs, the console's
 Features tab accumulates traceability (the L3 convergence path), and later changes reference
 them during impact analysis. This is where the harness differs from a ticket system.
 

@@ -23,7 +23,7 @@ artifact로 존재한다(링크는 메인테이너에게 문의).*
 | 27,609 B | 고정 컨텍스트 예산(alwaysRead) | `contract-hygiene-baseline.json` |
 | 43 (그중 26) | 프록시 등록부 행 수 / 미해결·TODO를 스스로 명시한 행 | `docs/protected-core.md` §4 |
 | 1 / 3 | certified 프로필 (나머지 2종은 compatible) | `web-profile-contract.md` |
-| ~12.7M | 참조 파일럿 1개 앱 완주 토큰 (스폰 ~90, 재시도 ~11%, 도달 tier T0) | `execution-telemetry.json` |
+| ~12.7M | 참조 파일럿 1개 앱 완주 토큰 (스폰 ~90, **미완 11%**·재시도 37%, 도달 tier T0. 77/90 스폰만 계측돼 하한이다) | `execution-telemetry.json` |
 
 가장 많은 것을 말하는 숫자는 **3,838 대 59**다. 규칙의 대부분은 산문이고, 기계가
 강제하는 것은 그 일부다. 나머지는 명예 규약으로 돌아간다 — 에이전트가 계약을 읽고

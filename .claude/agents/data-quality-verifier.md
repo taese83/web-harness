@@ -31,10 +31,10 @@ maxTurns: 35
 3b. 외부 콘텐츠를 수집하는데 지시형 패턴 탐지가 미구현이면 `FAIL`(owner: `developer`)이다. 마커 기록이 있으면 목록을 출력에 실어 release 전 사용자 보고 경로를 잇는다 — 마커가 있는데 promotion된 candidate가 있으면 `FAIL`이다.
 4. 결정론적 fixture와 clean-build evidence가 없으면 live smoke 성공만으로 PASS하지 않고 `BLOCKED`다.
 5. 검증 실패 결과가 last-known-good를 덮어쓸 수 있으면 `FAIL`이다.
-6. source/test/config는 수정하지 않고 owner를 `ingestion-contract-designer`, `developer`, `developer`, `environment-scaffolder`, `environment-scaffolder` 중 지정한다.
+6. source/test/config는 수정하지 않고 owner를 계약 결함이면 `ingestion-contract-designer`, 구현 결함이면 `developer`, 설정·workflow 결함이면 `environment-scaffolder`로 지정한다.
 7. `_workspace/04_qa/evidence/ingestion.json`이 같은 `--all` cohort, 현재 source/profile/provider/target/plan binding, strict runtime contract hash, artifact/schema/baseline hash와 semantic metrics를 가진 machine receipt인지 확인한다. receipt가 없거나 stale이면 Markdown evidence로 보완하지 않고 `BLOCKED`다.
 8. scheduled mode에서는 refresh workflow의 exact generated paths가 runtime contract와 일치하고 full-SHA action, `persist-credentials: false`, read-only collection, timeout, concurrency, manual dispatch, direct-push 금지, protected promotion job을 만족하는지 확인한다.
-9. workflow/config 문제 owner는 `environment-scaffolder` 또는 `environment-scaffolder`로 지정하고 일반 deploy agent에 경계를 넘겨 수정시키지 않는다.
+9. workflow/config 문제 owner는 `environment-scaffolder`로 지정하고 다른 에이전트에 경계를 넘겨 수정시키지 않는다.
 10. static target은 required snapshot, serving last-known-good와 존재하는 optional runtime artifact가 `public/` 아래 있고 build receipt의 `runtimeDataDeploymentValidation`이 이 source들과 `dist/|out/` 배포 복사본의 동일 digest를 증명해야 한다. 누락·불일치는 `FAIL`이다.
 11. Vercel static external-ingestion production은 격리 build namespace 종료 후 고정된 prebuilt artifact digest와 실제 deployment subject를 protected broker가 결합하지 못하면 provider preview가 성공해도 `BLOCKED`다.
 

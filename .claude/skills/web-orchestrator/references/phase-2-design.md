@@ -3,7 +3,7 @@
 `web-orchestrator`의 Phase 2 본문이다. **Phase 1 체크포인트를 통과한 시점에 읽는다**(선행 로드 금지).
 SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근거와 한계는 `docs/protected-core.md` §4.
 
-Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽는다. 이 Phase의 설계 산출물은 하류 5~18개 에이전트가 각자 다시 읽으므로 크기 예산과 분할 규칙을 지켜야 한다. designer 계열 agent prompt에 이 계약 경로를 함께 전달한다. **디자인 원칙 허브 `references/design-principles.md`의 경로도 designer 계열 agent prompt에 함께 전달한다** — 각 agent는 허브의 소비자 맵에서 자기 담당 절만 읽고 그 수치·규칙을 기본값으로 쓴다(사용자 브랜드 제약이 이기되 접근성 하한은 협상 불가). **Phase 1·2 각 Wave 완료 시 `node .claude/scripts/validate-artifact-sharding.mjs --project {project-root}`를 실행하고 exit 1이면 해당 designer를 다시 실행해 분할한 뒤 진행한다** — 산문 판단이 아니라 바이트 측정이 판정 근거다.
+Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽는다. 이 Phase의 설계 산출물은 하류 5~18개 소비 스폰이 각자 다시 읽으므로(2026-08-26 통합 **전** 실측 — 재측정 전) 크기 예산과 분할 규칙을 지켜야 한다. designer 계열 agent prompt에 이 계약 경로를 함께 전달한다. **디자인 원칙 허브 `references/design-principles.md`의 경로도 designer 계열 agent prompt에 함께 전달한다** — 각 agent는 허브의 소비자 맵에서 자기 담당 절만 읽고 그 수치·규칙을 기본값으로 쓴다(사용자 브랜드 제약이 이기되 접근성 하한은 협상 불가). **Phase 1·2 각 Wave 완료 시 `node .claude/scripts/validate-artifact-sharding.mjs --project {project-root}`를 실행하고 exit 1이면 해당 designer를 다시 실행해 분할한 뒤 진행한다** — 산문 판단이 아니라 바이트 측정이 판정 근거다.
 
 **Wave 0 — TIMESERIES_MODE 조건부 선행**:
 - `timeseries-architect` → `_workspace/02_design/timeseries-architecture.md`

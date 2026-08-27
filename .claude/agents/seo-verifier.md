@@ -23,7 +23,7 @@ maxTurns: 20
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/test/config를 수정하지 않는다.
-- 실패는 owner 후보(`developer`, `developer`, `developer`, `developer`)와 함께 기록한다.
+- 실패는 owner 후보(`developer` — 라우트 메타·크롤러 산출물 경로를 스폰 범위로)와 함께 기록한다.
 
 ## 출력 구조
 

@@ -35,8 +35,10 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
   count and the byte size are ratcheted: growth fails the build until someone updates the baseline
   with a JUDGMENT record.
 - **Token cost per app**: measured, not estimated. The reference pilot — a mid-size SPA taken from
-  intake to a T0 receipt — spent roughly **12.7M tokens over ~90 spawns**, with ~11% of spawns
-  needing a retry. (Scoped to that pilot's close; its telemetry file keeps accumulating for
+  intake to a T0 receipt — spent roughly **12.7M tokens over ~90 spawns**, with **11% of spawns
+  ending incomplete** (10 of 90). That is the *incompleteness* rate, not the retry rate — the retry
+  rate in the same pilot was **37% (34 of 91)**. Token totals cover 77 of the 90 spawns, so 12.7M is
+  a floor. (Scoped to that pilot's close; its telemetry file keeps accumulating for
   follow-up work, so treat these as the recorded order of magnitude, not a live counter. The
   authoritative record is `docs/efficacy/greenfield-pilot-2-protocol.md` appendix A.) This is the
   honest headline — the harness buys evidence, and evidence is expensive. If you want a prototype
@@ -62,7 +64,10 @@ A green run verifies:
   `next-app-fullstack` are `compatible`. The `certified` label is machine-bound to isolated-CI
   evidence (`validate-certified-evidence`): the hybrid lane's receipt is
   `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`, minted `ISOLATED_VERIFIED` by the
-  isolated `hybrid-t1` workflow (run 32614388125, 2026-08-23). T1 is the machine floor — T2 signed
+  isolated `hybrid-t1` workflow. The committed receipt is the **B-7 re-run** (run 32636870973,
+`declaredRevision` 97936f1), which replaced the first receipt (run 32614388125, revision 48b96b3)
+because that one was minted before the promotion commit and carried a stale fingerprint — see
+[docs/ci-activation-runbook.md](docs/ci-activation-runbook.md) B-7. T1 is the machine floor — T2 signed
   attestation is still separate
 - per-agent file ownership
 - read-only verifier boundaries
@@ -216,7 +221,8 @@ Not done, and not a simple translation job:
 
 Agent and skill bodies are still Korean. They cannot be translated file-type by file-type,
 because **11 backtick-quoted Korean tokens are functional identifiers matched across
-files**, not prose — `주 소비자` and `담당 범위` appear in 26 agent definitions and are
+files**, not prose — `주 소비자` and `담당 범위` appear in 12 agent definitions (13 carry the
+`consumer-read-protocol` anchor) and are
 matched against the sharded-artifact read protocol; `ASSUMPTION(시안 확정)` is matched
 against a design readiness contract. Translating agents alone would either leave them
 half-Korean or silently break cross-file matching until the contracts followed.

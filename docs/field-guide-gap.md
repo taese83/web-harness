@@ -30,7 +30,7 @@ the same discipline the tool applies to itself.
 | # | Field-guide principle | Verdict | Code evidence |
 |---|---|---|---|
 | 01 | **Inspect the stop reason & loop** (tool_use → run · end_turn → confidence gate · max_tokens → partial) | ↗ inherited | The Claude Code runtime owns the agent loop. web-harness is a plugin on top — it does not implement its own `stop_reason` handling, and would not claim it as its contribution. |
-| 02 | **Specialize subagents** (1–2 tools each; no tool-loaded generalist) | ✅ owns | 99 role-specialized agents. Every verifier is frontmatter-restricted to `Read, Glob, Grep, Bash`; builders add only `Write, Edit`. Tools scoped by role, not loaded wholesale. |
+| 02 | **Specialize subagents** (1–2 tools each; no tool-loaded generalist) | ✅ owns | 46 role-specialized agents (trimmed from 101 on 2026-08-26/27). Every verifier is frontmatter-restricted to `Read, Glob, Grep, Bash`; builders add only `Write, Edit`. Tools scoped by role, not loaded wholesale. |
 | 03 | **Isolate context** (each agent sees only its slice) | ✅ owns | File-based `_workspace/` contracts pass artifacts between agents; `artifact-sharding-contract` caps each agent's read scope in bytes — measured, not by convention. |
 | 04 | **Summary-only handoff** (no reasoning-chain spillover to main window) | ✅ owns | The Agent tool returns only a subagent's final message (runtime); web-harness narrows it further — handoff is the written file contract, not the transcript. Spillover is structurally impossible. |
 | 05 | **Critic gets claim + evidence only** (not the reasoning chain that produced it) | ✅ owns | Read-only verifiers separated from generators. `harness-change-reviewer` receives the diff and claims — never the generation session — and grades I1 "claim vs proof." Change-request verification compares against `affectedTestCaseIds` evidence alone. |
@@ -69,7 +69,7 @@ the same discipline the tool applies to itself.
 Each verdict is backed by a named file or mechanism in the repository, verified by direct
 code inspection — verifier tool restrictions from agent frontmatter, the 60k read-token cap
 from `validate-spawn-plan.mjs`, isolated execution from `WEB_HARNESS_ISOLATED_EXECUTION`,
-hierarchical config from the root `CLAUDE.md` and `package-scaffolder` markers. Source guide:
+hierarchical config from the root `CLAUDE.md` and `environment-scaffolder` markers. Source guide:
 a third-party podcast summary (finance.biggo.com); exam-specific claims are unverified and
 excluded from scoring. The corroborating pattern — a critic that receives claims and evidence
 rather than the generating reasoning chain — matches Anthropic's published multi-agent

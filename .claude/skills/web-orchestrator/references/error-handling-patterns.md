@@ -1,6 +1,6 @@
 # Error Handling Patterns
 
-`developer`가 API 오류 계약을 만들고 `developer`, `developer`, `developer`가 같은 typed error를 사용한다.
+`developer`가 API 오류 계약을 만들고, 이후 모든 `developer` 스폰(엔티티 쿼리·기능 뮤테이션·UI 배선)이 같은 typed error를 사용한다.
 
 ## Typed Error 계약
 

@@ -76,11 +76,11 @@ environment matrix의 public build 변수 이름만 다음 machine contract에�
 
 1. 기존 `environment-scaffolder`에게 resolved profile, version lock, execution plan, deployment matrix를 전달한다. package metadata와 scripts만 맡긴다. install은 기존 승인 정책을 따른다.
    - package metadata가 완성되면 같은 deployment/capabilities로 profile resolver를 다시 실행하고 canonical `web-execution-plan.json`을 다시 컴파일한다. 초기 scaffold profile digest를 quality 단계에 재사용하지 않는다.
-2. `environment-scaffolder`에게 config/tooling 기반만 맡긴다. Vite 전용 `environment-scaffolder`를 Next 경로에 호출하지 않는다.
+2. `environment-scaffolder`에게 config/tooling 기반만 맡기되 **Next 계약으로 스폰한다** — Vite 전용 설정(`vite.config.ts`·Vite 플러그인·Vite 전용 test 설정)을 Next 경로에 만들지 않는다.
 3. `developer`에게 App Router source를 맡긴다. Server Component를 기본으로 하고 client boundary, handler/action authorization, private env, cache 계약을 지킨다.
 4. locked capability에 `external-ingestion`이 있으면 `developer`에게 두 ingestion 계약을 전달하고 runtime schema, quality validation, atomic promotion과 last-known-good만 맡긴다. Next route/runtime가 crawler output shape를 추론하게 하지 않는다.
 5. 기존 `environment-scaffolder`, `developer`에게 six matrices와 Next adapter 계약을 함께 전달한다. external ingestion이면 deterministic empty/drift/partial/count-drop/LKG fixture도 전달한다. production source를 테스트에 맞춰 수정하게 하지 않는다.
-6. 배포 산출물이 요구되면 기존 `environment-scaffolder`에게 deployment matrix와 immutable artifact/rollback 계약을 전달한다. `scheduled-static-ingestion`이면 별도로 `environment-scaffolder`, provider가 Vercel이면 `environment-scaffolder`를 호출한다.
+6. 배포 산출물이 요구되면 `environment-scaffolder`에게 deployment matrix와 immutable artifact/rollback 계약을 전달한다. `scheduled-static-ingestion`이면 refresh workflow를, provider가 Vercel이면 root/app `vercel.json`을 같은 에이전트에게 **별도 스폰**으로 맡긴다 — 산출물이 다르므로 스폰을 나눈다.
 
 Writable agent는 Bash를 사용하지 않는다. 각 구현 agent의 완료는 파일/계약 작성 완료만 뜻한다. build, test, deploy가 실행됐거나 통과했다고 말하지 않는다.
 

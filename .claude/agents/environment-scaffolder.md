@@ -10,7 +10,7 @@ maxTurns: 35
 
 **설정 파일만 만든다. 런타임 소스를 쓰지 않는다.**
 
-`package-scaffolder`·`tooling-scaffolder`·`test-scaffolder` 3종을 합쳤다(2026-08-26). 셋이
+package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-08-26 제거). 셋이
 `vitest.config.ts`·`playwright.config.ts`·`src/test/`를 **겹쳐 소유**하고 있어 경계가 성립하지
 않았다 — 구조 지시 빌더 6종에서 본 것과 같은 결함이다.
 

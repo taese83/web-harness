@@ -47,10 +47,13 @@ Hybrid 제안본의 artifact upload는 `actions/upload-artifact@v4.6.2` 커밋 S
 
 ## (c) 활성화 후 검증
 
-- [x] `harness-ci`가 push/PR에서 **green**(mirror·toolchain·validate·ai) — 2026-08-18 이후 매 push.
+- [x] `harness-ci`가 push/PR에서 **green** — 2026-08-18 이후 매 push. **범위 주의**: 이 워크플로는
+      `validate-toolchain`과 `validate-harness` 두 스텝만 돌린다. `pnpm run ci`의 45개 테스트 스위트와
+      반증 게이트는 여기서 돌지 않는다 — 그쪽은 `hybrid-t1`(수동)과 로컬 실행에 의존한다.
 - [x] `hybrid-t1` 수동 run이 **green**이고 업로드된 10개 receipt가 같은 cohort·source fingerprint·24h
-      freshness에 결속되며 7개 필수 QA report가 전부 PASS다 — **run 32614388125(2026-08-23)**,
-      artifact `hybrid-t1-32614388125`, `t1-summary.json` = `ISOLATED_VERIFIED`(revision 48b96b3).
+      freshness에 결속되며 7개 필수 QA report가 전부 PASS다. **커밋된 receipt의 출처는 B-7 재실행
+      run 32636870973**(`declaredRevision` 97936f1)이다 — 1차 run 32614388125(revision 48b96b3)는
+      승격 커밋 전 트리에서 나와 fingerprint가 stale이라 교체됐다(ci-activation-runbook B-7).
       summary의 revision은 workflow 선언값이며, commit과 증거의 외부 신뢰 결속은 T2 attestation에서 완성한다.
 - [x] 루브릭 기준 ③(폐곡선) 충족 → `vite-serverless-hybrid`가 **"certified(T1 재현 증명)"**
       (receipt 커밋 + `validate-certified-evidence` 통과). `react-vite-spa`는 골든 T1 미실행으로 compatible 유지.
@@ -67,5 +70,5 @@ Hybrid 제안본의 artifact upload는 `actions/upload-artifact@v4.6.2` 커밋 S
 
 ## 일반화
 
-이 (a)(b)(c) 흐름은 이 org 전용이 아니다. 향후 `deploy-ci-writer`가 프로젝트별로 이 가이드(요청 체크리스트 +
+이 (a)(b)(c) 흐름은 이 org 전용이 아니다. 향후 `environment-scaffolder`가 프로젝트별로 이 가이드(요청 체크리스트 +
 검증 기준)를 **산출물로** 생성하도록 승격할 수 있다 — org 특수는 config, 계약은 중립.

@@ -29,7 +29,7 @@ maxTurns: 30
 2. 필수 상태 시나리오 테스트가 없으면 `BLOCKED`다.
 3. valid old version과 invalid shape 복구 evidence가 없으면 `FAIL`이다.
 4. 단순 정적 추론으로 PASS하지 않고 가능한 command/test evidence를 함께 확인한다.
-5. source/test/config는 수정하지 않고 owner를 `state-contract-designer`, `developer`, `developer`, `developer` 중 지정한다.
+5. source/test/config는 수정하지 않고 owner를 계약 결함이면 `state-contract-designer`, 구현 결함이면 `developer`(어긋난 상태 모듈을 스폰 범위로)로 지정한다.
 
 ## 출력 계약
 
