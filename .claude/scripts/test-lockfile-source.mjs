@@ -12,7 +12,7 @@
 //   (4) block scalar 산문도 값 전체가 제외된다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {inspectLockfileSource, stripInertMetadata} from './lockfile-source-lib.mjs'
+import {collectLinkSources, inspectLockfileSource, stripInertMetadata} from './lockfile-source-lib.mjs'
 
 const BASE = `lockfileVersion: '9.0'
 
@@ -90,5 +90,74 @@ test('레지스트리 tarball은 통과한다', () => {
   assert.deepEqual(
     inspectLockfileSource(`${BASE}  ok@1.0.0:\n    resolution: {tarball: https://registry.npmjs.org/ok/-/ok-1.0.0.tgz}\n`),
     [],
+  )
+})
+
+// ── 워크스페이스 내부 링크 (2026-08-27) ──────────────────────────────────────
+// pnpm 모노레포는 `workspace:<name>`을 lockfile에 `link:<상대경로>`로 적는다. 프로토콜만 보고
+// 막으면 **모든 모노레포가 install 불가**였다. 기준은 프로토콜이 아니라 대상이 루트 안인가다.
+const WORKSPACE_BASE = `lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    dependencies:
+      root-dep:
+        specifier: workspace:common
+        version: link:packages/common
+
+  apps/web:
+    dependencies:
+      ui:
+        specifier: workspace:ui
+        version: link:../../packages/ui
+
+  packages/ui:
+    dependencies:
+      common:
+        specifier: workspace:common
+        version: link:../common
+`
+
+test('모노레포의 workspace:/link: 내부 참조는 통과한다', () => {
+  assert.deepEqual(inspectLockfileSource(WORKSPACE_BASE), [])
+})
+
+test('importer 문맥으로 링크를 해석한다 — 같은 경로도 importer마다 대상이 다르다', () => {
+  const links = collectLinkSources(WORKSPACE_BASE)
+  const byImporter = new Map(links.map(link => [link.importer, link]))
+  assert.equal(byImporter.get('apps/web')?.target, '../../packages/ui')
+  assert.equal(byImporter.get('packages/ui')?.target, '../common')
+  assert.ok(links.every(link => link.inside), '내부 링크를 밖으로 판정했다')
+})
+
+test('루트 밖으로 나가는 링크는 막힌다 — importer 깊이만큼만 올라갈 수 있다', () => {
+  const escapes = [
+    ['깊은 importer에서 과다 상승', 'apps/web', '../../../../evil'],
+    ['루트 importer에서 상승', '.', '../outside'],
+    ['깊이 초과 한 칸', 'packages/ui', '../../../evil'],
+  ]
+  for (const [label, importer, target] of escapes) {
+    const source = `lockfileVersion: '9.0'\n\nimporters:\n\n  ${importer}:\n    dependencies:\n      x:\n        version: link:${target}\n`
+    const violations = inspectLockfileSource(source)
+    assert.ok(
+      violations.some(message => message.includes('escapes the project root')),
+      `${label}: 루트 탈출을 놓쳤다 — ${violations.join('; ') || '위반 0건'}`,
+    )
+  }
+})
+
+test('상대경로가 아닌 로컬 출처는 문맥이 없으므로 막힌다', () => {
+  for (const spec of ['file:/etc/passwd', 'link:/tmp/evil', 'portal:/opt/x']) {
+    const source = `lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    dependencies:\n      x:\n        version: ${spec}\n`
+    assert.ok(inspectLockfileSource(source).length > 0, `${spec}를 놓쳤다`)
+  }
+})
+
+test('importers 밖의 링크는 루트 기준으로 본다 — 문맥을 모르면 보수적으로', () => {
+  const source = `lockfileVersion: '9.0'\n\nsnapshots:\n\n  x@1.0.0:\n    version: link:../outside\n`
+  assert.ok(
+    inspectLockfileSource(source).some(message => message.includes('escapes the project root')),
+    'importers 밖 링크를 문맥 없이 통과시켰다',
   )
 })

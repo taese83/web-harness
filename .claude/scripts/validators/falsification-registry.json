@@ -105,6 +105,14 @@
       "replace": "    ) { /* disabled */ }",
       "test": ".claude/scripts/test-lockfile-source.mjs",
       "why": "비-레지스트리 출처 판정이 꺼지면 외부 tarball·자격증명 삽입 registry가 그대로 설치된다 — 산문 오탐을 좁히면서 이 게이트를 잃지 않았음을 매 실행 확인한다"
+    },
+    {
+      "id": "lockfile-workspace-containment",
+      "file": ".claude/scripts/lockfile-source-lib.mjs",
+      "find": "      if (segments.length === 0) return false // 루트 위로 올라갔다",
+      "replace": "      if (false) return false // 루트 위로 올라갔다",
+      "test": ".claude/scripts/test-lockfile-source.mjs",
+      "why": "루트 포함 판정이 꺼지면 link:../../../../evil이 통과해 프로젝트 밖 코드가 install script와 함께 들어온다 — 모노레포를 허용하면서 이 경계를 잃지 않았음을 매 실행 확인한다"
     }
   ]
 }

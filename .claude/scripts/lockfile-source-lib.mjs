@@ -44,6 +44,71 @@ export const stripInertMetadata = source => {
 }
 
 // 출처 위반을 이유와 함께 돌려준다. 빈 배열이면 공개 레지스트리 출처만 쓴 것이다.
+
+// ── 워크스페이스 내부 링크 ────────────────────────────────────────────────────
+// pnpm 모노레포는 `workspace:<name>` 명세를 lockfile에 `link:<상대경로>`로 해석해 적는다.
+// 따라서 **모든 pnpm 워크스페이스 lockfile은 필연적으로 `link:`를 포함한다** — 프로토콜만 보고
+// 막으면 모노레포는 install이 불가능하다(2026-08-27 실측: optimize-web 차단).
+//
+// 원래 `link:`/`file:`을 막은 이유는 **프로젝트 밖의 코드**를 끌어와 install script를 실행할 수
+// 있어서다. 그러니 판정 기준은 프로토콜이 아니라 **대상이 루트 안인가**여야 한다.
+//   `link:../common`(packages/ab-ui 기준) → packages/common  → 내부, 허용
+//   `link:../../../../evil`               → 루트 밖          → 차단 유지
+//
+// `workspace:<name>`은 경로가 아니라 이름이며 pnpm이 선언된 워크스페이스 안에서만 해석한다 —
+// 워크스페이스 밖을 가리킬 수 없으므로 허용한다.
+//
+// importer 문맥이 필요하다: 같은 `link:../common`도 어느 importer 아래냐에 따라 대상이 다르다.
+// lockfile의 `importers:` 절을 훑어 현재 importer를 추적하고, 그 디렉터리 기준으로 해석한다.
+// **문맥을 모르면 루트 기준으로 본다** — 가장 보수적이라 `../` 하나로도 밖이 된다.
+// 상대경로는 `../x`·`./x`·`x` 세 형태 전부다 — pnpm은 루트 importer의 워크스페이스 의존을
+// `link:packages/common`처럼 **접두 없이** 적는다(실측). `/`나 `~`로 시작하면 절대경로다.
+const LINK_LIKE = /(?<![A-Za-z0-9])(file|link|portal):([^\s'",}\]]+)/g
+const isRelativePath = target => target !== '' && !target.startsWith('/') && !target.startsWith('~')
+
+const resolvesInsideRoot = (importer, target) => {
+  const base = importer === '.' ? [] : importer.split('/').filter(Boolean)
+  const segments = [...base]
+  for (const part of target.split('/')) {
+    if (part === '' || part === '.') continue
+    if (part === '..') {
+      if (segments.length === 0) return false // 루트 위로 올라갔다
+      segments.pop()
+      continue
+    }
+    segments.push(part)
+  }
+  return true
+}
+
+// lockfile을 훑어 importer 문맥과 함께 링크형 출처를 낸다.
+export const collectLinkSources = source => {
+  const found = []
+  let inImporters = false
+  let importer = '.'
+  for (const line of source.split('\n')) {
+    if (/^[A-Za-z_$][\w$]*\s*:/.test(line)) {
+      inImporters = /^importers\s*:/.test(line)
+      importer = '.'
+    } else if (inImporters) {
+      const key = /^ {2}(\S[^:]*)\s*:\s*$/.exec(line)
+      if (key) importer = key[1].trim().replace(/^['"]|['"]$/g, '')
+    }
+    for (const match of line.matchAll(LINK_LIKE)) {
+      const target = match[2]
+      found.push({
+        protocol: match[1],
+        target,
+        importer,
+        relative: isRelativePath(target),
+        // 절대경로는 문맥과 무관하게 밖이다.
+        inside: isRelativePath(target) && resolvesInsideRoot(importer, target),
+      })
+    }
+  }
+  return found
+}
+
 // **호출 계약**: 이 함수는 출처만 판정한다. YAML anchor/alias/merge(`<<`) 같은 모호성 거부는
 // 호출자가 **원문에** 선행해서 걸어야 한다(`rejectAmbiguousYaml`). strip은 alias를 해석하지
 // 않으므로, 선행 거부 없이 이 함수만 쓰면 alias로 출처를 숨길 수 있다.
@@ -68,10 +133,26 @@ export const inspectLockfileSource = rawSource => {
   }
   // 식별자 일부(`excludeLinksFromLockfile:`)나 metadata 값(`engines: {npm: '>=6'}`)이 아니라
   // 실제 dependency source protocol일 때만 잡는다: 앞은 비식별자 경계, 뒤는 값이 붙어 있어야 한다
-  if (/(?:git\+|(?<![A-Za-z0-9])(?:github|gitlab|bitbucket|npm|file|link|portal|patch|workspace):(?=['"]?[^\s'"])|\.pnpmfile)/i.test(source)) {
+  // `workspace:`는 이름이지 경로다 — pnpm이 선언된 워크스페이스 안에서만 해석하므로 제외한다.
+  // `file:`/`link:`/`portal:`의 **상대경로 형태**는 아래에서 루트 포함 여부로 따로 판정한다.
+  if (/(?:git\+|(?<![A-Za-z0-9])(?:github|gitlab|bitbucket|npm):(?=['"]?[^\s'"])|\.pnpmfile)/i.test(source)) {
     violations.push('local or VCS dependency source protocol')
   }
-  if (/(?:^|[\s,[{])['"]?(?!https:\/\/)[A-Za-z][A-Za-z0-9+.-]*:[^\s'"}]/im.test(source)) {
+  for (const link of collectLinkSources(source)) {
+    if (link.inside) continue
+    violations.push(
+      link.relative
+        ? `dependency source escapes the project root: ${link.protocol}:${link.target} (importer ${link.importer})`
+        : `absolute local dependency source: ${link.protocol}:${link.target}`,
+    )
+  }
+  // `patch:`는 경로 판정 대상이 아니다 — pnpm patch 파일은 프로젝트 안의 `patches/`를 가리키며
+  // 형태가 다르다. 별도 판단으로 남기고 여기서는 다루지 않는다.
+  if (/(?<![A-Za-z0-9])patch:(?=['"]?[^\s'"])/i.test(source)) violations.push('patch protocol dependency source')
+  // 비-https scheme을 출처 자리에서 잡는다. **전용 규칙이 따로 보는 둘은 제외한다** —
+  // `workspace:`(이름 기반, 워크스페이스 안에서만 해석)와 상대경로 `file:`/`link:`/`portal:`
+  // (위에서 루트 포함 여부로 판정). 제외하지 않으면 모노레포가 여기서 다시 막힌다.
+  if (/(?:^|[\s,[{])['"]?(?!https:\/\/)(?!workspace:)(?!(?:file|link|portal):)[A-Za-z][A-Za-z0-9+.-]*:[^\s'"}]/im.test(source)) {
     violations.push('non-https scheme in a dependency source position')
   }
   if (/(?:^|[\s,[{])['"]?\/\/[^\s]/m.test(source)) violations.push('protocol-relative dependency source')
