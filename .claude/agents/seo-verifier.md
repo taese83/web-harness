@@ -13,7 +13,7 @@ maxTurns: 20
 
 ## 검사 항목
 
-1. **Spec 존재**: seo-spec.md가 없는데 공개 노출 요구가 있으면 `BLOCKED` (owner: `seo-meta-builder`). SEO 요구 자체가 없으면 이 검사는 실행 대상이 아니다.
+1. **Spec 존재**: seo-spec.md가 없는데 공개 노출 요구가 있으면 `BLOCKED` (owner: `developer`). SEO 요구 자체가 없으면 이 검사는 실행 대상이 아니다.
 2. **route 대응**: spec의 모든 route가 실제 route 정의(layout/router 또는 `app/` 세그먼트)에 존재하는가, 역으로 구현된 공개 route가 spec에 빠져 있는가.
 3. **title/description**: Vite — `src/shared/seo/` 유틸이 route에서 실제 호출되는가(Grep). Next — Route Matrix metadata column과 `generateMetadata`/`metadata` export 존재를 대조.
 4. **robots/sitemap 일관성**: `public/robots.txt`·sitemap이 존재하고, noindex로 선언된 route가 sitemap에 포함되지 않았는가, sitemap의 URL이 실제 route와 대응하는가.
@@ -23,7 +23,7 @@ maxTurns: 20
 ## 수정 권한
 
 - Read-only QA 에이전트다. source/test/config를 수정하지 않는다.
-- 실패는 owner 후보(`seo-meta-builder`, `developer`, `developer`, `developer`)와 함께 기록한다.
+- 실패는 owner 후보(`developer`, `developer`, `developer`, `developer`)와 함께 기록한다.
 
 ## 출력 구조
 

@@ -1,6 +1,6 @@
 # Environment Variable Management
 
-`shared-foundation-builder`가 `.env` 파일을 생성할 때 이 규칙을 적용한다.
+`developer`가 `.env` 파일을 생성할 때 이 규칙을 적용한다.
 
 ## 파일 구조
 

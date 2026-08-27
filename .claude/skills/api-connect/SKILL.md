@@ -43,7 +43,7 @@ OpenAPI가 입력되거나 발견되면 `references/openapi-adoption-contract.md
 8. `_workspace/02_design/timeseries-architecture.md`가 있으면 `.claude/skills/timeseries-dashboard/references/mock-and-migration.md`를 읽고 snapshot과 realtime transport를 함께 전환한다
 9. `runtime-data-contract.json`이 있거나 static snapshot에서 live API로 전환하면 `external-data-ingestion.md`를 읽는다. `ingestion-contract-designer`가 current mode, authoritative source, source precedence, freshness/fallback, build/deployment 계약을 먼저 갱신한다
 10. 응답은 `unknown`에서 runtime schema로 parse하고 query cancellation `AbortSignal`을 실제 client까지 전달한다
-11. 변경 후 `test-writer`가 success/empty/malformed/timeout/auth/schema drift fixture를 보강하고 사용자 승인 후 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다
+11. 변경 후 `developer`가 success/empty/malformed/timeout/auth/schema drift fixture를 보강하고 사용자 승인 후 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다
 12. `api-contract-verifier`와 조건부 `data-quality-verifier`는 read-only로 판정한다. source 변경 뒤 기존 receipt/manifest를 재사용하지 않고 release 전 `/web-verify`를 실행한다
 13. 기존 generator가 없을 때만 orval/openapi-typescript/manual-types 중 하나를 제안한다. generator 도입과 dependency 변경은 사용자 확인 후 진행한다.
 

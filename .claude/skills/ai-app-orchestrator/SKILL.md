@@ -70,11 +70,11 @@ AI 기능을 일반 웹 UI가 아니라 운영 가능한 server-side agent syste
 
 `/ai-runtime-setup`을 실행해 다음 owner를 순서대로 사용한다.
 
-1. `agent-runtime-scaffolder`
-2. `model-gateway-builder`
-3. `tool-adapter-builder`
-4. `human-approval-builder` — write·high-impact tool이 있을 때
-5. `ai-observability-builder`
+1. `environment-scaffolder`
+2. `environment-scaffolder`
+3. `environment-scaffolder`
+4. `developer` — write·high-impact tool이 있을 때
+5. `environment-scaffolder`
 
 브라우저에 provider secret을 두거나 모델이 인증·tenant를 결정하게 만들지 않는다.
 

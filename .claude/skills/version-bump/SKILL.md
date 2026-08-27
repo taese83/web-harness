@@ -29,15 +29,15 @@ Read `references/semver-rules.md` and `.claude/skills/web-orchestrator/reference
 ## Workflow
 
 1. 프로젝트 유형 판단:
-   - `changeset-setup` 산출물 또는 `.changeset/` 폴더 존재 → 라이브러리
+   - `environment-scaffolder` 산출물 또는 `.changeset/` 폴더 존재 → 라이브러리
    - private 웹 앱이면 문서화된 release/version 정책 존재 여부 확인
    - versioned public contract와 app release policy가 모두 없으면 bump 없이 종료
 
 2. `version-analyzer` 에이전트 실행
 
-3. `changelog-writer` 에이전트 실행
+3. `environment-scaffolder` 에이전트 실행
 
-4. 결과 출력 후 `version-file-updater` 에이전트로 로컬 파일만 적용:
+4. 결과 출력 후 `environment-scaffolder` 에이전트로 로컬 파일만 적용:
    - 웹 앱: `package.json` 버전 업데이트 → `CHANGELOG.md` 업데이트 → commit/tag 명령 제안
    - 라이브러리: `.changeset/` 파일만 생성하고, package graph를 변경하는 changeset apply는 현재 app profile 범위 밖으로 `BLOCKED` 처리해 별도 typed library-release runner 또는 사용자 실행으로 넘긴다
 

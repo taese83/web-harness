@@ -65,7 +65,7 @@
 - 이미 tRPC 등 end-to-end typed 솔루션 사용 중
 
 **Phase 3 삽입 지점**:
-- shared-foundation-builder 이후, developer 이전
+- developer 이후, developer 이전
 - Schema 정의가 있어야 entity/feature builder가 참조 가능
 
 ### MOCK_SERVICE_MODE — `mock-service-setup`
@@ -80,10 +80,10 @@
 
 **제외**:
 - 이미 real API에 붙어서 개발 중이고 오프라인/CI 재현 요구 없음
-- `mock-api-builder` agent가 이미 기본 MSW 셋업을 완료했으면 이 skill은 handler 확장 전용
+- `developer` agent가 이미 기본 MSW 셋업을 완료했으면 이 skill은 handler 확장 전용
 
 **Phase 3 삽입 지점**:
-- `mock-api-builder` agent와 겹치지 않게: agent가 초기 셋업, skill이 확장·organize
+- `developer` agent와 겹치지 않게: agent가 초기 셋업, skill이 확장·organize
 - API contract가 있으면 그 뒤에 실행 (schema 참조)
 
 ### OAUTH_SERVER_MODE — `auth-setup` (references/oauth-server-flow)
@@ -112,9 +112,9 @@
 - 단일 언어 고정 서비스 (하드코딩 문자열이 정당)
 - 안내문 한두 개만 바꾸는 단순 언어 토글
 
-**Phase 3 삽입 지점**: `shared-foundation-builder` 이후(빈 `src/shared/lang/` 생성 뒤), `developer` 이전(UI가 catalog key를 사용해야 함). `/i18n-setup`을 실행하고 파일 작성은 `i18n-builder`가 담당한다.
+**Phase 3 삽입 지점**: `developer` 이후(빈 `src/shared/lang/` 생성 뒤), `developer` 이전(UI가 catalog key를 사용해야 함). `/i18n-setup`을 실행하고 파일 작성은 `developer`가 담당한다.
 
-### OBSERVABILITY_MODE — `web-observability-builder`
+### OBSERVABILITY_MODE — `developer`
 
 **신호**:
 - intake에서 에러 추적·모니터링·RUM·알림 요구
@@ -122,10 +122,10 @@
 - 기존 `@sentry/*` 계열 dependency 또는 `src/shared/observability/`
 
 **제외**:
-- AI runtime trace만 필요한 경우 (`ai-observability-builder` 소유)
+- AI runtime trace만 필요한 경우 (`environment-scaffolder` 소유)
 - 학습용·일회성 데모
 
-**Phase 3 삽입 지점**: 데이터 계층 완료 후, `deploy-ci-writer` 이전 (source map 업로드 계약을 workflow 작성 전에 전달해야 함). skill이 아니라 `web-observability-builder` agent를 직접 실행한다.
+**Phase 3 삽입 지점**: 데이터 계층 완료 후, `environment-scaffolder` 이전 (source map 업로드 계약을 workflow 작성 전에 전달해야 함). skill이 아니라 `developer` agent를 직접 실행한다.
 
 ## 감지 결과 표시
 

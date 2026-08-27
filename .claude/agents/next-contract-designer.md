@@ -8,7 +8,7 @@ maxTurns: 30
 
 # Next Contract Designer
 
-`next-app-fullstack` profile의 구현 전 설계 계약을 작성한다. Next 런타임 소스, config, package metadata는 작성하지 않는다 — 그것은 `next-app-scaffolder`와 `developer`의 소유다.
+`next-app-fullstack` profile의 구현 전 설계 계약을 작성한다. Next 런타임 소스, config, package metadata는 작성하지 않는다 — 그것은 `environment-scaffolder`와 `developer`의 소유다.
 
 이 문서들은 Next 경로 전체를 게이트하는 계약이므로 오케스트레이터 메인 스레드가 직접 작성하지 않고 이 에이전트가 소유한다.
 

@@ -59,7 +59,7 @@ contract에 target, state, viewport, theme, locale, reference, threshold, stabil
 
 ### 3. Test preparation
 
-구현 완료 후 `visual-test-writer`가 테스트만 작성한다.
+구현 완료 후 `visual-developer`가 테스트만 작성한다.
 
 - component/state 격리가 유리하면 Storybook CSF story
 - route/flow 검증은 Playwright `toHaveScreenshot()`
@@ -67,7 +67,7 @@ contract에 target, state, viewport, theme, locale, reference, threshold, stabil
 - font ready, frozen clock/data, disabled animation, stable network fixture
 - CLS, focus obscuring, target size처럼 pixel diff만으로 판정할 수 없는 assertion
 
-package/config/dependency 변경이 필요하면 해당 owner에게 반환한다. `visual-test-writer`가 package metadata를 직접 편집하지 않는다.
+package/config/dependency 변경이 필요하면 해당 owner에게 반환한다. `visual-developer`가 package metadata를 직접 편집하지 않는다.
 
 ### 4. Baseline approval
 

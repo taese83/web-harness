@@ -115,7 +115,7 @@
 무의존 프리뷰는 실제 구현과 별개 코드다. 둘이 어긋나지 않으려면 **같은 스펙을 시각화**하도록 묶는다:
 
 - **단일 토큰**: 프리뷰 `tokens.css`와 구현 `src/app/theme.ts`가 모두 design-system `theme.code.ts`에서 파생 → 색·타이포·밀도 동일.
-- **단일 동작 계약**: 프리뷰 `behaviors.md`가 통과시킨 `TC-NNN-N`을 Phase 4 `test-writer`가 동일 ID로 구현에 대해 자동 검증. 프리뷰에서 승인한 동작이 구현 test로 재확인된다.
+- **단일 동작 계약**: 프리뷰 `behaviors.md`가 통과시킨 `TC-NNN-N`을 Phase 4 `developer`가 동일 ID로 구현에 대해 자동 검증. 프리뷰에서 승인한 동작이 구현 test로 재확인된다.
 - **단일 구조**: 프리뷰·구현 모두 `layout-spec`/`component-spec`/정보 위계를 입력으로 쓴다.
 
 따라서 **프리뷰 승인 = 토큰·동작 TC·구조 스펙의 승인**이고, 구현(`developer`/`developer`)이 그 세 소스를 따르면 승인 내용이 재현된다. release 시 `code-reviewer`는 구현이 승인된 토큰·component-spec을 벗어났는지, Phase 4는 승인된 TC가 실제로 통과하는지 확인한다 — 이 고리가 "프리뷰에서 본 디자인이 개발로 이어짐"의 보장이다. 프리뷰가 스펙에 없는 시각·동작을 지어내면 이 보장이 깨지므로 금지(스펙이 유일한 소스).

@@ -1520,7 +1520,7 @@ jobs:
           retention-days: 30
 ```
 
-`{{APP_DIR}}`는 단일 앱이면 `.`, 모노레포면 `apps/{appName}`으로 치환한다. `{{ACTIONS_*_FULL_SHA}}`는 workflow 생성 시 각 action의 검증된 release commit SHA로 치환한다. mutable major tag를 그대로 남기지 않는다. 실제 배포 workflow는 `deploy-ci-writer`가 별도로 생성하며 environment approval, OIDC, 최소 권한을 적용한다.
+`{{APP_DIR}}`는 단일 앱이면 `.`, 모노레포면 `apps/{appName}`으로 치환한다. `{{ACTIONS_*_FULL_SHA}}`는 workflow 생성 시 각 action의 검증된 release commit SHA로 치환한다. mutable major tag를 그대로 남기지 않는다. 실제 배포 workflow는 `environment-scaffolder`가 별도로 생성하며 environment approval, OIDC, 최소 권한을 적용한다.
 
 ---
 

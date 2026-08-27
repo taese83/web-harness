@@ -164,7 +164,7 @@ detected면 project profile의 capabilities를 현재화하고, **Phase 4에서 
 
 ## Phase 4 — QA (생략 불가)
 
-**4-1. 테스트 보강** (`test-writer` 실행):
+**4-1. 테스트 보강** (`developer` 실행):
 - Phase 1 인수 조건 각 항목을 unit/integration/browser test로 커버한다
 - 엣지 케이스(empty/error/boundary)를 fixture로 포함한다
 

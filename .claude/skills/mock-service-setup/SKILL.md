@@ -26,7 +26,7 @@ Read `references/msw-contract.md` and `references/fixture-strategy.md` before wr
 - 오프라인/CI 재현 가능한 통합 테스트가 필요할 때
 - Storybook에서 데이터 있는 컴포넌트를 렌더할 때
 
-**사용하지 않아도 되는 경우**: 로컬에서 이미 실제 API/DB에 붙어서 개발 중이고 offline·CI reproducibility가 요구되지 않는 프로젝트. `mock-api-builder` agent를 통해 orchestrator가 이미 기본 MSW를 깔았다면 이 skill은 handler 확장·재조직에만 사용한다.
+**사용하지 않아도 되는 경우**: 로컬에서 이미 실제 API/DB에 붙어서 개발 중이고 offline·CI reproducibility가 요구되지 않는 프로젝트. `developer` agent를 통해 orchestrator가 이미 기본 MSW를 깔았다면 이 skill은 handler 확장·재조직에만 사용한다.
 
 ## Start
 

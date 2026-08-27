@@ -13,7 +13,7 @@ metadata:
 
 # i18n Setup
 
-다국어·locale 대응을 계약 기반으로 도입한다. `shared-foundation-builder`가 만들어 두는 빈 `src/shared/lang/`이 이 스킬의 구현 지점이며, visual QA의 locale matrix가 이 스킬의 소비자다.
+다국어·locale 대응을 계약 기반으로 도입한다. `developer`가 만들어 두는 빈 `src/shared/lang/`이 이 스킬의 구현 지점이며, visual QA의 locale matrix가 이 스킬의 소비자다.
 
 ## 언제 사용
 
@@ -34,7 +34,7 @@ intake (최대 3개씩):
 
 ## Workflow
 
-파일 작성은 **`i18n-builder`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트는 `developer`, Next `[locale]` 세그먼트는 `developer` 소유이므로 spec으로 전달만 한다.
+파일 작성은 **`developer`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트는 `developer`, Next `[locale]` 세그먼트는 `developer` 소유이므로 spec으로 전달만 한다.
 
 ### 1. i18n Spec — `_workspace/02_design/i18n-spec.md`
 

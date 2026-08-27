@@ -39,7 +39,7 @@ metadata:
 `.claude/skills/web-orchestrator/references/external-data-ingestion.md`를 외부 데이터 수집의 단일 판별 기준으로 사용한다. 크롤링·스크래핑·RSS/CSV/import·scheduled third-party sync·build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`로 기록한다. 별도 수집·정규화·승격 단계 없이 일반 내부 API를 조회만 하면 제외한다.
 시각 QA, Figma/reference image, `DESIGN_PROTOTYPE_MODE`, 브랜드 핵심 화면, theme/locale matrix가 있으면 `.claude/skills/visual-design-verify/SKILL.md`를 읽고 `VISUAL_QA_MODE: true`로 기록한다. 기존 `visual-qa-contract.json`도 활성 조건이다.
 
-`.claude/skills/web-orchestrator/references/companion-skill-detection.md`를 보조 skill 감지의 단일 기준으로 사용한다. 감지 시점의 project state와 intake 결과를 종합해 다음 flag를 기록한다: `HYBRID_SERVERLESS_MODE`(Vite SPA + serverless functions), `SERVER_DB_MODE`(Postgres/SQLite/MySQL 사용), `API_CONTRACT_MODE`(client/server 분리 개발 또는 계약 강제 요구), `MOCK_SERVICE_MODE`(MSW handler 필요), `OAUTH_SERVER_MODE`(서버 OAuth code exchange 흐름), `I18N_MODE`(다국어 catalog·locale routing — `/i18n-setup` + `i18n-builder`), `OBSERVABILITY_MODE`(에러 추적·RUM — `web-observability-builder`). 각 flag는 해당 companion skill/agent의 execution을 Phase 3에 삽입한다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
+`.claude/skills/web-orchestrator/references/companion-skill-detection.md`를 보조 skill 감지의 단일 기준으로 사용한다. 감지 시점의 project state와 intake 결과를 종합해 다음 flag를 기록한다: `HYBRID_SERVERLESS_MODE`(Vite SPA + serverless functions), `SERVER_DB_MODE`(Postgres/SQLite/MySQL 사용), `API_CONTRACT_MODE`(client/server 분리 개발 또는 계약 강제 요구), `MOCK_SERVICE_MODE`(MSW handler 필요), `OAUTH_SERVER_MODE`(서버 OAuth code exchange 흐름), `I18N_MODE`(다국어 catalog·locale routing — `/i18n-setup` + `developer`), `OBSERVABILITY_MODE`(에러 추적·RUM — `developer`). 각 flag는 해당 companion skill/agent의 execution을 Phase 3에 삽입한다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
 
 ## Start
 
@@ -194,16 +194,16 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
 1. 패키지/도구/앱 기반 생성 (순서 있음):
    - `environment-scaffolder` — package/workspace metadata
    - `environment-scaffolder` — TS/Vite/ESLint/Vitest 설정
-   - `shared-foundation-builder` — shared/api/config/store/env/MSW 기반
-   - `EXTERNAL_DATA_INGESTION_MODE`이면 `external-data-pipeline-builder` — adapter/normalize/schema/quality/atomic promotion 구현
+   - `developer` — shared/api/config/store/env/MSW 기반
+   - `EXTERNAL_DATA_INGESTION_MODE`이면 `developer` — adapter/normalize/schema/quality/atomic promotion 구현
    - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `/vite-serverless-hybrid`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
    - `SERVER_DB_MODE`이면 `/server-db-migration`을 실행해 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
    - `developer` — main/App/router/theme/home shell
-   - `AI_MODE`이면 `/ai-runtime-setup`을 실행해 `agent-runtime-scaffolder` → `model-gateway-builder` → `tool-adapter-builder` → 조건부 `human-approval-builder` → `ai-observability-builder` 순서로 공통 runtime을 만든다
+   - `AI_MODE`이면 `/ai-runtime-setup`을 실행해 `environment-scaffolder` → `environment-scaffolder` → `environment-scaffolder` → 조건부 `developer` → `environment-scaffolder` 순서로 공통 runtime을 만든다
 2. 지원 companion과 API 계약 확정:
    - `API_CONTRACT_MODE`이면 `/api-contract-typegen`을 실행해 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
    - `OAUTH_SERVER_MODE`이면 `/auth-setup`을 실행해 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
-   - `MOCK_SERVICE_MODE`이고 `mock-api-builder`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
+   - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
 3. **구현 — `developer`를 모듈 경계마다 스폰한다.** 스팩의 `moduleBoundaries` 각각이 한 스폰의
    범위(`change-scope.md`의 `ALLOWED_PATHS`)가 되고, 소유권은 `layerMap`이 공급한다. **무엇을
    어느 순서로 만들지 지시하지 않는다** — 스팩이 정한 `architecture`·`layerMap`·`libraries` 안에서
@@ -212,10 +212,10 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
      `data-ui-binder`)은 2026-08-26에 제거됐다. 실측으로 그 소유권이 이미 성립하지 않았고
      (`src/pages/**` 3중 겹침, 비-FSD 어휘 무소유) 공급한 것은 격리가 아니라 FSD 경로 처방이었다.
 4. **여전히 별도인 것** — 소유 영역이나 실행 조건이 구별되는 것만 남긴다:
-   - `mock-api-builder`. `TIMESERIES_MODE`에서는 realtime interface 완료 후로 미룬다 <!-- marker:timeseries-realtime-build-order -->
+   - `developer`. `TIMESERIES_MODE`에서는 realtime interface 완료 후로 미룬다 <!-- marker:timeseries-realtime-build-order -->
    - `developer`(`TIMESERIES_MODE`) · `developer`(`ANALYTICS_BUILDER_MODE`)
    - `developer`(폼) · `developer`(`LOCAL_DOMAIN_STATE_MODE`)
-   - `seo-meta-builder` — 공개 노출 요구일 때
+   - `developer` — 공개 노출 요구일 때
 5. browser Mock 사용 시 `public/mockServiceWorker.js`를 확인한다. dependency install이 승인·완료됐는데 파일이 없으면 실제 외부 격리가 적용된 setup job에서만 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-package-operation.mjs --project {project-root} --operation msw-init`을 실행한다. 사용자 승인만 있는 host 실행은 `BLOCKED`다
 각 1·3·4단계 뒤 `development-gates-contract.md`의 Gate A·B·C를 실행하고 `FAIL|BLOCKED`면 다음 단계로 진행하지 않는다. 중간 receipt는 이후 source 변경 시 stale이며 Phase 4 release evidence를 대신하지 않는다. 이와 별개로 각 builder 스폰 직후 `execution-budget-contract.md`의 **스폰 완결성 게이트**(완결성 마커·`verify-spawn-completion.mjs`·runaway 임계)를 통과시킨다 — 실패면 re-spawn 또는 `NEEDS_DECISION`, 불완전 산출물 위에 다음 단계를 쌓지 않는다(품질 Gate A/B/C와 보완).
 7. `AI_MODE`이면 활성화된 service branch를 공통 runtime 위에 실행한다:
@@ -224,10 +224,10 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
    - 고객센터 → `/customer-support-ai`
    - `ANALYTICS_AGENT_MODE` → `/ai-analytics-dashboard`
    - `BROWSER_AGENT_MODE` → `/browser-agent`
-8. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `deploy-ci-writer`를 실행한다.
-9. `scheduled-static-ingestion`이면 `ingestion-ci-writer`가 refresh workflow만 작성한다. workflow는 machine validator가 요구하는 kind/generated-path/direct-push metadata, read-only crawl job, 격리된 promotion 권한, concurrency를 포함해야 한다.
-10. provider가 Vercel이면 `vercel-config-writer`가 root/app `vercel.json`, build/output/root 계약만 작성한다. ingestion workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
-11. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `visual-test-writer`를 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.
+8. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `environment-scaffolder`를 실행한다.
+9. `scheduled-static-ingestion`이면 `environment-scaffolder`가 refresh workflow만 작성한다. workflow는 machine validator가 요구하는 kind/generated-path/direct-push metadata, read-only crawl job, 격리된 promotion 권한, concurrency를 포함해야 한다.
+10. provider가 Vercel이면 `environment-scaffolder`가 root/app `vercel.json`, build/output/root 계약만 작성한다. ingestion workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
+11. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `visual-developer`를 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.
 
 ### Phase 4 — 검증 (테스트 준비 → 결정론적 실행 → 판정)
 
@@ -235,7 +235,7 @@ package/config/source 구현이 끝난 현재 project를 대상으로 같은 dep
 
 external ingestion greenfield에서는 web app과 crawler/workflow/runtime contract를 같은 canonical project root에 둔다. parent wrapper의 crawler와 nested web app을 서로 다른 release root로 만든 뒤 한쪽 evidence만으로 완료하지 않는다. 기존 split-root project는 자동 재배치하지 않고 migration decision이 확정될 때까지 `BLOCKED`다.
 
-먼저 `environment-scaffolder`와 `test-writer`를 순서대로 실행한다. 로컬 진단에서는 오케스트레이터가 사용자 확인 후 실제 process exit를 기록하는 quality runner를 실행한다:
+먼저 `environment-scaffolder`와 `developer`를 순서대로 실행한다. 로컬 진단에서는 오케스트레이터가 사용자 확인 후 실제 process exit를 기록하는 quality runner를 실행한다:
 
 ```bash
 node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution

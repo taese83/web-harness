@@ -17,30 +17,13 @@ import {
 const owns = (patterns, path) => patterns.some(pattern => pattern.test(path))
 
 // ── (1) 비-FSD 어휘가 열린다 ─────────────────────────────────────────────────
-test('layerMap이 소유권 경로를 공급한다 — FSD가 아닌 어휘도 열린다', () => {
-  // 실측된 브라운필드 형태: entities/features/widgets가 아니라 stores/components/hooks
-  // 실측된 브라운필드 형태: FSD 어휘가 아니다
-  const lock = {layerMap: {unitTests: 'src/tests', i18n: 'src/locale'}}
-  const patterns = resolveSpecOwnership(lock, 'test-writer')
-  assert.ok(patterns, '역할 매핑이 있으면 스팩에서 패턴이 나와야 한다')
-  assert.ok(owns(patterns, 'src/tests/widgetAction.spec.ts'), '기존 등록부라면 막혔을 경로')
-  assert.equal(owns(patterns, 'src/__tests__/a.spec.ts'), false, 'FSD 기본 경로는 이 스팩의 소유가 아니다')
-})
-
-test('모노레포 접두를 포섭한다', () => {
-  const lock = {layerMap: {unitTests: 'src/tests/'}}
-  const patterns = resolveSpecOwnership(lock, 'test-writer')
-  assert.ok(owns(patterns, 'packages/widget-builder/src/tests/a.spec.ts'))
-})
-
-test('선언되지 않은 레이어는 열리지 않는다', () => {
-  // 2026-08-26: 여러 역할이 매핑된 에이전트가 전부 제거돼(조건부 구현 빌더 6종) 남은 셋은
-  // 모두 단일 역할이다. 검증 내용은 같다 — 선언된 레이어만 갖는다.
-  const lock = {layerMap: {unitTests: 'src/tests'}}
-  const patterns = resolveSpecOwnership(lock, 'test-writer')
-  assert.ok(owns(patterns, 'src/tests/a.spec.ts'))
-  assert.equal(owns(patterns, 'src/locale/ko.json'), false, 'i18n 레이어는 test-writer 소유가 아니다')
-  assert.equal(resolveSpecOwnership(lock, 'i18n-builder'), null, '선언되지 않은 레이어는 null이다')
+test('역할 매핑은 비었고 그 사실이 의도된 것이다', () => {
+  // 2026-08-26: 이 표는 빌더마다 layerMap의 한 조각을 떼어 주기 위해 있었다. 구현 에이전트가
+  // developer 하나로 합쳐지면서 조각낼 대상이 없어졌다 — resolveDeveloperOwnership이 layerMap
+  // 전체를 주고 스폰 범위가 그 위에서 좁힌다.
+  assert.deepEqual(AGENT_LAYER_ROLES, {}, '역할 매핑이 되살아나면 다시 경로 처방이 된다')
+  assert.equal(resolveSpecOwnership({layerMap: {a: 'src'}}, 'anyone'), null,
+    '역할 매핑이 없으면 null이고 호출자가 등록부로 폴백한다(fail-closed)')
 })
 
 // ── (2) fail-closed ──────────────────────────────────────────────────────────
@@ -68,21 +51,6 @@ test('DEFAULT_LAYER_MAP은 참조 표현이며 폴백이 아니다', () => {
     'DEFAULT_LAYER_MAP이 폴백으로 쓰이면 안 된다')
 })
 
-test('회귀 반증: 매핑된 레이어가 layerMap에 없으면 null이지 전체 허용이 아니다', () => {
-  // domainModel이 선언되지 않았다 — 다른 레이어만 있다
-  const lock = {layerMap: {routes: 'src/pages/'}}
-  assert.equal(resolveSpecOwnership(lock, 'entity-query-builder'), null,
-    '전체 허용이 되면 소유권이 무너진다')
-})
-
-test('부재 표기는 경로 주장이 아니다', () => {
-  assert.equal(isLayerPathDeclared('(absent — 네트워크 계층 없음)'), false)
-  assert.equal(isLayerPathDeclared('   '), false)
-  assert.equal(isLayerPathDeclared('src/stores'), true)
-  const lock = {layerMap: {domainModel: '(absent)'}}
-  assert.equal(resolveSpecOwnership(lock, 'entity-query-builder'), null)
-})
-
 // ── (3) 겹침 차단 — 권한 확대 벡터 ───────────────────────────────────────────
 test('회귀 반증: 레이어가 겹치면 스팩을 신뢰하지 않는다', () => {
   // src/가 src/pages/를 삼킨다 — 이걸 허용하면 넓은 레이어 하나로 남의 영역을 가져갈 수 있다
@@ -98,17 +66,6 @@ test('겹침 탐지가 동일 경로와 접두 포함을 모두 잡는다', () =
 })
 
 // ── (4) 역할 매핑 밖 에이전트 ────────────────────────────────────────────────
-test('역할 매핑이 없는 에이전트는 스팩의 영향을 받지 않는다', () => {
-  const lock = {layerMap: {domainModel: 'src/stores'}}
-  assert.equal(resolveSpecOwnership(lock, 'deploy-ci-writer'), null)
-  assert.ok(AGENT_OWNERSHIP['deploy-ci-writer'], '기존 등록부는 그대로 유지된다')
-})
-
-test('역할 매핑에 등록된 에이전트는 전부 기존 등록부에도 있다', () => {
-  for (const agent of Object.keys(AGENT_LAYER_ROLES)) {
-    assert.ok(AGENT_OWNERSHIP[agent], `${agent}가 기존 등록부에 없으면 폴백이 불가능하다`)
-  }
-})
 
 // ── 단일 개발 에이전트 (2026-08-26) ──────────────────────────────────────────
 // 구조 지시 빌더 6종의 소유권이 실측으로 성립하지 않았다 — src/pages/**를 셋이 겹쳐 갖고,

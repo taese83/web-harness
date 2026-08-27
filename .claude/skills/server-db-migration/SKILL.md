@@ -45,7 +45,7 @@ intake:
 
 ## Workflow
 
-파일 작성은 **`db-migration-writer`** subagent에게 위임한다 — migration SQL(`migrations/**`), 러너(`scripts/migrate.ts`), 이력 문서(`docs/DB.md`)가 소유 경로다. subagent 실행이 불가능한 환경에서만 현재 에이전트가 직접 작성한다. **migration 실행은 어떤 경우에도 사용자 승인 후 사용자 또는 CI가 수행한다.**
+파일 작성은 **`environment-scaffolder`** subagent에게 위임한다 — migration SQL(`migrations/**`), 러너(`scripts/migrate.ts`), 이력 문서(`docs/DB.md`)가 소유 경로다. subagent 실행이 불가능한 환경에서만 현재 에이전트가 직접 작성한다. **migration 실행은 어떤 경우에도 사용자 승인 후 사용자 또는 CI가 수행한다.**
 
 ### 1. 디렉토리 구조
 

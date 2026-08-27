@@ -9,7 +9,7 @@ Verifier는 source, test, config, package, lockfile, snapshot, generated app을 
 - update snapshot, auto-fix, formatter write 명령을 실행하지 않는다.
 - finding마다 likely owner와 재현 가능한 file/error context를 포함한다.
 - `existing-change`이면 code review가 change brief의 허용 경로·보존 contract·non-goal과 실제 diff를 대조한다.
-- test infrastructure는 `environment-scaffolder`, product test는 `test-writer`, 구현 수정은 해당 owner에게만 라우팅한다.
+- test infrastructure는 `environment-scaffolder`, product test는 `developer`, 구현 수정은 해당 owner에게만 라우팅한다.
 - verifier가 PASS를 만들기 위해 실패 대상을 고치지 않는다.
 
 ## Deterministic command evidence

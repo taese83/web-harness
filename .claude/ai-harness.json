@@ -50,11 +50,7 @@
       "ai-eval-designer"
     ],
     "implementation": [
-      "agent-runtime-scaffolder",
-      "model-gateway-builder",
-      "tool-adapter-builder",
-      "human-approval-builder",
-      "ai-observability-builder"
+      "developer"
     ],
     "verification": [
       "ai-eval-runner",

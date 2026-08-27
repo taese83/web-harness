@@ -28,11 +28,11 @@ metadata:
 
 ## 순서
 
-1. `agent-runtime-scaffolder` — session, workflow, cancel, resume
-2. `model-gateway-builder` — provider adapter, model routing, server secret
-3. `tool-adapter-builder` — typed tool registry와 downstream auth
-4. `human-approval-builder` — side effect가 있으면 approval state와 UI
-5. `ai-observability-builder` — trace, token·cost·latency, redaction
+1. `environment-scaffolder` — session, workflow, cancel, resume
+2. `environment-scaffolder` — provider adapter, model routing, server secret
+3. `environment-scaffolder` — typed tool registry와 downstream auth
+4. `developer` — side effect가 있으면 approval state와 UI
+5. `environment-scaffolder` — trace, token·cost·latency, redaction
 6. 서비스 builder — 공통 runtime 위에만 구현
 
 ## 금지

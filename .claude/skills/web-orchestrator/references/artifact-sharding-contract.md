@@ -88,7 +88,7 @@ _workspace/02_design/design-system/
 | 절 | 파일 | 담당 범위 | 주 소비자 |
 |---|---|---|---|
 | 공통 envelope | `common-envelope.md` | 응답 형식, 에러 코드, 페이지네이션 | 전체 |
-| 주문 | `orders.md` | `/api/orders/*` 5개 엔드포인트 | developer, mock-api-builder |
+| 주문 | `orders.md` | `/api/orders/*` 5개 엔드포인트 | developer, developer |
 
 ## 전역 결정
 절 하나에 귀속되지 않는 결정만 3~5줄로 기재한다.

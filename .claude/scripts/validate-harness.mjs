@@ -292,7 +292,6 @@ for (const agentName of [
   'state-contract-designer',
   'state-invariant-verifier',
   'ingestion-contract-designer',
-  'external-data-pipeline-builder',
   'data-quality-verifier',
 ]) {
   if (!webOrchestrationSource.includes(agentName)) fail(`web orchestrators do not invoke ${agentName}`)
@@ -350,7 +349,8 @@ const streamingSource = read('.claude/skills/timeseries-dashboard/references/str
   // entity-query-builder는 2026-08-26에 제거됐다(구조 지시 빌더 6종). 종전에는 그것과
   // shared-foundation-builder의 timestamp 스키마 소유 선언이 **일치하는지**를 봤다.
   // 이제 소유자가 하나이므로 그 선언의 존속만 확인한다.
-const foundationBuilderSource = read('.claude/agents/shared-foundation-builder.md')
+  // shared-foundation-builder는 2026-08-26에 제거됐다(5범주 밖 26종). 그 본문을 읽던
+  // timestamp 소유 선언 검사도 함께 사라진다 — streaming contract 검사는 그대로다.
 for (const requiredStreamingPattern of [
   '.pipe(unixMsSchema)',
   'protocolVersion: 1',
@@ -360,20 +360,12 @@ for (const requiredStreamingPattern of [
   if (!streamingSource.includes(requiredStreamingPattern)) fail(`streaming contract is missing ${requiredStreamingPattern}`)
 }
 if (streamingSource.includes("src/shared/realtime/timestamp.ts")) fail('timestamp schema is still owned by the later realtime phase')
-  if (!foundationBuilderSource.includes('src/shared/lib/timeseries/timestamp.ts')) {
-    fail('shared timestamp schema ownership is inconsistent')
-  }
 // realtime Mock 빌드 순서 규칙의 존속은 validate-marker-integrity가 앵커
 // (timeseries-realtime-build-order)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
 pass('timeseries timestamp and Worker contracts checked')
 
-const deploySource = read('.claude/agents/deploy-ci-writer.md')
-for (const requiredDeployPattern of ['config:best-practices', 'build-run-id', 'github-token:', 'run-id:', 'WebFetch']) {
-  if (!deploySource.includes(requiredDeployPattern)) fail(`deploy contract is missing ${requiredDeployPattern}`)
-}
-if (deploySource.includes('config:base') || deploySource.includes('targetCommitish --jq')) {
-  fail('deploy contract contains a stale Renovate preset or unsafe SHA resolution')
-}
+  // deploy-ci-writer는 2026-08-26에 제거됐다. 워크플로 하드닝 검사는 그 본문을 읽던
+  // 검사였으므로 함께 사라진다 — 계약 산문은 skills 쪽에 남는다.
 pass('deploy promotion and dependency-update contracts checked')
 
 validateSettings({claudeDirectory, repositoryRoot, read, pass, fail})

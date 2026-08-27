@@ -2,7 +2,7 @@
 
 ## Separation of duties
 
-- `visual-test-writer`: test/story만 작성
+- `visual-developer`: test/story만 작성
 - `visual-regression-verifier`: 실행 결과와 diff만 읽음
 - candidate generation job: 승인 전 격리 branch/worktree에서 snapshot candidate 생성
 - 사용자 또는 지정 reviewer: before/after/diff 승인

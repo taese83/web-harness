@@ -61,7 +61,7 @@ serverless 함수는 응답 반환 후 실행을 보장하지 않는다:
 ## 7. 서버 관측 (server-side observability)
 
 - 모든 mutation과 5xx에 **structured log 한 줄**: `{ requestId, route, userId?, action, outcome, durationMs }` — 문자열 조립 로그 금지. PII·credential·body 원문을 로그에 넣지 않는다.
-- `requestId`(수신 헤더 또는 생성)를 응답 헤더와 로그에 공통으로 넣어 클라이언트 에러 보고와 서버 로그를 연결한다 — 프론트 관측(`web-observability-builder`)의 에러 이벤트가 이 ID를 첨부한다.
+- `requestId`(수신 헤더 또는 생성)를 응답 헤더와 로그에 공통으로 넣어 클라이언트 에러 보고와 서버 로그를 연결한다 — 프론트 관측(`developer`)의 에러 이벤트가 이 ID를 첨부한다.
 - 외부 API 호출은 대상·소요시간·결과를 로그에 남긴다 (비용·장애 진단의 최소 단위).
 - 에러 추적 도구가 활성(`OBSERVABILITY_MODE`)이면 서버 예외도 같은 프로젝트로 보고하되 위 redaction 규칙을 통과한 뒤 보낸다.
 

@@ -71,7 +71,6 @@ export const validateContentPolicy = ({repositoryRoot, activeSource, read, pass,
       // 도메인 특화 빌더 3종(enterprise-search·browser-agent·customer-support)이 2026-08-26에
       // 제거되면서 이 의무가 developer로 이관됐다 — 도메인이 아니라 **구현의 성질**에 걸리는
       // 계약이다. 외부 콘텐츠가 실행에 들어오면 누가 구현하든 마커 의무를 진다.
-      '.claude/agents/external-data-pipeline-builder.md',
       '.claude/agents/developer.md',
     ]
     const markerConsumers = [

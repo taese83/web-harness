@@ -94,7 +94,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 
 - test case를 새로 발명하지 않는다 — feature-plan의 `TC-NNN-N`을 그대로 참조한다. feature-plan에 test case가 없으면 `BLOCKED`로 보고한다(무엇을 동작시킬지 알 수 없음).
 - 프로토타입에서 통과 불가한 test case는 사유를 명시한다. 정당한 예외는 성능(max fixture 렌더)·실제 영속성·실 네트워크처럼 본질적으로 구현/QA 단계 몫인 것에 한한다. 동작 로직(전이·CRUD·DnD·불변식)은 예외가 아니다 — 반드시 통과시킨다.
-- 이 매트릭스가 사용자의 프리뷰 승인 체크리스트이자 Phase 4 `test-writer`가 자동화할 목록이다(같은 TC ID 공유).
+- 이 매트릭스가 사용자의 프리뷰 승인 체크리스트이자 Phase 4 `developer`가 자동화할 목록이다(같은 TC ID 공유).
 
 ## 시각 충실도 목표 (A 방식 — 무의존 최대 근접)
 
@@ -105,7 +105,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 프리뷰가 승인돼도 실제 구현이 달라지면 무의미하다. 프리뷰와 production 구현이 **같은 스펙을 시각화**하도록 세 소스를 공유해 연속성을 보장한다:
 
 1. **토큰**: 프리뷰 `tokens.css`는 design-system의 theme 산출물(`theme.code.ts`, tailwind-shadcn 레인은 `theme.code.css`)에서 파생한다. production theme(`src/app/theme.ts` 또는 `src/app/style.css`)도 같은 산출물에서 나온다 → 색·타이포·밀도가 구조적으로 동일. 프리뷰가 토큰을 임의로 지어내면 이 보장이 깨지므로 금지.
-2. **동작(TC)**: 프리뷰 `behaviors.md`가 통과시킨 `TC-NNN-N`을 Phase 4 `test-writer`가 **동일 ID로 실제 구현에 대해 자동 검증**한다. 프리뷰에서 "이렇게 동작한다"가 구현에서 test로 재확인된다.
+2. **동작(TC)**: 프리뷰 `behaviors.md`가 통과시킨 `TC-NNN-N`을 Phase 4 `developer`가 **동일 ID로 실제 구현에 대해 자동 검증**한다. 프리뷰에서 "이렇게 동작한다"가 구현에서 test로 재확인된다.
 3. **구조**: 프리뷰의 정보 위계·상태별 내용·컴포넌트 경계는 `layout-spec`/`component-spec`을 그대로 따른다. `developer`/`developer`도 같은 스펙을 구현 입력으로 쓴다.
 
 즉 프리뷰 승인 = 토큰·동작 TC·구조 스펙의 승인이고, 구현이 그 세 소스를 따르면 승인 내용이 자동 재현된다. `behaviors.md`에 각 TC가 어느 스펙(토큰/component-spec 항목/layout 화면)에 대응하는지 명시해 이 연결을 추적 가능하게 남긴다.

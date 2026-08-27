@@ -3,14 +3,6 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "id": "field-ownership",
-      "file": ".claude/scripts/enforce-agent-ownership.mjs",
-      "find": "        if (unowned.length > 0) {",
-      "replace": "        if (false) {",
-      "test": ".claude/scripts/test-field-ownership.mjs",
-      "why": "필드 검사를 끄면 version-file-updater가 scripts를 약화시킬 수 있다"
-    },
-    {
       "id": "environment-binding-always",
       "file": ".claude/scripts/receipt-validation-lib.mjs",
       "find": "    binding?.buildEnvironmentSha256 !== environmentSha256 ||",

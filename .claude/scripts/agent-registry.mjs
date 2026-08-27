@@ -45,53 +45,6 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 스팩 원장(append-only)
 ]
 
-// ── 필드 소유권 (2026-08-26) ─────────────────────────────────────────────────
-// 경로 소유권으로는 "이 필드를 소유한다"를 표현할 수 없다. `package.json`은 5종이 소유하는데
-// 각자 다른 필드를 다룬다 — `version-file-updater`가 `scripts`를 고쳐도 경로 훅은 통과시킨다.
-// 그러면 오늘 분리한 "검사를 정의하는 권한"(scripts가 무엇이 검사로 도는지를 정한다)이 샌다.
-//
-// 겹침은 금지가 아니라 **명시**다. 둘이 같은 필드를 정당하게 다룰 수 있고, 그때는 둘 다
-// 적는다 — 아무도 눈치채지 못한 겹침과 합의된 공유는 다르다.
-//
-// 여기 없는 파일은 경로 소유권만 적용된다(기존 동작).
-export const FIELD_OWNERSHIP = {
-  'package.json': {
-    'environment-scaffolder': ['name', 'private', 'type', 'scripts', 'dependencies', 'devDependencies',
-      'packageManager', 'engines', 'workspaces', 'pnpm', 'resolutions', 'overrides', 'lint-staged'],
-    'package-publish-metadata': ['license', 'files', 'publishConfig', 'repository', 'author',
-      'contributors', 'keywords', 'description', 'homepage', 'bugs'],
-    'lib-scaffolder': ['name', 'type', 'exports', 'main', 'module', 'types', 'typesVersions',
-      'sideEffects', 'files', 'scripts', 'devDependencies', 'peerDependencies'],
-    'lib-story-builder': ['devDependencies', 'scripts'],
-    'version-file-updater': ['version'],
-  },
-}
-
-// 변경된 최상위 키를 낸다. 파싱할 수 없으면 null — 호출자가 필드 판정을 건너뛰고 경로
-// 소유권만 적용한다(판정 불가를 차단으로도 통과로도 만들지 않는다).
-export const changedTopLevelKeys = (beforeSource, afterSource) => {
-  let before, after
-  try { after = JSON.parse(afterSource) } catch { return null }
-  if (after === null || typeof after !== 'object' || Array.isArray(after)) return null
-  try { before = beforeSource === null ? {} : JSON.parse(beforeSource) } catch { return null }
-  if (before === null || typeof before !== 'object' || Array.isArray(before)) return null
-  const keys = new Set([...Object.keys(before), ...Object.keys(after)])
-  const changed = []
-  for (const key of keys) {
-    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(key)
-  }
-  return changed.sort()
-}
-
-// 필드 소유권 판정. 소유하지 않은 필드를 건드리면 그 목록을 낸다.
-export const unownedFields = (fileName, agentType, changed) => {
-  const table = FIELD_OWNERSHIP[fileName]
-  if (!table) return []
-  const owned = table[agentType]
-  if (!owned) return changed   // 이 파일의 필드 소유가 선언되지 않은 에이전트는 전부 차단
-  return changed.filter(key => !owned.includes(key))
-}
-
 export const AGENT_OWNERSHIP = {
   'planning-facilitator': [
     /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
@@ -103,6 +56,19 @@ export const AGENT_OWNERSHIP = {
   // developer와 분리해 남기는 이유: package.json의 scripts가 무엇이 검사로 도는지를 정한다 —
   // 검사를 정의하는 것과 검사를 통과해야 하는 것은 분리한다.
   'environment-scaffolder': [
+    // 아래는 2026-08-26에 제거된 15종에서 흡수한 설정·배포·문서 경로다.
+    // `packages/*`·`apps/*`·`workers/*` 같은 **패키지 이름 처방**은 흡수하지 않고 버렸다 —
+    // 그것은 소스이며 developer가 layerMap으로 덮는다.
+    /^(?:(?:[^/]+\/)+)?Dockerfile$/, /^(?:(?:[^/]+\/)+)?nginx\.conf$/, /^(?:(?:[^/]+\/)+)?deploy\//,
+    /^(?:(?:[^/]+\/)+)?migrations\//, /^(?:(?:[^/]+\/)+)?scripts\/migrate\.(?:ts|mjs)$/,
+    /^(?:(?:[^/]+\/)+)?next\.config\.(?:js|mjs|ts)$/, /^(?:(?:[^/]+\/)+)?next-env\.d\.ts$/,
+    /^(?:(?:[^/]+\/)+)?postcss\.config\.(?:js|mjs|cjs|ts)$/,
+    /^(?:(?:[^/]+\/)+)?eslint\.config\.(?:js|mjs|ts)$/,
+    /^(?:README|CHANGELOG|CONTRIBUTING)\.md$/, /^\.npmignore$/, /^docs\//,
+    /^\.changeset\//, /^\.github\/(?:renovate\.json|dependabot\.yml)$/,
+    /^\.github\/workflows\/(?:deploy[^/]*|publish|crawl(?:-[a-z0-9]+)*|refresh(?:-[a-z0-9]+)*)\.ya?ml$/,
+    /^vercel\.json$/, /^apps\/[a-z0-9][a-z0-9_-]*\/vercel\.json$/,
+    /^_workspace\/03_dev\/db-changelog\.md$/, /^_workspace\/RELEASE\/changelog-draft\.md$/,
     /^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/,
     /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/,
     /^(?:(?:[^/]+\/)+)?(?:tsconfig(?:\.[^.]+)?\.json|vite\.config\.ts|vitest(?:\.[^.]+)?\.config\.ts|playwright\.config\.ts)$/,
@@ -120,13 +86,7 @@ export const AGENT_OWNERSHIP = {
   // 구조 지시 빌더 6종을 걷어낸 이유가 바로 그것이었다(2026-08-26).
   developer: [],
 
-  'agent-runtime-scaffolder': [
-    /^apps\/agent-api\//,
-    /^workers\/agent-jobs\//,
-    /^packages\/agent-runtime\//,
-  ],
   'ai-eval-designer': [/^_workspace\/02_design\/eval-plan\.md$/],
-  'ai-observability-builder': [/^packages\/observability\//],
   'ai-requirements-analyst': [
     // ai-requirements는 search-portal 파일럿 실측(24KB>20KB)으로 sharded 형태 허용 —
     // autonomy-risk-matrix는 실측 없어 flat 유지 (근거 없는 선제 확장 금지)
@@ -141,43 +101,11 @@ export const AGENT_OWNERSHIP = {
   'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model(?:\.md|\/.+)$/],
   'analytics-domain-architect': [/^_workspace\/02_design\/analytics-architecture\.md$/],
   'api-schema-designer': [/^_workspace\/02_design\/api-schema(?:\.md|\/.+)$/],
-  'changelog-writer': [/^_workspace\/RELEASE\/changelog-draft\.md$/, /^CHANGELOG\.md$/, /^\.changeset\/[^/]+\.md$/],
-  'changeset-setup': [/^\.changeset\/config\.json$/],
   'component-designer': [/^_workspace\/02_design\/component-spec(?:\.md|\/.+)$/],
   'data-governance-architect': [/^_workspace\/02_design\/data-governance\.md$/],
-  'db-migration-writer': [
-    appPath('migrations/'),
-    appPath('scripts/migrate\.(?:ts|mjs)$'),
-    exactAppFile('docs/DB\.md'),
-    /^_workspace\/03_dev\/db-changelog\.md$/,
-  ],
-  'external-data-pipeline-builder': [
-    /^packages\/ingestion\//,
-    /^scripts\/ingestion\//,
-    /^workers\/ingestion\//,
-    appPath('src/shared/ingestion/'),
-  ],
-  'deploy-ci-writer': [
-    /^\.github\/workflows\/deploy[^/]*\.ya?ml$/,
-    /^\.github\/(?:renovate\.json|dependabot\.yml)$/,
-    exactAppFile('Dockerfile'),
-    exactAppFile('nginx\.conf'),
-    appPath('deploy/'),
-  ],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
-  'human-approval-builder': [
-    /^packages\/approval-policy\//,
-    appPath('src/features/ai-approval/'),
-  ],
-  'i18n-builder': [
-    /^_workspace\/02_design\/i18n-spec(?:\.md|\/.+)$/,
-    appPath('src/shared/lang/'),
-  ],
-  'ingestion-ci-writer': [
-    /^\.github\/workflows\/(?:crawl|refresh)(?:-[a-z0-9]+)*\.ya?ml$/,
-  ],
   'ingestion-contract-designer': [
     /^_workspace\/02_design\/ingestion-contract\.md$/,
     /^_workspace\/02_design\/runtime-data-contract\.json$/,
@@ -185,84 +113,25 @@ export const AGENT_OWNERSHIP = {
   ],
   'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/],
   'lib-api-designer': [/^_workspace\/02_design\/api-design\.md$/],
-  'lib-docs-generator': [/^(?:README|CHANGELOG|CONTRIBUTING)\.md$/, /^docs\//],
-  'lib-scaffolder': [/^package\.json$/, /^(?:tsup|vitest)\.config\.ts$/, /^tsconfig(?:\.build)?\.json$/, /^src\/index\.ts$/],
-  'lib-story-builder': [/^package\.json$/, /^\.storybook\//, /^src\/.+\.stories\.[jt]sx?$/],
-  'mock-api-builder': [appPath('src/mocks/'), exactAppFile('src/main\.tsx'), exactAppFile('public/mockServiceWorker\.js')],
-  'model-gateway-builder': [/^packages\/model-gateway\//],
-  'next-app-scaffolder': [
-    appPath('next\.config\.(?:js|mjs|ts)$'),
-    exactAppFile('next-env\.d\.ts'),
-    appPath('tsconfig(?:\.[^.]+)?\.json$'),
-    appPath('eslint\.config\.(?:js|mjs|ts)$'),
-    appPath('postcss\.config\.(?:js|mjs|cjs|ts)$'),
-  ],
   'next-contract-designer': [
     /^_workspace\/02_design\/next-contract-matrices\.md$/,
     /^_workspace\/02_design\/build-environment\.json$/,
   ],
-  'package-publish-metadata': [/^package\.json$/, /^\.npmignore$/],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
   'planning-synthesizer': [/^_workspace\/01_plan\/project-brief\.md$/],
-  'publish-ci-writer': [/^\.github\/workflows\/publish\.ya?ml$/],
   'release-manager': [/^_workspace\/RELEASE\//],
   'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
-  'shared-foundation-builder': [
-    appPath('src/shared/(?!realtime/)'),
-    appPath('src/mocks/(?:handlers/index\.ts|browser\.ts|server\.ts)$'),
-    appPath('\.env(?:\.[^.]+)?$'),
-    exactAppFile('\.gitignore'),
-    // vite-serverless-hybrid의 루트 api/(핸들러+_lib 가드)는 서버측 shared 런타임 기반이다 —
-    // search-portal 파일럿 실측: hybrid greenfield에서 api/ 소유자가 레지스트리에 없었음(결함 13호).
-    // appPath('api/')는 미앵커라 src/features/*/api/(feature-mutation-builder)·(?:src/)?app/api/
-    // (next-runtime-builder)·src/features/live-mode/api/(realtime-data-builder)와 겹친다(적대 검토
-    // HIGH) — 프리픽스 세그먼트에 src/·app/을 배제해 프로젝트 루트 api/만 매칭한다.
-    /^(?:(?!(?:src|app)\/)[^/]+\/)*api\//,
-  ],
-  'seo-meta-builder': [
-    /^_workspace\/02_design\/seo-spec(?:\.md|\/.+)$/,
-    appPath('public/robots\.txt$'),
-    appPath('public/sitemap[^/]*\.xml$'),
-    appPath('src/shared/seo/'),
-  ],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
   'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
-  'tool-adapter-builder': [
-    /^packages\/ai-contracts\//,
-    /^packages\/tool-adapters\//,
-  ],
   'tool-contract-designer': [/^_workspace\/02_design\/tool-contracts\.md$/],
-  'test-writer': [
-    appPath('src/.+\.(?:test|spec)\.[jt]sx?$'),
-    appPath('src/.+/__tests__/'),
-    appPath('e2e/.+\.spec\.ts$'),
-    // 프로젝트 루트 tests/(서버 핸들러 unit·가드·production-boundary 스위트)는 test-writer
-    // 소유다 — search-portal 파일럿 실측: package 스크립트(test:api 등)와
-    // vitest.production.config.ts include가 tests/를 참조하는데 소유자가 없었음(결함 15호).
-    // 13호 fix와 동일하게 프리픽스 src/·app/ 배제로 루트 tests/만 매칭(중간 tests/ 세그먼트 배제).
-    /^(?:(?!(?:src|app)\/)[^/]+\/)*tests\//,
-  ],
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
-  'vercel-config-writer': [
-    /^vercel\.json$/,
-    /^apps\/[a-z0-9][a-z0-9_-]*\/vercel\.json$/,
-  ],
-  'version-file-updater': [/^(?:package\.json|CHANGELOG\.md)$/, /^\.changeset\/[^/]+\.md$/],
-  'web-observability-builder': [
-    /^_workspace\/02_design\/observability-spec(?:\.md|\/.+)$/,
-    appPath('src/shared/observability/'),
-  ],
   'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
   'visual-contract-designer': [
     /^_workspace\/02_design\/visual-qa-contract\.md$/,
     /^_workspace\/02_design\/visual-qa-contract\.json$/,
-  ],
-  'visual-test-writer': [
-    appPath('e2e/.+\.visual\.spec\.ts$'),
-    appPath('src/.+\.visual\.stories\.tsx$'),
   ],
 }
 
@@ -298,11 +167,12 @@ export const DEFAULT_LAYER_MAP = {
 const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
 
 // 역할 → 논리 레이어. 레이어 이름은 layerMap의 키와 맞춘다.
-export const AGENT_LAYER_ROLES = {
-  'test-writer': ['unitTests'],
-  'i18n-builder': ['i18n'],
-  'seo-meta-builder': ['seo'],
-}
+// 2026-08-26: 역할→레이어 매핑이 비었다. 이 표는 빌더마다 layerMap의 한 조각을 떼어 주기
+// 위해 있었는데, 구현 에이전트가 `developer` 하나로 합쳐지면서 조각낼 대상이 없어졌다 —
+// `resolveDeveloperOwnership`이 layerMap 전체를 주고 스폰 범위가 그 위에서 좁힌다.
+// 빈 표를 남기는 이유: `resolveSpecOwnership`은 역할 매핑이 없는 에이전트에 null을 돌려주고
+// 호출자가 등록부로 폴백한다 — 그 경로(fail-closed)를 지우지 않는다.
+export const AGENT_LAYER_ROLES = {}
 
 // 경로를 정규화한다 — 선행 ./ 제거, 후행 / 보장(디렉토리 접두 매칭용).
 const normalizeLayerPath = value => {

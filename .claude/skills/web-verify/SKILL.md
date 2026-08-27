@@ -31,8 +31,8 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 확정되지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
 2. 테스트 기반을 준비한다:
    - environment-scaffolder
-   - test-writer
-   - `VISUAL_QA_MODE`이면 visual-test-writer. baseline은 갱신하지 않는다.
+   - developer
+   - `VISUAL_QA_MODE`이면 visual-developer. baseline은 갱신하지 않는다.
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.
 4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. `external-ingestion` capability에서는 `ingestion` receipt가 같은 cohort에 포함되지 않으면 `BLOCKED`다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
 5. 독립 QA 에이전트 실행 (병렬 가능):

@@ -76,4 +76,4 @@ skills: timeseries-dashboard
 - chart가 받을 최대 point 수와 render cadence가 숫자로 정의된다.
 - backend가 제공해야 할 aggregation/resume 기능이 구분된다.
 - 구현 agent별 파일 소유권과 QA acceptance criteria가 있다.
-- shared timestamp schema가 `shared-foundation-builder`에서 먼저 생성되고 entity/realtime 양쪽에서 재사용되는 순서가 있다.
+- shared timestamp schema가 `developer`에서 먼저 생성되고 entity/realtime 양쪽에서 재사용되는 순서가 있다.

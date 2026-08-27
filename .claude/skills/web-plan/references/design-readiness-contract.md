@@ -82,7 +82,7 @@ Feature List의 한 줄 요약은 "무엇을"만 말한다. 디자인·프리뷰
 - `TC-NNN-N`은 안정 ID다. **requirements.md의 Must acceptance criteria(Given/When/Then)를 test case의 정본 근거로 재사용·구체화**하고, 새로 발명하지 않는다 — REQ의 AC를 FEAT 단위로 그룹핑·세분화한 것이 TC다. Traceability 표에 `REQ → FEAT → TC` 연결을 남긴다.
 - test case는 **관찰 가능한 결과**로 쓴다("잘 동작한다" ✗, "목록에 새 행이 추가된다" ✓). 정상·실패·경계(빈 상태, 권한/조건 미충족, 취소, 중복 클릭, 필터 중 삭제 등)를 포함한다.
 - LOCAL_DOMAIN_STATE_MODE이면 상태 불변식(참조 무결성·구조 필드 격리·cascade·stale selection)을 test case로 명시한다 — 프리뷰와 구현이 위반을 재현하면 FAIL이다.
-- 이 test case 집합은 **하나의 정본**으로 세 소비자가 공유한다: ① `design-preview-builder`가 프로토타입에서 실제로 통과시키고(`behaviors.md` 커버리지) ② Phase 4 `test-writer`가 자동 test로 구현하고 ③ 사용자가 프리뷰·릴리스 승인 체크리스트로 사용한다. 세 곳이 다른 시나리오를 쓰면 안 된다.
+- 이 test case 집합은 **하나의 정본**으로 세 소비자가 공유한다: ① `design-preview-builder`가 프로토타입에서 실제로 통과시키고(`behaviors.md` 커버리지) ② Phase 4 `developer`가 자동 test로 구현하고 ③ 사용자가 프리뷰·릴리스 승인 체크리스트로 사용한다. 세 곳이 다른 시나리오를 쓰면 안 된다.
 - Must FEAT에 동작 명세나 test case가 없으면 `plan-reviewer`의 `NEEDS_DECISION`(디자인·프리뷰가 무엇을 동작시켜야 하는지 알 수 없음) 대상이다.
 
 ## 3-2. 하위 기능(Sub Feature) 계층 — 복합 Feature에만 선택 적용

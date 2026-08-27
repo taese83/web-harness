@@ -1,6 +1,6 @@
 # Error Handling Patterns
 
-`shared-foundation-builder`가 API 오류 계약을 만들고 `developer`, `developer`, `developer`가 같은 typed error를 사용한다.
+`developer`가 API 오류 계약을 만들고 `developer`, `developer`, `developer`가 같은 typed error를 사용한다.
 
 ## Typed Error 계약
 

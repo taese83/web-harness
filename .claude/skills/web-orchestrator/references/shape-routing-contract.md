@@ -23,12 +23,12 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 | targetShape | Phase 2 설계 | Phase 3 빌더 | Phase 4 검증 |
 |---|---|---|---|
 | `web-app` | `design-system-architect` · `layout-designer` · `component-designer` | `WEB_PROFILE` 파이프라인(SKILL.md Phase 3) | `browser-verifier` · `ux-validator` · 조건부 `seo-verifier` |
-| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `lib-scaffolder` → `developer` → `lib-docs-generator` → `package-publish-metadata` | `pack-verifier` |
+| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `developer` → `developer` → `environment-scaffolder` → `environment-scaffolder` | `pack-verifier` |
 | `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 셋 | `pack-verifier` |
 | `serverless-functions` | `api-schema-designer` | `/vite-serverless-hybrid` 계약의 `api/` handler | `api-contract-verifier` |
 
 **React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 Phase 3의 `developer`와
-병렬로 `lib-story-builder`를 돌린다. 스토리는 구현과 같은 공개 API를 소비하므로 순서가 아니라
+병렬로 `developer`를 돌린다. 스토리는 구현과 같은 공개 API를 소비하므로 순서가 아니라
 병렬이다.
 
 **공통(형태 무관)**: `environment-scaffolder` · `environment-scaffolder`는 항상 먼저 돈다.
@@ -62,7 +62,7 @@ CLI 검증이 더해진다. **형태를 더하는 것이 빌더를 줄이는 경
 **개발**: 공개 API를 먼저 확정하고 내부 구현을 그 계약에 맞춘다. package metadata나 export map을
 기능 코드에 임시로 중복 선언하지 않는다.
 
-**배포 메타데이터**: `package-publish-metadata`가 `package.json`의 배포 필드·`files` 허용목록·
+**배포 메타데이터**: `environment-scaffolder`가 `package.json`의 배포 필드·`files` 허용목록·
 license 검사를 담당한다. 이 산출은 `pack-verifier`와 `pack.publish-metadata` 형태 검사가 소비한다.
 
 **브라운필드**: 기존 source가 있으면 `CHANGE_MODE: existing-change`로 기록하고 첫 edit 전에

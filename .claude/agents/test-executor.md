@@ -24,7 +24,7 @@ maxTurns: 20
 3. coverage 70% 미만은 WARN, 실제 테스트 실패는 FAIL로 기록한다.
 4. 의존성 설치가 필요하면 실행하지 말고 보고한다.
 5. `vitest -u`, `--update`, `--updateSnapshot`, formatter write, auto-fix 명령을 실행하지 않는다.
-6. 테스트 인프라 문제는 `environment-scaffolder`, 테스트 케이스 문제는 `test-writer`, product logic 문제는 해당 구현 owner agent로 라우팅한다.
+6. 테스트 인프라 문제는 `environment-scaffolder`, 테스트 케이스 문제는 `developer`, product logic 문제는 해당 구현 owner agent로 라우팅한다.
 7. 테스트 파일이 0개이거나 runner가 "No test files found"로 종료하면 coverage WARN이 아니라 `BLOCKED`다.
 8. requirements의 Must ID 또는 `state-contract.md` 필수 scenario가 test/evidence에 연결되지 않으면 실행된 테스트가 모두 통과해도 `BLOCKED`다.
 9. web app에 Playwright config, critical-flow spec, `test:e2e` script가 없으면 browser 단계로 PASS를 넘기지 않고 `BLOCKED`로 기록한다.

@@ -58,7 +58,6 @@ export const validateVisualDesign = ({repositoryRoot, read, pass, fail}) => {
     '.claude/skills/visual-design-verify/references/render-matrix.md',
     '.claude/skills/visual-design-verify/references/baseline-governance.md',
     '.claude/agents/visual-contract-designer.md',
-    '.claude/agents/visual-test-writer.md',
     '.claude/agents/visual-baseline-manager.md',
     '.claude/agents/visual-regression-verifier.md',
     '.claude/schemas/visual-qa-contract.schema.json',
@@ -86,7 +85,7 @@ export const validateVisualDesign = ({repositoryRoot, read, pass, fail}) => {
   for (const marker of [
     'VISUAL_QA_MODE',
     'visual-contract-designer',
-    'visual-test-writer',
+    'developer',
     'visual-regression-verifier',
     'qa-visual.md',
     'visualEvidence',

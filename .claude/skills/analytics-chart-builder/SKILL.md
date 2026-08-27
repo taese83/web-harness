@@ -46,7 +46,7 @@ metadata:
 4. `component-designer`가 builder state machine과 chart별 configuration UI를 설계한다.
 5. `developer` agent가 semantic query model, compatibility registry, builder/dashboard feature를 구현한다.
 6. `developer`가 query result와 chart renderer를 연결한다.
-7. `test-writer`가 semantic correctness와 chart compatibility fixture를 작성한다.
+7. `developer`가 semantic correctness와 chart compatibility fixture를 작성한다.
 8. `analytics-verifier`, `api-contract-verifier`, `browser-verifier`가 독립 검증한다.
 
 ## Hard Stops

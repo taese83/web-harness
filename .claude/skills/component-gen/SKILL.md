@@ -40,7 +40,7 @@ When the user invokes `/component-gen` alone, start with:
 6. **QA — 신규 생성 및 기존 컴포넌트 수정 후 반드시 실행한다** (생략 불가, 사용자가 묻기 전에 자동 실행):
 
    **6-1. 테스트 보강**:
-   - interaction, form, keyboard, async state가 있으면 `test-writer`가 deterministic component/browser test를 추가한다.
+   - interaction, form, keyboard, async state가 있으면 `developer`가 deterministic component/browser test를 추가한다.
    - 단순 presentational component도 기존 test closure를 깨지 않는지 확인한다.
 
    **6-2. 결정론적 quality 실행**:

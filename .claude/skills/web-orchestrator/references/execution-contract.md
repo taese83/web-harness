@@ -71,7 +71,7 @@ buildable한 기존 프로젝트에 `request-type-contract.md`의 `feature`·`ui
 
 ## Deployment CI
 
-- 사용자가 요구했거나 `tech-stack.md`에 target이 있을 때만 `deploy-ci-writer`를 실행한다.
+- 사용자가 요구했거나 `tech-stack.md`에 target이 있을 때만 `environment-scaffolder`를 실행한다.
 - workflow/config 변경은 final quality evidence 전에 끝낸다.
 - target이 불명확하면 workflow 작성 전에 한 번 확인한다.
 - 필요한 repository secret과 수동 절차를 HANDOFF에 기록한다.

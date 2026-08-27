@@ -2,7 +2,7 @@
 
 import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {AGENT_OWNERSHIP, DEVELOPER_AGENT, FIELD_OWNERSHIP, changedTopLevelKeys, intersectWithScope, resolveDeveloperOwnership, resolveSpecOwnership, unownedFields} from './agent-registry.mjs'
+import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -90,36 +90,6 @@ try {
     block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}). Route the change to the owning agent.`)
   }
 
-  // ── 필드 소유권 (2026-08-26) ───────────────────────────────────────────────
-  // 경로 소유권으로는 "이 필드를 소유한다"를 표현할 수 없다. package.json은 5종이 소유하는데
-  // 각자 다른 필드를 다룬다 — version-file-updater가 scripts를 고쳐도 경로 훅은 통과시켰다.
-  // 판정할 수 없으면(JSON이 아니거나 파싱 실패) 필드 판정을 건너뛴다 — 미판정을 차단으로도
-  // 통과로도 만들지 않으며 경로 소유권은 이미 적용됐다.
-  const fileName = ownershipPath.split('/').at(-1)
-  if (FIELD_OWNERSHIP[fileName]) {
-    const before = existsSync(requestedPath) ? readFileSync(requestedPath, 'utf8') : null
-    let after = null
-    if (input.tool_name === 'Write') after = input.tool_input?.content ?? null
-    else if (before !== null) {
-      const oldString = input.tool_input?.old_string
-      const newString = input.tool_input?.new_string
-      // Edit은 정확 문자열 치환이므로 결과를 결정적으로 재현할 수 있다.
-      if (typeof oldString === 'string' && typeof newString === 'string' && before.includes(oldString)) {
-        after = input.tool_input?.replace_all === true
-          ? before.split(oldString).join(newString)
-          : before.replace(oldString, newString)
-      }
-    }
-    if (after !== null) {
-      const changed = changedTopLevelKeys(before, after)
-      if (changed !== null) {
-        const unowned = unownedFields(fileName, agentType, changed)
-        if (unowned.length > 0) {
-          block(`Blocked: ${input.agent_type} does not own ${fileName} field(s): ${unowned.join(', ')}. Route the change to the owning agent.`)
-        }
-      }
-    }
-  }
 } catch (error) {
   block(`Blocked: ownership hook could not validate the operation: ${error instanceof Error ? error.message : String(error)}`)
 }

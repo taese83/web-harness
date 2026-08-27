@@ -24,7 +24,7 @@ mui-styling.md와 같은 형상 원칙("공개 API 우선, 내부 selector 금�
 
 - 위치는 **`src/shared/ui/{primitive}/`** — shadcn CLI 기본 경로(`src/components/ui/`,
   `components.json`)는 이 하네스의 FSD 레이어 규칙·에이전트 소유권과 충돌하므로 CLI를 쓰지 않고
-  수동 vendoring한다. `cn()`은 `src/shared/lib/utils.ts`(shared-foundation-builder 소유).
+  수동 vendoring한다. `cn()`은 `src/shared/lib/utils.ts`(developer 소유).
 - 각 프리미티브는 `index.ts`에서 **명시 named export**만 한다(`export *` 금지 — fsd-rules).
 - vendored 파일은 **upstream-파생물**이다: 스타일(클래스·variants)·구성은 자유롭게 바꾸되,
   **Radix가 공급하는 a11y 구조는 보존한다** — `aria-*`·`role` props, `Portal`, focus trap /

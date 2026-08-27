@@ -1,7 +1,7 @@
 {
  "comment": "언어 중립 마커 무결성 baseline — current < baseline이면 fail(마커 손실). 갱신은 의식적 행위이며 CLAUDE.md 판단 게이트를 거친다(JUDGMENT 기록).",
  "markers": {
-  "consumer-read-protocol": 16,
+  "consumer-read-protocol": 14,
   "immediate-write-contract": 2,
   "tile-direction-gate": 1,
   "preview-delta-default": 1,

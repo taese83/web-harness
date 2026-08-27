@@ -43,7 +43,7 @@ test('한국어 INDEX: 알려진 에이전트 + 전체 sentinel → 통과', () 
       '# API — 서비스\n\n## 절 목록\n' +
       '| 절 | 파일 | 담당 범위 | 주 소비자 |\n|---|---|---|---|\n' +
       '| 공통 | `common.md` | 응답 형식 | 전체 |\n' +
-      '| 주문 | `orders.md` | 주문 API | test-writer, mock-api-builder |\n',
+      '| 주문 | `orders.md` | 주문 API | developer, developer |\n',
     '_workspace/02_design/api-schema/common.md': section,
     '_workspace/02_design/api-schema/orders.md': section,
   })
@@ -57,7 +57,7 @@ test('영어 INDEX(번역 불변의 요점): Primary consumer 헤더 + * sentine
       '# API — Service\n\n## Sections\n' +
       '| Section | File | Scope | Primary consumer |\n|---|---|---|---|\n' +
       '| Common | `common.md` | envelope | * |\n' +
-      '| Orders | `orders.md` | orders API | test-writer |\n',
+      '| Orders | `orders.md` | orders API | developer |\n',
     '_workspace/02_design/api-schema/common.md': section,
     '_workspace/02_design/api-schema/orders.md': section,
   })
@@ -71,11 +71,11 @@ test('미상 에이전트 이름 → warning이 아니라 위반(exit 1)', () =>
   const run = runOn({
     '_workspace/02_design/api-schema/INDEX.md':
       '| 절 | 파일 | 담당 범위 | 주 소비자 |\n|---|---|---|---|\n' +
-      '| 주문 | `orders.md` | 주문 | e2e-test-writer |\n',
+      '| 주문 | `orders.md` | 주문 | e2e-developer |\n',
     '_workspace/02_design/api-schema/orders.md': section,
   })
   assert.equal(run.status, 1)
-  assert.equal(run.errors.filter(message => message.includes('e2e-test-writer')).length, 1)
+  assert.equal(run.errors.filter(message => message.includes('e2e-developer')).length, 1)
 })
 
 test('빈 소비자 칸 → 위반 (이전에는 조용히 건너뜀 — 계약 "비워 두지 않는다" 미강제)', () => {
@@ -93,9 +93,9 @@ test('괄호 한정어·괄호 안 쉼표(파일럿 실측 패턴) → 오탐 �
   const run = runOn({
     '_workspace/02_design/component-spec/INDEX.md':
       '| 절 | 파일 | 담당 범위 | 주 소비자 |\n|---|---|---|---|\n' +
-      '| 공유 | `shared.md` | shared/ui | test-writer (shared layer) |\n' +
-      '| 상위 | `upper.md` | widgets | test-writer(widgets/*, pages/*) |\n' +
-      '| 조건 | `cond.md` | 조건부 | test-writer(해당 시) |\n',
+      '| 공유 | `shared.md` | shared/ui | developer (shared layer) |\n' +
+      '| 상위 | `upper.md` | widgets | developer(widgets/*, pages/*) |\n' +
+      '| 조건 | `cond.md` | 조건부 | developer(해당 시) |\n',
     '_workspace/02_design/component-spec/shared.md': section,
     '_workspace/02_design/component-spec/upper.md': section,
     '_workspace/02_design/component-spec/cond.md': section,
@@ -148,7 +148,7 @@ test('5열 표의 절 행: 4열 형식 오매칭이 아니라 커버리지 위�
   const run = runOn({
     '_workspace/02_design/api-schema/INDEX.md':
       '| 절 | 파일 | 담당 범위 | 주 소비자 | 비고 |\n|---|---|---|---|---|\n' +
-      '| 주문 | `orders.md` | 주문 API | test-writer | 메모 |\n',
+      '| 주문 | `orders.md` | 주문 API | developer | 메모 |\n',
     '_workspace/02_design/api-schema/orders.md': section,
   })
   assert.equal(run.status, 1)

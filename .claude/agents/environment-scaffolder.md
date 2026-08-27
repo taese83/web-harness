@@ -41,7 +41,7 @@ maxTurns: 35
 7. package.json의 Node engine 하한은 직접 dependency와 필수 tooling의 resolved engine 하한 중 가장 높은 값을 만족해야 한다.
 8. peer range 밖 조합을 auto-install 성공만으로 호환 처리하지 않는다. package metadata의 실제 peer range와 선택 근거를 evidence로 남긴다.
 9. web app의 `test:e2e` script와 Playwright dependency가 누락되면 package 단계 완료로 표시하지 않는다.
-9-A. **`test:tc` script**(콘솔 QA 탭의 TC별 실행 채널)를 선언한다 — 위치 인자로 받은 TC ID를 테스트 이름 필터로 넘겨 구현 코드의 해당 테스트만 실행하는 종료 가능 명령이다. 러너에 맞춘 형태만 쓴다(vitest: `"vitest run [test root] -t"`, jest: `"jest -t"`, playwright: `"playwright test -g"` — `[test root]`는 실제 레이아웃에 맞춰 채우고, 루트 바로 아래 `src/`가 아니면 문자 그대로 복붙하지 않는다). **매칭 0건을 성공으로 처리하지 않아야 한다** — `--passWithNoTests` 류 플래그를 붙이지 않고, 예시 3종 밖 러너(mocha `--grep` 등)를 고르면 그 러너의 no-match 기본 동작을 확인해 비-0 exit(fail-closed)임을 검증하고 근거를 남긴다(그렇지 않으면 존재하지 않는 TC 실행이 exit 0으로 조용히 통과해 콘솔 판정이 오도된다). 이 script가 없으면 콘솔 실행 채널은 fail-closed로 비활성이며 수동 실측만 남는다 — 그린필드는 기본 선언한다(규약·한계는 `docs/protected-core.md` "TC 실행 exit code 판정" 행이 정본). TC ID를 테스트 이름에 태그하는 것은 test-writer 책임이라 여기서 강제하지 않는다.
+9-A. **`test:tc` script**(콘솔 QA 탭의 TC별 실행 채널)를 선언한다 — 위치 인자로 받은 TC ID를 테스트 이름 필터로 넘겨 구현 코드의 해당 테스트만 실행하는 종료 가능 명령이다. 러너에 맞춘 형태만 쓴다(vitest: `"vitest run [test root] -t"`, jest: `"jest -t"`, playwright: `"playwright test -g"` — `[test root]`는 실제 레이아웃에 맞춰 채우고, 루트 바로 아래 `src/`가 아니면 문자 그대로 복붙하지 않는다). **매칭 0건을 성공으로 처리하지 않아야 한다** — `--passWithNoTests` 류 플래그를 붙이지 않고, 예시 3종 밖 러너(mocha `--grep` 등)를 고르면 그 러너의 no-match 기본 동작을 확인해 비-0 exit(fail-closed)임을 검증하고 근거를 남긴다(그렇지 않으면 존재하지 않는 TC 실행이 exit 0으로 조용히 통과해 콘솔 판정이 오도된다). 이 script가 없으면 콘솔 실행 채널은 fail-closed로 비활성이며 수동 실측만 남는다 — 그린필드는 기본 선언한다(규약·한계는 `docs/protected-core.md` "TC 실행 exit code 판정" 행이 정본). TC ID를 테스트 이름에 태그하는 것은 developer 책임이라 여기서 강제하지 않는다.
 10. root와 app에 독립 lockfile을 중복 생성하지 않는다. 하나의 workspace/lockfile을 기본으로 하고 예외는 tech-stack의 package graph 결정이 있을 때만 허용한다.
 11. monorepo의 root `build`, `typecheck`, `lint`, `test`, `test:coverage`, `test:e2e`는 release 대상 workspace 전체를 포함해야 한다. 특정 app script 성공을 root 품질 성공으로 대체하지 않는다.
 12. `EXTERNAL_DATA_INGESTION_MODE`이면 candidate 생성과 artifact 검증을 분리한다. adapter가 요구하는 `validate:ingestion` script는 project 내 bounded Node entry 또는 하네스의 typed validator만 호출하게 하고, framework `build` script 안에 network crawl, promoted artifact 수정, optional empty fallback을 넣지 않는다. scheduled job은 generate → validate → promote를 수행한다. static target의 required snapshot, serving last-known-good와 존재하는 optional runtime artifact는 `public/` 아래 두고 quality runner와 provider의 typed wrapper가 build 전후 semantic evidence 불변성과 `dist/` 또는 `out/` 복사본 parity를 증명하게 한다.
@@ -90,7 +90,7 @@ maxTurns: 35
 1. `package.json`에 `@playwright/test`, `@axe-core/playwright`를 포함한 test dependency가 없으면 추가 필요성을 보고하고 사용자 확인을 받는다.
 2. product test file은 생성하지 않는다.
 3. 테스트 실행은 `test-executor`가 담당한다.
-4. mock handler 구현은 `mock-api-builder`가 담당한다.
+4. mock handler 구현은 `developer`가 담당한다.
 5. production feature/entity/component 로직을 수정하지 않는다.
 6. 수정 허용 범위는 테스트 인프라 파일(`vitest.config.ts`, `playwright.config.ts`, `src/test/**`, `e2e/` 공통 helper, MSW test bootstrap 연결)에 한정한다.
 
