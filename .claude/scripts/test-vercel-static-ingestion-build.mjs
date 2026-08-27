@@ -81,10 +81,13 @@ try {
     servingFallback: 'last-known-good',
     refreshCapabilities: ['manual-recovery', 'scheduled'],
   })}\n`)
+  // 2026-08-27: 감지가 capability를 강제하지 않으므로 스팩이 선언한다 — 이 테스트의 대상은
+  // "선언된 ingestion이 Vercel static 경로에서 제대로 결박되는가"이며 그 계약은 그대로다.
   const profile = resolveProjectProfile({
     projectRoot: root,
     requested: 'auto',
     deploymentProvider: 'vercel',
+    capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion', 'scheduled-static-ingestion'],
     adapters: loadBuiltinAdapters(),
   })
   writeFileSync(join(root, '_workspace/01_plan/project-profile.json'), `${JSON.stringify(profile, null, 2)}\n`)

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
-import {cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -181,15 +181,36 @@ try {
     refreshCapabilities: ['manual-recovery', 'scheduled'],
   })}\n`)
 
-  const ingestionProfile = resolveProjectProfile({
+  // 2026-08-27: 감지는 capability를 **강제하지 않는다**. 강제하면 오탐 하나가 릴리스를 영구히
+  // 막는다(실측: 이웃 repo 4개가 배포 알림·CDN 업로드로 강제 선택당했다). 대신 두 가지를 고정한다:
+  //   ① 감지 사실이 프로필에 **보고로 남는다** — 조용히 사라지지 않는다
+  //   ② 스팩이 선언하면 모든 ingestion 게이트가 **그대로** 발화한다
+  const detectedOnlyProfile = resolveProjectProfile({
     projectRoot: ingestionFixture,
     requested: 'auto',
     deploymentProvider: 'vercel',
     adapters,
   })
+  check(detectedOnlyProfile.ingestion?.detected === true, 'detected ingestion must be reported on the profile')
+  check(
+    (detectedOnlyProfile.ingestion?.evidence ?? []).length > 0,
+    'ingestion report must carry the evidence that triggered it — silent detection is unusable at intake',
+  )
+  check(
+    !detectedOnlyProfile.capabilities.includes('external-ingestion'),
+    'detection alone must not lock a capability the spec never declared',
+  )
+
+  const ingestionProfile = resolveProjectProfile({
+    projectRoot: ingestionFixture,
+    requested: 'auto',
+    deploymentProvider: 'vercel',
+    capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion', 'scheduled-static-ingestion'],
+    adapters,
+  })
   check(ingestionProfile.deployment.provider === 'vercel', 'Vercel provider must be locked separately from the runtime target')
   check(ingestionProfile.deployment.target === 'static-cdn', 'Vercel React/Vite must retain the static-cdn runtime target')
-  check(ingestionProfile.capabilities.includes('external-ingestion'), 'detected ingestion must lock external-ingestion')
+  check(ingestionProfile.capabilities.includes('external-ingestion'), 'declared ingestion must stay locked')
   check(ingestionProfile.capabilities.includes('scheduled-static-ingestion'), 'scheduled static ingestion must lock its narrow capability')
   const ingestionBindings = adapterCheckBindings({
     adapter: loadBuiltinAdapter('react-vite-spa'),
@@ -199,48 +220,74 @@ try {
   })
   check(ingestionBindings.some(binding => binding.receiptId === 'ingestion'), 'ingestion capability must require a machine receipt')
 
+  // 2026-08-27 계약 변경. 종전에는 "선언을 지우면 FAIL"이었다 — 감지가 진실의 기준이었기
+  // 때문이다. 이제 기준은 **선언**이므로 선언을 지우는 것은 사용자의 판정이며 허용된다.
+  //
+  // **약화 방향을 숨기지 않고 여기 고정한다**: 진짜로 수집하는 프로젝트가 capability를 지우면
+  // ingestion QA가 돌지 않는다. 그 대신 감지 사실은 프로필 보고에 남아 intake에서 되묻게 한다.
   const downgradedProfile = JSON.parse(JSON.stringify(ingestionProfile))
   downgradedProfile.capabilities = downgradedProfile.capabilities.filter(capability =>
     !['external-ingestion', 'scheduled-static-ingestion'].includes(capability),
   )
-  let staleIngestionCapabilities
+  validateLockedProfileProjectState(validateLockedProjectProfile(downgradedProfile), ingestionFixture)
+  check(true, 'dropping the ingestion declaration is the spec owner\'s call, not a stale-profile error')
+
+  // 거울쪽은 그대로 강제한다: **켜 놓고 계약이 없으면** 모순이므로 FAIL이다.
+  const contractPath = join(ingestionFixture, '_workspace/02_design/ingestion-contract.md')
+  const contractBackup = readFileSync(contractPath, 'utf8')
+  rmSync(contractPath)
+  let declaredWithoutContract
   try {
-    validateLockedProfileProjectState(validateLockedProjectProfile(downgradedProfile), ingestionFixture)
+    validateLockedProfileProjectState(validateLockedProjectProfile(ingestionProfile), ingestionFixture)
   } catch (error) {
-    staleIngestionCapabilities = error
+    declaredWithoutContract = error
   }
+  writeFileSync(contractPath, contractBackup)
   check(
-    staleIngestionCapabilities instanceof WebCoreError &&
-      staleIngestionCapabilities.code === 'PROJECT_PROFILE_INGESTION_CAPABILITY_STALE',
-    'locked profiles must not omit ingestion capabilities added after profile resolution',
+    declaredWithoutContract instanceof WebCoreError &&
+      declaredWithoutContract.code === 'PROJECT_PROFILE_INGESTION_CONTRACT_STALE',
+    'declared ingestion capability without both contracts must still fail closed',
   )
 
-  let omittedIngestionCapability
-  try {
-    resolveProjectProfile({
-      projectRoot: ingestionFixture,
-      requested: 'react-vite-spa',
-      capabilities: ['client-routing', 'csr', 'static-build'],
-      adapters,
-    })
-  } catch (error) {
-    omittedIngestionCapability = error
-  }
+  // 같은 계약 변경의 다른 얼굴: 명시 capability가 감지를 생략해도 더 이상 throw하지 않는다.
+  // 대신 **보고는 남는다** — 생략이 조용해지지 않게 하는 것이 이 계약의 지불 조건이다.
+  const omittedProfile = resolveProjectProfile({
+    projectRoot: ingestionFixture,
+    requested: 'react-vite-spa',
+    capabilities: ['client-routing', 'csr', 'static-build'],
+    adapters,
+  })
   check(
-    omittedIngestionCapability instanceof WebCoreError && omittedIngestionCapability.code === 'INGESTION_CAPABILITY_REQUIRED',
-    'explicit capabilities must not omit detected ingestion',
+    !omittedProfile.capabilities.includes('external-ingestion'),
+    'explicit capabilities are the spec owner\'s declaration and are not widened by detection',
+  )
+  check(
+    omittedProfile.ingestion?.detected === true && (omittedProfile.ingestion?.evidence ?? []).length > 0,
+    'omitting the declaration must still leave the detection evidence on the profile',
   )
 
+  // 계약을 지우고 **선언은 유지**하면 여전히 fail-close다 — 그것이 모순이기 때문이다.
+  // 반면 선언 없이 감지만 있으면 식별은 통과한다(보고만 남는다).
   rmSync(join(ingestionFixture, '_workspace/02_design/runtime-data-contract.json'))
   let missingIngestionContract
   try {
-    resolveProjectProfile({projectRoot: ingestionFixture, requested: 'auto', adapters})
+    resolveProjectProfile({
+      projectRoot: ingestionFixture,
+      requested: 'auto',
+      capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion'],
+      adapters,
+    })
   } catch (error) {
     missingIngestionContract = error
   }
   check(
     missingIngestionContract instanceof WebCoreError && missingIngestionContract.code === 'INGESTION_CONTRACT_MISSING',
-    'crawler markers without both contracts must fail closed',
+    'declared ingestion without both contracts must fail closed',
+  )
+  const detectedOnlyAfterRemoval = resolveProjectProfile({projectRoot: ingestionFixture, requested: 'auto', adapters})
+  check(
+    detectedOnlyAfterRemoval.ingestion?.detected === true && detectedOnlyAfterRemoval.ingestion?.contractsComplete === false,
+    'detection without declaration resolves and reports incomplete contracts instead of blocking identity',
   )
 } finally {
   rmSync(ingestionFixture, {recursive: true, force: true})

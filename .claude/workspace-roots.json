@@ -1,0 +1,11 @@
+{
+  "$comment": "이 워크스페이스가 읽어야 하는 프로젝트 밖 루트. 읽기(Read/Grep/Glob) 전용이며 쓰기·실행과는 무관하다. 비밀 경로(.env·.ssh·키·credentials)는 여기 선언해도 여전히 막힌다. 선언하지 않으면 기본은 닫혀 있다.",
+  "readRoots": [
+    "../gov-ai-web",
+    "../komi-web",
+    "../optimize-web",
+    "../tart-web",
+    "../ai-chatkit-sdk",
+    "../public-ai-for-kakao-v2"
+  ]
+}

@@ -188,33 +188,29 @@ export const validateLockedProfileProjectState = (lockedProfile, projectRoot) =>
       {errors: ingestion.errors},
     )
   }
-  if (ingestion.detected && !ingestion.contractsComplete) {
+  // 감지는 **막지 않는다**(2026-08-27). 종전에는 감지만으로 여기서 throw해 quality runner가
+  // 통째로 죽었다 — receipt 한 장 없이 exit 2다. 실측: 이웃 repo 4개가 배포 알림·CDN 업로드
+  // 때문에 여기서 막혔고, 그 프로젝트엔 만족시킬 `validate:ingestion` script가 없다.
+  // 만족시킬 수 없는 요구는 게이트가 아니라 벽이다.
+  //
+  // 기준을 **선언**으로 바꾼다: 스팩이 `external-ingestion`을 켰으면 그때부터 전부 강제한다.
+  // 켜 놓고 계약이 없거나, 계약을 지웠는데 capability가 남아 있으면 그건 모순이므로 fail-close.
+  const selectedCapabilities = new Set(lockedProfile.selection.selectedCapabilities)
+  const declaredExternalIngestion = selectedCapabilities.has(EXTERNAL_INGESTION_CAPABILITY)
+  if (declaredExternalIngestion && !ingestion.contractsComplete) {
     throw new WebCoreError(
       'PROJECT_PROFILE_INGESTION_CONTRACT_STALE',
-      'Current external ingestion markers are not covered by both locked ingestion contracts',
+      'Declared external ingestion capability is not covered by both locked ingestion contracts',
       {evidence: ingestion.evidence},
     )
   }
-  const selectedCapabilities = new Set(lockedProfile.selection.selectedCapabilities)
-  const requiredCapabilities = ingestion.detected
-    ? [
-        EXTERNAL_INGESTION_CAPABILITY,
-        ...(ingestion.scheduledStatic ? [SCHEDULED_STATIC_INGESTION_CAPABILITY] : []),
-      ]
-    : []
-  const missingCapabilities = requiredCapabilities.filter(capability => !selectedCapabilities.has(capability))
   const staleScheduledCapability =
-    selectedCapabilities.has(SCHEDULED_STATIC_INGESTION_CAPABILITY) !== ingestion.scheduledStatic
-  const staleExternalCapability = selectedCapabilities.has(EXTERNAL_INGESTION_CAPABILITY) !== ingestion.detected
-  if (missingCapabilities.length > 0 || staleScheduledCapability || staleExternalCapability) {
+    selectedCapabilities.has(SCHEDULED_STATIC_INGESTION_CAPABILITY) && !ingestion.scheduledStatic
+  if (staleScheduledCapability) {
     throw new WebCoreError(
       'PROJECT_PROFILE_INGESTION_CAPABILITY_STALE',
       'Locked ingestion capabilities do not match the current project and runtime-data contract',
-      {
-        detected: ingestion.detected,
-        scheduledStatic: ingestion.scheduledStatic,
-        missingCapabilities,
-      },
+      {declared: [...selectedCapabilities], scheduledStatic: ingestion.scheduledStatic},
     )
   }
   return lockedProfile
