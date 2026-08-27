@@ -92,7 +92,9 @@ export const MARKER_REGISTRY = [
     // 이전: validate-harness가 `realtime interface 완료 후` 문장을 인라인 매칭. 규칙이 사라지면
     // TIMESERIES_MODE에서 realtime Mock이 transport interface보다 먼저 돌아가는 회귀다.
     pattern: /<!--\s*marker:timeseries-realtime-build-order\s*-->/g,
-    files: ['.claude/skills/web-orchestrator/SKILL.md'],
+    // 2026-08-27: Phase 3 본문이 SKILL.md에서 시점 로드 참조로 강등되면서 마커도 함께 이동했다.
+    // 게이트가 MARKER_LOST로 잡았다 — 이동을 소실로 보고한 것이 정상 동작이다.
+    files: ['.claude/skills/web-orchestrator/references/phase-3-development.md'],
     note: 'mock-api-builder를 realtime interface 완료 후로 미루는 순서 계약',
   },
 ];

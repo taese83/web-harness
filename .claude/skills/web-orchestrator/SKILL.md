@@ -129,138 +129,18 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 `references/approval-checkpoints.md`의 Phase 1 → Phase 2 계약으로 범위·기술·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다.
 
-### Phase 2 — 디자인 (순서 있음)
+### Phase 2 — 디자인
 
-Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽는다. 이 Phase의 설계 산출물은 하류 5~18개 에이전트가 각자 다시 읽으므로 크기 예산과 분할 규칙을 지켜야 한다. designer 계열 agent prompt에 이 계약 경로를 함께 전달한다. **디자인 원칙 허브 `references/design-principles.md`의 경로도 designer 계열 agent prompt에 함께 전달한다** — 각 agent는 허브의 소비자 맵에서 자기 담당 절만 읽고 그 수치·규칙을 기본값으로 쓴다(사용자 브랜드 제약이 이기되 접근성 하한은 협상 불가). **Phase 1·2 각 Wave 완료 시 `node .claude/scripts/validate-artifact-sharding.mjs --project {project-root}`를 실행하고 exit 1이면 해당 designer를 다시 실행해 분할한 뒤 진행한다** — 산문 판단이 아니라 바이트 측정이 판정 근거다.
-
-**Wave 0 — TIMESERIES_MODE 조건부 선행**:
-- `timeseries-architect` → `_workspace/02_design/timeseries-architecture.md`
-
-**Wave 0-B — ANALYTICS_BUILDER_MODE 조건부 선행**:
-- `analytics-domain-architect` → `_workspace/02_design/analytics-architecture.md`
-- TIMESERIES_MODE도 활성화되면 point/timestamp/budget은 timeseries architecture를 재사용한다.
-
-**Wave 0-A — EXTERNAL_DATA_INGESTION_MODE 조건부 선행**:
-- `ingestion-contract-designer` → `_workspace/02_design/ingestion-contract.md`, `_workspace/02_design/runtime-data-contract.json`
-- profile capability에 `external-ingestion`을 추가한다. mode가 `static-snapshot`이고 scheduled refresh이면 `scheduled-static-ingestion`도 추가한다. 두 계약이 모두 생성되기 전에는 profile resolver와 구현을 실행하지 않는다
-
-**Wave 1** — 병렬 실행 (활성화된 Wave 0/0-A 완료 후):
-- `design-system-architect` → `_workspace/02_design/design-system.md`
-- `layout-designer` → `_workspace/02_design/layout-spec.md`
-- `api-schema-designer` → `_workspace/02_design/api-schema.md`
-- `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract-designer` → `_workspace/02_design/state-contract.md`. 성능 예산 요구·`TIMESERIES_MODE`·공개 서비스이면 `performance-budget-designer` → `_workspace/02_design/performance-budget.md`
-
-**Wave 2** — 단독 실행 (design-system.md + layout-spec.md 존재 후). **프리뷰 전에 방향 승인이 선행한다** — `design-approval-contract.md` 0단계(**자유 렌더 후보 3종 → 사용자와 왕복 조정**, 2026-08-23 개정). 확정 후 시스템 추출 → 그다음 프리뷰. 방향 기각을 프리뷰에서 받으면 5배 비싸다(실측):
-- `component-designer` → `_workspace/02_design/component-spec.md`. 완료 후 `design-approval-contract.md`의 **Design Preview Loop**를 기본 실행한다: `design-preview-builder` → `validate-design-preview.mjs --write-source-snapshot`으로 FEAT/TC/DOM trace와 입력 digest 고정 → `preview-server.mjs` 서빙 → 피드백은 스펙에 먼저 반영 후 재생성(≤3라운드) → 명시적 사용자 승인 뒤 `validate-design-preview.mjs --record-approval`로 승인 해시 기록
-- `VISUAL_QA_MODE`이면 `visual-contract-designer` → `_workspace/02_design/visual-qa-contract.md`, `visual-qa-contract.json`
-
-**Wave 3 — 조건부 디자인 검토**:
-- `design-approval-contract.md`에 따라 기존 디자인 inventory와 `DESIGN_PROTOTYPE_MODE`를 판정한다.
-- L/XL 또는 prototype mode이면 read-only `design-reviewer`를 실행해 `_workspace/02_design/design-review.md`에 저장한다.
-- `NEEDS_DECISION`은 Phase 2 체크포인트에서 최대 3개씩 확인하고 `BLOCKED`면 구현하지 않는다.
+**시점 로드**: `references/phase-2-design.md` — Wave 0/0-A/0-B(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃·API 스키마) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
 
 ### ✋ Phase 2 완료 체크포인트
 
 `references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로 화면·컴포넌트·API·시각 자료·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다. 확인 후 Phase 3 착수 전에 `references/solution-design-contract.md`로 `system-architect`를 실행해 구현 설계 결정(아키텍처·레이어 맵·라이브러리·모듈 경계)을 기록하고 사용자에게 선택지를 제시한다 — **관측 단계이며 게이트가 아니다**: 이 산출물로 무엇도 BLOCKED시키지 않고, `system-architect`가 실패하거나 산출이 없으면 그 사실만 기록하고 Phase 3을 그대로 진행한다(재시도하지 않는다).
 
-### Phase 3 — 개발 (순서 있음)
+### Phase 3 — 개발
 
-`_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
+**시점 로드**: `references/phase-3-development.md` — `CHANGE_MODE` 판별과 change-scope · profile resolver와 DAG 컴파일 · `developer` 스폰(모듈 경계마다) · 환경/배포 단계 · Gate A·B·C와 스폰 완결성 게이트. Iterate·Resume mode는 여기서 진입하므로 이 파일부터 읽는다.
 
-source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 결정한다. `existing-change`이면 첫 edit 전에 `_workspace/03_dev/change-scope.md`에 `TARGET_BEHAVIOR`, `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`, `TEST_EVIDENCE`, `CAPABILITY_ESCALATION`, `DOCS_TO_UPDATE`를 기록한다(스키마는 `minimal-change-contract.md`가 canonical). 모든 implementation/retry agent prompt에 이 필드를 전달하고 scope 확대가 필요하면 확대된 경로를 수정하기 전에 brief를 갱신한다. `CAPABILITY_ESCALATION: detected`이면 Phase 4에서 `security-reviewer` 재투입이 의무다.
+### Phase 4 — 검증
 
-`existing-change`이면 `_workspace/02_design/integration-overlay.json`을 먼저 생성·검증한다. 각 owner는 `change-journal-contract.md`에 따라 자기 `_workspace/03_dev/change-journal/{agent-name}.md`에 생성·수정·실패·증거를 기록한다.
-
-구현 전에 `web-profile-contract.md`의 resolver를 실행한다. 이때 intake에서 판별한 요청 언어를 `outputLanguage`로 프로필에 병합하고 산출 스폰마다 주입한다 — 규약·검사는 `development-gates-contract.md` Gate L. 기존 project는 `--requested auto`, greenfield는 tech-stack의 명시 profile/provider/deployment/capability를 전달한다. resolver는 crawler script, ingestion package, scheduled refresh workflow를 발견했는데 두 ingestion 계약 또는 `external-ingestion` capability가 없으면 fail-closed해야 한다. stable stdout JSON을 `_workspace/01_plan/project-profile.json`에 그대로 저장하고 `--profile-file`로 DAG를 컴파일해 `_workspace/03_dev/web-execution-plan.json`에 저장한다. profile conflict, provider-target conflict, forbidden marker, ingestion contract/capability 누락, stale adapter hash는 `BLOCKED`다. **구현 스폰마다 `.claude/skills/component-gen/references/ts-conventions.md` 경로를 prompt에 전달한다** — Phase 2가 designer에게 디자인 원칙 허브를 넘기는 것과 같은 방식이며, 코드 작성 규약이 사후 `code-reviewer` 지적이 아니라 생성 시점에 적용되게 한다(포매팅 정본은 생성된 `.prettierrc`).
-
-**스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `lib-*` 셋으로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `/next-app`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
-
-1. 패키지/도구/앱 기반 생성 (순서 있음):
-   - `environment-scaffolder` — package/workspace metadata
-   - `environment-scaffolder` — TS/Vite/ESLint/Vitest 설정
-   - `developer` — shared/api/config/store/env/MSW 기반
-   - `EXTERNAL_DATA_INGESTION_MODE`이면 `developer` — adapter/normalize/schema/quality/atomic promotion 구현
-   - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `/vite-serverless-hybrid`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
-   - `SERVER_DB_MODE`이면 `/server-db-migration`을 실행해 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
-   - `developer` — main/App/router/theme/home shell
-2. 지원 companion과 API 계약 확정:
-   - `API_CONTRACT_MODE`이면 `/api-contract-typegen`을 실행해 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
-   - `OAUTH_SERVER_MODE`이면 `/auth-setup`을 실행해 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
-   - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
-3. **구현 — `developer`를 모듈 경계마다 스폰한다.** 스팩의 `moduleBoundaries` 각각이 한 스폰의
-   범위(`change-scope.md`의 `ALLOWED_PATHS`)가 되고, 소유권은 `layerMap`이 공급한다. **무엇을
-   어느 순서로 만들지 지시하지 않는다** — 스팩이 정한 `architecture`·`layerMap`·`libraries` 안에서
-   모델이 정한다. 경계가 겹치지 않으므로 병렬이 안전하다.
-   - 구조 지시 빌더 6종(`app-shell`·`route`·`component`·`entity-query`·`feature-mutation`·
-     `data-ui-binder`)은 2026-08-26에 제거됐다. 실측으로 그 소유권이 이미 성립하지 않았고
-     (`src/pages/**` 3중 겹침, 비-FSD 어휘 무소유) 공급한 것은 격리가 아니라 FSD 경로 처방이었다.
-4. **여전히 별도인 것** — 소유 영역이나 실행 조건이 구별되는 것만 남긴다:
-   - `developer`. `TIMESERIES_MODE`에서는 realtime interface 완료 후로 미룬다 <!-- marker:timeseries-realtime-build-order -->
-   - `developer`(`TIMESERIES_MODE`) · `developer`(`ANALYTICS_BUILDER_MODE`)
-   - `developer`(폼) · `developer`(`LOCAL_DOMAIN_STATE_MODE`)
-   - `developer` — 공개 노출 요구일 때
-5. browser Mock 사용 시 `public/mockServiceWorker.js`를 확인한다. dependency install이 승인·완료됐는데 파일이 없으면 실제 외부 격리가 적용된 setup job에서만 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-package-operation.mjs --project {project-root} --operation msw-init`을 실행한다. 사용자 승인만 있는 host 실행은 `BLOCKED`다
-각 1·3·4단계 뒤 `development-gates-contract.md`의 Gate A·B·C를 실행하고 `FAIL|BLOCKED`면 다음 단계로 진행하지 않는다. 중간 receipt는 이후 source 변경 시 stale이며 Phase 4 release evidence를 대신하지 않는다. 이와 별개로 각 builder 스폰 직후 `execution-budget-contract.md`의 **스폰 완결성 게이트**(완결성 마커·`verify-spawn-completion.mjs`·runaway 임계)를 통과시킨다 — 실패면 re-spawn 또는 `NEEDS_DECISION`, 불완전 산출물 위에 다음 단계를 쌓지 않는다(품질 Gate A/B/C와 보완).
-6. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `environment-scaffolder`를 실행한다.
-7. `scheduled-static-ingestion`이면 `environment-scaffolder`가 refresh workflow만 작성한다. workflow는 machine validator가 요구하는 kind/generated-path/direct-push metadata, read-only crawl job, 격리된 promotion 권한, concurrency를 포함해야 한다.
-8. provider가 Vercel이면 `environment-scaffolder`가 root/app `vercel.json`, build/output/root 계약만 작성한다. ingestion workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
-9. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `visual-developer`를 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.
-
-### Phase 4 — 검증 (테스트 준비 → 결정론적 실행 → 판정)
-
-package/config/source 구현이 끝난 현재 project를 대상으로 같은 deployment/capabilities로 profile resolver를 다시 실행하고 canonical `web-execution-plan.json`을 다시 컴파일한다. framework/toolchain declaration, adapter hash, plan graph가 달라졌거나 exact version이 아니면 quality runner 전에 `BLOCKED`다.
-
-external ingestion greenfield에서는 web app과 crawler/workflow/runtime contract를 같은 canonical project root에 둔다. parent wrapper의 crawler와 nested web app을 서로 다른 release root로 만든 뒤 한쪽 evidence만으로 완료하지 않는다. 기존 split-root project는 자동 재배치하지 않고 migration decision이 확정될 때까지 `BLOCKED`다.
-
-먼저 `environment-scaffolder`와 `developer`를 순서대로 실행한다. 로컬 진단에서는 오케스트레이터가 사용자 확인 후 실제 process exit를 기록하는 quality runner를 실행한다:
-
-```bash
-node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
-```
-
-quality runner는 generated project의 package script를 실행하므로 실행 직전에 사용자 확인을 받는다. 이 host receipt는 진단 전용이다. release 후보는 격리 CI에서 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 실행한다. `external-ingestion` capability에서는 built-in artifact semantic validation을 포함한 `ingestion` receipt가 같은 cohort에 반드시 있어야 한다. host public env는 자동 상속하지 않고 `_workspace/02_design/build-environment.json`에 이름이 명시된 공개 변수만 전달한다.
-
-runner가 non-zero여도 보고서를 생략하지 않는다. `_workspace/04_qa/evidence/*.json`의 `FAIL`/`BLOCKED`를 owner에게 연결하는 QA 보고서를 생성하고 retry 여부를 판단한다. verifier가 Markdown에 임의의 exit code를 작성하거나 machine receipt를 대신 생성하면 안 된다.
-
-그 다음 아래 read-only verifier를 병렬 실행한다:
-- `code-reviewer` → `_workspace/04_qa/qa-code.md` (TypeScript, ESLint, FSD, a11y, 테스트 파일 존재 여부)
-- `ux-validator` → `_workspace/04_qa/qa-ux.md`
-- `integration-verifier` → `_workspace/04_qa/qa-integration.md`
-- `security-reviewer` → `_workspace/04_qa/qa-security.md`
-- `api-contract-verifier` → `_workspace/04_qa/qa-api-contract.md`
-- `ANALYTICS_BUILDER_MODE`이면 `analytics-verifier` → `_workspace/04_qa/qa-analytics.md`
-- `LOCAL_DOMAIN_STATE_MODE`이면 `state-invariant-verifier` → `_workspace/04_qa/qa-state.md`
-- `EXTERNAL_DATA_INGESTION_MODE`이면 `data-quality-verifier` → `_workspace/04_qa/qa-data-quality.md`. 공개 노출 요구이면 `seo-verifier` → `qa-seo.md`, `performance-budget.md`가 있으면 `performance-verifier` → `qa-perf.md`, `TIMESERIES_MODE`이면 `timeseries-verifier` → `qa-timeseries.md` (모두 `_workspace/04_qa/`)
-- 다중 tenant·서버 인가 경로가 있으면 `data-access-verifier` → `_workspace/04_qa/qa-data-access.md`
-- `test-executor` → `_workspace/04_qa/qa-test.md`
-- `browser-verifier` → `_workspace/04_qa/qa-browser.md`
-- `VISUAL_QA_MODE`이면 `visual-regression-verifier` → `_workspace/04_qa/qa-visual.md`
-
-`TIMESERIES_MODE`에서는 API contract에 stream schema/cursor를 포함하고 browser QA에 normal/max/burst, reconnect/gap, visible-point, render cadence, heap trend를 포함한다.
-
-`ANALYTICS_BUILDER_MODE`에서는 semantic query, chart compatibility, dashboard revision과 Funnel/Retention/Flow fixture를 QA에 포함한다. `qa-analytics.md` 누락이나 `BLOCKED`는 release hard stop이다.
-
-`LOCAL_DOMAIN_STATE_MODE`에서는 state-contract의 invariant와 filter/search × mutation matrix를 unit/browser QA에 포함한다. 데이터 손실 가능성, 구조 필드 broad patch, hidden-data destructive action, migration/recovery 누락은 release hard stop이다.
-
-`EXTERNAL_DATA_INGESTION_MODE`에서는 source fixture, runtime schema, empty/drift/count-drop, atomic promotion, last-known-good, clean clone/provider build matrix를 검증한다. static target에서는 promoted `public/` required/validated optional/last-known-good snapshot과 실제 `dist/|out/` 복사본 digest가 같아야 한다. `ingestion` machine receipt 누락, required artifact 누락·empty·schema/count/freshness/coverage failure, 배포 복사본 parity 실패, 실제 runtime mode와 locked capability 불일치는 release hard stop이다. Vercel static external-ingestion은 격리 build namespace 종료 후 attested immutable artifact를 동일 prebuilt deployment에 결합하는 protected broker evidence가 없으면 provider build가 통과해도 release `BLOCKED`다. Markdown `qa-data-quality.md`만으로 machine receipt를 대체하지 않는다.
-`VISUAL_QA_MODE`에서는 승인 manifest와 browser `visualEvidence`를 요구한다. unreviewed baseline, stale hash, missing target/mode, snapshot mutation, 환경 drift는 release hard stop이다.
-
-read-only verifier는 보고서 본문을 반환하고 오케스트레이터가 해당 경로에 저장한다. verifier에게 Write/Edit 권한을 부여하지 않는다.
-
-Next 최종 리포트를 제외한 일반·조건부 QA 리포트와 격리 CI receipt가 완성되면 external quality attestation을 만든다. Next profile은 서명 뒤 machine validator와 read-only verifier를 순서대로 실행해 `_workspace/04_qa/qa-next-contract.md`를 저장한다. 그 다음 report hash, machine receipt, 전체 source fingerprint, 모든 package/workspace manifest hash와 attestation을 manifest v3에 고정한다:
-
-```bash
-node .claude/scripts/prepare-quality-attestation.mjs --project . --issuer-run-id <trusted-ci-run-id>
-# unsigned request를 checkout 밖의 protected trust/CI identity와 대조해 final subject를 구성·서명한 뒤
-# Next profile이면 validate-next-contracts.mjs와 next-contract-verifier를 실행한 뒤
-node .claude/scripts/validate-release-gate.mjs --write-manifest
-node .claude/scripts/validate-release-gate.mjs
-```
-
-필수 리포트 누락, `FAIL`, `BLOCKED`, `NEEDS_REVIEW`, receipt 누락·stale·non-zero exit, test file 0개, source/manifest hash 불일치 중 하나라도 있으면 release-manager를 실행하지 않는다. Markdown 표만 PASS로 바꿔서는 gate를 통과할 수 없다.
-
-완료 후 `release-manager` 실행:
-- FAIL 항목 있으면 해당 에이전트 재실행 (retry-policy.md 기준, 보고서별 최대 2회)
-- 같은 QA 보고서가 3회 연속 FAIL이면 Hard Stop — 사용자에게 보고하고 자동 재시도를 중단한다
-- 배포 CI, scheduled ingestion workflow 또는 provider config가 필요한데 Phase 4 전에 생성되지 않았다면 release를 중단하고 해당 owner agent 실행 후 quality runner부터 다시 시작
-- release gate가 exit 0이고 모두 PASS(또는 정책상 WARN)일 때만 `_workspace/RELEASE/HANDOFF.md` 생성. 그 미만이면 `release-tier-contract.md`의 tier 판정에 따라 `release-manager`가 `release-readiness.md`로 tier 라벨과 승급 경로를 보고한다
+**시점 로드**: `references/phase-4-verification.md` — 무조건 verifier와 조건부 verifier · quality runner와 receipt · 서명 attestation · release gate와 tier 판정.

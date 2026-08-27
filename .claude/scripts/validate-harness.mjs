@@ -9,6 +9,7 @@ import {validateContentPolicy} from './validators/validate-content-policy.mjs'
 import {validateGoldenProfiles} from './validators/validate-golden-profiles.mjs'
 import {validateHardeningSelfTests} from './validators/validate-hardening-self-tests.mjs'
 import {validateMinimalChange} from './validators/validate-minimal-change.mjs'
+import {orchestrationSurface} from './validators/orchestration-surface.mjs'
 import {validateModularity} from './validators/validate-modularity.mjs'
 import {validatePlanningFacilitation} from './validators/validate-planning-facilitation.mjs'
 import {validateReleaseFixtures} from './validators/validate-release-fixtures.mjs'; import {validateSchemaParity} from './validators/validate-schema-parity.mjs'
@@ -269,8 +270,10 @@ if (!templateSource.includes('waitForRetry') || !templateSource.includes('reques
 if (!templateSource.includes('axios.isCancel(cause)')) fail('project API template normalizes cancellation as an application error')
 pass('typed and cancellable 429 retry contract checked')
 
+// 표면 = SKILL.md + Phase 참조 전부(2026-08-27 시점 로드 강등 후). 경로 하드코딩은 다음 강등에서
+// 다시 눈이 먼다 — glob 정의는 `validators/orchestration-surface.mjs`가 canonical이다.
 const webOrchestrationSource = [
-  read('.claude/skills/web-orchestrator/SKILL.md'),
+  orchestrationSurface(repositoryRoot),
   read('.claude/skills/web-verify/SKILL.md'),
 ].join('\n')
 const devOrchestratorSource = read('.claude/skills/dev-orchestrator/SKILL.md')
@@ -300,9 +303,9 @@ pass('canonical web orchestration and dev delegation checked')
 
 const localStateReference = '.claude/skills/web-orchestrator/references/local-domain-state.md'
 if (!existsSync(join(repositoryRoot, localStateReference))) fail('local domain state contract is missing')
-for (const orchestratorPath of ['.claude/skills/web-orchestrator/SKILL.md', '.claude/agents/requirements-analyst.md']) {
-  if (!read(orchestratorPath).includes(localStateReference)) {
-    fail(`${orchestratorPath}: canonical local domain state contract is not referenced`)
+for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/requirements-analyst.md', read('.claude/agents/requirements-analyst.md')]]) {
+  if (!source.includes(localStateReference)) {
+    fail(`${label}: canonical local domain state contract is not referenced`)
   }
 }
 for (const marker of ['filtered/virtualized index', 'invalid-state recovery', 'qa-state.md']) {
@@ -312,9 +315,9 @@ pass('local domain state detection and invariant contracts checked')
 
 const externalIngestionReference = '.claude/skills/web-orchestrator/references/external-data-ingestion.md'
 if (!existsSync(join(repositoryRoot, externalIngestionReference))) fail('external data ingestion contract is missing')
-for (const orchestratorPath of ['.claude/skills/web-orchestrator/SKILL.md', '.claude/agents/requirements-analyst.md']) {
-  if (!read(orchestratorPath).includes(externalIngestionReference)) {
-    fail(`${orchestratorPath}: canonical external ingestion contract is not referenced`)
+for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/requirements-analyst.md', read('.claude/agents/requirements-analyst.md')]]) {
+  if (!source.includes(externalIngestionReference)) {
+    fail(`${label}: canonical external ingestion contract is not referenced`)
   }
 }
 for (const marker of ['static-snapshot', 'last-known-good', 'atomic publish', 'qa-data-quality.md']) {
@@ -325,8 +328,8 @@ pass('external ingestion detection, quality, and promotion contracts checked')
 const detectionReference = '.claude/skills/timeseries-dashboard/references/detection-contract.md'
 if (!existsSync(join(repositoryRoot, detectionReference))) fail('timeseries detection contract is missing')
 const detectionSource = existsSync(join(repositoryRoot, detectionReference)) ? read(detectionReference) : ''
-if (!read('.claude/skills/web-orchestrator/SKILL.md').includes(detectionReference)) {
-  fail('.claude/skills/web-orchestrator/SKILL.md: canonical timeseries detection contract is not referenced')
+if (!webOrchestrationSource.includes(detectionReference)) {
+  fail('web orchestration surface: canonical timeseries detection contract is not referenced')
 }
 for (const keyword of ['그라파나', '시계열', '날짜별', '실시간', '빅데이터', '채팅']) {
   if (!detectionSource.includes(keyword)) fail(`timeseries detection contract is missing Korean case: ${keyword}`)

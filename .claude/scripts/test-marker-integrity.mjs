@@ -102,7 +102,7 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
     '.claude/agents/only-one.md': `한 줄만 남음 ${ANCHOR}\n`,
     '.claude/skills/timeseries-dashboard/references/detection-contract.md':
       'realtime is not required. <!-- marker:timeseries-historical-only -->\n',
-    '.claude/skills/web-orchestrator/SKILL.md':
+    '.claude/skills/web-orchestrator/references/phase-3-development.md':
       'defer mock-api-builder. <!-- marker:timeseries-realtime-build-order -->\n',
     '.claude/scripts/validate-spawn-plan.mjs':
       '// reminder <!-- marker:immediate-write-contract -->\n',

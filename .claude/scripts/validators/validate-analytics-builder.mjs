@@ -1,4 +1,5 @@
 import {existsSync} from 'node:fs'
+import {orchestrationSurface} from './orchestration-surface.mjs'
 import {join} from 'node:path'
 
 export const validateAnalyticsBuilder = ({repositoryRoot, read, pass, fail}) => {
@@ -12,7 +13,7 @@ export const validateAnalyticsBuilder = ({repositoryRoot, read, pass, fail}) => 
   ]
   for (const path of required) if (!existsSync(join(repositoryRoot, path))) fail(`${path}: analytics builder contract is missing`)
 
-  const orchestration = read('.claude/skills/web-orchestrator/SKILL.md')
+  const orchestration = orchestrationSurface(repositoryRoot)
   for (const marker of [
     'ANALYTICS_BUILDER_MODE',
     'analytics-domain-architect',

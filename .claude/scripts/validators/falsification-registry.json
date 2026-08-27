@@ -73,6 +73,14 @@
       "replace": "  return false && entries.some(",
       "test": ".claude/scripts/test-release-report-policy.mjs",
       "why": "경로 모델이 루트 전용으로 되돌아가면 client/migrations/ 관습을 따른 프로젝트가 data-access QA 요구에서 조용히 빠진다"
+    },
+    {
+      "id": "orchestration-surface-glob",
+      "file": ".claude/scripts/validators/orchestration-surface.mjs",
+      "find": "      if (/^phase-.+\\.md$/.test(name)) files.push(`${SKILL_DIRECTORY}/references/${name}`)",
+      "replace": "      if (false) files.push(`${SKILL_DIRECTORY}/references/${name}`)",
+      "test": ".claude/scripts/test-orchestration-surface.mjs",
+      "why": "표면이 SKILL.md 하드코딩으로 되돌아가면 Phase 참조로 옮겨간 계약 검사 8곳이 조용히 눈이 먼다"
     }
   ]
 }

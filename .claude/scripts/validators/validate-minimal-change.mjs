@@ -1,4 +1,5 @@
 import {existsSync} from 'node:fs'
+import {orchestrationSurface} from './orchestration-surface.mjs'
 import {join} from 'node:path'
 
 const contractPath = '.claude/skills/web-orchestrator/references/minimal-change-contract.md'
@@ -27,7 +28,6 @@ export const validateMinimalChange = ({repositoryRoot, read, pass, fail}) => {
   if (contract.split(/\r?\n/).length > 120) fail(`${contractPath}: contract exceeds 120 lines`)
 
   const requiredConsumers = [
-    '.claude/skills/web-orchestrator/SKILL.md',
     '.claude/skills/dev-orchestrator/SKILL.md',
     '.claude/skills/feature-add/SKILL.md',
     '.claude/skills/component-gen/SKILL.md',
@@ -41,13 +41,17 @@ export const validateMinimalChange = ({repositoryRoot, read, pass, fail}) => {
     '.claude/skills/web-verify/SKILL.md',
     '.claude/agents/code-reviewer.md',
   ]
+  // 오케스트레이션 표면은 파일 하나가 아니라 SKILL.md + Phase 참조 전부다(2026-08-27).
+  if (!orchestrationSurface(repositoryRoot).includes('minimal-change-contract.md')) {
+    fail('web orchestration surface: canonical minimal change contract is not referenced')
+  }
   for (const relativePath of requiredConsumers) {
     if (!read(relativePath).includes('minimal-change-contract.md')) {
       fail(`${relativePath}: canonical minimal change contract is not referenced`)
     }
   }
 
-  const webOrchestrator = read('.claude/skills/web-orchestrator/SKILL.md')
+  const webOrchestrator = orchestrationSurface(repositoryRoot)
   for (const marker of ['change-scope.md', 'TARGET_BEHAVIOR', 'PUBLIC_CONTRACTS_TO_PRESERVE', 'TEST_EVIDENCE']) {
     if (!webOrchestrator.includes(marker)) fail(`web-orchestrator does not pass minimal change field ${marker}`)
   }

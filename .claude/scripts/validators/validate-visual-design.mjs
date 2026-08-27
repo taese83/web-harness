@@ -1,4 +1,5 @@
 import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {orchestrationSurface} from './orchestration-surface.mjs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {sha256} from '../evidence-lib.mjs'
@@ -81,7 +82,7 @@ export const validateVisualDesign = ({repositoryRoot, read, pass, fail}) => {
     }
   }
 
-  const orchestration = `${read('.claude/skills/web-orchestrator/SKILL.md')}\n${read('.claude/skills/web-verify/SKILL.md')}`
+  const orchestration = `${orchestrationSurface(repositoryRoot)}\n${read('.claude/skills/web-verify/SKILL.md')}`
   for (const marker of [
     'VISUAL_QA_MODE',
     'visual-contract-designer',

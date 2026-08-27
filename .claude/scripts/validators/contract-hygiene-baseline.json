@@ -98,6 +98,9 @@
     ".claude/skills/web-orchestrator/references/minimal-change-contract.md",
     ".claude/skills/web-orchestrator/references/operational-gotchas.md",
     ".claude/skills/web-orchestrator/references/performance-patterns.md",
+    ".claude/skills/web-orchestrator/references/phase-2-design.md",
+    ".claude/skills/web-orchestrator/references/phase-3-development.md",
+    ".claude/skills/web-orchestrator/references/phase-4-verification.md",
     ".claude/skills/web-orchestrator/references/qa-evidence-contract.md",
     ".claude/skills/web-orchestrator/references/realtime-provider-contract.md",
     ".claude/skills/web-orchestrator/references/release-tier-contract.md",
@@ -113,6 +116,6 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 63653
+    "web-orchestrator": 45512
   }
 }

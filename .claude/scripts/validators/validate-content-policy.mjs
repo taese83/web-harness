@@ -1,4 +1,5 @@
 import {existsSync} from 'node:fs'
+import {orchestrationSurface} from './orchestration-surface.mjs'
 import {join} from 'node:path'
 
 export const validateContentPolicy = ({repositoryRoot, activeSource, read, pass, fail}) => {
@@ -64,7 +65,7 @@ export const validateContentPolicy = ({repositoryRoot, activeSource, read, pass,
   if (!existsSync(join(repositoryRoot, quarantineReference))) {
     fail('untrusted content quarantine contract is missing')
   } else {
-    if (!read('.claude/skills/web-orchestrator/SKILL.md').includes('untrusted-content-quarantine.md')) {
+    if (!orchestrationSurface(repositoryRoot).includes('untrusted-content-quarantine.md')) {
       fail('.claude/skills/web-orchestrator/SKILL.md: quarantine contract is not loaded on any path')
     }
     const markerProducers = [
