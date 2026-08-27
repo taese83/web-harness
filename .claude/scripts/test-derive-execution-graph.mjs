@@ -44,12 +44,24 @@ test('어댑터 tasks를 재현한다 (알려진 차이 2종 제외)', () => {
   assert.ok(compared >= 14, `비교가 ${compared}건뿐이다 — 어댑터를 못 읽었으면 vacuous PASS다`)
 })
 
-test('release.assemble은 모든 evidence의 합집합이다', () => {
-  const {tasks} = deriveGraph({checks: checksFor(['web-app'])})
+test('release.assemble은 릴리스를 게이트하는 evidence의 합집합이다', () => {
+  // 2026-08-27: "모든 evidence"가 아니다. `gatesRelease: false`인 것은 빠진다 —
+  // typecheck는 빌드가 이미 요구하므로 전이적으로 강제되고, 어댑터 선언도 그렇게 돼 있다.
+  // 직접 요구하면 선언과 어긋나 등가가 깨진다(간선 비교가 잡는다).
+  const checks = checksFor(['web-app'])
+  const {tasks} = deriveGraph({checks})
   const release = tasks.find(t => t.id === 'release.assemble')
-  const evidence = tasks.flatMap(t => t.provides).filter(p => p.startsWith('evidence.'))
+  const gating = new Set(checks.filter(check => check.gatesRelease !== false).map(check => check.id))
+  const evidence = tasks
+    .filter(task => gating.has(task.id))
+    .flatMap(task => task.provides)
+    .filter(name => name.startsWith('evidence.'))
   assert.deepEqual(release.requires, [...evidence].sort())
   assert.deepEqual(release.provides, ['release.candidate'])
+  assert.ok(
+    !release.requires.includes('evidence.typecheck'),
+    'gatesRelease:false가 무시됐다 — 어댑터 선언과 간선이 어긋난다',
+  )
 })
 
 // ── 도출 규칙 ────────────────────────────────────────────────────────────────
@@ -83,5 +95,43 @@ test('api.unit과 quality.unit이 구분된다', () => {
 test('회귀 반증: 빌드 없이 artifact를 요구하면 도달 불가 그래프다', () => {
   const {tasks, errors} = deriveGraph({checks: [{id: 'x.runtime', needsArtifact: true}]})
   assert.equal(tasks.length, 0)
-  assert.match(errors[0], /빌드 task가 없는데/)
+  // 메시지는 어느 검사가 어느 산출물을 못 찾는지 둘 다 말해야 한다 — 2026-08-27 이름 있는
+  // 산출물 도입으로 산출물이 하나가 아니게 됐고, "빌드가 없다"만으로는 어느 것인지 모른다.
+  assert.match(errors[0], /x\.runtime/)
+  assert.match(errors[0], /artifact\.built/)
+})
+
+test('이름 있는 2차 산출물: 소비자가 그 산출물을 요구한다', () => {
+  const {tasks, errors} = deriveGraph({
+    checks: [
+      {id: 'app.build'},
+      {id: 'app.image', producesArtifact: 'artifact.image', needsArtifact: true},
+      {id: 'app.image-smoke', needsArtifact: 'artifact.image'},
+    ],
+  })
+  assert.deepEqual(errors, [])
+  const smoke = tasks.find(task => task.id === 'app.image-smoke')
+  assert.deepEqual(smoke.requires, ['artifact.image'], '2차 산출물 소비가 기본 빌드로 퇴화했다')
+})
+
+test('배포 타깃별 릴리스: 활성 검사만 요구하고 smoke는 게이트하지 않는다', () => {
+  const {tasks, errors} = deriveGraph({
+    checks: [
+      {id: 'app.build'},
+      {id: 'app.node-run', needsArtifact: true, requires: ['node-server']},
+      {id: 'app.node-smoke', needsArtifact: true, requires: ['node-server'], gatesRelease: false},
+      {id: 'app.static-run', needsArtifact: true, requires: ['static-export']},
+    ],
+    capabilities: [],
+    deploymentTargets: ['node-server', 'static-export'],
+    defaultTarget: 'node-server',
+  })
+  assert.deepEqual(errors, [])
+  // 기본 타깃을 품은 그룹만 release.candidate를 낸다 — 어댑터 선언 형상과 같다.
+  const node = tasks.find(task => task.id === 'release.assemble')
+  const staticRelease = tasks.find(task => task.id === 'release.static-export')
+  assert.deepEqual(node.requires, ['evidence.app-node-run'], 'smoke가 릴리스를 게이트하거나 타깃 필터가 새고 있다')
+  assert.deepEqual(node.provides, ['release.candidate', 'release.node-server'])
+  assert.deepEqual(staticRelease.requires, ['evidence.app-static-run'])
+  assert.deepEqual(staticRelease.provides, ['release.static-export'])
 })

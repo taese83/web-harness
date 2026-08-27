@@ -21,8 +21,8 @@
     {
       "id": "graph-evidence-collision",
       "file": ".claude/scripts/derive-execution-graph.mjs",
-      "find": "    if (seen.has(name)) return",
-      "replace": "    if (false) return",
+      "find": "    if (seen.has(name)) {",
+      "replace": "    if (false) {",
       "test": ".claude/scripts/test-derive-execution-graph.mjs",
       "why": "evidence 이름 충돌을 허용하면 서로 다른 검사가 합쳐져 하나만 돌아도 release가 통과한다"
     },

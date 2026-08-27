@@ -17,9 +17,11 @@ import {inspectAdapterDerivation} from './validators/validate-adapter-derivation
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-test('실제 repo: shape-covered 프로필 2종은 도출과 등가다', async () => {
-  const errors = await inspectAdapterDerivation({repositoryRoot})
+test('실제 repo: 내장 프로필 3종이 도출과 등가다 (노드와 간선)', async () => {
+  const {errors, unverified} = await inspectAdapterDerivation({repositoryRoot})
   assert.deepEqual(errors, [], `등가가 깨졌다:\n${errors.join('\n')}`)
+  // 미판정은 통과가 아니다 — 있다면 이름으로 남아야 한다(조용한 스킵 금지).
+  for (const note of unverified) assert.match(note, /미판정/)
 })
 
 // 변형 트리를 만들어 게이트가 실제로 발화하는지 본다. adapter-lib은 repo 고정 경로에서
@@ -45,7 +47,7 @@ test('검사가 도출에서 빠지면 FAIL한다', async () => {
       catalog.shapes['web-app'].checks = catalog.shapes['web-app'].checks.filter(check => check.id !== 'vite.browser')
     },
     async () => {
-      const errors = await inspectAdapterDerivation({repositoryRoot})
+      const {errors} = await inspectAdapterDerivation({repositoryRoot})
       assert.ok(
         errors.some(message => message.includes('vite.browser')),
         `검사 누락을 잡지 못했다: ${errors.join(' / ')}`,
@@ -60,7 +62,7 @@ test('receiptKind가 어긋나면 FAIL한다', async () => {
       for (const check of catalog.shapes['web-app'].checks) if (check.id === 'vite.build') check.receiptKind = 'runtime'
     },
     async () => {
-      const errors = await inspectAdapterDerivation({repositoryRoot})
+      const {errors} = await inspectAdapterDerivation({repositoryRoot})
       assert.ok(
         errors.some(message => message.includes('receiptKind')),
         `receiptKind 불일치를 잡지 못했다: ${errors.join(' / ')}`,
@@ -74,14 +76,29 @@ test('명령 대조가 공회전하면 통과가 아니라 FAIL이다', async ()
   await withMutatedCatalog(
     catalog => {
       catalog.common.checks = []
-      catalog.shapes['web-app'].checks = []
-      catalog.shapes['serverless-functions'].checks = []
+      for (const shape of Object.values(catalog.shapes)) shape.checks = []
     },
     async () => {
-      const errors = await inspectAdapterDerivation({repositoryRoot})
+      const {errors} = await inspectAdapterDerivation({repositoryRoot})
       assert.ok(
         errors.some(message => message.includes('공회전')),
         `공허한 통과를 막지 못했다: ${errors.join(' / ')}`,
+      )
+    },
+  )
+})
+
+test('릴리스 간선이 어긋나면 FAIL한다 — 노드가 같아도 게이트는 다르다', async () => {
+  await withMutatedCatalog(
+    catalog => {
+      // typecheck가 릴리스를 직접 게이트하게 만들면 release 노드의 requires가 달라진다.
+      for (const check of catalog.common.checks) if (check.id === 'quality.typecheck') delete check.gatesRelease
+    },
+    async () => {
+      const {errors} = await inspectAdapterDerivation({repositoryRoot})
+      assert.ok(
+        errors.some(message => message.includes('requires 불일치')),
+        `간선 불일치를 잡지 못했다: ${errors.join(' / ')}`,
       )
     },
   )

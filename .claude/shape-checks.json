@@ -17,7 +17,9 @@
         "kind": "runtime",
         "implemented": true,
         "needsArtifact": false,
-        "receiptKind": "static"
+        "receiptKind": "static",
+        "gatesRelease": false,
+        "$comment": "빌드가 evidence.typecheck를 요구하므로 릴리스는 전이적으로 이미 요구한다 — 직접 게이트하면 어댑터 선언과 어긋난다"
       },
       {
         "id": "quality.unit",
@@ -144,6 +146,261 @@
           "needsArtifact": false,
           "$comment": "엔드포인트 공통 가드 매트릭스. 미등록 엔드포인트 추가를 막는다",
           "receiptKind": "security"
+        }
+      ]
+    },
+    "ssr-web-app": {
+      "$comment": "서버 렌더링 웹앱 — 빌드 산출물을 여러 배포 형태(node-server·docker-standalone·static-export)로 실증한다. 어느 검사가 켜지는지는 스팩이 확정한 능력(rsc·app-router·ssr·auth)과 배포 타깃이 정한다. 검사 id의 next. 접두는 receipt 이름이며(vite.build와 같은 성질) 실행 명령은 전부 프로젝트 script다 — 하네스 고유 명령 0건(2026-08-27 실측).",
+      "checks": [
+        {
+          "id": "next.build",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "build"
+        },
+        {
+          "id": "next.route-contract",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "contract",
+          "needsArtifact": true,
+          "requires": [
+            "app-router"
+          ],
+          "evidenceName": "evidence.next.route-contract"
+        },
+        {
+          "id": "next.client-boundary",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": true,
+          "requires": [
+            "rsc"
+          ],
+          "evidenceName": "evidence.next.client-boundary"
+        },
+        {
+          "id": "next.secret-boundary",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": true,
+          "requires": [
+            "rsc"
+          ],
+          "evidenceName": "evidence.next.secret-boundary"
+        },
+        {
+          "id": "next.production-start",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": true,
+          "requires": [
+            "node-server",
+            "ssr"
+          ],
+          "evidenceName": "evidence.next.production-start"
+        },
+        {
+          "id": "next.node-browser",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": true,
+          "requires": [
+            "node-server",
+            "app-router"
+          ],
+          "evidenceName": "evidence.next.node-browser"
+        },
+        {
+          "id": "next.node-hydration",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": true,
+          "requires": [
+            "node-server",
+            "rsc"
+          ],
+          "evidenceName": "evidence.next.node-hydration"
+        },
+        {
+          "id": "next.node-authz",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": true,
+          "requires": [
+            "node-server",
+            "auth"
+          ],
+          "evidenceName": "evidence.next.node-authz"
+        },
+        {
+          "id": "next.node-cache-isolation",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": true,
+          "requires": [
+            "node-server",
+            "auth"
+          ],
+          "evidenceName": "evidence.next.node-cache-isolation"
+        },
+        {
+          "id": "next.node-smoke",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": true,
+          "requires": [
+            "node-server"
+          ],
+          "gatesRelease": false,
+          "evidenceName": "evidence.next.node-smoke"
+        },
+        {
+          "id": "next.node-shutdown",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": true,
+          "requires": [
+            "node-server"
+          ],
+          "evidenceName": "evidence.next.node-shutdown"
+        },
+        {
+          "id": "next.docker-build",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "artifact",
+          "producesArtifact": "artifact.next.docker",
+          "needsArtifact": true,
+          "requires": [
+            "docker-standalone"
+          ]
+        },
+        {
+          "id": "next.docker-smoke",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone"
+          ],
+          "gatesRelease": false,
+          "evidenceName": "evidence.next.docker-smoke"
+        },
+        {
+          "id": "next.docker-browser",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone",
+            "app-router"
+          ],
+          "evidenceName": "evidence.next.docker-browser"
+        },
+        {
+          "id": "next.docker-hydration",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone",
+            "rsc"
+          ],
+          "evidenceName": "evidence.next.docker-hydration"
+        },
+        {
+          "id": "next.docker-authz",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone",
+            "auth"
+          ],
+          "evidenceName": "evidence.next.docker-authz"
+        },
+        {
+          "id": "next.docker-cache-isolation",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "security",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone",
+            "auth"
+          ],
+          "evidenceName": "evidence.next.docker-cache-isolation"
+        },
+        {
+          "id": "next.docker-shutdown",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": "artifact.next.docker",
+          "requires": [
+            "docker-standalone"
+          ],
+          "evidenceName": "evidence.next.docker-shutdown"
+        },
+        {
+          "id": "next.export-artifact",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "artifact",
+          "producesArtifact": "artifact.next.static-export",
+          "needsArtifact": true,
+          "requires": [
+            "static-export"
+          ]
+        },
+        {
+          "id": "next.static-host-smoke",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "runtime",
+          "needsArtifact": "artifact.next.static-export",
+          "requires": [
+            "static-export"
+          ],
+          "evidenceName": "evidence.next.static-host-smoke"
+        },
+        {
+          "id": "next.static-browser",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": "artifact.next.static-export",
+          "requires": [
+            "static-export",
+            "app-router"
+          ],
+          "evidenceName": "evidence.next.static-browser"
+        },
+        {
+          "id": "next.static-hydration",
+          "kind": "runtime",
+          "implemented": true,
+          "receiptKind": "browser",
+          "needsArtifact": "artifact.next.static-export",
+          "requires": [
+            "static-export",
+            "rsc"
+          ],
+          "evidenceName": "evidence.next.static-hydration"
         }
       ]
     }

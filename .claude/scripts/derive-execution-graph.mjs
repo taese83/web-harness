@@ -13,6 +13,18 @@
 //
 // 그 한 비트는 `shape-checks.json`의 `needsArtifact`가 선언한다. 프로필 파일이 아니라
 // 형태 카탈로그에 있어야 하는 값이다 — 빌드 산출물을 쓰는지는 검사의 성질이지 스택의 성질이 아니다.
+//
+// 2026-08-27 확장 — `next-app-fullstack`(32 tasks)까지 덮으려고 네 규칙을 일반화했다. 종전
+// 기록은 "Next는 형태 어휘 밖"이라고 적었으나 **틀렸다**: `next.*` 22종의 실행 명령이 전부
+// `pnpm run <script>`였다(하네스 고유 명령 0건). 프레임워크 지식이 아니라 script 이름표다.
+// 없던 것은 어휘가 아니라 **조건 기구**였다:
+//
+//   5. 능력 게이팅     `requires: [capability]`  — 배포 타깃·아키텍처 속성으로 검사를 켠다
+//   6. 이름 있는 산출물 `producesArtifact` / `needsArtifact: '<name>'` — 빌드가 하나가 아니다
+//                     (Next: artifact.built → artifact.next.docker / artifact.next.static-export)
+//   7. 타깃별 릴리스   배포 타깃마다 release 노드가 서고, 그 타깃에서 활성인 검사만 요구한다
+//   8. 릴리스 게이팅   `gatesRelease: false` — smoke는 생존 확인이지 릴리스 게이트가 아니다
+//                     (어댑터의 release.* requires에서 smoke가 빠져 있던 것을 명시로 옮겼다)
 import {readFileSync} from 'node:fs'
 
 const SHAPE_CHECKS_PATH = new URL('../shape-checks.json', import.meta.url)
@@ -32,7 +44,15 @@ export const RECEIPT_ALIASES = Object.freeze({
   'api.unit': 'api-unit', 'api.guards': 'api-guards',
   'ingestion.validate': 'ingestion',
 })
-const evidenceOf = checkId => `evidence.${RECEIPT_ALIASES[checkId] ?? checkId.replace(/\./g, '-')}`
+// receipt 이름에는 단일 규칙이 없다 — 어댑터 실측: `quality.lint`→`evidence.lint`(접두 제거),
+// `api.unit`→`evidence.api-unit`(점→대시), `next.route-contract`→`evidence.next.route-contract`
+// (점 유지). 구조로 가를 수 없으므로 카탈로그가 실제 이름을 적을 수 있게 한다. 규칙을 지어내면
+// receipt 이름이 바뀌고 기존 receipt가 전부 낡는다.
+const evidenceOf = check => {
+  if (typeof check === 'string') return `evidence.${RECEIPT_ALIASES[check] ?? check.replace(/\./g, '-')}`
+  if (typeof check.evidenceName === 'string' && check.evidenceName.trim() !== '') return check.evidenceName
+  return `evidence.${RECEIPT_ALIASES[check.id] ?? check.id.replace(/\./g, '-')}`
+}
 
 // 골격 — 모든 프로필에서 동일했다(실측).
 const skeleton = () => [
@@ -41,36 +61,101 @@ const skeleton = () => [
   {id: 'dependencies.install', requires: ['source.ready'], provides: ['dependencies.installed']},
 ]
 
-export const deriveGraph = ({checks}) => {
+// 검사가 주어진 능력 집합에서 활성인가. `requires`가 없으면 항상 활성이다(기존 동작 보존).
+const isActive = (check, active) => (check.requires ?? []).every(requirement => active.has(requirement))
+
+// 검사가 만드는 산출물 이름. 빌드 검사는 관례상 `.build`로 끝나고 `artifact.built`를 만든다.
+const artifactOf = check =>
+  check.producesArtifact ?? (check.id.endsWith(BUILD_CHECK_SUFFIX) ? 'artifact.built' : null)
+
+// 검사가 소비하는 산출물 이름. `true`는 기본 빌드 산출물을 뜻한다(기존 표기 보존).
+const consumedArtifact = check =>
+  check.needsArtifact === true ? 'artifact.built' : typeof check.needsArtifact === 'string' ? check.needsArtifact : null
+
+export const deriveGraph = ({checks, capabilities = null, deploymentTargets = null, defaultTarget = null}) => {
   const tasks = skeleton()
-  const evidence = []
-  let hasBuild = false
+  const errors = []
+  // task는 **카탈로그 전체**를 낸다(어댑터도 그랬다). 능력 필터는 릴리스 요구를 정할 때만 쓴다 —
+  // 둘을 섞으면 "선언에는 있는데 도출에는 없는 task"가 생겨 등가가 깨진다.
+  const produced = new Set()
   for (const check of checks) {
-    if (check.id.endsWith(BUILD_CHECK_SUFFIX)) {
-      hasBuild = true
-      tasks.push({id: check.id, requires: ['dependencies.installed', 'evidence.typecheck'], provides: ['artifact.built']})
+    const artifact = artifactOf(check)
+    if (artifact) produced.add(artifact)
+  }
+
+  const evidence = []
+  for (const check of checks) {
+    const artifact = artifactOf(check)
+    const consumes = consumedArtifact(check)
+    const requires = consumes ? [consumes] : ['dependencies.installed']
+    if (artifact === 'artifact.built') {
+      tasks.push({id: check.id, requires: ['dependencies.installed', 'evidence.typecheck'], provides: [artifact]})
       continue
     }
-    const provides = evidenceOf(check.id)
-    evidence.push(provides)
+    if (artifact) {
+      // 2차 산출물(도커 이미지·정적 export) — 기본 빌드 산출물을 소비해 자기 산출물을 낸다.
+      tasks.push({id: check.id, requires, provides: [artifact]})
+      continue
+    }
+    const provides = evidenceOf(check)
+    evidence.push({name: provides, check})
+    tasks.push({id: check.id, requires, provides: [provides]})
+  }
+
+  // 소비하는 산출물을 아무도 만들지 않으면 도달 불가능한 그래프다 — 조용히 넘기지 않는다.
+  for (const check of checks) {
+    const consumes = consumedArtifact(check)
+    if (consumes && !produced.has(consumes)) {
+      errors.push(`'${check.id}'가 요구하는 산출물 '${consumes}'를 아무 검사도 만들지 않는다`)
+    }
+  }
+  const seen = new Set()
+  for (const {name} of evidence) {
+    if (seen.has(name)) {
+      return {tasks: [], evidence: [], errors: [`evidence 이름이 충돌한다: ${name} — 서로 다른 검사가 같은 증거로 합쳐지면 하나만 돌아도 통과한다`]}
+    }
+    seen.add(name)
+  }
+  if (errors.length > 0) return {tasks: [], evidence: [], errors}
+
+  // 릴리스 노드. **배포 타깃별로 활성 검사가 다르면 노드가 갈린다** — 같은 활성 집합을 갖는
+  // 타깃끼리는 한 노드를 공유한다(vite 2종은 어느 검사도 타깃을 요구하지 않아 한 노드,
+  // Next는 node/docker/static이 서로 다른 검사를 켜 세 노드). 이것이 어댑터가 선언으로
+  // 갖고 있던 차이의 전부다.
+  const gatingEvidence = active =>
+    evidence
+      .filter(item => item.check.gatesRelease !== false && isActive(item.check, active))
+      .map(item => item.name)
+      .sort()
+
+  if (deploymentTargets === null || deploymentTargets.length === 0) {
+    tasks.push({id: 'release.assemble', requires: gatingEvidence(new Set(capabilities ?? [])), provides: [TARGET]})
+    return {tasks, evidence: evidence.map(item => item.name), errors: []}
+  }
+
+  const base = new Set(capabilities ?? [])
+  const groups = new Map()
+  for (const target of deploymentTargets) {
+    const requires = gatingEvidence(new Set([...base, target]))
+    if (requires.length === 0) {
+      errors.push(`배포 타깃 '${target}'의 릴리스 요구가 비어 있다 — 아무 검사도 활성이 아니면 릴리스가 공허하다`)
+      continue
+    }
+    const signature = requires.join('|')
+    if (!groups.has(signature)) groups.set(signature, {requires, targets: []})
+    groups.get(signature).targets.push(target)
+  }
+  if (errors.length > 0) return {tasks: [], evidence: [], errors}
+  for (const {requires, targets} of groups.values()) {
+    // 기본 타깃을 품은 그룹이 정본 릴리스 노드다 — `release.candidate`는 거기서만 나온다.
+    const isDefault = defaultTarget !== null && targets.includes(defaultTarget)
     tasks.push({
-      id: check.id,
-      requires: check.needsArtifact === true ? ['artifact.built'] : ['dependencies.installed'],
-      provides: [provides],
+      id: isDefault ? 'release.assemble' : `release.${targets[0]}`,
+      requires,
+      provides: [...(isDefault ? [TARGET] : []), ...targets.map(target => `release.${target}`)].sort(),
     })
   }
-  // 산출물 소비 검사가 있는데 빌드가 없으면 도달 불가능한 그래프다 — 조용히 넘기지 않는다.
-  const seen = new Map()
-  for (const name of evidence) {
-    if (seen.has(name)) return {tasks: [], evidence: [], errors: [`evidence 이름이 충돌한다: ${name} — 서로 다른 검사가 같은 증거로 합쳐지면 하나만 돌아도 통과한다`]}
-    seen.set(name, true)
-  }
-  const orphaned = checks.filter(c => c.needsArtifact === true).map(c => c.id)
-  if (!hasBuild && orphaned.length > 0) {
-    return {tasks: [], evidence: [], errors: [`빌드 task가 없는데 artifact를 요구하는 검사가 있다: ${orphaned.join(', ')}`]}
-  }
-  tasks.push({id: 'release.assemble', requires: [...evidence].sort(), provides: [TARGET]})
-  return {tasks, evidence, errors: []}
+  return {tasks, evidence: evidence.map(item => item.name), errors: []}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
