@@ -235,6 +235,10 @@ export default tseslint.config(
         'error',
         {argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_'},
       ],
+      // TODO/FIXME는 **미결정이 코드에 눌러앉은 것**이다. 이 하네스에서 미결정은
+      // `openDecisions`로 올라가 스팩 왕복으로 닫힌다 — 코드에 남기면 아무도 묻지 않는다.
+      // 주석 규약 전체는 `developer` 에이전트가 canonical이며, 그중 기계가 잡는 것은 이것뿐이다.
+      'no-warning-comments': ['error', {terms: ['todo', 'fixme', 'xxx'], location: 'anywhere'}],
       'no-restricted-syntax': [
         'error',
         {
