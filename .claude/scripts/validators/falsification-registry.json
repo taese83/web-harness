@@ -57,6 +57,14 @@
       "replace": "      void value",
       "test": ".claude/scripts/test-global-bash-policy.mjs",
       "why": "--dir 경로 검사를 끄면 verifier가 프로젝트 밖 package.json script를 실행할 수 있다"
+    },
+    {
+      "id": "entry-cost-includes-skill-body",
+      "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
+      "find": "  return {bytes: bytes + skillBodyBytes, files: files + 1, missing};",
+      "replace": "  return {bytes, files, missing};",
+      "test": ".claude/scripts/test-always-read-marker.mjs",
+      "why": "SKILL.md 본문을 빼면 공표 진입 비용이 실제의 43%가 되고 예산 게이트가 가장 큰 항목을 못 본다"
     }
   ]
 }

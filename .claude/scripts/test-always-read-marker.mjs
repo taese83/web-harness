@@ -60,7 +60,7 @@ test('앵커 없는 문서는 종전 산문 매칭으로 하위 호환된다', (
   assert.equal(countAlwaysReadRefs('항상 `references/a.md`를 읽는다'), 1)
 })
 
-test('바이트 실측: 앵커 안 참조의 실제 파일 크기를 합산하고, 경로 오타는 0이 아니라 missing이다', async () => {
+test('바이트 실측: SKILL.md 본문 + 앵커 안 참조를 합산하고, 경로 오타는 0이 아니라 missing이다', async () => {
   const {mkdtempSync, mkdirSync, writeFileSync, rmSync} = await import('node:fs')
   const {tmpdir} = await import('node:os')
   const {join} = await import('node:path')
@@ -71,11 +71,16 @@ test('바이트 실측: 앵커 안 참조의 실제 파일 크기를 합산하�
     writeFileSync(join(root, 'references', 'a.md'), 'x'.repeat(100))
     writeFileSync(join(root, 'references', 'b.md'), 'y'.repeat(250))
     const text = '<!-- always-read -->\n- `references/a.md`, `references/b.md`\n<!-- /always-read -->'
-    assert.deepEqual(measureAlwaysReadBytes(text, root), {bytes: 350, files: 2, missing: []})
+    // 2026-08-26: 진입 비용에 **SKILL.md 본문**이 포함된다. 종전에는 참조만 세서
+    // web-orchestrator 공표 진입 비용이 실제의 43%였다 — 예산 게이트가 가장 큰
+    // 항목(SKILL.md 38KB)을 보지 않았다.
+    const bodyBytes = Buffer.byteLength(text, 'utf8')
+    assert.deepEqual(measureAlwaysReadBytes(text, root), {bytes: 350 + bodyBytes, files: 3, missing: []})
 
     // 경로 오타가 "비용 0"으로 조용히 집계되면 진입 비용 공표가 거짓이 된다 — missing으로 드러난다.
     const typo = '<!-- always-read -->\n- `references/nope.md`\n<!-- /always-read -->'
-    assert.deepEqual(measureAlwaysReadBytes(typo, root), {bytes: 0, files: 0, missing: ['references/nope.md']})
+    assert.deepEqual(measureAlwaysReadBytes(typo, root),
+      {bytes: Buffer.byteLength(typo, 'utf8'), files: 1, missing: ['references/nope.md']})
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

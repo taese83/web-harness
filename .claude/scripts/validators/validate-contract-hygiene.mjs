@@ -58,9 +58,13 @@ export const countAlwaysReadRefs = text => {
 // 성장을 못 잡는다(§4: "총 로드비용의 진실은 미보장"). 바이트는 결정론적이라 ratchet 단위로
 // 쓰고, 사람이 읽는 토큰 근사치는 bytes/3으로 별도 표기한다(근사임을 숨기지 않는다).
 // 참조를 못 찾으면 0이 아니라 `missing`으로 보고한다 — 경로 오타가 "비용 0"으로 보이면 안 된다.
+// 진입 비용 = SKILL.md 본문 + 선행 로드 참조. 종전에는 **참조만** 셌다(2026-08-26 발견).
+// web-orchestrator에서 SKILL.md가 38KB로 참조 합계(28KB)보다 크므로, 공표된 진입 비용이
+// 실제의 43%만 말하고 있었다 — 예산 게이트가 가장 큰 항목을 보지 않았다.
 export const measureAlwaysReadBytes = (text, skillDirectory) => {
   const scope = alwaysReadScope(text);
   if (scope === null) return {bytes: 0, files: 0, missing: []};
+  const skillBodyBytes = Buffer.byteLength(text, 'utf8');
   const refs = new Set(scope.match(/(?:\.\.\/[\w\-]+\/)?references\/[^`\s,]+\.md/g) ?? []);
   let bytes = 0;
   let files = 0;
@@ -74,7 +78,7 @@ export const measureAlwaysReadBytes = (text, skillDirectory) => {
     bytes += statSync(path).size;
     files += 1;
   }
-  return {bytes, files, missing};
+  return {bytes: bytes + skillBodyBytes, files: files + 1, missing};
 };
 
 // `## 일반화 근거` / `## Generalization evidence` + 서로 다른 형태 2개 이상(불릿)
