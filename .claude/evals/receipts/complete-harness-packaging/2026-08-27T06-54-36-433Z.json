@@ -1,0 +1,44 @@
+{
+  "scenarioId": "complete-harness-packaging",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.247 (Claude Code))",
+    "prompt": "catalog-v1/complete-harness-packaging",
+    "workflow": "harness@d64533d"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/web-app/.claude/ 실존 — skills 24 · agents 46 · scripts 110 · evals 5 · schemas 8 · adapters 3 (ls 카운트, executor.log:16 보고와 일치)",
+        "`diff -rq <repo>/.claude fixture/web-app/.claude` → 차이는 `deployment.json` 단 1건(배포 마커). skills/agents/scripts/evals는 canonical 원본과 바이트 동일",
+        "fixture/web-app/.claude/settings.json — `diff -q <repo>/.claude/settings.project.json fixture/web-app/.claude/settings.json` 무차이(maintainer settings가 아닌 settings.project.json 사본, project-init/references/checklist.md:137 배포 inventory 계약대로)",
+        "fixture/web-app/.claude/deployment.json = {\"schemaVersion\":1,\"source\":\"web-harness-control-plane\",\"deployedAt\":\"2026-08-27T07:11:43.647Z\"}; 추가로 README.md·shape-checks.json·substrate-defaults.json·.nvmrc·.node-version(22.22.3) 배포 확인"
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        ".claude/scripts/deploy-harness.mjs:187-195 — 배포 직후 target의 `.claude/scripts/validate-harness.mjs`를 cwd=targetRoot로 실행하고 status!==0이면 throw",
+        "deploy-harness.mjs:198-206 — 실패 시 catch에서 `rmSync(targetClaude, recursive)`로 target `.claude` 전체 롤백. 즉 완전한 .claude가 남아 있다는 것은 target validate-harness가 exit 0이었다는 뜻",
+        "deploy-harness.mjs:196 `rmSync(deploymentOwnerPath)`는 target 검증 통과 후에만 실행됨 — `ls -a fixture/web-app/.claude`에 `.web-harness-deployment-owner` 없음(성공 경로 실행됨), 반면 .claude 트리·deployment.json은 온전히 존재",
+        "executor.log:16 \"배포본 `validate-toolchain` **PASS**, `validate-harness` **PASS**\" · fixture/web-app/_workspace/01_plan/decision-log.md:137-138 게이트 원장(`validate-harness`(배포본) PASS — skills 24·agents 46·scripts 110)",
+        "fixture/web-app/_workspace/04_qa/execution-telemetry.json — \"(deploy) deploy-harness #1 — target validate-harness FAIL(README.md 부재), 자동 rollback\" 이후 \"(deploy) deploy-harness #2\" outcome:\"complete\" (1차 FAIL 시 실제로 롤백된 이력이 게이트가 작동함을 뒷받침)",
+        "직접 재실행(`node .claude/scripts/validate-harness.mjs`)은 이 grader 세션에서 승인 거부로 불가 — 판정은 위 롤백-불변식 기반 artifact 증거에 의함"
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "fixture/web-app/.claude/skills 전체에서 에이전트형 토큰을 추출(grep -rhoE '…-(architect|verifier|designer|reviewer|analyst|planner|manager|executor|scaffolder|ingestor|facilitator|synthesizer|researcher|validator|advisor|builder|analyzer)' | sort -u) → 실제 에이전트 이름은 전부 fixture/web-app/.claude/agents/*.md 46종에 실존",
+        "미해결 토큰은 전부 비-스폰 문자열로 반증됨: `analytics-architect`는 `analytics-architecture.md` 부분일치, `analytics-chart-builder`·`lib-advisor`는 skill 이름, `package-manager`는 산문(development-gates-contract.md:9), `runtime-builder`·`contract-verifier`는 next-app/SKILL.md:11 changelog 산문",
+        "`app-shell-builder`·`route-builder`는 스폰 지시가 아니라 과거 결함 서술 — fixture/web-app/.claude/skills/dev-orchestrator/SKILL.md:23(해당 skill은 frontmatter가 DEPRECATED·disable-model-invocation: true)과 web-orchestrator/references/shape-routing-contract.md:12(2026-08-26 실측 오류 기술)",
+        "fixture/web-app/.claude/skills/web-orchestrator/SKILL.md:69 \"각 에이전트는 `.claude/agents/{agent-name}.md`에 정의된 subagent\" — Phase 1~4 호출 이름(planning-facilitator·requirements-analyst·ux-researcher·feature-planner·plan-reviewer·source-artifact-ingestor 등) 및 shape-routing-contract.md:23-35 라우팅 표(design-system-architect·layout-designer·component-designer·lib-api-designer·developer·environment-scaffolder·pack-verifier·api-schema-designer·api-contract-verifier·browser-verifier·ux-validator·seo-verifier·code-reviewer·security-reviewer·test-executor) 전원 실존",
+        "fixture/web-app/.claude/adapters 스윕 결과 참조 에이전트는 `next-contract-verifier` 1종뿐이며 fixture/web-app/.claude/agents/next-contract-verifier.md 실존"
+      ]
+    }
+  ]
+}

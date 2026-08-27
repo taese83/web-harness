@@ -92,6 +92,8 @@ try {
 const stagingRoot = mkdtempSync(join(targetRoot, '.web-harness-stage-'))
 const createdPins = []
 let promoted = false
+// 배포 카탈로그 스캔 결과 — try 밖의 보고에서 읽으므로 여기서 선언한다.
+const stagedCatalogFiles = []
 const deploymentOwnerPath = join(targetClaude, '.web-harness-deployment-owner')
 const removeOwnedLock = () => {
   try {
@@ -117,6 +119,53 @@ try {
   copyFileSync(join(sourceRoot, '.claude', 'README.md'), join(stagingRoot, 'README.md'))
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.json'))
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.project.json'))
+
+  // `.claude/` 루트의 카탈로그 파일. **열거하지 않고 스캔으로 강제한다** — 2026-08-27 실측:
+  // `shape-checks.json`을 실행 그래프의 정본으로 만든 뒤에도 배포 목록이 열거라 빠졌고,
+  // 배포된 하네스가 어떤 프로필도 로드하지 못했다(첫 eval receipt 시도가 잡았다).
+  // 같은 클래스를 오늘만 세 번 겪었다: 어휘 이동·키 엄격성·배포 카탈로그. 열거는 하나를 놓친다.
+  //
+  // 규칙: 배포되는 스크립트가 `.claude/<name>.json`을 읽으면 그 파일도 배포한다.
+  // 사용자·세션 로컬 파일은 명시적으로 제외한다 — 남의 프로젝트로 새면 안 되는 것들이다.
+  const LOCAL_ONLY_ROOT_FILES = new Set([
+    'settings.local.json',   // 사용자 로컬 권한
+    'launch.json',           // 로컬 dev 서버 설정
+    'launch.example.json',
+    'workspace-roots.json',  // 이 워크스페이스의 읽기 루트 선언 — 배포 대상이 아니다
+    'settings.json',         // 위에서 settings.project.json으로 이미 배치했다
+    'settings.project.json',
+    // 배포마다 새로 쓰는 마커다. **배포된 하네스에서 다시 배포**하면(체인 배포) 스캔이 이걸
+    // source에서 집어 중복·낡은 타임스탬프가 나간다 — 첫 eval receipt의 executor가 잡았다.
+    'deployment.json',
+  ])
+  const scriptSources = []
+  const collectScripts = directory => {
+    for (const entry of readdirSync(directory, {withFileTypes: true})) {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) collectScripts(path)
+      else if (entry.name.endsWith('.mjs')) scriptSources.push(readFileSync(path, 'utf8'))
+    }
+  }
+  collectScripts(join(stagingRoot, 'scripts'))
+  const scriptText = scriptSources.join('\n')
+  const missingCatalogFiles = []
+  for (const entry of readdirSync(join(sourceRoot, '.claude'), {withFileTypes: true})) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+    if (LOCAL_ONLY_ROOT_FILES.has(entry.name)) continue
+    // 스크립트가 이 파일을 참조하는가 — 참조하지 않으면 배포 대상이 아니다.
+    if (!scriptText.includes(entry.name)) continue
+    const target = join(stagingRoot, entry.name)
+    if (existsSync(target)) continue
+    try {
+      copyFileSync(join(sourceRoot, '.claude', entry.name), target)
+      stagedCatalogFiles.push(entry.name)
+    } catch (error) {
+      missingCatalogFiles.push(`${entry.name}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  if (missingCatalogFiles.length > 0) {
+    throw new Error(`Deployment catalog files could not be staged: ${missingCatalogFiles.join(', ')}`)
+  }
   // 배포된 control plane 판별 마커 — validate-adapter-hygiene가 source repo 전용 검사
   // (README inventory 등)를 배포 target에서 건너뛰는 명시적 근거다.
   writeFileSync(
@@ -175,6 +224,12 @@ try {
 process.stdout.write(`${JSON.stringify({
   ok: true,
   target: offset.split(sep).join('/'),
-  copied: ['README.md', 'skills', 'agents', 'scripts', 'evals', 'adapters', 'schemas', 'settings.json', 'settings.project.json', 'deployment.json'],
+  // 보고는 **실제로 복사한 것**을 싣는다 — 열거를 스캔으로 바꿔 놓고 보고만 열거로 두면
+  // 보고가 진실과 어긋난다(I1). 카탈로그 파일은 스캔 결과 그대로 나간다.
+  copied: [
+    'README.md', 'skills', 'agents', 'scripts', 'evals', 'adapters', 'schemas',
+    'settings.json', 'settings.project.json', 'deployment.json',
+    ...stagedCatalogFiles,
+  ].sort(),
   toolchainPins: ['.node-version', '.nvmrc'],
 })}\n`)
