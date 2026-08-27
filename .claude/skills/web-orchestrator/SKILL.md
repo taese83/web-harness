@@ -39,7 +39,7 @@ metadata:
 `.claude/skills/web-orchestrator/references/external-data-ingestion.md`를 외부 데이터 수집의 단일 판별 기준으로 사용한다. 크롤링·스크래핑·RSS/CSV/import·scheduled third-party sync·build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`로 기록한다. 별도 수집·정규화·승격 단계 없이 일반 내부 API를 조회만 하면 제외한다.
 시각 QA, Figma/reference image, `DESIGN_PROTOTYPE_MODE`, 브랜드 핵심 화면, theme/locale matrix가 있으면 `.claude/skills/visual-design-verify/SKILL.md`를 읽고 `VISUAL_QA_MODE: true`로 기록한다. 기존 `visual-qa-contract.json`도 활성 조건이다.
 
-`.claude/skills/web-orchestrator/references/companion-skill-detection.md`를 보조 skill 감지의 단일 기준으로 사용한다. 감지 시점의 project state와 intake 결과를 종합해 다음 flag를 기록한다: `HYBRID_SERVERLESS_MODE`(Vite SPA + serverless functions), `SERVER_DB_MODE`(Postgres/SQLite/MySQL 사용), `API_CONTRACT_MODE`(client/server 분리 개발 또는 계약 강제 요구), `MOCK_SERVICE_MODE`(MSW handler 필요), `OAUTH_SERVER_MODE`(서버 OAuth code exchange 흐름), `I18N_MODE`(다국어 catalog·locale routing — `/i18n-setup` + `developer`), `OBSERVABILITY_MODE`(에러 추적·RUM — `developer`). 각 flag는 해당 companion skill/agent의 execution을 Phase 3에 삽입한다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
+**보조 skill은 확정된 스팩이 고른다(2026-08-26).** 종전에는 intake에서 7종 flag(`HYBRID_SERVERLESS`·`SERVER_DB`·`API_CONTRACT`·`MOCK_SERVICE`·`OAUTH_SERVER`·`I18N`·`OBSERVABILITY`)를 미리 감지했으나, **소비 지점이 전부 Phase 3이고 그때는 이미 스팩이 있다.** 스팩이 더 정확하게 답한다 — `libraries.mock`은 선택뿐 아니라 대안과 근거 티어(`measured-absent` 등)를 담고, `targetShapes`는 hybrid 여부를, `communication`은 계약 형식을 담는다. Phase 3에서 `references/shape-routing-contract.md`와 스팩을 읽어 필요한 companion skill을 고른다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
 
 ## Start
 
@@ -83,8 +83,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
   VISUAL_QA_MODE: true/false
   WEB_PROFILE: react-vite-spa | next-app-fullstack | vite-serverless-hybrid  (판별 근거 한 줄)
 
-🔧 감지된 companion skill:
-  `companion-skill-detection.md`의 일곱 flag와 각 판별 근거
+  (보조 skill은 Phase 3에서 확정된 스팩이 고른다 — intake에서 감지하지 않는다)
 
 → 틀린 항목이 있으면 알려주세요. 맞으면 계속 진행합니다.
 ```

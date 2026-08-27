@@ -34,6 +34,25 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 **공통(형태 무관)**: `environment-scaffolder` · `environment-scaffolder`는 항상 먼저 돈다.
 `code-reviewer` · `security-reviewer` · `test-executor`는 항상 돈다.
 
+## 2-1. 보조 skill은 스팩이 고른다 (2026-08-26)
+
+종전에는 intake에서 7종 flag를 미리 감지했다. 소비 지점이 전부 Phase 3이고 **그때는 이미
+스팩이 있으므로** 미리 감지할 이유가 없었다. 스팩이 더 정확하게 답한다 — 선택뿐 아니라
+대안과 근거 티어를 담는다.
+
+| 필요한 판단 | 스팩의 어디를 보나 | 조건이면 |
+|---|---|---|
+| MSW handler | `libraries.mock` — `choice`가 `none`이 아니고 기본 셋업 이상이면 | `/mock-service-setup` |
+| client/server 계약 | `communication` + `_workspace/02_design/api-schema.md` 실존 | `/api-contract-typegen` |
+| 서버 DB | `libraries`에 DB 역할(postgres·sqlite·mysql 계열) | `/server-db-migration` |
+| 서버 OAuth | `libraries`에 auth 역할, `communication`에 서버 왕복 | `/auth-setup` |
+| 다국어 | `libraries.i18n` | `/i18n-setup` |
+| 관측 | `libraries`에 observability 역할 | 해당 구현을 `developer`가 |
+| serverless 표면 | `targetShapes`에 `serverless-functions` | `/vite-serverless-hybrid` |
+
+**스팩이 없으면 이 판단을 하지 않는다** — 감지로 되돌아가지 않는다. 스팩 없이 Phase 3에
+들어왔다면 그것부터 세운다(계약 §0-1).
+
 ## 3. 합집합 — 형태가 여럿이면 세트를 합친다
 
 `targetShapes`는 배열이다(라이브러리이면서 CLI인 패키지가 정상 패턴). 세트는 **합집합**이며
