@@ -305,6 +305,55 @@ export const checkSpecShared = (projectRoot, specPath) => {
     : []
 }
 
+// 확정된 수용 기준(TC)이 **실제로 테스트에서 참조되는가**.
+//
+// 왜: 기획이 TC를 만들고 스팩이 그것을 인용해도, 그 TC가 테스트로 이어졌는지 보는 곳이
+// 없었다. 릴리스 게이트가 보는 것은 "테스트 파일 0개"뿐이라 파일 하나만 있으면 TC 커버리지가
+// 0이어도 통과한다 — 기획→검증 고리의 마지막 한 칸이 비어 있었다(2026-08-28).
+//
+// 어디를 보는가: **스팩이 선언한 테스트 레이어**(`testLayers`)다. 경로를 처방하지 않고
+// 프로젝트가 정한 곳만 읽는다. 선언이 없으면(구세대 스팩) 판정하지 않는다.
+//
+// 프록시 표기: 파일 **텍스트에 ID 문자열이 있는가**만 본다. 그 테스트가 실제로 그 기준을
+// 검증하는지는 기계가 모른다 — 주석만 달아도 통과한다(fail-open). 그래도 0과 1은 가른다:
+// 지금은 인용조차 없어도 통과하기 때문이다. 진짜 대조는 사람 리뷰(code-reviewer)의 몫이다.
+export const checkAcceptanceCoverage = (spec, projectRoot) => {
+  if (spec?.specTier !== 'verifiable') return []   // 주장하지 않은 것을 요구하지 않는다
+  const refs = Array.isArray(spec.acceptanceRefs) ? spec.acceptanceRefs : []
+  if (refs.length === 0) return []
+  const layers = Object.values(spec.testLayers ?? {}).filter(value => typeof value === 'string' && value.trim() !== '' && !/^\(.*\)$/.test(value.trim()))
+  if (layers.length === 0) {
+    return [{kind: 'acceptanceCoverage', reason: 'verifiable 스팩인데 testLayers가 없다 — TC가 테스트로 이어졌는지 판정할 수 없다'}]
+  }
+  const root = resolve(projectRoot)
+  const collect = (directory, out) => {
+    let entries
+    try { entries = readdirSync(directory, {withFileTypes: true}) } catch { return out }
+    for (const entry of entries) {
+      const full = join(directory, entry.name)
+      if (entry.isDirectory()) { if (entry.name !== 'node_modules') collect(full, out) }
+      else if (/\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(entry.name)) out.push(full)
+    }
+    return out
+  }
+  const files = []
+  for (const layer of layers) {
+    const target = resolve(root, layer.replace(/^\.\//, ''))
+    if (!existsSync(target)) continue
+    if (statSync(target).isDirectory()) collect(target, files)
+    else files.push(target)
+  }
+  if (files.length === 0) {
+    return [{kind: 'acceptanceCoverage', reason: `선언된 testLayers(${layers.join(', ')})에 테스트 파일이 없다 — 확정된 수용 기준 ${refs.length}건이 검증되지 않는다`}]
+  }
+  let corpus = ''
+  for (const file of files) { try { corpus += readFileSync(file, 'utf8') } catch { /* 읽을 수 없는 파일은 건너뛴다 */ } }
+  const uncovered = refs.filter(ref => !corpus.includes(ref))
+  return uncovered.length === 0
+    ? []
+    : [{kind: 'acceptanceCoverage', reason: `확정된 수용 기준이 테스트에서 인용되지 않는다: ${uncovered.join(', ')} — TC ID를 테스트 이름이나 주석에 남겨 추적을 잇는다`}]
+}
+
 export const checkToolchainAlignment = (spec, toolchain) => {
   const substrate = spec.constitution?.substrate ?? {}
   const declared = substrate.packageManager?.value
@@ -364,6 +413,7 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   for (const item of checkLayerMap(spec, root)) failures.push({kind: 'layerMap', ...item})
   for (const item of checkToolchainAlignment(spec, toolchain)) failures.push({kind: 'toolchain', ...item})
   for (const item of checkSpecShared(root, SPEC_LOCK_PATH)) failures.push(item)
+  for (const item of checkAcceptanceCoverage(spec, root)) failures.push(item)
 
   const shapes = checkTargetShapes(spec, root)
   for (const item of shapes.failures) failures.push(item)

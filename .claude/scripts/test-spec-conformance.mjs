@@ -15,7 +15,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   checkLayerMap, checkLayerMapCoverage, checkShapeEvidence, checkTargetShapes, checkToolchainAlignment,
-  checkSpecShared,
+  checkSpecShared, checkAcceptanceCoverage,
   readShapeChecks, resolveRequiredChecks, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './spec.mjs'
@@ -471,4 +471,58 @@ test('무시하지 않으면 통과한다 — 주석·빈 줄에 걸리지 않�
   withIgnore('# comment\n\nnode_modules\n\ndist\ncoverage\n', root => {
     assert.deepEqual(checkSpecShared(root, SPEC_PATH), [])
   })
+})
+
+// ── 수용 기준 커버리지 (2026-08-28) ────────────────────────────────────────
+// 기획이 TC를 만들고 스팩이 인용해도, 그 TC가 테스트로 이어졌는지 보는 곳이 없었다.
+// 릴리스 게이트가 본 것은 "테스트 파일 0개"뿐이라 파일 하나면 커버리지 0도 통과했다.
+
+const covRoot = files => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-cov-'))
+  for (const [relative, content] of Object.entries(files)) {
+    const parts = relative.split('/')
+    mkdirSync(join(root, ...parts.slice(0, -1)), {recursive: true})
+    writeFileSync(join(root, ...parts), content)
+  }
+  return root
+}
+const covSpec = (over = {}) => ({specTier: 'verifiable', acceptanceRefs: ['TC-001-1', 'TC-001-2'], testLayers: {unit: 'src/', e2e: 'e2e/'}, ...over})
+
+test('선언된 TC가 테스트에서 인용되면 통과한다', () => {
+  const root = covRoot({'src/a.test.ts': 'TC-001-1 TC-001-2'})
+  try { assert.deepEqual(checkAcceptanceCoverage(covSpec(), root), []) }
+  finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('인용되지 않은 TC를 이름을 들어 보고한다', () => {
+  const root = covRoot({'src/a.test.ts': 'TC-001-1 만 있다'})
+  try {
+    const failures = checkAcceptanceCoverage(covSpec(), root)
+    assert.equal(failures.length, 1)
+    assert.match(failures[0].reason, /TC-001-2/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('테스트 파일이 하나도 없으면 보고한다 — 파일 0개가 아니라 인용 0건이 기준이다', () => {
+  const root = covRoot({'src/readme.md': 'noop'})
+  try { assert.equal(checkAcceptanceCoverage(covSpec(), root).length, 1) }
+  finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('unverifiable 스팩에는 커버리지를 요구하지 않는다 — 주장하지 않은 것을 묻지 않는다', () => {
+  const root = covRoot({})
+  try { assert.deepEqual(checkAcceptanceCoverage(covSpec({specTier: 'unverifiable'}), root), []) }
+  finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('verifiable인데 testLayers가 없으면 판정 불가로 보고한다', () => {
+  const root = covRoot({})
+  try { assert.equal(checkAcceptanceCoverage(covSpec({testLayers: undefined}), root).length, 1) }
+  finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('e2e 레이어에서 인용해도 커버로 인정한다', () => {
+  const root = covRoot({'e2e/a.spec.ts': 'TC-001-1 TC-001-2'})
+  try { assert.deepEqual(checkAcceptanceCoverage(covSpec(), root), []) }
+  finally { rmSync(root, {recursive: true, force: true}) }
 })

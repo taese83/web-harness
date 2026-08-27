@@ -14,7 +14,7 @@ import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  buildSpec, digestInputs, extractDecisionBlock, hasUserInterface, isSpecStale,
+  buildSpec, digestInputs, extractAcceptanceIds, extractDecisionBlock, hasUserInterface, isSpecStale,
   lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions, validateTestLayers,
 } from './spec.mjs'
 
@@ -152,7 +152,9 @@ test('수용 기준이 없어도 잠기되 unverifiable로 표기된다', () => 
 test('수용 기준이 있고 feature-plan이 실존하면 verifiable이다', () => {
   withProject(baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-001', 'TC-001-1']}), root => {
     mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
-    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n')
+    // 참조하는 ID가 **실제로 들어 있어야** 한다 — 종전 픽스처는 TC-001-1을 참조하면서
+    // 파일에 넣지 않았고, 그것이 통과하던 것이 이번에 닫은 구멍이다.
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n\n- TC-001-1 로그인\n')
     const lock = lockSpec(root)
     assert.equal(lock.specTier, 'verifiable')
     assert.deepEqual(lock.acceptanceRefs, ['FEAT-001', 'TC-001-1'])
@@ -439,4 +441,43 @@ test('testLayers의 미지 키는 조용히 버려지지 않고 거부된다', (
     () => buildSpec({decision: baseDecision({testLayers: {unit: 'src/', e2e: 'e2e/', integration: 'tests/int/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
     error => error instanceof LockError && error.code === 'TEST_LAYER_UNKNOWN_KEY',
   )
+})
+
+// ── 수용 기준 ID 대조 (2026-08-28) ──────────────────────────────────────────
+// 종전에는 feature-plan.md의 **존재**만 봤다. 그래서 존재하지 않는 TC-999-1을 적어도
+// 확정됐고 기획→스팩 고리가 자기보고였다(§4 TODO). 이 파일의 픽스처 자신이 그 상태였다.
+
+test('feature-plan에 없는 ID를 참조하면 확정을 거부한다', () => {
+  withProject(baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-001', 'TC-999-1']}), root => {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001\n\n- TC-001-1\n')
+    assert.throws(
+      () => lockSpec(root),
+      error => error instanceof LockError && error.code === 'ACCEPTANCE_REF_NOT_FOUND',
+    )
+  })
+})
+
+test('색인 없이 buildSpec을 부르면 통과가 아니라 검사 미수행으로 던진다', () => {
+  assert.throws(
+    () => buildSpec({
+      decision: baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-001']}),
+      digest: {inputs: [{path: '_workspace/01_plan/feature-plan.md', present: true, sha256: 'x'}], combined: 'x'.repeat(64)},
+    }),
+    error => error.code === 'ACCEPTANCE_INDEX_MISSING',
+  )
+})
+
+test('파일 부재가 ID 대조보다 먼저 보고된다 — 더 근본적인 결함이 먼저다', () => {
+  withProject(baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-999']}), root => {
+    assert.throws(
+      () => lockSpec(root),
+      error => error.code === 'ACCEPTANCE_SOURCE_WITHOUT_PLAN',
+    )
+  })
+})
+
+test('ID 추출은 FEAT·TC와 다단 번호를 받고 그 밖은 무시한다', () => {
+  const ids = extractAcceptanceIds('# FEAT-007\n- TC-007-1\n- TC-007-1-2\n- ISSUE-3\n- feat-008\n')
+  assert.deepEqual([...ids].sort(), ['FEAT-007', 'TC-007-1', 'TC-007-1-2'])
 })

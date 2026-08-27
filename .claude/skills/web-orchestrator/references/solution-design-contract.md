@@ -238,6 +238,19 @@ protected-core에 기등록된 한계다.
 - `acceptanceSource`와 `acceptanceRefs`의 자기 모순
 - `architecture.rationale` 부재 — 무엇을 골랐는지만으로는 잠글 수 없다
 
+- `acceptanceRefs`가 `feature-plan.md`에 **실제로 없는 ID**를 가리킨다(`ACCEPTANCE_REF_NOT_FOUND`).
+  종전에는 파일 실존까지만 봐서 존재하지 않는 `TC-999-1`을 적어도 확정됐다 — 기획→스팩 고리가
+  자기보고였다(2026-08-28 해소). ID를 적을 때는 기획에 그 ID가 있어야 한다.
+
+**확정 이후에 대조되는 것**
+
+`specTier: "verifiable"`이면 `validate-spec-conformance`가 **확정된 TC가 테스트에서 인용되는지**
+대조한다(`acceptanceCoverage`). 보는 곳은 스팩이 선언한 `testLayers`이며, 인용되지 않은 ID를
+이름을 들어 보고한다. **프록시 표기**: 파일 텍스트에 ID 문자열이 있는지만 본다 — 그 테스트가
+실제로 그 기준을 검증하는지는 기계가 모른다(주석만 달아도 통과). 그래도 0과 1은 가른다.
+릴리스 매니페스트에는 `acceptance` 요약이 실려, `unverifiable`이면 **무엇이 검증되지 않았는지**가
+산출물에 남는다 — 막지는 않되 숨기지도 않는다.
+
 **거부하지 않고 라벨로 표기하는 것**
 
 수용 기준이 없으면(`acceptanceSource: "absent"`) `specTier: "unverifiable"`로 확정된다.

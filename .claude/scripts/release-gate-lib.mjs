@@ -290,6 +290,7 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
     checks,
     receipts,
     attestation,
+    acceptance: acceptanceSummary(projectPath),
     profile: releaseProfileSummary(lockedProfile),
     adapterChecks,
     artifacts,
@@ -303,6 +304,28 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
 // visual-qa-contract.json 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
 // 정합 검사가 판정하지 못한 것(unverifiable)은 여기서 errors로 올리지 않는다 — 미판정을
 // 실패로 바꾸는 것도, 통과로 바꾸는 것도 아니다.
+// 릴리스 산출물에 **수용 기준의 상태**를 남긴다.
+//
+// `specTier: "unverifiable"`은 "설계는 확정됐으나 맞는지 판정할 기준이 없다"는 뜻이다.
+// 이것을 FAIL로 바꾸면 기획 없는 브라운필드 개선이 막히고, 조용히 두면 **수용 기준 없이
+// 만들어진 결과가 그 사실을 잃은 채 릴리스된다**. 그래서 막지 않되 **표기한다** —
+// 나중에 이 릴리스를 보는 사람이 무엇이 검증되지 않았는지 알 수 있어야 한다(2026-08-28).
+export const acceptanceSummary = projectRoot => {
+  const specPath = join(resolve(projectRoot), '_workspace/03_dev/spec.json')
+  if (!existsSync(specPath)) return {state: 'NO_SPEC', note: '확정 스팩이 없다 — 수용 기준 추적 없음'}
+  let spec
+  try { spec = JSON.parse(readFileSync(specPath, 'utf8')) } catch { return {state: 'INVALID_SPEC', note: 'spec.json을 읽을 수 없다'} }
+  const refs = Array.isArray(spec?.acceptanceRefs) ? spec.acceptanceRefs : []
+  if (spec?.specTier === 'verifiable') {
+    return {state: 'VERIFIABLE', acceptanceRefs: refs, note: `수용 기준 ${refs.length}건에 결박된 릴리스다`}
+  }
+  return {
+    state: 'UNVERIFIABLE',
+    acceptanceRefs: refs,
+    note: '수용 기준 없이 확정된 스팩이다 — 이 릴리스는 ‘요구를 만족하는가’를 판정할 기준을 갖지 않는다. 검증된 것은 게이트가 본 것(lint·typecheck·test·build)뿐이다',
+  }
+}
+
 const collectSpecConformanceErrors = (projectRoot, errors) => {
   let result
   try {

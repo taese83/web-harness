@@ -184,6 +184,11 @@ export const mergeSubstrate = (declaredSubstrate, defaults = readSubstrateDefaul
 }
 
 
+// feature-plan.md에 실제로 존재하는 수용 기준 ID를 뽑는다.
+// `FEAT-007`·`TC-007-1`·`TC-007-1-2` 형태를 받는다 — 번호 깊이는 프로젝트가 정한다.
+export const extractAcceptanceIds = source =>
+  new Set(String(source ?? '').match(/\b(?:FEAT|TC)-\d+(?:-\d+)*\b/g) ?? [])
+
 // UI가 있는가 — **형태 카탈로그가 선언한다**(shape-checks.json의 shapes.<name>.userInterface).
 // 여기서 이름을 하드코딩하지 않는 이유: 새 UI 형태가 추가될 때 이 함수를 고치는 것을 잊으면
 // e2e 요구가 조용히 사라진다. 카탈로그는 형태를 추가할 때 반드시 지나가는 곳이고,
@@ -249,7 +254,7 @@ export const validateTestLayers = (decision, catalog = readShapeChecks()) => {
   return settled
 }
 
-export const buildSpec = ({decision, digest}) => {
+export const buildSpec = ({decision, digest, acceptanceIds}) => {
   if (decision === null || typeof decision !== 'object' || Array.isArray(decision)) {
     throw new LockError('DECISION_BLOCK_INVALID_SHAPE', '결정 블록이 객체가 아니다')
   }
@@ -268,13 +273,30 @@ export const buildSpec = ({decision, digest}) => {
   // 라벨을 증거에 결박한다(적대 리뷰 2026-08-26). 이전 구현은 acceptanceRefs가 비어 있지만
   // 않으면 verifiable을 부여해, feature-plan.md가 **부재해도** 임의 ID를 적으면 통과했다 —
   // protected-core §4 "골든 5/7" 행이 실측한 라벨-증거 언바인딩의 재현이다.
-  // 한계(정직): 파일 실존까지만 대조한다. ref ID가 그 파일에 실제로 있는지는 미대조 — §4 TODO.
+  // 2026-08-28: ID 대조를 위에서 수행한다. 남은 한계는 ID가 **의미 있는** 수용 기준인지까지는 못 본다는 것.
+  // 라벨이 증거를 요구한다 — (a) 파일 실존, (b) 적은 ID의 실존. 둘 다 본다.
   if (acceptanceSource === 'feature-plan') {
     const featurePlan = (digest?.inputs ?? []).find(item => item.path === FEATURE_PLAN_INPUT)
     if (!featurePlan?.present) {
       throw new LockError(
         'ACCEPTANCE_SOURCE_WITHOUT_PLAN',
         `acceptanceSource가 feature-plan인데 ${FEATURE_PLAN_INPUT}이 없다 — 라벨은 증거를 요구한다`,
+      )
+    }
+    // 파일이 있어도 **적은 ID가 그 안에 있는지**는 별개다. 없으면 존재하지 않는 `TC-999-1`을
+    // 적어도 확정되어 기획→스팩 고리가 자기보고가 된다(§4 TODO였다, 2026-08-28 해소).
+    if (!(acceptanceIds instanceof Set)) {
+      throw new LockError(
+        'ACCEPTANCE_INDEX_MISSING',
+        'acceptanceRefs를 대조할 feature-plan 색인이 없다 — 검사 미수행을 통과로 만들지 않는다(lockSpec이 공급한다)',
+      )
+    }
+    const missing = acceptanceRefs.filter(ref => !acceptanceIds.has(ref))
+    if (missing.length > 0) {
+      throw new LockError(
+        'ACCEPTANCE_REF_NOT_FOUND',
+        `acceptanceRefs가 ${FEATURE_PLAN_INPUT}에 없는 ID를 가리킨다: ${missing.join(', ')} — 라벨은 증거를 요구한다`,
+        {missing},
       )
     }
   }
@@ -382,7 +404,11 @@ export const lockSpec = projectRoot => {
     throw new LockError('SOLUTION_DESIGN_MISSING', 'solution-design.md가 없다 — 설계 단계를 먼저 실행하라', {path: designPath})
   }
   const decision = extractDecisionBlock(readFileSync(designPath, 'utf8'))
-  return buildSpec({decision, digest: digestInputs(root)})
+  const planPath = join(root, FEATURE_PLAN_INPUT)
+  const acceptanceIds = existsSync(planPath) && statSync(planPath).isFile()
+    ? extractAcceptanceIds(readFileSync(planPath, 'utf8'))
+    : new Set()
+  return buildSpec({decision, digest: digestInputs(root), acceptanceIds})
 }
 
 // main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
