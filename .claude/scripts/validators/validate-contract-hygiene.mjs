@@ -37,7 +37,10 @@ const listMarkdown = (root, out = []) => {
 // 그래서 영어는 **같은 줄**로 한정한다. 목록이 여러 줄에 걸치는 번역은 자연어 매칭 대신
 // 중립 앵커 `<!-- always-read --> … <!-- /always-read -->`를 쓴다(권장 경로).
 const ALWAYS_READ_SENTENCE = /(?:항상[\s\S]*?읽는다|always[^\n]{0,40}?read[^\n]{0,400}|<!--\s*always-read\s*-->[\s\S]*?<!--\s*\/always-read\s*-->)/i;
-const GENERALIZATION_HEADING = /(?:^|\n)##\s+(?:일반화 근거|Generalization evidence)\n([\s\S]*?)(?=\n## |$)/i;
+// `\r?\n`: CRLF 체크아웃(Windows `core.autocrlf=true`)에서 헤딩 뒤가 `\r\n`이라 `\n` 리터럴
+// 앵커가 못 맞고, 섹션이 실재하는데 **전부 false FAIL**이 났다(2026-08-27 실측). 검사 강도는
+// 그대로다 — 섹션 존재와 불릿 2개+ 요구는 불변이고, 매칭 실패로 인한 오탐만 없앤다.
+const GENERALIZATION_HEADING = /(?:^|\r?\n)##[^\S\r\n]+(?:일반화 근거|Generalization evidence)\r?\n([\s\S]*?)(?=\r?\n## |$)/i;
 const EXPERIMENTAL_HEADING = /^##\s+(?:실험|Experimental)(?:\s|$)/m;
 
 // 선행 로드 범위 확정 — **명시 앵커가 산문 휴리스틱을 이긴다**(2026-08-20). 종전에는
@@ -314,7 +317,17 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
     const haystack = [skillMd, ...consumerTexts, ...siblingTexts].join('\n');
 
     for (const path of refFiles) {
-      const relativeToRefs = path.split('/references/')[1];
+      // 구분자 무관 분리 + repo 표기(forward slash)로 정규화한다. 이전 구현은 `'/references/'`
+      // 리터럴로 잘라 **Windows 경로(`…\references\…`)에서 undefined**를 만들었고, 그 결과
+      // 모든 참조가 `references/undefined`로 baseline 밖 신규 계약 오탐 → 아래 `.split()`에서
+      // 크래시했다(2026-08-27 실측). CI는 Linux라 green이었고 저자 로컬에서만 터졌다 —
+      // 로컬에서 이 게이트를 돌릴 수 없게 만드는 것이 실제 피해다.
+      const afterReferences = path.split(/[\\/]references[\\/]/)[1];
+      if (afterReferences === undefined) {
+        fail(`contract-hygiene: 참조 경로를 해석하지 못했다: ${path} (검사 미수행)`);
+        continue;
+      }
+      const relativeToRefs = afterReferences.split(/[\\/]/).join('/');
       const repoRelative = `.claude/skills/${skill}/references/${relativeToRefs}`;
       const text = readFileSync(path, 'utf8');
 

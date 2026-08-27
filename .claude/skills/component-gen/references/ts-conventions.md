@@ -1,20 +1,24 @@
 # TypeScript Conventions
 
 React·TypeScript 코드를 생성하기 전에 읽는다. 근거·미결 항목은 `docs/js-ts-convention-research.md`.
+
 포매팅 정본은 생성된 `.prettierrc`(세미콜론 없음·singleQuote·`bracketSpacing: false`·printWidth 120).
+
+> **[lint]** = 생성 프로젝트의 `eslint.config.js`가 기계로 강제한다(기억할 필요 없고 어기면
+> `pnpm lint`가 막는다). 표시 없는 항목은 규칙으로 표현할 수 없어 산문으로 남은 것이며,
+> 그만큼 세션·사람마다 갈릴 수 있다 — 옮길 수 있게 되면 옮긴다.
 
 ## 타입 선언
 
-- **`type` vs `interface`**: 슬라이스 public API로 내보내는 계약(옵션 객체·도메인 엔티티)은
+- **`type` vs `interface`**(조건부라 단일 규칙으로 표현 불가): 슬라이스 public API로 내보내는 계약(옵션 객체·도메인 엔티티)은
   `interface`, **컴포넌트 props와 유니온/교차/매핑/조건부는 `type`**. props가 예외인 이유는
   `ComponentProps<'button'>` 같은 React 유틸리티 타입과의 조합이 잦기 때문이다.
-- **`enum`·`const enum` 금지** — `isolatedModules`+Vite에서 삭제 불가 구문이다. `as const` 객체와
-  파생 union을 쓴다:
+- **`enum`·`const enum` 금지** **[lint]** — 대신 `as const` 객체 + 파생 union:
   ```ts
   const Status = {Idle: 'idle', Loading: 'loading', Failed: 'failed'} as const
   type Status = (typeof Status)[keyof typeof Status]
   ```
-- **`any` 금지** — `unknown`·제네릭·좁은 도메인 타입으로 대체한다.
+- **`any` 금지** **[lint]** — `unknown`·제네릭·좁은 도메인 타입으로 대체한다.
 - **`satisfies`를 `as`보다 우선**한다. 설정 객체(TanStack Query `queryOptions`, Zustand creator,
   라우트 정의)는 `satisfies`로 검증하되 리터럴 타입 폭을 유지한다. 컴파일 타임 전용이므로
   런타임 검증(Zod 등)을 대체하지 않는다.
@@ -24,19 +28,26 @@ React·TypeScript 코드를 생성하기 전에 읽는다. 근거·미결 항목
 
 ## import·export
 
-- 타입 전용 import는 **`import type {X} from '...'` 분리 구문**을 쓴다(인라인 `{type X}` 아님).
-  tsconfig `verbatimModuleSyntax`가 이를 강제한다.
-- **barrel(`index.ts`)은 슬라이스 경계에만** 둔다(FSD public API 규칙). 경계 barrel도
+- 타입 전용 import에는 **`type`을 붙인다** **[lint]**(`verbatimModuleSyntax`와 짝).
+  분리 구문 `import type {X}`를 선호하되 인라인 `{type X}`와의 구분은 **규칙이 아니다** —
+  `fixStyle`은 autofix가 새로 쓸 때의 모양만 정한다(2026-08-28 실측).
+- **barrel(`index.ts`)은 슬라이스 경계에만** 둔다(FSD public API 규칙 — 배치 자체는 미강제). 경계 barrel도
   **`export *` 금지 — named export만 선택적으로 재노출**한다(트리쉐이킹·API 변경 안전성).
 - **슬라이스 내부는 direct import**한다. 내부용 barrel을 만들지 않는다(순환 참조·번들 증가·
   Vite 캐시 무효화).
 
 ## 명명
 
-- 컴포넌트 파일 `PascalCase.tsx`, 훅 파일 `useXxx.ts`(함수명과 1:1), 그 외 유틸·타입은 kebab-case.
-- props 타입은 `{ComponentName}Props`. 제네릭은 단일이면 `T`, 복수면 `TData`/`TError`.
-- 불리언 변수·prop은 `is`/`has`/`should`/`can` 접두사.
-- 의도적으로 쓰지 않는 파라미터는 `_` 접두사.
+- 유틸·타입 파일은 kebab-case **[lint]**. 컴포넌트 `PascalCase.tsx`와 훅 `useXxx.ts`(함수명과
+  1:1)는 **미강제**이며 규칙에서 제외만 된다 — unicorn 65(eslint 9와 맞는 마지막 줄)는 조상
+  디렉토리까지 같은 케이스로 검사하고 끌 수 없어, kebab이 아닌 케이스 규칙은 `src/`나
+  `date-picker` 같은 디렉토리를 FAIL시킨다(2026-08-28 실측). 옵션이 생긴 66+는 eslint 10을
+  요구하고 jsx-a11y는 9까지다 — 접근성 lint를 버리지 않는다. 지원되면 옮긴다.
+- props 타입은 `{ComponentName}Props`(컴포넌트 이름과의 대응은 규칙으로 표현 불가 — 산문).
+  제네릭은 단일이면 `T`, 복수면 `TData`/`TError` **[lint]**.
+- 불리언 변수는 `is`/`has`/`should`/`can` 접두사 **[lint]** — 타입이 boolean인 **변수**에만 걸려
+  DOM·라이브러리 prop(`disabled`·`open`)은 잡지 않는다(실측: 오탐 0).
+- 의도적으로 쓰지 않는 파라미터·변수·catch 인자는 `_` 접두사 **[lint]**.
 
 ## 에러
 
@@ -47,7 +58,7 @@ React·TypeScript 코드를 생성하기 전에 읽는다. 근거·미결 항목
 
 ## React 컴포넌트
 
-`React.FC`를 쓰지 않는다(React 19에서 비권장). 함수 선언 + props 타입으로 작성한다.
+`React.FC`를 쓰지 않는다(React 19에서 비권장) **[lint]**. 함수 선언 + props 타입으로 작성한다.
 `forwardRef`도 쓰지 않는다 — `ref`는 일반 prop이다.
 
 ```tsx

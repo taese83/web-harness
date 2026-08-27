@@ -21,6 +21,7 @@
 
 import {existsSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 // 의무 진술 — 이것이 **필요조건**이다. 없으면 라벨일 뿐 요구사항이 아니다.
 // 줄 끝 앵커를 쓰지 않는다 — 실측에서 AC 줄이 `` `[LOCAL_VERIFIABLE]` `` 같은 마커로 끝나
@@ -199,4 +200,6 @@ function main() {
   process.exit((report.violations?.length ?? 0) === 0 ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

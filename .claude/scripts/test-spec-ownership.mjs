@@ -12,6 +12,7 @@ import test from 'node:test'
 import {
   AGENT_LAYER_ROLES, AGENT_OWNERSHIP, DEFAULT_LAYER_MAP, findLayerOverlaps,
   isLayerPathDeclared, resolveSpecOwnership, resolveDeveloperOwnership, intersectWithScope,
+  testLayerPaths,
 } from './agent-registry.mjs'
 
 const owns = (patterns, path) => patterns.some(pattern => pattern.test(path))
@@ -130,4 +131,45 @@ test('프록시 표기: 확장자 유무로 파일·디렉토리를 가른다', 
   assert.equal(owns(dotted, 'src/v1.2/x.ts'), false, '점 있는 디렉토리를 파일로 오인한다(알려진 프록시)')
   const noExt = resolveDeveloperOwnership({layerMap: {mk: 'Makefile'}})
   assert.ok(owns(noExt, 'Makefile/anything'), '확장자 없는 파일을 디렉토리로 오인한다(알려진 프록시)')
+})
+
+// ── 테스트 레이어 소유권 (2026-08-28) ────────────────────────────────────────
+// 실측 회귀(2026-08-27, 실제 훅으로 재현): 통합으로 test-writer·visual-test-writer가
+// 사라진 뒤 `e2e/**`를 아무도 소유하지 않았다. 유닛 테스트는 소스 레이어 안에 있어 통과했고
+// **e2e만 차단**됐다 — layerMap이 논리 소스 레이어라 e2e가 들어갈 자리가 없었기 때문이다.
+
+test('선언된 e2e 레이어를 개발 에이전트가 소유한다', () => {
+  const own = resolveDeveloperOwnership({layerMap: {shared: 'src/shared', features: 'src/features'}, testLayers: {unit: 'src/', e2e: 'e2e/'}})
+  assert.ok(owns(own, 'e2e/checkout.spec.ts'))
+  assert.ok(owns(own, 'e2e/checkout.visual.spec.ts'))
+  assert.ok(owns(own, 'src/features/cart/cart.test.ts'))
+})
+
+test('실측 회귀: e2e를 선언하지 않으면 여전히 소유하지 않는다 — 무조건 열지 않는다', () => {
+  const own = resolveDeveloperOwnership({layerMap: {shared: 'src/shared', features: 'src/features'}, testLayers: {unit: 'src/'}})
+  assert.equal(owns(own, 'e2e/checkout.spec.ts'), false)
+  assert.ok(owns(own, 'src/features/cart/cart.test.ts'), '소스 안의 유닛 테스트는 layerMap이 덮는다')
+})
+
+test('테스트 레이어가 소스와 겹쳐도 신뢰를 잃지 않는다 — 유닛을 소스 옆에 두는 것이 정상이다', () => {
+  const own = resolveDeveloperOwnership({layerMap: {shared: 'src/shared', features: 'src/features'}, testLayers: {unit: 'src/', e2e: 'e2e/'}})
+  assert.ok(own !== null, '겹침 불신은 layerMap 안에서만 적용된다')
+})
+
+test('testLayers는 소유권을 layerMap 밖으로 넓히되 선언된 경로에만 준다', () => {
+  const own = resolveDeveloperOwnership({layerMap: {shared: 'src/shared', features: 'src/features'}, testLayers: {unit: 'src/', e2e: 'e2e/'}})
+  assert.equal(owns(own, 'docs/leak.md'), false)
+  assert.equal(owns(own, 'package.json'), false)
+})
+
+test('스폰 범위는 여전히 테스트 레이어를 좁힌다 — 교집합이 유지된다', () => {
+  const own = resolveDeveloperOwnership({layerMap: {shared: 'src/shared', features: 'src/features'}, testLayers: {unit: 'src/', e2e: 'e2e/'}})
+  const scoped = intersectWithScope(own, ['e2e/'])
+  assert.ok(owns(scoped, 'e2e/checkout.spec.ts'))
+  assert.equal(owns(scoped, 'src/features/cart/cart.test.ts'), false)
+})
+
+test('testLayerPaths는 선언되지 않은 값을 걸러낸다', () => {
+  assert.deepEqual(testLayerPaths({testLayers: {unit: 'tests/', e2e: '(absent — UI 없음)'}}), ['tests/'])
+  assert.deepEqual(testLayerPaths({}), [])
 })

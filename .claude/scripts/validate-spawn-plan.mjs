@@ -34,6 +34,7 @@ import {createHash} from 'node:crypto'
 import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {dirname, join, relative, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 // 스팩 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
 export const specLedgerPath = manifestPath => join(dirname(manifestPath), '.plan-locks.jsonl')
@@ -299,4 +300,6 @@ function main() {
   process.exit(report.verdict === 'FITS' ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

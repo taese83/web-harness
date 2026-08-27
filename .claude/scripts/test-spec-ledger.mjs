@@ -25,6 +25,7 @@ const decision = {
   targetShapes: ['web-app'],
   architecture: {pattern: 'existing', rationale: '기존 관례'},
   layerMap: {}, libraries: {}, moduleBoundaries: [],
+  testLayers: {unit: 'src/', e2e: 'e2e/'},
   acceptanceSource: 'absent', acceptanceRefs: [], nonGoals: [], openDecisions: [],
 }
 

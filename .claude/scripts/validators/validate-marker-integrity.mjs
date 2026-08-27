@@ -95,7 +95,7 @@ export const MARKER_REGISTRY = [
     // 2026-08-27: Phase 3 본문이 SKILL.md에서 시점 로드 참조로 강등되면서 마커도 함께 이동했다.
     // 게이트가 MARKER_LOST로 잡았다 — 이동을 소실로 보고한 것이 정상 동작이다.
     files: ['.claude/skills/web-orchestrator/references/phase-3-development.md'],
-    note: 'mock-api-builder를 realtime interface 완료 후로 미루는 순서 계약',
+    note: 'Mock handler·fixture 스폰을 realtime interface 완료 후로 미루는 순서 계약',
   },
 ];
 

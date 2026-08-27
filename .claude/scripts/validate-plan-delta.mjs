@@ -28,6 +28,7 @@ import {createHash} from 'node:crypto'
 import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
 import {appendEvidenceLine, readEvidenceLog, detectRebind} from './evidence-log-lib.mjs'
 import {join, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 // before 인벤토리의 digest. 원장과 delta 파일의 대조에 쓴다.
 export const inventoryDigest = ids =>
@@ -244,4 +245,6 @@ function main() {
   process.exit(violations.length === 0 ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

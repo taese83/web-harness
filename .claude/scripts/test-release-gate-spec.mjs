@@ -27,6 +27,7 @@ const withProject = ({locked = false, layerMap = {}} = {}, run) => {
         targetShapes: ['web-app'],
         architecture: {pattern: 'existing', rationale: '기존 관례'},
         layerMap,
+        testLayers: {unit: 'src/', e2e: 'e2e/'},
         libraries: {},
         moduleBoundaries: [],
         acceptanceSource: 'absent',
@@ -82,6 +83,7 @@ test('unverifiable은 릴리스 오류로 올라오지 않는다', () => {
       targetShapes: ['browser-extension'],
       architecture: {pattern: 'existing', rationale: 'r'},
       layerMap: {}, libraries: {}, moduleBoundaries: [],
+      testLayers: {unit: 'src/', e2e: 'e2e/'},   // 미등록 형태라 스팩이 e2e를 명시해야 한다
       acceptanceSource: 'absent', acceptanceRefs: [], nonGoals: [], openDecisions: [],
     }
     writeFileSync(join(root, '_workspace/02_design/solution-design.md'),

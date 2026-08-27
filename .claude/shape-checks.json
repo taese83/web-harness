@@ -47,6 +47,7 @@
   },
   "shapes": {
     "web-app": {
+      "userInterface": true,
       "checks": [
         {
           "id": "vite.build",
@@ -73,6 +74,7 @@
       ]
     },
     "library": {
+      "userInterface": false,
       "checks": [
         {
           "id": "lib.build",
@@ -109,6 +111,7 @@
       ]
     },
     "cli": {
+      "userInterface": false,
       "checks": [
         {
           "id": "cli.build",
@@ -145,6 +148,7 @@
       ]
     },
     "serverless-functions": {
+      "userInterface": false,
       "checks": [
         {
           "id": "api.unit",
@@ -165,6 +169,7 @@
       ]
     },
     "ssr-web-app": {
+      "userInterface": true,
       "$comment": "서버 렌더링 웹앱 — 빌드 산출물을 여러 배포 형태(node-server·docker-standalone·static-export)로 실증한다. 어느 검사가 켜지는지는 스팩이 확정한 능력(rsc·app-router·ssr·auth)과 배포 타깃이 정한다. 검사 id의 next. 접두는 receipt 이름이며(vite.build와 같은 성질) 실행 명령은 전부 프로젝트 script다 — 하네스 고유 명령 0건(2026-08-27 실측). scriptCandidates는 검사가 어느 package.json script를 부르는지의 이름표다 — 규약으로 못 가르므로(next.route-contract → test:routes) 검사 옆에 둔다.",
       "checks": [
         {

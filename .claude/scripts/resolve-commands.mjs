@@ -14,6 +14,7 @@
 // receipt가 안 나오는 것이 조용한 통과보다 낫다.
 import {existsSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 // 검사 id → package.json script 후보(우선순위 순). 프로젝트마다 이름이 다르므로 후보를 둔다.
 export const SCRIPT_CANDIDATES = {
@@ -98,7 +99,9 @@ export const resolveProfileCommands = ({projectRoot, adapter}) => {
   return commands
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   const rootIndex = argv.indexOf('--project-root')
   const checksIndex = argv.indexOf('--checks')

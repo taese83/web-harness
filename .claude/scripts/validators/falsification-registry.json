@@ -11,6 +11,14 @@
       "why": "조건부 스킵이 되살아나면 프로필 없는 프로젝트의 환경 결속이 미검증이 된다"
     },
     {
+      "id": "agent-reachability-reverse",
+      "file": ".claude/scripts/validators/agent-reachability.mjs",
+      "find": "        if (!roleSuffixes.has(token.split('-').at(-1))) continue",
+      "replace": "        if (true) continue",
+      "test": ".claude/scripts/test-agent-reachability.mjs",
+      "why": "역할 어휘 판정을 끄면 죽은 스폰 지시(visual-developer 류)가 전부 통과한다 — 정방향 reachability만 남아 삭제·개명 후 끊긴 레인이 조용히 green이 된다"
+    },
+    {
       "id": "spec-ledger-tampered",
       "file": ".claude/scripts/spec.mjs",
       "find": "  const known = rows.some(row => row.digest === current)",
@@ -113,6 +121,46 @@
       "replace": "      if (false) return false // 루트 위로 올라갔다",
       "test": ".claude/scripts/test-lockfile-source.mjs",
       "why": "루트 포함 판정이 꺼지면 link:../../../../evil이 통과해 프로젝트 밖 코드가 install script와 함께 들어온다 — 모노레포를 허용하면서 이 경계를 잃지 않았음을 매 실행 확인한다"
+    },
+    {
+      "id": "spec-test-layers-unit",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "    testLayers.unit,",
+      "replace": "    testLayers.unit ?? 'src/',",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "유닛 테스트 레이어 요구를 끄면 테스트가 놓일 경로를 정하지 않은 채 스팩이 확정되고, 그 경로의 소유자가 없어 개발 에이전트가 테스트를 쓸 수 없게 된다 — 유닛 테스트는 형태와 무관하게 항상 수행한다(2026-08-28 사용자 결정)"
+    },
+    {
+      "id": "spec-test-layers-e2e-ui",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "catalog?.shapes?.[shape]?.userInterface === true)",
+      "replace": "catalog?.shapes?.[shape]?.userInterface === false)",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "UI 판정을 뒤집으면 화면이 있는 형태에서 e2e 레이어 요구가 사라진다 — 화면이 있으면 화면을 통과하는 검증이 있어야 한다"
+    },
+    {
+      "id": "developer-owns-test-layers",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "...testLayerPaths(spec)]",
+      "replace": "...[]]",
+      "test": ".claude/scripts/test-spec-ownership.mjs",
+      "why": "테스트 레이어를 소유권에서 빼면 e2e 경로가 다시 무소유가 된다 — 2026-08-27에 실제 훅으로 재현한 차단이 그대로 재발한다"
+    },
+    {
+      "id": "spec-unknown-shape-e2e-undecided",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "  if (shapes.some(shape => catalog?.shapes?.[shape] === undefined)) return 'unknown'",
+      "replace": "  // disabled",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "미등록 형태를 unknown이 아니라 비UI로 퇴화시키면, targetShapes에 카탈로그 밖 이름을 적는 것만으로 e2e 요구가 조용히 증발한다 — 적대 리뷰(2026-08-28)가 잡은 fail-open이다"
+    },
+    {
+      "id": "spec-shared-not-gitignored",
+      "file": ".claude/scripts/validate-spec-conformance.mjs",
+      "find": "    if (hit) ignored = !negated",
+      "replace": "    if (false) ignored = !negated",
+      "test": ".claude/scripts/test-spec-conformance.mjs",
+      "why": "무시 판정을 끄면 _workspace를 통째로 gitignore한 프로젝트가 통과한다 — 스팩이 공유되지 않으면 개발자마다 자기 실행에서 architecture·layerMap·libraries를 다시 도출하고 구조가 갈린다. 스팩 기제의 목적이 협업이므로 공유되지 않으면 값이 0이다"
     }
   ]
 }

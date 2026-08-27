@@ -10,6 +10,7 @@
 // 승격하지 않는다는 것이 이 파일 전체의 규율이다.
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 const EVIDENCE_DIR = '_workspace/04_qa/evidence'
 const SHAPE_CHECKS_PATH = new URL('../shape-checks.json', import.meta.url)
@@ -138,11 +139,23 @@ const ENTRY_KEYS = new Set([
   'receiptKind', 'needsArtifact', 'producesArtifact',
   'requires', 'gatesRelease', 'evidenceName', 'scriptCandidates',
 ])
+const SHAPE_KEYS = new Set(['checks', 'userInterface', '$comment'])
 const RECEIPT_KINDS = new Set(['build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'])
 
 export const inspectShapeCatalog = (catalog = readShapeChecks()) => {
   const errors = []
   const groups = [['common', catalog.common?.checks], ...Object.entries(catalog.shapes ?? {}).map(([name, def]) => [name, def?.checks])]
+  // 형태 수준 키도 엄격히 본다. `userInterface`는 **UI가 있는가**를 형태가 선언하는 곳이며,
+  // 스팩 확정이 e2e 테스트 레이어를 요구할지를 여기서 도출한다(2026-08-28). 누락·오타를 허용하면
+  // "UI 없음"으로 조용히 퇴화해 e2e 요구가 사라진다 — 검사 항목 키와 같은 규율이다.
+  for (const [name, def] of Object.entries(catalog.shapes ?? {})) {
+    for (const key of Object.keys(def ?? {})) {
+      if (!SHAPE_KEYS.has(key)) errors.push(`shape-checks: shapes.${name}에 알 수 없는 키 '${key}'`)
+    }
+    if (typeof def?.userInterface !== 'boolean') {
+      errors.push(`shape-checks: shapes.${name}.userInterface가 boolean이 아니다 — UI 여부는 형태가 명시 선언한다(e2e 테스트 레이어 요구가 여기서 도출된다)`)
+    }
+  }
   for (const [group, checks] of groups) {
     if (!Array.isArray(checks)) {
       errors.push(`shape-checks: '${group}'에 checks 배열이 없다`)
@@ -227,7 +240,9 @@ export const writeReceipts = (projectRoot, receipts) => {
   return receipts.length
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   const rootIndex = argv.indexOf('--project-root')
   const shapesIndex = argv.indexOf('--shapes')

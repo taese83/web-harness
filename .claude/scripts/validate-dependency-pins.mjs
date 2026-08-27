@@ -19,6 +19,7 @@
 import {execFileSync} from 'node:child_process'
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 // ── 최소 semver (dependency-free, 보수적) ─────────────────────────────────
 // 파싱 못 하는 범위는 false-fail 대신 'unknown'을 반환해 SKIP한다(신뢰성 우선).
@@ -220,4 +221,6 @@ function main() {
   process.exit(violations.length === 0 ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

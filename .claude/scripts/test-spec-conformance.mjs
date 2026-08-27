@@ -15,6 +15,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   checkLayerMap, checkLayerMapCoverage, checkShapeEvidence, checkTargetShapes, checkToolchainAlignment,
+  checkSpecShared,
   readShapeChecks, resolveRequiredChecks, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
 import {lockSpec, readSubstrateDefaults} from './spec.mjs'
@@ -28,6 +29,7 @@ const baseDecision = (overrides = {}) => ({
   targetShapes: ['web-app'],
   architecture: {pattern: 'existing', rationale: '기존 관례'},
   layerMap: {},
+  testLayers: {unit: 'src/', e2e: 'e2e/'},
   libraries: {},
   moduleBoundaries: [],
   acceptanceSource: 'absent',
@@ -413,4 +415,60 @@ test('카탈로그에 있는 형태가 하나라도 있으면 미지 형태 병�
     for (const check of base) assert.ok(required.includes(check), `형태 추가가 ${check}를 없앴다`)
     assert.ok(required.length >= base.length, '형태 추가가 요구를 줄이지 않는다')
   }
+})
+
+// ── 스팩 공유 (2026-08-28) ───────────────────────────────────────────────────
+// 스팩 기제의 목적은 협업이다 — 여러 사람이 같은 스팩에 맞춰 개발하는 것. 스팩이 커밋되지
+// 않으면 개발자마다 자기 실행에서 architecture·layerMap·libraries를 다시 도출하고, 구조가
+// 갈리면 스타일이 갈린다. 공유가 전제인데 종전에는 명시도 강제도 없었다.
+
+const SPEC_PATH = '_workspace/03_dev/spec.json'
+const withIgnore = (content, run) => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-share-'))
+  try {
+    if (content !== null) writeFileSync(join(root, '.gitignore'), content)
+    return run(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+test('.gitignore가 없으면 통과한다 — git의 기본은 추적이므로 스팩은 공유된다', () => {
+  withIgnore(null, root => {
+    assert.deepEqual(checkSpecShared(root, SPEC_PATH), [], '부재를 실패로 만들면 모든 신규 프로젝트에서 오탐이 난다')
+  })
+})
+
+test('_workspace를 통째로 무시하면 스팩이 공유되지 않는다', () => {
+  for (const content of ['node_modules\n_workspace\n', '_workspace/\n', '/_workspace\n', `${SPEC_PATH}\n`]) {
+    withIgnore(content, root => {
+      assert.equal(checkSpecShared(root, SPEC_PATH).length, 1, `무시가 통과했다: ${JSON.stringify(content)}`)
+    })
+  }
+})
+
+// 실측(2026-08-28, 실제 `git add`): 상위 디렉토리가 제외되면 파일 부정으로 되살릴 수 없다.
+// 종전 테스트는 이 조합을 "공유됨"으로 고정해 게이트의 fail-open을 봉인하고 있었다 —
+// 게이트가 잡으려던 바로 그 상태를 통과시키는 회귀 테스트였다.
+test('상위 디렉토리가 제외되면 파일 부정(!)으로 되살릴 수 없다', () => {
+  withIgnore(`_workspace\n!${SPEC_PATH}\n`, root => {
+    assert.equal(checkSpecShared(root, SPEC_PATH).length, 1, 'git은 이 조합에서 여전히 무시한다')
+  })
+})
+
+test('내용만 제외(dir/*)하면 하위를 되살릴 수 있다 — git과 같은 판정', () => {
+  withIgnore('_workspace/*\n!_workspace/03_dev/\n', root => {
+    assert.deepEqual(checkSpecShared(root, SPEC_PATH), [])
+  })
+})
+
+test('증거 디렉토리만 무시하면 스팩은 공유된다', () => {
+  withIgnore('_workspace/04_qa/evidence/\n_workspace/04_qa/receipts/\n', root => {
+    assert.deepEqual(checkSpecShared(root, SPEC_PATH), [])
+    assert.equal(checkSpecShared(root, '_workspace/04_qa/evidence/x.json').length, 1)
+  })
+})
+
+test('무시하지 않으면 통과한다 — 주석·빈 줄에 걸리지 않는다', () => {
+  withIgnore('# comment\n\nnode_modules\n\ndist\ncoverage\n', root => {
+    assert.deepEqual(checkSpecShared(root, SPEC_PATH), [])
+  })
 })

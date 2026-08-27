@@ -37,7 +37,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 |---|---|---|
 | **원칙** | 프로세스 법 — test-first·증거 요구·안전 하한 | `docs/protected-core.md`가 소유. **스팩에서 재선언하지 않는다** |
 | **고정 기반** | 도구 substrate — 패키지 매니저·번들러·테스트 러너·언어·lint·formatter·e2e | `constitution.substrate` |
-| **유동 선택** | 서비스마다 답이 다른 것 | `targetShape`·`architecture`·`layerMap`·`libraries`·`communication`·`concurrency`·`moduleBoundaries` |
+| **유동 선택** | 서비스마다 답이 다른 것 | `targetShape`·`architecture`·`layerMap`·`testLayers`·`libraries`·`communication`·`concurrency`·`moduleBoundaries` |
 
 **고정 기반은 기본 제공 + 브라운필드 실측 우선이다.** 하네스가 `.claude/substrate-defaults.json`으로
 기본값을 주고, 프로젝트가 지정하지 않은 키만 그 값으로 채워진다(`source: "default"`).
@@ -146,6 +146,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
   "concurrency": ["web-worker|service-worker|worker-thread"],
   "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},
   "layerMap": {"<논리 레이어>": "<실제 경로>"},
+  "testLayers": {"unit": "<유닛 테스트 경로>", "e2e": "<e2e 경로 — UI가 있으면 필수>"},
   "libraries": {"<역할>": {"choice": "...", "alternatives": ["..."], "source": "measured|measured-absent|proposed"}},
   "moduleBoundaries": [{"scope": "<glob>", "rationale": "..."}],
   "acceptanceSource": "feature-plan|absent",
@@ -217,6 +218,13 @@ node .claude/scripts/spec.mjs --project-root {project-root}
 stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다 — `project-profile.json`·
 `web-execution-plan.json`과 같은 관례다. 스키마는 `.claude/schemas/spec.schema.json`.
 
+**스팩은 커밋한다.** 이 기제의 목적이 협업이므로 공유되지 않으면 값이 0이다 — 개발자 B가
+A의 스팩을 못 받으면 자기 실행에서 `architecture`·`layerMap`·`libraries`를 다시 도출하고,
+구조가 갈리면 스타일이 갈린다. `_workspace/03_dev/spec.json`과 `spec-ledger.jsonl`을
+`.gitignore`로 무시하지 않는다(`validate-spec-conformance`의 `specShared`가 기계로 대조한다).
+**재진입 시 기존 스팩이 있으면 재도출하지 않고 읽는다** — 재도출은 확정을 무의미하게 만든다.
+스팩을 바꿔야 하면 재확정(`spec.mjs` 재실행 + 원장 append)이 유일한 경로다.
+
 **어떤 에이전트도 이 파일을 소유하지 않는다.** 따라서 구현 에이전트의 스팩 자기수정이
 **Edit/Write 채널에서** 차단된다 — 차단의 실체는 `ORCHESTRATOR_AUTHORED_ARTIFACTS`(비강제
 명세)가 아니라 소유권 훅의 default-deny다. Bash 채널과 메인 스레드는 훅 밖이며 이는
@@ -280,6 +288,27 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 **검증 불가를 침묵하지 않는다.** 근거 규칙이 없는 substrate 키, 패키지 이름 형태가 아닌
 `measured` choice는 `unverifiable`로 보고된다 — 모르는 것을 실패로 만들지도, 통과로 만들지도
 않는다.
+
+### testLayers — 유닛은 항상, e2e는 UI가 있으면
+
+`testLayers.unit`은 **형태와 무관하게 항상** 필요하다. 유닛 테스트 없이 개발을 끝내지 않는다.
+`testLayers.e2e`는 **targetShapes에 UI를 가진 형태가 있으면** 필요하다 — 화면이 있으면 화면을
+통과하는 검증이 있어야 한다. UI 여부는 설계자가 판단하지 않고 **형태 카탈로그**
+(`.claude/shape-checks.json`의 `shapes.<name>.userInterface`)에서 도출된다. 둘 중 하나라도
+빠지면 스팩 확정이 거부된다(`UNIT_TEST_LAYER_MISSING`·`E2E_TEST_LAYER_MISSING`).
+
+**왜 `layerMap`이 아니라 별도 필드인가**: `layerMap`은 레이어 **이름을 프로젝트가 정한다**.
+`unit-tests`·`tests`·`spec` 중 무엇이 테스트인지 이름으로 맞히면 그것이 프록시다. 스팩이
+직접 "이 경로가 테스트다"라고 말한다. 경로가 `layerMap` 값과 겹쳐도 된다 — 유닛 테스트를
+소스 옆에 두는 것이 정상이고, 겹침 불신은 `layerMap` 안에서만 적용된다.
+
+**왜 필요한가(실측)**: 2026-08-26 통합으로 test-writer·visual-test-writer가 사라지면서
+`e2e/**`를 **아무도 소유하지 않게 됐다**. 실제 소유권 훅으로 재현하니 `e2e/checkout.spec.ts`
+쓰기가 차단됐다(소스 안의 유닛 테스트는 `layerMap`이 덮어 통과했다). `layerMap`은 논리
+**소스** 레이어라 `e2e`가 들어갈 자리가 구조적으로 없었다.
+
+이 필드를 담는 스팩은 `schemaVersion: 2`다. 세대 1(2026-08-28 이전 확정)은 그대로 유효하며
+읽기 전용 이력이다 — 이미 커밋된 증거에 결박된 스팩을 새 규칙에 맞춰 고쳐 쓰지 않는다.
 
 ### layerMap이 소유권을 공급한다 (Stage 3)
 

@@ -33,13 +33,14 @@
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-unicorn": "65.0.1",
     "globals": "16.5.0",
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
     "prettier": "3.8.1",
     "turbo": "2.8.0",
-    "typescript": "6.0.0",
-    "typescript-eslint": "8.57.0"
+    "typescript": "6.0.2",
+    "typescript-eslint": "8.65.0"
   },
   "lint-staged": {
     "**/*.{js,jsx,ts,tsx}": [
@@ -149,7 +150,17 @@ cache
 # local env overrides
 .env.local
 .env.*.local
+
+# 하네스 산출물 — 실행마다 달라지는 증거·receipt만 무시한다.
+# `_workspace/03_dev/spec.json`과 `spec-ledger.jsonl`, 기획·디자인 산출물은 **무시하지 않는다**:
+# 스팩은 협업 계약이고, 공유되지 않으면 개발자마다 다른 스팩으로 개발하게 된다.
+_workspace/04_qa/evidence/
+_workspace/04_qa/receipts/
 ```
+
+> `_workspace`를 통째로 무시하지 않는다. `validate-spec-conformance`의 `specShared`가
+> 확정 스팩이 무시 대상인지 기계로 대조한다 — 확정된 결정이 공유되는 것이 "각자 로컬에서
+> 작업해도 같은 스타일"의 기반이다.
 
 ---
 
@@ -176,6 +187,7 @@ cache
 import js from '@eslint/js'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactHooks from 'eslint-plugin-react-hooks'
+import unicorn from 'eslint-plugin-unicorn'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
@@ -201,7 +213,69 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.tsx'],
+    // 코드 규약은 **여기서** 강제한다. 산문 규약은 모델이 기억해야 성립하므로 세션마다·
+    // 개발자마다 갈린다 — 규칙으로 옮기면 컨텍스트를 안 쓰면서 결정적으로 수렴한다.
+    // `.tsx`뿐 아니라 `.ts`에도 건다: 훅·스토어·유틸·api 클라이언트가 전부 `.ts`이고
+    // 타입 전용 import가 가장 많이 쓰이는 곳이 거기다.
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      // `import type {X}` 분리 구문(tsconfig `verbatimModuleSyntax`와 짝).
+      // recommendedTypeChecked에 없는 opt-in 규칙이라 명시해야 한다.
+      '@typescript-eslint/consistent-type-imports': ['error', {fixStyle: 'separate-type-imports'}],
+      // 명명 규약 — 제네릭 T 접두, 불리언 is/has/should/can 접두, 미사용은 `_` 접두.
+      // 실측(2026-08-28): 규약을 지킨 코드에 오탐 0, 위반은 전부 검출. `types: ['boolean']`이
+      // 타입 정보를 쓰므로 `disabled` 같은 라이브러리 prop 파라미터는 잡히지 않는다.
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {selector: 'typeParameter', format: ['PascalCase'], prefix: ['T']},
+        {selector: 'variable', types: ['boolean'], format: ['PascalCase'], prefix: ['is', 'has', 'should', 'can']},
+      ],
+      // `_` 접두 = 의도적 미사용. 기본 옵션은 이 관례를 모르므로 명시해야 규약이 성립한다.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_'},
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSEnumDeclaration',
+          message: 'enum·const enum 금지 — isolatedModules에서 삭제 불가 구문이다. `as const` 객체 + 파생 union을 쓴다.',
+        },
+        {
+          selector: 'ExportAllDeclaration',
+          message: 'barrel에서 `export *` 금지 — named export만 선택적으로 재노출한다(트리쉐이킹·API 변경 안전성).',
+        },
+        {
+          selector: 'TSTypeReference > TSQualifiedName[left.name="React"][right.name="FC"]',
+          message: 'React.FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
+        },
+        {
+          selector: 'TSTypeReference > Identifier[name="FC"]',
+          message: 'FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
+        },
+      ],
+    },
+  },
+  // 파일명 케이스 — **kebab-case만 규칙이다**. eslint 9와 맞는 마지막 unicorn(65.0.1)은
+  // 조상 디렉토리까지 같은 케이스로 검사하고 끄는 옵션이 없다. 디렉토리가 kebab이므로
+  // kebab 규칙만 충돌 없이 성립하고, camelCase·PascalCase 규칙은 `src/`나 `date-picker`
+  // 같은 디렉토리를 FAIL시킨다(2026-08-28 실측). 그래서 훅(`useXxx.ts`)과 컴포넌트
+  // (`PascalCase.tsx`)는 **제외만 하고 강제하지 않는다** — 잘못된 규칙보다 없는 편이 낫다.
+  // 옵션이 생긴 unicorn 66+는 eslint >=10.4를 요구하고 `eslint-plugin-jsx-a11y`는 eslint 9
+  // 까지다 — 접근성 lint를 버리면서까지 올리지 않는다. jsx-a11y가 10을 지원하면 옮긴다.
+  //
+  // 제외 glob이 `use[A-Z]*`인 이유: `use*`는 `user-api.ts`·`use-cases.ts` 같은 **규약을 지킨**
+  // kebab 파일까지 삼킨다(`*`가 `-`를 통과한다). `user` 엔티티는 거의 보편이라 첫 프로젝트에서
+  // 바로 오탐이 났을 것이다 — 적대 리뷰가 잡았고 실행으로 재현했다.
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/**/use[A-Z]*.ts'],
+    plugins: {unicorn},
+    rules: {'unicorn/filename-case': ['error', {case: 'kebabCase'}]},
+  },
+  {
+    // `src` 밖 `.tsx`도 접근성·훅 규칙을 받는다 — 안전 하한은 경로로 갈리지 않는다.
+    files: ['**/*.tsx'],
     plugins: {
       'jsx-a11y': jsxA11y,
       'react-hooks': reactHooks,
@@ -209,8 +283,6 @@ export default tseslint.config(
     rules: {
       ...jsxA11y.configs.recommended.rules,
       ...reactHooks.configs.flat.recommended.rules,
-      '@typescript-eslint/consistent-type-imports': ['error', {fixStyle: 'separate-type-imports'}],
-      '@typescript-eslint/no-floating-promises': 'error',
     },
   },
 )
@@ -248,7 +320,7 @@ export default tseslint.config(
     "@emotion/styled": "11.14.1",
     "@hookform/resolvers": "5.2.2",
     "@mui/material": "7.3.0",
-    "@tanstack/react-query": "5.90.0",
+    "@tanstack/react-query": "5.102.7",
     "axios": "1.13.0",
     "date-fns": "4.1.0",
     "react": "19.2.7",
@@ -274,16 +346,17 @@ export default tseslint.config(
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-unicorn": "65.0.1",
     "globals": "16.5.0",
     "husky": "9.1.7",
     "jsdom": "29.0.0",
     "msw": "2.12.0",
     "prettier": "3.8.1",
-    "typescript": "6.0.0",
+    "typescript": "6.0.2",
     "vite": "8.1.4",
     "vite-plugin-svgr": "4.5.0",
     "vitest": "4.1.0",
-    "typescript-eslint": "8.57.0"
+    "typescript-eslint": "8.65.0"
   }
 }
 ```

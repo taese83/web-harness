@@ -22,6 +22,7 @@
 
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 const HANGUL = /[가-힣]/
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'coverage', '00_source'])
@@ -114,4 +115,6 @@ function main() {
   process.exit(violations.length === 0 ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

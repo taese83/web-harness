@@ -13,7 +13,7 @@
 import {execFileSync} from 'node:child_process'
 import {readFileSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {fileURLToPath, pathToFileURL} from 'node:url'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = join(scriptDir, '..', '..')
@@ -66,7 +66,10 @@ export const validateFalsification = ({pass, fail}) => {
   if (ok === registry.entries.length) pass(`falsification: ${ok}건 전부 반증됨 — 게이트가 실제로 발화한다`)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 **CLI가 통째로 no-op하고 exit 0**이 된다(조용한 통과). pathToFileURL은
+// 두 플랫폼에서 같은 형식을 만든다.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   let failed = 0
   validateFalsification({
     pass: message => process.stdout.write(`✅ ${message}\n`),

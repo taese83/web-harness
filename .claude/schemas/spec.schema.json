@@ -4,6 +4,13 @@
   "description": "개발 착수 전 확정된 구현 스팩. solution-design.md의 결정 블록을 검증·스팩 확정한 결과이며 spec.mjs stdout을 그대로 저장한다. 어떤 에이전트도 이 파일을 소유하지 않는다.",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "세대 2부터 testLayers를 요구한다. 세대 1(2026-08-28 이전 확정)은 그대로 유효하다 — 커밋된 증거를 새 규칙에 맞춰 고쳐 쓰지 않기 위한 마이그레이션이다.",
+      "if": {"properties": {"schemaVersion": {"const": 2}}, "required": ["schemaVersion"]},
+      "then": {"required": ["testLayers"]}
+    }
+  ],
   "required": [
     "schemaVersion",
     "specTier",
@@ -21,7 +28,8 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "enum": [1, 2],
+      "description": "2 = testLayers를 담는 세대(2026-08-28). 1은 그 이전에 확정된 스팩이며 읽기 전용 이력이다 — 이미 커밋된 증거에 결박된 스팩을 새 규칙에 맞춰 고쳐 쓰지 않는다. 신규 확정은 항상 2다."
     },
     "specTier": {
       "enum": [
@@ -68,6 +76,16 @@
       "additionalProperties": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "testLayers": {
+      "type": "object",
+      "description": "테스트가 놓일 경로. 개발 에이전트의 쓰기 소유권이 여기서 나온다. unit은 항상 필요하고(유닛 테스트는 형태와 무관하게 항상 수행한다), e2e는 targetShapes에 UI를 가진 형태가 있으면 필요하다(형태 카탈로그 shapes.<name>.userInterface에서 도출). layerMap과 별도인 이유: layerMap은 레이어 이름을 프로젝트가 정하므로 어느 레이어가 테스트인지 이름으로 맞히면 프록시가 된다. 경로가 layerMap 값과 겹쳐도 된다 — 유닛 테스트를 소스 옆에 두는 것이 정상이다.",
+      "additionalProperties": false,
+      "required": ["unit"],
+      "properties": {
+        "unit": {"type": "string", "minLength": 1},
+        "e2e": {"type": "string", "minLength": 1}
       }
     },
     "libraries": {

@@ -26,6 +26,7 @@
 //   8. 릴리스 게이팅   `gatesRelease: false` — smoke는 생존 확인이지 릴리스 게이트가 아니다
 //                     (어댑터의 release.* requires에서 smoke가 빠져 있던 것을 명시로 옮겼다)
 import {readFileSync} from 'node:fs'
+import {pathToFileURL} from 'node:url'
 
 const SHAPE_CHECKS_PATH = new URL('../shape-checks.json', import.meta.url)
 export const BOOTSTRAP = ['requirements.locked']
@@ -171,7 +172,9 @@ export const deriveGraph = ({checks, capabilities = null, deploymentTargets = nu
   return {tasks, evidence: evidence.map(item => item.name), errors: []}
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   const i = argv.indexOf('--shapes')
   if (i < 0) { process.stderr.write('사용법: --shapes <a,b>\n'); process.exit(2) }

@@ -215,11 +215,22 @@ export const DEVELOPER_AGENT = 'developer'
 
 // 개발 에이전트는 layerMap의 모든 선언 경로를 소유한다. 테스트·문서처럼 다른 에이전트가
 // 소유하는 레이어도 포함되지만, 스폰 범위가 그 위에서 다시 좁힌다.
+// 테스트 레이어(spec.testLayers)도 개발 에이전트가 소유한다 — 유닛은 항상, e2e는 UI가 있을 때.
+// 실측(2026-08-27): 통합 전 test-writer가 `e2e/**.spec.ts`를, visual-test-writer가
+// `e2e/**.visual.spec.ts`를 소유했는데 삭제 후 **아무도 소유하지 않았다**. 실제 훅으로 재현하니
+// layerMap이 소스 레이어만 담은 스팩에서 `e2e/checkout.spec.ts` 쓰기가 차단됐다(유닛 테스트는
+// 소스 레이어 안에 있어 통과했다). layerMap은 논리 **소스** 레이어라 e2e가 들어갈 자리가 없다 —
+// 그래서 테스트 경로는 별도 필드로 선언되고 여기서 소유권으로 이어진다.
+//
+// 겹침 판정에 testLayers를 넣지 않는 이유: 유닛 테스트를 소스 옆에 두면 layerMap 값과 겹치는
+// 것이 **정상**이다. 겹침 불신은 layerMap 안의 레이어끼리에만 적용한다.
+export const testLayerPaths = spec => Object.values(spec?.testLayers ?? {}).filter(path => isLayerPathDeclared(path))
+
 export const resolveDeveloperOwnership = spec => {
   const layerMap = spec?.layerMap
   if (!layerMap || typeof layerMap !== 'object' || Object.keys(layerMap).length === 0) return null
   if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
-  const patterns = Object.values(layerMap)
+  const patterns = [...Object.values(layerMap), ...testLayerPaths(spec)]
     .filter(path => isLayerPathDeclared(path))
     .map(path => layerPattern(path))
   return patterns.length > 0 ? patterns : null

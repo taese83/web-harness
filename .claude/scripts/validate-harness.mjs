@@ -21,6 +21,7 @@ import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-eva
 import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mjs'; import {validateCertifiedEvidence} from './validators/validate-certified-evidence.mjs'
 import {validateSectionReaders} from './validators/validate-section-readers.mjs'
 import {detectSourceRepository} from './validators/validate-adapter-hygiene.mjs'
+import {validateAgentReachability} from './validators/agent-reachability.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')
@@ -193,6 +194,9 @@ pass('critical instruction placement outside fenced examples checked')
 for (const agentName of legacyAgents) {
   if (activeSource.includes(agentName)) fail(`active harness still references legacy agent: ${agentName}`)
 }
+// 역방향 reachability(근거·규약·한계는 `validators/agent-reachability.mjs` 헤더가 canonical).
+const agentNames = validateAgentReachability({agentFiles, activeMarkdown, read, pass, fail})
+
 // 운영자 계층(CLAUDE.md)은 deploy-harness가 배포하지 않는다 — 배포된 control plane에서는
 // 운영자-전용 소비 에이전트(harness-change-reviewer 등)의 참조원이 부재하므로 이 검사는
 // source repo에서만 성립한다. source에서는 그대로 엄격하다.
@@ -296,7 +300,12 @@ for (const modeName of ['TIMESERIES_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_
   if (devOrchestratorSource.includes(modeName)) fail(`dev-orchestrator duplicates web mode ${modeName}`)
 }
 if (!devOrchestratorSource.includes('/web-orchestrator')) fail('dev-orchestrator does not delegate web applications')
-for (const webOnlyAgent of ['timeseries-architect', 'realtime-data-builder', 'mock-api-builder', 'data-ui-binder']) {
+// 이 목록은 **실존 이름만** 담아야 한다. 삭제된 이름은 dev-orchestrator에 나타날 수 없으므로
+// 그 항목은 영원히 발화하지 않는 vacuous 검사가 된다 — 실측(2026-08-27): 4개 중 3개
+// (realtime-data-builder·mock-api-builder·data-ui-binder)가 2026-08-26 삭제 후 그 상태였고
+// 아무도 몰랐다. 실존 대조를 함께 걸어 목록이 조용히 비지 않게 한다.
+for (const webOnlyAgent of ['timeseries-architect', 'timeseries-verifier', 'analytics-domain-architect', 'analytics-verifier', 'browser-verifier']) {
+  if (!agentNames.has(webOnlyAgent)) fail(`web-only agent registry is stale: ${webOnlyAgent} no longer exists (check would be vacuous)`)
   if (devOrchestratorSource.includes(webOnlyAgent)) fail(`dev-orchestrator duplicates web agent ${webOnlyAgent}`)
 }
 if (!existsSync(join(claudeDirectory, 'skills', 'timeseries-dashboard', 'SKILL.md'))) fail('timeseries-dashboard skill is missing')

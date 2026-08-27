@@ -14,8 +14,8 @@ import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  buildSpec, digestInputs, extractDecisionBlock, isSpecStale,
-  lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions,
+  buildSpec, digestInputs, extractDecisionBlock, hasUserInterface, isSpecStale,
+  lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions, validateTestLayers,
 } from './spec.mjs'
 
 const decisionBlock = decision => [
@@ -28,6 +28,7 @@ const baseDecision = (overrides = {}) => ({
   targetShapes: ['web-app'],
   architecture: {pattern: 'existing', rationale: '기존 lint 설정이 레이어 어휘를 강제한다'},
   layerMap: {routes: 'src/pages/', 'pure-logic': 'src/utils/'},
+  testLayers: {unit: 'src/', e2e: 'e2e/'},
   libraries: {'client-state': {choice: 'zustand', alternatives: [], source: 'measured'}},
   moduleBoundaries: [{scope: 'src/utils/**', rationale: 'React 의존 0'}],
   acceptanceSource: 'absent',
@@ -343,4 +344,99 @@ test('communication·concurrency가 보존된다', () => {
     assert.deepEqual(lock.communication, ['rest', 'websocket'])
     assert.deepEqual(lock.concurrency, ['web-worker'])
   })
+})
+
+// ── 테스트 레이어 (2026-08-28, 사용자 결정) ─────────────────────────────────
+// 유닛은 항상, e2e는 UI가 있으면. 실측 배경: 통합으로 test-writer·visual-test-writer가
+// 사라지면서 `e2e/**`를 아무도 소유하지 않게 됐고, 실제 훅으로 재현하니 쓰기가 차단됐다.
+
+test('유닛 테스트 레이어가 없으면 스팩을 확정할 수 없다 — 형태와 무관하게 항상 요구한다', () => {
+  for (const shapes of [['web-app'], ['library'], ['cli'], ['serverless-functions']]) {
+    const {testLayers, ...without} = baseDecision({targetShapes: shapes})
+    assert.throws(
+      () => buildSpec({decision: without, digest: {inputs: [], combined: 'x'.repeat(64)}}),
+      error => error instanceof LockError && error.code === 'UNIT_TEST_LAYER_MISSING',
+      `${shapes.join(',')}에서 유닛 레이어 누락이 통과했다`,
+    )
+  }
+})
+
+test('UI를 가진 형태면 e2e 레이어가 필요하다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({targetShapes: ['web-app'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error instanceof LockError && error.code === 'E2E_TEST_LAYER_MISSING',
+  )
+})
+
+test('UI가 없는 형태면 e2e 레이어 없이도 확정된다 — 화면이 없으면 화면 검증을 강요하지 않는다', () => {
+  const spec = buildSpec({decision: baseDecision({targetShapes: ['library', 'cli'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}})
+  assert.deepEqual(spec.testLayers, {unit: 'src/'})
+})
+
+test('형태가 여럿이면 하나라도 UI가 있으면 e2e를 요구한다 — 합집합이다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({targetShapes: ['library', 'web-app'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error instanceof LockError && error.code === 'E2E_TEST_LAYER_MISSING',
+  )
+})
+
+test('UI 판정은 형태 카탈로그의 userInterface에서 도출된다 — 이름 하드코딩이 아니다', () => {
+  const catalog = {shapes: {'made-up-shape': {userInterface: true}, 'web-app': {userInterface: false}}}
+  assert.equal(hasUserInterface(['made-up-shape'], catalog), true)
+  assert.equal(hasUserInterface(['web-app'], catalog), false)   // 카탈로그가 정본이다
+  // 미등록 형태는 false(UI 없음)가 아니라 'unknown'이다 — false로 퇴화하면 카탈로그 밖
+  // 이름을 적는 것만으로 e2e 요구가 사라진다(적대 리뷰 2026-08-28이 잡은 fail-open).
+  assert.equal(hasUserInterface(['not-in-catalog'], catalog), 'unknown')
+})
+
+test('실제 카탈로그에서 web-app은 UI, library·cli는 비UI다', () => {
+  assert.equal(hasUserInterface(['web-app']), true)
+  assert.equal(hasUserInterface(['ssr-web-app']), true)
+  assert.equal(hasUserInterface(['library', 'cli', 'serverless-functions']), false)
+})
+
+test('빈 e2e 문자열은 선언으로 쳐주지 않는다', () => {
+  assert.throws(
+    () => validateTestLayers({targetShapes: ['library'], testLayers: {unit: 'src/', e2e: '   '}}),
+    error => error.code === 'E2E_TEST_LAYER_EMPTY',
+  )
+})
+
+test('확정된 스팩은 schemaVersion 2와 testLayers를 담는다', () => {
+  const spec = buildSpec({decision: baseDecision(), digest: {inputs: [], combined: 'x'.repeat(64)}})
+  assert.equal(spec.schemaVersion, 2)
+  assert.deepEqual(spec.testLayers, {unit: 'src/', e2e: 'e2e/'})
+})
+
+test('카탈로그가 모르는 형태면 e2e를 스팩이 정해야 한다 — 조용히 비UI로 퇴화하지 않는다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({targetShapes: ['dashboard-app'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error instanceof LockError && error.code === 'E2E_TEST_LAYER_UNDECIDED',
+  )
+})
+
+test('미등록 형태라도 e2e를 명시적으로 없다고 적으면 확정된다 — 모르는 형태를 실패로 만들지 않는다', () => {
+  const spec = buildSpec({decision: baseDecision({targetShapes: ['dashboard-app'], testLayers: {unit: 'src/', e2e: '(absent — 화면 없는 배치 작업)'}}), digest: {inputs: [], combined: 'x'.repeat(64)}})
+  assert.equal(spec.testLayers.e2e, '(absent — 화면 없는 배치 작업)')
+})
+
+test('등록된 비UI 형태에 미등록 형태가 섞이면 여전히 결정을 요구한다 — 합집합이 아니라 미지가 이긴다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({targetShapes: ['library', 'dashboard-app'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error.code === 'E2E_TEST_LAYER_UNDECIDED',
+  )
+})
+
+test('UI 형태가 하나라도 있으면 미등록 형태가 섞여도 e2e 경로를 요구한다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({targetShapes: ['web-app', 'dashboard-app'], testLayers: {unit: 'src/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error.code === 'E2E_TEST_LAYER_MISSING',
+  )
+})
+
+test('testLayers의 미지 키는 조용히 버려지지 않고 거부된다', () => {
+  assert.throws(
+    () => buildSpec({decision: baseDecision({testLayers: {unit: 'src/', e2e: 'e2e/', integration: 'tests/int/'}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    error => error instanceof LockError && error.code === 'TEST_LAYER_UNKNOWN_KEY',
+  )
 })

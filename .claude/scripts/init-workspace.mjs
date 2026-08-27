@@ -13,6 +13,7 @@
 // 이미 있으면 덮어쓰지 않는다. 재실행은 디렉토리 보강만 한다.
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {basename, join, resolve} from 'node:path'
+import {pathToFileURL} from 'node:url'
 
 export const WORKSPACE_DIRS = ['00_source', '01_plan', '02_design', '03_dev', '04_qa', 'RELEASE']
 export const MARKER = '_workspace/web-harness.md'
@@ -79,7 +80,9 @@ export const initWorkspace = ({projectRoot, at, force = false}) => {
   return {created, marker: existsSync(markerPath) ? 'written' : 'written'}
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   const rootIndex = argv.indexOf('--project-root')
   const projectRoot = rootIndex >= 0 ? argv[rootIndex + 1] : '.'

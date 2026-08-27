@@ -32,6 +32,7 @@ import {extname, join, relative, resolve} from 'node:path'
 import {specLedgerPath, planDigest} from './validate-spawn-plan.mjs'
 import {readEvidenceLog} from './evidence-log-lib.mjs'
 import {SCANNABLE, scanSource} from './verify-spawn-completion.mjs'
+import {pathToFileURL} from 'node:url'
 
 const SKIP_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'coverage', '__tests__'])
 
@@ -183,4 +184,6 @@ function main() {
   process.exit(remaining.length === 0 && lock.status !== 'TAMPERED' ? 0 : 1)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) main()

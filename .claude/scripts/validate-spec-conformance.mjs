@@ -35,6 +35,7 @@ import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
 import {inspectSpecLedger, isSpecStale, readSubstrateDefaults} from './spec.mjs'
+import {pathToFileURL} from 'node:url'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
 const EVIDENCE_DIR = '_workspace/04_qa/evidence'
@@ -249,6 +250,61 @@ export const checkLayerMapCoverage = (spec, projectRoot, appRoot = 'src') => {
 // 어긋나므로 모순으로 보고한다 — 실측 대조가 아니라 **두 선언 사이의 충돌 검출**이다.
 export const defaultToolchain = () => ({packageManager: readSubstrateDefaults().packageManager})
 
+// 스팩이 **공유되는가**. spec.mjs가 밝히듯 이 기제의 목적은 협업이다 — 여러 사람이 같은
+// 스팩에 맞춰 개발하는 것. 그런데 스팩이 커밋되지 않으면 개발자마다 자기 실행에서
+// architecture·layerMap·libraries를 다시 도출하고, 구조가 갈리면 스타일이 갈린다.
+// 즉 **공유가 이 계약의 전제인데 종전에는 명시도 강제도 없었다**(2026-08-28 발견).
+//
+// 프록시 표기: `.gitignore` 텍스트만 본다. git이 실제로 추적하는지(이미 추적 중인 파일은
+// gitignore 무시)까지는 대조하지 않는다 — 그건 git 실행이 필요하고 이 validator는 순수
+// 파일 판정을 유지한다. 반대 방향(무시되지 않는데 커밋 안 함)도 잡지 못한다.
+export const checkSpecShared = (projectRoot, specPath) => {
+  const ignorePath = join(resolve(projectRoot), '.gitignore')
+  // .gitignore 부재는 실패가 아니다 — git의 기본은 **추적**이므로 스팩은 오히려 공유된다.
+  if (!existsSync(ignorePath)) return []
+  const patterns = readFileSync(ignorePath, 'utf8')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line !== '' && !line.startsWith('#'))
+
+  // 마지막에 이긴 패턴이 판정한다(부정 `!`는 되살림).
+  const isIgnored = target => {
+    let ignored = false
+    for (const pattern of patterns) {
+      const negated = pattern.startsWith('!')
+      const body = (negated ? pattern.slice(1) : pattern).replace(/^\//, '').replace(/\/$/, '')
+      if (body === '') continue
+      // `dir/*`는 디렉토리 자신이 아니라 **내용**을 제외한다 — 이 구분이 재포함 가능 여부를 가른다.
+      const contentsOnly = body.endsWith('/*')
+      const base = contentsOnly ? body.slice(0, -2) : body
+      const hit = contentsOnly
+        ? target.startsWith(`${base}/`)
+        : target === base || target.startsWith(`${base}/`) || target.split('/').includes(base)
+      if (hit) ignored = !negated
+    }
+    return ignored
+  }
+
+  // git 규칙: **조상 디렉토리가 제외되면 그 아래 파일은 `!`로 되살릴 수 없다.**
+  // 실측(2026-08-28, 실제 git add): `_workspace` + `!_workspace/03_dev/spec.json` → 여전히 무시.
+  // 되살리려면 `_workspace/*`처럼 **내용만** 제외해야 한다. 종전 구현은 파일 부정을 그대로
+  // 인정해 이 조합을 "공유됨"으로 통과시켰고 회귀 테스트가 그 오판을 고정하고 있었다 —
+  // 게이트가 잡으려던 바로 그 상태의 fail-open이다(적대 리뷰 2026-08-28이 지적).
+  const segments = specPath.split('/')
+  const ancestors = segments.slice(0, -1).map((_segment, index) => segments.slice(0, index + 1).join('/'))
+  for (const ancestor of ancestors) {
+    if (isIgnored(ancestor)) {
+      return [{
+        kind: 'specShared',
+        reason: `${specPath}의 상위 \`${ancestor}\`가 .gitignore에 걸린다 — 상위가 제외되면 파일 부정(!)으로 되살릴 수 없다. 스팩이 공유되지 않으면 개발자마다 다른 스팩으로 개발한다(협업 계약 붕괴)`,
+      }]
+    }
+  }
+  return isIgnored(specPath)
+    ? [{kind: 'specShared', reason: `${specPath}가 .gitignore에 걸린다 — 스팩이 공유되지 않으면 개발자마다 다른 스팩으로 개발한다(협업 계약 붕괴)`}]
+    : []
+}
+
 export const checkToolchainAlignment = (spec, toolchain) => {
   const substrate = spec.constitution?.substrate ?? {}
   const declared = substrate.packageManager?.value
@@ -307,6 +363,7 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   }
   for (const item of checkLayerMap(spec, root)) failures.push({kind: 'layerMap', ...item})
   for (const item of checkToolchainAlignment(spec, toolchain)) failures.push({kind: 'toolchain', ...item})
+  for (const item of checkSpecShared(root, SPEC_LOCK_PATH)) failures.push(item)
 
   const shapes = checkTargetShapes(spec, root)
   for (const item of shapes.failures) failures.push(item)
@@ -346,7 +403,9 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   return {status: failures.length > 0 ? 'FAIL' : 'PASS', failures, unverifiable, uncoveredPaths: uncovered, requiredChecks: evidence.required, unimplementedChecks: evidence.unimplemented, evidenceState: evidence.evidenceState, notes}
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
+// 절대 일치하지 않아 CLI가 통째로 no-op하고 exit 0이 된다(조용한 통과).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2)
   const rootIndex = argv.indexOf('--project-root')
   const projectRoot = rootIndex >= 0 ? argv[rootIndex + 1] : undefined
