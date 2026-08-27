@@ -52,6 +52,13 @@
     "library": {
       "checks": [
         {
+          "id": "lib.build",
+          "kind": "runtime",
+          "implemented": true,
+          "needsArtifact": false,
+          "$comment": "라이브러리 빌드. pack.contents가 산출물을 소비하므로 빌드 task가 선행해야 DAG가 도달 가능하다 — 없으면 도출이 loud fail한다(2026-08-26 배포본 실측에서 발견)"
+        },
+        {
           "id": "pack.publish-metadata",
           "kind": "static",
           "implemented": true,
@@ -76,6 +83,13 @@
     },
     "cli": {
       "checks": [
+        {
+          "id": "cli.build",
+          "kind": "runtime",
+          "implemented": true,
+          "needsArtifact": false,
+          "$comment": "CLI 빌드. exit-codes·stderr-errors가 실행 산출물을 소비하므로 빌드가 선행한다 — 없으면 DAG가 도달 불가다"
+        },
         {
           "id": "cli.bin-entrypoint",
           "kind": "static",
