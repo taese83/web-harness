@@ -99,7 +99,7 @@ QA     24 에이전트   verifier · reviewer (전부 read-only)
 | 배포 관심사 분리 | Score·OAM — 워크로드 스펙과 배포를 분리 | 배포 메타를 receipt 결속에서 제거 | 일치 |
 | **게이트의 반증** | 논의 거의 없음 | 게이트를 무력화해 테스트가 실패하는지 CI에서 확인 | **앞섬** |
 | **한계 등록부** | 논의 거의 없음 | §4에 프록시·우회·미해결 59행. 커밋마다 `JUDGMENT:` | **앞섬** |
-| 빌드 provenance | SLSA — builder·buildType·externalParameters | `packageScript.sha256`·fingerprint는 있으나 **서명 체인 없음** | 뒤짐 |
+| 빌드 provenance | SLSA L2 — provenance를 빌드 스크립트가 아니라 플랫폼이 생성 | 설계 일치(호스트 receipt는 릴리스 증명 불가, 보호 CI 컨텍스트 결속). **실증 0 — CI 배선 미완** | 미실증 |
 | 실행 격리 | CodeAct — 호출당 micro-VM | `argv-only` + `--ignore-scripts` 수준 | 뒤짐 |
 | 결과 효능 | SWE-bench류 벤치마크로 측정 | **미측정** | 뒤짐 |
 
@@ -129,6 +129,13 @@ web-app 어댑터로 등가성 측정    → library 경로 누락(도출이 lou
 
 **어댑터 삭제가 미완이다.** `validate-release-fixtures` 1,422줄 중 단언 74/97이 프로필에 물려
 있어 그 스캐폴딩을 다시 써야 한다.
+
+**서명 provenance는 "뒤짐"이 아니라 "미실증"이다(2026-08-26 조사로 정정).** `quality-attestation-lib`이
+SLSA L2와 같은 축을 이미 갖추고 있다 — 호스트 receipt는 릴리스 증명 대상이 아니고, 보호 CI
+컨텍스트 6종은 빌드 스크립트가 위조할 수 없다. 보호 컨텍스트 부재 시 릴리스가 3건으로
+fail-closed임을 실측했다. **공백은 배선이다** — CI 워크플로가 보호 컨텍스트를 하나도 주입하지
+않고, `quality-attesters.json`이 없고, 실제 서명 증명이 0건이다. 아침의 스팩 확정과 같은
+상태이며 처방도 같다(실사용 1호). 로컬에서 서명을 만들 수 없는 것은 결함이 아니라 설계다.
 
 **실행 격리가 얇다.** `argv-only`는 하네스→pnpm 경계만 지키고 그다음 셸은 프로젝트 자기
 script다. 업계가 micro-VM으로 가는 것과 차이가 크며, 이 저장소의 위협 모델에서 그게 필요한지는
