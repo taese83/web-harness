@@ -19,65 +19,159 @@
     "deploymentProviders",
     "deploymentTargets",
     "artifacts",
-    "commands",
-    "checks",
     "initialCapabilities",
     "targetCapabilities",
-    "tasks"
+    "shapes"
   ],
   "properties": {
-    "$schema": {"type": "string"},
-    "schemaVersion": {"const": 1},
-    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
-    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-    "supportLevel": {"enum": ["certified", "compatible", "experimental"]},
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "supportLevel": {
+      "enum": [
+        "certified",
+        "compatible",
+        "experimental"
+      ]
+    },
     "trust": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tier", "source", "commandPolicy", "allowedExecutables", "environmentAllowlist"],
+      "required": [
+        "tier",
+        "source",
+        "commandPolicy",
+        "allowedExecutables",
+        "environmentAllowlist"
+      ],
       "properties": {
-        "tier": {"const": "builtin"},
-        "source": {"const": "web-harness-control-plane"},
-        "commandPolicy": {"const": "argv-only"},
-        "allowedExecutables": {"const": ["pnpm"]},
-        "environmentAllowlist": {"type": "array", "uniqueItems": true, "items": {"enum": ["CI", "NODE_ENV", "NEXT_TELEMETRY_DISABLED"]}}
+        "tier": {
+          "const": "builtin"
+        },
+        "source": {
+          "const": "web-harness-control-plane"
+        },
+        "commandPolicy": {
+          "const": "argv-only"
+        },
+        "allowedExecutables": {
+          "const": [
+            "pnpm"
+          ]
+        },
+        "environmentAllowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CI",
+              "NODE_ENV",
+              "NEXT_TELEMETRY_DISABLED"
+            ]
+          }
+        }
       }
     },
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["framework", "variant", "packageManager", "router", "rendering"],
+      "required": [
+        "framework",
+        "variant",
+        "packageManager",
+        "router",
+        "rendering"
+      ],
       "properties": {
-        "framework": {"type": "string", "minLength": 1},
-        "variant": {"type": "string", "minLength": 1},
-        "packageManager": {"const": "pnpm"},
-        "router": {"type": "string", "minLength": 1},
-        "rendering": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packageManager": {
+          "const": "pnpm"
+        },
+        "router": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rendering": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["primary", "supported"],
+      "required": [
+        "primary",
+        "supported"
+      ],
       "properties": {
-        "primary": {"type": "string", "minLength": 1},
-        "supported": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "primary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supported": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
-    "detection": {"$ref": "#/$defs/detection"},
-    "profileDefaults": {"$ref": "#/$defs/profileDefaults"},
-    "provides": {"$ref": "#/$defs/stringSet"},
-    "conflicts": {"$ref": "#/$defs/stringSet"},
+    "detection": {
+      "$ref": "#/$defs/detection"
+    },
+    "profileDefaults": {
+      "$ref": "#/$defs/profileDefaults"
+    },
+    "provides": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "conflicts": {
+      "$ref": "#/$defs/stringSet"
+    },
     "deploymentProviders": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "deploymentTargets"],
+        "required": [
+          "id",
+          "deploymentTargets"
+        ],
         "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "deploymentTargets": {"$ref": "#/$defs/stringSet"}
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "deploymentTargets": {
+            "$ref": "#/$defs/stringSet"
+          }
         }
       }
     },
@@ -87,12 +181,26 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "runtime", "requires", "conflicts"],
+        "required": [
+          "id",
+          "runtime",
+          "requires",
+          "conflicts"
+        ],
         "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "runtime": {"type": "string", "minLength": 1},
-          "requires": {"$ref": "#/$defs/stringSet"},
-          "conflicts": {"$ref": "#/$defs/stringSet"}
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "runtime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requires": {
+            "$ref": "#/$defs/stringSet"
+          },
+          "conflicts": {
+            "$ref": "#/$defs/stringSet"
+          }
         }
       }
     },
@@ -102,93 +210,144 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "path", "kind", "deploymentTargets"],
+        "required": [
+          "id",
+          "path",
+          "kind",
+          "deploymentTargets"
+        ],
         "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "path": {"type": "string", "minLength": 1},
-          "kind": {"type": "string", "minLength": 1},
-          "deploymentTargets": {"$ref": "#/$defs/stringSet"}
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deploymentTargets": {
+            "$ref": "#/$defs/stringSet"
+          }
         }
       }
     },
-    "commands": {
+    "initialCapabilities": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "targetCapabilities": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "executable", "args", "cwd"],
-        "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "executable": {"const": "pnpm"},
-          "args": {"type": "array", "minItems": 1, "items": {"type": "string"}},
-          "cwd": {"const": "."}
-        }
+        "$ref": "#/$defs/capability"
       }
     },
-    "checks": {
+    "shapes": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "commandId", "requires", "evidenceCapability"],
-        "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "kind": {"enum": ["build", "static", "unit", "contract", "browser", "runtime", "security", "artifact"]},
-          "commandId": {"$ref": "#/$defs/id"},
-          "requires": {"$ref": "#/$defs/stringSet"},
-          "evidenceCapability": {"$ref": "#/$defs/capability"}
-        }
-      }
-    },
-    "initialCapabilities": {"$ref": "#/$defs/stringSet"},
-    "targetCapabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
-    "tasks": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "phase", "requires", "provides", "commandIds"],
-        "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "phase": {"enum": ["plan", "scaffold", "install", "verify", "build", "runtime", "release"]},
-          "requires": {"$ref": "#/$defs/stringSet"},
-          "provides": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
-          "commandIds": {"$ref": "#/$defs/stringSet"}
-        }
-      }
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "description": "이 프로필이 쓰는 형태 카탈로그 키(.claude/shape-checks.json). commands·checks·tasks를 대신한다 — 검사와 그래프는 형태에서, 명령은 프로젝트 package.json script에서 도출한다(2026-08-27)."
     }
   },
   "$defs": {
-    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},
-    "capability": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"},
-    "stringSet": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "capability": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "detection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["allPackages", "anyPackages", "allPaths", "anyPaths", "forbiddenPackages", "forbiddenPaths"],
+      "required": [
+        "allPackages",
+        "anyPackages",
+        "allPaths",
+        "anyPaths",
+        "forbiddenPackages",
+        "forbiddenPaths"
+      ],
       "properties": {
-        "allPackages": {"$ref": "#/$defs/stringSet"},
-        "anyPackages": {"$ref": "#/$defs/stringSet"},
-        "allPaths": {"$ref": "#/$defs/stringSet"},
-        "anyPaths": {"$ref": "#/$defs/stringSet"},
-        "forbiddenPackages": {"$ref": "#/$defs/stringSet"},
-        "forbiddenPaths": {"$ref": "#/$defs/stringSet"}
+        "allPackages": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "anyPackages": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "allPaths": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "anyPaths": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "forbiddenPackages": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "forbiddenPaths": {
+          "$ref": "#/$defs/stringSet"
+        }
       }
     },
     "profileDefaults": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["productKind", "backendShape", "deploymentProvider", "deploymentTarget", "riskLevel", "capabilities"],
+      "required": [
+        "productKind",
+        "backendShape",
+        "deploymentProvider",
+        "deploymentTarget",
+        "riskLevel",
+        "capabilities"
+      ],
       "properties": {
-        "productKind": {"type": "string", "minLength": 1},
-        "backendShape": {"type": "string", "minLength": 1},
-        "deploymentProvider": {"$ref": "#/$defs/id"},
-        "deploymentTarget": {"$ref": "#/$defs/id"},
-        "riskLevel": {"enum": ["public", "authenticated-business", "sensitive", "regulated"]},
-        "capabilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        "productKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "backendShape": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deploymentProvider": {
+          "$ref": "#/$defs/id"
+        },
+        "deploymentTarget": {
+          "$ref": "#/$defs/id"
+        },
+        "riskLevel": {
+          "enum": [
+            "public",
+            "authenticated-business",
+            "sensitive",
+            "regulated"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     }
   }

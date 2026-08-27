@@ -1,4 +1,5 @@
 import {existsSync, lstatSync, readFileSync, readdirSync} from 'node:fs'
+import {resolveProfileCommands} from '../resolve-commands.mjs'
 import {join} from 'node:path'
 import {analyzePackageScript, hasMeaningfulProfileScript} from '../quality-policy-lib.mjs'
 import {validateVercelProjectConfig} from '../web-core/vercel-config-lib.mjs'
@@ -114,13 +115,14 @@ export const validateGoldenProfiles = ({repositoryRoot, pass, fail}) => {
     if (declarations[name] !== version) fail(`golden/${profileId}: locked package declaration is stale: ${name}`)
   }
 
+  const goldenCommands = resolveProfileCommands({projectRoot, adapter: lockedProfile.adapter})
   for (const binding of adapterCheckBindings({
     adapter: lockedProfile.adapter,
     deploymentProvider: lockedProfile.selection.provider.id,
     deploymentTarget: lockedProfile.selection.target.id,
     capabilities: lockedProfile.selection.selectedCapabilities,
   })) {
-    const command = lockedProfile.adapter.commands.find(candidate => candidate.id === binding.commandId)
+    const command = goldenCommands.get(binding.commandId)
     const scriptName = command?.executable === 'pnpm' && command.args[0] === 'run' ? command.args[1] : null
     const source = scriptName ? packageJson.scripts?.[scriptName] : null
     const definition = {kind: binding.kind}

@@ -273,13 +273,21 @@ test('회귀 반증: 미구현 요구를 프로젝트 실패로 섞지 않는다
   assert.ok(unimplemented.length > 0, '현재 cli에는 미구현 요구가 있다')
 })
 
-test('공통 검사는 형태와 무관하게 요구된다', () => {
+test('공통 검사는 형태와 무관하게 요구된다 — 단 능력 조건부는 제외', () => {
+  // 2026-08-27: 카탈로그에 능력 조건부 검사(`requires`)가 생겼다. 형태는 "무엇을 만드는가"이고
+  // 능력은 "무엇을 켰는가"라 형태만으로 요구할 수 없다 — 요구하면 능력을 안 켠 프로젝트가
+  // 전원 오탐 블록된다. 대신 **조건부로 분류돼 사라지지 않는다**는 것을 함께 고정한다.
   const catalog = readShapeChecks()
-  const commonIds = catalog.common.checks.filter(c => c.implemented !== false).map(c => c.id)
+  const commonIds = catalog.common.checks.filter(c => c.implemented !== false && (c.requires ?? []).length === 0).map(c => c.id)
+  const gatedIds = catalog.common.checks.filter(c => (c.requires ?? []).length > 0).map(c => c.id)
   for (const shape of Object.keys(catalog.shapes)) {
-    const {required} = resolveRequiredChecks([shape])
+    const {required, capabilityGated} = resolveRequiredChecks([shape])
     for (const id of commonIds) {
       assert.ok(required.includes(id), `${shape}에 공통 ${id}이 빠졌다`)
+    }
+    for (const id of gatedIds) {
+      assert.ok(!required.includes(id), `${shape}: 능력 조건부 ${id}을 무조건 요구하면 오탐이다`)
+      assert.ok(capabilityGated.includes(id), `${shape}: 능력 조건부 ${id}이 분류에서 사라졌다 — 조용한 소실 금지`)
     }
   }
 })
@@ -287,7 +295,10 @@ test('공통 검사는 형태와 무관하게 요구된다', () => {
 test('요구 목록이 없는 형태는 unknownShapes로 보고된다 — 조용히 0을 요구하지 않는다', () => {
   const {required, unknownShapes} = resolveRequiredChecks(['browser-extension'])
   assert.deepEqual(unknownShapes, ['browser-extension'])
-  const commonIds = readShapeChecks().common.checks.filter(c => c.implemented !== false).map(c => c.id).sort()
+  const commonIds = readShapeChecks()
+    .common.checks.filter(c => c.implemented !== false && (c.requires ?? []).length === 0)
+    .map(c => c.id)
+    .sort()
   assert.deepEqual(required, commonIds)
 })
 

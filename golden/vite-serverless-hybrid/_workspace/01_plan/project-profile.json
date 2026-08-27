@@ -1,38 +1,14 @@
 {
   "$schema": "https://web-harness.local/schemas/web-core/project-profile.schema.json",
-  "schemaVersion": 1,
-  "profileId": "vite-serverless-hybrid",
-  "resolution": {
-    "source": "detected",
-    "requested": null,
-    "detected": "vite-serverless-hybrid",
-    "evidence": [
-      "package:react",
-      "package:vite",
-      "path:api",
-      "path:src/main.tsx",
-      "path:vite.config.ts"
-    ]
-  },
   "adapter": {
     "id": "vite-serverless-hybrid",
-    "version": "1.1.0",
-    "sha256": "4b4400f4f6342cb44688b2ccc6b2cde5778213813a64a6a54e3970457e40e899",
+    "sha256": "d7f07589986958cf42ef6e0009dadb6875cf7d2d5c8316e645c36111c88aca37",
     "supportLevel": "certified",
-    "trustTier": "builtin"
+    "trustTier": "builtin",
+    "version": "1.1.0"
   },
-  "product": {"kind": "hybrid-web"},
-  "frontend": {
-    "framework": "react",
-    "variant": "vite-serverless-hybrid",
-    "router": "history-api",
-    "rendering": ["csr"],
-    "packageManager": "pnpm"
-  },
-  "backend": {"shape": "serverless-functions"},
-  "runtime": {
-    "primary": "browser",
-    "supported": ["browser", "node", "node-build"]
+  "backend": {
+    "shape": "serverless-functions"
   },
   "capabilities": [
     "client-routing",
@@ -41,23 +17,67 @@
     "static-build"
   ],
   "deployment": {
-    "provider": "vercel",
-    "availableProviders": ["vercel"],
-    "target": "vercel-hybrid",
-    "availableTargets": ["vercel-hybrid"],
-    "releaseTarget": "release.vercel-hybrid",
     "artifacts": [
-      {"id": "vite-dist", "path": "dist", "kind": "static-directory"}
+      {
+        "id": "vite-dist",
+        "kind": "static-directory",
+        "path": "dist"
+      }
+    ],
+    "availableProviders": [
+      "vercel"
+    ],
+    "availableTargets": [
+      "vercel-hybrid"
+    ],
+    "provider": "vercel",
+    "releaseTarget": "release.vercel-hybrid",
+    "target": "vercel-hybrid"
+  },
+  "frontend": {
+    "framework": "react",
+    "packageManager": "pnpm",
+    "rendering": [
+      "csr"
+    ],
+    "router": "react-router",
+    "variant": "vite-serverless-hybrid"
+  },
+  "product": {
+    "kind": "hybrid-web"
+  },
+  "profileId": "vite-serverless-hybrid",
+  "resolution": {
+    "detected": "vite-serverless-hybrid",
+    "evidence": [
+      "package:react@declared",
+      "package:vite@declared",
+      "path:api",
+      "path:src/main.tsx",
+      "path:vite.config.ts"
+    ],
+    "requested": null,
+    "source": "detected"
+  },
+  "risk": {
+    "level": "public"
+  },
+  "runtime": {
+    "primary": "browser",
+    "supported": [
+      "browser",
+      "node",
+      "node-build"
     ]
   },
-  "risk": {"level": "public"},
+  "schemaVersion": 1,
   "toolchain": {
+    "exactFrameworkVersions": true,
     "nodeEngine": ">=22 <23",
-    "packageManager": "pnpm@11.18.0",
     "packageDeclarations": {
       "react": "19.2.7",
       "vite": "8.1.4"
     },
-    "exactFrameworkVersions": true
+    "packageManager": "pnpm@11.18.0"
   }
 }

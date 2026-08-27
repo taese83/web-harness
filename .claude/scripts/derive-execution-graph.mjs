@@ -48,24 +48,35 @@ export const RECEIPT_ALIASES = Object.freeze({
 // `api.unit`→`evidence.api-unit`(점→대시), `next.route-contract`→`evidence.next.route-contract`
 // (점 유지). 구조로 가를 수 없으므로 카탈로그가 실제 이름을 적을 수 있게 한다. 규칙을 지어내면
 // receipt 이름이 바뀌고 기존 receipt가 전부 낡는다.
-const evidenceOf = check => {
+export const evidenceNameOf = check => {
   if (typeof check === 'string') return `evidence.${RECEIPT_ALIASES[check] ?? check.replace(/\./g, '-')}`
   if (typeof check.evidenceName === 'string' && check.evidenceName.trim() !== '') return check.evidenceName
   return `evidence.${RECEIPT_ALIASES[check.id] ?? check.id.replace(/\./g, '-')}`
 }
 
+// 실행 계획 노드의 `phase`는 receiptKind에서 도출한다 — 어댑터 실측 규칙이다.
+// (레거시 어댑터에는 security를 verify로도 runtime으로도 적은 비일관이 3건 있었다. 계획 노드의
+//  phase를 분기에 쓰는 소비자는 없어 — 통과 메타데이터다 — 규칙으로 정규화했다.)
+export const PHASE_OF_KIND = Object.freeze({
+  static: 'verify', unit: 'verify', contract: 'verify', security: 'verify',
+  build: 'build', artifact: 'build',
+  browser: 'runtime', runtime: 'runtime',
+})
+const phaseOf = check => PHASE_OF_KIND[check.receiptKind] ?? 'verify'
+
 // 골격 — 모든 프로필에서 동일했다(실측).
 const skeleton = () => [
-  {id: 'core.resolve-profile', requires: [...BOOTSTRAP], provides: ['profile.resolved']},
-  {id: 'adapter.scaffold', requires: ['profile.resolved'], provides: ['source.ready']},
-  {id: 'dependencies.install', requires: ['source.ready'], provides: ['dependencies.installed']},
+  {id: 'core.resolve-profile', phase: 'plan', requires: [...BOOTSTRAP], provides: ['profile.resolved'], commandIds: []},
+  {id: 'adapter.scaffold', phase: 'scaffold', requires: ['profile.resolved'], provides: ['source.ready'], commandIds: []},
+  {id: 'dependencies.install', phase: 'install', requires: ['source.ready'], provides: ['dependencies.installed'], commandIds: ['dependencies.install']},
 ]
 
 // 검사가 주어진 능력 집합에서 활성인가. `requires`가 없으면 항상 활성이다(기존 동작 보존).
 const isActive = (check, active) => (check.requires ?? []).every(requirement => active.has(requirement))
 
-// 검사가 만드는 산출물 이름. 빌드 검사는 관례상 `.build`로 끝나고 `artifact.built`를 만든다.
-const artifactOf = check =>
+// 검사가 만드는 산출물 이름(없으면 null). 빌드/2차 산출물 검사는 evidence가 아니라 artifact를 낸다.
+// 원문: 빌드 검사는 관례상 `.build`로 끝나고 `artifact.built`를 만든다.
+export const artifactOf = check =>
   check.producesArtifact ?? (check.id.endsWith(BUILD_CHECK_SUFFIX) ? 'artifact.built' : null)
 
 // 검사가 소비하는 산출물 이름. `true`는 기본 빌드 산출물을 뜻한다(기존 표기 보존).
@@ -89,17 +100,17 @@ export const deriveGraph = ({checks, capabilities = null, deploymentTargets = nu
     const consumes = consumedArtifact(check)
     const requires = consumes ? [consumes] : ['dependencies.installed']
     if (artifact === 'artifact.built') {
-      tasks.push({id: check.id, requires: ['dependencies.installed', 'evidence.typecheck'], provides: [artifact]})
+      tasks.push({id: check.id, phase: phaseOf(check), requires: ['dependencies.installed', 'evidence.typecheck'], provides: [artifact], commandIds: [check.id]})
       continue
     }
     if (artifact) {
       // 2차 산출물(도커 이미지·정적 export) — 기본 빌드 산출물을 소비해 자기 산출물을 낸다.
-      tasks.push({id: check.id, requires, provides: [artifact]})
+      tasks.push({id: check.id, phase: phaseOf(check), requires, provides: [artifact], commandIds: [check.id]})
       continue
     }
-    const provides = evidenceOf(check)
+    const provides = evidenceNameOf(check)
     evidence.push({name: provides, check})
-    tasks.push({id: check.id, requires, provides: [provides]})
+    tasks.push({id: check.id, phase: phaseOf(check), requires, provides: [provides], commandIds: [check.id]})
   }
 
   // 소비하는 산출물을 아무도 만들지 않으면 도달 불가능한 그래프다 — 조용히 넘기지 않는다.
@@ -129,7 +140,7 @@ export const deriveGraph = ({checks, capabilities = null, deploymentTargets = nu
       .sort()
 
   if (deploymentTargets === null || deploymentTargets.length === 0) {
-    tasks.push({id: 'release.assemble', requires: gatingEvidence(new Set(capabilities ?? [])), provides: [TARGET]})
+    tasks.push({id: 'release.assemble', phase: 'release', requires: gatingEvidence(new Set(capabilities ?? [])), provides: [TARGET], commandIds: []})
     return {tasks, evidence: evidence.map(item => item.name), errors: []}
   }
 
@@ -151,8 +162,10 @@ export const deriveGraph = ({checks, capabilities = null, deploymentTargets = nu
     const isDefault = defaultTarget !== null && targets.includes(defaultTarget)
     tasks.push({
       id: isDefault ? 'release.assemble' : `release.${targets[0]}`,
+      phase: 'release',
       requires,
       provides: [...(isDefault ? [TARGET] : []), ...targets.map(target => `release.${target}`)].sort(),
+      commandIds: [],
     })
   }
   return {tasks, evidence: evidence.map(item => item.name), errors: []}

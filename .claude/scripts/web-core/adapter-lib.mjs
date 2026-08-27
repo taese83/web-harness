@@ -1,6 +1,7 @@
 import {existsSync, realpathSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {artifactOf, deriveGraph, evidenceNameOf, readShapeChecks} from '../derive-execution-graph.mjs'
 import {assertKnownKeys, isPlainObject, readJson, sortedUnique, WebCoreError} from './core-lib.mjs'
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
@@ -55,7 +56,7 @@ export const validateAdapter = (adapter, {expectedId} = {}) => {
   const rootKeys = [
     '$schema', 'schemaVersion', 'id', 'version', 'supportLevel', 'trust', 'project', 'runtime',
     'detection', 'profileDefaults', 'provides', 'conflicts', 'deploymentProviders', 'deploymentTargets', 'artifacts',
-    'commands', 'checks', 'initialCapabilities', 'targetCapabilities', 'tasks',
+    'shapes', 'initialCapabilities', 'targetCapabilities',
   ]
   if (!assertKnownKeys(adapter, rootKeys, 'adapter', errors)) return errors
   if (adapter.schemaVersion !== 1) errors.push('schemaVersion must equal 1')
@@ -170,73 +171,62 @@ export const validateAdapter = (adapter, {expectedId} = {}) => {
     }
   }
 
-  const commands = Array.isArray(adapter.commands) ? adapter.commands : []
-  if (!Array.isArray(adapter.commands) || commands.length === 0) errors.push('commands must be a non-empty array')
-  const commandIds = uniqueObjects(commands, 'commands', errors)
-  for (const [index, command] of commands.entries()) {
-    assertKnownKeys(command, ['id', 'executable', 'args', 'cwd'], `commands[${index}]`, errors)
-    if (!identifierPattern.test(command?.id ?? '')) errors.push(`commands[${index}].id is invalid`)
-    if (!/^[a-zA-Z0-9._-]+$/.test(command?.executable ?? '')) errors.push(`commands[${index}].executable is invalid`)
-    if (command?.executable && !allowedExecutables.has(command.executable)) errors.push(`commands[${index}].executable is not allowlisted`)
-    arrayOfStrings(command?.args, `commands[${index}].args`, errors, {nonempty: true})
-    if (command?.executable === 'pnpm' && !safePnpmArgs(command.args)) errors.push(`commands[${index}] violates the bounded pnpm contract`)
-    if (command?.cwd !== '.') errors.push(`commands[${index}].cwd must equal .`)
+  // shapes — 이 어댑터가 어느 형태 카탈로그를 쓰는가. `commands`·`checks`·`tasks`를 대신한다.
+  const shapes = arrayOfStrings(adapter.shapes, 'shapes', errors, {nonempty: true})
+  const catalog = readShapeChecks()
+  for (const shape of shapes) {
+    if (!catalog.shapes?.[shape]) errors.push(`shapes references unknown shape: ${shape}`)
   }
 
-  const checks = Array.isArray(adapter.checks) ? adapter.checks : []
-  if (!Array.isArray(adapter.checks) || checks.length === 0) errors.push('checks must be a non-empty array')
-  uniqueObjects(checks, 'checks', errors)
+  return sortedUnique(errors)
+}
+
+// 도출된 그래프의 무결성. 선언 검증에서 떼어냈다 — 이제 검사·task는 선언이 아니라 도출이므로
+// "선언이 서로를 가리키는가"가 아니라 "도출 결과가 닫혀 있는가"를 본다.
+export const validateDerivedAdapter = adapter => {
+  const errors = []
+  const deploymentIds = new Set((adapter.deploymentTargets ?? []).map(target => target?.id))
   const knownCheckRequirements = new Set([...(adapter.provides ?? []), ...deploymentIds])
   const checkEvidenceCapabilities = []
-  for (const [index, check] of checks.entries()) {
-    assertKnownKeys(check, ['id', 'kind', 'commandId', 'requires', 'evidenceCapability'], `checks[${index}]`, errors)
-    if (!identifierPattern.test(check?.id ?? '')) errors.push(`checks[${index}].id is invalid`)
-    if (!['build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'].includes(check?.kind)) errors.push(`checks[${index}].kind is invalid`)
-    if (!commandIds.has(check?.commandId)) errors.push(`checks[${index}] references unknown command: ${check?.commandId}`)
-    if (!capabilityPattern.test(check?.evidenceCapability ?? '')) errors.push(`checks[${index}].evidenceCapability is invalid`)
-    else checkEvidenceCapabilities.push([index, check.evidenceCapability])
-    for (const requirement of arrayOfStrings(check?.requires, `checks[${index}].requires`, errors)) {
+  for (const [index, check] of (adapter.checks ?? []).entries()) {
+    if (!['build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'].includes(check?.kind)) {
+      errors.push(`derived checks[${index}].kind is invalid: ${check?.kind}`)
+    }
+    for (const requirement of check?.requires ?? []) {
       if (!knownCheckRequirements.has(requirement)) {
-        errors.push(`checks[${index}] requires unknown capability or deployment target: ${requirement}`)
+        errors.push(`derived checks[${index}] requires unknown capability or deployment target: ${requirement}`)
       }
     }
+    if (typeof check?.evidenceCapability === 'string') checkEvidenceCapabilities.push([index, check.evidenceCapability])
   }
-
-  const tasks = Array.isArray(adapter.tasks) ? adapter.tasks : []
-  if (!Array.isArray(adapter.tasks) || tasks.length === 0) errors.push('tasks must be a non-empty array')
-  uniqueObjects(tasks, 'tasks', errors)
   const capabilityProviders = new Map()
-  for (const [index, task] of tasks.entries()) {
-    assertKnownKeys(task, ['id', 'phase', 'requires', 'provides', 'commandIds'], `tasks[${index}]`, errors)
-    if (!identifierPattern.test(task?.id ?? '')) errors.push(`tasks[${index}].id is invalid`)
-    if (!['plan', 'scaffold', 'install', 'verify', 'build', 'runtime', 'release'].includes(task?.phase)) errors.push(`tasks[${index}].phase is invalid`)
-    arrayOfStrings(task?.requires, `tasks[${index}].requires`, errors, {pattern: capabilityPattern})
-    for (const capability of arrayOfStrings(task?.provides, `tasks[${index}].provides`, errors, {nonempty: true, pattern: capabilityPattern})) {
+  for (const task of adapter.tasks ?? []) {
+    for (const capability of task.provides ?? []) {
       if (capabilityProviders.has(capability)) errors.push(`capability has multiple providers: ${capability}`)
       capabilityProviders.set(capability, task.id)
     }
-    for (const commandId of arrayOfStrings(task?.commandIds, `tasks[${index}].commandIds`, errors)) {
-      if (!commandIds.has(commandId)) errors.push(`tasks[${index}] references unknown command: ${commandId}`)
-    }
   }
   const initial = new Set(adapter.initialCapabilities ?? [])
-  for (const [index, task] of tasks.entries()) {
+  for (const task of adapter.tasks ?? []) {
     for (const requirement of task.requires ?? []) {
-      if (!initial.has(requirement) && !capabilityProviders.has(requirement)) errors.push(`tasks[${index}] has unsatisfied capability: ${requirement}`)
+      if (!initial.has(requirement) && !capabilityProviders.has(requirement)) {
+        errors.push(`task '${task.id}' has unsatisfied capability: ${requirement}`)
+      }
     }
   }
   for (const target of adapter.targetCapabilities ?? []) {
     if (!initial.has(target) && !capabilityProviders.has(target)) errors.push(`target capability has no provider: ${target}`)
   }
   for (const [index, evidenceCapability] of checkEvidenceCapabilities) {
+    // 산출물을 내는 검사(도커 이미지·정적 export)는 evidence가 아니라 artifact를 낸다 — 정상이다.
+    if (evidenceCapability.startsWith('artifact.')) continue
     if (!initial.has(evidenceCapability) && !capabilityProviders.has(evidenceCapability)) {
-      errors.push(`checks[${index}] evidence has no DAG provider: ${evidenceCapability}`)
+      errors.push(`derived checks[${index}] evidence has no DAG provider: ${evidenceCapability}`)
     }
   }
   for (const deploymentId of deploymentIds) {
-    const releaseCapability = `release.${deploymentId}`
-    if (!capabilityProviders.has(releaseCapability)) {
-      errors.push(`deployment target has no release DAG provider: ${releaseCapability}`)
+    if (!capabilityProviders.has(`release.${deploymentId}`)) {
+      errors.push(`deployment target has no release DAG provider: release.${deploymentId}`)
     }
   }
   return sortedUnique(errors)
@@ -251,6 +241,33 @@ const assertInsideBuiltins = path => {
   }
 }
 
+// 2026-08-27: `commands`·`checks`·`tasks`를 어댑터에서 걷어냈다(3종 33,038B → 8,453B, −74%).
+// 그 셋은 선언이 아니라 **도출 가능한 것**이었다 — 검사와 그래프는 `shape-checks.json`의 형태
+// 카탈로그에서, 명령은 프로젝트 `package.json`의 script에서 나온다. 삭제 전에 내장 3종 전부
+// 노드와 **간선까지** 일치함을 기계로 확인했다(등가 게이트는 그 확인을 위한 발판이었고 삭제와
+// 함께 없앴다 — 비교 대상이 사라지면 게이트도 죽는 것이 맞다).
+//
+// `commands`가 여기 없는 이유: script 이름은 **프로젝트가 정한다**. 어댑터 로드 시점에는
+// 프로젝트가 없으므로 해석은 실행 시점에 `resolve-commands`가 한다.
+const deriveAdapterGraph = adapter => {
+  const catalog = readShapeChecks()
+  const shapes = Array.isArray(adapter.shapes) ? adapter.shapes : []
+  const checks = [
+    ...(catalog.common?.checks ?? []),
+    ...shapes.flatMap(shape => catalog.shapes?.[shape]?.checks ?? []),
+  ]
+  const {tasks, errors} = deriveGraph({
+    checks,
+    capabilities: adapter.profileDefaults?.capabilities ?? [],
+    deploymentTargets: (adapter.deploymentTargets ?? []).map(target => target.id),
+    defaultTarget: adapter.profileDefaults?.deploymentTarget ?? null,
+  })
+  if (errors.length) {
+    throw new WebCoreError('ADAPTER_GRAPH_UNDERIVABLE', `Cannot derive execution graph for ${adapter.id}`, {errors})
+  }
+  return {checks, tasks}
+}
+
 export const loadBuiltinAdapter = id => {
   if (!BUILTIN_ADAPTER_IDS.includes(id)) throw new WebCoreError('UNKNOWN_PROFILE', `Unknown built-in profile: ${id}`, {available: BUILTIN_ADAPTER_IDS})
   const path = join(adapterDirectory, id, 'adapter.json')
@@ -259,7 +276,25 @@ export const loadBuiltinAdapter = id => {
   const adapter = readJson(path)
   const errors = validateAdapter(adapter, {expectedId: id})
   if (errors.length) throw new WebCoreError('INVALID_ADAPTER', `Built-in adapter is invalid: ${id}`, {errors})
-  return adapter
+  const {checks, tasks} = deriveAdapterGraph(adapter)
+  const derived = {
+    ...adapter,
+    checks: checks.map(check => ({
+      id: check.id,
+      commandId: check.id,
+      kind: check.receiptKind ?? 'runtime',
+      // 빌드·2차 산출물 검사는 evidence가 아니라 artifact를 낸다(어댑터 선언도 그랬다).
+      evidenceCapability: artifactOf(check) ?? evidenceNameOf(check),
+      requires: check.requires ?? [],
+      scriptCandidates: check.scriptCandidates ?? null,
+    })),
+    tasks,
+  }
+  const derivedErrors = validateDerivedAdapter(derived)
+  if (derivedErrors.length) {
+    throw new WebCoreError('INVALID_DERIVED_ADAPTER', `Derived adapter graph is invalid: ${id}`, {errors: derivedErrors})
+  }
+  return derived
 }
 
 export const loadBuiltinAdapters = () => BUILTIN_ADAPTER_IDS.map(loadBuiltinAdapter)

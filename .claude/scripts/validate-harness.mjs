@@ -3,7 +3,6 @@ import {spawnSync} from 'node:child_process'
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {validateAdapterDerivation} from './validators/validate-adapter-derivation.mjs'
 import {validateAdapterHygiene} from './validators/validate-adapter-hygiene.mjs'; import {validateAgentBoundaries} from './validators/validate-agent-boundaries.mjs'
 import {validateAnalyticsBuilder} from './validators/validate-analytics-builder.mjs'
 import {validateContentPolicy} from './validators/validate-content-policy.mjs'
@@ -366,7 +365,7 @@ validateSettings({claudeDirectory, repositoryRoot, read, pass, fail})
 validateWebCoreIntegration({repositoryRoot, pass, fail})
 validateReleaseFixtures({claudeDirectory, repositoryRoot, pass, fail})
 
-validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateAnalyticsBuilder({repositoryRoot, read, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail}); await validateAdapterDerivation({repositoryRoot, pass, fail}); validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail}); validateMarkerIntegrity({repositoryRoot, pass, fail}); validateCertifiedEvidence({repositoryRoot, pass, fail})
+validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateAnalyticsBuilder({repositoryRoot, read, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail}); validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail}); validateMarkerIntegrity({repositoryRoot, pass, fail}); validateCertifiedEvidence({repositoryRoot, pass, fail})
 
 if (errors.length) {
   console.error(`Harness validation failed with ${errors.length} error(s):`)

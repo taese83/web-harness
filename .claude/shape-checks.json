@@ -27,6 +27,21 @@
         "implemented": true,
         "needsArtifact": false,
         "receiptKind": "unit"
+      },
+      {
+        "id": "ingestion.validate",
+        "kind": "runtime",
+        "implemented": true,
+        "receiptKind": "contract",
+        "needsArtifact": false,
+        "requires": [
+          "external-ingestion"
+        ],
+        "evidenceName": "evidence.ingestion",
+        "scriptCandidates": [
+          "validate:ingestion"
+        ],
+        "$comment": "외부 수집 능력이 켜졌을 때만 활성. 2026-08-27까지 어댑터에만 있어 도출 전환 때 통째로 사라질 뻔했다 — test-web-core가 잡았다."
       }
     ]
   },
@@ -150,13 +165,16 @@
       ]
     },
     "ssr-web-app": {
-      "$comment": "서버 렌더링 웹앱 — 빌드 산출물을 여러 배포 형태(node-server·docker-standalone·static-export)로 실증한다. 어느 검사가 켜지는지는 스팩이 확정한 능력(rsc·app-router·ssr·auth)과 배포 타깃이 정한다. 검사 id의 next. 접두는 receipt 이름이며(vite.build와 같은 성질) 실행 명령은 전부 프로젝트 script다 — 하네스 고유 명령 0건(2026-08-27 실측).",
+      "$comment": "서버 렌더링 웹앱 — 빌드 산출물을 여러 배포 형태(node-server·docker-standalone·static-export)로 실증한다. 어느 검사가 켜지는지는 스팩이 확정한 능력(rsc·app-router·ssr·auth)과 배포 타깃이 정한다. 검사 id의 next. 접두는 receipt 이름이며(vite.build와 같은 성질) 실행 명령은 전부 프로젝트 script다 — 하네스 고유 명령 0건(2026-08-27 실측). scriptCandidates는 검사가 어느 package.json script를 부르는지의 이름표다 — 규약으로 못 가르므로(next.route-contract → test:routes) 검사 옆에 둔다.",
       "checks": [
         {
           "id": "next.build",
           "kind": "runtime",
           "implemented": true,
-          "receiptKind": "build"
+          "receiptKind": "build",
+          "scriptCandidates": [
+            "build"
+          ]
         },
         {
           "id": "next.route-contract",
@@ -167,7 +185,10 @@
           "requires": [
             "app-router"
           ],
-          "evidenceName": "evidence.next.route-contract"
+          "evidenceName": "evidence.next.route-contract",
+          "scriptCandidates": [
+            "test:routes"
+          ]
         },
         {
           "id": "next.client-boundary",
@@ -178,7 +199,10 @@
           "requires": [
             "rsc"
           ],
-          "evidenceName": "evidence.next.client-boundary"
+          "evidenceName": "evidence.next.client-boundary",
+          "scriptCandidates": [
+            "test:client-boundary"
+          ]
         },
         {
           "id": "next.secret-boundary",
@@ -189,7 +213,10 @@
           "requires": [
             "rsc"
           ],
-          "evidenceName": "evidence.next.secret-boundary"
+          "evidenceName": "evidence.next.secret-boundary",
+          "scriptCandidates": [
+            "test:secret-boundary"
+          ]
         },
         {
           "id": "next.production-start",
@@ -201,7 +228,10 @@
             "node-server",
             "ssr"
           ],
-          "evidenceName": "evidence.next.production-start"
+          "evidenceName": "evidence.next.production-start",
+          "scriptCandidates": [
+            "test:production-start"
+          ]
         },
         {
           "id": "next.node-browser",
@@ -213,7 +243,10 @@
             "node-server",
             "app-router"
           ],
-          "evidenceName": "evidence.next.node-browser"
+          "evidenceName": "evidence.next.node-browser",
+          "scriptCandidates": [
+            "test:e2e:node"
+          ]
         },
         {
           "id": "next.node-hydration",
@@ -225,7 +258,10 @@
             "node-server",
             "rsc"
           ],
-          "evidenceName": "evidence.next.node-hydration"
+          "evidenceName": "evidence.next.node-hydration",
+          "scriptCandidates": [
+            "test:hydration:node"
+          ]
         },
         {
           "id": "next.node-authz",
@@ -237,7 +273,10 @@
             "node-server",
             "auth"
           ],
-          "evidenceName": "evidence.next.node-authz"
+          "evidenceName": "evidence.next.node-authz",
+          "scriptCandidates": [
+            "test:authz:node"
+          ]
         },
         {
           "id": "next.node-cache-isolation",
@@ -249,7 +288,10 @@
             "node-server",
             "auth"
           ],
-          "evidenceName": "evidence.next.node-cache-isolation"
+          "evidenceName": "evidence.next.node-cache-isolation",
+          "scriptCandidates": [
+            "test:cache-isolation:node"
+          ]
         },
         {
           "id": "next.node-smoke",
@@ -261,7 +303,10 @@
             "node-server"
           ],
           "gatesRelease": false,
-          "evidenceName": "evidence.next.node-smoke"
+          "evidenceName": "evidence.next.node-smoke",
+          "scriptCandidates": [
+            "test:node-smoke"
+          ]
         },
         {
           "id": "next.node-shutdown",
@@ -272,7 +317,10 @@
           "requires": [
             "node-server"
           ],
-          "evidenceName": "evidence.next.node-shutdown"
+          "evidenceName": "evidence.next.node-shutdown",
+          "scriptCandidates": [
+            "test:shutdown:node"
+          ]
         },
         {
           "id": "next.docker-build",
@@ -283,6 +331,9 @@
           "needsArtifact": true,
           "requires": [
             "docker-standalone"
+          ],
+          "scriptCandidates": [
+            "test:docker-build"
           ]
         },
         {
@@ -295,7 +346,10 @@
             "docker-standalone"
           ],
           "gatesRelease": false,
-          "evidenceName": "evidence.next.docker-smoke"
+          "evidenceName": "evidence.next.docker-smoke",
+          "scriptCandidates": [
+            "test:docker-smoke"
+          ]
         },
         {
           "id": "next.docker-browser",
@@ -307,7 +361,10 @@
             "docker-standalone",
             "app-router"
           ],
-          "evidenceName": "evidence.next.docker-browser"
+          "evidenceName": "evidence.next.docker-browser",
+          "scriptCandidates": [
+            "test:e2e:docker"
+          ]
         },
         {
           "id": "next.docker-hydration",
@@ -319,7 +376,10 @@
             "docker-standalone",
             "rsc"
           ],
-          "evidenceName": "evidence.next.docker-hydration"
+          "evidenceName": "evidence.next.docker-hydration",
+          "scriptCandidates": [
+            "test:hydration:docker"
+          ]
         },
         {
           "id": "next.docker-authz",
@@ -331,7 +391,10 @@
             "docker-standalone",
             "auth"
           ],
-          "evidenceName": "evidence.next.docker-authz"
+          "evidenceName": "evidence.next.docker-authz",
+          "scriptCandidates": [
+            "test:authz:docker"
+          ]
         },
         {
           "id": "next.docker-cache-isolation",
@@ -343,7 +406,10 @@
             "docker-standalone",
             "auth"
           ],
-          "evidenceName": "evidence.next.docker-cache-isolation"
+          "evidenceName": "evidence.next.docker-cache-isolation",
+          "scriptCandidates": [
+            "test:cache-isolation:docker"
+          ]
         },
         {
           "id": "next.docker-shutdown",
@@ -354,7 +420,10 @@
           "requires": [
             "docker-standalone"
           ],
-          "evidenceName": "evidence.next.docker-shutdown"
+          "evidenceName": "evidence.next.docker-shutdown",
+          "scriptCandidates": [
+            "test:shutdown:docker"
+          ]
         },
         {
           "id": "next.export-artifact",
@@ -365,6 +434,9 @@
           "needsArtifact": true,
           "requires": [
             "static-export"
+          ],
+          "scriptCandidates": [
+            "test:export-artifact"
           ]
         },
         {
@@ -376,7 +448,10 @@
           "requires": [
             "static-export"
           ],
-          "evidenceName": "evidence.next.static-host-smoke"
+          "evidenceName": "evidence.next.static-host-smoke",
+          "scriptCandidates": [
+            "test:static-host-smoke"
+          ]
         },
         {
           "id": "next.static-browser",
@@ -388,7 +463,10 @@
             "static-export",
             "app-router"
           ],
-          "evidenceName": "evidence.next.static-browser"
+          "evidenceName": "evidence.next.static-browser",
+          "scriptCandidates": [
+            "test:e2e:static"
+          ]
         },
         {
           "id": "next.static-hydration",
@@ -400,7 +478,10 @@
             "static-export",
             "rsc"
           ],
-          "evidenceName": "evidence.next.static-hydration"
+          "evidenceName": "evidence.next.static-hydration",
+          "scriptCandidates": [
+            "test:hydration:static"
+          ]
         }
       ]
     }

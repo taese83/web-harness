@@ -5,23 +5,125 @@
     "version": "1.1.0"
   },
   "edges": [
-    {"capabilities": ["source.ready"], "from": "adapter.scaffold", "to": "dependencies.install"},
-    {"capabilities": ["evidence.api-guards"], "from": "api.guards", "to": "release.assemble"},
-    {"capabilities": ["evidence.api-unit"], "from": "api.unit", "to": "release.assemble"},
-    {"capabilities": ["profile.resolved"], "from": "core.resolve-profile", "to": "adapter.scaffold"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "api.guards"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "api.unit"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.lint"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.typecheck"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "quality.unit"},
-    {"capabilities": ["dependencies.installed"], "from": "dependencies.install", "to": "vite.build"},
-    {"capabilities": ["evidence.lint"], "from": "quality.lint", "to": "release.assemble"},
-    {"capabilities": ["evidence.typecheck"], "from": "quality.typecheck", "to": "vite.build"},
-    {"capabilities": ["evidence.unit"], "from": "quality.unit", "to": "release.assemble"},
-    {"capabilities": ["evidence.browser"], "from": "vite.browser", "to": "release.assemble"},
-    {"capabilities": ["artifact.built"], "from": "vite.build", "to": "vite.browser"},
-    {"capabilities": ["artifact.built"], "from": "vite.build", "to": "vite.production-boundary"},
-    {"capabilities": ["evidence.production-boundary"], "from": "vite.production-boundary", "to": "release.assemble"}
+    {
+      "capabilities": [
+        "source.ready"
+      ],
+      "from": "adapter.scaffold",
+      "to": "dependencies.install"
+    },
+    {
+      "capabilities": [
+        "evidence.api-guards"
+      ],
+      "from": "api.guards",
+      "to": "release.assemble"
+    },
+    {
+      "capabilities": [
+        "evidence.api-unit"
+      ],
+      "from": "api.unit",
+      "to": "release.assemble"
+    },
+    {
+      "capabilities": [
+        "profile.resolved"
+      ],
+      "from": "core.resolve-profile",
+      "to": "adapter.scaffold"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "api.guards"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "api.unit"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "quality.lint"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "quality.typecheck"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "quality.unit"
+    },
+    {
+      "capabilities": [
+        "dependencies.installed"
+      ],
+      "from": "dependencies.install",
+      "to": "vite.build"
+    },
+    {
+      "capabilities": [
+        "evidence.lint"
+      ],
+      "from": "quality.lint",
+      "to": "release.assemble"
+    },
+    {
+      "capabilities": [
+        "evidence.typecheck"
+      ],
+      "from": "quality.typecheck",
+      "to": "vite.build"
+    },
+    {
+      "capabilities": [
+        "evidence.unit"
+      ],
+      "from": "quality.unit",
+      "to": "release.assemble"
+    },
+    {
+      "capabilities": [
+        "evidence.browser"
+      ],
+      "from": "vite.browser",
+      "to": "release.assemble"
+    },
+    {
+      "capabilities": [
+        "artifact.built"
+      ],
+      "from": "vite.build",
+      "to": "vite.browser"
+    },
+    {
+      "capabilities": [
+        "artifact.built"
+      ],
+      "from": "vite.build",
+      "to": "vite.production-mock-boundary"
+    },
+    {
+      "capabilities": [
+        "evidence.production-boundary"
+      ],
+      "from": "vite.production-mock-boundary",
+      "to": "release.assemble"
+    }
   ],
   "executionOrder": [
     "core.resolve-profile",
@@ -34,98 +136,184 @@
     "quality.unit",
     "vite.build",
     "vite.browser",
-    "vite.production-boundary",
+    "vite.production-mock-boundary",
     "release.assemble"
   ],
-  "initialCapabilities": ["requirements.locked"],
+  "initialCapabilities": [
+    "requirements.locked"
+  ],
   "nodes": [
     {
       "commandIds": [],
       "dependencies": [],
       "id": "core.resolve-profile",
       "phase": "plan",
-      "provides": ["profile.resolved"],
-      "requires": ["requirements.locked"]
+      "provides": [
+        "profile.resolved"
+      ],
+      "requires": [
+        "requirements.locked"
+      ]
     },
     {
       "commandIds": [],
-      "dependencies": ["core.resolve-profile"],
+      "dependencies": [
+        "core.resolve-profile"
+      ],
       "id": "adapter.scaffold",
       "phase": "scaffold",
-      "provides": ["source.ready"],
-      "requires": ["profile.resolved"]
+      "provides": [
+        "source.ready"
+      ],
+      "requires": [
+        "profile.resolved"
+      ]
     },
     {
-      "commandIds": ["dependencies.install"],
-      "dependencies": ["adapter.scaffold"],
+      "commandIds": [
+        "dependencies.install"
+      ],
+      "dependencies": [
+        "adapter.scaffold"
+      ],
       "id": "dependencies.install",
       "phase": "install",
-      "provides": ["dependencies.installed"],
-      "requires": ["source.ready"]
+      "provides": [
+        "dependencies.installed"
+      ],
+      "requires": [
+        "source.ready"
+      ]
     },
     {
-      "commandIds": ["api.guards"],
-      "dependencies": ["dependencies.install"],
+      "commandIds": [
+        "api.guards"
+      ],
+      "dependencies": [
+        "dependencies.install"
+      ],
       "id": "api.guards",
       "phase": "verify",
-      "provides": ["evidence.api-guards"],
-      "requires": ["dependencies.installed"]
+      "provides": [
+        "evidence.api-guards"
+      ],
+      "requires": [
+        "dependencies.installed"
+      ]
     },
     {
-      "commandIds": ["api.unit"],
-      "dependencies": ["dependencies.install"],
+      "commandIds": [
+        "api.unit"
+      ],
+      "dependencies": [
+        "dependencies.install"
+      ],
       "id": "api.unit",
       "phase": "verify",
-      "provides": ["evidence.api-unit"],
-      "requires": ["dependencies.installed"]
+      "provides": [
+        "evidence.api-unit"
+      ],
+      "requires": [
+        "dependencies.installed"
+      ]
     },
     {
-      "commandIds": ["quality.lint"],
-      "dependencies": ["dependencies.install"],
+      "commandIds": [
+        "quality.lint"
+      ],
+      "dependencies": [
+        "dependencies.install"
+      ],
       "id": "quality.lint",
       "phase": "verify",
-      "provides": ["evidence.lint"],
-      "requires": ["dependencies.installed"]
+      "provides": [
+        "evidence.lint"
+      ],
+      "requires": [
+        "dependencies.installed"
+      ]
     },
     {
-      "commandIds": ["quality.typecheck"],
-      "dependencies": ["dependencies.install"],
+      "commandIds": [
+        "quality.typecheck"
+      ],
+      "dependencies": [
+        "dependencies.install"
+      ],
       "id": "quality.typecheck",
       "phase": "verify",
-      "provides": ["evidence.typecheck"],
-      "requires": ["dependencies.installed"]
+      "provides": [
+        "evidence.typecheck"
+      ],
+      "requires": [
+        "dependencies.installed"
+      ]
     },
     {
-      "commandIds": ["quality.unit"],
-      "dependencies": ["dependencies.install"],
+      "commandIds": [
+        "quality.unit"
+      ],
+      "dependencies": [
+        "dependencies.install"
+      ],
       "id": "quality.unit",
       "phase": "verify",
-      "provides": ["evidence.unit"],
-      "requires": ["dependencies.installed"]
+      "provides": [
+        "evidence.unit"
+      ],
+      "requires": [
+        "dependencies.installed"
+      ]
     },
     {
-      "commandIds": ["vite.build"],
-      "dependencies": ["dependencies.install", "quality.typecheck"],
+      "commandIds": [
+        "vite.build"
+      ],
+      "dependencies": [
+        "dependencies.install",
+        "quality.typecheck"
+      ],
       "id": "vite.build",
       "phase": "build",
-      "provides": ["artifact.built"],
-      "requires": ["dependencies.installed", "evidence.typecheck"]
+      "provides": [
+        "artifact.built"
+      ],
+      "requires": [
+        "dependencies.installed",
+        "evidence.typecheck"
+      ]
     },
     {
-      "commandIds": ["vite.browser"],
-      "dependencies": ["vite.build"],
+      "commandIds": [
+        "vite.browser"
+      ],
+      "dependencies": [
+        "vite.build"
+      ],
       "id": "vite.browser",
       "phase": "runtime",
-      "provides": ["evidence.browser"],
-      "requires": ["artifact.built"]
+      "provides": [
+        "evidence.browser"
+      ],
+      "requires": [
+        "artifact.built"
+      ]
     },
     {
-      "commandIds": ["vite.production-mock-boundary"],
-      "dependencies": ["vite.build"],
-      "id": "vite.production-boundary",
+      "commandIds": [
+        "vite.production-mock-boundary"
+      ],
+      "dependencies": [
+        "vite.build"
+      ],
+      "id": "vite.production-mock-boundary",
       "phase": "verify",
-      "provides": ["evidence.production-boundary"],
-      "requires": ["artifact.built"]
+      "provides": [
+        "evidence.production-boundary"
+      ],
+      "requires": [
+        "artifact.built"
+      ]
     },
     {
       "commandIds": [],
@@ -135,11 +323,14 @@
         "quality.lint",
         "quality.unit",
         "vite.browser",
-        "vite.production-boundary"
+        "vite.production-mock-boundary"
       ],
       "id": "release.assemble",
       "phase": "release",
-      "provides": ["release.candidate", "release.vercel-hybrid"],
+      "provides": [
+        "release.candidate",
+        "release.vercel-hybrid"
+      ],
       "requires": [
         "evidence.api-guards",
         "evidence.api-unit",
@@ -151,10 +342,10 @@
     }
   ],
   "profileBinding": {
-    "adapterSha256": "4b4400f4f6342cb44688b2ccc6b2cde5778213813a64a6a54e3970457e40e899",
+    "adapterSha256": "d7f07589986958cf42ef6e0009dadb6875cf7d2d5c8316e645c36111c88aca37",
     "deploymentProvider": "vercel",
     "deploymentTarget": "vercel-hybrid",
-    "profileSha256": "f565255941e951400c91da2049dc1f21f5fa70a1439d76eb4ff7820e70dc1fce",
+    "profileSha256": "3d374f96b86191e6a7c21ed5c6f3bc1fc51e10492cb9c09aa5859cd7d8ed1aeb",
     "selectedCapabilities": [
       "client-routing",
       "csr",

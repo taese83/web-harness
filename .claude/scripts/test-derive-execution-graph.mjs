@@ -51,7 +51,13 @@ test('release.assemble은 릴리스를 게이트하는 evidence의 합집합이�
   const checks = checksFor(['web-app'])
   const {tasks} = deriveGraph({checks})
   const release = tasks.find(t => t.id === 'release.assemble')
-  const gating = new Set(checks.filter(check => check.gatesRelease !== false).map(check => check.id))
+  // 게이트에서 빠지는 두 부류: `gatesRelease: false`(smoke)와 **능력 비활성**(외부 수집 등).
+  // 둘을 다 반영해야 한다 — 하나만 보면 이 단언이 도출을 따라가지 못한다.
+  const gating = new Set(
+    checks
+      .filter(check => check.gatesRelease !== false && (check.requires ?? []).length === 0)
+      .map(check => check.id),
+  )
   const evidence = tasks
     .filter(task => gating.has(task.id))
     .flatMap(task => task.provides)

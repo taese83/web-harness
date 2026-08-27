@@ -46,11 +46,13 @@ const readManifest = root => {
 // 아니라 프로젝트가 정의한 이름). 규약으로 못 잡는 것은 동명 script를 찾아본다.
 const fallbackScriptName = checkId => checkId.replace(/^[^.]+\./, '')
 
-export const resolveCommand = (checkId, manifest) => {
+// 형태 카탈로그가 검사 옆에 script 이름표를 둘 수 있다(`scriptCandidates`) — 규약으로 못 가르는
+// 이름은 검사와 같은 자리에 적는 것이 맞다. 전역 표(SCRIPT_CANDIDATES)는 형태와 무관한 공통 검사용.
+export const resolveCommand = (checkId, manifest, {scriptCandidates = null} = {}) => {
   const tool = TOOL_COMMANDS[checkId]
   if (tool) return {id: checkId, ...tool, source: 'tool'}
   const scripts = manifest?.scripts ?? {}
-  const candidates = SCRIPT_CANDIDATES[checkId] ?? [fallbackScriptName(checkId)]
+  const candidates = scriptCandidates ?? SCRIPT_CANDIDATES[checkId] ?? [fallbackScriptName(checkId)]
   for (const name of candidates) {
     if (typeof scripts[name] === 'string' && scripts[name].trim() !== '') {
       return {id: checkId, executable: 'pnpm', args: ['run', name], source: 'script'}
@@ -59,14 +61,41 @@ export const resolveCommand = (checkId, manifest) => {
   return {id: checkId, status: 'NO_SCRIPT', candidates, source: 'absent'}
 }
 
+// checkIds는 문자열 또는 `{id, scriptCandidates}` 형태를 받는다(형태 카탈로그 항목을 그대로 넘길 수 있게).
 export const resolveCommands = ({projectRoot, checkIds}) => {
   const manifest = readManifest(projectRoot)
-  if (manifest === null) return {resolved: [], missing: checkIds.map(id => ({id, reason: 'package.json이 없다'}))}
-  const all = checkIds.map(id => resolveCommand(id, manifest))
+  const normalized = checkIds.map(entry => (typeof entry === 'string' ? {id: entry} : entry))
+  if (manifest === null) return {resolved: [], missing: normalized.map(({id}) => ({id, reason: 'package.json이 없다'}))}
+  const all = normalized.map(entry => resolveCommand(entry.id, manifest, {scriptCandidates: entry.scriptCandidates ?? null}))
   return {
     resolved: all.filter(entry => entry.status !== 'NO_SCRIPT'),
     missing: all.filter(entry => entry.status === 'NO_SCRIPT'),
   }
+}
+
+
+// 어댑터가 `commands`를 선언하지 않는다(2026-08-27 도출 전환) — script 이름은 프로젝트가 정하므로
+// 실행 시점에 `resolve-commands`가 해석한다. binding.commandId는 곧 check id다.
+export const resolveProfileCommands = ({projectRoot, adapter}) => {
+  const {resolved, missing} = resolveCommands({
+    projectRoot,
+    checkIds: adapter.checks.map(check => ({id: check.id, scriptCandidates: check.scriptCandidates ?? null})),
+  })
+  const commands = new Map(resolved.map(command => [command.id, command]))
+  // script가 없는 검사도 **이름을 붙여 돌려준다**. 지어내는 것이 아니라 "이 검사는 이 script를
+  // 기대했는데 없다"를 하류가 BLOCKED receipt로 적을 수 있게 하는 것이다 — 명령을 빼버리면
+  // receipt 자체가 안 나오고 침묵이 된다. 침묵은 BLOCKED보다 나쁘다(2026-08-27 실측: 어댑터
+  // 선언을 걷어내자 fixture의 BLOCKED 증거가 통째로 사라졌다).
+  for (const entry of missing) {
+    if (commands.has(entry.id)) continue
+    commands.set(entry.id, {
+      id: entry.id,
+      executable: 'pnpm',
+      args: ['run', entry.candidates?.[0] ?? entry.id],
+      source: 'absent',
+    })
+  }
+  return commands
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

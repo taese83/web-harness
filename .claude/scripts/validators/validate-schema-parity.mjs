@@ -20,7 +20,15 @@ const PARITY_CASES = [
   {
     schema: '.claude/schemas/web-core/adapter.schema.json',
     mirror: '.claude/scripts/web-core/adapter-lib.mjs',
-    values: ['pnpm', 'build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'],
+    // 검사 kind 어휘는 2026-08-27에 어댑터 스키마에서 형태 카탈로그(`receiptKind`)로 옮겨갔다 —
+    // 어댑터는 더 이상 checks를 선언하지 않는다. 여기 남는 것은 어댑터가 여전히 선언하는 것뿐이다.
+    values: ['pnpm'],
+  },
+  {
+    // 옮겨간 어휘는 옮겨간 자리에서 계속 짝을 맞춘다 — 이동은 검사 삭제의 이유가 아니다.
+    schema: '.claude/shape-checks.json',
+    mirror: '.claude/scripts/web-core/adapter-lib.mjs',
+    values: ['build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'],
   },
   {
     schema: '.claude/schemas/quality-attestation.schema.json',

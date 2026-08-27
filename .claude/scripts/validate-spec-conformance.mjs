@@ -101,9 +101,15 @@ export const resolveRequiredChecks = (targetShapes, catalog = readShapeChecks())
     for (const entry of definition.checks ?? []) entries.set(entry.id, entry)
   }
   const all = [...entries.values()]
+  // 능력 조건부 검사(`requires`)는 형태만으로 요구할 수 없다 — 형태는 "무엇을 만드는가"이고
+  // 능력은 "무엇을 켰는가"다(외부 수집·배포 타깃 등). 형태 conformance가 이것을 요구하면
+  // 능력을 켜지 않은 프로젝트 전원이 오탐 블록된다(2026-08-27 실측: `ingestion.validate`를
+  // 카탈로그로 옮기자 즉시 발생). 조건부 검사의 활성 판정은 release gate의 몫이다.
+  const unconditional = all.filter(entry => (entry.requires ?? []).length === 0)
   return {
-    required: all.filter(entry => entry.implemented !== false).map(entry => entry.id).sort(),
-    unimplemented: all.filter(entry => entry.implemented === false).map(entry => entry.id).sort(),
+    required: unconditional.filter(entry => entry.implemented !== false).map(entry => entry.id).sort(),
+    unimplemented: unconditional.filter(entry => entry.implemented === false).map(entry => entry.id).sort(),
+    capabilityGated: all.filter(entry => (entry.requires ?? []).length > 0).map(entry => entry.id).sort(),
     unknownShapes,
   }
 }

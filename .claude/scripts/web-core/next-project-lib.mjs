@@ -1,4 +1,5 @@
 import {existsSync, lstatSync, readFileSync} from 'node:fs'
+import {resolveProfileCommands} from '../resolve-commands.mjs'
 import {dirname, join, resolve} from 'node:path'
 import {collectDeploymentArtifacts} from '../artifact-inventory-lib.mjs'
 import {computeSourceFingerprint, sha256} from '../evidence-lib.mjs'
@@ -98,7 +99,7 @@ export const validateNextProject = projectPath => {
     throw new WebCoreError('NEXT_DEPENDENCY_BINDING_STALE', 'Installed dependency graph does not match the reviewed lockfile')
   }
   const pnpmExecutable = join(dirname(process.execPath), process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-  const commands = new Map(lockedProfile.adapter.commands.map(command => [command.id, command]))
+  const commands = resolveProfileCommands({projectRoot, adapter: lockedProfile.adapter})
   const cohortIds = new Set()
   const environmentDigests = new Set()
   const receipts = []

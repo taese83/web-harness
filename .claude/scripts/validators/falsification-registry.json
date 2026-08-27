@@ -81,14 +81,6 @@
       "replace": "      if (false) files.push(`${SKILL_DIRECTORY}/references/${name}`)",
       "test": ".claude/scripts/test-orchestration-surface.mjs",
       "why": "표면이 SKILL.md 하드코딩으로 되돌아가면 Phase 참조로 옮겨간 계약 검사 8곳이 조용히 눈이 먼다"
-    },
-    {
-      "id": "adapter-derivation-equivalence",
-      "file": ".claude/scripts/validate-harness.mjs",
-      "find": " await validateAdapterDerivation({repositoryRoot, pass, fail});",
-      "replace": " ",
-      "test": ".claude/scripts/test-adapter-derivation.mjs",
-      "why": "등가 게이트가 배선에서 빠지면 어댑터 선언과 형태 도출이 조용히 어긋나고, 도출 전환 시 검사가 사라진다"
     }
   ]
 }

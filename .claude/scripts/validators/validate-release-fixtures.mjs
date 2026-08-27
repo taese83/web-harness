@@ -1,4 +1,5 @@
 import {spawnSync} from 'node:child_process'
+import {resolveProfileCommands} from '../resolve-commands.mjs'
 import {generateKeyPairSync, randomUUID, sign} from 'node:crypto'
 import {chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
@@ -714,9 +715,11 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     receipt.profileBinding = nextProfileBinding
     writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
   }
+  const nextCommands = resolveProfileCommands({projectRoot: releaseFixtureRoot, adapter: lockedNextProfile.adapter})
   for (const binding of nextBindings) {
     const bindsArtifact = ['artifact', 'browser', 'build', 'runtime'].includes(binding.kind)
-    const command = lockedNextProfile.adapter.commands.find(candidate => candidate.id === binding.commandId)
+    const command = nextCommands.get(binding.commandId)
+    if (!command) throw new Error(`resolved command is missing: ${binding.commandId}`)
     const scriptName = command.args[1]
     const scriptAnalysis = analyzePackageScript(nextPackageScripts[scriptName])
     const executionTargetBinding = readExecutionTargetBinding({

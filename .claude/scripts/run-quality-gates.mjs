@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {spawnSync} from 'node:child_process'
+import {resolveProfileCommands} from './resolve-commands.mjs'
 import {randomUUID} from 'node:crypto'
 import {
   existsSync,
@@ -241,7 +242,7 @@ if (existsSync(projectProfilePath)) {
       if (typeof process.env[name] === 'string') commandEnvironment[name] = process.env[name]
     }
     if (lockedProfile.adapter.id === 'next-app-fullstack') commandEnvironment.NEXT_TELEMETRY_DISABLED = '1'
-    const commands = new Map(lockedProfile.adapter.commands.map(command => [command.id, command]))
+    const commands = resolveProfileCommands({projectRoot, adapter: lockedProfile.adapter})
     for (const binding of adapterCheckBindings({
       adapter: lockedProfile.adapter,
       deploymentProvider: lockedProfile.selection.provider.id,
