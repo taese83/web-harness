@@ -97,6 +97,14 @@
       "replace": "  if (false && !ingestion.contractsComplete) {",
       "test": ".claude/scripts/web-core/test-web-core.mjs",
       "why": "선언된 external-ingestion이 계약 없이 통과하면 수집 QA 전체가 조용히 빠진다 — 감지 기반을 선언 기반으로 바꾼 대가가 이 게이트다"
+    },
+    {
+      "id": "lockfile-source-gate",
+      "file": ".claude/scripts/lockfile-source-lib.mjs",
+      "find": "    ) violations.push(`non-registry URL: ${value}`)",
+      "replace": "    ) { /* disabled */ }",
+      "test": ".claude/scripts/test-lockfile-source.mjs",
+      "why": "비-레지스트리 출처 판정이 꺼지면 외부 tarball·자격증명 삽입 registry가 그대로 설치된다 — 산문 오탐을 좁히면서 이 게이트를 잃지 않았음을 매 실행 확인한다"
     }
   ]
 }

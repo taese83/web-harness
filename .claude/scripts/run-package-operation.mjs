@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {spawnSync} from 'node:child_process'
+import {inspectLockfileSource} from './lockfile-source-lib.mjs'
 import {accessSync, constants, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {delimiter, dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
@@ -72,32 +73,12 @@ const validateWorkspaceSource = source => {
 }
 const validateLockfileSource = () => {
   if (!existsSync(lockfilePath)) return
-  const lockSource = readFileSync(lockfilePath, 'utf8')
-  rejectAmbiguousYaml(lockSource, 'Lockfile')
-  const remoteUrls = lockSource.match(/[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s,'"}]+/g) ?? []
-  let invalidUrl = false
-  for (const value of remoteUrls) {
-    try {
-      const parsed = new URL(value)
-      if (
-        parsed.protocol !== 'https:' ||
-        parsed.hostname !== 'registry.npmjs.org' ||
-        parsed.port ||
-        parsed.username ||
-        parsed.password
-      ) invalidUrl = true
-    } catch {
-      invalidUrl = true
-    }
+  const rawLockSource = readFileSync(lockfilePath, 'utf8')
+  rejectAmbiguousYaml(rawLockSource, 'Lockfile')
+  const violations = inspectLockfileSource(rawLockSource)
+  if (violations.length > 0) {
+    throw new Error(`Lockfile contains a non-public-registry or local executable dependency source: ${violations.join('; ')}`)
   }
-  // 식별자 일부(`excludeLinksFromLockfile:`)나 metadata 값(`engines: {npm: '>=6'}`)이 아니라
-  // 실제 dependency source protocol일 때만 잡는다: 앞은 비식별자 경계, 뒤는 값이 붙어 있어야 한다
-  if (
-    /(?:git\+|(?<![A-Za-z0-9])(?:github|gitlab|bitbucket|npm|file|link|portal|patch|workspace):(?=['"]?[^\s'"])|\.pnpmfile)/i.test(lockSource) ||
-    /(?:^|[\s,[{])['"]?(?!https:\/\/)[A-Za-z][A-Za-z0-9+.-]*:[^\s'"}]/im.test(lockSource) ||
-    /(?:^|[\s,[{])['"]?\/\/[^\s]/m.test(lockSource) ||
-    invalidUrl
-  ) throw new Error('Lockfile contains a non-public-registry or local executable dependency source.')
 }
 if (operation !== 'git-init') {
   try {
