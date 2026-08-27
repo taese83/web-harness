@@ -70,10 +70,6 @@ export const AGENT_OWNERSHIP = {
   ],
   // ai-threat-model은 search-portal 파일럿 실측(22.5KB>20KB)으로 sharded 허용 — 결함 4·5호와 동일 클래스 3번째 재현
   'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model(?:\.md|\/.+)$/],
-  'analytics-agent-builder': [
-    /^packages\/semantic-model\//,
-    /^packages\/analytics-agent\//,
-  ],
   'analytics-domain-architect': [/^_workspace\/02_design\/analytics-architecture\.md$/],
   'analytics-implementation-builder': [
     appPath('src/entities/analytics/'),
@@ -87,14 +83,6 @@ export const AGENT_OWNERSHIP = {
   'client-domain-state-builder': [
     appPath('src/entities/[^/]+/model/(?:store|schema|selectors|invariants)\\.ts$'),
     appPath('src/entities/[^/]+/index\\.ts$'),
-  ],
-  'code-review-agent-builder': [
-    /^packages\/code-review\//,
-    /^workers\/code-review\//,
-  ],
-  'customer-support-agent-builder': [
-    /^packages\/customer-support\//,
-    appPath('src/features/ai-support/'),
   ],
   'data-governance-architect': [/^_workspace\/02_design\/data-governance\.md$/],
   'db-migration-writer': [
@@ -118,10 +106,6 @@ export const AGENT_OWNERSHIP = {
   ],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
-  'enterprise-search-builder': [
-    /^workers\/ingestion\//,
-    /^packages\/enterprise-search\//,
-  ],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
   'form-state-builder': [appPath('src/features/(?!live-mode/)[^/]+/model/'), appPath('src/shared/modal/')],
   'human-approval-builder': [
@@ -230,10 +214,6 @@ export const AGENT_OWNERSHIP = {
     appPath('src/test/'),
   ],
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
-  'browser-agent-builder': [
-    /^apps\/browser-runner\//,
-    /^packages\/browser-agent\//,
-  ],
   'realtime-data-builder': [
     appPath('src/shared/realtime/'),
     appPath('src/features/live-mode/(?:api|model)/'),

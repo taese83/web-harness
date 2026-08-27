@@ -28,7 +28,7 @@ metadata:
 
 1. channel, auth, PII, 정책, handoff SLO를 intake한다.
 2. `/ai-app-orchestrator` 설계 gate를 완료한다.
-3. `customer-support-agent-builder`가 conversation과 adapter를 구현한다.
+3. `developer`가 conversation과 adapter를 구현한다.
 4. transaction이 있으면 `human-approval-builder`를 실행한다.
 5. multi-turn replay 후 `ai-eval-runner`, `data-access-verifier`, `ai-security-reviewer`를 실행한다.
 

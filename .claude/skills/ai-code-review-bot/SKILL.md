@@ -27,7 +27,7 @@ metadata:
 1. `/ai-app-orchestrator`의 계획·설계 gate를 완료한다.
 2. SCM webhook, permission, signature, queue를 설계한다.
 3. deterministic CI·SAST와 AI finding을 분리한다.
-4. `code-review-agent-builder`가 review pipeline을 구현한다.
+4. `developer`가 review pipeline을 구현한다.
 5. `ai-eval-runner`와 `ai-security-reviewer`가 fixture를 검증한다.
 
 ## Hard Stops

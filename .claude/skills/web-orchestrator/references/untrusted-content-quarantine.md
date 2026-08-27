@@ -27,9 +27,9 @@
 | 역할 | 에이전트 | 의무 |
 |---|---|---|
 | 생산 | `external-data-pipeline-builder` | normalization에 탐지 구현, 적중 candidate promotion 제외 |
-| 생산 | `enterprise-search-builder` | 악성 문서 지시를 필터링만 하지 않고 기록 |
-| 생산 | `browser-agent-builder` | 페이지 지시형 패턴을 trace에 기록 |
-| 생산 | `customer-support-agent-builder` | 고객 메시지·티켓·첨부의 지시형 문자열 기록 |
+| 생산 | `developer` | 악성 문서 지시를 필터링만 하지 않고 기록 |
+| 생산 | `developer` | 페이지 지시형 패턴을 trace에 기록 |
+| 생산 | `developer` | 고객 메시지·티켓·첨부의 지시형 문자열 기록 |
 | CI 분리 | `ingestion-ci-writer` | read-only crawl ↔ 격리 promotion 권한 분리 (규칙 4) |
 | 소비 | `data-quality-verifier` | 탐지 **구현 여부** + 마커 목록 판정. 미구현은 `FAIL` |
 | 소비 | `ai-security-reviewer` | RAG·browser·support 경로의 탐지 구현 여부 + 마커 목록 |

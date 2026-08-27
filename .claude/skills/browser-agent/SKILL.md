@@ -27,7 +27,7 @@ metadata:
 1. domain, origin, read·write action, credential, 성공 조건을 intake한다.
 2. `/ai-app-orchestrator` 설계 gate를 완료한다.
 3. 공식 API가 있으면 browser보다 먼저 선택한다.
-4. `browser-agent-builder`가 planner, policy, executor, verifier, replay를 구현한다.
+4. `developer`가 planner, policy, executor, verifier, replay를 구현한다.
 5. `human-approval-builder`가 submit·send·purchase·delete·publish를 보호한다.
 6. `ai-security-reviewer`와 `agent-trace-verifier`가 공격 fixture와 replay를 검증한다.
 

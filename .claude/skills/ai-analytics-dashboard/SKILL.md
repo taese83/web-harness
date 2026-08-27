@@ -26,7 +26,7 @@ LLM을 data plane이 아니라 metric·query·insight control plane으로 사용
 
 1. certified metric, dimension, tenant policy, query budget을 intake한다.
 2. `/ai-app-orchestrator`와 `timeseries-architect` 설계를 완료한다.
-3. `analytics-agent-builder`가 semantic query와 insight 계층을 구현한다.
+3. `developer`가 semantic query와 insight 계층을 구현한다.
 4. 기존 `realtime-data-builder`가 snapshot·stream data plane을 구현한다.
 5. `data-access-verifier`, `cost-latency-verifier`, `ai-eval-runner`를 실행한다.
 

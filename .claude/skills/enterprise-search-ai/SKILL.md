@@ -26,7 +26,7 @@ metadata:
 
 1. source, owner, ACL, freshness, deletion SLA를 intake한다.
 2. `/ai-app-orchestrator` 설계 gate를 완료한다.
-3. `enterprise-search-builder`가 connector·index·retrieval을 구현한다.
+3. `developer`가 connector·index·retrieval을 구현한다.
 4. UI에 citation, source date, no-answer, feedback을 표시한다.
 5. `data-access-verifier`와 `ai-eval-runner`가 ACL·retrieval·grounding을 검증한다.
 
