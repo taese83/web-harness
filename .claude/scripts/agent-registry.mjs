@@ -175,9 +175,25 @@ const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
 export const AGENT_LAYER_ROLES = {}
 
 // 경로를 정규화한다 — 선행 ./ 제거, 후행 / 보장(디렉토리 접두 매칭용).
+// layerMap 항목은 디렉토리일 수도 **파일**일 수도 있다. 실사용 확정 2호의 layerMap 17개 중
+// 6개가 파일이었다(`src/index.ts`·`src/ChatKit.ts` 등 — src/ 아래가 평면이라 루트 파일이 각각
+// 한 레이어다). 종전 구현은 무조건 `/`를 붙여 `src/ChatKit.ts/`를 만들었고, 그 파일 자신과는
+// 영원히 맞지 않았다 — **실사용 스팩의 3분의 1이 무소유였다**(2026-08-26 실측).
+//
+// 파일이면 그대로 두고 디렉토리면 `/`를 붙인다. 확장자 유무로 가른다 — 마지막 세그먼트에
+// 점이 있으면 파일로 본다. 프록시이며 확장자 없는 파일(`Makefile` 등)은 디렉토리로 오인된다.
 const normalizeLayerPath = value => {
-  const trimmed = String(value).trim().replace(/^\.\//, '')
-  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+  const trimmed = String(value).trim().replace(/^\.\//, '').replace(/\/+$/, '')
+  const last = trimmed.split('/').at(-1) ?? ''
+  return /\.[^.]+$/.test(last) ? trimmed : `${trimmed}/`
+}
+
+// 경로 → 정규식. 디렉토리는 **접두 일치**(하위 전부), 파일은 **완전 일치**다.
+// 파일에 끝 앵커를 안 붙이면 `src/ChatKit.ts`가 `src/ChatKit.tsx`까지 잡는다(2026-08-26 실측).
+const layerPattern = path => {
+  const normalized = normalizeLayerPath(path)
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${appPrefix}${escaped}${normalized.endsWith('/') ? '' : '$'}`)
 }
 
 // 부재 표기(괄호 주석)와 빈 값은 경로가 아니다.
@@ -224,7 +240,7 @@ export const resolveDeveloperOwnership = spec => {
   if (findLayerOverlaps(layerMap).length > 0) return null   // 겹치면 신뢰하지 않는다
   const patterns = Object.values(layerMap)
     .filter(path => isLayerPathDeclared(path))
-    .map(path => new RegExp(`^${appPrefix}${normalizeLayerPath(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+    .map(path => layerPattern(path))
   return patterns.length > 0 ? patterns : null
 }
 
@@ -234,7 +250,7 @@ export const intersectWithScope = (patterns, allowedPaths) => {
   if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return patterns
   const scoped = allowedPaths
     .filter(path => isLayerPathDeclared(path))
-    .map(path => new RegExp(`^${appPrefix}${normalizeLayerPath(path).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+    .map(path => layerPattern(path))
   if (scoped.length === 0) return patterns
   return [{test: value => patterns.some(p => p.test(value)) && scoped.some(p => p.test(value)),
            source: `scope(${allowedPaths.join(', ')})`}]

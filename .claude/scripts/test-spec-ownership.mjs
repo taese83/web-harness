@@ -102,3 +102,32 @@ test('회귀 반증: 스팩이 없으면 개발 에이전트는 아무것도 못
 test('회귀 반증: layerMap이 겹치면 개발 에이전트도 신뢰하지 않는다', () => {
   assert.equal(resolveDeveloperOwnership({layerMap: {a: 'src/', b: 'src/pages/'}}), null)
 })
+
+// ── layerMap 파일 항목 (2026-08-26) ─────────────────────────────────────────
+// 실사용 확정 2호의 layerMap 17개 중 **6개가 파일**이었다(src/ 아래가 평면이라 루트 파일이
+// 각각 한 레이어다). normalizeLayerPath가 무조건 `/`를 붙여 `src/ChatKit.ts/`를 만들었고,
+// 그 파일 자신과는 영원히 맞지 않았다 — **실사용 스팩의 3분의 1이 무소유였다.**
+test('회귀 반증: layerMap의 파일 항목이 소유된다', () => {
+  const patterns = resolveDeveloperOwnership({layerMap: {
+    entry: 'src/index.ts', shell: 'src/App.tsx', ui: 'src/ui',
+  }})
+  assert.ok(owns(patterns, 'src/index.ts'), '파일 항목이 무소유면 스팩의 절반이 죽는다')
+  assert.ok(owns(patterns, 'src/App.tsx'), '.tsx도 선언하면 소유된다')
+  assert.ok(owns(patterns, 'src/ui/Btn.tsx'), '디렉토리는 하위 전부')
+})
+
+test('회귀 반증: 파일 항목은 완전 일치다 — 접두로 새지 않는다', () => {
+  const patterns = resolveDeveloperOwnership({layerMap: {entry: 'src/ChatKit.ts'}})
+  assert.ok(owns(patterns, 'src/ChatKit.ts'))
+  assert.equal(owns(patterns, 'src/ChatKit.tsx'), false, '선언되지 않은 다른 파일까지 소유하면 스팩 밖으로 샌다')
+  assert.equal(owns(patterns, 'src/ChatKit.test.ts'), false)
+})
+
+test('프록시 표기: 확장자 유무로 파일·디렉토리를 가른다', () => {
+  // 마지막 세그먼트에 점이 있으면 파일로 본다. 오판 두 방향을 고정한다 —
+  // 발견하면 수정 대상이지 현재 동작은 이것이다(protected-core §4 등록).
+  const dotted = resolveDeveloperOwnership({layerMap: {v: 'src/v1.2'}})
+  assert.equal(owns(dotted, 'src/v1.2/x.ts'), false, '점 있는 디렉토리를 파일로 오인한다(알려진 프록시)')
+  const noExt = resolveDeveloperOwnership({layerMap: {mk: 'Makefile'}})
+  assert.ok(owns(noExt, 'Makefile/anything'), '확장자 없는 파일을 디렉토리로 오인한다(알려진 프록시)')
+})

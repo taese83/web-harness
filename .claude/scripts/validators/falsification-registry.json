@@ -41,6 +41,14 @@
       "replace": "    if (false) {",
       "test": ".claude/scripts/test-shape-checks.mjs",
       "why": "미빌드 강등을 끄면 하네스가 못 하는 것을 프로젝트 실패로 보고한다"
+    },
+    {
+      "id": "layermap-file-entry",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "  return /\\.[^.]+$/.test(last) ? trimmed : `${trimmed}/`",
+      "replace": "  return `${trimmed}/`",
+      "test": ".claude/scripts/test-spec-ownership.mjs",
+      "why": "파일 항목에 /를 붙이면 그 파일 자신과 안 맞아 실사용 스팩의 3분의 1이 무소유가 된다"
     }
   ]
 }
