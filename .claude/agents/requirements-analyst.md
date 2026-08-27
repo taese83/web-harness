@@ -40,12 +40,11 @@ maxTurns: 25
    - transport, reconnect/resume, gap/duplicate/out-of-order 정책
    - timezone, target browser, 장시간 memory/CPU SLO
    - 값이 없으면 `ASSUMPTION`, 핵심 3개 값이 모두 없으면 `BLOCKER`
-7. **AI 서비스 감지**: <!-- marker:detect-ai-service --> `.claude/skills/ai-app-orchestrator/references/detection-contract.md`에 따라 `AI_MODE`와 submode를 판별한다. 활성화되면 생성·검색·tool action, authoritative source, autonomy, 사람 승인, tenant·PII, 품질·비용·지연 SLO를 일반 요구사항과 분리하고 `ai-requirements-analyst`로 전달한다.
-8. **로컬 도메인 상태 감지**: `.claude/skills/web-orchestrator/references/local-domain-state.md`에 따라 browser-owned CRUD, offline data, localStorage/IndexedDB, 정렬·이동·다중 선택·undo·참조 관계가 있으면 `LOCAL_DOMAIN_STATE_MODE: true`를 기록한다. 단순 theme/language 설정만 있으면 활성화하지 않는다.
-9. **외부 데이터 수집 감지**: `.claude/skills/web-orchestrator/references/external-data-ingestion.md`에 따라 crawling/scraping, RSS/CSV/import, scheduled third-party sync, build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`를 기록한다. source 사용 권한, payload 형식, authoritative source, `static-snapshot|live-api|hybrid`, 갱신 주기와 manual recovery, freshness, 최소 count/coverage, invalid candidate rejection, serving fallback, build/deployment provider와 cwd를 요구사항에 추가한다. source 권한 또는 authoritative source가 불명확하면 `BLOCKER`다.
-10. 모든 Must/Should 요구사항에 안정적인 ID(`REQ-NNN` — 생성 후 불변, 삭제 대신 상태 표기)를 부여하고, Must에는 관찰 가능한 Given/When/Then acceptance criteria를 작성한다. destructive action, hidden/filtered data, persistence recovery, keyboard, max fixture가 관련되면 해당 조건을 acceptance criteria에 포함한다. ID 규율은 `.claude/skills/web-plan/references/plan-history-contract.md`를 따른다.
-10-1. **경량 재호출(write-back)**: 기존 프로젝트의 기능 추가·변경으로 재호출되면 문서 전체를 재작성하지 않고 대상 REQ 절만 현재화한다. 변경 내역은 `planning-facilitator`의 decision-log 엔트리와 함께 한 세트로 처리된다.
-11. `.claude/skills/analytics-chart-builder/references/detection-contract.md`에 따라 `ANALYTICS_BUILDER_MODE`를 판정한다. 활성화되면 metric/dimension catalog, aggregation/filter/group/order, chart compatibility, dashboard revision, query/cardinality budget을 요구사항에 추가한다.
+7. **로컬 도메인 상태 감지**: `.claude/skills/web-orchestrator/references/local-domain-state.md`에 따라 browser-owned CRUD, offline data, localStorage/IndexedDB, 정렬·이동·다중 선택·undo·참조 관계가 있으면 `LOCAL_DOMAIN_STATE_MODE: true`를 기록한다. 단순 theme/language 설정만 있으면 활성화하지 않는다.
+8. **외부 데이터 수집 감지**: `.claude/skills/web-orchestrator/references/external-data-ingestion.md`에 따라 crawling/scraping, RSS/CSV/import, scheduled third-party sync, build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`를 기록한다. source 사용 권한, payload 형식, authoritative source, `static-snapshot|live-api|hybrid`, 갱신 주기와 manual recovery, freshness, 최소 count/coverage, invalid candidate rejection, serving fallback, build/deployment provider와 cwd를 요구사항에 추가한다. source 권한 또는 authoritative source가 불명확하면 `BLOCKER`다.
+9. 모든 Must/Should 요구사항에 안정적인 ID(`REQ-NNN` — 생성 후 불변, 삭제 대신 상태 표기)를 부여하고, Must에는 관찰 가능한 Given/When/Then acceptance criteria를 작성한다. destructive action, hidden/filtered data, persistence recovery, keyboard, max fixture가 관련되면 해당 조건을 acceptance criteria에 포함한다. ID 규율은 `.claude/skills/web-plan/references/plan-history-contract.md`를 따른다.
+9-1. **경량 재호출(write-back)**: 기존 프로젝트의 기능 추가·변경으로 재호출되면 문서 전체를 재작성하지 않고 대상 REQ 절만 현재화한다. 변경 내역은 `planning-facilitator`의 decision-log 엔트리와 함께 한 세트로 처리된다.
+10. `.claude/skills/analytics-chart-builder/references/detection-contract.md`에 따라 `ANALYTICS_BUILDER_MODE`를 판정한다. 활성화되면 metric/dimension catalog, aggregation/filter/group/order, chart compatibility, dashboard revision, query/cardinality budget을 요구사항에 추가한다.
 12. `.claude/skills/web-orchestrator/references/scenario-contract.md`에서 요청에 해당하는 카테고리만 선택해 정상·실패·경계 시나리오를 Must acceptance criteria에 연결한다.
 13. 먼저 `_workspace/01_plan/planning-context.md`를 읽고 Product Frame, UX Check, critical states, data strategy, effort driver를 requirement ID에 trace한다. 제품 맥락이 없거나 상충하면 임의로 채우지 않고 `NEEDS_DECISION | BLOCKER`로 반환한다.
 
@@ -58,7 +57,6 @@ maxTurns: 25
 - LOCAL_DOMAIN_STATE_MODE: true | false
 - TIMESERIES_MODE: true | false
 - ANALYTICS_BUILDER_MODE: true | false
-- AI_MODE: true | false
 - EXTERNAL_DATA_INGESTION_MODE: true | false
 
 ## Service Overview

@@ -77,8 +77,9 @@ runaway율을 낮춘다"는 지금 증명 불가. 필요한 것 셋:
    지시 추가 + telemetry `run` 라벨에 `+gatesOff` 태그(라벨은 이미 mode 인코딩: `fresh/iterate/resume`).
 2. **암별 텔레메트리 기록** — `run-eval-executor.mjs`가 암(ON/OFF)별로 telemetry를 분리 저장.
 3. **소형 라이브 매트릭스** — 2형태 × 2암 × n replicate(율 추정 위해 n≥2-3).
-   형태 = **local-domain-state**(seminar류, 기록 ON을 n=1 seed로 재사용) + **enterprise-search**
-   (`ai-scenarios.json` L247-355). `--dry-run` 비용 게이트 필수.
+   형태 = **local-domain-state**(seminar류, 기록 ON을 n=1 seed로 재사용) + **external-data-ingestion**
+   (`scenarios.json`의 `external-ingestion-*`). `--dry-run` 비용 게이트 필수.
+   (2026-08-27 개정: 원안 enterprise-search 암은 AI 표면 제거로 소멸 — `outcome-efficacy-ab-plan.md` §Stage 2 참조.)
 
 **비용:** 기록 파일럿 기준 형태당 ~2.8M 토큰. 신뢰할 A/B(2암×2형태×replicate)는 **order 10~20M+
 토큰**. OFF 베이스라인이 한 번도 기록된 적 없어 이 절반은 저비용 대체가 **불가능**하다.

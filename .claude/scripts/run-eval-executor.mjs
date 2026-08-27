@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Runtime eval executor — eval 계약(scenarios/ai-scenarios)을 실제 실행으로 바꾼다.
+// Runtime eval executor — eval 계약(scenarios)을 실제 실행으로 바꾼다.
 //
 // 3단 파이프라인 (역할 분리는 harness의 builder/verifier 원칙을 그대로 따른다):
 //   1) run    — 격리 fixture에 control plane을 배포(deploy-harness)하고 headless Claude로
@@ -8,7 +8,7 @@
 //               "본문으로 반환"한다. 저장은 이 스크립트가 한다 (verifier는 Write 없음).
 //               grader는 각 assertion의 반증을 먼저 시도하고, 증거 없는 PASS를 금지한다.
 //   3) verify — 기계 검증 2중: PASS evidence의 실존 파일 참조 확인(fail-closed) 후
-//               기존 run-ai-evals.mjs --verify-result 스키마 검증을 재사용한다.
+//               result JSON 스키마 검증.
 //
 // 사용법:
 //   node .claude/scripts/run-eval-executor.mjs --scenario <id> --dry-run   # 실행 명령만 출력 (비용 가드)
@@ -48,10 +48,10 @@ const timeoutMs = Number(valueAfter('--timeout-minutes') ?? 30) * 60_000
 // ---------------------------------------------------------------- 시나리오 로드
 
 const loadScenario = id => {
-  for (const [catalog, file] of [['ai', 'ai-scenarios.json'], ['web', 'scenarios.json']]) {
+  for (const [catalog, file] of [['web', 'scenarios.json']]) {
     const document = JSON.parse(readFileSync(join(repositoryRoot, '.claude/evals', file), 'utf8'))
-    // ai-scenarios.json은 {version, scenarios: []}, scenarios.json은 flat 배열이다 —
-    // 객체 형태만 읽으면 web catalog 전체가 조용히 보이지 않는다 (2026-08-03 실제 발생).
+    // scenarios.json은 flat 배열이다 — 객체 형태만 읽으면 catalog 전체가 조용히
+    // 보이지 않는다 (2026-08-03 실제 발생).
     const catalogScenarios = Array.isArray(document) ? document : document.scenarios ?? []
     const scenario = catalogScenarios.find(candidate => candidate.id === id)
     if (scenario) {
@@ -150,7 +150,7 @@ const runScenario = ({scenario}) => {
 
 // ---------------------------------------------------------------- 2) grade
 
-const gradeRun = ({scenario, catalog}, runDirectory) => {
+const gradeRun = ({scenario}, runDirectory) => {
   if (!runDirectory || !existsSync(runDirectory)) {
     console.error(`채점할 run이 없다. 먼저 --run을 실행할 것. (${runDirectory ?? '없음'})`)
     process.exit(2)
@@ -203,7 +203,7 @@ const gradeRun = ({scenario, catalog}, runDirectory) => {
 
 // ---------------------------------------------------------------- 3) verify (기계 검증)
 
-const verifyResult = ({scenario, catalog}, runDirectory, result, resultPath) => {
+const verifyResult = ({scenario}, runDirectory, result) => {
   const errors = []
   // 3-1. PASS evidence의 실존 파일 참조 (fail-closed) — 서술만으로는 PASS 불가
   for (const assertionResult of result.assertions ?? []) {
@@ -223,22 +223,27 @@ const verifyResult = ({scenario, catalog}, runDirectory, result, resultPath) => 
   }
   console.log('기계 evidence 검증 통과 (PASS assertion의 실존 경로 확인)')
 
-  // 3-2. 스키마 검증 — AI catalog는 기존 verifier 재사용, web catalog는 동일 규칙 인라인
-  if (catalog === 'ai') {
-    const verification = spawnSync(process.execPath, [join(scriptDirectory, 'run-ai-evals.mjs'), '--verify-result', resultPath], {cwd: repositoryRoot, encoding: 'utf8'})
-    process.stdout.write(verification.stdout ?? '')
-    process.stderr.write(verification.stderr ?? '')
-    process.exit(verification.status ?? 1)
-  }
+  // 3-2. 스키마 검증 — 구 `run-ai-evals.mjs --verify-result`가 하던 검사를 전부 포함한다.
+  // (2026-08-27 AI 표면 제거 시 versions 필수·assertion status 유효성·critical BLOCKED 3건이
+  //  이 인라인 경로에 없어 유실될 뻔했다 — 적대 검토가 잡았다.)
   const statuses = new Set(['PASS', 'FAIL', 'BLOCKED'])
   if (!statuses.has(result.status)) errors.push('status must be PASS, FAIL, or BLOCKED')
+  for (const field of ['model', 'prompt', 'workflow']) {
+    if (typeof result.versions?.[field] !== 'string' || !result.versions[field].trim()) {
+      errors.push(`versions.${field} is required`)
+    }
+  }
   for (const assertion of scenario.assertions) {
     const assertionResult = (result.assertions ?? []).find(candidate => candidate.id === assertion.id)
     if (!assertionResult) errors.push(`missing assertion result: ${assertion.id}`)
+    else if (!statuses.has(assertionResult.status)) errors.push(`${assertion.id}: invalid status`)
     else if (assertionResult.status === 'PASS' && !(assertionResult.evidence ?? []).length) errors.push(`${assertion.id}: PASS requires evidence`)
   }
   const allPass = scenario.assertions.every(assertion => (result.assertions ?? []).find(candidate => candidate.id === assertion.id)?.status === 'PASS')
   if (result.status === 'PASS' && !allPass) errors.push('overall PASS requires every assertion to PASS')
+  if (scenario.risk === 'critical' && result.status === 'BLOCKED') {
+    errors.push('critical scenario BLOCKED does not satisfy the release gate')
+  }
   if (errors.length) {
     console.error('web eval result 검증 실패:')
     for (const error of errors) console.error('- ' + error)
@@ -282,13 +287,13 @@ if (args.includes('--dry-run')) {
 } else if (args.includes('--full')) {
   const runDirectory = runScenario(loaded)
   const {result, resultPath} = gradeRun(loaded, runDirectory)
-  verifyResult(loaded, runDirectory, result, resultPath)
+  verifyResult(loaded, runDirectory, result)
 } else if (args.includes('--run')) {
   runScenario(loaded)
 } else if (args.includes('--grade')) {
   const runDirectory = latestRunDirectory(scenarioId)
   const {result, resultPath} = gradeRun(loaded, runDirectory)
-  verifyResult(loaded, runDirectory, result, resultPath)
+  verifyResult(loaded, runDirectory, result)
 } else {
   console.error('동작을 지정할 것: --dry-run | --run | --grade | --full')
   process.exit(2)

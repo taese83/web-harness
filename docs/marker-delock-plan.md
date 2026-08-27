@@ -33,7 +33,7 @@
 | ~~`전체`~~ → **✅ ③ 완료** — sentinel이 언어 중립 집합 `전체`/`*`/`all`로 확장 | `validate-artifact-sharding.mjs` | **HARD FAIL** |
 | ~~`realtime은 필수 조건이 아니다`~~ → **✅ ④ 완료(2026-08-18)** — `<!-- marker:timeseries-historical-only -->` 앵커로 marker-integrity 레지스트리에 이관 | `validate-marker-integrity.mjs` (존재-류) | **HARD FAIL** |
 | ~~`realtime interface 완료 후`~~ → **✅ ④ 완료** — `<!-- marker:timeseries-realtime-build-order -->` 앵커로 이관 | `validate-marker-integrity.mjs` (존재-류) | **HARD FAIL** |
-| ~~`**시계열/실시간 감지**` · `**AI 서비스 감지**`~~ → **✅ ④ 완료** — `<!-- marker:detect-timeseries -->`/`<!-- marker:detect-ai-service -->` 앵커. 배치-류(코드펜스 밖 검사)라 validate-harness의 instructionPlacementChecks에 남되 needle만 앵커로 전환 | `validate-harness.mjs` instructionPlacementChecks (배치-류) | **HARD FAIL** (코드펜스 안이면도 실패) |
+| ~~`**시계열/실시간 감지**`~~ → **✅ ④ 완료** — `<!-- marker:detect-timeseries -->` 앵커. (`detect-ai-service`는 2026-08-27 AI 표면 제거로 함께 삭제) 배치-류(코드펜스 밖 검사)라 validate-harness의 instructionPlacementChecks에 남되 needle만 앵커로 전환 | `validate-harness.mjs` instructionPlacementChecks (배치-류) | **HARD FAIL** (코드펜스 안이면도 실패) |
 
 ### B. 이미 부분 탈잠금 (bilingual OR 앵커 인식) — 가드 유지만
 
@@ -44,7 +44,7 @@
 
 ### C. 이미 언어 중립 — 대상 아님
 `<!-- harness-judgment-gate -->`, `<!-- inventory:skills|agents -->`, `INJECTION_SUSPECT`,
-`WEB_PROFILE:`·`SUPPORT_STATUS:`·`maturity:`, `TIMESERIES_MODE`·`AI_MODE`·`LOCAL_DOMAIN_STATE_MODE`
+`WEB_PROFILE:`·`SUPPORT_STATUS:`·`maturity:`, `TIMESERIES_MODE`·`LOCAL_DOMAIN_STATE_MODE`
 ·`EXTERNAL_DATA_INGESTION_MODE`, `static-snapshot`·`NEEDS_DECISION`·`S | M | L | XL` 등.
 
 ### D. 산문 전용 (기계 매칭 0) — **지금 자유 번역**

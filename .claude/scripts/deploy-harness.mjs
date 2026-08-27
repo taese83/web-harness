@@ -114,7 +114,6 @@ try {
       force: false,
     })
   }
-  copyFileSync(join(sourceRoot, '.claude', 'ai-harness.json'), join(stagingRoot, 'ai-harness.json'))
   copyFileSync(join(sourceRoot, '.claude', 'README.md'), join(stagingRoot, 'README.md'))
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.json'))
   copyFileSync(join(sourceRoot, '.claude', 'settings.project.json'), join(stagingRoot, 'settings.project.json'))
@@ -176,6 +175,6 @@ try {
 process.stdout.write(`${JSON.stringify({
   ok: true,
   target: offset.split(sep).join('/'),
-  copied: ['README.md', 'skills', 'agents', 'scripts', 'evals', 'adapters', 'schemas', 'ai-harness.json', 'settings.json', 'settings.project.json', 'deployment.json'],
+  copied: ['README.md', 'skills', 'agents', 'scripts', 'evals', 'adapters', 'schemas', 'settings.json', 'settings.project.json', 'deployment.json'],
   toolchainPins: ['.node-version', '.nvmrc'],
 })}\n`)

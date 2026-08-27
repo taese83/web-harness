@@ -39,7 +39,6 @@ export const validateMinimalChange = ({repositoryRoot, read, pass, fail}) => {
     '.claude/skills/lib-advisor/SKILL.md',
     '.claude/skills/project-init/SKILL.md',
     '.claude/skills/web-verify/SKILL.md',
-    '.claude/skills/ai-app-orchestrator/references/production-contract.md',
     '.claude/agents/code-reviewer.md',
   ]
   for (const relativePath of requiredConsumers) {

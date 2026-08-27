@@ -25,6 +25,7 @@ maxTurns: 20
 - WebSocket/SSE handshake와 subscription의 서버 authorization, origin/CORS, credential, log redaction 확인
 - 외부 ingestion source의 사용 권한, URL/redirect allowlist, timeout/rate/concurrency, parser input, credential·원문 민감정보 로그를 확인
 - bot/cron이 생성 데이터를 repository에 commit할 때 protected branch, actor 권한, untrusted content가 code/workflow path를 덮어쓰지 못하는지 확인
+- **`INJECTION_SUSPECT` 소비** (`.claude/skills/web-orchestrator/references/untrusted-content-quarantine.md`): 외부 콘텐츠가 실행에 들어오는 경로에서 ① 지시형 패턴 탐지가 **구현돼 있는지** ② 적중 항목이 신뢰 경계를 넘지 못하는지 ③ 기록된 마커 목록을 확인한다. 탐지 코드가 아예 없으면 "마커 0건"을 안전으로 읽지 않는다 — 그건 **미구현**이며 `FAIL`(owner: `developer`)이다
 
 ## API 표면 균질성 매트릭스 (서버 실행 경로가 있는 프로젝트는 생략 불가)
 

@@ -32,7 +32,6 @@ metadata:
 
 `.claude/skills/analytics-chart-builder/references/detection-contract.md`를 semantic analytics 판별 기준으로 사용한다. metric/dimension/aggregation 선택과 chart type 또는 dashboard panel 편집이 핵심이면 `ANALYTICS_BUILDER_MODE: true`로 기록한다. 시계열도 있으면 transport/buffer는 timeseries, semantic query/chart compatibility/dashboard config는 analytics가 소유한다.
 
-`.claude/skills/ai-app-orchestrator/references/detection-contract.md`를 AI 기능의 단일 판별 기준으로 사용한다. 모델 생성, RAG, model-selected tool, 코드리뷰, AI 고객센터, AI analytics, browser action이 핵심이면 `AI_MODE: true`와 모든 submode를 기록하고 `/ai-app-orchestrator`의 설계·runtime·QA gate를 적용한다. 일반 검색, 고정 규칙, read-only Playwright QA는 제외한다.
 
 `.claude/skills/web-orchestrator/references/local-domain-state.md`를 browser-owned domain state의 단일 판별 기준으로 사용한다. localStorage/IndexedDB/offline CRUD 또는 정렬·이동·다중선택·참조 불변식이 있으면 `LOCAL_DOMAIN_STATE_MODE: true`로 기록한다. 단순 theme/language persistence만 있으면 제외한다.
 
@@ -55,7 +54,6 @@ metadata:
 
 `ANALYTICS_BUILDER_MODE`이면 metric/dimension catalog, MVP chart type, query budget, dashboard 저장·공유·revision을 단계적으로 확인한다. metric 의미나 query execution authority가 불명확하면 구현 전 `BLOCKER`다.
 
-`AI_MODE`이면 같은 intake에서 핵심 task와 실패 비용, read/write 데이터, authoritative system, autonomy L0~L4, 사람 승인, tenant·PII, quality·latency·cost budget, Mock와 실제 tool/provider 경계를 추가한다. identity, tenant, high-impact action의 승인자가 불명확하면 구현 전에 한 번 확인한다.
 
 `EXTERNAL_DATA_INGESTION_MODE`이면 source와 사용 권한, payload/문서 형식, 갱신 주기, freshness SLO, 최소 count·coverage, invalid candidate의 promotion rejection, serving fallback의 `last-known-good|unavailable`, `static-snapshot|live-api|hybrid`, root/provider build cwd를 한 번에 확인한다. scheduled refresh에는 manual recovery도 함께 요구한다. 모르는 운영 값은 보수적 baseline을 `ASSUMPTION`으로 제안하되 source 사용 권한과 authoritative source가 불명확하면 `BLOCKER`로 둔다.
 
@@ -77,7 +75,6 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
   REQUEST_TYPE: {request-type-contract의 값}
   TIMESERIES_MODE: true/false  (판별 근거 한 줄)
   ANALYTICS_BUILDER_MODE: true/false (판별 근거 한 줄)
-  AI_MODE:         true/false  (판별 근거 한 줄)
   LOCAL_DOMAIN_STATE_MODE: true/false
   EXTERNAL_DATA_INGESTION_MODE: true/false
   VISUAL_QA_MODE: true/false
@@ -110,9 +107,6 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 **Wave 1** — `requirements-analyst` → `_workspace/01_plan/requirements.md`
 
-**Wave 1-A — AI_MODE 조건부**:
-- `ai-requirements-analyst` → `_workspace/01_plan/ai-requirements.md`, `_workspace/01_plan/autonomy-risk-matrix.md`
-
 **Wave 2** — `ux-researcher` → `_workspace/01_plan/ux-brief.md`
 
 **Wave 3** — `feature-planner` → `_workspace/01_plan/feature-plan.md`. UX 결정과 requirement를 함께 입력으로 사용한다.
@@ -138,15 +132,6 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 ### Phase 2 — 디자인 (순서 있음)
 
 Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽는다. 이 Phase의 설계 산출물은 하류 5~18개 에이전트가 각자 다시 읽으므로 크기 예산과 분할 규칙을 지켜야 한다. designer 계열 agent prompt에 이 계약 경로를 함께 전달한다. **디자인 원칙 허브 `references/design-principles.md`의 경로도 designer 계열 agent prompt에 함께 전달한다** — 각 agent는 허브의 소비자 맵에서 자기 담당 절만 읽고 그 수치·규칙을 기본값으로 쓴다(사용자 브랜드 제약이 이기되 접근성 하한은 협상 불가). **Phase 1·2 각 Wave 완료 시 `node .claude/scripts/validate-artifact-sharding.mjs --project {project-root}`를 실행하고 exit 1이면 해당 designer를 다시 실행해 분할한 뒤 진행한다** — 산문 판단이 아니라 바이트 측정이 판정 근거다.
-
-**Wave -1 — AI_MODE 조건부 설계 Gate**:
-- 다음 agent를 병렬 실행한다:
-  - `ai-solution-architect` → `_workspace/02_design/ai-architecture.md`, `_workspace/02_design/cost-latency-budget.md`
-  - `data-governance-architect` → `_workspace/02_design/data-governance.md`
-  - `tool-contract-designer` → `_workspace/02_design/tool-contracts.md`
-  - `ai-threat-modeler` → `_workspace/02_design/ai-threat-model.md`
-  - `ai-eval-designer` → `_workspace/02_design/eval-plan.md`
-- AI manifest의 필수 설계 산출물이 모두 완료되기 전 Phase 3을 시작하지 않는다.
 
 **Wave 0 — TIMESERIES_MODE 조건부 선행**:
 - `timeseries-architect` → `_workspace/02_design/timeseries-architecture.md`
@@ -198,7 +183,6 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
    - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `/vite-serverless-hybrid`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
    - `SERVER_DB_MODE`이면 `/server-db-migration`을 실행해 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
    - `developer` — main/App/router/theme/home shell
-   - `AI_MODE`이면 `/ai-runtime-setup`을 실행해 `environment-scaffolder` → `environment-scaffolder` → `environment-scaffolder` → 조건부 `developer` → `environment-scaffolder` 순서로 공통 runtime을 만든다
 2. 지원 companion과 API 계약 확정:
    - `API_CONTRACT_MODE`이면 `/api-contract-typegen`을 실행해 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
    - `OAUTH_SERVER_MODE`이면 `/auth-setup`을 실행해 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
@@ -217,16 +201,10 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
    - `developer` — 공개 노출 요구일 때
 5. browser Mock 사용 시 `public/mockServiceWorker.js`를 확인한다. dependency install이 승인·완료됐는데 파일이 없으면 실제 외부 격리가 적용된 setup job에서만 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-package-operation.mjs --project {project-root} --operation msw-init`을 실행한다. 사용자 승인만 있는 host 실행은 `BLOCKED`다
 각 1·3·4단계 뒤 `development-gates-contract.md`의 Gate A·B·C를 실행하고 `FAIL|BLOCKED`면 다음 단계로 진행하지 않는다. 중간 receipt는 이후 source 변경 시 stale이며 Phase 4 release evidence를 대신하지 않는다. 이와 별개로 각 builder 스폰 직후 `execution-budget-contract.md`의 **스폰 완결성 게이트**(완결성 마커·`verify-spawn-completion.mjs`·runaway 임계)를 통과시킨다 — 실패면 re-spawn 또는 `NEEDS_DECISION`, 불완전 산출물 위에 다음 단계를 쌓지 않는다(품질 Gate A/B/C와 보완).
-7. `AI_MODE`이면 활성화된 service branch를 공통 runtime 위에 실행한다:
-   - `CODE_REVIEW_AGENT_MODE` → `/ai-code-review-bot`
-   - `RAG_MODE`의 사내 검색 → `/enterprise-search-ai`
-   - 고객센터 → `/customer-support-ai`
-   - `ANALYTICS_AGENT_MODE` → `/ai-analytics-dashboard`
-   - `BROWSER_AGENT_MODE` → `/browser-agent`
-8. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `environment-scaffolder`를 실행한다.
-9. `scheduled-static-ingestion`이면 `environment-scaffolder`가 refresh workflow만 작성한다. workflow는 machine validator가 요구하는 kind/generated-path/direct-push metadata, read-only crawl job, 격리된 promotion 권한, concurrency를 포함해야 한다.
-10. provider가 Vercel이면 `environment-scaffolder`가 root/app `vercel.json`, build/output/root 계약만 작성한다. ingestion workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
-11. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `visual-developer`를 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.
+6. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `environment-scaffolder`를 실행한다.
+7. `scheduled-static-ingestion`이면 `environment-scaffolder`가 refresh workflow만 작성한다. workflow는 machine validator가 요구하는 kind/generated-path/direct-push metadata, read-only crawl job, 격리된 promotion 권한, concurrency를 포함해야 한다.
+8. provider가 Vercel이면 `environment-scaffolder`가 root/app `vercel.json`, build/output/root 계약만 작성한다. ingestion workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
+9. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `visual-developer`를 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.
 
 ### Phase 4 — 검증 (테스트 준비 → 결정론적 실행 → 판정)
 
@@ -253,14 +231,7 @@ runner가 non-zero여도 보고서를 생략하지 않는다. `_workspace/04_qa/
 - `ANALYTICS_BUILDER_MODE`이면 `analytics-verifier` → `_workspace/04_qa/qa-analytics.md`
 - `LOCAL_DOMAIN_STATE_MODE`이면 `state-invariant-verifier` → `_workspace/04_qa/qa-state.md`
 - `EXTERNAL_DATA_INGESTION_MODE`이면 `data-quality-verifier` → `_workspace/04_qa/qa-data-quality.md`. 공개 노출 요구이면 `seo-verifier` → `qa-seo.md`, `performance-budget.md`가 있으면 `performance-verifier` → `qa-perf.md`, `TIMESERIES_MODE`이면 `timeseries-verifier` → `qa-timeseries.md` (모두 `_workspace/04_qa/`)
-- `AI_MODE` 정적 gate: <!-- repo-only:start -->
-  - `node .claude/scripts/test-ai-harness.mjs --through eval-contracts`<!-- repo-only:end -->
-- `AI_MODE` read-only verifier:
-  - `ai-eval-runner` → `_workspace/04_qa/qa-ai-evals.md`
-  - `ai-security-reviewer` → `_workspace/04_qa/qa-ai-security.md`
-  - `data-access-verifier` → `_workspace/04_qa/qa-data-access.md`
-  - `cost-latency-verifier` → `_workspace/04_qa/qa-ai-cost-latency.md`
-  - `agent-trace-verifier` → `_workspace/04_qa/qa-agent-traces.md`
+- 다중 tenant·서버 인가 경로가 있으면 `data-access-verifier` → `_workspace/04_qa/qa-data-access.md`
 - `test-executor` → `_workspace/04_qa/qa-test.md`
 - `browser-verifier` → `_workspace/04_qa/qa-browser.md`
 - `VISUAL_QA_MODE`이면 `visual-regression-verifier` → `_workspace/04_qa/qa-visual.md`

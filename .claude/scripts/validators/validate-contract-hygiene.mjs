@@ -188,7 +188,7 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
   }
 
   // maturity 정직성 검사용 — eval 파일에서의 언급은 커버리지의 **필요조건**일 뿐이다(§4 프록시 등록).
-  const evalSource = ['evals/scenarios.json', 'evals/ai-scenarios.json']
+  const evalSource = ['evals/scenarios.json']
     .map(rel => join(repositoryRoot, '.claude', rel))
     .filter(existsSync)
     .map(path => readFileSync(path, 'utf8'))

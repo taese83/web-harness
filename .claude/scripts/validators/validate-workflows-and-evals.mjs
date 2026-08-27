@@ -726,16 +726,6 @@ export const validateWorkflowsAndEvals = ({
     }
   }
 
-  for (const requiredAIFile of [
-    '.claude/ai-harness.json',
-    '.claude/evals/ai-scenarios.json',
-    '.claude/scripts/validate-ai-harness.mjs',
-    '.claude/scripts/run-ai-evals.mjs',
-    '.claude/scripts/test-ai-harness.mjs',
-  ]) {
-    if (!existsSync(join(repositoryRoot, requiredAIFile))) fail(`${requiredAIFile}: required AI harness file is missing`)
-  }
-  pass('AI harness manifest, scenarios, and staged test scripts checked')
 
   // canonical CI 제안본(.claude/ci/<name>)이 .github/workflows/<name>로 활성 배치된 경우 두 사본은
   // 바이트 동일해야 한다 — 남은 배포 사본 표면(I4)이며, 드리프트하면 CI가 canonical과 다른 게이트를

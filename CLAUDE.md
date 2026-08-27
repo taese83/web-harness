@@ -2,7 +2,7 @@
 
 이 repo는 웹 생성 하네스의 canonical 소스다. `.claude/`가 유일한 원본이다(×3 미러는
 2026-08-18 소비자 0 실증으로 제거 — M4 판정). 커밋 전 `pnpm run ci`
-(toolchain·validate-harness·ai)가 green이어야 한다.
+(toolchain·validate-harness·반증 게이트·플러그인 빌드)가 green이어야 한다.
 
 ## 판단 게이트 <!-- harness-judgment-gate -->
 

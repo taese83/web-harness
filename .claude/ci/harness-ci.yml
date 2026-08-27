@@ -37,5 +37,3 @@ jobs:
         run: node .claude/scripts/validate-toolchain.mjs
       - name: Harness static validation
         run: node .claude/scripts/validate-harness.mjs
-      - name: Staged AI harness validation
-        run: node .claude/scripts/test-ai-harness.mjs --through all

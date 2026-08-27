@@ -45,18 +45,15 @@ const MARKETPLACE_GIT = process.env.WEB_HARNESS_PLUGIN_MARKETPLACE_GIT
 const DEV_ONLY_SCRIPTS = new Set([
   'build-plugin.mjs',
   'deploy-harness.mjs',
-  'run-ai-evals.mjs',
   'run-eval-executor.mjs',
   'run-golden-profile.mjs',
-  'test-ai-harness.mjs',
-  'validate-ai-harness.mjs',
   'validate-harness.mjs',
   'validate-toolchain.mjs',
 ])
 const DEV_ONLY_SCRIPT_DIRS = new Set(['validators'])
 const DEV_ONLY_SCRIPT_PATTERN = /^test-.*\.mjs$/
 // 하니스 자체 개발에만 의미가 있는 표면 — 사용자 프로젝트 세션에는 싣지 않는다.
-const DEV_ONLY_SKILLS = new Set(['ai-eval'])
+const DEV_ONLY_SKILLS = new Set()
 const DEV_ONLY_AGENTS = new Set(['harness-change-reviewer.md'])
 
 // 사용자 세션 전체에 적용해도 안전한 프로젝트-대면 훅만 배선한다.
@@ -186,7 +183,6 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
 })
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
 copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, '.claude', 'schemas'))
-cpSync(join(repositoryRoot, '.claude', 'ai-harness.json'), join(outputRoot, '.claude', 'ai-harness.json'))
 // 스크립트가 런타임에 import.meta.url 상대 경로로 읽는 .claude 루트 카탈로그는
 // 전부 배포본에 있어야 한다. 손으로 유지하던 목록이 두 번 연속 누락을 냈다 —
 // substrate-defaults.json(0.3.x), shape-checks.json(0.4.0~0.4.1, 형태 층 전체가 배포본에서

@@ -28,7 +28,7 @@ const BASELINE_PATH = join(validatorsDirectory, 'marker-integrity-baseline.json'
 export const MARKER_REGISTRY = [
   {
     id: 'consumer-read-protocol',
-    label: '소비자 읽기 프로토콜 앵커 (26 agents + 샤딩 계약)',
+    label: '소비자 읽기 프로토콜 앵커 (13 agents + 샤딩 계약)',
     // M1 ③(2026-08-18)에서 한국어 문자열(`주 소비자`, baseline 30)을 언어 중립 앵커로 승격.
     // 이제 산문은 자유 번역 가능하고, 이 게이트는 앵커의 존속만 지킨다. 생성물(INDEX.md) 쪽
     // 검사는 validate-artifact-sharding.mjs가 구조 식별(2열 백틱 절 파일) + FAIL로 담당한다.
@@ -74,7 +74,7 @@ export const MARKER_REGISTRY = [
     note: '앵커가 사라지면 개정 라운드가 전체 재생성으로 회귀 — 라운드당 3~5배',
   },
   // ── 존재-류 마커 (M1 ④): validate-harness의 한국어 문장 인라인 매칭에서 이관.
-  // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries/detect-ai-service)는
+  // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries)는
   // validate-harness의 instructionPlacementChecks에 남는다 — 이 레지스트리는 존재만 본다.
   {
     id: 'timeseries-historical-only',

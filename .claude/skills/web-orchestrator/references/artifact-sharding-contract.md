@@ -48,7 +48,6 @@ _workspace/02_design/api-schema/            ← 분할
 | `component-spec` | FSD 레이어별(shared / features / widgets·pages) |
 | `layout-spec` | 글로벌 레이아웃·라우팅 맵 / 페이지별 |
 | `state-contract` | aggregate별 + 공통 persistence·verification 1개 |
-| `ai-threat-model` | 자산·경계·구조적 차단 / 실재 위협축 / 전환 체크리스트·잔여 리스크 (20KB 초과 실측: search-portal 파일럿) |
 
 **Phase 1 산출물** — 재읽기 규모가 Phase 2보다 **크다**. 실측(96개 agent prompt 전수 집계)에서 `tech-stack`은 18개, `requirements`는 13개 에이전트가 입력으로 읽는데, 초기 계약은 Phase 2만 다뤄 가장 많이 재읽히는 두 파일이 규칙 밖에 있었다.
 
@@ -60,7 +59,6 @@ _workspace/02_design/api-schema/            ← 분할
 | `ux-brief` | 화면 인벤토리·상태 matrix / 사용자 플로우 / 디자인 방향 | layout-designer는 인벤토리, design-system-architect는 방향 |
 | `feature-plan` | Feature List 표 / slice·command 매핑 / 데이터 모델 | 표만 필요한 소비자가 다수 |
 | `decision-log` | **ID 구간별**(`PC-001~050`, `PC-051~100` …) — append는 최신 절에만 | append-only 대장이므로 주제별로 자르면 이력 추적이 깨진다 |
-| `ai-requirements` | 판별 출력·task 경계 / 실패 비용·위협 표면 / runtime budget / 품질·측정 계획 | AI 설계 Gate 5종이 각자 다른 절을 읽도록 하는 설계 의도 — 현재 명시 입력 참조는 architect·tool 2종뿐, 나머지 3종은 SKILL 단계 순서로만 의존 (20KB 초과 실측: search-portal 파일럿) |
 
 `project-brief`는 이미 다른 산출물의 요약·연결 문서다. 20KB를 넘으면 분할하기보다 **원본을 가리키고 본문을 줄인다** — 요약이 원본만큼 커지면 요약이 아니다.
 

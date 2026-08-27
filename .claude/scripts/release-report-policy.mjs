@@ -1,4 +1,4 @@
-import {existsSync} from 'node:fs'
+import {existsSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
 import {profileReportRequirements} from './release-profile-lib.mjs'
 
@@ -11,13 +11,7 @@ const BASE_REPORTS = [
   ['test', 'qa-test.md'],
   ['browser', 'qa-browser.md'],
 ]
-const AI_REPORTS = [
-  ['ai-evals', 'qa-ai-evals.md'],
-  ['ai-security', 'qa-ai-security.md'],
-  ['data-access', 'qa-data-access.md'],
-  ['ai-cost-latency', 'qa-ai-cost-latency.md'],
-  ['agent-traces', 'qa-agent-traces.md'],
-]
+const DATA_ACCESS_REPORTS = [['data-access', 'qa-data-access.md']]
 const LOCAL_STATE_REPORTS = [['state', 'qa-state.md']]
 const INGESTION_REPORTS = [['data-quality', 'qa-data-quality.md']]
 const ANALYTICS_REPORTS = [['analytics', 'qa-analytics.md']]
@@ -27,9 +21,28 @@ const SEO_REPORTS = [['seo', 'qa-seo.md']]
 const TIMESERIES_REPORTS = [['timeseries', 'qa-timeseries.md']]
 
 const hasArtifact = (projectRoot, relativePath) => existsSync(join(projectRoot, relativePath))
-const isAiProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/01_plan/ai-requirements.md') ||
-  hasArtifact(projectRoot, '_workspace/02_design/ai-architecture.md')
+// 서버가 데이터를 소유하면 tenant/row-level 인가는 client 코드 리뷰로 증명되지 않는다 —
+// migration 디렉터리(= /server-db-migration 산출)가 그 조건의 관측 가능한 신호다.
+// 경로 모델은 `agent-registry`의 소유권 정규식(`(?:[^/]+/)+?migrations/`)과 정합해야 한다 —
+// `/server-db-migration`이 `client/migrations/`를 **기존 관습**으로 문서화하므로 루트만 보면
+// 하네스가 스스로 권한 관습을 따른 프로젝트가 조용히 이 요구에서 빠진다(2026-08-27 적대 검토).
+const IGNORED_ROOTS = new Set(['node_modules', '.git', 'dist', 'build', '_workspace', '.next'])
+const isServerOwnedDataProject = projectRoot => {
+  if (hasArtifact(projectRoot, 'migrations')) return true
+  let entries
+  try {
+    entries = readdirSync(projectRoot, {withFileTypes: true})
+  } catch {
+    return false
+  }
+  return entries.some(
+    entry =>
+      entry.isDirectory() &&
+      !entry.name.startsWith('.') &&
+      !IGNORED_ROOTS.has(entry.name) &&
+      existsSync(join(projectRoot, entry.name, 'migrations')),
+  )
+}
 const isLocalDomainStateProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/state-contract.md')
 const isAnalyticsProject = projectRoot =>
@@ -54,6 +67,6 @@ export const releaseReportRequirements = (projectRoot, lockedProfile, phase, ext
   ...(isSeoProject(projectRoot) ? SEO_REPORTS : []),
   ...(isTimeseriesProject(projectRoot) ? TIMESERIES_REPORTS : []),
   ...(externalIngestion ? INGESTION_REPORTS : []),
-  ...(isAiProject(projectRoot) ? AI_REPORTS : []),
+  ...(isServerOwnedDataProject(projectRoot) ? DATA_ACCESS_REPORTS : []),
   ...profileReportRequirements(lockedProfile),
 ].filter(([id]) => phase === 'final' || !ATTESTATION_DEPENDENT_REPORT_IDS.has(id))

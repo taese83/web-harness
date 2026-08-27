@@ -33,12 +33,6 @@
       "command": "node .claude/scripts/validate-harness.mjs"
     },
     {
-      "id": "staged-validator",
-      "expect": "ALLOW",
-      "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/validate-ai-harness.mjs --stage policy"
-    },
-    {
       "id": "policy-fixtures",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

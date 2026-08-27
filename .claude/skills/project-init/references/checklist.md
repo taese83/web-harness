@@ -134,12 +134,11 @@ VITE_APP_TITLE={appTitle}
 <!-- repo-only:start -->
 오케스트레이터의 의존성 closure가 깨지지 않도록 trusted deploy script로 harness를 원자적으로 복사한다. target은 현재 repository 안의 기존 project directory여야 하고 `.claude`가 이미 있으면 덮어쓰지 않고 중단한다.
 
-- 배포 inventory: `.claude/README.md`, `.claude/skills`, `.claude/agents`, `.claude/scripts`, `.claude/evals`, `.claude/adapters`, `.claude/schemas`, `.claude/ai-harness.json`, generated-project용 `.claude/settings.json`과 validator reference `.claude/settings.project.json`, 배포 판별 마커 `deployment.json`(deploy-harness가 target `.claude` 루트에 생성 — source repo 전용 adapter drift/inventory 검사를 target에서 건너뛰는 근거)
+- 배포 inventory: `.claude/README.md`, `.claude/skills`, `.claude/agents`, `.claude/scripts`, `.claude/evals`, `.claude/adapters`, `.claude/schemas`, generated-project용 `.claude/settings.json`과 validator reference `.claude/settings.project.json`, 배포 판별 마커 `deployment.json`(deploy-harness가 target `.claude` 루트에 생성 — source repo 전용 adapter drift/inventory 검사를 target에서 건너뛰는 근거)
 - toolchain pin: `.node-version`, `.nvmrc`
 - `$ node {currentProject}/.claude/scripts/deploy-harness.mjs --target {root}` — 사용자 확인 후 source/staged target validation과 symlink 검사를 포함해 실행; 실패 시 새 `.claude`와 새 pin을 rollback
 - `$ node {root}/.claude/scripts/validate-toolchain.mjs`
 - `$ node {root}/.claude/scripts/validate-harness.mjs`
-- `$ node {root}/.claude/scripts/test-ai-harness.mjs --through eval-contracts`
 <!-- repo-only:end -->
 - 개발·테스트 파일 완료 후 로컬 진단은 사용자 승인과 함께 `$ node {root}/.claude/scripts/run-quality-gates.mjs --all --allow-host-execution`
 - release 후보는 격리 CI에서 `$ WEB_HARNESS_ISOLATED_EXECUTION=1 node {root}/.claude/scripts/run-quality-gates.mjs --all`로 receipt를 다시 생성
@@ -179,7 +178,5 @@ VITE_APP_TITLE={appTitle}
 | `/pr-drafter` | git diff → 한국어 PR 초안 자동 작성 |
 | `/component-gen` | 선택된 UI 레인(UI_LANE) 컨벤션에 맞게 생성 |
 | `/timeseries-dashboard` | 시계열·실시간 dashboard 설계/구현/검증 |
-| `/ai-app-orchestrator` | AI runtime·tool·보안·평가 통합 |
-| `/ai-eval` | AI 정적 gate와 runtime scenario 검증 |
 | `/next-app` | Next.js App Router compatible profile 구현·검증 |
 ```

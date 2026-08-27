@@ -101,10 +101,7 @@ export const validateAgentBoundaries = ({
   if (
     runVerifierBashHook('code-reviewer', 'node .claude/scripts/run-git-inspection.mjs --project . --operation status').status !== 0
   ) fail('verifier Bash hook blocked the typed Git inspection runner')
-  if (runVerifierBashHook('ai-eval-runner', 'node .claude/scripts/run-ai-evals.mjs --validate').status !== 0) {
-    fail('verifier Bash hook blocked the read-only AI eval validator')
-  }
-  if (runVerifierBashHook('ai-eval-runner', "node -e 'process.exit(0)'").status !== 2) {
+  if (runVerifierBashHook('code-reviewer', "node -e 'process.exit(0)'").status !== 2) {
     fail('verifier Bash hook allowed arbitrary Node execution')
   }
   if (runVerifierBashHook('test-executor', 'pnpm test --update').status !== 2) fail('verifier Bash hook allowed snapshot update')
@@ -145,19 +142,10 @@ export const validateAgentBoundaries = ({
     ['environment scaffolder vite-env stub', 'environment-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
     ['environment scaffolder app eslint config', 'environment-scaffolder', join(repositoryRoot, 'apps/web/eslint.config.js'), 0],
     ['timeseries architecture output', 'timeseries-architect', join(repositoryRoot, '_workspace/02_design/timeseries-architecture.md'), 0],
-    ['AI requirements output', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements.md'), 0],
-    // ai-requirements sharded ownership — 실측(24KB>20KB) 재현에 따른 정합화. autonomy-risk-matrix는 실측 없어 flat 스팩 확정 유지
-    ['AI requirements sharded section', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements/INDEX.md'), 0],
-    ['AI requirements adjacent name not owned', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/ai-requirements-v2.md'), 2],
-    ['autonomy risk matrix stays flat-only', 'ai-requirements-analyst', join(repositoryRoot, '_workspace/01_plan/autonomy-risk-matrix/INDEX.md'), 2],
     // 결함 13호 fix의 부정 회귀(적대 검토 HIGH) — 루트 api/만 소유하고 타 agent 소유 api/ 경로는 배제
     // 결함 15호 — 루트 tests/(서버 unit·가드·production-boundary)는 test-writer 소유, src 내부 tests/ 세그먼트는 배제
     ['environment vitest variant config owned', 'environment-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],
     ['tooling arbitrary ts file not owned', 'environment-scaffolder', join(repositoryRoot, 'src/app/App.tsx'), 2],
-    ['AI threat model flat output', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model.md'), 0],
-    ['AI threat model sharded section', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model/INDEX.md'), 0],
-    ['AI threat model adjacent name not owned', 'ai-threat-modeler', join(repositoryRoot, '_workspace/02_design/ai-threat-model-v2.md'), 2],
-    ['AI planner runtime source', 'ai-requirements-analyst', join(repositoryRoot, 'apps/agent-api/src/index.ts'), 2],
     // Phase 1 sharded ownership — sharding 계약의 분할 축 대상 5 owner (search-portal 파일럿 실측 결함 4호 회귀 케이스)
     ['planning context flat output', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context.md'), 0],
     ['planning context sharded index', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context/INDEX.md'), 0],

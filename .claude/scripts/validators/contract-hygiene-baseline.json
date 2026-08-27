@@ -1,20 +1,12 @@
 {
   "comment": "grandfather baseline — always-read는 성장 시 fail(의식적 갱신 필요), references는 목록 밖 신규 파일에 일반화 근거 섹션 요구. 갱신은 CLAUDE.md 판단 게이트를 거친다. | alwaysReadBytes(2026-08-20): 선행 로드 앵커의 바이트 실측 상한 — 참조 수만으로 못 잡는 파일 비대를 막는다. 앵커 배치 스킬만 등록.",
   "alwaysRead": {
-    "ai-analytics-dashboard": 2,
-    "ai-app-orchestrator": 2,
-    "ai-code-review-bot": 2,
-    "ai-eval": 1,
-    "ai-runtime-setup": 2,
     "analytics-chart-builder": 5,
     "api-connect": 0,
     "api-contract-typegen": 0,
     "auth-setup": 0,
-    "browser-agent": 2,
     "component-gen": 0,
-    "customer-support-ai": 2,
     "dev-orchestrator": 0,
-    "enterprise-search-ai": 2,
     "feature-add": 0,
     "fsd-scaffold": 0,
     "i18n-setup": 0,
@@ -33,14 +25,6 @@
     "web-verify": 0
   },
   "references": [
-    ".claude/skills/ai-analytics-dashboard/references/analytics-contract.md",
-    ".claude/skills/ai-analytics-dashboard/references/implementation-contract.md",
-    ".claude/skills/ai-app-orchestrator/references/detection-contract.md",
-    ".claude/skills/ai-app-orchestrator/references/production-contract.md",
-    ".claude/skills/ai-code-review-bot/references/code-review-contract.md",
-    ".claude/skills/ai-code-review-bot/references/implementation-contract.md",
-    ".claude/skills/ai-eval/references/eval-ladder.md",
-    ".claude/skills/ai-runtime-setup/references/runtime-contract.md",
     ".claude/skills/analytics-chart-builder/references/analytics-test-matrix.md",
     ".claude/skills/analytics-chart-builder/references/chart-compatibility.md",
     ".claude/skills/analytics-chart-builder/references/dashboard-editor-contract.md",
@@ -55,18 +39,12 @@
     ".claude/skills/auth-setup/references/oauth-provider-operations.md",
     ".claude/skills/auth-setup/references/oauth-server-flow.md",
     ".claude/skills/auth-setup/references/secret-rotation.md",
-    ".claude/skills/browser-agent/references/browser-safety-contract.md",
-    ".claude/skills/browser-agent/references/implementation-contract.md",
     ".claude/skills/component-gen/references/accessibility.md",
     ".claude/skills/component-gen/references/input-focus-ime.md",
     ".claude/skills/component-gen/references/mui-patterns.md",
     ".claude/skills/component-gen/references/mui-styling.md",
     ".claude/skills/component-gen/references/responsive-layout.md",
     ".claude/skills/component-gen/references/ts-conventions.md",
-    ".claude/skills/customer-support-ai/references/implementation-contract.md",
-    ".claude/skills/customer-support-ai/references/support-contract.md",
-    ".claude/skills/enterprise-search-ai/references/implementation-contract.md",
-    ".claude/skills/enterprise-search-ai/references/retrieval-contract.md",
     ".claude/skills/fsd-scaffold/references/fsd-rules.md",
     ".claude/skills/fsd-scaffold/references/slice-template.md",
     ".claude/skills/mock-service-setup/references/fixture-strategy.md",
@@ -97,7 +75,6 @@
     ".claude/skills/web-orchestrator/references/background-jobs-contract.md",
     ".claude/skills/web-orchestrator/references/buildable-app-contract.md",
     ".claude/skills/web-orchestrator/references/change-journal-contract.md",
-    ".claude/skills/web-orchestrator/references/companion-skill-detection.md",
     ".claude/skills/web-orchestrator/references/completion-contract.md",
     ".claude/skills/web-orchestrator/references/design-approval-contract.md",
     ".claude/skills/web-orchestrator/references/design-principles-color.md",
@@ -136,6 +113,6 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 66285
+    "web-orchestrator": 63653
   }
 }

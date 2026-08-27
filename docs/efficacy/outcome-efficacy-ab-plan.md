@@ -95,7 +95,10 @@
 ### Stage 2 — 매트릭스 (조건부, 22~28M, 별도 승인)
 
 2형태 × 2암 × replicate 4~5. Stage 1에서 효과가 실재하나 크기가 모호할 때만 착수한다.
-형태 = local-domain-state(seminar류) + enterprise-search(`ai-scenarios.json` 5종 보유).
+형태 = local-domain-state(seminar류) + external-data-ingestion(`scenarios.json`의
+`external-ingestion-static-snapshot`·`github-actions-static-ingestion-vercel`·`external-ingestion-selector-drift`).
+(2026-08-27 개정: 원안의 enterprise-search 암은 AI 표면 제거로 스킬·시나리오가 함께 사라졌다.
+두 형태를 가르는 축은 그대로다 — 브라우저 소유 상태 대 외부 수집 파이프라인.)
 
 ## 6. 교란 통제
 

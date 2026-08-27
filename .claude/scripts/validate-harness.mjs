@@ -170,7 +170,6 @@ validateMinimalChange({repositoryRoot, read, pass, fail})
 // 레지스트리 몫). needle은 언어 중립 앵커 — 지시 산문은 자유 번역 가능(M1 ④).
 const instructionPlacementChecks = [
   ['.claude/agents/requirements-analyst.md', '<!-- marker:detect-timeseries -->'],
-  ['.claude/agents/requirements-analyst.md', '<!-- marker:detect-ai-service -->'],
 ]
 for (const [relativePath, marker] of instructionPlacementChecks) {
   const lines = read(relativePath).split(/\r?\n/)
@@ -223,11 +222,7 @@ if (!projectInit.includes('validate-toolchain.mjs')) fail('project-init does not
 if (!projectInit.includes('.claude/settings.project.json')) {
   fail('project-init does not deploy .claude/settings.project.json as project settings')
 }
-if (!projectInit.includes('.claude/ai-harness.json')) fail('project-init does not copy .claude/ai-harness.json')
 if (!projectInit.includes('validate-harness.mjs')) fail('project-init does not run the harness validator')
-if (!projectInit.includes('test-ai-harness.mjs --through eval-contracts')) {
-  fail('project-init does not run staged AI harness validation')
-}
 pass('project-init dependency closure checked')
 
 const templateSource = read('.claude/skills/project-init/assets/templates.md')
@@ -284,11 +279,7 @@ for (const agentName of [
   'browser-verifier',
   'security-reviewer',
   'timeseries-architect',
-  'ai-eval-runner',
-  'ai-security-reviewer',
   'data-access-verifier',
-  'cost-latency-verifier',
-  'agent-trace-verifier',
   'state-contract-designer',
   'state-invariant-verifier',
   'ingestion-contract-designer',
@@ -296,7 +287,7 @@ for (const agentName of [
 ]) {
   if (!webOrchestrationSource.includes(agentName)) fail(`web orchestrators do not invoke ${agentName}`)
 }
-for (const modeName of ['TIMESERIES_MODE', 'AI_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
+for (const modeName of ['TIMESERIES_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
   if (!webOrchestrationSource.includes(modeName)) fail(`web orchestrators do not define ${modeName}`)
   if (devOrchestratorSource.includes(modeName)) fail(`dev-orchestrator duplicates web mode ${modeName}`)
 }
@@ -305,7 +296,6 @@ for (const webOnlyAgent of ['timeseries-architect', 'realtime-data-builder', 'mo
   if (devOrchestratorSource.includes(webOnlyAgent)) fail(`dev-orchestrator duplicates web agent ${webOnlyAgent}`)
 }
 if (!existsSync(join(claudeDirectory, 'skills', 'timeseries-dashboard', 'SKILL.md'))) fail('timeseries-dashboard skill is missing')
-if (!existsSync(join(claudeDirectory, 'skills', 'ai-app-orchestrator', 'SKILL.md'))) fail('ai-app-orchestrator skill is missing')
 pass('canonical web orchestration and dev delegation checked')
 
 const localStateReference = '.claude/skills/web-orchestrator/references/local-domain-state.md'

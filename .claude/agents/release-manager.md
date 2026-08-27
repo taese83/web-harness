@@ -25,7 +25,6 @@ readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate
 ## 핵심 역할
 
 - 일반 7개 QA 리포트(`qa-code.md`, `qa-ux.md`, `qa-integration.md`, `qa-security.md`, `qa-api-contract.md`, `qa-test.md`, `qa-browser.md`) 종합 검토
-- AI architecture가 있으면 5개 AI QA 리포트(`qa-ai-evals.md`, `qa-ai-security.md`, `qa-data-access.md`, `qa-ai-cost-latency.md`, `qa-agent-traces.md`)를 추가 검토
 - state contract가 있으면 `qa-state.md`를 추가 검토
 - ingestion/runtime data contract가 있으면 `qa-data-quality.md`를 추가 검토
 - analytics architecture가 있으면 `qa-analytics.md`를 추가 검토

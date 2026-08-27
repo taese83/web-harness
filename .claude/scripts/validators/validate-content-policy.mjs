@@ -75,7 +75,7 @@ export const validateContentPolicy = ({repositoryRoot, activeSource, read, pass,
     ]
     const markerConsumers = [
       '.claude/agents/data-quality-verifier.md',
-      '.claude/agents/ai-security-reviewer.md',
+      '.claude/agents/security-reviewer.md',
     ]
     for (const agentPath of [...markerProducers, ...markerConsumers]) {
       const agentSource = read(agentPath)

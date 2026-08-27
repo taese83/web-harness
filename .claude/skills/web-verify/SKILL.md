@@ -50,20 +50,11 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - test-executor
    - browser-verifier
    - `VISUAL_QA_MODE`이면 visual-regression-verifier
-<!-- repo-only:start -->
-6. `_workspace/01_plan/ai-requirements.md` 또는 `_workspace/02_design/ai-architecture.md`가 있으면 AI 정적 gate를 순서대로 실행:
-   - `node .claude/scripts/test-ai-harness.mjs --through eval-contracts`
-<!-- repo-only:end -->
-7. AI project이면 read-only AI verifier 실행:
-   - ai-eval-runner
-   - ai-security-reviewer
-   - data-access-verifier
-   - cost-latency-verifier
-   - agent-trace-verifier
-8. release 후보이면 격리 CI receipt가 완성된 뒤 checkout 밖에서 보호된 trust-config digest와 repository/revision/workflow/issuer/run identity를 주입한다. `node .claude/scripts/prepare-quality-attestation.mjs --project {project-root} --issuer-run-id <trusted-ci-run-id>`의 unsigned request를 project 밖의 trusted attester가 CI/OIDC, 격리, frozen install과 독립 대조한다. 일치할 때만 final subject를 구성·서명해 `_workspace/04_qa/evidence/quality-attestation.json`을 작성한다. private key와 보호된 context를 project child process에 전달하지 않는다.
-9. locked profile이 `next-app-fullstack`이면 서명 완료 후 `node .claude/scripts/web-core/validate-next-contracts.mjs --project {project-root}`를 실행한다. 이어서 `next-contract-verifier`를 실행하고 반환 본문을 `_workspace/04_qa/qa-next-contract.md`에 저장한다. 로컬 진단, target-specific receipt·artifact digest 또는 trusted attestation이 없으면 `BLOCKED`로 남긴다.
-10. `_workspace/04_qa/`에 모든 결과를 저장한 뒤 `node .claude/scripts/validate-release-gate.mjs --write-manifest`와 `node .claude/scripts/validate-release-gate.mjs`를 실행한다. source, receipt 또는 trust configuration이 서명 후 바뀌면 quality runner부터 다시 시작한다.
-11. release gate exit 0일 때만 release-manager가 일반 QA와 조건부 QA 리포트를 종합해 HANDOFF를 만든다. exit 0이 아니면 `.claude/skills/web-orchestrator/references/release-tier-contract.md`에 따라 gate error를 분류해 tier(`DIAGNOSTIC_VERIFIED`/`ISOLATED_VERIFIED`/`NOT_VERIFIED`)를 판정하고, release-manager가 `_workspace/RELEASE/release-readiness.md`에 tier·근거·승급 경로를 기록한다. tier 라벨을 상향 표현으로 바꾸지 않는다.
+6. 다중 tenant 또는 서버 인가 경로가 있으면 data-access-verifier를 실행한다.
+7. release 후보이면 격리 CI receipt가 완성된 뒤 checkout 밖에서 보호된 trust-config digest와 repository/revision/workflow/issuer/run identity를 주입한다. `node .claude/scripts/prepare-quality-attestation.mjs --project {project-root} --issuer-run-id <trusted-ci-run-id>`의 unsigned request를 project 밖의 trusted attester가 CI/OIDC, 격리, frozen install과 독립 대조한다. 일치할 때만 final subject를 구성·서명해 `_workspace/04_qa/evidence/quality-attestation.json`을 작성한다. private key와 보호된 context를 project child process에 전달하지 않는다.
+8. locked profile이 `next-app-fullstack`이면 서명 완료 후 `node .claude/scripts/web-core/validate-next-contracts.mjs --project {project-root}`를 실행한다. 이어서 `next-contract-verifier`를 실행하고 반환 본문을 `_workspace/04_qa/qa-next-contract.md`에 저장한다. 로컬 진단, target-specific receipt·artifact digest 또는 trusted attestation이 없으면 `BLOCKED`로 남긴다.
+9. `_workspace/04_qa/`에 모든 결과를 저장한 뒤 `node .claude/scripts/validate-release-gate.mjs --write-manifest`와 `node .claude/scripts/validate-release-gate.mjs`를 실행한다. source, receipt 또는 trust configuration이 서명 후 바뀌면 quality runner부터 다시 시작한다.
+10. release gate exit 0일 때만 release-manager가 일반 QA와 조건부 QA 리포트를 종합해 HANDOFF를 만든다. exit 0이 아니면 `.claude/skills/web-orchestrator/references/release-tier-contract.md`에 따라 gate error를 분류해 tier(`DIAGNOSTIC_VERIFIED`/`ISOLATED_VERIFIED`/`NOT_VERIFIED`)를 판정하고, release-manager가 `_workspace/RELEASE/release-readiness.md`에 tier·근거·승급 경로를 기록한다. tier 라벨을 상향 표현으로 바꾸지 않는다.
 
 Claude Code의 Task 도구가 있으면 각 이름을 `subagent_type`으로 호출한다. Task 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 검사한다.
 

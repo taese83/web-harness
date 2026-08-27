@@ -3,9 +3,6 @@
     "allow": [
       "Bash(node .claude/scripts/validate-toolchain.mjs*)",
       "Bash(node .claude/scripts/validate-harness.mjs)",
-      "Bash(node .claude/scripts/validate-ai-harness.mjs*)",
-      "Bash(node .claude/scripts/test-ai-harness.mjs*)",
-      "Bash(node .claude/scripts/run-ai-evals.mjs*)",
       "Bash(node .claude/scripts/validate-release-gate.mjs*)",
       "Bash(node .claude/scripts/prepare-quality-attestation.mjs*)",
       "Bash(node .claude/scripts/run-git-inspection.mjs*)",

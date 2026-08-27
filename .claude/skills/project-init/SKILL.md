@@ -103,7 +103,6 @@ When the user invokes `/project-init` alone, start with:
 - GitHub Actions workflow는 self-hosted runner가 필요한 경우에만 그 label로 생성한다. 일반 공개 환경이면 `ubuntu-latest`로 대체한다.
 <!-- repo-only:start -->
 - `.claude` 하네스를 배포할 때 `README.md`, skills, agents, scripts, evals, adapters, schemas를 **모두** 복사하고, 생성 프로젝트에는 maintainer 설정이 아닌 `settings.project.json`을 `.claude/settings.json`으로 배포한다.
-- `.claude/ai-harness.json` manifest도 함께 복사한다.
-- 복사 후 `node .claude/scripts/validate-harness.mjs`와 `node .claude/scripts/test-ai-harness.mjs --through eval-contracts`를 실행한다.
+- 복사 후 `node .claude/scripts/validate-harness.mjs`를 실행한다.
 <!-- repo-only:end -->
 - 생성 프로젝트의 test scaffold가 준비된 뒤 사용자 확인을 받고 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`으로 로컬 진단 receipt를 만든다. 최종 release manifest v3는 격리 CI에서 동일 cohort를 재실행하고 신뢰 attester가 서명한 뒤에만 검증한다. missing script를 임의 fallback command로 대체하지 않는다.

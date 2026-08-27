@@ -3,14 +3,10 @@ const appPath = source => new RegExp(`^${appPrefix}${source}`)
 const exactAppFile = source => appPath(`${source}$`)
 
 export const VERIFIER_AGENTS = new Set([
-  'agent-trace-verifier',
   'analytics-verifier',
-  'ai-eval-runner',
-  'ai-security-reviewer',
   'api-contract-verifier',
   'browser-verifier',
   'code-reviewer',
-  'cost-latency-verifier',
   'data-access-verifier',
   'data-quality-verifier',
   'design-reviewer',
@@ -86,23 +82,9 @@ export const AGENT_OWNERSHIP = {
   // 구조 지시 빌더 6종을 걷어낸 이유가 바로 그것이었다(2026-08-26).
   developer: [],
 
-  'ai-eval-designer': [/^_workspace\/02_design\/eval-plan\.md$/],
-  'ai-requirements-analyst': [
-    // ai-requirements는 search-portal 파일럿 실측(24KB>20KB)으로 sharded 형태 허용 —
-    // autonomy-risk-matrix는 실측 없어 flat 유지 (근거 없는 선제 확장 금지)
-    /^_workspace\/01_plan\/ai-requirements(?:\.md|\/.+)$/,
-    /^_workspace\/01_plan\/autonomy-risk-matrix\.md$/,
-  ],
-  'ai-solution-architect': [
-    /^_workspace\/02_design\/ai-architecture\.md$/,
-    /^_workspace\/02_design\/cost-latency-budget\.md$/,
-  ],
-  // ai-threat-model은 search-portal 파일럿 실측(22.5KB>20KB)으로 sharded 허용 — 결함 4·5호와 동일 클래스 3번째 재현
-  'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model(?:\.md|\/.+)$/],
   'analytics-domain-architect': [/^_workspace\/02_design\/analytics-architecture\.md$/],
   'api-schema-designer': [/^_workspace\/02_design\/api-schema(?:\.md|\/.+)$/],
   'component-designer': [/^_workspace\/02_design\/component-spec(?:\.md|\/.+)$/],
-  'data-governance-architect': [/^_workspace\/02_design\/data-governance\.md$/],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
@@ -126,7 +108,6 @@ export const AGENT_OWNERSHIP = {
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
-  'tool-contract-designer': [/^_workspace\/02_design\/tool-contracts\.md$/],
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
   'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
   'visual-contract-designer': [

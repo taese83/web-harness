@@ -24,8 +24,8 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 정직하고 기계로 검증된 수치 — 하나라도 드리프트하면 ratchet이 빌드를 실패시킨다.
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
-  경로의 전부다. ~110개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 66,285 bytes <!-- inventory:entry-cost --> 의
+  경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
+- **오케스트레이터 실행당 고정 계약 로드**: 63,653 bytes <!-- inventory:entry-cost --> 의
   always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 9k 토큰,
   토큰 카운트가 아니라 근사치다. skill 파일 자체(~9k 토큰), 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이
@@ -53,8 +53,8 @@ pnpm run ci
 
 green 실행은 다음을 검증한다:
 
-- 31 skills <!-- inventory:skills -->
-- 99 agents <!-- inventory:agents -->
+- 24 skills <!-- inventory:skills -->
+- 46 agents <!-- inventory:agents -->
 - 3개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`·`next-app-fullstack`은
   `compatible`. `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼
   있다 — hybrid 레인의 receipt는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`

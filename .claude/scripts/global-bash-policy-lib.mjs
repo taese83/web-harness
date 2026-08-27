@@ -7,8 +7,6 @@ const SIMPLE_ID = /^[a-z0-9][a-z0-9-]*$/
 const CAPABILITY_ID = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/
 const POSITIVE_INTEGER = /^[1-9]\d{0,5}$/
 
-const AI_STAGES = new Set(['foundation', 'routing', 'services', 'policy', 'eval-contracts', 'all'])
-const TEST_STAGES = new Set(['baseline', ...AI_STAGES])
 const QUALITY_CHECKS = new Set([
   'build', 'typecheck', 'lint', 'test', 'coverage', 'browser', 'audit',
   'quality.lint', 'quality.typecheck', 'quality.unit',
@@ -700,22 +698,6 @@ const designPreviewValidationContract = (args, context) => {
 
 const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/validate-harness.mjs') return args.length === 0
-  if (script === '.claude/scripts/validate-ai-harness.mjs') {
-    return args.length === 0 || exactPair(args, '--stage', AI_STAGES)
-  }
-  if (script === '.claude/scripts/test-ai-harness.mjs') {
-    return args.length === 0 || exactPair(args, '--stage', TEST_STAGES) || exactPair(args, '--through', TEST_STAGES)
-  }
-  if (script === '.claude/scripts/run-ai-evals.mjs') {
-    if (args.length === 1 && (args[0] === '--validate' || args[0] === '--list')) return true
-    if (args.length !== 2) return false
-    if (['--service', '--stage', '--scenario'].includes(args[0])) return SIMPLE_ID.test(args[1])
-    if (args[0] === '--verify-result') {
-      readablePath(args[1], context, 'file')
-      return args[1].toLowerCase().endsWith('.json')
-    }
-    return false
-  }
   if (script === '.claude/scripts/run-quality-gates.mjs') return qualityRunnerContract(args, context)
   if (script === '.claude/scripts/deploy-harness.mjs') return harnessDeploymentContract(args, context)
   if (script === '.claude/scripts/run-package-operation.mjs') return packageOperationContract(args, context)
