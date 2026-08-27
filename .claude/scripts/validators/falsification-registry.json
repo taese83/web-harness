@@ -1,0 +1,54 @@
+{
+  "$comment": "게이트가 실제로 발화하는지 확인하는 반증 등록부. 각 항목은 게이트를 무력화하는 최소 변형과, 그 변형으로 반드시 실패해야 할 테스트를 짝짓는다. 실측(2026-08-26): 검증 호출을 지워도 CI가 exit 0인 경우가 두 번 있었다 — 테스트가 lib을 직접 부르고 배선 지점을 지나가지 않아서다. 게이트를 만들 때 호출부 회귀가 없으면 그 게이트는 언제든 조용히 끊긴다.",
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "field-ownership",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "        if (unowned.length > 0) {",
+      "replace": "        if (false) {",
+      "test": ".claude/scripts/test-field-ownership.mjs",
+      "why": "필드 검사를 끄면 version-file-updater가 scripts를 약화시킬 수 있다"
+    },
+    {
+      "id": "environment-binding-always",
+      "file": ".claude/scripts/receipt-validation-lib.mjs",
+      "find": "    binding?.buildEnvironmentSha256 !== environmentSha256 ||",
+      "replace": "    expectedProfile && binding?.buildEnvironmentSha256 !== environmentSha256 ||",
+      "test": ".claude/scripts/test-resolve-commands.mjs",
+      "why": "조건부 스킵이 되살아나면 프로필 없는 프로젝트의 환경 결속이 미검증이 된다"
+    },
+    {
+      "id": "spec-ledger-tampered",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "  const known = rows.some(row => row.digest === current)",
+      "replace": "  const known = true",
+      "test": ".claude/scripts/test-spec-ledger.mjs",
+      "why": "TAMPERED 판정을 끄면 확정 스팩을 사후에 고쳐 써도 잡히지 않는다"
+    },
+    {
+      "id": "graph-evidence-collision",
+      "file": ".claude/scripts/derive-execution-graph.mjs",
+      "find": "    if (seen.has(name)) return",
+      "replace": "    if (false) return",
+      "test": ".claude/scripts/test-derive-execution-graph.mjs",
+      "why": "evidence 이름 충돌을 허용하면 서로 다른 검사가 합쳐져 하나만 돌아도 release가 통과한다"
+    },
+    {
+      "id": "shape-omission-fail",
+      "file": ".claude/scripts/validate-spec-conformance.mjs",
+      "find": "      failures.push({kind: 'targetShapes', reason: '배포되는 패키지에 bin이 있는데 targetShapes에 cli가 없다 — 소비자에게 명령으로 노출되는데 CLI 검증이 선택되지 않는다'})",
+      "replace": "      notes.push('약화')",
+      "test": ".claude/scripts/test-spec-conformance.mjs",
+      "why": "배포 패키지의 형태 생략을 note로 강등하면 CLI·패키지 검증이 조용히 빠진다"
+    },
+    {
+      "id": "unbuilt-not-failure",
+      "file": ".claude/scripts/validate-shape-checks.mjs",
+      "find": "    if (problems.length === 0 && unbuilt.length > 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-shape-checks.mjs",
+      "why": "미빌드 강등을 끄면 하네스가 못 하는 것을 프로젝트 실패로 보고한다"
+    }
+  ]
+}
