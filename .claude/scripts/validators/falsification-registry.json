@@ -81,6 +81,14 @@
       "replace": "      if (false) files.push(`${SKILL_DIRECTORY}/references/${name}`)",
       "test": ".claude/scripts/test-orchestration-surface.mjs",
       "why": "표면이 SKILL.md 하드코딩으로 되돌아가면 Phase 참조로 옮겨간 계약 검사 8곳이 조용히 눈이 먼다"
+    },
+    {
+      "id": "shape-catalog-key-strictness",
+      "file": ".claude/scripts/validate-shape-checks.mjs",
+      "find": "        if (!ENTRY_KEYS.has(key)) {",
+      "replace": "        if (false) {",
+      "test": ".claude/scripts/test-shape-checks.mjs",
+      "why": "카탈로그 키 엄격성이 꺼지면 gatesRelease·needsArtifact 오타가 기본값으로 퇴화해 게이트가 조용히 약해진다"
     }
   ]
 }

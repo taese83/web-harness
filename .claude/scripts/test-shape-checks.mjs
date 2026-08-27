@@ -13,8 +13,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   checkBinEntrypoint, checkPublicApi, checkPublishMetadata,
-  collectTargets, readShapeChecks, runShapeChecks,
-} from './validate-shape-checks.mjs'
+  collectTargets, readShapeChecks, runShapeChecks, inspectShapeCatalog} from './validate-shape-checks.mjs'
 
 const withPackage = ({manifest, files = {}}, run) => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-shape-'))
@@ -157,4 +156,34 @@ test('회귀 반증: .npmignore 판정이 하네스 cwd에 오염되지 않는�
       rmSync(polluted, {recursive: true, force: true})
     }
   })
+})
+
+// ── 카탈로그 키 엄격성 (2026-08-27) ─────────────────────────────────────────
+// 실행 명세가 어댑터에서 카탈로그로 옮겨오면서 `assertKnownKeys` 보호가 따라오지 않았다.
+// 실측: gatesRelease·needsArtifact·evidenceName 오타가 전부 조용히 통과했다. 오타는 기본값으로
+// 퇴화하므로 게이트가 약해지는 방향이다 — 이동은 검사 삭제의 이유가 아니다.
+test('실제 카탈로그는 키 엄격성을 통과한다', () => {
+  assert.deepEqual(inspectShapeCatalog(), [])
+})
+
+test('알 수 없는 키·잘못된 타입을 잡는다 (오타가 기본값으로 퇴화하지 못하게)', () => {
+  const base = readShapeChecks()
+  const mutate = fn => {
+    const catalog = JSON.parse(JSON.stringify(base))
+    fn(catalog.common.checks.find(check => check.id === 'ingestion.validate'))
+    return inspectShapeCatalog(catalog)
+  }
+  const cases = [
+    ['gateRelease 오타', entry => { delete entry.gatesRelease; entry.gateRelease = false }, '알 수 없는 키'],
+    ['needArtifact 오타', entry => { delete entry.needsArtifact; entry.needArtifact = true }, '알 수 없는 키'],
+    ['evidenceNam 오타', entry => { delete entry.evidenceName; entry.evidenceNam = 'evidence.x' }, '알 수 없는 키'],
+    ['receiptKind 값 오류', entry => { entry.receiptKind = 'buildd' }, 'receiptKind'],
+    ['gatesRelease 타입 오류', entry => { entry.gatesRelease = 'false' }, 'gatesRelease'],
+    ['evidenceName 접두 오류', entry => { entry.evidenceName = 'ingestion' }, 'evidenceName'],
+    ['requires 타입 오류', entry => { entry.requires = 'external-ingestion' }, 'requires'],
+  ]
+  for (const [label, fn, needle] of cases) {
+    const errors = mutate(fn)
+    assert.ok(errors.some(message => message.includes(needle)), `${label}를 잡지 못했다: ${errors.join(' / ')}`)
+  }
 })

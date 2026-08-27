@@ -129,6 +129,57 @@ const STATIC_CHECKS = {
 }
 
 // 선언된 형태가 요구하는 static·implemented 검사만 수행한다.
+// 형태 카탈로그 항목의 **키 엄격성**. 어댑터에는 `assertKnownKeys`가 있었는데 2026-08-27
+// 실행 명세를 카탈로그로 옮기면서 그 보호가 따라오지 않았다 — 실측: `gatesRelease`·
+// `needsArtifact`·`evidenceName` 오타가 전부 조용히 통과했다. 오타는 기본값으로 퇴화하므로
+// 게이트가 약해지는 방향이다(예: `gateRelease`로 잘못 적으면 smoke가 릴리스를 막게 된다).
+const ENTRY_KEYS = new Set([
+  'id', 'kind', 'implemented', '$comment',
+  'receiptKind', 'needsArtifact', 'producesArtifact',
+  'requires', 'gatesRelease', 'evidenceName', 'scriptCandidates',
+])
+const RECEIPT_KINDS = new Set(['build', 'static', 'unit', 'contract', 'browser', 'runtime', 'security', 'artifact'])
+
+export const inspectShapeCatalog = (catalog = readShapeChecks()) => {
+  const errors = []
+  const groups = [['common', catalog.common?.checks], ...Object.entries(catalog.shapes ?? {}).map(([name, def]) => [name, def?.checks])]
+  for (const [group, checks] of groups) {
+    if (!Array.isArray(checks)) {
+      errors.push(`shape-checks: '${group}'에 checks 배열이 없다`)
+      continue
+    }
+    for (const [index, entry] of checks.entries()) {
+      const label = `shape-checks: ${group}.checks[${index}]`
+      for (const key of Object.keys(entry ?? {})) {
+        if (!ENTRY_KEYS.has(key)) {
+          errors.push(`${label}: 알 수 없는 키 '${key}' — 오타는 기본값으로 퇴화해 게이트를 약화시킨다`)
+        }
+      }
+      if (typeof entry?.id !== 'string' || entry.id.trim() === '') errors.push(`${label}: id가 없다`)
+      if (!['static', 'runtime'].includes(entry?.kind)) errors.push(`${label}: kind는 static|runtime이어야 한다`)
+      if (entry?.receiptKind !== undefined && !RECEIPT_KINDS.has(entry.receiptKind)) {
+        errors.push(`${label}: receiptKind가 유효하지 않다: ${entry.receiptKind}`)
+      }
+      if (entry?.gatesRelease !== undefined && typeof entry.gatesRelease !== 'boolean') {
+        errors.push(`${label}: gatesRelease는 boolean이어야 한다`)
+      }
+      if (entry?.needsArtifact !== undefined && typeof entry.needsArtifact !== 'boolean' && typeof entry.needsArtifact !== 'string') {
+        errors.push(`${label}: needsArtifact는 boolean 또는 산출물 이름이어야 한다`)
+      }
+      for (const key of ['requires', 'scriptCandidates']) {
+        if (entry?.[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${label}: ${key}는 배열이어야 한다`)
+      }
+      if (entry?.evidenceName !== undefined && !/^evidence\./.test(entry.evidenceName ?? '')) {
+        errors.push(`${label}: evidenceName은 'evidence.'로 시작해야 한다`)
+      }
+      if (entry?.producesArtifact !== undefined && !/^artifact\./.test(entry.producesArtifact ?? '')) {
+        errors.push(`${label}: producesArtifact는 'artifact.'로 시작해야 한다`)
+      }
+    }
+  }
+  return errors
+}
+
 export const runShapeChecks = ({projectRoot, targetShapes, catalog = readShapeChecks()}) => {
   const root = resolve(projectRoot)
   const manifest = readJsonIfExists(join(root, 'package.json'))
