@@ -45,6 +45,53 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 스팩 원장(append-only)
 ]
 
+// ── 필드 소유권 (2026-08-26) ─────────────────────────────────────────────────
+// 경로 소유권으로는 "이 필드를 소유한다"를 표현할 수 없다. `package.json`은 5종이 소유하는데
+// 각자 다른 필드를 다룬다 — `version-file-updater`가 `scripts`를 고쳐도 경로 훅은 통과시킨다.
+// 그러면 오늘 분리한 "검사를 정의하는 권한"(scripts가 무엇이 검사로 도는지를 정한다)이 샌다.
+//
+// 겹침은 금지가 아니라 **명시**다. 둘이 같은 필드를 정당하게 다룰 수 있고, 그때는 둘 다
+// 적는다 — 아무도 눈치채지 못한 겹침과 합의된 공유는 다르다.
+//
+// 여기 없는 파일은 경로 소유권만 적용된다(기존 동작).
+export const FIELD_OWNERSHIP = {
+  'package.json': {
+    'environment-scaffolder': ['name', 'private', 'type', 'scripts', 'dependencies', 'devDependencies',
+      'packageManager', 'engines', 'workspaces', 'pnpm', 'resolutions', 'overrides', 'lint-staged'],
+    'package-publish-metadata': ['license', 'files', 'publishConfig', 'repository', 'author',
+      'contributors', 'keywords', 'description', 'homepage', 'bugs'],
+    'lib-scaffolder': ['name', 'type', 'exports', 'main', 'module', 'types', 'typesVersions',
+      'sideEffects', 'files', 'scripts', 'devDependencies', 'peerDependencies'],
+    'lib-story-builder': ['devDependencies', 'scripts'],
+    'version-file-updater': ['version'],
+  },
+}
+
+// 변경된 최상위 키를 낸다. 파싱할 수 없으면 null — 호출자가 필드 판정을 건너뛰고 경로
+// 소유권만 적용한다(판정 불가를 차단으로도 통과로도 만들지 않는다).
+export const changedTopLevelKeys = (beforeSource, afterSource) => {
+  let before, after
+  try { after = JSON.parse(afterSource) } catch { return null }
+  if (after === null || typeof after !== 'object' || Array.isArray(after)) return null
+  try { before = beforeSource === null ? {} : JSON.parse(beforeSource) } catch { return null }
+  if (before === null || typeof before !== 'object' || Array.isArray(before)) return null
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+  const changed = []
+  for (const key of keys) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(key)
+  }
+  return changed.sort()
+}
+
+// 필드 소유권 판정. 소유하지 않은 필드를 건드리면 그 목록을 낸다.
+export const unownedFields = (fileName, agentType, changed) => {
+  const table = FIELD_OWNERSHIP[fileName]
+  if (!table) return []
+  const owned = table[agentType]
+  if (!owned) return changed   // 이 파일의 필드 소유가 선언되지 않은 에이전트는 전부 차단
+  return changed.filter(key => !owned.includes(key))
+}
+
 export const AGENT_OWNERSHIP = {
   'planning-facilitator': [
     /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
