@@ -18,7 +18,7 @@ maxTurns: 45
 - `workers/ingestion/**`
 - `apps/{app}/src/shared/ingestion/**`
 
-기존 프로젝트 구조가 다르면 임의의 새 경계를 만들지 말고 `ingestion-contract-designer`와 `package-scaffolder`가 소유 경로를 먼저 확정하게 한다. UI, route, 일반 entity query, deployment workflow는 수정하지 않는다.
+기존 프로젝트 구조가 다르면 임의의 새 경계를 만들지 말고 `ingestion-contract-designer`와 `environment-scaffolder`가 소유 경로를 먼저 확정하게 한다. UI, route, 일반 entity query, deployment workflow는 수정하지 않는다.
 
 ## 작업 원칙
 

@@ -22,7 +22,7 @@ maxTurns: 30
 
 1. `_workspace/02_design/api-schema.md`, feature plan, 실제 구현 파일과 존재하는 `timeseries-architecture.md`를 읽는다.
 2. MSW handler를 재사용하고 테스트 전용 별도 mock API를 만들지 않는다.
-3. 테스트 인프라가 없으면 `test-scaffolder`로 되돌린다.
+3. 테스트 인프라가 없으면 `environment-scaffolder`로 되돌린다.
 4. 테스트 실행과 coverage 판정은 `test-executor`가 담당한다.
 5. production source를 수정하지 않는다. 테스트가 실패할 것으로 보이는 product bug는 owner agent에게 넘긴다.
 6. 수정 허용 범위는 테스트 파일(`*.test.*`, `*.spec.*`, `__tests__/**`, `e2e/**/*.spec.ts`)에 한정한다.

@@ -29,7 +29,7 @@ React 컴포넌트 라이브러리의 Storybook 스토리를 작성한다. `reac
 
 ## Storybook 설정
 
-`tech-stack.md`에서 공식 호환성을 검증한 Storybook dependency들을 exact version으로 package-scaffolder에 반환하고, typed package broker의 lockfile 검토·frozen install이 완료된 뒤 `.storybook/`과 story 파일을 직접 생성한다. `pnpm dlx`나 원격 initializer는 실행하지 않는다.
+`tech-stack.md`에서 공식 호환성을 검증한 Storybook dependency들을 exact version으로 environment-scaffolder에 반환하고, typed package broker의 lockfile 검토·frozen install이 완료된 뒤 `.storybook/`과 story 파일을 직접 생성한다. `pnpm dlx`나 원격 initializer는 실행하지 않는다.
 
 ### `.storybook/main.ts`
 ```ts

@@ -192,8 +192,8 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
 **스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `lib-*` 셋으로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `/next-app`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
 
 1. 패키지/도구/앱 기반 생성 (순서 있음):
-   - `package-scaffolder` — package/workspace metadata
-   - `tooling-scaffolder` — TS/Vite/ESLint/Vitest 설정
+   - `environment-scaffolder` — package/workspace metadata
+   - `environment-scaffolder` — TS/Vite/ESLint/Vitest 설정
    - `shared-foundation-builder` — shared/api/config/store/env/MSW 기반
    - `EXTERNAL_DATA_INGESTION_MODE`이면 `external-data-pipeline-builder` — adapter/normalize/schema/quality/atomic promotion 구현
    - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `/vite-serverless-hybrid`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
@@ -235,7 +235,7 @@ package/config/source 구현이 끝난 현재 project를 대상으로 같은 dep
 
 external ingestion greenfield에서는 web app과 crawler/workflow/runtime contract를 같은 canonical project root에 둔다. parent wrapper의 crawler와 nested web app을 서로 다른 release root로 만든 뒤 한쪽 evidence만으로 완료하지 않는다. 기존 split-root project는 자동 재배치하지 않고 migration decision이 확정될 때까지 `BLOCKED`다.
 
-먼저 `test-scaffolder`와 `test-writer`를 순서대로 실행한다. 로컬 진단에서는 오케스트레이터가 사용자 확인 후 실제 process exit를 기록하는 quality runner를 실행한다:
+먼저 `environment-scaffolder`와 `test-writer`를 순서대로 실행한다. 로컬 진단에서는 오케스트레이터가 사용자 확인 후 실제 process exit를 기록하는 quality runner를 실행한다:
 
 ```bash
 node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution

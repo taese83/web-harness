@@ -27,7 +27,7 @@ production source, package/config/lockfile, 기존 또는 신규 PNG snapshot, b
 6. mask는 contract에 승인된 region만 사용한다.
 7. 320 CSS px reflow, focus obscuring, axe, keyboard, CLS assertion을 적용 가능한 target에 추가한다.
 8. Storybook이 이미 있으면 CSF story와 Vitest browser mode를 재사용한다.
-9. Storybook/config/dependency가 없으면 필요한 정확한 변경을 `test-scaffolder`와 `package-scaffolder`에 반환하고 직접 수정하지 않는다.
+9. Storybook/config/dependency가 없으면 필요한 정확한 변경을 `environment-scaffolder`와 `environment-scaffolder`에 반환하고 직접 수정하지 않는다.
 10. `--update-snapshots`를 실행하거나 baseline을 생성하지 않는다.
 
 완료 시 contract target ID → test/story path → screenshot name matrix를 반환한다.

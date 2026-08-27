@@ -46,6 +46,28 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
 ]
 
 export const AGENT_OWNERSHIP = {
+  'planning-facilitator': [
+    /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
+    /^_workspace\/01_plan\/decision-log(?:\.md|\/.+)$/,
+  ],
+
+  // package-scaffolder·tooling-scaffolder·test-scaffolder를 합쳤다(2026-08-26). 셋이
+  // vitest.config·playwright.config·src/test/를 겹쳐 소유해 경계가 성립하지 않았다.
+  // developer와 분리해 남기는 이유: package.json의 scripts가 무엇이 검사로 도는지를 정한다 —
+  // 검사를 정의하는 것과 검사를 통과해야 하는 것은 분리한다.
+  'environment-scaffolder': [
+    /^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/,
+    /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/,
+    /^(?:(?:[^/]+\/)+)?(?:tsconfig(?:\.[^.]+)?\.json|vite\.config\.ts|vitest(?:\.[^.]+)?\.config\.ts|playwright\.config\.ts)$/,
+    /^(?:(?:[^/]+\/)+)?src\/vite-env\.d\.ts$/,
+    /^(?:eslint\.config\.js|\.prettierrc)$/,
+    /^(?:(?:[^/]+\/)+)?eslint\.config\.js$/,
+    /^\.husky\//,
+    /^(?:(?:[^/]+\/)+)?src\/test\//,
+    /^(?:(?:[^/]+\/)+)?\.storybook\//,
+    /^(?:(?:[^/]+\/)+)?e2e\/(?:fixtures|helpers)(?:\/|\.)/,
+  ],
+
   // developer는 **빈 소유권**이다. 스팩(layerMap)이 있으면 그것이 소유를 공급하고, 없으면
   // 아무것도 쓸 수 없다. FSD 기본 경로를 폴백으로 주면 그 순간 다시 경로 처방이 된다 —
   // 구조 지시 빌더 6종을 걷어낸 이유가 바로 그것이었다(2026-08-26).
@@ -150,11 +172,6 @@ export const AGENT_OWNERSHIP = {
   ],
   'package-publish-metadata': [/^package\.json$/, /^\.npmignore$/],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
-  'package-scaffolder': [/^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/, /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/],
-  'planning-facilitator': [
-    /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
-    /^_workspace\/01_plan\/decision-log(?:\.md|\/.+)$/,
-  ],
   'planning-synthesizer': [/^_workspace\/01_plan\/project-brief\.md$/],
   'publish-ci-writer': [/^\.github\/workflows\/publish\.ya?ml$/],
   'release-manager': [/^_workspace\/RELEASE\//],
@@ -187,12 +204,6 @@ export const AGENT_OWNERSHIP = {
     /^packages\/tool-adapters\//,
   ],
   'tool-contract-designer': [/^_workspace\/02_design\/tool-contracts\.md$/],
-  'test-scaffolder': [
-    appPath('(?:vitest|playwright)\\.config\\.ts$'),
-    appPath('\\.storybook/'),
-    appPath('src/test/'),
-    appPath('e2e/(?:fixtures|helpers)(?:/|\\.)'),
-  ],
   'test-writer': [
     appPath('src/.+\\.(?:test|spec)\\.[jt]sx?$'),
     appPath('src/.+/__tests__/'),
@@ -202,16 +213,6 @@ export const AGENT_OWNERSHIP = {
     // vitest.production.config.ts include가 tests/를 참조하는데 소유자가 없었음(결함 15호).
     // 13호 fix와 동일하게 프리픽스 src/·app/ 배제로 루트 tests/만 매칭(중간 tests/ 세그먼트 배제).
     /^(?:(?!(?:src|app)\/)[^/]+\/)*tests\//,
-  ],
-  'tooling-scaffolder': [
-    // vitest 변형 config(vitest.production.config.ts 등)는 tsconfig와 동일한 가변 그룹 관용구 —
-    // search-portal 파일럿 실측(결함 12호: production-boundary config 소유 공백으로 Write 차단)
-    appPath('(?:tsconfig(?:\\.[^.]+)?\\.json|vite\\.config\\.ts|vitest(?:\\.[^.]+)?\\.config\\.ts|playwright\\.config\\.ts)$'),
-    exactAppFile('src/vite-env\\.d\\.ts'),
-    /^(?:eslint\.config\.js|\.prettierrc)$/,
-    appPath('eslint\\.config\\.js$'),
-    /^\.husky\//,
-    appPath('src/test/'),
   ],
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
   'realtime-data-builder': [

@@ -30,7 +30,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 
 1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 확정되지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
 2. 테스트 기반을 준비한다:
-   - test-scaffolder
+   - environment-scaffolder
    - test-writer
    - `VISUAL_QA_MODE`이면 visual-test-writer. baseline은 갱신하지 않는다.
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.

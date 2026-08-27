@@ -17,7 +17,7 @@ maxTurns: 20
 - 반응형 브레이크포인트별 레이아웃 변화
 - landmark/heading/skip-link/focus-order 계약
 - 404/403/error route와 공개 route metadata/status 요구
-- **cross-cutting UI 슬롯**: 헤더·네비 등 공용 셸에 feature 계층 컴포넌트(로그인 아바타, 알림 등)가 필요하면, shared 셸은 FSD상 feature를 import할 수 없으므로 **주입 슬롯**(예: header `actions`/`action` slot)을 명세하고 그 소유를 app/pages 계층에 둔다. 같은 cross-cutting 클러스터가 **3개 이상 화면**에서 반복되면 화면마다 중복 주입하지 말고 `widgets` 슬라이스를 명세한다(이 경우 tooling-scaffolder의 FSD 경계에 `widgets` 레이어 추가를 요구로 남긴다).
+- **cross-cutting UI 슬롯**: 헤더·네비 등 공용 셸에 feature 계층 컴포넌트(로그인 아바타, 알림 등)가 필요하면, shared 셸은 FSD상 feature를 import할 수 없으므로 **주입 슬롯**(예: header `actions`/`action` slot)을 명세하고 그 소유를 app/pages 계층에 둔다. 같은 cross-cutting 클러스터가 **3개 이상 화면**에서 반복되면 화면마다 중복 주입하지 말고 `widgets` 슬라이스를 명세한다(이 경우 environment-scaffolder의 FSD 경계에 `widgets` 레이어 추가를 요구로 남긴다).
 
 ## 디자인 원칙 입력 (필수)
 

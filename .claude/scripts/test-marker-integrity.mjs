@@ -120,7 +120,7 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
     validateMarkerIntegrity({repositoryRoot: root, pass: () => {}, fail: message => failures.push(message)})
     assert.equal(failures.length, 1)
     assert.match(failures[0], /consumer-read-protocol/)
-    assert.match(failures[0], /1 < baseline 22/)
+    assert.match(failures[0], /1 < baseline 20/)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

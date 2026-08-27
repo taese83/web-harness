@@ -71,7 +71,7 @@ maxTurns: 20
 - 취약점 severity별 기본 판정: `critical`/`high` → FAIL, `moderate` → WARN, `low` → 기록만. 예외 승인(false positive, 미사용 경로)은 사용자 결정으로만 가능하며 근거를 finding에 남긴다.
 - lockfile에 registry 외 source(git+, file:, link:)가 있으면 FAIL — `run-package-operation.mjs`가 차단하는 계약과 동일 기준.
 - 신규/변경된 dependency의 라이선스가 프로젝트 배포 방식과 충돌할 수 있으면(GPL 계열 등) `NEEDS_REVIEW`로 표시한다 — 법적 판정을 단정하지 않는다.
-- 자동 수정(`pnpm audit --fix`, 버전 bump)을 실행하거나 제안 diff를 직접 적용하지 않는다 — owner는 `package-scaffolder`(typed broker 경유)다.
+- 자동 수정(`pnpm audit --fix`, 버전 bump)을 실행하거나 제안 diff를 직접 적용하지 않는다 — owner는 `environment-scaffolder`(typed broker 경유)다.
 
 ## 출력 계약
 

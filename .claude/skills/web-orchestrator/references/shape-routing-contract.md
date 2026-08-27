@@ -31,7 +31,7 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 병렬로 `lib-story-builder`를 돌린다. 스토리는 구현과 같은 공개 API를 소비하므로 순서가 아니라
 병렬이다.
 
-**공통(형태 무관)**: `package-scaffolder` · `tooling-scaffolder`는 항상 먼저 돈다.
+**공통(형태 무관)**: `environment-scaffolder` · `environment-scaffolder`는 항상 먼저 돈다.
 `code-reviewer` · `security-reviewer` · `test-executor`는 항상 돈다.
 
 ## 3. 합집합 — 형태가 여럿이면 세트를 합친다

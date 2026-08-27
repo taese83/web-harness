@@ -1,6 +1,6 @@
 # Performance Patterns
 
-`tooling-scaffolder`, `developer`, `developer`가 이 패턴을 적용한다.
+`environment-scaffolder`, `developer`, `developer`가 이 패턴을 적용한다.
 Read this file before configuring Vite build options or writing any lazy-loaded component.
 
 Grafana-like dashboard, realtime metric, high-volume chart 요구가 있으면 `.claude/skills/timeseries-dashboard/references/chart-performance.md`와 `streaming-contract.md`를 추가로 적용한다. 일반 list 가상화 규칙을 chart point 처리에 그대로 적용하지 않는다.
@@ -44,7 +44,7 @@ export const ReportButton = () => {
 
 **적용 기준**: 초기 경로에 필요 없고 실제로 큰 차트, 리치 텍스트 에디터, 지도, 관리 전용 화면. 고정 크기 임계값보다 route 전환 latency와 전송/파싱 비용을 기준으로 판단한다.
 
-### Vite chunk 전략 (tooling-scaffolder 책임)
+### Vite chunk 전략 (environment-scaffolder 책임)
 
 Vite 기본 code splitting을 출발점으로 사용한다. `manualChunks`는 실제 중복, cache churn, oversized async chunk가 bundle 분석에서 확인된 경우에만 추가한다. 라이브러리 이름 기반의 고정 vendor chunk는 초기 요청 waterfall과 거대한 공유 chunk를 만들 수 있으므로 기본 템플릿에 넣지 않는다. `chunkSizeWarningLimit`를 올려 경고를 숨기지 않는다.
 

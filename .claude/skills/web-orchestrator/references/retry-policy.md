@@ -6,19 +6,19 @@ Use this reference before retrying after Phase 4 QA.
 
 | Failing report | Common signal | Retry agent |
 |---|---|---|
-| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `tooling-scaffolder`, `shared-foundation-builder`, `developer`, `developer`, `developer`, or `developer` |
+| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `environment-scaffolder`, `shared-foundation-builder`, `developer`, `developer`, `developer`, or `developer` |
 | `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer`, `component-designer`, `developer`, `developer`, or `developer` |
-| `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `package-scaffolder`, `tooling-scaffolder`, `shared-foundation-builder`, `developer`, `mock-api-builder`, or `developer` |
+| `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `environment-scaffolder`, `environment-scaffolder`, `shared-foundation-builder`, `developer`, `mock-api-builder`, or `developer` |
 | `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `shared-foundation-builder`, `developer`, `deploy-ci-writer`, `publish-ci-writer`, or `/auth-setup` owner |
 | `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `timeseries-architect`, `api-schema-designer`, `shared-foundation-builder`, `developer`, `realtime-data-builder`, `developer`, or `mock-api-builder` |
 | `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer`, `client-domain-state-builder`, `developer`, or `test-writer` |
-| `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer`, `external-data-pipeline-builder`, `package-scaffolder`, `deploy-ci-writer`, or `test-writer` |
-| `qa-test.md` | test failures (not WARN) | `test-scaffolder`, `test-writer`, `developer`, `developer`, `mock-api-builder`, or `developer` |
-| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `realtime-data-builder`, `developer`, `developer`, `developer`, `developer`, `test-scaffolder`, or `test-writer` |
-| `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer`, `visual-test-writer`, `visual-baseline-manager`, `test-scaffolder`, `developer`, or `developer` |
+| `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer`, `external-data-pipeline-builder`, `environment-scaffolder`, `deploy-ci-writer`, or `test-writer` |
+| `qa-test.md` | test failures (not WARN) | `environment-scaffolder`, `test-writer`, `developer`, `developer`, `mock-api-builder`, or `developer` |
+| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `realtime-data-builder`, `developer`, `developer`, `developer`, `developer`, `environment-scaffolder`, or `test-writer` |
+| `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer`, `visual-test-writer`, `visual-baseline-manager`, `environment-scaffolder`, `developer`, or `developer` |
 | `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect`, `realtime-data-builder`, `mock-api-builder`, `developer`, `developer`, or `test-writer` |
 | `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `seo-meta-builder`, `developer`, `developer`, or `next-runtime-builder` |
-| `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer`, `tooling-scaffolder`, `developer`, `developer`, or `developer` |
+| `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer`, `environment-scaffolder`, `developer`, `developer`, or `developer` |
 
 ## Retry Rules
 
@@ -27,7 +27,7 @@ Use this reference before retrying after Phase 4 QA.
 - Retry only the smallest agent set that owns the failure.
 - Preserve the existing `_workspace` specs unless the failure is caused by a contradiction in the spec.
 - After any source/design/test/config/workflow retry, rerun the approved `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution` (or the isolated-CI equivalent) because every prior command receipt is stale. Then regenerate the failed report and any report whose result changed; do not rerun unrelated analysis merely for ceremony.
-- If a test failure is caused by missing test infrastructure, route to `test-scaffolder`; if caused by missing/weak tests, route to `test-writer`; if caused by product logic, route to the owning implementation agent.
+- If a test failure is caused by missing test infrastructure, route to `environment-scaffolder`; if caused by missing/weak tests, route to `test-writer`; if caused by product logic, route to the owning implementation agent.
 - Escalate to `release-manager` again only when all QA reports pass.
 - **진전 조건 (retry는 조건 기반이다).** retry 전에 직전 실패 finding 목록을 기록하고, retry 후 finding 집합을 비교한다:
   - 집합이 **줄었으면** 진전이다 — cap 안에서 계속할 수 있다.
