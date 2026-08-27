@@ -19,11 +19,12 @@ const owns = (patterns, path) => patterns.some(pattern => pattern.test(path))
 // ── (1) 비-FSD 어휘가 열린다 ─────────────────────────────────────────────────
 test('layerMap이 소유권 경로를 공급한다 — FSD가 아닌 어휘도 열린다', () => {
   // 실측된 브라운필드 형태: entities/features/widgets가 아니라 stores/components/hooks
-  const lock = {layerMap: {domainModel: 'src/stores', clientState: 'src/state', featureUI: 'src/components'}}
-  const patterns = resolveSpecOwnership(lock, 'client-domain-state-builder')
+  // 실측된 브라운필드 형태: FSD 어휘가 아니다
+  const lock = {layerMap: {unitTests: 'src/tests', i18n: 'src/locale'}}
+  const patterns = resolveSpecOwnership(lock, 'test-writer')
   assert.ok(patterns, '역할 매핑이 있으면 스팩에서 패턴이 나와야 한다')
-  assert.ok(owns(patterns, 'src/stores/editor.ts'), '기존 등록부라면 소유자 없음으로 막혔을 경로')
-  assert.equal(owns(patterns, 'src/entities/item/model.ts'), false, 'FSD 기본 경로는 이 스팩의 소유가 아니다')
+  assert.ok(owns(patterns, 'src/tests/widgetAction.spec.ts'), '기존 등록부라면 막혔을 경로')
+  assert.equal(owns(patterns, 'src/__tests__/a.spec.ts'), false, 'FSD 기본 경로는 이 스팩의 소유가 아니다')
 })
 
 test('모노레포 접두를 포섭한다', () => {
@@ -32,13 +33,14 @@ test('모노레포 접두를 포섭한다', () => {
   assert.ok(owns(patterns, 'packages/widget-builder/src/tests/a.spec.ts'))
 })
 
-test('여러 역할이 매핑된 에이전트는 선언된 레이어만 갖는다', () => {
-  const lock = {layerMap: {domainModel: 'src/stores', clientState: 'src/state'}}
-  const patterns = resolveSpecOwnership(lock, 'client-domain-state-builder')
-  assert.ok(owns(patterns, 'src/stores/editor.ts'))
-  assert.ok(owns(patterns, 'src/state/session.ts'))
-  // 선언되지 않은 레이어는 열리지 않는다
-  assert.equal(owns(patterns, 'src/widgets/Panel.tsx'), false)
+test('선언되지 않은 레이어는 열리지 않는다', () => {
+  // 2026-08-26: 여러 역할이 매핑된 에이전트가 전부 제거돼(조건부 구현 빌더 6종) 남은 셋은
+  // 모두 단일 역할이다. 검증 내용은 같다 — 선언된 레이어만 갖는다.
+  const lock = {layerMap: {unitTests: 'src/tests'}}
+  const patterns = resolveSpecOwnership(lock, 'test-writer')
+  assert.ok(owns(patterns, 'src/tests/a.spec.ts'))
+  assert.equal(owns(patterns, 'src/locale/ko.json'), false, 'i18n 레이어는 test-writer 소유가 아니다')
+  assert.equal(resolveSpecOwnership(lock, 'i18n-builder'), null, '선언되지 않은 레이어는 null이다')
 })
 
 // ── (2) fail-closed ──────────────────────────────────────────────────────────

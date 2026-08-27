@@ -11,7 +11,7 @@
 - 정렬, 이동, 다중 선택, undo, 참조 관계처럼 둘 이상의 상태 불변식이 있다.
 - 필터·검색·가상화된 view에서 원본 데이터를 변경한다.
 
-단순 theme, language, density처럼 독립적인 소량 환경설정만 저장하면 이 모드를 켜지 않고 `form-state-builder`의 설정 persistence 계약을 사용한다.
+단순 theme, language, density처럼 독립적인 소량 환경설정만 저장하면 이 모드를 켜지 않고 `developer`의 설정 persistence 계약을 사용한다.
 
 ## Required Design Artifact
 

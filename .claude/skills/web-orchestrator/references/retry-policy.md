@@ -10,14 +10,14 @@ Use this reference before retrying after Phase 4 QA.
 | `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer`, `component-designer`, `developer`, `developer`, or `developer` |
 | `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `environment-scaffolder`, `environment-scaffolder`, `shared-foundation-builder`, `developer`, `mock-api-builder`, or `developer` |
 | `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `shared-foundation-builder`, `developer`, `deploy-ci-writer`, `publish-ci-writer`, or `/auth-setup` owner |
-| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `timeseries-architect`, `api-schema-designer`, `shared-foundation-builder`, `developer`, `realtime-data-builder`, `developer`, or `mock-api-builder` |
-| `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer`, `client-domain-state-builder`, `developer`, or `test-writer` |
+| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `timeseries-architect`, `api-schema-designer`, `shared-foundation-builder`, `developer`, `developer`, `developer`, or `mock-api-builder` |
+| `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer`, `developer`, `developer`, or `test-writer` |
 | `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer`, `external-data-pipeline-builder`, `environment-scaffolder`, `deploy-ci-writer`, or `test-writer` |
 | `qa-test.md` | test failures (not WARN) | `environment-scaffolder`, `test-writer`, `developer`, `developer`, `mock-api-builder`, or `developer` |
-| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `realtime-data-builder`, `developer`, `developer`, `developer`, `developer`, `environment-scaffolder`, or `test-writer` |
+| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect`, `developer`, `developer`, `developer`, `developer`, `developer`, `environment-scaffolder`, or `test-writer` |
 | `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer`, `visual-test-writer`, `visual-baseline-manager`, `environment-scaffolder`, `developer`, or `developer` |
-| `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect`, `realtime-data-builder`, `mock-api-builder`, `developer`, `developer`, or `test-writer` |
-| `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `seo-meta-builder`, `developer`, `developer`, or `next-runtime-builder` |
+| `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect`, `developer`, `mock-api-builder`, `developer`, `developer`, or `test-writer` |
+| `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `seo-meta-builder`, `developer`, `developer`, or `developer` |
 | `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer`, `environment-scaffolder`, `developer`, `developer`, or `developer` |
 
 ## Retry Rules

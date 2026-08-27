@@ -8,7 +8,6 @@ export const validateAnalyticsBuilder = ({repositoryRoot, read, pass, fail}) => 
     '.claude/skills/analytics-chart-builder/references/chart-compatibility.md',
     '.claude/skills/analytics-chart-builder/references/dashboard-editor-contract.md',
     '.claude/agents/analytics-domain-architect.md',
-    '.claude/agents/analytics-implementation-builder.md',
     '.claude/agents/analytics-verifier.md',
   ]
   for (const path of required) if (!existsSync(join(repositoryRoot, path))) fail(`${path}: analytics builder contract is missing`)
@@ -17,7 +16,7 @@ export const validateAnalyticsBuilder = ({repositoryRoot, read, pass, fail}) => 
   for (const marker of [
     'ANALYTICS_BUILDER_MODE',
     'analytics-domain-architect',
-    'analytics-implementation-builder',
+    'developer',
     'analytics-verifier',
     'qa-analytics.md',
   ]) if (!orchestration.includes(marker)) fail(`web-orchestrator analytics flow is missing ${marker}`)

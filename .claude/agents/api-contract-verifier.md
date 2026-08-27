@@ -33,7 +33,7 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 4. mock에서만 성공하고 실제 API에서 실패할 수 있는 차이를 우선순위 높게 보고한다.
 5. owner는 `api-schema-designer`, `developer`, `developer`, `mock-api-builder`, `shared-foundation-builder` 중 하나로 지정한다.
 6. timeseries architecture가 있으면 Mock/real transport adapter와 buffer가 architecture의 ordering/gap/budget 계약을 지키는지 확인한다.
-7. stream 관련 owner로 `timeseries-architect`, `realtime-data-builder`를 사용할 수 있다.
+7. stream 관련 owner로 `timeseries-architect`, `developer`를 사용할 수 있다.
 8. browser storage는 TypeScript interface만으로 신뢰하지 않고 runtime schema와 실제 rehydrate 경로를 교차 검증한다.
 9. static snapshot도 외부 contract로 취급한다. API spec과 artifact schema가 중복 정의되거나 현재 runtime mode와 다른 producer를 사실상의 source로 사용하면 `FAIL`이다.
 10. external ingestion mismatch owner로 `ingestion-contract-designer`와 `external-data-pipeline-builder`를 사용할 수 있다.

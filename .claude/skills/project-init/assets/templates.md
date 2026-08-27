@@ -637,7 +637,7 @@ export default App
 ```
 
 > 사설 UI 패키지(예: `@your-scope/data-ui`)를 쓰는 경우 `ThemeProvider`, `CssBaseline`, `LocalizationProvider`를 추가한다.
-> 다크 모드가 요구되면 `form-state-builder`가 settings slice를 먼저 만든 뒤 `useMediaQuery`와 명시적 theme store를 연결한다. 존재하지 않는 settings feature를 기본 템플릿에서 import하지 않는다.
+> 다크 모드가 요구되면 `developer`가 settings slice를 먼저 만든 뒤 `useMediaQuery`와 명시적 theme store를 연결한다. 존재하지 않는 settings feature를 기본 템플릿에서 import하지 않는다.
 
 ---
 
@@ -932,7 +932,7 @@ export default App
 
 > ThemeProvider가 없다 — 테마는 `style.css`의 `@theme`(CSS 변수)가 전담한다. 다크 모드가
 > 요구되면 `data-theme` 속성 토글 + `@theme`의 다크 변수 재정의로 구현한다(settings slice는
-> form-state-builder가 먼저 만든 뒤 연결 — MUI 레인과 동일 규칙).
+> developer가 먼저 만든 뒤 연결 — MUI 레인과 동일 규칙).
 
 ---
 

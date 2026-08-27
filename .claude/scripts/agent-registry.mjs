@@ -140,24 +140,15 @@ export const AGENT_OWNERSHIP = {
   // ai-threat-model은 search-portal 파일럿 실측(22.5KB>20KB)으로 sharded 허용 — 결함 4·5호와 동일 클래스 3번째 재현
   'ai-threat-modeler': [/^_workspace\/02_design\/ai-threat-model(?:\.md|\/.+)$/],
   'analytics-domain-architect': [/^_workspace\/02_design\/analytics-architecture\.md$/],
-  'analytics-implementation-builder': [
-    appPath('src/entities/analytics/'),
-    appPath('src/features/(?:chart-builder|dashboard-editor)/'),
-    appPath('src/widgets/(?:chart-panel|dashboard-grid)/'),
-  ],
   'api-schema-designer': [/^_workspace\/02_design\/api-schema(?:\.md|\/.+)$/],
   'changelog-writer': [/^_workspace\/RELEASE\/changelog-draft\.md$/, /^CHANGELOG\.md$/, /^\.changeset\/[^/]+\.md$/],
   'changeset-setup': [/^\.changeset\/config\.json$/],
   'component-designer': [/^_workspace\/02_design\/component-spec(?:\.md|\/.+)$/],
-  'client-domain-state-builder': [
-    appPath('src/entities/[^/]+/model/(?:store|schema|selectors|invariants)\\.ts$'),
-    appPath('src/entities/[^/]+/index\\.ts$'),
-  ],
   'data-governance-architect': [/^_workspace\/02_design\/data-governance\.md$/],
   'db-migration-writer': [
     appPath('migrations/'),
-    appPath('scripts/migrate\\.(?:ts|mjs)$'),
-    exactAppFile('docs/DB\\.md'),
+    appPath('scripts/migrate\.(?:ts|mjs)$'),
+    exactAppFile('docs/DB\.md'),
     /^_workspace\/03_dev\/db-changelog\.md$/,
   ],
   'external-data-pipeline-builder': [
@@ -170,13 +161,12 @@ export const AGENT_OWNERSHIP = {
     /^\.github\/workflows\/deploy[^/]*\.ya?ml$/,
     /^\.github\/(?:renovate\.json|dependabot\.yml)$/,
     exactAppFile('Dockerfile'),
-    exactAppFile('nginx\\.conf'),
+    exactAppFile('nginx\.conf'),
     appPath('deploy/'),
   ],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
-  'form-state-builder': [appPath('src/features/(?!live-mode/)[^/]+/model/'), appPath('src/shared/modal/')],
   'human-approval-builder': [
     /^packages\/approval-policy\//,
     appPath('src/features/ai-approval/'),
@@ -195,27 +185,21 @@ export const AGENT_OWNERSHIP = {
   ],
   'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/],
   'lib-api-designer': [/^_workspace\/02_design\/api-design\.md$/],
-  'lib-core-builder': [/^src\/(?:core|utils|types|__tests__)\//, /^src\/index\.ts$/],
   'lib-docs-generator': [/^(?:README|CHANGELOG|CONTRIBUTING)\.md$/, /^docs\//],
   'lib-scaffolder': [/^package\.json$/, /^(?:tsup|vitest)\.config\.ts$/, /^tsconfig(?:\.build)?\.json$/, /^src\/index\.ts$/],
   'lib-story-builder': [/^package\.json$/, /^\.storybook\//, /^src\/.+\.stories\.[jt]sx?$/],
-  'mock-api-builder': [appPath('src/mocks/'), exactAppFile('src/main\\.tsx'), exactAppFile('public/mockServiceWorker\\.js')],
+  'mock-api-builder': [appPath('src/mocks/'), exactAppFile('src/main\.tsx'), exactAppFile('public/mockServiceWorker\.js')],
   'model-gateway-builder': [/^packages\/model-gateway\//],
   'next-app-scaffolder': [
-    appPath('next\\.config\\.(?:js|mjs|ts)$'),
-    exactAppFile('next-env\\.d\\.ts'),
-    appPath('tsconfig(?:\\.[^.]+)?\\.json$'),
-    appPath('eslint\\.config\\.(?:js|mjs|ts)$'),
-    appPath('postcss\\.config\\.(?:js|mjs|cjs|ts)$'),
+    appPath('next\.config\.(?:js|mjs|ts)$'),
+    exactAppFile('next-env\.d\.ts'),
+    appPath('tsconfig(?:\.[^.]+)?\.json$'),
+    appPath('eslint\.config\.(?:js|mjs|ts)$'),
+    appPath('postcss\.config\.(?:js|mjs|cjs|ts)$'),
   ],
   'next-contract-designer': [
     /^_workspace\/02_design\/next-contract-matrices\.md$/,
     /^_workspace\/02_design\/build-environment\.json$/,
-  ],
-  'next-runtime-builder': [
-    appPath('(?:src/)?app/'),
-    appPath('(?:src/)?components/'),
-    appPath('(?:src/)?lib/'),
   ],
   'package-publish-metadata': [/^package\.json$/, /^\.npmignore$/],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
@@ -225,9 +209,9 @@ export const AGENT_OWNERSHIP = {
   'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
   'shared-foundation-builder': [
     appPath('src/shared/(?!realtime/)'),
-    appPath('src/mocks/(?:handlers/index\\.ts|browser\\.ts|server\\.ts)$'),
-    appPath('\\.env(?:\\.[^.]+)?$'),
-    exactAppFile('\\.gitignore'),
+    appPath('src/mocks/(?:handlers/index\.ts|browser\.ts|server\.ts)$'),
+    appPath('\.env(?:\.[^.]+)?$'),
+    exactAppFile('\.gitignore'),
     // vite-serverless-hybrid의 루트 api/(핸들러+_lib 가드)는 서버측 shared 런타임 기반이다 —
     // search-portal 파일럿 실측: hybrid greenfield에서 api/ 소유자가 레지스트리에 없었음(결함 13호).
     // appPath('api/')는 미앵커라 src/features/*/api/(feature-mutation-builder)·(?:src/)?app/api/
@@ -237,8 +221,8 @@ export const AGENT_OWNERSHIP = {
   ],
   'seo-meta-builder': [
     /^_workspace\/02_design\/seo-spec(?:\.md|\/.+)$/,
-    appPath('public/robots\\.txt$'),
-    appPath('public/sitemap[^/]*\\.xml$'),
+    appPath('public/robots\.txt$'),
+    appPath('public/sitemap[^/]*\.xml$'),
     appPath('src/shared/seo/'),
   ],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
@@ -252,9 +236,9 @@ export const AGENT_OWNERSHIP = {
   ],
   'tool-contract-designer': [/^_workspace\/02_design\/tool-contracts\.md$/],
   'test-writer': [
-    appPath('src/.+\\.(?:test|spec)\\.[jt]sx?$'),
+    appPath('src/.+\.(?:test|spec)\.[jt]sx?$'),
     appPath('src/.+/__tests__/'),
-    appPath('e2e/.+\\.spec\\.ts$'),
+    appPath('e2e/.+\.spec\.ts$'),
     // 프로젝트 루트 tests/(서버 핸들러 unit·가드·production-boundary 스위트)는 test-writer
     // 소유다 — search-portal 파일럿 실측: package 스크립트(test:api 등)와
     // vitest.production.config.ts include가 tests/를 참조하는데 소유자가 없었음(결함 15호).
@@ -262,11 +246,6 @@ export const AGENT_OWNERSHIP = {
     /^(?:(?!(?:src|app)\/)[^/]+\/)*tests\//,
   ],
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
-  'realtime-data-builder': [
-    appPath('src/shared/realtime/'),
-    appPath('src/features/live-mode/(?:api|model)/'),
-    exactAppFile('src/features/live-mode/index\\.ts'),
-  ],
   'vercel-config-writer': [
     /^vercel\.json$/,
     /^apps\/[a-z0-9][a-z0-9_-]*\/vercel\.json$/,
@@ -282,8 +261,8 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/02_design\/visual-qa-contract\.json$/,
   ],
   'visual-test-writer': [
-    appPath('e2e/.+\\.visual\\.spec\\.ts$'),
-    appPath('src/.+\\.visual\\.stories\\.tsx$'),
+    appPath('e2e/.+\.visual\.spec\.ts$'),
+    appPath('src/.+\.visual\.stories\.tsx$'),
   ],
 }
 
@@ -320,8 +299,6 @@ const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
 
 // 역할 → 논리 레이어. 레이어 이름은 layerMap의 키와 맞춘다.
 export const AGENT_LAYER_ROLES = {
-  'client-domain-state-builder': ['domainModel', 'clientState'],
-  'form-state-builder': ['featureLogic'],
   'test-writer': ['unitTests'],
   'i18n-builder': ['i18n'],
   'seo-meta-builder': ['seo'],

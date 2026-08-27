@@ -43,7 +43,7 @@ maxTurns: 30
 6. **보안 경고**: `src/shared/api/api.ts` 생성 시 인라인 주석으로 보안 주의사항을 명시한다:
    - `Authorization` 헤더에 토큰을 직접 하드코딩하지 말 것
    - `withCredentials`는 CORS 허용된 도메인에서만 사용할 것
-7. `src/shared/realtime/**`는 `realtime-data-builder` 소유이므로 timeseries mode에서도 생성하지 않는다.
+7. `src/shared/realtime/**`는 `developer` 소유이므로 timeseries mode에서도 생성하지 않는다.
 8. TIMESERIES_MODE이면 `timeseries-architecture.md`의 wire timestamp 단위와 허용 범위를 읽고 `streaming-contract.md`의 `unixMsSchema`/`timestampInputSchema`를 `src/shared/lib/timeseries/timestamp.ts`에 생성한다. invalid date, `NaN`, `Infinity`, 범위 밖 timestamp를 거부한다.
 9. browser persistence가 있으면 `createBoundedLocalStorage` 같은 adapter를 제공한다. byte 상한, quota/security 예외, remove/reset을 처리하되 JSON schema와 domain migration은 owner agent가 담당한다.
 

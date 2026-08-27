@@ -213,8 +213,8 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
      (`src/pages/**` 3중 겹침, 비-FSD 어휘 무소유) 공급한 것은 격리가 아니라 FSD 경로 처방이었다.
 4. **여전히 별도인 것** — 소유 영역이나 실행 조건이 구별되는 것만 남긴다:
    - `mock-api-builder`. `TIMESERIES_MODE`에서는 realtime interface 완료 후로 미룬다 <!-- marker:timeseries-realtime-build-order -->
-   - `realtime-data-builder`(`TIMESERIES_MODE`) · `analytics-implementation-builder`(`ANALYTICS_BUILDER_MODE`)
-   - `form-state-builder`(폼) · `client-domain-state-builder`(`LOCAL_DOMAIN_STATE_MODE`)
+   - `developer`(`TIMESERIES_MODE`) · `developer`(`ANALYTICS_BUILDER_MODE`)
+   - `developer`(폼) · `developer`(`LOCAL_DOMAIN_STATE_MODE`)
    - `seo-meta-builder` — 공개 노출 요구일 때
 5. browser Mock 사용 시 `public/mockServiceWorker.js`를 확인한다. dependency install이 승인·완료됐는데 파일이 없으면 실제 외부 격리가 적용된 setup job에서만 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-package-operation.mjs --project {project-root} --operation msw-init`을 실행한다. 사용자 승인만 있는 host 실행은 `BLOCKED`다
 각 1·3·4단계 뒤 `development-gates-contract.md`의 Gate A·B·C를 실행하고 `FAIL|BLOCKED`면 다음 단계로 진행하지 않는다. 중간 receipt는 이후 source 변경 시 stale이며 Phase 4 release evidence를 대신하지 않는다. 이와 별개로 각 builder 스폰 직후 `execution-budget-contract.md`의 **스폰 완결성 게이트**(완결성 마커·`verify-spawn-completion.mjs`·runaway 임계)를 통과시킨다 — 실패면 re-spawn 또는 `NEEDS_DECISION`, 불완전 산출물 위에 다음 단계를 쌓지 않는다(품질 Gate A/B/C와 보완).

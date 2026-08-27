@@ -32,5 +32,5 @@ metadata:
 - 형태별 빌더·검증 선택: `web-orchestrator/references/shape-routing-contract.md`
 - 기존 source 수정 규율: `web-orchestrator/references/minimal-change-contract.md`가 canonical이며
   형태와 무관하게 적용된다
-- 라이브러리 에이전트(`lib-scaffolder`·`lib-core-builder`·`lib-docs-generator`·`lib-story-builder`·
+- 라이브러리 에이전트(`lib-scaffolder`·`developer`·`lib-docs-generator`·`lib-story-builder`·
   `lib-api-designer`·`pack-verifier`)는 그대로 있고 소유권 등록도 유지된다 — 호출자만 바뀐다

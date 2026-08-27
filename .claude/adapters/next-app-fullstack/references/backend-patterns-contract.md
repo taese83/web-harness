@@ -1,6 +1,6 @@
 # Next Backend Patterns Contract
 
-Route Handler·Server Action의 실전 백엔드 패턴 계약이다. `app-router-boundary-contract.md`(경계)와 `rendering-deployment-contract.md`(렌더링)가 "어디서"를 정하면, 이 문서는 "어떻게"를 정한다. `next-runtime-builder`가 구현 전에 읽고, 위반은 `next-contract-verifier`의 검토 대상이다.
+Route Handler·Server Action의 실전 백엔드 패턴 계약이다. `app-router-boundary-contract.md`(경계)와 `rendering-deployment-contract.md`(렌더링)가 "어디서"를 정하면, 이 문서는 "어떻게"를 정한다. `developer`가 구현 전에 읽고, 위반은 `next-contract-verifier`의 검토 대상이다.
 
 ## 1. 엔드포인트 공통 가드 (vite-serverless-hybrid §7의 Next 이식)
 
@@ -65,7 +65,7 @@ serverless 함수는 응답 반환 후 실행을 보장하지 않는다:
 - 외부 API 호출은 대상·소요시간·결과를 로그에 남긴다 (비용·장애 진단의 최소 단위).
 - 에러 추적 도구가 활성(`OBSERVABILITY_MODE`)이면 서버 예외도 같은 프로젝트로 보고하되 위 redaction 규칙을 통과한 뒤 보낸다.
 
-## 완료 조건 (next-runtime-builder·verifier 공용)
+## 완료 조건 (developer·verifier 공용)
 
 - endpoint × 5종 가드 매트릭스에 공백 없음 (§1)
 - 다중 테이블 mutation이 트랜잭션 경계 없이 흩어진 곳 없음 (§2)

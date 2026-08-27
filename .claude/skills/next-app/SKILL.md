@@ -77,7 +77,7 @@ environment matrix의 public build 변수 이름만 다음 machine contract에�
 1. 기존 `environment-scaffolder`에게 resolved profile, version lock, execution plan, deployment matrix를 전달한다. package metadata와 scripts만 맡긴다. install은 기존 승인 정책을 따른다.
    - package metadata가 완성되면 같은 deployment/capabilities로 profile resolver를 다시 실행하고 canonical `web-execution-plan.json`을 다시 컴파일한다. 초기 scaffold profile digest를 quality 단계에 재사용하지 않는다.
 2. `next-app-scaffolder`에게 config/tooling 기반만 맡긴다. Vite 전용 `environment-scaffolder`를 Next 경로에 호출하지 않는다.
-3. `next-runtime-builder`에게 App Router source를 맡긴다. Server Component를 기본으로 하고 client boundary, handler/action authorization, private env, cache 계약을 지킨다.
+3. `developer`에게 App Router source를 맡긴다. Server Component를 기본으로 하고 client boundary, handler/action authorization, private env, cache 계약을 지킨다.
 4. locked capability에 `external-ingestion`이 있으면 `external-data-pipeline-builder`에게 두 ingestion 계약을 전달하고 runtime schema, quality validation, atomic promotion과 last-known-good만 맡긴다. Next route/runtime가 crawler output shape를 추론하게 하지 않는다.
 5. 기존 `environment-scaffolder`, `test-writer`에게 six matrices와 Next adapter 계약을 함께 전달한다. external ingestion이면 deterministic empty/drift/partial/count-drop/LKG fixture도 전달한다. production source를 테스트에 맞춰 수정하게 하지 않는다.
 6. 배포 산출물이 요구되면 기존 `deploy-ci-writer`에게 deployment matrix와 immutable artifact/rollback 계약을 전달한다. `scheduled-static-ingestion`이면 별도로 `ingestion-ci-writer`, provider가 Vercel이면 `vercel-config-writer`를 호출한다.

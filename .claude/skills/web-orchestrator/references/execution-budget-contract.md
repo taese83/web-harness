@@ -108,7 +108,7 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
 **빈도는 telemetry 원본 기준으로 정정한다(2026-08-12).** 이전 서술은 "빌더 6+회 중 5회
 폭주"였으나 이는 사후 서사이고, per-spawn으로 기록된 `execution-telemetry.json`은 다르게
 말한다 — seminar-booking 전 과정 **22스폰 중 미완 3건**(P2 layout-designer 126.7k truncated,
-P2 api-schema-designer 129.5k truncated, P3 client-domain-state-builder 168.0k incomplete),
+P2 api-schema-designer 129.5k truncated, P3 developer 168.0k incomplete),
 **미완이 소비한 토큰은 424k = 전체의 15%**, 셋 다 재스폰으로 복구됐다. 즉 **1회당 비용은
 크지만(130~170k) 상례가 아니라 예외**다. 기능 단위에선 드러나지 않고 서비스 규모에서만
 나타난다는 점은 그대로다.
@@ -166,7 +166,7 @@ P2 api-schema-designer 129.5k truncated, P3 client-domain-state-builder 168.0k i
    계산값이다 — 형태가 다른 서비스(산출물 입도·스펙 밀도가 다른 경우)에서는 재교정이
    필요하고, 아직 2개+ 형태로 일반화되지 않았다.**
 
-   교정 근거: 실제로 폭주했던 seminar-booking `client-domain-state-builder` 계획을 이
+   교정 근거: 실제로 폭주했던 seminar-booking `developer` 계획을 이
    게이트에 넣으면 산출물 12/8 · read 추정 **162k**로 REFUSE가 나온다 — 실측 소비량
    150~190k 범위 안이다. 단 이는 **교정 증거이지 효능 증거가 아니다**: 이 게이트가 실제
    runaway 발생률을 낮추는지는 Phase 3 재실행으로 측정하기 전이다.

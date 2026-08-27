@@ -23,11 +23,11 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 | targetShape | Phase 2 설계 | Phase 3 빌더 | Phase 4 검증 |
 |---|---|---|---|
 | `web-app` | `design-system-architect` · `layout-designer` · `component-designer` | `WEB_PROFILE` 파이프라인(SKILL.md Phase 3) | `browser-verifier` · `ux-validator` · 조건부 `seo-verifier` |
-| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `lib-scaffolder` → `lib-core-builder` → `lib-docs-generator` → `package-publish-metadata` | `pack-verifier` |
+| `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `lib-scaffolder` → `developer` → `lib-docs-generator` → `package-publish-metadata` | `pack-verifier` |
 | `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 셋 | `pack-verifier` |
 | `serverless-functions` | `api-schema-designer` | `/vite-serverless-hybrid` 계약의 `api/` handler | `api-contract-verifier` |
 
-**React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 Phase 3의 `lib-core-builder`와
+**React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 Phase 3의 `developer`와
 병렬로 `lib-story-builder`를 돌린다. 스토리는 구현과 같은 공개 API를 소비하므로 순서가 아니라
 병렬이다.
 

@@ -290,7 +290,7 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 - 스팩이 `layerMap`을 주지 않으면 기존 등록부가 그대로 쓰인다. **FSD를 기본 layerMap으로
   대체하려 했으나 게이트가 회귀를 잡았다**(실측 2026-08-26) — 등록부는 레이어 이름보다 많은
   것을 인코딩한다. 예: `developer`는 `src/features/*/api/`를 갖되 `live-mode`를
-  제외한다(그 영역은 `realtime-data-builder` 소유). 평면 `layerMap`은 이런 carve-out을 표현할
+  제외한다(그 영역은 `developer` 소유). 평면 `layerMap`은 이런 carve-out을 표현할
   수 없어 기본값으로 쓰면 두 에이전트의 경계가 무너진다. **"FSD 기본값 제거"는 `layerMap`이
   carve-out을 표현할 수 있게 된 뒤에야 가능하다** — 미해결
 - **레이어는 서로 겹치면 안 된다.** `src/`가 `src/pages/`를 삼키는 식이면 스팩을 신뢰하지

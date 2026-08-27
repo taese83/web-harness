@@ -14,9 +14,9 @@
 
 | 단계 | 형식 | 책임 |
 |---|---|---|
-| API/stream 수신 | ISO 8601 문자열 또는 Unix ms | `developer`, `realtime-data-builder` |
+| API/stream 수신 | ISO 8601 문자열 또는 Unix ms | `developer`, `developer` |
 | Zod parse 직후 | `number` (Unix ms) 로 변환 | schema transform |
-| ring buffer 내부 | `number` (Unix ms) | `realtime-data-builder` |
+| ring buffer 내부 | `number` (Unix ms) | `developer` |
 | chart wrapper 입력 | `number` (Unix ms) | `developer` |
 | UI 표시 | 사용자 timezone 적용 | 표시 레이어 전용 |
 
@@ -125,7 +125,7 @@ self.onmessage = (event: MessageEvent<PackedPointMessage>) => {
   )
 }
 
-// 호출 측 (realtime-data-builder)
+// 호출 측 (developer)
 const packedPoints = new Float64Array(points.length * 2)
 const quality = new Uint8Array(points.length)
 
