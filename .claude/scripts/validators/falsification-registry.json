@@ -49,6 +49,14 @@
       "replace": "  return `${trimmed}/`",
       "test": ".claude/scripts/test-spec-ownership.mjs",
       "why": "파일 항목에 /를 붙이면 그 파일 자신과 안 맞아 실사용 스팩의 3분의 1이 무소유가 된다"
+    },
+    {
+      "id": "bash-path-escape",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "      if (flag !== '--filter') assertInsideProject(value, `pnpm ${flag}`)",
+      "replace": "      void value",
+      "test": ".claude/scripts/test-global-bash-policy.mjs",
+      "why": "--dir 경로 검사를 끄면 verifier가 프로젝트 밖 package.json script를 실행할 수 있다"
     }
   ]
 }

@@ -38,6 +38,23 @@ const PNPM_ALLOWED_SCRIPTS = new Set([
   'start', 'serve', 'check', 'format',
 ])
 
+// 값이 경로처럼 보이면 프로젝트 안인지 확인한다. 절대 경로와 상위 탈출을 막는다.
+// `--flag=value` 형태도 값 부분을 본다. 경로가 아닌 값(플래그·숫자·패턴)은 통과시킨다 —
+// 여기서 과하게 막으면 정당한 명령이 깨지고, 그러면 우회 유인이 생긴다.
+const assertInsideProject = (rawValue, label) => {
+  const value = rawValue.includes('=') ? rawValue.slice(rawValue.indexOf('=') + 1) : rawValue
+  if (value === '') return
+  if (value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)) {
+    fail('DENY_ARGUMENTS', `${label} must not use an absolute path: ${rawValue}`)
+  }
+  if (value === '..' || value.startsWith('../') || value.includes('/../') || value.endsWith('/..')) {
+    fail('DENY_ARGUMENTS', `${label} must not escape the project root: ${rawValue}`)
+  }
+  if (value.startsWith('~')) {
+    fail('DENY_ARGUMENTS', `${label} must not use a home-relative path: ${rawValue}`)
+  }
+}
+
 const validatePnpmCommand = (args, _context) => {
   if (args.length === 0) fail('DENY_ARGUMENTS', 'pnpm requires a subcommand.')
   // strip leading flags: --dir <path>, --filter <pattern>, -C <path>, --recursive/-r
@@ -45,7 +62,13 @@ const validatePnpmCommand = (args, _context) => {
   while (remaining.length > 0 && remaining[0].startsWith('-')) {
     const flag = remaining[0]
     if (flag === '--dir' || flag === '--filter' || flag === '-C') {
-      remaining = remaining.slice(2) // flag + value
+      // 종전에는 값을 검사 없이 건너뛰었다 — `pnpm --dir /etc run lint`와
+      // `pnpm --dir ../../.. run lint`가 통과했다(2026-08-26 실측). 그 디렉토리의
+      // package.json script가 실행되므로 **프로젝트 밖 코드 실행 경로**다.
+      const value = remaining[1]
+      if (typeof value !== 'string' || value === '') fail('DENY_ARGUMENTS', `pnpm ${flag} requires a value.`)
+      if (flag !== '--filter') assertInsideProject(value, `pnpm ${flag}`)
+      remaining = remaining.slice(2)
     } else if (flag === '--recursive' || flag === '-r') {
       remaining = remaining.slice(1)
     } else {
@@ -62,6 +85,11 @@ const validatePnpmCommand = (args, _context) => {
   if (!script) fail('DENY_ARGUMENTS', 'pnpm run requires a script name.')
   if (!PNPM_ALLOWED_SCRIPTS.has(script)) {
     fail('DENY_ARGUMENTS', `pnpm script not in allowlist: ${script}. Allowed: ${[...PNPM_ALLOWED_SCRIPTS].join(', ')}`)
+  }
+  // script 뒤 인자도 검사한다 — 종전에는 무검증이라 `pnpm run lint --reporter ../../../etc/passwd`·
+  // `--outDir /tmp/evil`이 통과했다. 러너가 그 경로를 파일로 읽거나 모듈로 로드한다.
+  for (const argument of remaining.slice(sub === 'run' ? 2 : 1)) {
+    assertInsideProject(argument, 'pnpm script argument')
   }
 }
 const DESTRUCTIVE_COMMANDS = new Set([
