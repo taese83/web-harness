@@ -1152,195 +1152,19 @@ const renderPreview = () => {
     })
     shell.append(iframe)
   }
-  const live = state.detail.livePreview
-  const isDeltaMode = preview.mode === 'live-delta'
-  if (!live && !isDeltaMode) return create('div', {}, [heading('Preview', 'Console과 다른 localhost origin에서 prototype을 실행합니다.'), shell])
-  if (isDeltaMode && !live) {
-    // 프록시 동적 구성 실패(대상 URL 무효 등) — 정직하게 안내.
-    return create('div', {}, [
-      heading('Preview', '이 프로젝트의 기획 확인 표면은 라이브 베이스 델타입니다.'),
-      create('div', {className: 'preview-shell'}, [create('div', {className: 'preview-empty'}, [create('div', {}, [
-        create('strong', {text: '라이브 베이스 프록시를 구성하지 못했습니다'}),
-        create('p', {text: state.detail.livePreviewError === 'INVALID_LIVE_TARGET'
-          ? 'preview/manifest.json의 target이 loopback http URL(http://127.0.0.1:<port>)이 아닙니다. target을 고치면 자동으로 구성됩니다.'
-          : state.detail.livePreviewError === 'LIVE_TARGET_NOT_IN_LAUNCH'
-            ? 'manifest의 target 포트가 .claude/launch.json에 등록돼 있지 않습니다. 운영자가 등록한 dev server 포트만 라이브 베이스가 될 수 있습니다(allowlist).'
-            : state.detail.livePreviewError === 'INVALID_LIVE_IDENTITY'
-              ? 'preview/manifest.json의 identity 선언이 유효하지 않습니다. identity.titleIncludes에 대상 앱 <title>의 부분 문자열(1~200자)을 적으면 자동으로 구성됩니다.'
-              : '델타 프록시 시작에 실패했습니다. Console 서버 로그를 확인하세요.'}),
-      ])])]),
-    ])
-  }
-  // 오버레이의 "변경 요청" 채널용 파라미터 — 새 탭 딥링크(whConsoleOrigin+whProject)와
-  // 임베드 postMessage 신뢰 검증이 모두 이 값을 읽는다. "프리뷰에서 위치 열기"로 진입하면
-  // 오버레이 reveal 파라미터(whAnchor·whOpen)와 대상 라우트를 함께 실어준다.
-  const liveHandshake = new URLSearchParams({whConsoleOrigin: location.origin, whProject: state.projectId})
-  let liveRoute = ''
-  if (targetAnchor) {
-    liveHandshake.set('whAnchor', targetAnchor.anchorId)
-    liveHandshake.set('whOpen', '1')
-    if (/^#\/[a-zA-Z0-9_./~-]*$/.test(targetAnchor.route ?? '')) liveRoute = targetAnchor.route
-  }
-  const liveTargetUrl = `${live.url}/?${liveHandshake}${liveRoute}`
-
-  // 델타 모드 프로젝트는 라이브 델타가 유일한 기획 확인 표면이다(태생별 표면 모델) —
-  // 서브 탭 없이 라이브만 보여준다. 프로토타입+라이브가 공존하는 과도기만 서브 탭.
-  const pane = isDeltaMode ? 'live' : (state.previewPane ?? (live.deltaPresent && !preview.exists ? 'live' : 'design'))
-  const liveShell = create('div', {className: 'preview-shell live-preview-shell'})
-  // 라이브 베이스 헬스체크 칩 + 다운 시 시작 명령 안내(후속 작업 7-①) — 카드가 DOM에
-  // 있는 동안 8초 주기로 재확인하고, 서버가 다시 뜨면 임베드를 자동 새로고침한다.
-  const liveHealthChip = create('span', {className: 'status-chip status-pending live-health-chip', 'aria-live': 'polite', text: 'BASE 확인 중'})
-  const liveHealthGuide = create('div', {className: 'live-health-guide', hidden: true})
-  const liveManagedStopError = create('p', {className: 'live-health-inline-error', hidden: true})
-  const liveManagedStop = create('button', {type: 'button', className: 'secondary-button', text: '베이스 중지', hidden: true, onclick: event => armedClick(event.currentTarget, '한 번 더 누르면 중지', async () => {
-    liveManagedStopError.hidden = true
-    try {
-      await mutateApi('/api/live-base/stop', {project: state.projectId}, crypto.randomUUID(), 'stop-live-base')
-      setTimeout(checkLiveHealth, 800)
-    } catch (error) {
-      liveManagedStopError.textContent = `중지 실패: ${error.message}`
-      liveManagedStopError.hidden = false
-    }
-  })})
-  let liveWasDown = false
-  let liveHealthTimer = null
-  let liveHealthBusy = false
-  // 다운/불일치 안내는 내용이 같으면 재렌더하지 않는다 — 8초 폴링마다 replaceChildren
-  // 하면 무장 상태·'시작 중…'·인라인 오류가 매 주기 초기화된다.
-  let liveGuideSignature = null
-  const checkLiveHealth = async () => {
-    // 단일 폴링 체인 유지 — 버튼 등에서 수동 호출해도 체인이 복제되지 않는다.
-    if (liveHealthBusy) return
-    liveHealthBusy = true
-    clearTimeout(liveHealthTimer)
-    if (!document.contains(liveHealthChip)) { liveHealthBusy = false; return }
-    try {
-      const body = await fetch(`/api/live-base/health?project=${encodeURIComponent(state.projectId)}`).then(r => r.json())
-      if (!document.contains(liveHealthChip)) { liveHealthBusy = false; return }
-      liveManagedStop.hidden = !(body.healthy && body.managed)
-      if (body.managed) liveManagedStop.title = `launch.json "${body.managed.entry}" — 콘솔이 시작함 (${body.managed.startedAt})`
-      // 신원 불일치는 "실행 중이지만 다른 앱"이다 — healthy로 취급하면 오표시 사건
-      // (다른 프로젝트 dev server의 포트 점유)을 초록 칩이 덮는다. 프록시는 별도로
-      // HTML 응답을 차단하고, 여기서는 원인과 복구 경로를 안내한다.
-      const misbound = body.healthy && (body.identity?.state === 'mismatch' || body.identity?.state === 'invalid')
-      if (body.healthy && !misbound) {
-        liveHealthChip.textContent = body.identity?.state === 'verified' ? 'BASE 신원 일치' : 'BASE 실행 중'
-        liveHealthChip.className = 'status-chip status-approved live-health-chip'
-        liveHealthGuide.hidden = true
-        liveGuideSignature = null
-        if (liveWasDown) {
-          liveWasDown = false
-          const frame = liveShell.querySelector('iframe')
-          if (frame) frame.src = frame.src
-        }
-      } else if (misbound) {
-        liveWasDown = true
-        liveHealthChip.textContent = body.identity.state === 'invalid' ? 'IDENTITY 설정 오류' : 'BASE 다른 앱 응답'
-        liveHealthChip.className = 'status-chip status-failed live-health-chip'
-        const signature = `identity:${body.identity.state}:${body.identity.expected ?? ''}:${body.identity.actualTitle ?? ''}`
-        if (liveGuideSignature !== signature) {
-          liveGuideSignature = signature
-          liveHealthGuide.replaceChildren(
-            create('strong', {text: body.identity.state === 'invalid' ? 'identity 선언이 유효하지 않습니다' : '대상 포트의 앱이 이 프로젝트가 아닌 것으로 보입니다'}),
-            create('p', {text: body.identity.state === 'invalid'
-              ? 'preview/manifest.json의 identity.titleIncludes는 1~200자 문자열이어야 합니다. 선언을 고치면 자동으로 회복됩니다.'
-              : `기대 제목 포함 문자열 "${body.identity.expected}" — 실제 응답 제목: ${body.identity.actualTitle ? `"${body.identity.actualTitle}"` : '(제목 없음/HTML 아님)'}. 다른 프로젝트의 dev server가 이 포트(${body.target ?? live.target})를 점유했을 수 있습니다. 올바른 앱을 시작하거나, 정당한 제목 변경이라면 manifest의 identity.titleIncludes를 갱신하세요(프리뷰 승인은 STALE로 전이됩니다).`}),
-          )
-        }
-        liveHealthGuide.hidden = false
-      } else {
-        liveWasDown = true
-        liveHealthChip.textContent = 'BASE 응답 없음'
-        liveHealthChip.className = 'status-chip status-failed live-health-chip'
-        const signature = `down:${body.target ?? live.target}:${(body.startHints ?? []).map(hint => hint.name).join('|')}`
-        if (liveGuideSignature !== signature) {
-          liveGuideSignature = signature
-          liveHealthGuide.replaceChildren(...[
-            create('strong', {text: '라이브 베이스가 응답하지 않습니다'}),
-            create('p', {text: `대상 ${body.target ?? live.target} — 아래 명령으로 서버를 시작하면 자동으로 다시 연결됩니다. (repo 루트에서 실행)`}),
-            (body.startHints ?? []).length > 1 ? create('p', {text: '⚠ 같은 포트에 launch.json 항목이 여러 개 등록돼 있습니다 — 이 서비스에 맞는 항목만 시작하세요.'}) : null,
-            ...(body.startHints ?? []).map(hint => buildStartHintRow(hint, checkLiveHealth)),
-            (body.startHints ?? []).length === 0 ? create('p', {text: '.claude/launch.json에서 대상 포트의 시작 명령을 찾지 못했습니다. 대상 서버를 수동으로 시작하세요.'}) : null,
-          // replaceChildren은 null을 문자열 "null"로 렌더한다(실측) — 조건부 항목은 반드시 걸러낸다
-          ].filter(Boolean))
-        }
-        liveHealthGuide.hidden = false
-      }
-    } catch { /* 콘솔 서버 통신 실패 — 다음 주기에 재시도 */ }
-    liveHealthBusy = false
-    liveHealthTimer = setTimeout(checkLiveHealth, 8000)
-  }
-  // 렌더 트리가 DOM에 부착된 뒤 시작해야 contains 가드에 걸리지 않는다.
-  setTimeout(checkLiveHealth, 0)
-  const openLink = create('a', {href: liveTargetUrl, target: '_blank', rel: 'noopener', className: 'secondary-button', text: '새 탭에서 열기'})
-  liveShell.append(create('div', {className: 'preview-toolbar'}, [
-    create('div', {}, [
-      create('strong', {text: '라이브 베이스 델타 프리뷰'}),
-      create('p', {text: `실행 중인 실제 앱(${live.target}) 위에 델타를 주입해 확인합니다. 기존 동작은 실물, 신규 동작은 프로토타입입니다. 임베드가 비어 보이면 앱 인증이 만료된 것입니다 — 로그인 리다이렉트는 Console 보안 정책상 임베드에서 차단되므로 새 탭에서 확인하세요.`}),
-    ]),
-    create('div', {className: 'preview-toolbar-actions'}, [
-      isDeltaMode ? statusChipButton(preview) : null,
-      create('span', {className: `status-chip ${live.deltaPresent ? 'status-approved' : 'status-absent'}`, text: live.deltaPresent ? 'DELTA READY' : 'DELTA ABSENT'}),
-      // target 신원 미검증 경고(하위호환 킷): 선언이 없으면 프록시가 포트의 앱을 대조하지
-      // 못한다 — 다른 프로젝트의 dev server가 같은 포트를 점유하면 그 앱이 표시될 수 있다.
-      live.identity?.state === 'undeclared' ? create('span', {
-        className: 'status-chip status-stale',
-        text: 'IDENTITY 미검증',
-        title: 'manifest.json에 identity.titleIncludes가 없어 target 포트의 앱이 이 프로젝트인지 확인하지 못합니다. 다른 프로젝트의 dev server가 같은 포트를 점유하면 그 앱이 표시될 수 있습니다.',
-      }) : null,
-      liveHealthChip,
-      liveManagedStop,
-      openLink,
-    ]),
-  ]))
-  liveShell.append(liveManagedStopError, liveHealthGuide)
-  if (live.deltaPresent) {
-    liveShell.append(create('iframe', {
-      className: 'preview-frame',
-      title: `${state.detail.name} 라이브 베이스 델타 프리뷰`,
-      src: liveTargetUrl,
-      loading: 'eager',
-    }))
-  } else {
-    liveShell.append(create('div', {className: 'preview-empty'}, [create('div', {}, [
-      create('strong', {text: '델타가 없습니다'}),
-      create('p', {text: '_workspace/02_design/preview/delta/bootstrap.mjs가 생성되면 실행 중인 앱 위에 주입됩니다.'}),
-    ])]))
-  }
-
-  const paneTabs = create('div', {className: 'tabs preview-pane-tabs', role: 'tablist', 'aria-label': '프리뷰 종류'}, [
-    ['design', 'Design preview'],
-    ['live', '라이브 베이스 델타'],
-  ].map(([id, label]) => {
-    const button = create('button', {type: 'button', role: 'tab', 'aria-selected': String(pane === id), text: label})
-    button.addEventListener('click', () => {
-      state.previewPane = id
-      renderContent()
-    })
-    return button
-  }))
-  if (isDeltaMode) {
-    return create('div', {}, [
-      heading('Preview', '이 프로젝트의 기획 확인 표면은 라이브 베이스 델타입니다 — 실행 중인 실제 앱 위에 변경분이 적용됩니다.'),
-      liveShell,
-    ])
-  }
-  return create('div', {}, [
-    heading('Preview', 'Console과 다른 localhost origin에서 prototype을 실행합니다.'),
-    paneTabs,
-    pane === 'live' ? liveShell : shell,
-  ])
+  // 라이브 델타 제거(2026-08-28): 브라운필드의 승인 표면이던 델타 임베드가 여기 있었다.
+  // 승인은 프리뷰 한 곳으로 모으고, 라이브는 Development 탭의 운영 도구로만 남는다.
+  // 프리뷰가 없는 기존 서비스의 바탕은 2단계(스냅샷)가 채운다 — 그때까지 이 자리는 비어 있다.
+  return create('div', {}, [heading('Preview', 'Console과 다른 localhost origin에서 prototype을 실행합니다.'), shell])
 }
 
 const handlePreviewMessage = event => {
   if (!previewSurfaceVisible()) return
   const frame = elements.content.querySelector('.preview-frame')
   if (!frame) return
-  // 신뢰 origin: 격리 프로토타입(previewOrigin) 또는 이 프로젝트의 라이브 델타 origin.
-  const liveOrigin = (() => {
-    try { return state.detail?.livePreview ? new URL(state.detail.livePreview.url).origin : null } catch { return null }
-  })()
-  const trusted = [state.previewOrigin, liveOrigin].some(origin => origin && isTrustedPreviewMessageSource({
+  // 신뢰 origin은 격리 프로토타입 하나뿐이다 — 라이브 델타 임베드를 제거하면서
+  // 두 번째 신뢰 origin이 사라졌다(2026-08-28).
+  const trusted = [state.previewOrigin].some(origin => origin && isTrustedPreviewMessageSource({
     eventOrigin: event.origin,
     eventSource: event.source,
     previewOrigin: origin,
@@ -2271,19 +2095,14 @@ const renderDevelopmentTab = () => {
   return create('div', {className: 'stage-tab'}, [bar, create('div', {className: 'stage-tab-body'}, [pane === 'live' ? renderDevelopment() : renderWorkflow()])])
 }
 
-// Development › Live — 라이브 dev 서버 운영(상태·시작/중지·launch 항목). 기획 확인 표면
-// (델타 임베드)은 Design > Preview 소관이고, 여기는 서버 운영 상세만 담당한다.
+// Development › Live — 라이브 dev 서버 **운영만** 한다(상태·시작/중지·launch 항목).
+// 기획 확인·승인은 이 탭의 일이 아니다(2026-08-28 분리) — 승인 표면은 프리뷰 하나다.
+// 구성 여부는 health 응답(`configured`)이 정하며, detail 페이로드에 의존하지 않는다.
 const renderDevelopment = () => {
-  const live = state.detail.livePreview
-  const container = create('div', {}, [heading('Development', '라이브 dev 서버 운영 — 상태 확인과 시작/중지를 관리합니다. 기획 확인 화면은 Design > Preview에 있습니다.')])
-  if (!live) {
-    container.append(create('article', {className: 'panel'}, [
-      create('h3', {text: '라이브 서버 설정이 없습니다'}),
-      create('p', {className: 'panel-copy', text: '이 프로젝트에는 라이브 베이스 대상(preview/live.json 또는 델타 킷 manifest의 target)이 선언돼 있지 않습니다. 그린필드 프로젝트는 정적 디자인 프리뷰(Design > Preview)로 확인하며, dev 서버 운영이 필요해지는 시점(라이브 델타 전환)에 이 탭이 활성화됩니다.'}),
-    ]))
-    return container
-  }
+  const container = create('div', {}, [heading('Development', '라이브 dev 서버 운영 — 상태 확인과 시작/중지를 관리합니다.')])
   const chip = create('span', {className: 'status-chip status-pending live-health-chip', 'aria-live': 'polite', text: 'BASE 확인 중'})
+  // 대상은 health가 알려준다 — 응답 전에는 비활성으로 두고, 오면 href를 채운다.
+  const openTargetLink = create('a', {target: '_blank', rel: 'noopener', className: 'secondary-button', text: '대상 직접 열기', hidden: true})
   const infoList = create('dl', {className: 'dev-info'})
   const controls = create('div', {className: 'dev-controls'})
   let timer = null
@@ -2297,25 +2116,23 @@ const renderDevelopment = () => {
     try {
       const body = await fetch(`/api/live-base/health?project=${encodeURIComponent(state.projectId)}`).then(r => r.json())
       if (!document.contains(chip)) { busy = false; return }
-      const identityState = body.identity?.state
-      if (body.healthy && identityState !== 'mismatch' && identityState !== 'invalid') {
-        chip.textContent = identityState === 'verified' ? 'BASE 신원 일치' : 'BASE 실행 중'
-        chip.className = 'status-chip status-approved live-health-chip'
+      if (body.configured === false) {
+        chip.textContent = '대상 미설정'
+        chip.className = 'status-chip status-absent live-health-chip'
       } else if (body.healthy) {
-        chip.textContent = identityState === 'invalid' ? 'IDENTITY 설정 오류' : 'BASE 다른 앱 응답'
-        chip.className = 'status-chip status-failed live-health-chip'
+        chip.textContent = 'BASE 실행 중'
+        chip.className = 'status-chip status-approved live-health-chip'
       } else {
         chip.textContent = 'BASE 응답 없음'
         chip.className = 'status-chip status-failed live-health-chip'
       }
       const managed = body.managed ?? null
       // 내용이 같으면 재렌더하지 않는다 — 무장 상태·'시작 중…'·인라인 오류 보존.
-      const sig = JSON.stringify({healthy: body.healthy ?? false, identity: identityState ?? null, managed: managed ? `${managed.entry}@${managed.startedAt}` : null, hints: (body.startHints ?? []).map(hint => hint.name)})
+      const sig = JSON.stringify({configured: body.configured !== false, healthy: body.healthy ?? false, managed: managed ? `${managed.entry}@${managed.startedAt}` : null, hints: (body.startHints ?? []).map(hint => hint.name)})
       if (sig !== signature) {
         signature = sig
         infoList.replaceChildren(...[
-          ['대상', body.target ?? live.target],
-          ['identity 선언', identityState === 'undeclared' ? '없음 — 포트의 앱이 이 프로젝트인지 대조하지 못합니다' : identityState === 'invalid' ? '유효하지 않음 (titleIncludes는 1~200자 문자열)' : body.identity?.expected ? `titleIncludes "${body.identity.expected}"` : '선언됨'],
+          ['대상', body.target ?? '미설정 — _workspace/02_design/preview/live.json에 target을 선언하세요'],
           ['프로세스', managed ? `콘솔 관리 — launch.json "${managed.entry}" (시작 ${formatTime(managed.startedAt)})` : body.healthy ? '외부 실행 중 (콘솔 관리 아님)' : '실행 중 아님'],
         ].flatMap(([term, value]) => [create('dt', {text: term}), create('dd', {text: value})]))
         const children = []
@@ -2343,6 +2160,8 @@ const renderDevelopment = () => {
         } else {
           children.push(create('p', {className: 'panel-copy', text: '서버가 콘솔 밖(터미널 등)에서 실행 중입니다 — 중지는 실행한 곳에서 하세요.'}))
         }
+        if (body.target) { openTargetLink.href = body.target; openTargetLink.hidden = false }
+        else openTargetLink.hidden = true
         controls.replaceChildren(...children)
       }
     } catch { /* 콘솔 서버 통신 실패 — 다음 주기에 재시도 */ }
@@ -2354,7 +2173,7 @@ const renderDevelopment = () => {
     create('div', {className: 'dev-live-head'}, [
       create('h3', {text: '라이브 베이스'}),
       chip,
-      create('a', {href: live.target, target: '_blank', rel: 'noopener', className: 'secondary-button', text: '대상 직접 열기'}),
+      openTargetLink,
     ]),
     infoList,
     controls,
