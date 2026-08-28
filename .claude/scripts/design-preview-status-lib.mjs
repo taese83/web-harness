@@ -329,6 +329,21 @@ const traceabilityPathFor = previewRoot => join(previewRoot, 'traceability.json'
 //
 // 바탕이 있으면 **승인 가능한 바탕인지**를 따진다. html만 있고 출처(meta.json)가 없으면
 // 시드로 떴는지 실데이터로 떴는지 알 수 없고, 그 위의 승인은 근거가 없다.
+// traceability가 선언한 앵커 ID. 읽을 수 없으면 **null**을 준다 — 빈 집합으로 퇴화시키면
+// traceability가 깨졌을 때 바탕 앵커가 전부 "미등록"으로 쏟아져 진짜 원인을 덮는다.
+// traceability 자체의 유효성은 validateTraceability가 따로 보고한다.
+const readTraceabilityAnchorIds = projectRoot => {
+  const path = join(projectRoot, '_workspace', '02_design', 'preview', 'traceability.json')
+  if (!existsSync(path)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'))
+    if (!Array.isArray(parsed?.anchors)) return null
+    return new Set(parsed.anchors.map(anchor => anchor?.anchorId).filter(id => typeof id === 'string'))
+  } catch {
+    return null
+  }
+}
+
 export const readBaseSnapshot = projectRoot => {
   const baseRoot = join(projectRoot, '_workspace', '02_design', 'preview', 'base')
   if (!existsSync(baseRoot)) return {present: false, meta: null, errors: []}
@@ -346,6 +361,7 @@ export const readBaseSnapshot = projectRoot => {
   const captures = Array.isArray(meta?.captures) ? meta.captures : []
   if (captures.length === 0) errors.push('base/meta.json declares no captures')
   const declared = new Set()
+  const baseAnchors = new Set()
   for (const capture of captures) {
     const slug = capture?.slug
     if (typeof slug !== 'string' || slug === '') {
@@ -357,6 +373,15 @@ export const readBaseSnapshot = projectRoot => {
     if (!existsSync(htmlPath)) {
       errors.push(`base snapshot declared in meta.json but missing: ${slug}.html`)
       continue
+    }
+    const html = readFileSync(htmlPath, 'utf8')
+    // 앵커는 **파일이 아니라 HTML에서** 읽는다 — meta.json의 stampedAnchors는 손으로 고칠 수
+    // 있고, 배지를 만드는 것은 문서의 속성이지 메타의 주장이 아니다.
+    const fileAnchors = [...html.matchAll(/data-wh-anchor="([^"]*)"/g)].map(match => match[1])
+    for (const anchorId of fileAnchors) baseAnchors.add(anchorId)
+    // 앵커가 있는데 부트스트랩이 없으면 배지가 뜨지 않는다 — 앵커만 박힌 채 조용히 무력하다.
+    if (fileAnchors.length > 0 && !/\bdata-wh-overlay-bootstrap\b/.test(html)) {
+      errors.push(`base snapshot ${slug}.html has anchors but no overlay bootstrap; badges cannot render`)
     }
     // 스냅샷에서 실행되는 것은 **하네스 오버레이 부트스트랩 하나뿐**이다. 그 밖의 script는
     // 캡처를 거치지 않았거나 손으로 넣은 것이고, 콘솔이 서빙할 때 실행된다(I6 안전 하한).
@@ -379,6 +404,28 @@ export const readBaseSnapshot = projectRoot => {
   for (const entry of readdirSync(baseRoot, {withFileTypes: true})) {
     if (!entry.isFile() || !entry.name.endsWith('.html')) continue
     if (!declared.has(entry.name)) errors.push(`base snapshot not declared in meta.json: ${entry.name}`)
+  }
+
+  // **바탕에는 앵커가 있어야 한다.** 바탕이 존재하는 이유는 "기획이 화면 어디에 붙는가"를
+  // 보이는 것이고, 앵커가 하나도 없으면 그 일을 못 한다 — 배지가 없으니 기획 매칭을 주장할
+  // 근거가 없는데도 승인은 진행됐다. `--anchor-map` 없이 캡처하면 정확히 이 상태가 되며,
+  // 2026-08-28까지 protected-core §4에 "공허 통과"로 등록돼 있던 자리다.
+  //
+  // 검사는 **바탕 전체 기준**이다. 기능이 한 화면에만 붙고 나머지 route는 맥락으로만 뜨는
+  // 것은 정상이므로, 파일마다 앵커를 요구하면 정당한 사용을 막는다.
+  if (declared.size > 0 && baseAnchors.size === 0) {
+    errors.push('base snapshot has no data-wh-anchor; a base without plan anchors cannot be approved on — capture with --anchor-map')
+  }
+
+  // traceability에 없는 앵커는 오버레이가 **배지하지 않는다**(브라운필드 안전장치). 그래서
+  // anchor-map에만 있고 traceability에 없는 앵커는 조용히 배지가 빠진다 — loud로 바꾼다.
+  const knownAnchorIds = readTraceabilityAnchorIds(projectRoot)
+  if (knownAnchorIds !== null) {
+    for (const anchorId of baseAnchors) {
+      if (!knownAnchorIds.has(anchorId)) {
+        errors.push(`base anchor is not in traceability.json: ${anchorId} — the overlay will not badge it`)
+      }
+    }
   }
   return {present: true, meta, errors}
 }

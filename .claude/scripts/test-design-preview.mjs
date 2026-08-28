@@ -238,7 +238,7 @@ test('오버레이 부트스트랩 하나는 허용된다 — 바탕 위에 배�
   const root = makeProject('base-overlay-ok')
   withBase(root, {
     'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
-    'index.html': '<!doctype html><p>x</p><script type="module" data-wh-overlay-bootstrap>import {} from "../wh-overlay.mjs"</script>\n',
+    'index.html': '<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p><script type="module" data-wh-overlay-bootstrap>import {} from "../wh-overlay.mjs"</script>\n',
   })
   assert.deepEqual(readBaseSnapshot(root).errors, [])
 })
@@ -266,7 +266,7 @@ test('정상 바탕은 오류가 없고 판정에 실려 나온다', () => {
   const root = makeProject('base-ok')
   withBase(root, {
     'meta.json': metaFor([{slug: 'index', route: '/', styleMode: 'stylesheets'}]),
-    'index.html': '<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p>\n',
+    'index.html': '<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p><script type="module" data-wh-overlay-bootstrap></script>\n',
   })
   assert.deepEqual(readBaseSnapshot(root).errors, [])
   const status = inspectDesignPreview(root)
@@ -281,4 +281,69 @@ test('깨진 meta.json은 loud다 — 조용히 바탕 없음으로 강등하지
   const base = readBaseSnapshot(root)
   assert.equal(base.present, true)
   assert.match(base.errors.join('\n'), /invalid base\/meta\.json/)
+})
+
+// 앵커 없는 바탕은 승인 대상이 아니다 — `--anchor-map` 없이 캡처하면 만들어지는 상태다.
+// 2026-08-28까지 protected-core §4에 "공허 통과"로 등록돼 있던 자리를 기계로 닫았다.
+const BOOTSTRAP = '<script type="module" data-wh-overlay-bootstrap></script>'
+
+test('앵커 0개인 바탕은 INVALID다 — 배지 없는 바탕 위에서 기획 매칭을 주장할 수 없다', () => {
+  const root = makeProject('base-no-anchor')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p>x</p>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /no data-wh-anchor/)
+  assert.equal(inspectDesignPreview(root).status, 'INVALID')
+})
+
+test('앵커는 바탕 **전체** 기준이다 — 맥락으로만 뜨는 route에 앵커를 요구하지 않는다', () => {
+  const root = makeProject('base-partial-anchor')
+  withBase(root, {
+    'meta.json': metaFor([
+      {slug: 'index', styleMode: 'stylesheets'},
+      {slug: 'settings', styleMode: 'stylesheets'},
+    ]),
+    'index.html': `<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p>${BOOTSTRAP}\n`,
+    'settings.html': '<!doctype html><p>맥락 화면</p>\n',
+  })
+  assert.deepEqual(readBaseSnapshot(root).errors, [])
+})
+
+test('앵커는 meta가 아니라 HTML에서 읽는다 — meta의 주장으로 통과시키지 않는다', () => {
+  const root = makeProject('base-meta-lies')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets', stampedAnchors: ['wh-feat-001-save']}]),
+    'index.html': '<!doctype html><p>앵커 없음</p>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /no data-wh-anchor/)
+})
+
+test('traceability에 없는 앵커는 오버레이가 배지하지 않는다 — 조용한 누락을 loud로', () => {
+  const root = makeProject('base-unknown-anchor')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': `<!doctype html><p data-wh-anchor="wh-feat-999-ghost">x</p>${BOOTSTRAP}\n`,
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /not in traceability\.json: wh-feat-999-ghost/)
+})
+
+test('traceability가 깨졌으면 앵커 대조를 하지 않는다 — 진짜 원인을 덮지 않는다', () => {
+  const root = makeProject('base-broken-trace')
+  writeFileSync(join(root, '_workspace', '02_design', 'preview', 'traceability.json'), '{not json\n')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': `<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p>${BOOTSTRAP}\n`,
+  })
+  const joined = readBaseSnapshot(root).errors.join('\n')
+  assert.equal(joined.includes('not in traceability.json'), false)
+})
+
+test('앵커가 있는데 부트스트랩이 없으면 배지가 뜨지 않는다', () => {
+  const root = makeProject('base-inert-anchor')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /anchors but no overlay bootstrap/)
 })

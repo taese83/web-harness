@@ -200,13 +200,26 @@ node <harness>/skills/web-orchestrator/assets/capture-base-snapshot.mjs \
 **배지는 기획 연관 요소에만 붙는다.** 오버레이는 traceability에 있는 앵커만 배지하므로,
 anchor-map에 없는 나머지 화면은 시각적 소음 없이 바탕으로만 남는다.
 
-**anchor-map 없이 캡처하면 바탕은 열람 전용이다** — 배지가 없고, 앵커 검사 3종이 전부 공허하게
-통과한다. 승인 바탕에 anchor-map을 요구하는 **기계 강제는 아직 없다**(protected-core §4 등록).
-앵커 없는 바탕 위에서 기획 매칭을 주장하지 마라.
+**앵커 없는 바탕으로는 승인할 수 없다 — 기계가 막는다.** 바탕이 존재하는 이유가 "기획이
+화면 어디에 붙는가"를 보이는 것이므로, 앵커가 하나도 없는 바탕은 그 일을 못 한다.
+`inspectDesignPreview`가 INVALID로 판정한다. 강제는 캡처가 아니라 **승인 판정**에 있다 —
+`--anchor-map`을 안 주는 것으로 우회되지 않는다.
 
-바탕은 `inspectDesignPreview`가 함께 판정한다 — `meta.json` 부재·선언되지 않은 html·앱 script
-잔존·`computed-fallback` 스타일은 전부 INVALID다. 바탕 파일은 preview digest에 포함되므로
-**바탕이 바뀌면 승인이 무효화된다**(별도 기제 없이 기존 STALE 경로를 그대로 탄다).
+바탕은 `inspectDesignPreview`가 함께 판정한다. INVALID 조건:
+
+- `meta.json` 부재·파손, meta가 선언한 html 부재, meta에 없는 html 존재
+- 하네스 오버레이 부트스트랩이 아닌 `<script>` 잔존, 부트스트랩이 2개 이상
+- `styleMode`가 `computed-fallback`(반응형이 유효하지 않다)
+- **바탕 전체에 `data-wh-anchor`가 0개** — 기능이 한 화면에만 붙고 나머지 route가 맥락으로만
+  뜨는 것은 정상이므로 파일마다 요구하지 않는다
+- 앵커가 **traceability.json에 없음** — 오버레이가 배지하지 않으므로 조용히 빠진다
+- 앵커가 있는데 **부트스트랩이 없음** — 배지가 뜨지 않는다
+
+앵커는 `meta.json`이 아니라 **HTML에서 읽는다**. 메타의 주장으로는 통과할 수 없다.
+다만 앵커가 **옳은 요소**에 붙었는지는 기계가 모른다(protected-core §4) — 사람이 본다.
+
+바탕 파일은 preview digest에 포함되므로 **바탕이 바뀌면 승인이 무효화된다**(별도 기제 없이
+기존 STALE 경로를 그대로 탄다).
 
 ## DESIGN_PROTOTYPE_MODE 활성 조건
 

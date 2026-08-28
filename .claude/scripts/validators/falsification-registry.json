@@ -273,6 +273,38 @@
       "replace": "    .filter(() => false)",
       "test": ".claude/scripts/test-capture-base-snapshot.mjs",
       "why": "slug가 겹치면 뒤 캡처가 앞을 조용히 덮어써 한 화면이 승인 대상에서 사라진다"
+    },
+    {
+      "id": "preview-base-requires-anchors",
+      "file": ".claude/scripts/design-preview-status-lib.mjs",
+      "find": "  if (declared.size > 0 && baseAnchors.size === 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-design-preview.mjs",
+      "why": "앵커 0개 바탕이 통과하면 배지 없는 화면 위에서 기획 매칭을 주장하며 승인이 난다 — anchor-map 없이 캡처하면 만들어지는 상태다"
+    },
+    {
+      "id": "preview-base-anchors-read-from-html",
+      "file": ".claude/scripts/design-preview-status-lib.mjs",
+      "find": "    const fileAnchors = [...html.matchAll(/data-wh-anchor=\"([^\"]*)\"/g)].map(match => match[1])",
+      "replace": "    const fileAnchors = capture?.stampedAnchors ?? []",
+      "test": ".claude/scripts/test-design-preview.mjs",
+      "why": "meta.json의 stampedAnchors는 손으로 고칠 수 있다 — 배지를 만드는 것은 문서의 속성이지 메타의 주장이 아니다"
+    },
+    {
+      "id": "preview-base-anchor-in-traceability",
+      "file": ".claude/scripts/design-preview-status-lib.mjs",
+      "find": "      if (!knownAnchorIds.has(anchorId)) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-design-preview.mjs",
+      "why": "오버레이는 traceability에 없는 앵커를 배지하지 않는다 — 검사를 끄면 배지가 조용히 빠진 채 승인이 난다"
+    },
+    {
+      "id": "preview-base-anchor-needs-bootstrap",
+      "file": ".claude/scripts/design-preview-status-lib.mjs",
+      "find": "    if (fileAnchors.length > 0 && !/\\bdata-wh-overlay-bootstrap\\b/.test(html)) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-design-preview.mjs",
+      "why": "부트스트랩 없는 앵커는 무력하다 — 앵커만 박힌 채 배지가 뜨지 않는 바탕이 승인된다"
     }
   ]
 }

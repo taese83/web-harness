@@ -353,6 +353,15 @@ const main = async () => {
     ],
   }, null, 2)}\n`)
   process.stdout.write(`meta.json 기록 — 보존 어휘 ${preserved.size}개\n`)
+
+  // 앵커 0개 바탕은 승인 판정에서 INVALID다. 그 사실을 승인 시점이 아니라 **여기서** 알린다 —
+  // 캡처를 막지는 않는다(바탕 먼저 뜨고 anchor-map을 나중에 쓰는 순서가 정상이다).
+  if (captures.every(capture => capture.stampedAnchors.length === 0)) {
+    process.stderr.write(
+      '경고: 앵커가 하나도 스탬프되지 않았다 — 이 바탕으로는 승인할 수 없다(배지가 없다).\n'
+      + '      --anchor-map으로 {anchorId, featureId, route, selector}를 주고 다시 캡처하라.\n',
+    )
+  }
 }
 
 if (process.argv[1] !== undefined && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) {
