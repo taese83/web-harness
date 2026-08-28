@@ -118,7 +118,7 @@ TC ID 검증, 콘솔 Features 탭의 추적성 누적(L3 수렴 경로), 이후 
 | 표면 | 대상 | 특성 | 상태 |
 |---|---|---|---|
 | 디자인 프리뷰 | greenfield 태생(기획→디자인) | 무의존 프로토타입, 기존 승인 인프라 그대로 | 기존 계약 |
-| 라이브 베이스 델타 (`live-base-delta-contract.md`) | brownfield — dev server 위에 신규 기획 델타 적용 | 실물 바탕 + 배지·사이드바·변경요청·승인. digest는 델타 파일+스펙 기준 + 라이브 앵커 검증 receipt(바탕 앱은 digest 밖) | **실증 완료** — FEAT-021 파일럿: validator live-delta 모드 등록 → 라이브 검증(태그·배지·사이드바·TC) → anchorReceipt 승인 → 콘솔 APPROVED 표시. 승인 레코드: `workspace/analytics-spa/_workspace/02_design/design-review.md`(mode live-delta + anchorReceipt JSON) |
+| ~~라이브 베이스 델타~~ (2026-08-28 제거) | ~~brownfield — dev server 위에 신규 기획 델타 적용~~ | 실물 바탕 + 배지·사이드바·변경요청·승인. digest는 델타 파일+스펙 기준 + 라이브 앵커 검증 receipt(바탕 앱은 digest 밖) | **실증 완료** — FEAT-021 파일럿: validator live-delta 모드 등록 → 라이브 검증(태그·배지·사이드바·TC) → anchorReceipt 승인 → 콘솔 APPROVED 표시. 승인 레코드: `workspace/analytics-spa/_workspace/02_design/design-review.md`(mode live-delta + anchorReceipt JSON) |
 | 스냅샷 하이드레이션 | brownfield 폴백 — dev server 실행 불가 시 | 실물 DOM 스냅샷 + 신규부 하이드레이션 | analytics-spa 실증(폴백 강등) |
 | 없음 | 문서 diff·스크린샷으로 충분한 변경(L1) | — | 기본값 유지 |
 

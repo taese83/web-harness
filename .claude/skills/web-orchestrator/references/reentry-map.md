@@ -57,12 +57,12 @@
 
 | 트리거 | 계약 |
 |---|---|
-| v1 구현 검증 **완료 후** (브라운필드 — 전환 규칙) | `live-base-delta-contract.md` — 승인 표면은 dev server 위 라이브 델타 |
+| v1 구현 검증 **완료 후** (브라운필드) | **승인 표면 없음**(라이브 델타 제거, 2026-08-28) — 스냅샷 바탕 프리뷰가 들어오면 갱신한다 |
 | v1 구현 검증 **전** | `design-approval-contract.md` — 프리뷰가 유일한 살아있는 승인 표면 |
 | `02_design` 산출물을 갱신할 때 | `artifact-sharding-contract.md` + `validate-artifact-sharding.mjs` 실행 |
 | 사용자 확인 체크포인트를 제시할 때 | `approval-checkpoints.md` |
 
-어느 시대인지는 `live-base-delta-contract.md` 전환 규칙의 판정 기준(승인 TC 전부가 같은
+어느 시대인지는 판정 기준(승인 TC 전부가 같은
 ID의 구현 검증 기록으로 통과 확인된 시점)으로 가른다.
 
 ## 상황 C — 배포 후보 승격·릴리스 판정
