@@ -37,3 +37,12 @@ jobs:
         run: node .claude/scripts/validate-toolchain.mjs
       - name: Harness static validation
         run: node .claude/scripts/validate-harness.mjs
+      # 아래 둘은 2026-08-28에 편입했다. 종전에는 정적 검증만 돌아 **게이트가 살아 있는지**를
+      # 아무도 보지 않았다 — `visual-developer`가 6곳에 죽은 채 8커밋 green이었고,
+      # 반증 게이트 자신이 저자 로컬(Windows)에서 통째로 no-op이었다.
+      # glob으로 넘겨 목록 드리프트를 없앤다: package.json의 45개 하드코딩 목록에서
+      # 5개 스위트가 빠져 있었다(web-core 2종 포함).
+      - name: Harness test suites
+        run: node --test .claude/scripts/test-*.mjs .claude/scripts/web-core/test-*.mjs
+      - name: Falsification gate
+        run: node .claude/scripts/validate-falsification.mjs
