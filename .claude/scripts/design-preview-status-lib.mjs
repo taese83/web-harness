@@ -38,31 +38,15 @@ const SOURCE_INPUTS = [
   ['_workspace/02_design/state-contract.md', false],
 ]
 
-// live-delta 모드(브라운필드 개발 표면 승격 — docs/brownfield-adoption.md L2 재정의):
-// 산출물은 preview/delta/ 아래에 있고, 스펙 정본은 feature-plan + delta-spec이다.
-// greenfield 문서 3종(design-system 등)은 있으면 digest에 포함하되 요구하지 않는다.
-const DELTA_REQUIRED_FILES = ['delta/bootstrap.mjs', 'delta/wh-overlay.mjs', 'delta/traceability.json']
-const DELTA_SOURCE_INPUTS = [
-  // TODO: feature-plan flat-only 요구는 위 SOURCE_INPUTS에서 고친 것과 동일 클래스의
-  // latent 결함이다 — live-delta 경로는 미실측이라 의도적으로 미변경
-  // (docs/efficacy/greenfield-pilot-2-protocol.md 결함 8호 참조). 실측 재현 시 같은 정합화.
-  ['_workspace/01_plan/feature-plan.md', true],
-  ['_workspace/02_design/delta-spec.md', true],
-  ['_workspace/01_plan/ux-brief.md', false],
-  ['_workspace/02_design/design-system', false],
-  ['_workspace/02_design/design-system.md', false],
-  ['_workspace/02_design/layout-spec', false],
-  ['_workspace/02_design/layout-spec.md', false],
-  ['_workspace/02_design/component-spec', false],
-  ['_workspace/02_design/component-spec.md', false],
-]
 
 export const readPreviewMode = project => {
   const manifestPath = join(resolve(project), '_workspace', '02_design', 'preview', 'manifest.json')
   if (!existsSync(manifestPath)) return {mode: 'prototype', manifest: null, error: null}
   try {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    if (manifest?.mode === 'live-delta') return {mode: 'live-delta', manifest, error: null}
+    // live-delta 모드 제거(2026-08-28): 승인 표면이 프리뷰 하나로 모이면서 이 모드가 없어졌다.
+    // 남아 있는 레거시 manifest는 알 수 없는 모드로 loud 보고한다 — 조용히 prototype으로
+    // 강등하면 델타 킷을 가진 프로젝트가 "정상 프리뷰"로 오표시된다.
     if (manifest?.mode === undefined || manifest?.mode === 'prototype') return {mode: 'prototype', manifest, error: null}
     return {mode: 'prototype', manifest, error: `unknown preview mode: ${manifest.mode}`}
   } catch (error) {
@@ -97,7 +81,7 @@ const sourceFiles = (projectRoot, mode = 'prototype') => {
   const missing = []
   const files = []
   const groupedAlternatives = new Map()
-  const inputs = mode === 'live-delta' ? DELTA_SOURCE_INPUTS : SOURCE_INPUTS
+  const inputs = SOURCE_INPUTS
   for (const [relativePath, required] of inputs) {
     const absolutePath = join(projectRoot, relativePath)
     if (existsSync(absolutePath)) files.push(...walkFiles(absolutePath))
@@ -105,7 +89,7 @@ const sourceFiles = (projectRoot, mode = 'prototype') => {
     const group = relativePath.replace(/\.md$/, '')
     groupedAlternatives.set(group, (groupedAlternatives.get(group) ?? 0) + Number(existsSync(absolutePath)))
   }
-  if (mode !== 'live-delta') {
+  {
     for (const group of [
       '_workspace/01_plan/feature-plan',
       '_workspace/01_plan/ux-brief',
@@ -299,7 +283,7 @@ const validateTraceability = (projectRoot, traceability, mode = 'prototype') => 
 
   // 마커 스캔은 문자열 포함 검사일 뿐(§4 등록 프록시) — .mjs 포함은 delta 모드에 한정한다.
   const renderSources = walkFiles(previewRoot)
-    .filter(path => (mode === 'live-delta' ? /\.(?:html|js|mjs)$/ : /\.(?:html|js)$/).test(path))
+    .filter(path => /\.(?:html|js)$/.test(path))
     .map(path => readFileSync(path, 'utf8'))
     .join('\n')
   if (traceability.anchors.length > 0) {
@@ -338,7 +322,7 @@ const parseApprovalRecords = designReview => {
 }
 
 const traceabilityPathFor = (previewRoot, mode) =>
-  mode === 'live-delta' ? join(previewRoot, 'delta', 'traceability.json') : join(previewRoot, 'traceability.json')
+  join(previewRoot, 'traceability.json')
 
 export const inspectDesignPreview = project => {
   const projectRoot = resolve(project)
@@ -347,7 +331,7 @@ export const inspectDesignPreview = project => {
   const traceabilityPath = traceabilityPathFor(previewRoot, mode)
   const errors = []
   if (modeError) errors.push(modeError)
-  for (const filename of mode === 'live-delta' ? DELTA_REQUIRED_FILES : REQUIRED_PREVIEW_FILES) {
+  for (const filename of REQUIRED_PREVIEW_FILES) {
     if (!existsSync(join(previewRoot, filename))) errors.push(`missing preview file: ${filename}`)
   }
   if (!existsSync(traceabilityPath)) {
@@ -382,15 +366,8 @@ export const inspectDesignPreview = project => {
   }
   const approval = approvals.records.at(-1)
   if (!approval) return {schemaVersion: 1, mode, status: 'UNAPPROVED', errors: [], source, preview, traceability}
-  // fail-closed는 쓰기 경로만으론 부족하다 — 수기로 작성된 승인 레코드도 읽기 경로에서
-  // 같은 조건을 통과해야 한다: live-delta 승인은 mode 일치 + 비어있지 않은 anchorReceipt 필수.
-  if (mode === 'live-delta' && (approval.mode !== 'live-delta' || typeof approval.anchorReceipt !== 'string' || approval.anchorReceipt.trim() === '')) {
-    return {
-      schemaVersion: 1, mode, status: 'INVALID',
-      errors: ['live-delta approval record must declare mode "live-delta" and a non-empty anchorReceipt'],
-      source, preview, traceability,
-    }
-  }
+  // 과거 live-delta 승인 레코드에 남은 `anchorReceipt`는 **읽되 요구하지 않는다**(2026-08-28).
+  // 기록된 승인을 새 규칙에 맞춰 무효로 만들지 않는다 — 그때의 판단은 그때 유효했다.
   if (approval.sourceDigest !== source.digest) {
     return {schemaVersion: 1, mode, status: 'STALE', reason: 'APPROVED_SOURCE_CHANGED', errors: [], source, preview, approval, traceability}
   }
@@ -424,7 +401,7 @@ export const writeSourceSnapshot = project => {
 //   console-user-attested: Console UI에서 사용자가 직접 확인했다고 진술하고 기록
 const APPROVAL_RECORDED_VIA = new Set(['harness-session', 'console-user-attested'])
 
-export const recordPreviewApproval = (project, approvalText, {recordedVia = 'harness-session', anchorReceipt = null} = {}) => {
+export const recordPreviewApproval = (project, approvalText, {recordedVia = 'harness-session'} = {}) => {
   const projectRoot = resolve(project)
   if (!APPROVAL_RECORDED_VIA.has(recordedVia)) {
     throw new Error(`recordedVia must be one of: ${[...APPROVAL_RECORDED_VIA].join(', ')}`)
@@ -443,18 +420,7 @@ export const recordPreviewApproval = (project, approvalText, {recordedVia = 'har
   ) {
     throw new Error('approval text must be a single non-empty line of at most 500 characters')
   }
-  // live-delta는 바탕 앱이 digest 밖이므로, 라이브 앵커 검증 receipt(매칭 수·확인 URL·
-  // 시점 요약 한 줄)가 승인 조건이다 — 없으면 승인 자체를 거부한다(fail-closed).
-  if (status.mode === 'live-delta') {
-    if (
-      typeof anchorReceipt !== 'string'
-      || anchorReceipt.trim() === ''
-      || anchorReceipt.length > 300
-      || /[\r\n\0]/.test(anchorReceipt)
-    ) {
-      throw new Error('live-delta approval requires --anchor-receipt: a single line (≤300 chars) recording the live anchor verification (e.g. "anchors 5/5 matched @ http://127.0.0.1:4312 2026-08-10")')
-    }
-  }
+
   const designReviewPath = join(projectRoot, '_workspace', '02_design', 'design-review.md')
   const existing = existsSync(designReviewPath) ? readFileSync(designReviewPath, 'utf8') : '# Design Review\n'
   if (!existsSync(designReviewPath)) writeFileSync(designReviewPath, existing)
@@ -470,8 +436,7 @@ export const recordPreviewApproval = (project, approvalText, {recordedVia = 'har
     traceabilityDigest: sha256(readFileSync(traceabilityPathFor(join(projectRoot, '_workspace', '02_design', 'preview'), status.mode))),
     testCaseIds,
   }
-  if (status.mode === 'live-delta') record.anchorReceipt = anchorReceipt.trim()
-  const receiptLine = record.anchorReceipt ? `\n- Anchor receipt: ${record.anchorReceipt}` : ''
+  const receiptLine = ''
   const heading = existing.includes('\n## Preview Approval') ? '' : '\n## Preview Approval\n'
   const body = `${heading}\n### ${record.approvedAt}\n\n- Status: APPROVED\n- Mode: ${record.mode}\n- Approval: ${record.approvalText}\n- Recorded via: ${record.recordedVia}${receiptLine}\n- Source digest: \`${record.sourceDigest}\`\n- Preview digest: \`${record.previewDigest}\`\n- Traceability digest: \`${record.traceabilityDigest}\`\n- Test cases: ${testCaseIds.join(', ')}\n\n<!-- web-harness-preview-approval\n${JSON.stringify(record)}\n-->\n`
   appendFileSync(designReviewPath, body)

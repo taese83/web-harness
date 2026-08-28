@@ -492,7 +492,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         const controlProject = catalog.project(String(input?.project ?? ''))
         const manifest = controlProject ? readLiveConfig(controlProject.root) : null
         const target = manifest ? parseLiveBaseTarget(manifest.target) : null
-        if (!target) return json(response, 404, errorBody('LIVE_TARGET_NOT_FOUND', 'Project has no valid live-delta target'))
+        if (!target) return json(response, 404, errorBody('LIVE_TARGET_NOT_FOUND', 'Project has no valid dev server target'))
         if (action === 'stop') {
           const managed = liveBaseProcesses.get(target.port)
           if (!managed?.child) return json(response, 409, errorBody('NOT_CONSOLE_MANAGED', 'Target process was not started by this console'))
@@ -516,7 +516,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         const entry = readLaunchEntry(String(input?.entry ?? ''))
         if (!entry) return json(response, 404, errorBody('LAUNCH_ENTRY_NOT_FOUND', 'launch.json entry was not found'))
         if (String(entry.port) !== String(target.port)) {
-          return json(response, 403, errorBody('ENTRY_PORT_MISMATCH', 'launch.json entry port does not match the project live-delta target'))
+          return json(response, 403, errorBody('ENTRY_PORT_MISMATCH', 'launch.json entry port does not match the project dev server target'))
         }
         if (liveBaseProcesses.has(target.port)) return json(response, 409, errorBody('ALREADY_MANAGED', 'A console-managed process already exists for this port'))
         // in-flight 락 — spawn 확정(await) 사이의 동시 시작 요청이 이중 스폰으로
@@ -737,21 +737,10 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
   // live-base 동적 구성(후속 작업 7-③): delta manifest의 target(loopback 한정)으로
   // 프로젝트별 프록시를 지연 생성한다 — 플래그 없이 plain 콘솔 하나로 통합.
   // --live-base 플래그는 해당 프로젝트의 포트 고정 수동 오버라이드로 유지된다.
-  const readDeltaManifest = projectRoot => {
-    try {
-      const manifest = JSON.parse(readFileSync(join(projectRoot, '_workspace', '02_design', 'preview', 'manifest.json'), 'utf8'))
-      return manifest?.mode === 'live-delta' ? manifest : null
-    } catch {
-      return null
-    }
-  }
-  // 라이브 설정과 디자인 프리뷰의 분리(2026-08-20, search-portal 파일럿 실측): 두 관심사는
-  // 직교한다 — 디자인 프리뷰는 Phase 2 승인 자산("무엇을 만들기로 했나"), 라이브는 운영
-  // 뷰("지금 무엇이 돌고 있나")다. 종전에는 preview/manifest.json의 mode 필드 하나를
-  // 공유해 상호 배타였고, 승인 프리뷰가 있는 그린필드는 라이브 뷰를 켤 수 없었다.
-  // 정본은 이제 별도 파일 preview/live.json({target, identity?})이며, 레거시
-  // manifest(mode:'live-delta')는 브라운필드 하위 호환으로 계속 읽는다 — 두 파일이
-  // 모두 있으면 live.json이 이긴다.
+
+  // 라이브 설정은 디자인 프리뷰와 직교한다 — 프리뷰는 승인 자산("무엇을 만들기로 했나"),
+  // 라이브는 운영 뷰("지금 무엇이 돌고 있나")다. 정본은 `preview/live.json`({target})
+  // 하나이며, 델타 킷 레거시 manifest 폴백은 라이브 델타 제거와 함께 걷었다(2026-08-28).
   const readLiveConfig = projectRoot => {
     // 부재(ENOENT)와 형식 오류를 구분한다(적대 검토 MEDIUM 반영, 2026-08-20): 파일이
     // 존재하는데 파싱이 깨지면 레거시 manifest로 조용히 폴백하지 않는다 — 마이그레이션
@@ -771,7 +760,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         return {error: 'INVALID_LIVE_CONFIG'}
       }
     }
-    return readDeltaManifest(projectRoot)
+    return null
   }
   // 승인 게이트 dev server 시작/중지(후속 작업 7-②): 명령은 launch.json 항목에서만
   // 나오고(임의 명령 불가), 항목 포트가 프로젝트 manifest target 포트와 일치해야 하며,

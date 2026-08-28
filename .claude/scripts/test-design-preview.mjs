@@ -61,32 +61,6 @@ const makeV2Project = suffix => {
   return root
 }
 
-const makeDeltaProject = suffix => {
-  const root = mkdtempSync(join(tmpdir(), `web-harness-delta-${suffix}-`))
-  const plan = join(root, '_workspace', '01_plan')
-  const design = join(root, '_workspace', '02_design')
-  const delta = join(design, 'preview', 'delta')
-  mkdirSync(plan, {recursive: true})
-  mkdirSync(delta, {recursive: true})
-  writeFileSync(join(plan, 'feature-plan.md'), '# Feature List\n\n## FEAT-020 Recent shortcut\n\n- TC-020-1: shows recent entries\n')
-  writeFileSync(join(design, 'delta-spec.md'), '# Delta Spec\n\nAnchor: recent shortcut area\n')
-  writeFileSync(join(design, 'preview', 'manifest.json'), `${JSON.stringify({schemaVersion: 1, mode: 'live-delta', target: 'http://127.0.0.1:8080'})}\n`)
-  writeFileSync(join(delta, 'bootstrap.mjs'), 'const area = document.createElement("div")\narea.setAttribute("data-wh-anchor", "wh-feat-020-recent")\narea.setAttribute("data-wh-feature", "FEAT-020")\narea.setAttribute("data-wh-tests", "TC-020-1")\ndocument.body.append(area)\nimport("./wh-overlay.mjs").then(m => m.initWhOverlay({traceabilityUrl: "/__wh_delta__/traceability.json"}))\n')
-  writeFileSync(join(delta, 'wh-overlay.mjs'), 'export const initWhOverlay = () => ({refresh() {}, close() {}})\n')
-  writeFileSync(join(delta, 'traceability.json'), `${JSON.stringify({
-    schemaVersion: 1,
-    features: [{featureId: 'FEAT-020', title: 'Recent shortcut', testCaseIds: ['TC-020-1'], anchorIds: ['wh-feat-020-recent']}],
-    anchors: [{
-      anchorId: 'wh-feat-020-recent',
-      featureId: 'FEAT-020',
-      testCaseIds: ['TC-020-1'],
-      label: 'Recent shortcut area',
-      route: '#/entry',
-      selector: '[data-wh-anchor="wh-feat-020-recent"]',
-    }],
-  }, null, 2)}\n`)
-  return root
-}
 
 const roots = []
 try {
@@ -162,56 +136,6 @@ try {
   writeFileSync(reviewPath, `${readFileSync(reviewPath, 'utf8')}\n<!-- web-harness-preview-approval\n{broken}\n-->\n`)
   assert.equal(inspectDesignPreview(malformedApprovalRoot).status, 'INVALID')
 
-  // live-delta 모드: 필수 파일·소스 세트·앵커 receipt 강제·STALE 파생
-  const deltaRoot = makeDeltaProject('delta')
-  roots.push(deltaRoot)
-  const deltaDraft = inspectDesignPreview(deltaRoot)
-  assert.equal(deltaDraft.mode, 'live-delta')
-  assert.equal(deltaDraft.status, 'DRAFT')
-  assert.equal(writeSourceSnapshot(deltaRoot).status, 'UNAPPROVED')
-  assert.throws(() => recordPreviewApproval(deltaRoot, '델타 승인'), /anchor-receipt/)
-  assert.throws(() => recordPreviewApproval(deltaRoot, '델타 승인', {anchorReceipt: 'two\nlines'}), /anchor-receipt/)
-  const deltaApproved = recordPreviewApproval(deltaRoot, '델타 승인', {anchorReceipt: 'anchors 1/1 matched @ http://127.0.0.1:4312 (screenshot receipt-1.png)'})
-  assert.equal(deltaApproved.status, 'APPROVED')
-  const deltaReview = readFileSync(join(deltaRoot, '_workspace', '02_design', 'design-review.md'), 'utf8')
-  assert.match(deltaReview, /"mode":"live-delta"/)
-  assert.match(deltaReview, /anchors 1\/1 matched/)
-  writeFileSync(join(deltaRoot, '_workspace', '02_design', 'delta-spec.md'), '# Delta Spec changed\n\nAnchor: recent shortcut area\n')
-  assert.equal(inspectDesignPreview(deltaRoot).status, 'STALE')
-  // 재승인 루프: 재생성(snapshot 갱신) 없이도 STALE에서 재확인 후 새 승인 기록으로 복귀 가능
-  writeSourceSnapshot(deltaRoot)
-  assert.equal(inspectDesignPreview(deltaRoot).status, 'STALE')
-  const reApproved = recordPreviewApproval(deltaRoot, '델타 재승인', {anchorReceipt: 'anchors 1/1 re-verified @ http://127.0.0.1:4312'})
-  assert.equal(reApproved.status, 'APPROVED')
-
-  // 읽기 경로 fail-closed: recordPreviewApproval을 우회한 수기 승인 레코드(receipt 없음)는
-  // digest가 일치해도 APPROVED가 아니라 INVALID여야 한다.
-  const forgedRoot = makeDeltaProject('delta-forged-approval')
-  roots.push(forgedRoot)
-  writeSourceSnapshot(forgedRoot)
-  const forgedStatus = inspectDesignPreview(forgedRoot)
-  const forgedRecord = {
-    schemaVersion: 1,
-    approvedAt: new Date().toISOString(),
-    approvalText: '수기 위조 레코드',
-    recordedVia: 'harness-session',
-    sourceDigest: forgedStatus.source.digest,
-    previewDigest: forgedStatus.preview.digest,
-  }
-  writeFileSync(
-    join(forgedRoot, '_workspace', '02_design', 'design-review.md'),
-    `# Design Review\n\n## Preview Approval\n\n<!-- web-harness-preview-approval\n${JSON.stringify(forgedRecord)}\n-->\n`,
-  )
-  const forged = inspectDesignPreview(forgedRoot)
-  assert.equal(forged.status, 'INVALID')
-  assert.ok(forged.errors.some(error => error.includes('anchorReceipt')))
-
-  const deltaMissingRoot = makeDeltaProject('delta-missing-overlay')
-  roots.push(deltaMissingRoot)
-  rmSync(join(deltaMissingRoot, '_workspace', '02_design', 'preview', 'delta', 'wh-overlay.mjs'))
-  const deltaMissing = inspectDesignPreview(deltaMissingRoot)
-  assert.equal(deltaMissing.status, 'INVALID')
-  assert.ok(deltaMissing.errors.some(error => error.includes('missing preview file: delta/wh-overlay.mjs')))
 
   // 프로토타입 모드에 델타 소스 요구가 새지 않는지(오탐 0): delta-spec 없이도 기존 흐름 그대로
   const regressionRoot = makeProject('prototype-regression')
@@ -247,7 +171,7 @@ try {
   assert.ok(missingPlan.errors.some(error => error.includes('_workspace/01_plan/feature-plan(.md|/)')))
   assert.ok(missingPlan.errors.some(error => error.includes('_workspace/01_plan/ux-brief(.md|/)')))
 
-  process.stdout.write('design preview traceability, approval, stale-state, and live-delta mode tests passed\n')
+  process.stdout.write('design preview traceability, approval, and stale-state tests passed\n')
 } finally {
   for (const root of roots) rmSync(root, {recursive: true, force: true})
 }

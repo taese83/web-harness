@@ -630,10 +630,9 @@ test('live-base start/stop is approval-gated, launch.json-scoped, and confirms c
   })
 
   const fixture = fixtureRoot()
-  const deltaPreview = join(fixture.project, '_workspace', '02_design', 'preview')
-  writeFileSync(join(deltaPreview, 'manifest.json'), JSON.stringify({mode: 'live-delta', target: `http://127.0.0.1:${freePort}`}))
-  mkdirSync(join(deltaPreview, 'delta'), {recursive: true})
-  writeFileSync(join(deltaPreview, 'delta', 'bootstrap.mjs'), 'window.__WH_DELTA_VERSION = 1\n')
+  // 라이브 대상 선언의 정본은 live.json이다 — 델타 킷 레거시 manifest 폴백은 제거됐다(2026-08-28).
+  const previewDir = join(fixture.project, '_workspace', '02_design', 'preview')
+  writeFileSync(join(previewDir, 'live.json'), JSON.stringify({target: `http://127.0.0.1:${freePort}`}))
   mkdirSync(join(fixture.root, '.claude'), {recursive: true})
   writeFileSync(join(fixture.root, '.claude', 'launch.json'), JSON.stringify({
     version: '0.0.1',

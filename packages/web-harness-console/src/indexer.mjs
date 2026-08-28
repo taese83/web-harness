@@ -401,9 +401,7 @@ const hasApprovedRender = projectRoot => {
 const summarizePreview = projectRoot => {
   const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
   const {mode} = isSafeDirectory(previewRoot) ? readPreviewMode(projectRoot) : {mode: 'prototype'}
-  const present = isSafeDirectory(previewRoot) && (mode === 'live-delta'
-    ? existsSync(join(previewRoot, 'delta', 'bootstrap.mjs'))
-    : existsSync(join(previewRoot, 'index.html')))
+  const present = isSafeDirectory(previewRoot) && existsSync(join(previewRoot, 'index.html'))
   if (!present) {
     return {exists: false, mode, status: 'ABSENT', reason: null, errors: [], featureCount: 0, testCaseCount: 0, features: [], anchors: []}
   }
