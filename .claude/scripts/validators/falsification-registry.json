@@ -177,6 +177,30 @@
       "replace": "  const uncovered = []",
       "test": ".claude/scripts/test-spec-conformance.mjs",
       "why": "커버리지 대조를 끄면 확정된 수용 기준이 테스트에서 한 번도 인용되지 않아도 통과한다 — 릴리스 게이트가 보는 것은 \"테스트 파일 0개\"뿐이라 파일 하나로 TC 커버리지 0이 green이 된다"
+    },
+    {
+      "id": "capture-preserve-allowlist",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "  if (preserved.has(trimmed)) return true",
+      "replace": "  if (true) return true",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "보존이 무조건 참이 되면 스냅샷 치환이 전부 꺼져 실데이터가 그대로 커밋된다"
+    },
+    {
+      "id": "capture-anchor-map-required-fields",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "      if (typeof anchor?.[field] !== 'string' || anchor[field].trim() === '') {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "필드 검증이 꺼지면 selector 없는 앵커가 통과해 배지가 조용히 빠진다"
+    },
+    {
+      "id": "capture-orphaned-anchors",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "    .filter(anchor => !captured.has(normalizeRoute(anchor.route)))",
+      "replace": "    .filter(() => false)",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "캡처하지 않은 route의 앵커가 조용히 사라지면 기획 연관 요소에 배지 없이 승인이 난다"
     }
   ]
 }
