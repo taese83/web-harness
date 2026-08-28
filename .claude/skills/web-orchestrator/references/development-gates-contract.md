@@ -13,6 +13,12 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
   (SessionStart `check-session-toolchain` 경고 참조) 실행 전에 pin된 Node를 PATH에 앞세운다. 낮은 버전에서 나온
   실패·green은 evidence로 인정하지 않는다. 이 pin 준비는 매 게이트 실행 명령에 포함해 실행 위치·버전을 증거에 남긴다.
 
+- **`lint`는 A·B·C 세 곳에서 돈다**(2026-08-28). 종전에는 Gate A에서 한 번만 돌았는데,
+  A는 **기반 직후**라 UI 코드가 아직 없다. 구현 코드가 대량으로 들어오는 것은 B·C 구간이고
+  거기서는 `typecheck`·`build`만 돌았다 — 스타일 규약(명명·파일명·`enum`·`export *`·
+  `React.FC`·TODO)이 Phase 4 릴리스 게이트까지 안 잡힐 수 있었다. **스타일 수렴을 노린
+  규칙인데 피드백이 가장 늦게 오는 구조**였다. 되돌리기 비용은 늦게 알수록 커진다.
+
 ## Gate A0 — 의존성 pin 사전검증 (install 전, greenfield)
 
 `environment-scaffolder`가 `package.json`을 만든 뒤 **lockfile/install 전에** 실행한다:
@@ -50,7 +56,7 @@ API contract/auth, route, Mock, component가 완료된 뒤:
 1. API schema ↔ runtime validation ↔ Mock method/path/status/body
 2. route ↔ page/widget/component public export
 3. production build에서 Mock activation이 가능한 구조인지 정적 확인
-4. `typecheck`
+4. `typecheck`, `lint`
 
 TIMESERIES_MODE에서 Mock이 의도적으로 뒤로 미뤄졌으면 transport interface와 지연 근거를 기록하고 Mock 항목만 `DEFERRED`로 둔다.
 
@@ -60,7 +66,7 @@ entity query, mutation/form/domain/realtime owner와 `developer`가 완료된 �
 
 1. requirement/UX risk → screen → owner → source trace
 2. loading/error/empty/partial/permission/destructive 연결
-3. `typecheck`, `build`
+3. `typecheck`, `lint`, `build`
 4. source mutation, unexpected lockfile/config change, production Mock boundary
 
 Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.
