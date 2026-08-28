@@ -321,15 +321,66 @@ const parseApprovalRecords = designReview => {
   return {records, errors}
 }
 
-const traceabilityPathFor = (previewRoot, mode) =>
-  join(previewRoot, 'traceability.json')
+const traceabilityPathFor = previewRoot => join(previewRoot, 'traceability.json')
 
-export const inspectDesignPreview = project => {
-  const projectRoot = resolve(project)
+// 스냅샷 바탕 — 프리뷰가 없던 기존 서비스의 화면을 정적 DOM으로 뜬 것(capture-base-snapshot.mjs).
+// **모드가 아니라 속성이다.** 승인 절차는 프리뷰 하나이고 바탕만 다르다 — live-delta를 걷어낸
+// 이유가 승인 표면의 이원화였으므로, 여기서 모드를 다시 늘리지 않는다.
+//
+// 바탕이 있으면 **승인 가능한 바탕인지**를 따진다. html만 있고 출처(meta.json)가 없으면
+// 시드로 떴는지 실데이터로 떴는지 알 수 없고, 그 위의 승인은 근거가 없다.
+export const readBaseSnapshot = projectRoot => {
+  const baseRoot = join(projectRoot, '_workspace', '02_design', 'preview', 'base')
+  if (!existsSync(baseRoot)) return {present: false, meta: null, errors: []}
+  const metaPath = join(baseRoot, 'meta.json')
+  if (!existsSync(metaPath)) {
+    return {present: true, meta: null, errors: ['base/meta.json is missing; a base without capture provenance cannot be approved on']}
+  }
+  let meta
+  try {
+    meta = JSON.parse(readFileSync(metaPath, 'utf8'))
+  } catch (error) {
+    return {present: true, meta: null, errors: [`invalid base/meta.json: ${error.message}`]}
+  }
+  const errors = []
+  const captures = Array.isArray(meta?.captures) ? meta.captures : []
+  if (captures.length === 0) errors.push('base/meta.json declares no captures')
+  const declared = new Set()
+  for (const capture of captures) {
+    const slug = capture?.slug
+    if (typeof slug !== 'string' || slug === '') {
+      errors.push('base capture entry has no slug')
+      continue
+    }
+    declared.add(`${slug}.html`)
+    const htmlPath = join(baseRoot, `${slug}.html`)
+    if (!existsSync(htmlPath)) {
+      errors.push(`base snapshot declared in meta.json but missing: ${slug}.html`)
+      continue
+    }
+    // 스냅샷은 정적이어야 한다. script가 남아 있으면 캡처를 거치지 않았거나 손으로 고친
+    // 것이고, 콘솔이 서빙할 때 실행된다(I6 안전 하한).
+    if (/<script[\s>]/i.test(readFileSync(htmlPath, 'utf8'))) {
+      errors.push(`base snapshot contains <script>: ${slug}.html — capture strips scripts; this file was not produced by capture`)
+    }
+    // computed-fallback은 반응형이 살아 있지 않다 — 그 위에서 레이아웃을 승인하면 거짓 확신이다.
+    if (capture?.styleMode === 'computed-fallback') {
+      errors.push(`base snapshot ${slug}.html was captured with computed-fallback styles; responsive layout cannot be approved on it`)
+    }
+  }
+  // meta에 없는 html은 캡처 출처가 없다.
+  for (const entry of readdirSync(baseRoot, {withFileTypes: true})) {
+    if (!entry.isFile() || !entry.name.endsWith('.html')) continue
+    if (!declared.has(entry.name)) errors.push(`base snapshot not declared in meta.json: ${entry.name}`)
+  }
+  return {present: true, meta, errors}
+}
+
+const inspectPreviewCore = (projectRoot, baseErrors) => {
   const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
   const {mode, error: modeError} = readPreviewMode(projectRoot)
-  const traceabilityPath = traceabilityPathFor(previewRoot, mode)
-  const errors = []
+  const traceabilityPath = traceabilityPathFor(previewRoot)
+  const errors = [...baseErrors]
   if (modeError) errors.push(modeError)
   for (const filename of REQUIRED_PREVIEW_FILES) {
     if (!existsSync(join(previewRoot, filename))) errors.push(`missing preview file: ${filename}`)
@@ -377,10 +428,17 @@ export const inspectDesignPreview = project => {
   return {schemaVersion: 1, mode, status: 'APPROVED', errors: [], source, preview, approval, traceability}
 }
 
+export const inspectDesignPreview = project => {
+  const projectRoot = resolve(project)
+  const base = readBaseSnapshot(projectRoot)
+  const result = inspectPreviewCore(projectRoot, base.errors)
+  return base.present ? {...result, base: {captures: base.meta?.captures ?? [], capturedAt: base.meta?.capturedAt ?? null}} : result
+}
+
 export const writeSourceSnapshot = project => {
   const projectRoot = resolve(project)
   const {mode} = readPreviewMode(projectRoot)
-  const traceabilityPath = traceabilityPathFor(join(projectRoot, '_workspace', '02_design', 'preview'), mode)
+  const traceabilityPath = traceabilityPathFor(join(projectRoot, '_workspace', '02_design', 'preview'))
   if (!existsSync(traceabilityPath)) throw new Error('traceability.json does not exist')
   const traceability = JSON.parse(readFileSync(traceabilityPath, 'utf8'))
   const structuralErrors = validateTraceability(projectRoot, traceability, mode)
@@ -433,7 +491,7 @@ export const recordPreviewApproval = (project, approvalText, {recordedVia = 'har
     recordedVia,
     sourceDigest: status.source.digest,
     previewDigest: status.preview.digest,
-    traceabilityDigest: sha256(readFileSync(traceabilityPathFor(join(projectRoot, '_workspace', '02_design', 'preview'), status.mode))),
+    traceabilityDigest: sha256(readFileSync(traceabilityPathFor(join(projectRoot, '_workspace', '02_design', 'preview')))),
     testCaseIds,
   }
   const receiptLine = ''

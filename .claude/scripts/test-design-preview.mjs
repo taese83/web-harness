@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from './design-preview-status-lib.mjs'
+import {test} from 'node:test'
+import {inspectDesignPreview, readBaseSnapshot, recordPreviewApproval, writeSourceSnapshot} from './design-preview-status-lib.mjs'
 
 const makeProject = suffix => {
   const root = mkdtempSync(join(tmpdir(), `web-harness-preview-${suffix}-`))
@@ -175,3 +176,90 @@ try {
 } finally {
   for (const root of roots) rmSync(root, {recursive: true, force: true})
 }
+
+// 스냅샷 바탕 — 브라운필드 승인의 시각적 바탕. 모드가 아니라 속성이다.
+// 계약: skills/web-orchestrator/references/design-approval-contract.md
+test('바탕 없음은 정상이다 — 그린필드 프리뷰는 바탕이 필요 없다', () => {
+  const root = makeProject('base-absent')
+  const base = readBaseSnapshot(root)
+  assert.equal(base.present, false)
+  assert.deepEqual(base.errors, [])
+  assert.equal(inspectDesignPreview(root).base, undefined)
+})
+
+const withBase = (root, files) => {
+  const baseRoot = join(root, '_workspace', '02_design', 'preview', 'base')
+  mkdirSync(baseRoot, {recursive: true})
+  for (const [name, body] of Object.entries(files)) {
+    writeFileSync(join(baseRoot, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`)
+  }
+  return baseRoot
+}
+
+const metaFor = captures => ({schemaVersion: 1, capturedAt: '2026-08-28T00:00:00.000Z', captures})
+
+test('출처 없는 바탕은 승인 대상이 아니다 — html만 있고 meta.json이 없다', () => {
+  const root = makeProject('base-no-meta')
+  withBase(root, {'index.html': '<!doctype html><p>x</p>\n'})
+  const base = readBaseSnapshot(root)
+  assert.equal(base.present, true)
+  assert.equal(base.errors.length, 1)
+  assert.match(base.errors[0], /meta\.json is missing/)
+  // 바탕 오류는 프리뷰 판정을 INVALID로 끌어내린다 — 조용히 통과하지 않는다
+  assert.equal(inspectDesignPreview(root).status, 'INVALID')
+})
+
+test('meta가 선언한 스냅샷이 없으면 오류다', () => {
+  const root = makeProject('base-missing-html')
+  withBase(root, {'meta.json': metaFor([{slug: 'orders', styleMode: 'stylesheets'}])})
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /declared in meta\.json but missing: orders\.html/)
+})
+
+test('meta에 없는 html은 캡처 출처가 없다 — 손으로 넣은 바탕을 잡는다', () => {
+  const root = makeProject('base-undeclared')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p>x</p>\n',
+    'hand-written.html': '<!doctype html><p>y</p>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /not declared in meta\.json: hand-written\.html/)
+})
+
+test('script가 남은 바탕은 캡처를 거치지 않은 것이다 — 콘솔이 서빙하면 실행된다(I6)', () => {
+  const root = makeProject('base-script')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p>x</p><script src="./app.js"></script>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /contains <script>/)
+})
+
+test('computed-fallback 바탕에서는 반응형을 승인할 수 없다', () => {
+  const root = makeProject('base-fallback')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'computed-fallback'}]),
+    'index.html': '<!doctype html><p>x</p>\n',
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /computed-fallback/)
+})
+
+test('정상 바탕은 오류가 없고 판정에 실려 나온다', () => {
+  const root = makeProject('base-ok')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', route: '/', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p data-wh-anchor="wh-feat-001-save">x</p>\n',
+  })
+  assert.deepEqual(readBaseSnapshot(root).errors, [])
+  const status = inspectDesignPreview(root)
+  assert.equal(status.base.captures.length, 1)
+  assert.equal(status.base.capturedAt, '2026-08-28T00:00:00.000Z')
+  assert.notEqual(status.status, 'INVALID')
+})
+
+test('깨진 meta.json은 loud다 — 조용히 바탕 없음으로 강등하지 않는다', () => {
+  const root = makeProject('base-broken-meta')
+  withBase(root, {'meta.json': '{not json\n'})
+  const base = readBaseSnapshot(root)
+  assert.equal(base.present, true)
+  assert.match(base.errors.join('\n'), /invalid base\/meta\.json/)
+})
