@@ -23,7 +23,7 @@
 // 이미지·바이너리는 치환 대상이 아니므로 시드 데이터가 근본 방어다.
 //
 // 산출물:
-//   <out>/<slug>.html   — script 없는 정적 스냅샷
+//   <out>/<slug>.html   — 앱 script 없는 정적 스냅샷(+ 앵커가 있으면 오버레이 부트스트랩 1개)
 //   <out>/meta.json     — 캡처 시각·URL·스타일 수집 모드·치환/앵커 통계(스스로를 검증하는 숫자)
 
 import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
@@ -53,9 +53,21 @@ const parseArguments = argv => {
 
 export const normalizeRoute = route => (String(route).startsWith('/') ? String(route) : `/${route}`)
 
-const slugFor = route => {
+export const slugFor = route => {
   const cleaned = route.replace(/^[#/]+/, '').replace(/[^a-zA-Z0-9/_-]/g, '-').replace(/\//g, '-')
   return cleaned === '' ? 'index' : cleaned.slice(0, 60)
+}
+
+// slug가 겹치면 뒤 캡처가 앞을 덮어써 한 화면이 조용히 사라진다(`/a/b`와 `/a-b`가 같은 slug).
+export const findSlugCollisions = routes => {
+  const bySlug = new Map()
+  for (const route of routes) {
+    const slug = slugFor(route)
+    bySlug.set(slug, [...(bySlug.get(slug) ?? []), route])
+  }
+  return [...bySlug.entries()]
+    .filter(([, group]) => group.length > 1)
+    .map(([slug, group]) => `${slug}.html ← ${group.join(', ')}`)
 }
 
 // ── 보존 어휘(allowlist) ────────────────────────────────────────────────────
@@ -64,8 +76,9 @@ const slugFor = route => {
 // 놓치면 멀쩡한 문구가 치환될 뿐 유출되지 않는다(fail-closed).
 //
 // 보존 어휘의 출처는 프로젝트 소스다: i18n 카탈로그가 있으면 정확하고, 없으면 문자열
-// 리터럴을 긁는다. 템플릿 조합(`${name}님 안녕하세요`)의 렌더 결과는 소스에 없으므로
-// 치환된다 — 보기엔 어색해지지만 새지 않는다.
+// 리터럴을 긁는다.
+const SOURCE_FILE_PATTERN = /\.(?:ts|tsx|js|jsx|mjs|cjs|json|vue|svelte|astro|html)$/
+
 export const collectPreservedStrings = sourceRoot => {
   const preserved = new Set()
   if (!sourceRoot || !existsSync(sourceRoot)) return preserved
@@ -84,14 +97,14 @@ export const collectPreservedStrings = sourceRoot => {
         stack.push(full)
         continue
       }
-      if (!/\.(?:ts|tsx|js|jsx|mjs|cjs|json)$/.test(entry.name)) continue
+      if (!SOURCE_FILE_PATTERN.test(entry.name)) continue
       let text
       try { text = readFileSync(full, 'utf8') } catch { continue }
       for (const match of text.matchAll(/(['"`])((?:(?!\1)[^\\\r\n]|\\.){2,120})\1/g)) {
         const value = match[2].trim()
         if (value.length >= 2) preserved.add(value)
       }
-      // JSX 텍스트 노드: >텍스트<
+      // 템플릿 텍스트 노드: >텍스트<  (JSX·Vue·Svelte·Astro·HTML 공통 형태)
       for (const match of text.matchAll(/>\s*([^<>{}\n]{2,120}?)\s*</g)) {
         const value = match[1].trim()
         if (value.length >= 2) preserved.add(value)
@@ -101,27 +114,57 @@ export const collectPreservedStrings = sourceRoot => {
   return preserved
 }
 
-
 // 형태 보존 치환 — 레이아웃이 검토 대상이므로 길이·모양을 유지한다.
 // `***`로 바꾸면 긴 이름이 줄바꿈되는 문제 같은 것을 못 본다.
+//
+// 문자 클래스는 **유니코드 속성**으로 나눈다. 종전에는 `[가-힣]`·`[A-Za-z]`·`\d`만 다뤄서
+// 일본어·한자·키릴·악센트 라틴·전각 숫자가 identity로 통과하면서 substitutedCount만
+// 올랐다 — "치환 200"이 실제 마스킹 0을 뜻할 수 있었다(적대 리뷰 HIGH). 이제 글자·숫자가
+// 스크립트와 무관하게 덮이고, `[가-힣]` 하드코딩도 사라진다(I3).
 //
 // 이메일 전용 분기는 두지 않는다: `@example.test`로 바꿔도 뒤의 일반 규칙이 다시 뭉개
 // 마커가 남지 않고, 도메인만 고정 길이가 돼 길이 보존이 깨졌다(실측 `a@b.kr` 6→14,
 // 41자 주소 41→25). `@`·`.`는 어차피 통과하므로 일반 규칙만으로 길이가 정확히 남는다.
 export const substituteValue = value => value
-  .replace(/\d/g, '0')
-  .replace(/[가-힣]/g, '○')
-  .replace(/[A-Za-z]/g, character => (character === character.toUpperCase() ? 'X' : 'x'))
+  .replace(/\p{Nd}/gu, '0')
+  .replace(/[\p{Lu}\p{Lt}]/gu, 'X')
+  .replace(/[\p{Ll}\p{Lm}]/gu, 'x')
+  .replace(/\p{Lo}/gu, '○')
+
+// 소스 리터럴이 렌더 결과에 **부분**으로 나타날 때 얼마나 길어야 보존 구간으로 인정하는가.
+// 짧을수록 우연 일치로 실데이터 조각이 살아남는다.
+const MIN_PRESERVED_SPAN = 6
 
 export const shouldPreserve = (value, preserved) => {
   const trimmed = value.trim()
-  if (trimmed === '') return true
-  if (preserved.has(trimmed)) return true
-  // 템플릿 조합의 접두·접미 매칭: 소스의 리터럴이 렌더 결과에 포함돼 있으면 보존 후보다.
+  return trimmed === '' || preserved.has(trimmed)
+}
+
+// 보존은 **구간 단위**다. 종전에는 소스 리터럴이 6자 이상이고 렌더 결과에 포함되기만 하면
+// 문자열 **전체**를 보존했다 — `'Signed in as ' + email`처럼 접두 리터럴이 있으면
+// `Signed in as jane@corp.com` 전체가 그대로 남아 이메일이 커밋됐다(적대 리뷰 HIGH,
+// fail-open). 이제 매칭된 구간만 보존하고 나머지는 치환하므로, 템플릿 조합의 고정부는
+// 읽히고 변수부는 마스킹된다.
+export const maskValue = (value, preserved) => {
+  if (shouldPreserve(value, preserved)) return value
+  const keep = new Array(value.length).fill(false)
   for (const candidate of preserved) {
-    if (candidate.length >= 6 && trimmed.includes(candidate)) return true
+    if (candidate.length < MIN_PRESERVED_SPAN) continue
+    let from = value.indexOf(candidate)
+    while (from !== -1) {
+      for (let index = from; index < from + candidate.length; index += 1) keep[index] = true
+      from = value.indexOf(candidate, from + 1)
+    }
   }
-  return false
+  // 코드포인트 단위로 걷는다 — surrogate pair를 반쪽씩 다루면 astral 문자가 그대로 샌다.
+  let masked = ''
+  let index = 0
+  while (index < value.length) {
+    const point = String.fromCodePoint(value.codePointAt(index))
+    masked += keep[index] ? point : substituteValue(point)
+    index += point.length
+  }
+  return masked
 }
 
 // 앵커 맵 — **기획이 어느 요소에 붙는지는 사람이 말한다.** 추측하지 않는다.
@@ -152,6 +195,67 @@ export const findOrphanedAnchors = (anchorMap, routes) => {
     .map(anchor => `${anchor.anchorId}(${anchor.route})`)
 }
 
+// 오버레이 부트스트랩 — 프리뷰 산출물의 자기완결 원칙을 따른다(외부 로드 없음).
+// 바탕은 `preview/base/`에 놓이므로 `preview/`의 오버레이·traceability를 한 단계 위에서 읽는다.
+// Console이 프리뷰를 iframe으로 감싸므로 변경요청 채널은 부모 postMessage로 성립한다 —
+// consoleOrigin·projectId를 여기에 굽지 않는다(그것이 델타 킷이 하던 신원 결속이다).
+export const OVERLAY_BOOTSTRAP = [
+  '<script type="module" data-wh-overlay-bootstrap>',
+  "import {initWhOverlay} from '../wh-overlay.mjs'",
+  "initWhOverlay({traceabilityUrl: '../traceability.json'})",
+  '</script>',
+].join('\n')
+
+const injectBeforeBodyEnd = (html, snippet) =>
+  html.includes('</body>') ? html.replace('</body>', () => `${snippet}\n</body>`) : `${html}\n${snippet}`
+
+// 실데이터를 자주 나르면서 텍스트 노드 치환이 닿지 않는 속성들.
+const SENSITIVE_ATTRIBUTES = /\s(value|title|alt|placeholder|aria-label)="([^"]*)"/gi
+
+// 브라우저에서 걷어온 결과를 **파일로 쓸 문서**로 만든다. Playwright 없이 검증할 수 있도록
+// 순수 함수로 뗀다 — 종전에는 미매칭 throw와 치환이 main() 안에 있어서 `if (false)`로
+// 바꿔도 CI가 green이었다(적대 리뷰 MEDIUM: 배선 미결박).
+export const finalizeCapture = ({captured, route, url, preserved}) => {
+  // 매칭 실패를 경고로 흘리지 않는다 — 셀렉터가 낡았다는 뜻이고, 조용히 넘기면
+  // 기획 연관 요소에 배지가 없는 채로 승인이 진행된다. **쓰기 전에** 죽어서
+  // 앵커 없는 반쪽 바탕이 디스크에 남지 않게 한다(실측: 종전 순서는 남겼다).
+  if (captured.unmatched.length > 0) {
+    throw new Error(`앵커 셀렉터가 ${route}에서 매칭되지 않았다: ${captured.unmatched.join(', ')} — anchor-map을 고치거나 해당 route를 확인하라`)
+  }
+  // 한 셀렉터가 여러 요소에 걸리면 의도 밖 요소에 배지가 붙는데 아무 신호가 없다.
+  if (captured.ambiguous.length > 0) {
+    throw new Error(`앵커 셀렉터가 ${route}에서 여러 요소에 걸린다: ${captured.ambiguous.join(', ')} — 셀렉터를 유일하게 좁혀라`)
+  }
+
+  let preservedCount = 0
+  let substitutedCount = 0
+  const mask = text => {
+    const masked = maskValue(text, preserved)
+    if (masked === text) preservedCount += 1
+    else substitutedCount += 1
+    return masked
+  }
+  // 1자 텍스트 노드도 대상이다 — `<span>김</span><span>철수</span>`처럼 인라인 태그로
+  // 쪼개진 이름이 하한 때문에 통째로 남던 구멍을 막는다.
+  const sanitized = captured.html
+    .replace(/>([^<>]+)</g, (whole, text) => `>${mask(text)}<`)
+    .replace(SENSITIVE_ATTRIBUTES, (whole, name, text) => ` ${name}="${mask(text)}"`)
+
+  const withStyles = sanitized.replace('</head>', () => `<style>${captured.css}</style></head>`)
+  // 오버레이는 **치환 뒤에** 넣는다. 치환 정규식이 `>본문<`을 잡으므로 먼저 넣으면
+  // 스크립트 본문이 통째로 치환돼 import 문이 깨진다.
+  const withOverlay = captured.stamped.length > 0 ? injectBeforeBodyEnd(withStyles, OVERLAY_BOOTSTRAP) : withStyles
+
+  return {
+    html: `${['<!doctype html>', `<!-- web-harness base snapshot — ${url} -->`, withOverlay].join('\n')}\n`,
+    // title도 마스킹한다 — 종전에는 원문이 meta.json에 그대로 커밋됐다(적대 리뷰 HIGH).
+    title: maskValue(captured.title ?? '', preserved),
+    preservedCount,
+    substitutedCount,
+    overlayBootstrapped: captured.stamped.length > 0,
+  }
+}
+
 const main = async () => {
   const options = parseArguments(process.argv.slice(2))
   const {chromium} = await import('@playwright/test').catch(() => {
@@ -162,6 +266,10 @@ const main = async () => {
   const anchorMap = readAnchorMap(options.anchorMap ? resolve(options.anchorMap) : null)
 
   // 순수 정적 검사이므로 **브라우저를 띄우기 전에** 죽는다.
+  const collisions = findSlugCollisions(options.routes)
+  if (collisions.length > 0) {
+    throw new Error(`route가 같은 파일명으로 떨어진다: ${collisions.join(' / ')} — route를 줄이거나 이름을 바꿔라`)
+  }
   const orphaned = findOrphanedAnchors(anchorMap, options.routes)
   if (orphaned.length > 0) {
     throw new Error(`anchor-map이 캡처하지 않은 route를 가리킨다: ${orphaned.join(', ')} — --route를 추가하거나 맵에서 빼라`)
@@ -175,7 +283,7 @@ const main = async () => {
   const captures = []
 
   for (const route of options.routes) {
-    const url = `${options.base.replace(/\/+$/, '')}${route.startsWith('/') ? route : `/${route}`}`
+    const url = `${options.base.replace(/\/+$/, '')}${normalizeRoute(route)}`
     await page.goto(url, {waitUntil: 'networkidle'})
 
     const routeAnchors = anchorMap.filter(anchor => normalizeRoute(anchor.route) === normalizeRoute(route))
@@ -197,49 +305,30 @@ const main = async () => {
       // 앵커는 **복제본이 아니라 원본**에 스탬프한다 — 셀렉터가 원본 문서 기준이기 때문이다.
       const stamped = []
       const unmatched = []
+      const ambiguous = []
       for (const anchor of anchors) {
-        let element = null
-        try { element = document.querySelector(anchor.selector) } catch { element = null }
-        if (!element) { unmatched.push(anchor.anchorId); continue }
-        element.setAttribute('data-wh-anchor', anchor.anchorId)
-        element.setAttribute('data-wh-feature', anchor.featureId)
+        let found = []
+        try { found = [...document.querySelectorAll(anchor.selector)] } catch { found = [] }
+        if (found.length === 0) { unmatched.push(anchor.anchorId); continue }
+        if (found.length > 1) { ambiguous.push(`${anchor.anchorId}(${found.length})`); continue }
+        found[0].setAttribute('data-wh-anchor', anchor.anchorId)
+        found[0].setAttribute('data-wh-feature', anchor.featureId)
         stamped.push(anchor.anchorId)
       }
       const clone = document.documentElement.cloneNode(true)
       for (const node of clone.querySelectorAll('script')) node.remove()
-      return {html: clone.outerHTML, css: sheets.join('\n'), styleMode, title: document.title, stamped, unmatched}
+      return {html: clone.outerHTML, css: sheets.join('\n'), styleMode, title: document.title, stamped, unmatched, ambiguous}
     }, routeAnchors)
 
-    // 매칭 실패를 경고로 흘리지 않는다 — 셀렉터가 낡았다는 뜻이고, 조용히 넘기면
-    // 기획 연관 요소에 배지가 없는 채로 승인이 진행된다. **쓰기 전에** 죽어서
-    // 앵커 없는 반쪽 바탕이 디스크에 남지 않게 한다(실측: 종전 순서는 남겼다).
-    if (captured.unmatched.length > 0) {
-      throw new Error(`앵커 셀렉터가 ${route}에서 매칭되지 않았다: ${captured.unmatched.join(', ')} — anchor-map을 고치거나 해당 route를 확인하라`)
-    }
-
-    // 문자열 치환은 Node 쪽에서 한다 — 보존 어휘가 파일시스템에서 오기 때문이다.
-    let preservedCount = 0
-    let substitutedCount = 0
-    const sanitized = captured.html.replace(/>([^<>]{2,})</g, (whole, text) => {
-      if (shouldPreserve(text, preserved)) { preservedCount += 1; return whole }
-      substitutedCount += 1
-      return `>${substituteValue(text)}<`
-    })
-
+    const finalized = finalizeCapture({captured, route, url, preserved})
     const slug = slugFor(route)
-    const document_ = [
-      '<!doctype html>',
-      `<!-- web-harness base snapshot — ${url} -->`,
-      sanitized.replace('</head>', `<style>${captured.css}</style></head>`),
-    ].join('\n')
-    writeFileSync(join(outDirectory, `${slug}.html`), `${document_}\n`)
+    writeFileSync(join(outDirectory, `${slug}.html`), finalized.html)
     captures.push({
-      route, url, slug, title: captured.title, styleMode: captured.styleMode,
-      preservedCount, substitutedCount,
-      stampedAnchors: captured.stamped, unmatchedAnchors: captured.unmatched,
+      route, url, slug, title: finalized.title, styleMode: captured.styleMode,
+      preservedCount: finalized.preservedCount, substitutedCount: finalized.substitutedCount,
+      stampedAnchors: captured.stamped, overlayBootstrapped: finalized.overlayBootstrapped,
     })
-    process.stdout.write(`captured ${route} → ${slug}.html (보존 ${preservedCount} / 치환 ${substitutedCount}, 앵커 ${captured.stamped.length}, 스타일 ${captured.styleMode})\n`)
-
+    process.stdout.write(`captured ${route} → ${slug}.html (보존 ${finalized.preservedCount} / 치환 ${finalized.substitutedCount}, 앵커 ${captured.stamped.length}, 스타일 ${captured.styleMode})\n`)
   }
 
   await browser.close()
@@ -258,6 +347,9 @@ const main = async () => {
       '이미지·canvas·바이너리는 치환 대상이 아니다 — 시드 데이터가 근본 방어다.',
       'closed shadow root와 cross-origin iframe은 직렬화되지 않는다.',
       'styleMode가 computed-fallback이면 반응형이 유효하지 않다.',
+      `치환 대상 속성은 ${'value·title·alt·placeholder·aria-label'} 뿐이다 — 그 밖의 속성(data-*·href·srcset 등)과 HTML 주석은 원문으로 남는다.`,
+      '수집한 CSS는 치환하지 않는다 — content 속성에 넣은 문구는 원문으로 남는다.',
+      '보존 어휘 수집은 소스 파일의 문자열 리터럴·템플릿 텍스트에 한한다. 서버에서만 오는 문구는 어휘에 없어 치환된다.',
     ],
   }, null, 2)}\n`)
   process.stdout.write(`meta.json 기록 — 보존 어휘 ${preserved.size}개\n`)

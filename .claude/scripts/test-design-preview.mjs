@@ -225,13 +225,32 @@ test('meta에 없는 html은 캡처 출처가 없다 — 손으로 넣은 바탕
   assert.match(readBaseSnapshot(root).errors.join('\n'), /not declared in meta\.json: hand-written\.html/)
 })
 
-test('script가 남은 바탕은 캡처를 거치지 않은 것이다 — 콘솔이 서빙하면 실행된다(I6)', () => {
+test('앱 script가 남은 바탕은 캡처를 거치지 않은 것이다 — 콘솔이 서빙하면 실행된다(I6)', () => {
   const root = makeProject('base-script')
   withBase(root, {
     'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
     'index.html': '<!doctype html><p>x</p><script src="./app.js"></script>\n',
   })
-  assert.match(readBaseSnapshot(root).errors.join('\n'), /contains <script>/)
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /non-harness <script>/)
+})
+
+test('오버레이 부트스트랩 하나는 허용된다 — 바탕 위에 배지를 띄우려면 필요하다', () => {
+  const root = makeProject('base-overlay-ok')
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': '<!doctype html><p>x</p><script type="module" data-wh-overlay-bootstrap>import {} from "../wh-overlay.mjs"</script>\n',
+  })
+  assert.deepEqual(readBaseSnapshot(root).errors, [])
+})
+
+test('부트스트랩이 둘 이상이면 오류다 — 허용 범위는 정확히 하나다', () => {
+  const root = makeProject('base-overlay-two')
+  const bootstrap = '<script type="module" data-wh-overlay-bootstrap></script>'
+  withBase(root, {
+    'meta.json': metaFor([{slug: 'index', styleMode: 'stylesheets'}]),
+    'index.html': `<!doctype html><p>x</p>${bootstrap}${bootstrap}\n`,
+  })
+  assert.match(readBaseSnapshot(root).errors.join('\n'), /exactly one overlay bootstrap/)
 })
 
 test('computed-fallback 바탕에서는 반응형을 승인할 수 없다', () => {

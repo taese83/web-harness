@@ -358,10 +358,17 @@ export const readBaseSnapshot = projectRoot => {
       errors.push(`base snapshot declared in meta.json but missing: ${slug}.html`)
       continue
     }
-    // 스냅샷은 정적이어야 한다. script가 남아 있으면 캡처를 거치지 않았거나 손으로 고친
-    // 것이고, 콘솔이 서빙할 때 실행된다(I6 안전 하한).
-    if (/<script[\s>]/i.test(readFileSync(htmlPath, 'utf8'))) {
-      errors.push(`base snapshot contains <script>: ${slug}.html — capture strips scripts; this file was not produced by capture`)
+    // 스냅샷에서 실행되는 것은 **하네스 오버레이 부트스트랩 하나뿐**이다. 그 밖의 script는
+    // 캡처를 거치지 않았거나 손으로 넣은 것이고, 콘솔이 서빙할 때 실행된다(I6 안전 하한).
+    // "script 전면 금지"가 아니라 allowlist인 이유: 바탕 위에 배지를 띄우려면 오버레이가
+    // 로드돼야 하고, 그것은 하네스 소유 코드다. 허용 범위를 정확히 한 개로 못박는다.
+    const scriptTags = readFileSync(htmlPath, 'utf8').match(/<script\b[^>]*>/gi) ?? []
+    const foreignScripts = scriptTags.filter(tag => !/\bdata-wh-overlay-bootstrap\b/.test(tag))
+    if (foreignScripts.length > 0) {
+      errors.push(`base snapshot contains a non-harness <script>: ${slug}.html — capture strips app scripts; this file was not produced by capture`)
+    }
+    if (scriptTags.length > 1) {
+      errors.push(`base snapshot has ${scriptTags.length} <script> tags: ${slug}.html — exactly one overlay bootstrap is allowed`)
     }
     // computed-fallback은 반응형이 살아 있지 않다 — 그 위에서 레이아웃을 승인하면 거짓 확신이다.
     if (capture?.styleMode === 'computed-fallback') {

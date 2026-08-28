@@ -181,8 +181,8 @@
     {
       "id": "capture-preserve-allowlist",
       "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
-      "find": "  if (preserved.has(trimmed)) return true",
-      "replace": "  if (true) return true",
+      "find": "  return trimmed === '' || preserved.has(trimmed)",
+      "replace": "  return true",
       "test": ".claude/scripts/test-capture-base-snapshot.mjs",
       "why": "보존이 무조건 참이 되면 스냅샷 치환이 전부 꺼져 실데이터가 그대로 커밋된다"
     },
@@ -213,8 +213,8 @@
     {
       "id": "preview-base-static-only",
       "file": ".claude/scripts/design-preview-status-lib.mjs",
-      "find": "    if (/<script[\\s>]/i.test(readFileSync(htmlPath, 'utf8'))) {",
-      "replace": "    if (false) {",
+      "find": "    const foreignScripts = scriptTags.filter(tag => !/\\bdata-wh-overlay-bootstrap\\b/.test(tag))",
+      "replace": "    const foreignScripts = []",
       "test": ".claude/scripts/test-design-preview.mjs",
       "why": "script가 남은 바탕을 콘솔이 서빙하면 실행된다 — I6 안전 하한"
     },
@@ -225,6 +225,54 @@
       "replace": "    if (false) errors.push('')",
       "test": ".claude/scripts/test-design-preview.mjs",
       "why": "meta에 없는 html을 허용하면 손으로 넣은 바탕이 캡처 산출물로 통과한다"
+    },
+    {
+      "id": "capture-span-only-preservation",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "    masked += keep[index] ? point : substituteValue(point)",
+      "replace": "    masked += point",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "구간 보존이 무력화되면 템플릿 접두사를 가진 문자열 전체가 원문으로 남는다(과거 fail-open 회귀)"
+    },
+    {
+      "id": "capture-unicode-coverage",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "  .replace(/\\p{Lo}/gu, '○')",
+      "replace": "  .replace(/[가-힣]/gu, '○')",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "한글 범위로 좁히면 일본어·한자 이름이 identity로 통과하면서 치환됨으로 집계된다"
+    },
+    {
+      "id": "capture-unmatched-anchor-throws",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "  if (captured.unmatched.length > 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "미매칭을 흘리면 기획 연관 요소에 배지가 없는 채로 승인이 진행된다"
+    },
+    {
+      "id": "capture-ambiguous-anchor-throws",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "  if (captured.ambiguous.length > 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "복수 매칭을 흘리면 의도 밖 요소에 배지가 붙고 아무 신호가 없다"
+    },
+    {
+      "id": "capture-sensitive-attributes-masked",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "    .replace(SENSITIVE_ATTRIBUTES, (whole, name, text) => ` ${name}=\"${mask(text)}\"`)",
+      "replace": "    .replace(/$^/, '')",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "value·title·placeholder는 텍스트 노드 치환이 닿지 않는 PII 경로다"
+    },
+    {
+      "id": "capture-slug-collision",
+      "file": ".claude/skills/web-orchestrator/assets/capture-base-snapshot.mjs",
+      "find": "    .filter(([, group]) => group.length > 1)",
+      "replace": "    .filter(() => false)",
+      "test": ".claude/scripts/test-capture-base-snapshot.mjs",
+      "why": "slug가 겹치면 뒤 캡처가 앞을 조용히 덮어써 한 화면이 승인 대상에서 사라진다"
     }
   ]
 }
