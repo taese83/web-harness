@@ -281,7 +281,7 @@ const validateTraceability = (projectRoot, traceability, mode = 'prototype') => 
     }
   }
 
-  // 마커 스캔은 문자열 포함 검사일 뿐(§4 등록 프록시) — .mjs 포함은 delta 모드에 한정한다.
+  // 마커 스캔은 문자열 포함 검사일 뿐(§4 등록 프록시) — 프리뷰 산출물은 html·js다.
   const renderSources = walkFiles(previewRoot)
     .filter(path => /\.(?:html|js)$/.test(path))
     .map(path => readFileSync(path, 'utf8'))

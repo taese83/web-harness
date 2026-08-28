@@ -584,8 +584,8 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     }
     if (url.pathname === '/api/codex/status') return json(response, 200, codexRunManager.connection({refresh: url.searchParams.get('refresh') === '1'}))
     if (url.pathname === '/api/live-base/health') {
-      // 구성된 loopback 대상만 프로브한다(임의 URL 프로브 없음). 대상은 프로젝트의
-      // delta manifest 또는 --live-base 플래그에서만 나온다.
+      // 구성된 loopback 대상만 프로브한다(임의 URL 프로브 없음). 대상 정본은
+      // 프로젝트의 `preview/live.json`이며, launch.json 포트 allowlist가 다시 좁힌다.
       const healthProjectId = url.searchParams.get('project')
       let target = null
       if (healthProjectId) {
@@ -734,9 +734,6 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
   })
 
 
-  // live-base 동적 구성(후속 작업 7-③): delta manifest의 target(loopback 한정)으로
-  // 프로젝트별 프록시를 지연 생성한다 — 플래그 없이 plain 콘솔 하나로 통합.
-  // --live-base 플래그는 해당 프로젝트의 포트 고정 수동 오버라이드로 유지된다.
 
   // 라이브 설정은 디자인 프리뷰와 직교한다 — 프리뷰는 승인 자산("무엇을 만들기로 했나"),
   // 라이브는 운영 뷰("지금 무엇이 돌고 있나")다. 정본은 `preview/live.json`({target})
@@ -750,7 +747,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     try {
       raw = readFileSync(join(projectRoot, '_workspace', '02_design', 'preview', 'live.json'), 'utf8')
     } catch {
-      raw = null // 부재 — 레거시 폴백 허용
+      raw = null // 부재 — 대상 미설정으로 본다(델타 킷 레거시 폴백은 2026-08-28 제거)
     }
     if (raw !== null) {
       try {
