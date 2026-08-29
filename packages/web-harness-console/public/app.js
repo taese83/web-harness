@@ -1912,7 +1912,19 @@ const renderChanges = () => {
         editButton.addEventListener('click', () => openChangeRequestRevisionDialog({request, trigger: editButton}))
         actions.append(editButton)
       }
-      if (reviewDecision?.decision === 'REVISION_REQUESTED') {
+      // 영향 검토가 만료됐는지는 서버가 미리 계산해 준다(impactContext.stale). 만료된
+      // 검토 위에서 apply를 시작하면 CODEX_IMPACT_STALE로 거절되는데, 그 오류가 안내하는
+      // '영향 검토 다시 실행'이 REVISION_REQUESTED 카드에는 없어 길이 끊겼다(사용자 보고).
+      const impactEvidenceStale = Boolean(latestImpactRun?.impactContext?.stale)
+      if (reviewDecision?.decision === 'REVISION_REQUESTED' && impactEvidenceStale) {
+        card.append(create('p', {className: 'panel-copy request-base-stale',
+          text: '기획·디자인 증거가 이 영향 검토 이후에 바뀌었습니다. 만료된 검토 위에서는 수정 반영을 시작할 수 없습니다 — 영향 검토를 다시 실행한 뒤 진행하세요.'}))
+        const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
+        const impactLabel = targetlessCr ? '기획 정찰 다시 실행' : '영향 검토 다시 실행'
+        const restartImpact = create('button', {type: 'button', className: 'primary-button', text: impactLabel, disabled: !connection?.connected || requestActive})
+        restartImpact.addEventListener('click', () => startCodexRun({request, phase: 'impact', trigger: restartImpact}))
+        actions.append(restartImpact)
+      } else if (reviewDecision?.decision === 'REVISION_REQUESTED') {
         const reviseButton = create('button', {type: 'button', className: 'primary-button', text: `${executorLabel} 수정 반영`, disabled: !connection?.connected || requestActive})
         reviseButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: reviseButton}))
         actions.append(reviseButton)

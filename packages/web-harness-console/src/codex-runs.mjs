@@ -27,7 +27,11 @@ const MAX_AUDIT_FILES = 256
 const MAX_PUBLIC_SUMMARY = 8 * 1024
 // v2: 프롬프트 조립 재배치(불변 프리픽스 + 후행 리마인더). 행동 동등성이 미증명이므로
 // 구프롬프트로 생성된 impact 캐시의 배포 경계 재사용을 버전 범프로 차단한다.
-const IMPACT_ANALYZER_VERSION = 'impact-context-v3'
+// v3 → v4: projectDigest의 **입력 집합**이 바뀌었다(감사 산출물 제외에 프리뷰 승인
+// 장부 design-review.md가 추가됨). 계산식이 달라지면 저장된 contextDigest는 전부
+// 무효가 된다 — 그 사실을 버전으로 선언하지 않으면 '증거가 바뀌었다'는 오해로
+// 나타난다(실제로 그렇게 나타났다). 입력 집합을 손대면 여기도 함께 올린다.
+const IMPACT_ANALYZER_VERSION = 'impact-context-v4'
 const MAX_IMPACT_DOCUMENTS = 12
 const MAX_IMPACT_TEST_CASES = 24
 const MAX_IMPACT_ANCHORS = 12

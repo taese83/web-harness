@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url'
 import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from '../../.claude/scripts/design-preview-status-lib.mjs'
 import {inspectCandidateBase} from './src/change-candidates.mjs'
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
-import {CodexRunManager} from './src/codex-runs.mjs'
+import {CodexRunManager, buildImpactContext} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
 import {WorkspaceCatalog, computeTcSourceStamp, hasTcRunCommand} from './src/indexer.mjs'
 import {parseLiveBaseTarget} from './src/live-server-ops.mjs'
@@ -701,9 +701,32 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       const project = catalog.project(detailProjectId)
       // 대기 중인 candidate의 기준이 아직 유효한지 미리 알려준다. 승격 시점에야 409로
       // 알게 되면 사용자는 승인 버튼 앞에서 막힌다(CANDIDATE_BASE_STALE).
-      detail.codexRuns = codexRunManager.list(project.root).map(run => run.phase === 'apply' && run.candidate
-        ? {...run, candidate: {...run.candidate, baseState: inspectCandidateBase(project.root, run.runId)}}
-        : run)
+      //
+      // 영향 검토도 같다: apply 시점에야 CODEX_IMPACT_STALE로 알게 되는데, 그때 화면이
+      // 안내하는 '영향 검토 다시 실행'은 REVISION_REQUESTED 카드에 없어서 길이 끊긴다.
+      // 요청마다 현재 contextDigest를 한 번 계산해 저장분과 대조한다.
+      const currentContextDigest = new Map()
+      const contextDigestFor = changeRequestId => {
+        if (!currentContextDigest.has(changeRequestId)) {
+          const target = project.changeRequests.find(candidate => candidate.id === changeRequestId)
+          let digest = null
+          try { digest = target ? buildImpactContext(project, target).contextDigest : null } catch { digest = null }
+          currentContextDigest.set(changeRequestId, digest)
+        }
+        return currentContextDigest.get(changeRequestId)
+      }
+      detail.codexRuns = codexRunManager.list(project.root).map(run => {
+        if (run.phase === 'apply' && run.candidate) {
+          return {...run, candidate: {...run.candidate, baseState: inspectCandidateBase(project.root, run.runId)}}
+        }
+        if (run.phase === 'impact' && run.impactContext?.contextDigest) {
+          const current = contextDigestFor(run.changeRequestId)
+          // 계산하지 못하면 판정하지 않는다(null) — 없는 상태를 지어내지 않는다.
+          const stale = current === null ? null : current !== run.impactContext.contextDigest
+          return {...run, impactContext: {...run.impactContext, stale}}
+        }
+        return run
+      })
 
       return json(response, 200, detail)
     }
