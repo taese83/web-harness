@@ -1558,7 +1558,7 @@ const recordReviewDecision = async ({request, decision, reason, trigger = null})
   }
 }
 
-const openReviewDecisionDialog = ({request, decision, trigger, applyRun}) => {
+const openReviewDecisionDialog = ({request, decision, trigger, applyRun, prefillReason = ''}) => {
   const isolatedCandidate = Boolean(applyRun?.candidate)
   const config = {
     APPROVED: {
@@ -1602,6 +1602,9 @@ const openReviewDecisionDialog = ({request, decision, trigger, applyRun}) => {
   const cancel = create('button', {type: 'button', className: 'secondary-button', text: '취소'})
   const submit = create('button', {type: 'submit', className: config.submitClass, text: config.submit})
   const reason = create('textarea', {rows: 5, maxlength: 2000, required: config.required, placeholder: config.required ? '검토자가 확인할 수 있도록 구체적으로 작성해 주세요.' : '선택 사항입니다.'})
+  // 기준이 밀린 후보처럼 사유가 기계적으로 정해지는 경우만 초안을 채운다. 사용자가
+  // 지우거나 고칠 수 있고, 기록되는 것은 제출된 문구다.
+  if (prefillReason) reason.value = prefillReason
   form.append(
     create('header', {className: 'request-dialog-header'}, [
       create('div', {}, [create('span', {className: 'eyebrow', text: config.eyebrow}), create('h2', {id: 'review-decision-title', text: config.title})]),
@@ -1919,14 +1922,18 @@ const renderChanges = () => {
         // 종전에는 이 사실이 **승인을 누른 뒤에야** 오류 문구로 나타났고, 화면에는
         // 승인·수정 요청·폐기뿐이라 되살릴 길이 보이지 않았다(사용자 지적).
         card.append(create('p', {className: 'panel-copy request-base-stale',
-          text: '이 후보가 만들어진 뒤 프로젝트가 바뀌었습니다(다른 변경이 먼저 승격됐을 수 있습니다). 그대로 승인하면 앞선 변경을 되돌리므로 승격이 거절됩니다 — 현재 상태 기준으로 다시 실행하세요.'}))
-        const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
-        const rebuildLabel = targetlessCr ? '기획 초안 다시 생성' : '변경 적용 다시 실행'
-        const rebuildButton = create('button', {type: 'button', className: 'primary-button', text: rebuildLabel, disabled: !connection?.connected || requestActive})
-        rebuildButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: rebuildButton}))
+          text: '이 후보가 만들어진 뒤 프로젝트가 바뀌었습니다(다른 변경이 먼저 승격됐을 수 있습니다). 그대로 승인하면 앞선 변경을 되돌리므로 승격이 거절됩니다. 모든 apply 결과는 검토 결정을 하나씩 받아야 하므로, 수정 요청으로 기록을 남긴 뒤 ‘수정 반영’으로 현재 정본 기준의 새 후보를 만드세요.'}))
+        // 서버는 검토되지 않은 apply 결과 위에 또 apply하는 것을 막는다(CODEX_REVIEW_REQUIRED).
+        // 그 게이트를 푸는 대신 기존 루프(수정 요청 → 수정 반영)로 보낸다 — 폐기는 Change
+        // Request 자체를 종결시키므로 여기서 원하는 행동이 아니다.
+        const reviseStale = create('button', {type: 'button', className: 'primary-button', text: '수정 요청 · 기준 갱신'})
+        reviseStale.addEventListener('click', () => openReviewDecisionDialog({
+          request, decision: 'REVISION_REQUESTED', trigger: reviseStale, applyRun,
+          prefillReason: '이 후보가 만들어진 뒤 다른 변경이 먼저 승격되어 기준 트리가 달라졌습니다. 요청 내용은 그대로이며, 현재 정본 기준으로 candidate를 다시 만들어 주세요.',
+        }))
         const discardStale = create('button', {type: 'button', className: 'danger-button', text: '변경 폐기'})
         discardStale.addEventListener('click', () => openReviewDecisionDialog({request, decision: 'DISCARDED', trigger: discardStale, applyRun}))
-        actions.append(rebuildButton, discardStale)
+        actions.append(reviseStale, discardStale)
       } else if (!reviewDecision && applyRun?.status === 'COMPLETED' && applyRun.result?.outcome === 'READY_FOR_REVIEW') {
         const approveButton = create('button', {type: 'button', className: 'primary-button', text: '승인'})
         const revisionButton = create('button', {type: 'button', className: 'secondary-button', text: '수정 요청'})
