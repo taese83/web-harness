@@ -3,6 +3,20 @@ import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
 
 const WORKFLOW_SECURITY_FIXTURE = 'workflow-security-cases.json'
+
+// 승격 계약(선행 검증 job·보호 환경·broker action 단독·`run:` 금지)을 **면제**하는 write scope.
+//
+// 종전에는 `value === 'write'`면 종류를 가리지 않고 전부 승격으로 봤다. 그 규칙은 코드·
+// 아티팩트·배포를 바꾸는 쓰기를 막으려고 만들어졌는데, 문법이 넓어 **이슈 상태만 바꾸는
+// 워크플로우까지 같이 걸렸다** — Actions가 무조건 배포는 아니다(사용자 지적).
+//
+// **기본은 fail-closed다**: 여기 나열되지 않은 write는 전부 승격으로 본다. 새 GitHub 권한이
+// 생겨도 자동으로 느슨해지지 않는다. 목록을 늘리는 것은 같은 수준의 검토를 거쳐야 한다.
+//
+// `issues`만 둔다 — 이 권한으로 할 수 있는 최악은 이슈를 잘못 닫거나 코멘트를 다는 것이고,
+// 코드·릴리스·배포·신원(id-token)·체크 상태를 바꿀 수 없다. `pull-requests`·`statuses`·
+// `checks`·`pages`·`packages`·`deployments`·`actions`·`attestations`는 승격에 닿으므로 제외한다.
+const NON_PROMOTION_WRITE_SCOPES = new Set(['issues'])
 const MAX_WORKFLOW_BYTES = 2 * 1024 * 1024
 const MAX_WORKFLOWS_PER_PROJECT = 256
 const SAFE_PERMISSION_VALUES = new Set(['none', 'read', 'write'])
@@ -369,7 +383,7 @@ export const inspectWorkflowSecurity = ({
             if (!SAFE_PERMISSION_VALUES.has(value)) {
               add('PERMISSION_VALUE_INVALID', `${jobId}.${permission.entry.key} permission must be read, write, or none`, permission.line)
             }
-            if (value === 'write') hasWritePermission = true
+            if (value === 'write' && !NON_PROMOTION_WRITE_SCOPES.has(permission.entry.key)) hasWritePermission = true
           }
         }
       }
