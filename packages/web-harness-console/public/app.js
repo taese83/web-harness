@@ -1341,6 +1341,10 @@ const latestCurrentCodexRun = (request, phase) => (state.detail.codexRuns ?? [])
   .find(run => run.changeRequestId === request.id && run.phase === phase && runMatchesCurrentRequest(run, request)) ?? null
 
 const hasActiveCodexRun = () => (state.detail?.codexRuns ?? []).some(run => ACTIVE_CODEX_STATUSES.has(run.status))
+// 진행 중인 실행 자체. **지금 돌고 있다는 사실이 과거 결정보다 최신**이므로 상태 칩과
+// 결과 패널이 이것을 먼저 본다.
+const activeCodexRunForRequest = requestId => (state.detail?.codexRuns ?? [])
+  .find(run => run.changeRequestId === requestId && ACTIVE_CODEX_STATUSES.has(run.status)) ?? null
 const hasActiveCodexRunForRequest = requestId => (state.detail?.codexRuns ?? [])
   .some(run => run.changeRequestId === requestId && ACTIVE_CODEX_STATUSES.has(run.status))
 
@@ -1749,11 +1753,19 @@ const reviewDecisionForRun = (request, applyRun) => applyRun
   ? (request.reviewDecisions ?? []).find(decision => decision.applyRunId === applyRun.runId) ?? null
   : null
 
-const requestLifecycleStatus = (request, impactRun, applyRun, staleImpact = false) => reviewDecisionForRun(request, applyRun)?.decision ?? (staleImpact ? 'REQUEST_REVISED' : codexRunStatus(applyRun ?? impactRun))
+// 진행 중인 실행이 있으면 그 상태가 먼저다. 종전에는 검토 결정이 있는 요청에서 새
+// 영향 검토를 돌려도 칩이 계속 REVISION_REQUESTED로 남아, 돌고 있다는 사실이 화면
+// 어디에도 나타나지 않았다(사용자 지적: "Running 떠야할거 같아 기존처럼").
+const requestLifecycleStatus = (request, impactRun, applyRun, staleImpact = false, activeRun = null) =>
+  activeRun?.status
+  ?? reviewDecisionForRun(request, applyRun)?.decision
+  ?? (staleImpact ? 'REQUEST_REVISED' : codexRunStatus(applyRun ?? impactRun))
 
 const LIFECYCLE_STEP_LABELS = ['요청', '영향 검토', '적용 candidate', '검토 결정']
 
-const lifecycleStageIndex = ({impactRun, applyRun, staleImpact, reviewDecision}) => {
+const lifecycleStageIndex = ({impactRun, applyRun, staleImpact, reviewDecision, activeRun = null}) => {
+  // 지금 돌고 있는 단계가 곧 현재 단계다 — 과거 결정보다 앞선다.
+  if (activeRun) return activeRun.phase === 'impact' ? 1 : 2
   if (reviewDecision) return reviewDecision.decision === 'REVISION_REQUESTED' ? 2 : 3
   if (applyRun) return applyRun.status === 'COMPLETED' && applyRun.result?.outcome === 'READY_FOR_REVIEW' ? 3 : 2
   if (staleImpact) return 1
@@ -1870,6 +1882,9 @@ const renderChanges = () => {
       const applyRun = latestCodexRun(request.id, 'apply')
       const staleImpact = Boolean(latestImpactRun && (!runMatchesCurrentRequest(latestImpactRun, request) || state.evidenceStaleRunIds?.has(latestImpactRun.runId)))
       const reviewDecision = reviewDecisionForRun(request, applyRun)
+      // 카드 구성(상태 칩·단계 표시)에서 쓰이므로 여기서 선언한다 — 아래쪽 액션
+      // 블록에 두면 사용처보다 늦어 TDZ로 페이지 전체가 죽는다.
+      const activeRun = activeCodexRunForRequest(request.id)
       const targetButton = create('button', {type: 'button', className: 'inline-link-button', text: request.context.subFeatureId ?? request.context.featureId ?? '프로젝트(부트스트랩)'})
       targetButton.addEventListener('click', () => {
         state.featureId = request.context.featureId
@@ -1879,9 +1894,9 @@ const renderChanges = () => {
       const card = create('article', {className: 'request-history-card', tabindex: '-1', dataset: {requestId: request.id}}, [
         create('div', {className: 'request-history-header'}, [
           create('div', {}, [create('span', {className: 'feature-id', text: request.id}), create('h4', {text: request.title})]),
-          statusChip(requestLifecycleStatus(request, impactRun, applyRun, staleImpact)),
+          statusChip(requestLifecycleStatus(request, impactRun, applyRun, staleImpact, activeRun)),
         ]),
-        lifecycleStepsIndicator({impactRun, applyRun, staleImpact, reviewDecision}),
+        lifecycleStepsIndicator({impactRun, applyRun, staleImpact, reviewDecision, activeRun}),
         create('p', {className: 'request-summary', text: request.requestedChange}),
         create('dl', {className: 'request-history-meta'}, [
           create('dt', {text: 'Target'}), create('dd', {}, [targetButton]),
@@ -1899,7 +1914,7 @@ const renderChanges = () => {
           create('span', {text: revision.title}),
         ]))),
       ]))
-      appendCodexResult(card, applyRun ?? impactRun ?? latestImpactRun, {stale: !applyRun && !impactRun && staleImpact})
+      appendCodexResult(card, activeRun ?? applyRun ?? impactRun ?? latestImpactRun, {stale: !activeRun && !applyRun && !impactRun && staleImpact})
       appendReviewDecision(card, reviewDecision)
       appendImplementationVerification(card, request)
       const actions = create('div', {className: 'request-codex-actions'})
