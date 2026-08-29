@@ -87,11 +87,18 @@ const statusNextAction = preview => ({
 }[preview.status] ?? null)
 
 // UNAPPROVED 프리뷰의 승인 폼 — 상태 dialog 안에서 단일 표면으로 기록한다.
+const REAPPROVABLE_REASONS = ['APPROVED_SOURCE_CHANGED', 'APPROVED_PREVIEW_CHANGED']
+const isReapprovable = preview => preview.status === 'STALE' && REAPPROVABLE_REASONS.includes(preview.reason)
+
 const buildPreviewApprovalForm = (preview, {onSuccess = null} = {}) => {
-  if (preview.status !== 'UNAPPROVED' || !preview.sourceDigest || !preview.previewDigest) return null
+  // 승인 후 변경된 STALE도 여기서 닫는다 — 스냅샷은 이미 현재 소스와 같고 승인 기록만
+  // 뒤처진 상태라 재고정으로는 아무것도 달라지지 않는다(사용자 보고).
+  if ((preview.status !== 'UNAPPROVED' && !isReapprovable(preview)) || !preview.sourceDigest || !preview.previewDigest) return null
   const approvalError = create('p', {className: 'panel-copy preview-approval-error', hidden: true})
   const attested = create('input', {type: 'checkbox', id: 'preview-approval-attested'})
-  const attestedLabel = create('label', {htmlFor: 'preview-approval-attested', text: 'Preview 탭에서 이 프리뷰의 test case 동작을 직접 확인했습니다.'})
+  const attestedLabel = create('label', {htmlFor: 'preview-approval-attested', text: isReapprovable(preview)
+    ? '승인 이후 바뀐 내용을 Preview 탭에서 다시 확인했고, 이 프리뷰를 재승인합니다.'
+    : 'Preview 탭에서 이 프리뷰의 test case 동작을 직접 확인했습니다.'})
   const approvalText = create('input', {type: 'text', maxLength: 500, className: 'preview-approval-text', placeholder: '승인 문구 (한 줄, 500자 이내)', 'aria-label': '승인 문구'})
   const submit = create('button', {type: 'button', className: 'preview-approval-submit', text: '프리뷰 승인 기록', disabled: true})
   const syncSubmit = () => { submit.disabled = !(attested.checked && approvalText.value.trim()) }
@@ -136,14 +143,17 @@ const buildPreviewApprovalForm = (preview, {onSuccess = null} = {}) => {
 // 재고정은 승인이 아니다. 성공하면 UNAPPROVED가 되고 **승인 게이트는 그대로 남는다** —
 // 기획자는 그다음에 동작을 확인하고 승인한다. 계약의 재확인→재승인 순서 그대로다.
 const buildPreviewResnapshotForm = (preview, {onSuccess = null} = {}) => {
-  if (preview.status !== 'STALE' || !preview.sourceDigest) return null
+  if (preview.status !== 'STALE' || preview.reason !== 'SOURCE_CHANGED' || !preview.sourceDigest) return null
   const changed = preview.changedSources ?? []
   const error = create('p', {className: 'panel-copy preview-approval-error', hidden: true})
   const section = create('div', {className: 'preview-approval-form preview-resnapshot'})
   section.append(create('h3', {className: 'secondary-panel-title', text: `스냅샷 고정 이후 바뀐 스펙 · ${changed.length}건`}))
   if (changed.length === 0) {
     // 목록이 비면 근거 없이 확인을 받는 셈이라 그 사실을 말한다(지어내지 않는다).
-    section.append(create('p', {className: 'panel-copy', text: '변경 목록을 파생하지 못했습니다. traceability.json의 파일별 스냅샷이 없는 구세대 프리뷰일 수 있습니다.'}))
+    // 다만 "0건"과 "파생 실패"는 다르다 — 종전에는 둘을 뭉뚱그려 구세대 프리뷰라고 단정했다.
+    section.append(create('p', {className: 'panel-copy', text: preview.changedSources
+      ? '스냅샷 이후 바뀐 스펙 파일이 없습니다. 재고정할 것이 없으니 상태의 다른 원인을 확인하세요.'
+      : '변경 목록을 파생하지 못했습니다. traceability.json의 파일별 스냅샷이 없는 구세대 프리뷰일 수 있습니다.'}))
   } else {
     const list = create('ul', {className: 'plain-list preview-changed-sources'})
     for (const item of changed) list.append(create('li', {}, [
@@ -727,13 +737,13 @@ const renderOverview = () => {
   ])
   const nextAction = statusNextAction(detail.preview)
   if (nextAction) previewPanel.append(create('p', {className: 'panel-copy preview-next-action', text: nextAction}))
-  if (detail.preview.status === 'UNAPPROVED' && detail.preview.sourceDigest && detail.preview.previewDigest) {
-    const approveButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: '프리뷰 승인…'})
+  if ((detail.preview.status === 'UNAPPROVED' || isReapprovable(detail.preview)) && detail.preview.sourceDigest && detail.preview.previewDigest) {
+    const approveButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: isReapprovable(detail.preview) ? '프리뷰 재승인…' : '프리뷰 승인…'})
     approveButton.addEventListener('click', () => openPreviewStatusDialog(detail.preview, approveButton))
     previewPanel.append(approveButton)
   }
   // STALE에서도 진입 버튼을 둔다. 상태 chip으로만 열리면 기획자는 여기서 길을 잃는다.
-  if (detail.preview.status === 'STALE' && detail.preview.sourceDigest) {
+  if (detail.preview.status === 'STALE' && detail.preview.reason === 'SOURCE_CHANGED' && detail.preview.sourceDigest) {
     const resnapshotButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: `바뀐 스펙 확인 · 재고정… (${(detail.preview.changedSources ?? []).length}건)`})
     resnapshotButton.addEventListener('click', () => openPreviewStatusDialog(detail.preview, resnapshotButton))
     previewPanel.append(resnapshotButton)

@@ -249,8 +249,11 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
           return json(response, 400, errorBody('PREVIEW_RESNAPSHOT_NOT_ATTESTED', 'Resnapshot requires an explicit attestation that the changed sources were reviewed'))
         }
         const current = inspectDesignPreview(project.root)
-        if (current.status !== 'STALE') {
-          return json(response, 409, errorBody('PREVIEW_NOT_RESNAPSHOTTABLE', `Preview status is ${current.status}; resnapshot applies only to STALE previews`))
+        // SOURCE_CHANGED 전용이다. APPROVED_*_CHANGED는 스냅샷이 이미 현재 소스와 같고
+        // **승인 기록만 뒤처진** 상태라, 재고정해 봐야 같은 digest를 다시 쓸 뿐이다
+        // (사용자 보고: "스냅샷 고정해도 안되"). 그 상태의 출구는 재승인이다.
+        if (current.status !== 'STALE' || current.reason !== 'SOURCE_CHANGED') {
+          return json(response, 409, errorBody('PREVIEW_NOT_RESNAPSHOTTABLE', `Preview is ${current.status}/${current.reason ?? '-'}; resnapshot applies only to STALE previews whose recorded source snapshot drifted`))
         }
         // 사용자가 본 변경 집합과 지금 디스크의 변경 집합이 같아야 한다. 다르면 확인 대상이
         // 이미 달라진 것이므로 조용히 덮지 않고 되돌려보낸다.
@@ -307,8 +310,14 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         ) {
           return json(response, 200, publicApproval(current))
         }
-        if (current.status !== 'UNAPPROVED') {
-          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview status is ${current.status}; Console approval is allowed only for UNAPPROVED previews`))
+        // UNAPPROVED와 **승인 후 변경된 STALE**을 허용한다. 후자는 계약이 말하는
+        // 재확인→재승인 루프이고, 하네스 lib(recordPreviewApproval)도 이미 STALE을
+        // 허용한다 — 콘솔만 좁아서 기획자가 그 상태에서 아무것도 못 했다.
+        // 증언과 digest 일치 요구는 그대로다: 사람이 **본 그 프리뷰**만 승인된다.
+        const reapprovable = current.status === 'STALE'
+          && ['APPROVED_SOURCE_CHANGED', 'APPROVED_PREVIEW_CHANGED'].includes(current.reason)
+        if (current.status !== 'UNAPPROVED' && !reapprovable) {
+          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview is ${current.status}/${current.reason ?? '-'}; Console approval is allowed for UNAPPROVED previews and for previews that changed after approval`))
         }
         const digestPattern = /^[0-9a-f]{64}$/
         if (!digestPattern.test(input.sourceDigest ?? '') || !digestPattern.test(input.previewDigest ?? '')) {
