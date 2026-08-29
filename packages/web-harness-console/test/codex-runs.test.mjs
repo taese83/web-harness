@@ -448,7 +448,10 @@ test('feature-CR instruction constants stay byte-identical (prompt-cache prefix 
   // context에 넣으면서, 그것을 읽어도 된다고 지시문에 명시했다. 종전 지시문은
   // relatedDocuments만 출발점으로 허용해 실행기가 렌더 아티팩트를 특정하지 못하고
   // BLOCKED로 끝났다(사용자 보고: wh-feat-legend-toggle).
-  assert.equal(createHash('sha256').update(IMPACT_INSTRUCTIONS, 'utf8').digest('hex'), 'd9e0ec090aee66aa1bc05e2f1d51f98a17f1b4bb72f46d5381ad56f9a68d583b')
+  // impact-context-v4 → v5. renderPaths가 **프리뷰 렌더 소스 한정**임을 지시문에
+  // 명시했다 — 종전 문구는 "앵커를 실제로 담은 파일"이라 해 src/ 프로젝트에서
+  // 프리뷰 파일만 영향 산출물로 오도할 수 있었다(harness-change-reviewer MEDIUM).
+  assert.equal(createHash('sha256').update(IMPACT_INSTRUCTIONS, 'utf8').digest('hex'), 'b6d98b2042924acb2226a00d62bd8339341fc2e264d489f85b53657d79ea8498')
   assert.equal(createHash('sha256').update(APPLY_INSTRUCTIONS, 'utf8').digest('hex'), 'aec5dbabd96364467ecf16fb41f40d567492081f8b387595891cf774ddcf7265')
 })
 

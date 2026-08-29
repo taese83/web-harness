@@ -503,9 +503,12 @@ export const indexRenderAnchors = (project, anchorIds, {maxFiles = 200, maxHitsP
   const projectRoot = resolve(project)
   const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
   const wanted = [...new Set((anchorIds ?? []).filter(id => typeof id === 'string' && id.length > 0))]
-  const result = {anchors: {}, scannedFiles: 0, unresolved: [...wanted]}
+  const result = {anchors: {}, scannedFiles: 0, scanTruncated: false, unresolved: [...wanted]}
   if (wanted.length === 0 || !existsSync(previewRoot)) return result
-  const files = walkFiles(previewRoot).filter(path => /\.(?:html|js|mjs)$/.test(path)).slice(0, maxFiles)
+  const candidates = walkFiles(previewRoot).filter(path => /\.(?:html|js|mjs)$/.test(path))
+  // 절단됐다면 "못 찾음"과 "안 봄"이 섞인다. 그 사실을 내보내 소비자가 구분하게 한다.
+  result.scanTruncated = candidates.length > maxFiles
+  const files = candidates.slice(0, maxFiles)
   for (const absolute of files) {
     let text
     try { text = readFileSync(absolute, 'utf8') } catch { continue }

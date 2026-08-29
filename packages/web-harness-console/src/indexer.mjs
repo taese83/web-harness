@@ -399,10 +399,13 @@ const hasApprovedRender = projectRoot => {
 }
 
 // 스냅샷 고정 시점과 현재의 소스 파일 목록을 대조한다. 순수 파생이며 판정하지 않는다.
+// 반환값 셋을 구분한다: 목록(변경 있음) · [](변경 없음) · null(파생 불가).
+// 종전에는 파생 불가에도 []를 돌려줘서 "변경 없음"과 뭉개졌고, 클라이언트의 정직한
+// 분기가 도달 불가 죽은 코드가 됐다(harness-change-reviewer HIGH).
 const diffSourceFiles = status => {
   const recorded = status.traceability?.sourceSnapshot?.files
   const current = status.source?.files
-  if (!Array.isArray(recorded) || !Array.isArray(current)) return []
+  if (!Array.isArray(recorded) || !Array.isArray(current)) return null
   const before = new Map(recorded.map(record => [record.path, record.sha256]))
   const after = new Map(current.map(record => [record.path, record.sha256]))
   const paths = unique([...before.keys(), ...after.keys()]).sort()

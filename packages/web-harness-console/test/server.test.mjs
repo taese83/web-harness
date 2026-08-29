@@ -716,3 +716,70 @@ test('깨진 live.json은 침묵 강등하지 않고 loud fail한다', async t =
   assert.equal(health.configured, false)
   assert.equal(health.error, 'INVALID_LIVE_CONFIG')
 })
+
+// preview-resnapshot — 신설 mutating endpoint. harness-change-reviewer HIGH(테스트 0건) 반영.
+test('preview resnapshot requires origin, intent, attestation, a matching digest, and real changes', async t => {
+  const fixture = previewFixtureRoot()
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const project = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0]
+  const url = `${consoleOrigin}/api/projects/${project.id}/preview-resnapshot`
+  const post = (body, {origin = consoleOrigin, intent = 'resnapshot-preview'} = {}) => fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(origin ? {origin} : {}),
+      ...(intent ? {'x-web-harness-intent': intent} : {}),
+    },
+    body: JSON.stringify(body),
+  })
+  const digestNow = async () => {
+    await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+    return (await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())).preview.sourceDigest
+  }
+
+  // 스냅샷이 방금 고정됐으므로 아직 STALE이 아니다.
+  const fresh = await post({attested: true, sourceDigest: await digestNow()})
+  assert.equal(fresh.status, 409)
+  assert.equal((await fresh.json()).error.code, 'PREVIEW_NOT_RESNAPSHOTTABLE')
+
+  // 스펙을 바꿔 SOURCE_CHANGED를 만든다.
+  writeFileSync(join(fixture.project, '_workspace', '01_plan', 'feature-plan.md'),
+    '# Feature List\n\n## FEAT-001 Save item\n\n- TC-001-1: saves a valid item and shows a toast\n')
+  // 목록은 캐시된 스캔이라 디스크 변경 뒤에는 rescan이 필요하다(콘솔의 '디스크 새로고침').
+  await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+  const detail = await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())
+  assert.equal(detail.preview.status, 'STALE')
+  assert.equal(detail.preview.reason, 'SOURCE_CHANGED')
+  assert.equal(detail.preview.changedSources.length, 1)
+  const sourceDigest = detail.preview.sourceDigest
+
+  assert.equal((await post({attested: true, sourceDigest}, {intent: null})).status, 403)
+  assert.equal((await post({attested: true, sourceDigest}, {origin: 'http://evil.example'})).status, 403)
+  const notAttested = await post({sourceDigest})
+  assert.equal(notAttested.status, 400)
+  assert.equal((await notAttested.json()).error.code, 'PREVIEW_RESNAPSHOT_NOT_ATTESTED')
+  const mismatch = await post({attested: true, sourceDigest: 'a'.repeat(64)})
+  assert.equal(mismatch.status, 409)
+  assert.equal((await mismatch.json()).error.code, 'PREVIEW_SOURCE_DIGEST_MISMATCH')
+
+  // 여기까지 어떤 거절도 상태를 바꾸지 않았다.
+  await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+  assert.equal((await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(r => r.json())).preview.status, 'STALE')
+
+  const ok = await post({attested: true, sourceDigest})
+  assert.equal(ok.status, 201)
+  const body = await ok.json()
+  assert.equal(body.status, 'UNAPPROVED')
+  assert.equal(body.attestedChangedFiles, 1)
+
+  // 재고정 뒤에는 제시할 변경이 없으므로 증언을 수리하지 않는다(공허 통과 차단).
+  const empty = await post({attested: true, sourceDigest: await digestNow()})
+  assert.equal(empty.status, 409)
+  assert.ok(['PREVIEW_NOT_RESNAPSHOTTABLE', 'PREVIEW_NO_SOURCE_CHANGES'].includes((await empty.json()).error.code))
+})

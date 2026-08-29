@@ -304,12 +304,15 @@ const restoreBackup = (projectRoot, backupRoot, changes) => {
 // 승격은 baseDigest가 현재 트리와 같을 때만 허용된다(CANDIDATE_BASE_STALE). 그 판정을
 // 승인 버튼을 누른 뒤에야 알게 되면 화면이 막다른 길이 된다 — 기준이 밀렸다는 사실도,
 // 다시 실행하라는 경로도 보이지 않는다(사용자 지적). 같은 판정을 미리 읽어 화면에 낸다.
-export const inspectCandidateBase = (projectRoot, runId) => {
+// 현재 트리 digest. 호출자가 여러 run을 판정할 때 한 번만 떠서 나눠 쓰라고 노출한다.
+export const snapshotProjectDigest = projectRoot => snapshotTree(realpathSync(projectRoot)).digest
+
+export const inspectCandidateBase = (projectRoot, runId, {currentDigest = null} = {}) => {
   try {
     const {manifest} = readCandidateManifest(projectRoot, runId)
-    const current = snapshotTree(realpathSync(projectRoot))
-    if (current.digest === manifest.candidateDigest) return 'ALREADY_APPLIED'
-    return current.digest === manifest.baseDigest ? 'READY' : 'STALE'
+    const digest = currentDigest ?? snapshotProjectDigest(projectRoot)
+    if (digest === manifest.candidateDigest) return 'ALREADY_APPLIED'
+    return digest === manifest.baseDigest ? 'READY' : 'STALE'
   } catch {
     // 매니페스트가 없거나 읽히지 않으면 판정하지 않는다 — 없는 상태를 지어내지 않는다.
     return null
