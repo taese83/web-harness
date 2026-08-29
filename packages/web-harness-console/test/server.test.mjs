@@ -586,7 +586,7 @@ test('preview approval endpoint records console-attested approval behind a diges
   assert.equal(after.preview.status, 'APPROVED')
 })
 
-test('preview approval is rejected for STALE previews without writing a new record', async t => {
+test('preview approval is rejected for snapshot-drifted STALE previews without writing a new record', async t => {
   const fixture = previewFixtureRoot()
   const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
   const addresses = await servers.listen()
@@ -715,4 +715,128 @@ test('깨진 live.json은 침묵 강등하지 않고 loud fail한다', async t =
     .then(response => response.json())
   assert.equal(health.configured, false)
   assert.equal(health.error, 'INVALID_LIVE_CONFIG')
+})
+
+// preview-resnapshot — 신설 mutating endpoint. harness-change-reviewer HIGH(테스트 0건) 반영.
+test('preview resnapshot requires origin, intent, attestation, a matching digest, and real changes', async t => {
+  const fixture = previewFixtureRoot()
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const project = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0]
+  const url = `${consoleOrigin}/api/projects/${project.id}/preview-resnapshot`
+  const post = (body, {origin = consoleOrigin, intent = 'resnapshot-preview'} = {}) => fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(origin ? {origin} : {}),
+      ...(intent ? {'x-web-harness-intent': intent} : {}),
+    },
+    body: JSON.stringify(body),
+  })
+  const digestNow = async () => {
+    await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+    return (await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())).preview.sourceDigest
+  }
+
+  // 스냅샷이 방금 고정됐으므로 아직 STALE이 아니다.
+  const fresh = await post({attested: true, sourceDigest: await digestNow()})
+  assert.equal(fresh.status, 409)
+  assert.equal((await fresh.json()).error.code, 'PREVIEW_NOT_RESNAPSHOTTABLE')
+
+  // 스펙을 바꿔 SOURCE_CHANGED를 만든다.
+  writeFileSync(join(fixture.project, '_workspace', '01_plan', 'feature-plan.md'),
+    '# Feature List\n\n## FEAT-001 Save item\n\n- TC-001-1: saves a valid item and shows a toast\n')
+  // 목록은 캐시된 스캔이라 디스크 변경 뒤에는 rescan이 필요하다(콘솔의 '디스크 새로고침').
+  await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+  const detail = await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())
+  assert.equal(detail.preview.status, 'STALE')
+  assert.equal(detail.preview.reason, 'SOURCE_CHANGED')
+  assert.equal(detail.preview.changedSources.length, 1)
+  const sourceDigest = detail.preview.sourceDigest
+
+  assert.equal((await post({attested: true, sourceDigest}, {intent: null})).status, 403)
+  assert.equal((await post({attested: true, sourceDigest}, {origin: 'http://evil.example'})).status, 403)
+  const notAttested = await post({sourceDigest})
+  assert.equal(notAttested.status, 400)
+  assert.equal((await notAttested.json()).error.code, 'PREVIEW_RESNAPSHOT_NOT_ATTESTED')
+  const mismatch = await post({attested: true, sourceDigest: 'a'.repeat(64)})
+  assert.equal(mismatch.status, 409)
+  assert.equal((await mismatch.json()).error.code, 'PREVIEW_SOURCE_DIGEST_MISMATCH')
+
+  // 여기까지 어떤 거절도 상태를 바꾸지 않았다.
+  await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+  assert.equal((await fetch(`${consoleOrigin}/api/projects/${project.id}`).then(r => r.json())).preview.status, 'STALE')
+
+  const ok = await post({attested: true, sourceDigest})
+  assert.equal(ok.status, 201)
+  const body = await ok.json()
+  assert.equal(body.status, 'UNAPPROVED')
+  assert.equal(body.attestedChangedFiles, 1)
+
+  // 재고정 뒤에는 제시할 변경이 없으므로 증언을 수리하지 않는다(공허 통과 차단).
+  const empty = await post({attested: true, sourceDigest: await digestNow()})
+  assert.equal(empty.status, 409)
+  assert.ok(['PREVIEW_NOT_RESNAPSHOTTABLE', 'PREVIEW_NO_SOURCE_CHANGES'].includes((await empty.json()).error.code))
+})
+
+// Round 27 재협상: 승인 이후 변경된 STALE은 Console에서 재승인할 수 있다.
+// 넓힌 경로를 성공·거절 양쪽으로 고정한다(harness-change-reviewer BLOCK 조건).
+test('preview re-approval is allowed after an approved preview changed, but not for snapshot drift', async t => {
+  const fixture = previewFixtureRoot()
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const project = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0]
+  const detailNow = async () => {
+    await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+    return fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())
+  }
+  const approve = (body, text) => fetch(`${consoleOrigin}/api/projects/${project.id}/preview-approval`, {
+    method: 'POST',
+    headers: {'content-type': 'application/json', origin: consoleOrigin, 'x-web-harness-intent': 'record-preview-approval'},
+    body: JSON.stringify({approvalText: text, sourceDigest: body.sourceDigest, previewDigest: body.previewDigest}),
+  })
+
+  const first = await detailNow()
+  assert.equal(first.preview.status, 'UNAPPROVED')
+  assert.equal((await approve(first.preview, '최초 승인')).status, 201)
+  assert.equal((await detailNow()).preview.status, 'APPROVED')
+
+  // 승인 이후 프리뷰가 바뀌면 APPROVED_PREVIEW_CHANGED가 되고, 재승인이 허용된다.
+  writeFileSync(join(fixture.project, '_workspace', '02_design', 'preview', 'app.css'), '.badge { color: red; }\n')
+  const changed = await detailNow()
+  assert.equal(changed.preview.status, 'STALE')
+  assert.equal(changed.preview.reason, 'APPROVED_PREVIEW_CHANGED')
+  const reapproved = await approve(changed.preview, '변경 확인 후 재승인')
+  assert.equal(reapproved.status, 201)
+  const afterReapproval = await detailNow()
+  assert.equal(afterReapproval.preview.status, 'APPROVED')
+
+  // 승인 기록은 append-only — 앞선 승인이 지워지지 않는다.
+  const ledger = readFileSync(join(fixture.project, '_workspace', '02_design', 'design-review.md'), 'utf8')
+  assert.ok(ledger.includes('최초 승인'))
+  assert.ok(ledger.includes('변경 확인 후 재승인'))
+  // 마커 수 = 승인 기록 수. 'console-user-attested'는 기록마다 사람이 읽는 줄과
+  // JSON 마커에 한 번씩 들어가므로 문자열 수로 세면 배가 된다.
+  assert.equal((ledger.match(/<!-- web-harness-preview-approval/g) ?? []).length, 2)
+  assert.ok(ledger.includes('console-user-attested'))
+
+  // 반면 스냅샷 드리프트(SOURCE_CHANGED)는 여전히 승인 대상이 아니다 — 재고정이 먼저다.
+  writeFileSync(join(fixture.project, '_workspace', '01_plan', 'feature-plan.md'),
+    '# Feature List\n\n## FEAT-001 Save item\n\n- TC-001-1: saves a valid item and shows a toast\n')
+  const drifted = await detailNow()
+  assert.equal(drifted.preview.reason, 'SOURCE_CHANGED')
+  const rejected = await approve({sourceDigest: drifted.preview.sourceDigest, previewDigest: 'b'.repeat(64)}, '드리프트 승인 시도')
+  assert.equal(rejected.status, 409)
+  assert.equal((await rejected.json()).error.code, 'PREVIEW_NOT_APPROVABLE')
+  assert.equal(readFileSync(join(fixture.project, '_workspace', '02_design', 'design-review.md'), 'utf8'), ledger)
 })

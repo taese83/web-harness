@@ -4,9 +4,10 @@ import {closeSync, constants as fsConstants, createReadStream, existsSync, fstat
 import {createServer} from 'node:http'
 import {dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {inspectDesignPreview, recordPreviewApproval} from '../../.claude/scripts/design-preview-status-lib.mjs'
+import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from '../../.claude/scripts/design-preview-status-lib.mjs'
+import {inspectCandidateBase, snapshotProjectDigest} from './src/change-candidates.mjs'
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
-import {CodexRunManager} from './src/codex-runs.mjs'
+import {CodexRunManager, buildImpactContext} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
 import {WorkspaceCatalog, computeTcSourceStamp, hasTcRunCommand} from './src/indexer.mjs'
 import {parseLiveBaseTarget} from './src/live-server-ops.mjs'
@@ -175,6 +176,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     const projectReviewDecisions = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/review-decisions$/)
     const projectImplementationVerifications = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/implementation-verifications$/)
     const projectPreviewApproval = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-approval$/)
+    const projectPreviewResnapshot = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-resnapshot$/)
     const projectWorkflow = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow$/)
     const projectWorkflowRoute = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow\/route$/)
     if (request.method === 'GET' && projectWorkflowRoute) {
@@ -221,6 +223,73 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         return json(response, status, errorBody(code, message))
       }
     }
+    // 스냅샷 재고정 — STALE(SOURCE_CHANGED)의 유일한 출구를 기획자 손에 준다.
+    //
+    // 종전에는 이 동작이 `validate-design-preview.mjs --write-source-snapshot`뿐이어서
+    // 기획자는 콘솔에서 아무것도 할 수 없었다(승인 폼은 UNAPPROVED에서만 렌더된다).
+    // 게이트를 낮추는 게 아니라 **막힌 경로를 연다** — 재고정은 승인이 아니고,
+    // 이 호출이 성공하면 상태는 APPROVED가 아니라 UNAPPROVED가 되어 승인 게이트가
+    // 그대로 남는다. 사람이 바뀐 스펙을 확인했다는 증언(attested)과 그 시점의 source
+    // digest를 함께 요구한다.
+    //
+    // **감사 흔적은 남기지 않는다**: 승인(design-review.md append-only)과 달리
+    // traceability.json의 digest만 갱신되고 주체·시점·증언은 기록되지 않는다.
+    // 종전 주석은 "기록에 남긴다"고 적어 사실과 달랐다(harness-change-reviewer MEDIUM).
+    // 재고정에도 감사 기록이 필요하다면 별도 결정으로 다룬다.
+    if (request.method === 'POST' && projectPreviewResnapshot) {
+      if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== 'resnapshot-preview') {
+        return json(response, 403, errorBody('PREVIEW_RESNAPSHOT_FORBIDDEN', 'Preview resnapshot origin or intent was rejected'))
+      }
+      if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+        return json(response, 415, errorBody('UNSUPPORTED_MEDIA_TYPE', 'Preview resnapshot requires application/json'))
+      }
+      try {
+        const input = await readJsonBody(request)
+        const projectId = decodePathSegment(projectPreviewResnapshot[1])
+        if (projectId === null) return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
+        catalog.refresh()
+        const project = catalog.project(projectId)
+        if (!project) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
+        if (input.attested !== true) {
+          return json(response, 400, errorBody('PREVIEW_RESNAPSHOT_NOT_ATTESTED', 'Resnapshot requires an explicit attestation that the changed sources were reviewed'))
+        }
+        const current = inspectDesignPreview(project.root)
+        // SOURCE_CHANGED 전용이다. APPROVED_*_CHANGED는 스냅샷이 이미 현재 소스와 같고
+        // **승인 기록만 뒤처진** 상태라, 재고정해 봐야 같은 digest를 다시 쓸 뿐이다
+        // (사용자 보고: "스냅샷 고정해도 안되"). 그 상태의 출구는 재승인이다.
+        if (current.status !== 'STALE' || current.reason !== 'SOURCE_CHANGED') {
+          return json(response, 409, errorBody('PREVIEW_NOT_RESNAPSHOTTABLE', `Preview is ${current.status}/${current.reason ?? '-'}; resnapshot applies only to STALE previews whose recorded source snapshot drifted`))
+        }
+        // 사용자가 본 변경 집합과 지금 디스크의 변경 집합이 같아야 한다. 다르면 확인 대상이
+        // 이미 달라진 것이므로 조용히 덮지 않고 되돌려보낸다.
+        if (!/^[0-9a-f]{64}$/.test(input.sourceDigest ?? '') || current.source?.digest !== input.sourceDigest) {
+          return json(response, 409, errorBody('PREVIEW_SOURCE_DIGEST_MISMATCH', 'The sources changed since they were reviewed; refresh and review the current changes before resnapshotting'))
+        }
+        // 증언에는 대상이 있어야 한다. 바뀐 파일을 하나도 제시하지 못하는데 "확인했다"를
+        // 받으면 근거 없는 도장이다 — 목록이 비었거나 파생 불가면 수리하지 않는다
+        // (harness-change-reviewer HIGH, §4 공허 통과 클래스).
+        const recorded = current.traceability?.sourceSnapshot?.files
+        const observed = current.source?.files
+        if (!Array.isArray(recorded) || !Array.isArray(observed)) {
+          return json(response, 409, errorBody('PREVIEW_CHANGES_UNDERIVABLE', 'Per-file source snapshot is unavailable; resnapshot from the harness session instead'))
+        }
+        const before = new Map(recorded.map(record => [record.path, record.sha256]))
+        const after = new Map(observed.map(record => [record.path, record.sha256]))
+        const changedCount = [...new Set([...before.keys(), ...after.keys()])]
+          .filter(path => before.get(path) !== after.get(path)).length
+        if (changedCount === 0) {
+          return json(response, 409, errorBody('PREVIEW_NO_SOURCE_CHANGES', 'No source file changed since the recorded snapshot; there is nothing to attest to'))
+        }
+        const result = writeSourceSnapshot(project.root)
+        catalog.refresh()
+        return json(response, 201, {status: result.status, reason: result.reason ?? null, attestedChangedFiles: changedCount})
+      } catch (error) {
+        const status = Number.isInteger(error.status) ? error.status : 500
+        const code = typeof error.code === 'string' ? error.code : 'PREVIEW_RESNAPSHOT_FAILED'
+        const message = status === 500 ? 'Preview source snapshot could not be written' : error.message
+        return json(response, status, errorBody(code, message))
+      }
+    }
     if (request.method === 'POST' && projectPreviewApproval) {
       if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== 'record-preview-approval') {
         return json(response, 403, errorBody('PREVIEW_APPROVAL_FORBIDDEN', 'Preview approval origin or intent was rejected'))
@@ -261,8 +330,21 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         ) {
           return json(response, 200, publicApproval(current))
         }
-        if (current.status !== 'UNAPPROVED') {
-          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview status is ${current.status}; Console approval is allowed only for UNAPPROVED previews`))
+        // 허용 상태: UNAPPROVED + **승인 이후 변경된** STALE 둘(재승인).
+        //
+        // Round 21은 "STALE 재승인은 하네스 재생성 절차 전용"으로 잠갔다. 그 잠금을
+        // 사용자 결정으로 되열었다(Round 27) — 근거는 재생성이 이미 끝난 상태에서
+        // 확정만 남았을 때 기획자가 Console에서 아무것도 할 수 없다는 실사용 보고다.
+        // 문서·테스트·JUDGMENT를 같은 변경에서 갱신한다(리뷰어 조건).
+        //
+        // 넓히는 것은 **두 reason뿐**이다. SOURCE_CHANGED(스냅샷 드리프트)는 재고정이
+        // 먼저이므로 여전히 승인 대상이 아니고, 구조 결함(MISSING/INVALID/DRAFT)도
+        // 그대로 막힌다. 증언·origin·intent·digest 일치는 하나도 빼지 않는다:
+        // 사람이 **본 그 프리뷰**만, recordedVia: console-user-attested로 기록된다.
+        const reapprovableReason = ['APPROVED_SOURCE_CHANGED', 'APPROVED_PREVIEW_CHANGED']
+        const reapprovable = current.status === 'STALE' && reapprovableReason.includes(current.reason)
+        if (current.status !== 'UNAPPROVED' && !reapprovable) {
+          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview is ${current.status}/${current.reason ?? '-'}; Console approval is allowed for UNAPPROVED previews and for previews that changed after approval`))
         }
         const digestPattern = /^[0-9a-f]{64}$/
         if (!digestPattern.test(input.sourceDigest ?? '') || !digestPattern.test(input.previewDigest ?? '')) {
@@ -653,7 +735,41 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       const detail = catalog.detail(detailProjectId)
       if (!detail) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
       const project = catalog.project(detailProjectId)
-      detail.codexRuns = codexRunManager.list(project.root)
+      // 대기 중인 candidate의 기준이 아직 유효한지 미리 알려준다. 승격 시점에야 409로
+      // 알게 되면 사용자는 승인 버튼 앞에서 막힌다(CANDIDATE_BASE_STALE).
+      //
+      // 영향 검토도 같다: apply 시점에야 CODEX_IMPACT_STALE로 알게 되는데, 그때 화면이
+      // 안내하는 '영향 검토 다시 실행'은 REVISION_REQUESTED 카드에 없어서 길이 끊긴다.
+      // 요청마다 현재 contextDigest를 한 번 계산해 저장분과 대조한다.
+      // 트리 스냅샷은 요청당 1회만 뜬다. run마다 뜨면 candidate가 쌓일수록 상호작용
+      // GET 비용이 선형으로 늘어난다(harness-change-reviewer MEDIUM).
+      let treeDigest
+      const currentTreeDigest = () => {
+        if (treeDigest === undefined) treeDigest = snapshotProjectDigest(project.root)
+        return treeDigest
+      }
+      const currentContextDigest = new Map()
+      const contextDigestFor = changeRequestId => {
+        if (!currentContextDigest.has(changeRequestId)) {
+          const target = project.changeRequests.find(candidate => candidate.id === changeRequestId)
+          let digest = null
+          try { digest = target ? buildImpactContext(project, target).contextDigest : null } catch { digest = null }
+          currentContextDigest.set(changeRequestId, digest)
+        }
+        return currentContextDigest.get(changeRequestId)
+      }
+      detail.codexRuns = codexRunManager.list(project.root).map(run => {
+        if (run.phase === 'apply' && run.candidate) {
+          return {...run, candidate: {...run.candidate, baseState: inspectCandidateBase(project.root, run.runId, {currentDigest: currentTreeDigest()})}}
+        }
+        if (run.phase === 'impact' && run.impactContext?.contextDigest) {
+          const current = contextDigestFor(run.changeRequestId)
+          // 계산하지 못하면 판정하지 않는다(null) — 없는 상태를 지어내지 않는다.
+          const stale = current === null ? null : current !== run.impactContext.contextDigest
+          return {...run, impactContext: {...run.impactContext, stale}}
+        }
+        return run
+      })
 
       return json(response, 200, detail)
     }

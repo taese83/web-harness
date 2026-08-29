@@ -398,6 +398,25 @@ const hasApprovedRender = projectRoot => {
   try { return lstatSync(join(projectRoot, '_workspace', '02_design', 'approved-render.html')).isFile() } catch { return false }
 }
 
+// 스냅샷 고정 시점과 현재의 소스 파일 목록을 대조한다. 순수 파생이며 판정하지 않는다.
+// 반환값 셋을 구분한다: 목록(변경 있음) · [](변경 없음) · null(파생 불가).
+// 종전에는 파생 불가에도 []를 돌려줘서 "변경 없음"과 뭉개졌고, 클라이언트의 정직한
+// 분기가 도달 불가 죽은 코드가 됐다(harness-change-reviewer HIGH).
+const diffSourceFiles = status => {
+  const recorded = status.traceability?.sourceSnapshot?.files
+  const current = status.source?.files
+  if (!Array.isArray(recorded) || !Array.isArray(current)) return null
+  const before = new Map(recorded.map(record => [record.path, record.sha256]))
+  const after = new Map(current.map(record => [record.path, record.sha256]))
+  const paths = unique([...before.keys(), ...after.keys()]).sort()
+  return paths
+    .filter(path => before.get(path) !== after.get(path))
+    .map(path => ({
+      path,
+      kind: !before.has(path) ? 'added' : !after.has(path) ? 'removed' : 'modified',
+    }))
+}
+
 const summarizePreview = projectRoot => {
   const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
   const {mode} = isSafeDirectory(previewRoot) ? readPreviewMode(projectRoot) : {mode: 'prototype'}
@@ -417,6 +436,10 @@ const summarizePreview = projectRoot => {
     testCaseCount: unique(features.flatMap(feature => feature.testCaseIds ?? [])).length,
     sourceDigest: status.source?.digest ?? null,
     previewDigest: status.preview?.digest ?? null,
+    // STALE(SOURCE_CHANGED)에서 **무엇이 바뀌었는지**를 화면에 내놓는다. 이게 없으면
+    // 기획자의 "확인했습니다"가 근거 없는 도장이 된다 — 재고정은 증언이고, 증언에는
+    // 대상이 있어야 한다. snapshot에 기록된 파일별 digest와 현재 값을 대조해 파생한다.
+    changedSources: diffSourceFiles(status),
     features: features.map(feature => ({
       featureId: feature.featureId,
       anchorIds: feature.anchorIds ?? [],

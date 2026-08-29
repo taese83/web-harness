@@ -23,12 +23,20 @@ const MAX_CHANGED_FILES = 512
 const MAX_CHANGED_BYTES = 32 * 1024 * 1024
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
 const EXCLUDED_DIRECTORIES = new Set(['.git', '.next', '.turbo', 'build', 'cache', 'coverage', 'dist', 'node_modules', 'out'])
-const EXCLUDED_AUDIT_PREFIXES = [
+// 변경 요청 파이프라인이 스스로 만들어내는 **감사 산출물**이다. 프로젝트의 기획·디자인
+// 증거가 아니므로 baseline 스냅샷과 영향도 context digest 양쪽에서 제외한다 —
+// 섞이면 요청 하나를 만드는 것만으로 다른 요청들의 증거가 바뀐 것처럼 보인다.
+export const EXCLUDED_AUDIT_PREFIXES = [
   '_workspace/01_plan/change-requests',
   '_workspace/01_plan/change-request-revisions',
   '_workspace/03_dev/change-candidates',
   '_workspace/03_dev/change-request-decisions',
   '_workspace/03_dev/codex-runs',
+  // 프리뷰 승인 장부(append-only). 프로젝트 내용이 아니라 **승인 사실의 기록**이다.
+  // 여기에 있으면 프리뷰를 승인하는 것만으로 대기 중인 candidate 전부의 baseDigest가
+  // 어긋나 CANDIDATE_BASE_STALE이 된다 — 승인 버튼 하나가 남의 후보를 죽였다(사용자 지적).
+  // apply 실행은 이 파일을 수정하지 않는다(APPLY_INSTRUCTIONS의 허용 범위 밖).
+  '_workspace/02_design/design-review.md',
 ]
 
 export class ChangeCandidateError extends Error {
@@ -288,6 +296,26 @@ const restoreBackup = (projectRoot, backupRoot, changes) => {
     } else {
       rmSync(target, {force: true})
     }
+  }
+}
+
+// candidate가 지금도 승격 가능한지 **부작용 없이** 본다.
+//
+// 승격은 baseDigest가 현재 트리와 같을 때만 허용된다(CANDIDATE_BASE_STALE). 그 판정을
+// 승인 버튼을 누른 뒤에야 알게 되면 화면이 막다른 길이 된다 — 기준이 밀렸다는 사실도,
+// 다시 실행하라는 경로도 보이지 않는다(사용자 지적). 같은 판정을 미리 읽어 화면에 낸다.
+// 현재 트리 digest. 호출자가 여러 run을 판정할 때 한 번만 떠서 나눠 쓰라고 노출한다.
+export const snapshotProjectDigest = projectRoot => snapshotTree(realpathSync(projectRoot)).digest
+
+export const inspectCandidateBase = (projectRoot, runId, {currentDigest = null} = {}) => {
+  try {
+    const {manifest} = readCandidateManifest(projectRoot, runId)
+    const digest = currentDigest ?? snapshotProjectDigest(projectRoot)
+    if (digest === manifest.candidateDigest) return 'ALREADY_APPLIED'
+    return digest === manifest.baseDigest ? 'READY' : 'STALE'
+  } catch {
+    // 매니페스트가 없거나 읽히지 않으면 판정하지 않는다 — 없는 상태를 지어내지 않는다.
+    return null
   }
 }
 
