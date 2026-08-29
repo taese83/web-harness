@@ -42,7 +42,7 @@ Features는 `feature-plan.md`의 `PAGE-NNN` Page Groups와 각 FEAT의 primary `
 
 - 두 서버 모두 `127.0.0.1`에만 bind합니다.
 - API는 기본적으로 GET/HEAD만 허용합니다. POST는 append-only Change Request 생성·apply 전 수정본 추가, 승인된 Codex run enqueue, apply-run-bound 검토 결정 기록, 그리고 디자인 프리뷰 승인 기록으로 제한합니다.
-- 프리뷰 승인 POST는 `UNAPPROVED` 상태에서만 허용되며, 요청 body의 source/preview digest가 서버가 재계산한 현재 digest와 일치해야 합니다(검토한 프리뷰만 승인). 기록은 canonical writer(`design-preview-status-lib.recordPreviewApproval`)가 `design-review.md`에 append-only marker로 남기고, Console발 승인은 `recordedVia: console-user-attested`로 하네스 세션 승인과 증거 출처를 구분합니다. STALE 재승인은 Console에서 불가하며 하네스 세션의 재생성 절차를 따릅니다.
+- 프리뷰 승인 POST는 `UNAPPROVED` 상태에서만 허용되며, 요청 body의 source/preview digest가 서버가 재계산한 현재 digest와 일치해야 합니다(검토한 프리뷰만 승인). 기록은 canonical writer(`design-preview-status-lib.recordPreviewApproval`)가 `design-review.md`에 append-only marker로 남기고, Console발 승인은 `recordedVia: console-user-attested`로 하네스 세션 승인과 증거 출처를 구분합니다. **승인 이후 변경된** STALE(`APPROVED_SOURCE_CHANGED`·`APPROVED_PREVIEW_CHANGED`)은 Console에서 재승인할 수 있습니다 — 같은 증언·digest 일치 요구가 그대로 적용되며 `recordedVia: console-user-attested`로 남습니다. `SOURCE_CHANGED`(스냅샷 드리프트)는 재고정이 먼저이므로 승인 대상이 아니고, 구조 결함(`MISSING`·`INVALID`·`DRAFT`)도 Console에서 확정할 수 없습니다.
 - 문서는 인덱싱된 00/01/02 path allowlist로만 읽습니다.
 - preview는 Console과 다른 origin에서 실행합니다.
 - Change Request POST는 same-loopback Origin, intent header, bounded JSON, idempotency key를 검증합니다. 수정은 원본/target을 유지한 `REV-NNN` 이력이며 이전 영향도는 자동으로 만료됩니다.

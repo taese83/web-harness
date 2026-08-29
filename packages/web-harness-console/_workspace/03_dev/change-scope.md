@@ -727,3 +727,29 @@ ROUND_TEST_EVIDENCE:
 ### 라이브 검증이 잡은 것
 콘솔의 메서드 가드가 새 POST 라우트를 **정상적으로 차단**했다("This endpoint does not allow
 mutations") — 라우트를 가드 앞 POST 구역으로 옮겨 정식 등재. 가드가 실제로 작동함을 확인한 셈.
+
+## Round 27 — 승인 이후 변경된 프리뷰의 Console 재승인 (Round 21 계약 재협상)
+
+CHANGE_MODE: feature
+REQUEST: `APPROVED_SOURCE_CHANGED`·`APPROVED_PREVIEW_CHANGED` 상태에서 기획자가 Console에서 재승인할 수 있게 한다. 사용자 결정(2026-08-30)으로 Round 21의 `NON_GOALS: STALE/DRAFT 상태의 Console 승인`을 재협상한다.
+OBSERVED_BASELINE: Round 21은 STALE 재승인을 하네스 재생성 절차 전용으로 잠갔다. 실사용에서 재생성이 이미 끝나고 **확정만 남은** 상태(스냅샷은 현재 소스와 일치, 승인 기록만 뒤처짐)에 도달하면 Console에 출구가 없다 — 재고정은 같은 digest를 다시 쓸 뿐이고 승인은 409로 막힌다. 사용자 보고: "반영 누르고 STALE에서 스냅샷 고정해도 안되".
+TARGET_BEHAVIOR: POST `/api/projects/{id}/preview-approval`의 상태 게이트를 UNAPPROVED + `STALE(APPROVED_SOURCE_CHANGED|APPROVED_PREVIEW_CHANGED)`로 넓힌다. **다른 요구는 하나도 완화하지 않는다** — loopback origin, intent, 증언 checkbox, body digest와 서버 재계산 digest 일치, canonical writer `recordPreviewApproval`의 append-only 기록, `recordedVia: console-user-attested`. UI 증언 문구는 재승인 상황을 명시한다("승인 이후 바뀐 내용을 다시 확인했고 재승인합니다").
+ALLOWED_PATHS: `packages/web-harness-console/{server.mjs,public,test,_workspace,README.md}/**`
+PUBLIC_CONTRACTS_TO_PRESERVE: 승인 record schemaVersion 1, `design-review.md` append-only, GET API 불변, digest race guard, `recordedVia` 증거 출처 구분, `SOURCE_CHANGED`는 승인 대상 아님(재고정 선행), 구조 결함(MISSING/INVALID/DRAFT)은 Console 확정 불가
+NON_GOALS: 스냅샷 드리프트 상태의 Console 승인, 프리뷰 재생성 브리지, 승인 취소/철회, multi-user 승인자 identity
+CAPABILITY_ESCALATION: detected — 기존 mutation 표면의 상태 게이트 확장(신규 엔드포인트 없음). 넓힌 것은 reason 2개뿐이며 다른 게이트는 불변
+RUNTIME_VERIFIABILITY: LOCAL_VERIFIABLE
+PROFILE_STATUS: PROFILE_NOT_DETECTED
+
+ROUND_RESULT: LOCAL_PASS
+ROUND_TEST_EVIDENCE:
+- `pnpm --dir packages/web-harness-console test` 11/11 PASS (신규 1: 최초 승인 → 프리뷰 변경 → `APPROVED_PREVIEW_CHANGED` 재승인 201 → `design-review.md`에 승인 기록 2건 append 확인 → `SOURCE_CHANGED`에서는 409 `PREVIEW_NOT_APPROVABLE` + 원장 무변경)
+- 기존 테스트명 정정: "rejected for STALE previews" → "rejected for snapshot-drifted STALE previews" (실제 커버 범위와 일치시킴 — 리뷰어 지적)
+- root `pnpm run ci` exit 0
+- `harness-change-reviewer` 선행 실행에서 이 확장을 BLOCK으로 판정했고(문서·테스트·JUDGMENT 부재), 그 세 조건을 이 라운드에서 채웠다
+
+### 왜 되열었나 (정직 기록)
+
+Round 21의 잠금은 옳았다 — Console 승인은 `console-user-attested`로 증거 출처가 다르고, 재생성이 필요한 상태의 확정을 UI로 옮기면 게이트가 흐려진다. 이번에 넓히는 것은 **재생성이 이미 끝난 상태**뿐이다: 스냅샷이 현재 소스와 일치하므로 남은 것은 "사람이 바뀐 결과를 봤다"는 증언 하나이고, 그것이 정확히 Console이 잘하는 일이다. 스냅샷이 어긋난 `SOURCE_CHANGED`는 재고정이 선행돼야 하므로 계속 막는다.
+
+먼저 이 확장을 근거 없이 시도했다가 리뷰에서 BLOCK을 받고 되돌린 이력이 있다. 그때의 잘못은 방향이 아니라 **문서를 읽지 않고 "콘솔만 좁다"고 단정한 것**이었다.

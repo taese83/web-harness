@@ -87,12 +87,18 @@ const statusNextAction = preview => ({
 }[preview.status] ?? null)
 
 // UNAPPROVED 프리뷰의 승인 폼 — 상태 dialog 안에서 단일 표면으로 기록한다.
+// 승인 이후 변경된 STALE은 Console에서 재승인할 수 있다(Round 27 재협상).
+// SOURCE_CHANGED는 재고정이 먼저이므로 제외한다.
+const REAPPROVABLE_REASONS = ['APPROVED_SOURCE_CHANGED', 'APPROVED_PREVIEW_CHANGED']
+const isReapprovable = preview => preview.status === 'STALE' && REAPPROVABLE_REASONS.includes(preview.reason)
+
 const buildPreviewApprovalForm = (preview, {onSuccess = null} = {}) => {
-  // UNAPPROVED 전용 — 서버 계약과 같다(README §보안, change-scope NON_GOALS).
-  if (preview.status !== 'UNAPPROVED' || !preview.sourceDigest || !preview.previewDigest) return null
+  if ((preview.status !== 'UNAPPROVED' && !isReapprovable(preview)) || !preview.sourceDigest || !preview.previewDigest) return null
   const approvalError = create('p', {className: 'panel-copy preview-approval-error', hidden: true})
   const attested = create('input', {type: 'checkbox', id: 'preview-approval-attested'})
-  const attestedLabel = create('label', {htmlFor: 'preview-approval-attested', text: 'Preview 탭에서 이 프리뷰의 test case 동작을 직접 확인했습니다.'})
+  const attestedLabel = create('label', {htmlFor: 'preview-approval-attested', text: isReapprovable(preview)
+    ? '승인 이후 바뀐 내용을 Preview 탭에서 다시 확인했고, 이 프리뷰를 재승인합니다.'
+    : 'Preview 탭에서 이 프리뷰의 test case 동작을 직접 확인했습니다.'})
   const approvalText = create('input', {type: 'text', maxLength: 500, className: 'preview-approval-text', placeholder: '승인 문구 (한 줄, 500자 이내)', 'aria-label': '승인 문구'})
   const submit = create('button', {type: 'button', className: 'preview-approval-submit', text: '프리뷰 승인 기록', disabled: true})
   const syncSubmit = () => { submit.disabled = !(attested.checked && approvalText.value.trim()) }
@@ -736,8 +742,8 @@ const renderOverview = () => {
   ])
   const nextAction = statusNextAction(detail.preview)
   if (nextAction) previewPanel.append(create('p', {className: 'panel-copy preview-next-action', text: nextAction}))
-  if (detail.preview.status === 'UNAPPROVED' && detail.preview.sourceDigest && detail.preview.previewDigest) {
-    const approveButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: '프리뷰 승인…'})
+  if ((detail.preview.status === 'UNAPPROVED' || isReapprovable(detail.preview)) && detail.preview.sourceDigest && detail.preview.previewDigest) {
+    const approveButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: isReapprovable(detail.preview) ? '프리뷰 재승인…' : '프리뷰 승인…'})
     approveButton.addEventListener('click', () => openPreviewStatusDialog(detail.preview, approveButton))
     previewPanel.append(approveButton)
   }

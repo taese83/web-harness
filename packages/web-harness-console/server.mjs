@@ -330,20 +330,21 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         ) {
           return json(response, 200, publicApproval(current))
         }
-        // **UNAPPROVED 전용이다. 넓히지 말 것.**
+        // 허용 상태: UNAPPROVED + **승인 이후 변경된** STALE 둘(재승인).
         //
-        // lib의 recordPreviewApproval이 STALE을 허용하니 콘솔도 허용해야 한다고 읽기
-        // 쉽지만 아니다. 이 좁힘은 의도된 계약이다 — README §보안 "STALE 재승인은
-        // Console에서 불가하며 하네스 세션의 재생성 절차를 따릅니다",
-        // change-scope PUBLIC_CONTRACTS_TO_PRESERVE "STALE 재승인은 하네스 재생성
-        // 절차 전용", NON_GOALS "STALE/DRAFT 상태의 Console 승인". 그 라운드의
-        // harness-change-reviewer 지적으로 STALE 409 테스트까지 만들어졌다.
-        // Console 승인은 recordedVia: console-user-attested로 증거 출처가 다르므로,
-        // 재생성이 필요한 상태의 확정을 이쪽으로 옮기지 않는다.
-        // (한 번 넓혔다가 이 리뷰에서 되돌렸다 — 넓히려면 문서·테스트·JUDGMENT를
-        //  같은 변경에서 재협상하라.)
-        if (current.status !== 'UNAPPROVED') {
-          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview status is ${current.status}; Console approval is allowed only for UNAPPROVED previews`))
+        // Round 21은 "STALE 재승인은 하네스 재생성 절차 전용"으로 잠갔다. 그 잠금을
+        // 사용자 결정으로 되열었다(Round 27) — 근거는 재생성이 이미 끝난 상태에서
+        // 확정만 남았을 때 기획자가 Console에서 아무것도 할 수 없다는 실사용 보고다.
+        // 문서·테스트·JUDGMENT를 같은 변경에서 갱신한다(리뷰어 조건).
+        //
+        // 넓히는 것은 **두 reason뿐**이다. SOURCE_CHANGED(스냅샷 드리프트)는 재고정이
+        // 먼저이므로 여전히 승인 대상이 아니고, 구조 결함(MISSING/INVALID/DRAFT)도
+        // 그대로 막힌다. 증언·origin·intent·digest 일치는 하나도 빼지 않는다:
+        // 사람이 **본 그 프리뷰**만, recordedVia: console-user-attested로 기록된다.
+        const reapprovableReason = ['APPROVED_SOURCE_CHANGED', 'APPROVED_PREVIEW_CHANGED']
+        const reapprovable = current.status === 'STALE' && reapprovableReason.includes(current.reason)
+        if (current.status !== 'UNAPPROVED' && !reapprovable) {
+          return json(response, 409, errorBody('PREVIEW_NOT_APPROVABLE', `Preview is ${current.status}/${current.reason ?? '-'}; Console approval is allowed for UNAPPROVED previews and for previews that changed after approval`))
         }
         const digestPattern = /^[0-9a-f]{64}$/
         if (!digestPattern.test(input.sourceDigest ?? '') || !digestPattern.test(input.previewDigest ?? '')) {

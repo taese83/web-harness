@@ -586,7 +586,7 @@ test('preview approval endpoint records console-attested approval behind a diges
   assert.equal(after.preview.status, 'APPROVED')
 })
 
-test('preview approval is rejected for STALE previews without writing a new record', async t => {
+test('preview approval is rejected for snapshot-drifted STALE previews without writing a new record', async t => {
   const fixture = previewFixtureRoot()
   const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
   const addresses = await servers.listen()
@@ -782,4 +782,61 @@ test('preview resnapshot requires origin, intent, attestation, a matching digest
   const empty = await post({attested: true, sourceDigest: await digestNow()})
   assert.equal(empty.status, 409)
   assert.ok(['PREVIEW_NOT_RESNAPSHOTTABLE', 'PREVIEW_NO_SOURCE_CHANGES'].includes((await empty.json()).error.code))
+})
+
+// Round 27 재협상: 승인 이후 변경된 STALE은 Console에서 재승인할 수 있다.
+// 넓힌 경로를 성공·거절 양쪽으로 고정한다(harness-change-reviewer BLOCK 조건).
+test('preview re-approval is allowed after an approved preview changed, but not for snapshot drift', async t => {
+  const fixture = previewFixtureRoot()
+  const servers = createConsoleServers({repositoryRoot: fixture.root, port: 0, previewPort: 0})
+  const addresses = await servers.listen()
+  t.after(async () => {
+    await servers.close()
+    rmSync(fixture.root, {recursive: true, force: true})
+  })
+  const consoleOrigin = `http://127.0.0.1:${addresses.consolePort}`
+  const project = (await fetch(`${consoleOrigin}/api/projects`).then(response => response.json())).projects[0]
+  const detailNow = async () => {
+    await fetch(`${consoleOrigin}/api/projects?refresh=1`)
+    return fetch(`${consoleOrigin}/api/projects/${project.id}`).then(response => response.json())
+  }
+  const approve = (body, text) => fetch(`${consoleOrigin}/api/projects/${project.id}/preview-approval`, {
+    method: 'POST',
+    headers: {'content-type': 'application/json', origin: consoleOrigin, 'x-web-harness-intent': 'record-preview-approval'},
+    body: JSON.stringify({approvalText: text, sourceDigest: body.sourceDigest, previewDigest: body.previewDigest}),
+  })
+
+  const first = await detailNow()
+  assert.equal(first.preview.status, 'UNAPPROVED')
+  assert.equal((await approve(first.preview, '최초 승인')).status, 201)
+  assert.equal((await detailNow()).preview.status, 'APPROVED')
+
+  // 승인 이후 프리뷰가 바뀌면 APPROVED_PREVIEW_CHANGED가 되고, 재승인이 허용된다.
+  writeFileSync(join(fixture.project, '_workspace', '02_design', 'preview', 'app.css'), '.badge { color: red; }\n')
+  const changed = await detailNow()
+  assert.equal(changed.preview.status, 'STALE')
+  assert.equal(changed.preview.reason, 'APPROVED_PREVIEW_CHANGED')
+  const reapproved = await approve(changed.preview, '변경 확인 후 재승인')
+  assert.equal(reapproved.status, 201)
+  const afterReapproval = await detailNow()
+  assert.equal(afterReapproval.preview.status, 'APPROVED')
+
+  // 승인 기록은 append-only — 앞선 승인이 지워지지 않는다.
+  const ledger = readFileSync(join(fixture.project, '_workspace', '02_design', 'design-review.md'), 'utf8')
+  assert.ok(ledger.includes('최초 승인'))
+  assert.ok(ledger.includes('변경 확인 후 재승인'))
+  // 마커 수 = 승인 기록 수. 'console-user-attested'는 기록마다 사람이 읽는 줄과
+  // JSON 마커에 한 번씩 들어가므로 문자열 수로 세면 배가 된다.
+  assert.equal((ledger.match(/<!-- web-harness-preview-approval/g) ?? []).length, 2)
+  assert.ok(ledger.includes('console-user-attested'))
+
+  // 반면 스냅샷 드리프트(SOURCE_CHANGED)는 여전히 승인 대상이 아니다 — 재고정이 먼저다.
+  writeFileSync(join(fixture.project, '_workspace', '01_plan', 'feature-plan.md'),
+    '# Feature List\n\n## FEAT-001 Save item\n\n- TC-001-1: saves a valid item and shows a toast\n')
+  const drifted = await detailNow()
+  assert.equal(drifted.preview.reason, 'SOURCE_CHANGED')
+  const rejected = await approve({sourceDigest: drifted.preview.sourceDigest, previewDigest: 'b'.repeat(64)}, '드리프트 승인 시도')
+  assert.equal(rejected.status, 409)
+  assert.equal((await rejected.json()).error.code, 'PREVIEW_NOT_APPROVABLE')
+  assert.equal(readFileSync(join(fixture.project, '_workspace', '02_design', 'design-review.md'), 'utf8'), ledger)
 })
