@@ -4,7 +4,7 @@ import {closeSync, constants as fsConstants, createReadStream, existsSync, fstat
 import {createServer} from 'node:http'
 import {dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {inspectDesignPreview, recordPreviewApproval} from '../../.claude/scripts/design-preview-status-lib.mjs'
+import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from '../../.claude/scripts/design-preview-status-lib.mjs'
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
 import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
@@ -175,6 +175,7 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
     const projectReviewDecisions = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/review-decisions$/)
     const projectImplementationVerifications = url.pathname.match(/^\/api\/projects\/([^/]+)\/change-requests\/(CHG-\d{8}-\d{3})\/implementation-verifications$/)
     const projectPreviewApproval = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-approval$/)
+    const projectPreviewResnapshot = url.pathname.match(/^\/api\/projects\/([^/]+)\/preview-resnapshot$/)
     const projectWorkflow = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow$/)
     const projectWorkflowRoute = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow\/route$/)
     if (request.method === 'GET' && projectWorkflowRoute) {
@@ -218,6 +219,50 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
         const status = Number.isInteger(error.status) ? error.status : 500
         const code = typeof error.code === 'string' ? error.code : 'CHANGE_REQUEST_DELETE_FAILED'
         const message = status === 500 ? 'Change request could not be deleted' : error.message
+        return json(response, status, errorBody(code, message))
+      }
+    }
+    // 스냅샷 재고정 — STALE(SOURCE_CHANGED)의 유일한 출구를 기획자 손에 준다.
+    //
+    // 종전에는 이 동작이 `validate-design-preview.mjs --write-source-snapshot`뿐이어서
+    // 기획자는 콘솔에서 아무것도 할 수 없었다(승인 폼은 UNAPPROVED에서만 렌더된다).
+    // 게이트를 낮추는 게 아니라 **막힌 경로를 연다** — 재고정은 승인이 아니고,
+    // 이 호출이 성공하면 상태는 APPROVED가 아니라 UNAPPROVED가 되어 승인 게이트가
+    // 그대로 남는다. 사람이 바뀐 스펙을 확인했다는 증언(attested)과 그 시점의 source
+    // digest를 함께 요구해, 무엇에 대한 재고정인지 기록에 남긴다.
+    if (request.method === 'POST' && projectPreviewResnapshot) {
+      if (!isAllowedConsoleOrigin(request.headers.origin, boundConsolePort) || request.headers['x-web-harness-intent'] !== 'resnapshot-preview') {
+        return json(response, 403, errorBody('PREVIEW_RESNAPSHOT_FORBIDDEN', 'Preview resnapshot origin or intent was rejected'))
+      }
+      if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+        return json(response, 415, errorBody('UNSUPPORTED_MEDIA_TYPE', 'Preview resnapshot requires application/json'))
+      }
+      try {
+        const input = await readJsonBody(request)
+        const projectId = decodePathSegment(projectPreviewResnapshot[1])
+        if (projectId === null) return json(response, 400, errorBody('BAD_URL', 'Invalid URL'))
+        catalog.refresh()
+        const project = catalog.project(projectId)
+        if (!project) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
+        if (input.attested !== true) {
+          return json(response, 400, errorBody('PREVIEW_RESNAPSHOT_NOT_ATTESTED', 'Resnapshot requires an explicit attestation that the changed sources were reviewed'))
+        }
+        const current = inspectDesignPreview(project.root)
+        if (current.status !== 'STALE') {
+          return json(response, 409, errorBody('PREVIEW_NOT_RESNAPSHOTTABLE', `Preview status is ${current.status}; resnapshot applies only to STALE previews`))
+        }
+        // 사용자가 본 변경 집합과 지금 디스크의 변경 집합이 같아야 한다. 다르면 확인 대상이
+        // 이미 달라진 것이므로 조용히 덮지 않고 되돌려보낸다.
+        if (!/^[0-9a-f]{64}$/.test(input.sourceDigest ?? '') || current.source?.digest !== input.sourceDigest) {
+          return json(response, 409, errorBody('PREVIEW_SOURCE_DIGEST_MISMATCH', 'The sources changed since they were reviewed; refresh and review the current changes before resnapshotting'))
+        }
+        const result = writeSourceSnapshot(project.root)
+        catalog.refresh()
+        return json(response, 201, {status: result.status, reason: result.reason ?? null})
+      } catch (error) {
+        const status = Number.isInteger(error.status) ? error.status : 500
+        const code = typeof error.code === 'string' ? error.code : 'PREVIEW_RESNAPSHOT_FAILED'
+        const message = status === 500 ? 'Preview source snapshot could not be written' : error.message
         return json(response, status, errorBody(code, message))
       }
     }

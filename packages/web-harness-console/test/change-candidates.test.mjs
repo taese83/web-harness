@@ -7,6 +7,7 @@ import {
   beginCandidatePromotion,
   createCandidateWorkspace,
   finalizeCandidateWorkspace,
+  removeCandidateWorkspace,
 } from '../src/change-candidates.mjs'
 
 const RUN_ID = 'RUN-CHG-20260806-001-apply-019fcf35-48fe-7d93-bb95-3304a2732950'
@@ -138,4 +139,48 @@ test('candidate snapshot rejects symlinks and promotion rejects a tampered trave
   )
   assert.equal(readFileSync(join(outside, 'outside.txt'), 'utf8'), 'outside\n')
   assert.equal(readFileSync(join(symlinkRoot, '_workspace', '01_plan', 'feature-plan.md'), 'utf8'), '# Baseline\n')
+})
+
+// 병렬 실행이 열리면서(codex-runs 요청별 직렬화) 새로 도달 가능해진 경로 —
+// 서로 다른 Change Request의 candidate가 **서로를 쓰지 않는지** 고정한다.
+test('parallel candidates stay isolated and the second promotion fails loudly instead of overwriting', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-candidate-parallel-'))
+  try {
+    mkdirSync(join(root, '_workspace', '01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace', '01_plan', 'shared.md'), 'base\n')
+
+    // 두 실행이 같은 시점의 라이브 트리를 baseline으로 뜬다(병렬).
+    const sessionA = createCandidateWorkspace(root)
+    const sessionB = createCandidateWorkspace(root)
+    assert.equal(sessionA.baseline.digest, sessionB.baseline.digest)
+    assert.notEqual(sessionA.worktreeRoot, sessionB.worktreeRoot)
+
+    // 각자 격리된 워크트리에서 같은 파일을 다르게 고친다.
+    writeFileSync(join(sessionA.worktreeRoot, '_workspace', '01_plan', 'shared.md'), 'from A\n')
+    writeFileSync(join(sessionB.worktreeRoot, '_workspace', '01_plan', 'shared.md'), 'from B\n')
+
+    const runA = 'RUN-CHG-20260829-001-apply-019fcf35-48fe-7d93-bb95-3304a2732a01'
+    const runB = 'RUN-CHG-20260829-002-apply-019fcf35-48fe-7d93-bb95-3304a2732b01'
+    const resultA = finalizeCandidateWorkspace(root, runA, sessionA)
+    const resultB = finalizeCandidateWorkspace(root, runB, sessionB)
+
+    // candidate는 실행별 디렉터리에 따로 남고 서로의 내용을 덮지 않는다.
+    assert.notEqual(resultA.candidateDigest, resultB.candidateDigest)
+    assert.equal(readFileSync(join(root, '_workspace', '03_dev', 'change-candidates', runA, 'files', '_workspace', '01_plan', 'shared.md'), 'utf8'), 'from A\n')
+    assert.equal(readFileSync(join(root, '_workspace', '03_dev', 'change-candidates', runB, 'files', '_workspace', '01_plan', 'shared.md'), 'utf8'), 'from B\n')
+
+    // 감사 디렉터리는 baseline에서 제외되므로 B의 baseline에 A의 산출물이 섞이지 않는다.
+    assert.equal(resultA.baseDigest, resultB.baseDigest)
+
+    // 먼저 승격한 쪽이 라이브 트리를 바꾸면, 나머지는 조용히 덮지 않고 STALE로 거절된다.
+    beginCandidatePromotion(root, runA).commit()
+    assert.equal(readFileSync(join(root, '_workspace', '01_plan', 'shared.md'), 'utf8'), 'from A\n')
+    assert.throws(() => beginCandidatePromotion(root, runB), error => error.code === 'CANDIDATE_BASE_STALE')
+    assert.equal(readFileSync(join(root, '_workspace', '01_plan', 'shared.md'), 'utf8'), 'from A\n')
+
+    removeCandidateWorkspace(sessionA)
+    removeCandidateWorkspace(sessionB)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

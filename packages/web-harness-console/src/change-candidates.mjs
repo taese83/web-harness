@@ -23,7 +23,10 @@ const MAX_CHANGED_FILES = 512
 const MAX_CHANGED_BYTES = 32 * 1024 * 1024
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
 const EXCLUDED_DIRECTORIES = new Set(['.git', '.next', '.turbo', 'build', 'cache', 'coverage', 'dist', 'node_modules', 'out'])
-const EXCLUDED_AUDIT_PREFIXES = [
+// 변경 요청 파이프라인이 스스로 만들어내는 **감사 산출물**이다. 프로젝트의 기획·디자인
+// 증거가 아니므로 baseline 스냅샷과 영향도 context digest 양쪽에서 제외한다 —
+// 섞이면 요청 하나를 만드는 것만으로 다른 요청들의 증거가 바뀐 것처럼 보인다.
+export const EXCLUDED_AUDIT_PREFIXES = [
   '_workspace/01_plan/change-requests',
   '_workspace/01_plan/change-request-revisions',
   '_workspace/03_dev/change-candidates',

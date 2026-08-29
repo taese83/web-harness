@@ -127,6 +127,60 @@ const buildPreviewApprovalForm = (preview, {onSuccess = null} = {}) => {
   ])
 }
 
+// STALE(SOURCE_CHANGED) 프리뷰의 스냅샷 재고정 폼.
+//
+// 종전에는 이 상태에서 기획자가 아무것도 할 수 없었다 — 승인 폼은 UNAPPROVED에서만
+// 렌더되고, 재고정은 명령줄(`--write-source-snapshot`)뿐이었다. dialog에는 '닫기'만 남아
+// 왜 승인할 수 없는지도 말하지 않았다(사용자 지적: "승인하는 버튼이 없잖아").
+//
+// 재고정은 승인이 아니다. 성공하면 UNAPPROVED가 되고 **승인 게이트는 그대로 남는다** —
+// 기획자는 그다음에 동작을 확인하고 승인한다. 계약의 재확인→재승인 순서 그대로다.
+const buildPreviewResnapshotForm = (preview, {onSuccess = null} = {}) => {
+  if (preview.status !== 'STALE' || !preview.sourceDigest) return null
+  const changed = preview.changedSources ?? []
+  const error = create('p', {className: 'panel-copy preview-approval-error', hidden: true})
+  const section = create('div', {className: 'preview-approval-form preview-resnapshot'})
+  section.append(create('h3', {className: 'secondary-panel-title', text: `스냅샷 고정 이후 바뀐 스펙 · ${changed.length}건`}))
+  if (changed.length === 0) {
+    // 목록이 비면 근거 없이 확인을 받는 셈이라 그 사실을 말한다(지어내지 않는다).
+    section.append(create('p', {className: 'panel-copy', text: '변경 목록을 파생하지 못했습니다. traceability.json의 파일별 스냅샷이 없는 구세대 프리뷰일 수 있습니다.'}))
+  } else {
+    const list = create('ul', {className: 'plain-list preview-changed-sources'})
+    for (const item of changed) list.append(create('li', {}, [
+      create('span', {className: `change-kind change-${item.kind}`, text: item.kind}),
+      create('span', {text: item.path}),
+    ]))
+    section.append(list)
+  }
+  const attested = create('input', {type: 'checkbox', id: 'preview-resnapshot-attested'})
+  const attestedLabel = create('label', {htmlFor: 'preview-resnapshot-attested', text: '위 변경을 확인했고, 이 프리뷰가 바뀐 스펙 기준으로도 맞습니다.'})
+  const submit = create('button', {type: 'button', className: 'preview-approval-submit', text: '스냅샷 재고정', disabled: true})
+  attested.addEventListener('change', () => { submit.disabled = !attested.checked })
+  submit.addEventListener('click', async () => {
+    submit.disabled = true
+    error.hidden = true
+    try {
+      await mutateApi(`/api/projects/${encodeURIComponent(state.projectId)}/preview-resnapshot`, {
+        attested: true,
+        sourceDigest: preview.sourceDigest,
+      }, crypto.randomUUID(), 'resnapshot-preview')
+      state.detail = await api(`/api/projects/${encodeURIComponent(state.projectId)}`)
+      const project = state.catalog.projects.find(candidate => candidate.id === state.projectId)
+      if (project) project.preview.status = state.detail.preview.status
+      onSuccess?.()
+      renderProjectNavigation()
+      renderContent()
+      showMessage('스냅샷을 재고정했습니다. 이제 Preview 탭에서 동작을 확인한 뒤 승인할 수 있습니다.')
+    } catch (requestError) {
+      error.textContent = `재고정하지 못했습니다: ${requestError.message}`
+      error.hidden = false
+      submit.disabled = !attested.checked
+    }
+  })
+  section.append(create('div', {className: 'preview-approval-attest'}, [attested, attestedLabel]), submit, error)
+  return section
+}
+
 // 상태 chip 클릭 또는 '프리뷰 승인' 버튼으로 여는 상태 dialog — 모든 상태에서 설명과 다음
 // 행동을 보여주고, UNAPPROVED일 때만 승인 폼을 포함하는 단일 승인 표면이다.
 const openPreviewStatusDialog = (preview, trigger = null) => {
@@ -145,7 +199,9 @@ const openPreviewStatusDialog = (preview, trigger = null) => {
   if (nextAction) body.append(create('p', {className: 'panel-copy preview-next-action', text: nextAction}))
   let approved = false
   const approvalForm = buildPreviewApprovalForm(preview, {onSuccess: () => { approved = true; dialog.close('approved') }})
+  const resnapshotForm = buildPreviewResnapshotForm(preview, {onSuccess: () => dialog.close('resnapshotted')})
   if (approvalForm) body.append(approvalForm)
+  else if (resnapshotForm) body.append(resnapshotForm)
   else {
     const closeAction = create('button', {type: 'button', className: 'secondary-button', text: '닫기'})
     closeAction.addEventListener('click', () => dialog.close('cancel'))
@@ -675,6 +731,12 @@ const renderOverview = () => {
     const approveButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: '프리뷰 승인…'})
     approveButton.addEventListener('click', () => openPreviewStatusDialog(detail.preview, approveButton))
     previewPanel.append(approveButton)
+  }
+  // STALE에서도 진입 버튼을 둔다. 상태 chip으로만 열리면 기획자는 여기서 길을 잃는다.
+  if (detail.preview.status === 'STALE' && detail.preview.sourceDigest) {
+    const resnapshotButton = create('button', {type: 'button', className: 'preview-approval-submit preview-approve-open', text: `바뀐 스펙 확인 · 재고정… (${(detail.preview.changedSources ?? []).length}건)`})
+    resnapshotButton.addEventListener('click', () => openPreviewStatusDialog(detail.preview, resnapshotButton))
+    previewPanel.append(resnapshotButton)
   }
   previewPanel.addEventListener('dblclick', () => setTab('preview'))
 
@@ -1838,15 +1900,17 @@ const renderChanges = () => {
       appendReviewDecision(card, reviewDecision)
       appendImplementationVerification(card, request)
       const actions = create('div', {className: 'request-codex-actions'})
-      const active = hasActiveCodexRun()
+      // 실행 중 비활성은 **이 요청 기준**이다. 종전에는 전역 `hasActiveCodexRun()`을 써서
+      // 다른 요청이 영향 검토 중이면 이 요청의 변경 적용까지 눌리지 않았다(사용자 지적).
+      // 서버도 요청별 직렬화로 바뀌었고(codex-runs.mjs), 서로 다른 요청은 병렬로 돈다.
       const requestActive = hasActiveCodexRunForRequest(request.id)
       if (!applyRun && !request.latestReviewDecision) {
-        const editButton = create('button', {type: 'button', className: 'secondary-button', text: '요청 수정', disabled: active})
+        const editButton = create('button', {type: 'button', className: 'secondary-button', text: '요청 수정', disabled: requestActive})
         editButton.addEventListener('click', () => openChangeRequestRevisionDialog({request, trigger: editButton}))
         actions.append(editButton)
       }
       if (reviewDecision?.decision === 'REVISION_REQUESTED') {
-        const reviseButton = create('button', {type: 'button', className: 'primary-button', text: `${executorLabel} 수정 반영`, disabled: !connection?.connected || active})
+        const reviseButton = create('button', {type: 'button', className: 'primary-button', text: `${executorLabel} 수정 반영`, disabled: !connection?.connected || requestActive})
         reviseButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: reviseButton}))
         actions.append(reviseButton)
       } else if (!reviewDecision && applyRun?.status === 'COMPLETED' && applyRun.result?.outcome === 'READY_FOR_REVIEW') {
@@ -1861,13 +1925,13 @@ const renderChanges = () => {
         // 대상 없는 CR(bootstrap·newFeature)은 같은 파이프라인이 기획 초안 생성으로 동작한다.
         const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
         const impactLabel = targetlessCr ? '기획 정찰' : '영향 검토'
-        const impactButton = create('button', {type: 'button', className: 'secondary-button', text: latestImpactRun ? `${impactLabel} 다시 실행` : impactLabel, disabled: !connection?.connected || active})
+        const impactButton = create('button', {type: 'button', className: 'secondary-button', text: latestImpactRun ? `${impactLabel} 다시 실행` : impactLabel, disabled: !connection?.connected || requestActive})
         impactButton.addEventListener('click', () => startCodexRun({request, phase: 'impact', trigger: impactButton}))
         actions.append(impactButton)
       } else if (!request.latestReviewDecision && impactRun.status === 'COMPLETED' && impactRun.result?.outcome === 'READY' && (!applyRun || ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(applyRun.status))) {
         const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
         const applyLabel = targetlessCr ? '기획 초안 생성' : '변경 적용'
-        const applyButton = create('button', {type: 'button', className: 'primary-button', text: applyRun ? `${applyLabel} 다시 실행` : applyLabel, disabled: !connection?.connected || active})
+        const applyButton = create('button', {type: 'button', className: 'primary-button', text: applyRun ? `${applyLabel} 다시 실행` : applyLabel, disabled: !connection?.connected || requestActive})
         applyButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: applyButton}))
         actions.append(applyButton)
       }

@@ -309,7 +309,7 @@ test('impact is idempotent and apply requires its completed owned review and exp
   }
 })
 
-test('one active run is allowed and a nonterminal audit becomes interrupted after manager loss', async () => {
+test('a second run for the same request is rejected and a nonterminal audit becomes interrupted after manager loss', async () => {
   const data = fixture()
   let rejectExecution
   const manager = new CodexRunManager({
@@ -325,7 +325,7 @@ test('one active run is allowed and a nonterminal audit becomes interrupted afte
     await new Promise(resolve => setTimeout(resolve, 10))
     assert.throws(
       () => manager.start(data.project, data.request.id, {phase: 'impact'}, {idempotencyKey: '019fcf35-48fe-7d93-bb95-3304a2732957'}),
-      error => error.code === 'CODEX_RUN_ACTIVE',
+      error => error.code === 'CODEX_RUN_ACTIVE_FOR_REQUEST',
     )
     const restarted = new CodexRunManager({connectionProbe: connected})
     assert.equal(restarted.list(data.root)[0].status, 'INTERRUPTED')
@@ -443,6 +443,133 @@ test('feature-CR instruction constants stay byte-identical (prompt-cache prefix 
   const {IMPACT_INSTRUCTIONS, APPLY_INSTRUCTIONS} = await import('../src/codex-runs.mjs')
   // 이 해시가 바뀌면 provider 프롬프트 캐시 접두사와 IMPACT_ANALYZER_VERSION 보증이
   // 깨진다 — 의도적 변경이면 analyzer 버전 범프와 함께 여기 핀을 갱신하라(의식적 행위).
-  assert.equal(createHash('sha256').update(IMPACT_INSTRUCTIONS, 'utf8').digest('hex'), '93bae3e8be1559e5dd684ee94f0a674572e5d2f41e32b44c52354808839f01ea')
+  //
+  // 갱신 이력: impact-context-v2 → v3. 앵커의 renderPaths(앵커가 실제로 박힌 파일)를
+  // context에 넣으면서, 그것을 읽어도 된다고 지시문에 명시했다. 종전 지시문은
+  // relatedDocuments만 출발점으로 허용해 실행기가 렌더 아티팩트를 특정하지 못하고
+  // BLOCKED로 끝났다(사용자 보고: wh-feat-legend-toggle).
+  assert.equal(createHash('sha256').update(IMPACT_INSTRUCTIONS, 'utf8').digest('hex'), 'd9e0ec090aee66aa1bc05e2f1d51f98a17f1b4bb72f46d5381ad56f9a68d583b')
   assert.equal(createHash('sha256').update(APPLY_INSTRUCTIONS, 'utf8').digest('hex'), 'aec5dbabd96364467ecf16fb41f40d567492081f8b387595891cf774ddcf7265')
+})
+
+// 서로 다른 요청은 병렬로 돈다(요청별 직렬화로 전환). 종전 전역 단일 실행에서는
+// A의 영향 검토가 도는 동안 B의 실행이 통째로 막혔다.
+test('runs for different change requests execute in parallel', async () => {
+  const data = fixture()
+  const second = {...data.request, id: 'CHG-20260806-002'}
+  writeFileSync(join(data.root, '_workspace', '01_plan', 'change-requests', 'CHG-20260806-002.md'), '# Change Request\n')
+  const project = {...data.project, changeRequests: [data.request, second]}
+  const rejects = []
+  let uuidSeed = 0
+  const manager = new CodexRunManager({
+    connectionProbe: connected,
+    uuid: () => `019fcf35-48fe-7d93-bb95-33042a27300${uuidSeed++}`,
+    executor: ({signal}) => new Promise((_resolve, reject) => {
+      rejects.push(reject)
+      signal.addEventListener('abort', () => reject(new CodexRunError('CODEX_RUN_INTERRUPTED', 'interrupted', 409)), {once: true})
+    }),
+  })
+  try {
+    manager.start(project, data.request.id, {phase: 'impact'}, {idempotencyKey: '019fcf35-48fe-7d93-bb95-330427320001'})
+    await new Promise(resolve => setTimeout(resolve, 10))
+    // 다른 요청은 막히지 않는다.
+    const parallel = manager.start(project, second.id, {phase: 'impact'}, {idempotencyKey: '019fcf35-48fe-7d93-bb95-330427320002'})
+    assert.equal(parallel.created, true)
+    await new Promise(resolve => setTimeout(resolve, 10))
+    assert.equal(manager.list(data.root).filter(run => run.status === 'RUNNING').length, 2)
+    for (const reject of rejects) reject(new CodexRunError('CODEX_RUN_INTERRUPTED', 'interrupted', 409))
+    await manager.waitForIdle()
+  } finally {
+    await manager.close()
+    rmSync(data.root, {recursive: true, force: true})
+  }
+})
+
+// 병렬은 무제한이 아니다 — 자원 상한을 넘으면 429로 거절한다(정확성 게이트가 아니라 상한).
+test('executor run capacity is bounded', async () => {
+  const data = fixture()
+  const requests = Array.from({length: 5}, (_, index) => ({...data.request, id: `CHG-20260806-10${index}`}))
+  for (const request of requests) writeFileSync(join(data.root, '_workspace', '01_plan', 'change-requests', `${request.id}.md`), '# Change Request\n')
+  const project = {...data.project, changeRequests: requests}
+  const rejects = []
+  let uuidSeed = 0
+  const manager = new CodexRunManager({
+    connectionProbe: connected,
+    uuid: () => `019fcf35-48fe-7d93-bb95-33042a27400${uuidSeed++}`,
+    executor: ({signal}) => new Promise((_resolve, reject) => {
+      rejects.push(reject)
+      signal.addEventListener('abort', () => reject(new CodexRunError('CODEX_RUN_INTERRUPTED', 'interrupted', 409)), {once: true})
+    }),
+  })
+  try {
+    for (let index = 0; index < 4; index += 1) {
+      manager.start(project, requests[index].id, {phase: 'impact'}, {idempotencyKey: `019fcf35-48fe-7d93-bb95-33042732100${index}`})
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
+    assert.throws(
+      () => manager.start(project, requests[4].id, {phase: 'impact'}, {idempotencyKey: '019fcf35-48fe-7d93-bb95-330427321004'}),
+      error => error.code === 'CODEX_RUN_CAPACITY',
+    )
+    for (const reject of rejects) reject(new CodexRunError('CODEX_RUN_INTERRUPTED', 'interrupted', 409))
+    await manager.waitForIdle()
+  } finally {
+    await manager.close()
+    rmSync(data.root, {recursive: true, force: true})
+  }
+})
+
+// 요청끼리 격리 — 새 Change Request 파일이 생겨도 다른 요청의 영향도 context는 그대로여야
+// 한다. 종전에는 documents를 통째로 해시해 새 CR 하나가 남의 검토를 만료시켰다.
+test('creating another change request does not invalidate an existing impact context', () => {
+  const data = fixture()
+  const before = buildImpactContext(data.project, data.request).contextDigest
+
+  // 다른 요청이 하나 생겼다 — 감사 산출물이지 기획·디자인 증거가 아니다.
+  const withAnotherRequest = {
+    ...data.project,
+    documents: [
+      ...data.project.documents,
+      {phase: 'plan', path: '_workspace/01_plan/change-requests/CHG-20260829-002.md', title: 'Another request', hash: '9'.repeat(64), bytes: 210, content: '# Change Request'},
+    ],
+  }
+  assert.equal(buildImpactContext(withAnotherRequest, data.request).contextDigest, before)
+
+  // 반면 실제 기획 문서가 바뀌면 여전히 만료된다 — 게이트는 살아 있다.
+  const withChangedPlan = {
+    ...data.project,
+    documents: data.project.documents.map(document =>
+      document.path === '_workspace/01_plan/feature-plan.md' ? {...document, hash: '5'.repeat(64)} : document),
+  }
+  assert.notEqual(buildImpactContext(withChangedPlan, data.request).contextDigest, before)
+  rmSync(data.root, {recursive: true, force: true})
+})
+
+// 앵커 → 렌더 파일 매니페스트. 실행기가 "이 앵커를 렌더하는 아티팩트를 특정할 수 없다"며
+// BLOCKED로 끝나던 원인을 닫는다 — 구현 소스가 없는 프로젝트에서는 프리뷰가 유일한 구현물인데
+// 프리뷰는 문서 트리에서 제외돼 있어 실행기에게 전달될 경로가 없었다.
+test('impact context carries the files that actually contain each anchor', () => {
+  const data = fixture()
+  const previewRoot = join(data.root, '_workspace', '02_design', 'preview')
+  mkdirSync(previewRoot, {recursive: true})
+  writeFileSync(join(previewRoot, 'app.js'), "const el = h('button', {'data-wh-anchor': 'wh-feat-001-action'})\n")
+  writeFileSync(join(previewRoot, 'index.html'), '<main></main>\n')
+
+  const context = buildImpactContext(data.project, data.request)
+  const anchor = context.preview.anchors.find(item => item.anchorId === 'wh-feat-001-action')
+  assert.deepEqual(anchor.renderPaths, [{path: '_workspace/02_design/preview/app.js', lines: [1]}])
+  assert.deepEqual(context.preview.unresolvedAnchorIds, [])
+  assert.equal(context.preview.renderSourcesScanned, 2)
+
+  // 선언만 되고 렌더 소스에 없으면 "못 찾았다"를 사실로 남긴다 — 추측하지 않는다.
+  const orphan = {
+    ...data.project,
+    features: [{
+      ...data.project.features[0],
+      previewMapping: {available: true, unmappedReason: null, anchors: [{...data.project.features[0].previewMapping.anchors[0], anchorId: 'wh-feat-001-missing'}]},
+    }],
+  }
+  const orphanContext = buildImpactContext(orphan, data.request)
+  assert.deepEqual(orphanContext.preview.anchors[0].renderPaths, [])
+  assert.deepEqual(orphanContext.preview.unresolvedAnchorIds, ['wh-feat-001-missing'])
+  rmSync(data.root, {recursive: true, force: true})
 })

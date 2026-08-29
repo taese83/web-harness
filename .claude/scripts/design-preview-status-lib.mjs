@@ -489,6 +489,44 @@ export const inspectDesignPreview = project => {
   return base.present ? {...result, base: {captures: base.meta?.captures ?? [], capturedAt: base.meta?.capturedAt ?? null}} : result
 }
 
+// 앵커 → **실제 렌더 파일** 색인.
+//
+// traceability.json은 앵커가 있다는 **주장**이고, 파일에 박힌 문자열이 **사실**이다 —
+// base 스냅샷 검증이 이미 같은 원칙을 쓴다("앵커는 파일이 아니라 HTML에서 읽는다").
+// 기존 프리뷰 검증은 렌더 소스를 전부 이어붙여 포함 여부만 봤기 때문에(그 자리 주석이
+// "§4 등록 프록시"라고 적고 있다) **어느 파일인지가 어디에도 남지 않았다.** 그래서 변경
+// 요청의 영향도 검토가 앵커의 구현 위치를 짚지 못했다.
+//
+// 앵커 ID의 형태를 가정하지 않는다 — 주어진 ID의 출현을 찾을 뿐이라 프로젝트마다 다른
+// 명명 규칙에도 그대로 성립한다.
+export const indexRenderAnchors = (project, anchorIds, {maxFiles = 200, maxHitsPerAnchor = 8} = {}) => {
+  const projectRoot = resolve(project)
+  const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
+  const wanted = [...new Set((anchorIds ?? []).filter(id => typeof id === 'string' && id.length > 0))]
+  const result = {anchors: {}, scannedFiles: 0, unresolved: [...wanted]}
+  if (wanted.length === 0 || !existsSync(previewRoot)) return result
+  const files = walkFiles(previewRoot).filter(path => /\.(?:html|js|mjs)$/.test(path)).slice(0, maxFiles)
+  for (const absolute of files) {
+    let text
+    try { text = readFileSync(absolute, 'utf8') } catch { continue }
+    result.scannedFiles += 1
+    const path = relative(projectRoot, absolute).split(sep).join('/')
+    let lines = null
+    for (const anchorId of wanted) {
+      if (!text.includes(anchorId)) continue
+      lines = lines ?? text.split('\n')
+      const hits = []
+      for (let index = 0; index < lines.length && hits.length < maxHitsPerAnchor; index += 1) {
+        if (lines[index].includes(anchorId)) hits.push(index + 1)
+      }
+      result.anchors[anchorId] = result.anchors[anchorId] ?? []
+      result.anchors[anchorId].push({path, lines: hits})
+    }
+  }
+  result.unresolved = wanted.filter(anchorId => !result.anchors[anchorId])
+  return result
+}
+
 export const writeSourceSnapshot = project => {
   const projectRoot = resolve(project)
   const {mode} = readPreviewMode(projectRoot)

@@ -712,3 +712,8 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .candidate-block .panel-copy { margin: 0; font-size: var(--fs-caption); color: var(--muted); }
 .candidate-root { font-family: var(--font-mono); font-size: var(--fs-overline); color: var(--faint); overflow-wrap: anywhere; }
 .candidate-link { justify-self: stretch; text-align: left; }
+
+/* 재고정 폼의 변경 목록 — 증언 대상을 눈앞에 놓는다. 길면 그 안에서 스크롤한다. */
+.preview-changed-sources { max-height: 180px; overflow-y: auto; margin: 0; font-size: 12px; }
+.preview-changed-sources li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+.preview-changed-sources li span:last-child { word-break: break-all; }
