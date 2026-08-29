@@ -8,7 +8,7 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, join} from 'node:path'
 import {computeBatchClaimPlan, formatBatchClaimPreview} from './batch-claim.mjs'
 import {computeClaimEligibility, claimEligibilityGuidance} from './claim-guard.mjs'
@@ -26,6 +26,7 @@ import {parseFeaturePlanUnits} from './plan-units.mjs'
 export const LEDGER_RELATIVE = '_workspace/03_dev/identity-ledger.jsonl'
 export const CHANGE_SCOPE_RELATIVE = '_workspace/03_dev/change-scope.md'
 export const PLAN_RELATIVE = '_workspace/01_plan/feature-plan.md'
+export const PLAN_DIR_RELATIVE = '_workspace/01_plan/feature-plan'
 
 /** argv → {command, positional, flags} (--k v | --k=v | --flag). */
 export function parseArgs(argv) {
@@ -44,18 +45,46 @@ export function parseArgs(argv) {
   return {command: command ?? null, positional, flags}
 }
 
-/** units 로드 — --units <json파일> 우선, 없으면 로컬 feature-plan.md 파싱. 표 형식 계획은
- * 0 unit이 나온다 — **기존 청구가 있으면** EMPTY_UNITS_CLOSE_ALL 가드가 잡지만, 신규(빈 원장)
- * 첫 claim은 "발행 0" 미리보기가 유일한 방어다(정직 — 미리보기 확인이 그래서 게이트다). */
+/** feature-plan의 위치를 해석한다 — sharding 계약상 **flat(.md) 또는 디렉터리** 두 형태다.
+ *
+ * 종전에는 flat만 찾아 sharded 프로젝트에서 두 곳이 함께 무너졌다: loadUnits가
+ * MISSING_PLAN을 던지고, origin 동기 게이트는 같은 경로를 못 찾아 "푸시하세요"라는
+ * **오탐 안내**를 냈다(실제로는 푸시돼 있고 origin과 동일했다 — 사용자 실측 보고).
+ * 콘솔 인덱서는 이미 두 형태를 다루므로 채널 간 답이 갈리고 있었다.
+ *
+ * 반환 relative는 git 인자로 그대로 쓴다 — `cat-file -e <base>:<dir>`는 tree 객체로,
+ * `diff --quiet <base> -- <dir>`는 경로 필터로 동작한다(디렉터리 실측 확인).
+ * @returns {{kind: 'flat'|'sharded', relative: string, shards: string[]}|null}
+ */
+export function resolvePlanLocation(root) {
+  const flat = join(root, PLAN_RELATIVE)
+  if (existsSync(flat)) return {kind: 'flat', relative: PLAN_RELATIVE, shards: [PLAN_RELATIVE]}
+  const dir = join(root, PLAN_DIR_RELATIVE)
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return null
+  // 파일명 정렬로 결정적 순서를 준다. 순서는 unit 배열 순서에만 영향하고 unit 내용에는
+  // 영향하지 않는다(contentHash는 섹션 원문에서 나온다).
+  const shards = readdirSync(dir).filter(name => name.endsWith('.md')).sort()
+    .map(name => `${PLAN_DIR_RELATIVE}/${name}`)
+  return shards.length > 0 ? {kind: 'sharded', relative: PLAN_DIR_RELATIVE, shards} : null
+}
+
+/** units 로드 — --units <json파일> 우선, 없으면 로컬 feature-plan 파싱(flat·sharded 모두).
+ * 샤드는 파서 계약대로 **각각 파싱해 이어붙인다**(plan-units 문서: "분할 계획이면 caller가
+ * 샤드들을 이 함수에 각각 돌리고 이어붙인다"). 같은 FEAT가 두 샤드에 있으면 병합하지 않고
+ * 두 unit으로 남겨 하류 DUPLICATE_FEATURE_ID loud 가드가 상류 결함을 드러내게 한다.
+ *
+ * 표 형식 계획은 0 unit이 나온다 — **기존 청구가 있으면** EMPTY_UNITS_CLOSE_ALL 가드가
+ * 잡지만, 신규(빈 원장) 첫 claim은 "발행 0" 미리보기가 유일한 방어다(정직 — 미리보기
+ * 확인이 그래서 게이트다). */
 export function loadUnits(root, flags) {
   if (flags.units) {
     const parsed = JSON.parse(readFileSync(flags.units, 'utf8'))
     if (!Array.isArray(parsed)) throw new Error('INVALID_UNITS: units는 배열이어야 합니다')
     return parsed
   }
-  const planPath = join(root, PLAN_RELATIVE)
-  if (!existsSync(planPath)) throw new Error(`MISSING_PLAN: ${PLAN_RELATIVE} 없음(--units로 지정 가능)`)
-  return parseFeaturePlanUnits(readFileSync(planPath, 'utf8'))
+  const location = resolvePlanLocation(root)
+  if (!location) throw new Error(`MISSING_PLAN: ${PLAN_RELATIVE} 또는 ${PLAN_DIR_RELATIVE}/ 없음(--units로 지정 가능)`)
+  return location.shards.flatMap(relative => parseFeaturePlanUnits(readFileSync(join(root, relative), 'utf8')))
 }
 
 // change-scope.md — 사람용 헤더 + 기계용 fenced JSON(재읽기·STALE 대조의 정본).
@@ -95,7 +124,9 @@ export async function runClaim({root, repo, flags, io = {}}) {
   const branch = flags.branch ?? await (io.currentBranch ?? resolveCurrentBranch)({repoRoot: root})
   if (!branch) throw new Error('NO_BRANCH: 현재 브랜치를 알 수 없습니다(detached?) — --branch로 지정')
   // 점 1: 청구는 origin 푸시분에만(fail-closed)
-  const sync = await (io.originSync ?? resolveOriginPlanSync)({repoRoot: root, planPath: PLAN_RELATIVE})
+  // 게이트가 보는 경로도 해석 결과를 따른다 — flat만 보면 sharded 계획에서 오탐이 난다.
+  const planPath = resolvePlanLocation(root)?.relative ?? PLAN_RELATIVE
+  const sync = await (io.originSync ?? resolveOriginPlanSync)({repoRoot: root, planPath})
   const eligibility = computeClaimEligibility(sync)
   if (!eligibility.eligible) {
     return {ok: false, blocked: eligibility.reason, guidance: claimEligibilityGuidance(eligibility.reason)}
