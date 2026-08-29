@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.3.0
+  version: 0.3.2
   maturity: contract-only
   updated: 2026-08-30
-  changelog: 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  changelog: 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -113,6 +113,9 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 픽업이 끝나면 change-scope가 발급된 상태다. 여기서부터는 **묻지 않고 진행한다** — 확인을
 받는 지점은 **PR 직전 하나뿐**이다.
+
+아래 규율은 파이프라인의 **개발 단계 공통 계약**이다 — 티켓을 거치지 않는 경로도 같다
+(`web-orchestrator` Phase 3 §형상 규율이 정본). 티켓 고유는 1번의 분기 base와 5번의 `link`뿐이다.
 
 1. **dev 브랜치를 딴다.** 청구 브랜치에서 `feat/<FEAT-NNN>-<짧은-슬러그>`로 분기한다.
    청구 브랜치는 여러 티켓의 공통 base라 직접 커밋하지 않는다 — PR의 base가 그 브랜치다.

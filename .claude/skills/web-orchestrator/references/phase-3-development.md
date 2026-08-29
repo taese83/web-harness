@@ -5,6 +5,27 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
 
 `_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
 
+## 형상 규율 — 이 단계의 커밋·브랜치
+
+개발 단계에 들어가면 **묻지 않고 진행한다**. 확인을 받는 지점은 **PR 직전 하나뿐**이다.
+
+- **dev 브랜치를 딴다.** 공유 브랜치(`main`·`develop`·티켓 청구 브랜치)에 직접 커밋하지 않는다.
+  티켓 흐름이면 청구 브랜치에서 `feat/<FEAT-NNN>-<슬러그>`로 분기한다(그 브랜치가 PR base다).
+- **확정 산출물은 자체 판단으로 따른다.** 기획·디자인·설계·스팩은 이미 승인된 입력이므로 해석
+  여지는 스스로 정한다. 멈추고 묻는 경우는 넷뿐이다:
+  스펙에 없는 동작을 만들어야 할 때(**TC 발명 금지** — feature-planner 되돌림) ·
+  `change-scope`의 `ALLOWED_PATHS` 밖을 고쳐야 할 때 · 확정된 계약·결정과 충돌할 때 ·
+  되돌리기 어렵거나 팀 전체에 영향이 가는 조치가 필요할 때.
+- **커밋은 묻지 않고 계속하되 한 커밋 = 한 가지 변화**로 쪼갠다. 리팩터링과 기능 추가를 섞지
+  않고, 커밋마다 무엇을·왜 바꿨는지 남기며 실측이 있으면 수치를 적는다(주장과 증명을 섞지
+  않는다). **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
+- **커밋 후 dev 브랜치에 푸시한다.** 확인 없이 한다 — 되돌릴 수 있고 그 브랜치 안에 갇힌다.
+- **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC 결과·남은 미결을 보이고 승인 뒤에만 만든다.
+  PR은 리뷰어를 부르고 base 브랜치로 나가는 **팀을 향한 행위**라 자율 범위 밖이다.
+
+Gate A·B·C와 스폰 완결성 게이트는 이 규율과 무관하게 그대로 밟는다 — 커밋 자율은 게이트
+면제가 아니다.
+
 source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 결정한다. `existing-change`이면 첫 edit 전에 `_workspace/03_dev/change-scope.md`에 `TARGET_BEHAVIOR`, `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`, `TEST_EVIDENCE`, `CAPABILITY_ESCALATION`, `DOCS_TO_UPDATE`를 기록한다(스키마는 `minimal-change-contract.md`가 canonical). 모든 implementation/retry agent prompt에 이 필드를 전달하고 scope 확대가 필요하면 확대된 경로를 수정하기 전에 brief를 갱신한다. `CAPABILITY_ESCALATION: detected`이면 Phase 4에서 `security-reviewer` 재투입이 의무다.
 
 `existing-change`이면 `_workspace/02_design/integration-overlay.json`을 먼저 생성·검증한다. 각 owner는 `change-journal-contract.md`에 따라 자기 `_workspace/03_dev/change-journal/{agent-name}.md`에 생성·수정·실패·증거를 기록한다.
