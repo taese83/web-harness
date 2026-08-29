@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   maturity: contract-only
-  updated: 2026-08-24
-  changelog: executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  updated: 2026-08-30
+  changelog: 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -109,6 +109,32 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 3. **change-scope 발급**: `pickup.buildChangeScope` → `_workspace/03_dev/change-scope.md`.
    ALLOWED_PATHS는 FEAT 소유 seed + 개발자 확인. 이후 개발은 표준 web-orchestrator Iterate 흐름.
 
+### 개발 — 픽업 이후 (dev 브랜치)
+
+픽업이 끝나면 change-scope가 발급된 상태다. 여기서부터는 **묻지 않고 진행한다** — 확인을
+받는 지점은 **PR 직전 하나뿐**이다.
+
+1. **dev 브랜치를 딴다.** 청구 브랜치에서 `feat/<FEAT-NNN>-<짧은-슬러그>`로 분기한다.
+   청구 브랜치는 여러 티켓의 공통 base라 직접 커밋하지 않는다 — PR의 base가 그 브랜치다.
+2. **자체 판단으로 개발한다.** 기획·디자인·설계·스팩은 이미 확정된 산출물이므로 그대로
+   따르고, 해석 여지는 스스로 정한다. 판단을 멈추고 물어야 하는 경우는 아래 넷뿐이다:
+   - 스펙에 없는 동작을 만들어야 한다(TC 발명 금지 — feature-planner 되돌림).
+   - change-scope의 ALLOWED_PATHS 밖을 고쳐야 한다.
+   - 확정된 계약·결정과 충돌한다(결정 로그를 뒤집어야 한다).
+   - 되돌리기 어렵거나 팀 전체에 영향이 가는 조치가 필요하다.
+3. **커밋은 묻지 않고 계속한다.** 다만 **한 커밋 = 한 가지 변화**로 쪼갠다 — 리팩터링과
+   기능 추가를 섞지 않고, 스펙 문서 갱신과 구현을 필요 이상으로 묶지 않는다. 커밋마다
+   무엇을·왜 바꿨는지 본문에 남기고, 실측이 있으면 수치를 적는다(주장과 증명을 섞지 않는다).
+   **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
+4. **커밋 후 dev 브랜치에 푸시한다.** 이것도 확인 없이 한다 — dev 브랜치는 그 티켓 전용이고
+   공유 base가 아니다.
+5. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC 결과·남은 미결을 보여주고 사람 확인을
+   받은 뒤에만 PR을 만든다. 그다음 `link`로 이슈에 연결한다.
+
+> **왜 커밋·푸시는 열고 PR은 닫는가**: dev 브랜치의 커밋·푸시는 되돌릴 수 있고 그 티켓
+> 안에 갇힌다. PR은 리뷰어를 부르고 base 브랜치로 나가는 **팀을 향한 행위**다. 비협상의
+> "사람 확인" 대상은 후자다.
+
 ### `link <FEAT> <pr-url>` — PR 연결
 
 1. `pr.completionGate`(STALE·failing-TC 하드 차단) 통과 확인. **정직 표기**: CLI `link`가
@@ -123,6 +149,8 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 ## 비협상
 
 - side-effect(이슈 생성·assign·PR·상태전이)는 **미리보기 → 사람 확인 → 실행**. 침묵 자동발사 금지.
+  **예외는 dev 브랜치의 커밋·푸시뿐**이다(위 개발 절) — 되돌릴 수 있고 티켓 안에 갇힌다.
+  PR은 예외가 아니다.
 - 청구는 origin 푸시분에만(점 1). 픽업은 브랜치·형상·컨플릭 게이트 통과 후에만.
 - 증거 위조 금지 — PR tier는 산출물 *존재*이지 통과 판정이 아니다(`pr.summarizeEvidence`).
 - 컨플릭 자동 해결·최종 develop 머지는 하지 않는다(사람 몫 — 정직 경계).
