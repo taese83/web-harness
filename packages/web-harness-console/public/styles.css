@@ -717,3 +717,6 @@ a.secondary-button { display: inline-flex; align-items: center; white-space: now
 .preview-changed-sources { max-height: 180px; overflow-y: auto; margin: 0; font-size: 12px; }
 .preview-changed-sources li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
 .preview-changed-sources li span:last-child { word-break: break-all; }
+
+/* 기준이 밀린 후보 — 승인 대신 재실행으로 안내한다. */
+.request-base-stale { color: var(--warning, #d0a215); }

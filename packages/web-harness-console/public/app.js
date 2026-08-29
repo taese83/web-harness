@@ -1913,6 +1913,20 @@ const renderChanges = () => {
         const reviseButton = create('button', {type: 'button', className: 'primary-button', text: `${executorLabel} 수정 반영`, disabled: !connection?.connected || requestActive})
         reviseButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: reviseButton}))
         actions.append(reviseButton)
+      } else if (!reviewDecision && applyRun?.status === 'COMPLETED' && applyRun.result?.outcome === 'READY_FOR_REVIEW' && applyRun.candidate?.baseState === 'STALE') {
+        // candidate가 만들어진 뒤 프로젝트가 바뀌었다. 그대로 얹으면 그 사이 승격된
+        // 변경을 조용히 되돌린다 — 그래서 승격이 CANDIDATE_BASE_STALE로 거절한다.
+        // 종전에는 이 사실이 **승인을 누른 뒤에야** 오류 문구로 나타났고, 화면에는
+        // 승인·수정 요청·폐기뿐이라 되살릴 길이 보이지 않았다(사용자 지적).
+        card.append(create('p', {className: 'panel-copy request-base-stale',
+          text: '이 후보가 만들어진 뒤 프로젝트가 바뀌었습니다(다른 변경이 먼저 승격됐을 수 있습니다). 그대로 승인하면 앞선 변경을 되돌리므로 승격이 거절됩니다 — 현재 상태 기준으로 다시 실행하세요.'}))
+        const targetlessCr = request.context?.featureId === null && (request.context?.bootstrap || request.context?.newFeature)
+        const rebuildLabel = targetlessCr ? '기획 초안 다시 생성' : '변경 적용 다시 실행'
+        const rebuildButton = create('button', {type: 'button', className: 'primary-button', text: rebuildLabel, disabled: !connection?.connected || requestActive})
+        rebuildButton.addEventListener('click', () => openCodexApplyDialog({request, impactRun, trigger: rebuildButton}))
+        const discardStale = create('button', {type: 'button', className: 'danger-button', text: '변경 폐기'})
+        discardStale.addEventListener('click', () => openReviewDecisionDialog({request, decision: 'DISCARDED', trigger: discardStale, applyRun}))
+        actions.append(rebuildButton, discardStale)
       } else if (!reviewDecision && applyRun?.status === 'COMPLETED' && applyRun.result?.outcome === 'READY_FOR_REVIEW') {
         const approveButton = create('button', {type: 'button', className: 'primary-button', text: '승인'})
         const revisionButton = create('button', {type: 'button', className: 'secondary-button', text: '수정 요청'})

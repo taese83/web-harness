@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import test from 'node:test'
 import {
+  inspectCandidateBase,
   beginCandidatePromotion,
   createCandidateWorkspace,
   finalizeCandidateWorkspace,
@@ -180,6 +181,60 @@ test('parallel candidates stay isolated and the second promotion fails loudly in
 
     removeCandidateWorkspace(sessionA)
     removeCandidateWorkspace(sessionB)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+// 승인 장부는 프로젝트 내용이 아니다. 프리뷰 승인이 대기 중인 candidate 전부를
+// CANDIDATE_BASE_STALE로 죽이던 결함을 고정한다.
+test('recording a preview approval does not invalidate outstanding candidates', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-candidate-ledger-'))
+  try {
+    mkdirSync(join(root, '_workspace', '02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace', '02_design', 'spec.md'), 'content\n')
+    const before = createCandidateWorkspace(root)
+    removeCandidateWorkspace(before)
+
+    // recordPreviewApproval이 하는 일 — append-only 승인 기록
+    writeFileSync(join(root, '_workspace', '02_design', 'design-review.md'), '## Preview Approval\n### 2026-08-29\n')
+    const after = createCandidateWorkspace(root)
+    removeCandidateWorkspace(after)
+    assert.equal(after.baseline.digest, before.baseline.digest)
+
+    // 반면 실제 설계 문서가 바뀌면 여전히 baseline이 달라진다 — 게이트는 살아 있다.
+    writeFileSync(join(root, '_workspace', '02_design', 'spec.md'), 'changed\n')
+    const changed = createCandidateWorkspace(root)
+    removeCandidateWorkspace(changed)
+    assert.notEqual(changed.baseline.digest, before.baseline.digest)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+// 승격 가능 여부를 부작용 없이 미리 읽는다 — 승인 버튼을 누른 뒤에야 알면 막다른 길이다.
+test('inspectCandidateBase reports READY, STALE, and ALREADY_APPLIED without side effects', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-candidate-inspect-'))
+  const runId = 'RUN-CHG-20260829-001-apply-019fcf35-48fe-7d93-bb95-3304a2732c01'
+  try {
+    mkdirSync(join(root, '_workspace', '01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace', '01_plan', 'spec.md'), 'base\n')
+    const session = createCandidateWorkspace(root)
+    writeFileSync(join(session.worktreeRoot, '_workspace', '01_plan', 'spec.md'), 'candidate\n')
+    finalizeCandidateWorkspace(root, runId, session)
+    removeCandidateWorkspace(session)
+    assert.equal(inspectCandidateBase(root, runId), 'READY')
+
+    // 다른 변경이 먼저 승격된 상황
+    writeFileSync(join(root, '_workspace', '01_plan', 'spec.md'), 'promoted by someone else\n')
+    assert.equal(inspectCandidateBase(root, runId), 'STALE')
+
+    // 이 후보가 이미 적용된 상황
+    writeFileSync(join(root, '_workspace', '01_plan', 'spec.md'), 'candidate\n')
+    assert.equal(inspectCandidateBase(root, runId), 'ALREADY_APPLIED')
+
+    // 없는 실행은 판정하지 않는다(지어내지 않는다)
+    assert.equal(inspectCandidateBase(root, 'RUN-CHG-20260829-001-apply-019fcf35-48fe-7d93-bb95-3304a2732c99'), null)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

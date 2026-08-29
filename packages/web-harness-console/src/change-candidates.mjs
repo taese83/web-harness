@@ -32,6 +32,11 @@ export const EXCLUDED_AUDIT_PREFIXES = [
   '_workspace/03_dev/change-candidates',
   '_workspace/03_dev/change-request-decisions',
   '_workspace/03_dev/codex-runs',
+  // 프리뷰 승인 장부(append-only). 프로젝트 내용이 아니라 **승인 사실의 기록**이다.
+  // 여기에 있으면 프리뷰를 승인하는 것만으로 대기 중인 candidate 전부의 baseDigest가
+  // 어긋나 CANDIDATE_BASE_STALE이 된다 — 승인 버튼 하나가 남의 후보를 죽였다(사용자 지적).
+  // apply 실행은 이 파일을 수정하지 않는다(APPLY_INSTRUCTIONS의 허용 범위 밖).
+  '_workspace/02_design/design-review.md',
 ]
 
 export class ChangeCandidateError extends Error {
@@ -291,6 +296,23 @@ const restoreBackup = (projectRoot, backupRoot, changes) => {
     } else {
       rmSync(target, {force: true})
     }
+  }
+}
+
+// candidate가 지금도 승격 가능한지 **부작용 없이** 본다.
+//
+// 승격은 baseDigest가 현재 트리와 같을 때만 허용된다(CANDIDATE_BASE_STALE). 그 판정을
+// 승인 버튼을 누른 뒤에야 알게 되면 화면이 막다른 길이 된다 — 기준이 밀렸다는 사실도,
+// 다시 실행하라는 경로도 보이지 않는다(사용자 지적). 같은 판정을 미리 읽어 화면에 낸다.
+export const inspectCandidateBase = (projectRoot, runId) => {
+  try {
+    const {manifest} = readCandidateManifest(projectRoot, runId)
+    const current = snapshotTree(realpathSync(projectRoot))
+    if (current.digest === manifest.candidateDigest) return 'ALREADY_APPLIED'
+    return current.digest === manifest.baseDigest ? 'READY' : 'STALE'
+  } catch {
+    // 매니페스트가 없거나 읽히지 않으면 판정하지 않는다 — 없는 상태를 지어내지 않는다.
+    return null
   }
 }
 

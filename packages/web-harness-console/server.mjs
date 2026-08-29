@@ -5,6 +5,7 @@ import {createServer} from 'node:http'
 import {dirname, extname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from '../../.claude/scripts/design-preview-status-lib.mjs'
+import {inspectCandidateBase} from './src/change-candidates.mjs'
 import {recordImplementationVerification} from './src/change-request-implementation.mjs'
 import {CodexRunManager} from './src/codex-runs.mjs'
 import {EXECUTOR_KINDS, createExecutorAdapter} from './src/executor-adapters.mjs'
@@ -698,7 +699,11 @@ export const createConsoleServers = ({repositoryRoot, port = 4310, previewPort =
       const detail = catalog.detail(detailProjectId)
       if (!detail) return json(response, 404, errorBody('PROJECT_NOT_FOUND', 'Project was not found'))
       const project = catalog.project(detailProjectId)
-      detail.codexRuns = codexRunManager.list(project.root)
+      // 대기 중인 candidate의 기준이 아직 유효한지 미리 알려준다. 승격 시점에야 409로
+      // 알게 되면 사용자는 승인 버튼 앞에서 막힌다(CANDIDATE_BASE_STALE).
+      detail.codexRuns = codexRunManager.list(project.root).map(run => run.phase === 'apply' && run.candidate
+        ? {...run, candidate: {...run.candidate, baseState: inspectCandidateBase(project.root, run.runId)}}
+        : run)
 
       return json(response, 200, detail)
     }
