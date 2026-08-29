@@ -8,7 +8,7 @@ import test from 'node:test'
 import {mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {parseArgs, runClaim, runPickup, runLink, readChangeScopeFile, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE} from './ticket/cli.mjs'
+import {parseArgs, runClaim, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
 import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
@@ -201,5 +201,72 @@ test('appendClaimRecord: 최초 digest 불일치 재청구 REBIND_REFUSED(§4 �
     // 같은 digest 재append(멱등 경로)·비가드 append(링크)는 허용
     appendClaimRecord(path, {featureId: 'FEAT-001', ticketKey: '7', contentHash: 'aaaa', createdAt: 't2'})
     appendLedgerRecord(path, {featureId: 'FEAT-001', ticketKey: '7', contentHash: 'bbbb', createdAt: 't3', prUrl: 'https://x/pull/1'})
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// sharding 계약 — feature-plan은 flat(.md) 또는 디렉터리 두 형태다. 종전에는 flat만 찾아
+// sharded 프로젝트에서 units 로딩과 origin 게이트가 함께 무너졌다(origin에 푸시돼 있는데도
+// "푸시하세요"라는 오탐 안내 — 사용자 실측 보고).
+const writePlanDir = (dir, files) => {
+  mkdirSync(join(dir, PLAN_DIR_RELATIVE), {recursive: true})
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, PLAN_DIR_RELATIVE, name), body)
+}
+
+test('resolvePlanLocation: flat 우선, 없으면 sharded 디렉터리, 둘 다 없으면 null', () => {
+  const dir = tmpRoot()
+  try {
+    assert.equal(resolvePlanLocation(dir), null)
+
+    writePlanDir(dir, {'specs-a.md': '## FEAT-001 A\n- TC-001-1: a\n'})
+    const sharded = resolvePlanLocation(dir)
+    assert.equal(sharded.kind, 'sharded')
+    assert.equal(sharded.relative, PLAN_DIR_RELATIVE)
+    assert.deepEqual(sharded.shards, [`${PLAN_DIR_RELATIVE}/specs-a.md`])
+
+    // flat이 함께 있으면 flat이 이긴다(기존 동작 보존).
+    mkdirSync(join(dir, '_workspace', '01_plan'), {recursive: true})
+    writeFileSync(join(dir, PLAN_RELATIVE), '## FEAT-009 Flat\n')
+    const flat = resolvePlanLocation(dir)
+    assert.equal(flat.kind, 'flat')
+    assert.deepEqual(flat.shards, [PLAN_RELATIVE])
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('loadUnits: 샤드를 각각 파싱해 이어붙이고, 중복 FEAT는 병합하지 않는다', () => {
+  const dir = tmpRoot()
+  try {
+    writePlanDir(dir, {
+      'INDEX.md': '| 절 | 파일 |\n|---|---|\n',                       // 표 형식 → 0 unit
+      'specs-b.md': '## FEAT-002 B\n- TC-002-1: b\n',
+      'specs-a.md': '## FEAT-001 A\n- TC-001-1: a\n',
+      'specs-dup.md': '## FEAT-001 A again\n- TC-001-2: a2\n',
+    })
+    const units = loadUnits(dir, {})
+    // 파일명 정렬 순서: INDEX, specs-a, specs-b, specs-dup
+    assert.deepEqual(units.map(u => u.featureId), ['FEAT-001', 'FEAT-002', 'FEAT-001'])
+    assert.deepEqual(units[0].testCaseIds, ['TC-001-1'])
+    assert.deepEqual(units[2].testCaseIds, ['TC-001-2'])
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('loadUnits: 계획이 아예 없으면 두 경로를 모두 알리며 실패', () => {
+  const dir = tmpRoot()
+  try {
+    assert.throws(() => loadUnits(dir, {}), error =>
+      /MISSING_PLAN/.test(error.message) && error.message.includes(PLAN_RELATIVE) && error.message.includes(PLAN_DIR_RELATIVE))
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runClaim: sharded 계획에서도 origin 게이트가 디렉터리 경로로 판정한다', async () => {
+  const dir = tmpRoot()
+  try {
+    writePlanDir(dir, {'specs-a.md': '## FEAT-001 A\n- TC-001-1: a\n'})
+    const seen = []
+    const originSync = async ({planPath}) => { seen.push(planPath); return {originExists: true, planMatchesOrigin: true, base: 'origin/main'} }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {}, io: {originSync, currentBranch: async () => 'feature/x'}})
+    assert.deepEqual(seen, [PLAN_DIR_RELATIVE])   // flat이 아니라 디렉터리를 봤다
+    assert.equal(result.ok, true)
+    assert.equal(result.dryRun, true)             // confirm 없으면 발행하지 않는다
+    assert.match(result.preview, /FEAT-001/)
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
