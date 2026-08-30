@@ -172,7 +172,11 @@ const normalizeLayerPath = value => {
 // 경로 → 정규식. 디렉토리는 **접두 일치**(하위 전부), 파일은 **완전 일치**다.
 // 파일에 끝 앵커를 안 붙이면 `src/ChatKit.ts`가 `src/ChatKit.tsx`까지 잡는다(2026-08-26 실측).
 const layerPattern = path => {
-  const normalized = normalizeLayerPath(path)
+  // 글롭 꼬리(`/**`·`/*`)는 **디렉토리 접두**와 같은 뜻이다. normalize보다 **먼저** 걷어낸다 —
+  // 뒤에 하면 `src/x/**`가 `src/x/**/`가 되어 잡히지 않는다. 이스케이프만 하면 정규식에
+  // 이스케이프만 하면 정규식에 리터럴 `\*\*`가 박혀 아무것도 매칭하지 않는다 —
+  // ALLOWED_PATHS를 `src/x/**`로 적은 스폰이 조용히 전부 거부됐다(2026-08-30 실측).
+  const normalized = normalizeLayerPath(String(path).replace(/\/\*{1,2}$/, '/'))
   const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`^${appPrefix}${escaped}${normalized.endsWith('/') ? '' : '$'}`)
 }
