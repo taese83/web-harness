@@ -734,6 +734,14 @@ const validationScriptContract = (script, args, context) => {
     const allowed = new Set(['--json', '--allow-no-ids'])
     return extra.every(a => allowed.has(a)) && extra.length === new Set(extra).size
   }
+  if (script === '.claude/scripts/validate-development-readiness.mjs') {
+    // `--fix`는 `.github/` 아래에 티켓 자동 닫기 자산을 놓는 **쓰기**다. 인자 계약을 좁게
+    // 고정해 그 밖의 어떤 것도 넘어가지 않게 한다.
+    const commandArgs = withoutDirectoryOption(args, '--project', context)
+    if (!args.includes('--project')) return false
+    const allowed = new Set(['--json', '--fix'])
+    return commandArgs.every(arg => allowed.has(arg)) && commandArgs.length === new Set(commandArgs).size
+  }
   if (script === '.claude/scripts/validate-requirements-notation.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && (commandArgs.length === 0 || (commandArgs.length === 1 && commandArgs[0] === '--json'))
