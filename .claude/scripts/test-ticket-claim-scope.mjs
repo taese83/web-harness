@@ -88,6 +88,42 @@ test('막힌 의존을 이름으로 돌려준다 — 무엇을 기다리는지 �
   assert.deepEqual(result.unmetDeps, ['FEAT-005'])
 })
 
+// 충돌 판정이 묻는 것은 "둘이 **동시에** 열릴 수 있는가"다. 한쪽이 다른 쪽에 의존하면
+// 구조적으로 순차라 같은 파일을 건드려도 동시에 건드리지 않는다. 이 구분이 없으면
+// **정직하게 paths를 적을수록 더 막히는** 역설이 된다(2026-08-30 실측).
+test('의존으로 순서가 잡힌 쌍은 경로가 겹쳐도 충돌이 아니다', () => {
+  const units = [
+    {featureId: 'FEAT-002', paths: ['src/widgets/canvas/'], dependsOn: []},
+    {featureId: 'FEAT-006', paths: ['src/widgets/canvas/'], dependsOn: ['FEAT-002']},
+  ]
+  assert.deepEqual(findPathCollisions(units, roots), [])
+})
+
+test('전이 의존도 순차로 본다 — 한 다리 건너도 동시가 아니다', () => {
+  const units = [
+    {featureId: 'A', paths: ['src/x/'], dependsOn: []},
+    {featureId: 'B', paths: ['src/y/'], dependsOn: ['A']},
+    {featureId: 'C', paths: ['src/x/'], dependsOn: ['B']},
+  ]
+  assert.deepEqual(findPathCollisions(units, roots), [], 'C는 A에 전이 의존하므로 동시에 열리지 않는다')
+})
+
+test('같은 웨이브에서 겹치면 여전히 충돌이다 — 진짜 동시 후보만 남는다', () => {
+  const units = [
+    {featureId: 'FEAT-006', paths: ['src/widgets/canvas/'], dependsOn: ['FEAT-005']},
+    {featureId: 'FEAT-008', paths: ['src/widgets/canvas/'], dependsOn: ['FEAT-005']},
+  ]
+  assert.deepEqual(findPathCollisions(units, roots), [{a: 'FEAT-006', b: 'FEAT-008'}])
+})
+
+test('의존 순환이 있어도 무한 재귀하지 않는다', () => {
+  const units = [
+    {featureId: 'A', paths: ['src/x/'], dependsOn: ['B']},
+    {featureId: 'B', paths: ['src/x/'], dependsOn: ['A']},
+  ]
+  assert.deepEqual(findPathCollisions(units, roots), [], '순환 자체는 computeClaimOrder가 보고한다')
+})
+
 test('충돌 검사가 돌지 않은 unit을 보고한다 — "충돌 없음"과 "검사 못 함"을 가른다', () => {
   const units = [
     {featureId: 'FEAT-001', paths: ['src/a/']},

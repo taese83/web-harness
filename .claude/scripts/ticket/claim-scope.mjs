@@ -35,22 +35,44 @@ export function classifyLayer(unit, {foundationRoots = []} = {}) {
 }
 
 /**
+ * 의존 그래프에서 `from`이 `to`에 (전이적으로) 의존하는가. 순환은 방문 집합으로 끊는다
+ * (순환 자체는 computeClaimOrder가 별도로 보고한다 — 여기서 판단하지 않는다).
+ */
+const dependsTransitively = (from, to, dependencyMap, seen = new Set()) => {
+  for (const next of dependencyMap.get(from) ?? []) {
+    if (next === to) return true
+    if (seen.has(next)) continue
+    seen.add(next)
+    if (dependsTransitively(next, to, dependencyMap, seen)) return true
+  }
+  return false
+}
+
+/**
  * feature 계층 unit들 사이의 경로 충돌을 찾는다(순수). 병렬 청구 안전성 — 겹치면 하나로 묶거나
  * 공유분을 foundation으로 승격해야 한다. paths 없는 unit은 검사 대상에서 제외(정보 없음).
+ *
+ * **의존으로 이미 순서가 잡힌 쌍은 충돌이 아니다.** 충돌 판정이 묻는 것은 "둘이 **동시에**
+ * 열릴 수 있는가"이고, 한쪽이 다른 쪽에 (전이적으로) 의존하면 둘은 구조적으로 순차다 —
+ * 같은 파일을 건드려도 동시에 건드리지 않는다. 이 구분이 없으면 웨이브가 다른 쌍까지 전부
+ * 충돌로 잡혀 **정직하게 paths를 적을수록 더 막히는** 역설이 된다(2026-08-30 실측: track에서
+ * 경계가 겹치는 파이프라인·캔버스 계열이 통째로 봉쇄됐다). 남는 것은 **진짜 동시 후보**뿐이다.
  * @param {Array} units
  * @param {{foundationRoots?: string[]}} [opts]
  * @returns {Array<{a: string, b: string}>}  충돌 FEAT 쌍
  */
 export function findPathCollisions(units, opts = {}) {
+  const dependencyMap = new Map((units ?? []).map(u => [u.featureId, u.dependsOn ?? []]))
   const feats = (units ?? []).filter(u => classifyLayer(u, opts) === 'feature' && (u.paths?.length ?? 0) > 0)
   // paths 미선언 unit은 검사에서 빠진다 — 그 사실을 caller가 볼 수 있어야 "충돌 0건"과
   // "검사 0건"이 구분된다(unreportedCollisionCheck). 종전에는 둘이 같아 보였다.
   const collisions = []
   for (let i = 0; i < feats.length; i++) {
     for (let j = i + 1; j < feats.length; j++) {
-      if (pathsOverlap(feats[i].paths, feats[j].paths)) {
-        collisions.push({a: feats[i].featureId, b: feats[j].featureId})
-      }
+      const [a, b] = [feats[i].featureId, feats[j].featureId]
+      // 순서가 이미 잡힌 쌍은 동시에 열리지 않는다 — 충돌이 아니다.
+      if (dependsTransitively(a, b, dependencyMap) || dependsTransitively(b, a, dependencyMap)) continue
+      if (pathsOverlap(feats[i].paths, feats[j].paths)) collisions.push({a, b})
     }
   }
   return collisions
