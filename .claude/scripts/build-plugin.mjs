@@ -14,7 +14,7 @@ const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
   : 'dist/web-harness-plugin')
 
 const PLUGIN_NAME = 'web-harness'
-const PLUGIN_VERSION = '0.7.5'
+const PLUGIN_VERSION = '0.7.6'
 
 // 배포 메타데이터는 소스에 특정 저장소·개인을 박지 않고 환경에서 파생한다.
 // WEB_HARNESS_PLUGIN_AUTHOR / _REPO_URL / _MARKETPLACE_GIT 로 override, 없으면 git remote,
