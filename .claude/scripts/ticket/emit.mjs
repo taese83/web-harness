@@ -81,7 +81,7 @@ export function computeEmitPlan(units, ledgerState = new Map()) {
     throw new Error(`EMPTY_UNITS_CLOSE_ALL: 계획에서 unit 0개인데 열린 청구 ${openClaims.length}건 — 전 티켓 닫기 방지(파서 형식 커버리지 확인: 표 형식 계획은 미지원)`)
   }
   const create = []
-  const update = []
+  const supersede = []
   const unchanged = []
   const seen = new Set()
   // 중복 featureId는 상류 파싱 결함의 신호 — 조용히 하나를 고르면 티켓 중복 발행으로 이어져
@@ -99,7 +99,10 @@ export function computeEmitPlan(units, ledgerState = new Map()) {
       // 원장에 없거나, 닫혔다가 units에 다시 나타남 → 재생성(reopen도 생성으로 취급)
       create.push({featureId, payload, contentHash, reopen: Boolean(existing?.closed)})
     } else if (existing.contentHash !== contentHash) {
-      update.push({featureId, ticketKey: existing.ticketKey, payload, contentHash})
+      // **갱신이 아니라 대체 발행이다.** 이미 발행된 티켓의 본문을 고쳐 쓰면, 그것을 읽고
+      // 작업 중인 개발자 밑에서 계약이 조용히 바뀐다. 새 티켓을 내고 옛 것은 `superseded`로
+      // 닫아 서로 링크한다 — 원장이 append-only인 것과 같은 규율이다(사용자 결정 2026-08-30).
+      supersede.push({featureId, priorTicketKey: existing.ticketKey, payload, contentHash})
     } else {
       unchanged.push({featureId, ticketKey: existing.ticketKey})
     }
@@ -108,19 +111,21 @@ export function computeEmitPlan(units, ledgerState = new Map()) {
   for (const [featureId, entry] of ledgerState) {
     if (!seen.has(featureId) && !entry.closed) close.push({featureId, ticketKey: entry.ticketKey})
   }
-  return {create, update, close, unchanged}
+  return {create, supersede, close, unchanged}
 }
 
 /**
  * emit-plan을 사람이 확인할 미리보기 문자열로 만든다(순수). 실제 발행 전 필수 게이트.
  */
 export function formatEmitPreview(plan) {
-  const lines = [`생성 ${plan.create.length} · 갱신 ${plan.update.length} · 닫기 ${plan.close.length} · 무변경 ${plan.unchanged.length}`]
+  const lines = [`생성 ${plan.create.length} · 대체 ${plan.supersede.length} · 닫기 ${plan.close.length} · 무변경 ${plan.unchanged.length}`]
   for (const item of plan.create) {
     const warn = item.payload.specCompleteness.ready ? '' : ` ⚠ 스펙 미완(${item.payload.specCompleteness.missing.join(',')})`
     lines.push(`  + ${item.featureId}${item.reopen ? ' (재개)' : ''}: ${item.payload.title}${warn}`)
   }
-  for (const item of plan.update) lines.push(`  ~ ${item.featureId} (${item.ticketKey}): ${item.payload.title}`)
+  for (const item of plan.supersede) {
+    lines.push(`  ⇄ ${item.featureId}: #${item.priorTicketKey}를 새 티켓으로 대체(옛 티켓은 superseded로 닫힘)`)
+  }
   for (const item of plan.close) lines.push(`  - ${item.featureId} (${item.ticketKey}): units에서 사라짐 → 닫기`)
   return lines.join('\n')
 }
@@ -135,6 +140,6 @@ export function formatEmitPreview(plan) {
 export function claimView(plan) {
   return {
     claimable: plan.create.map(item => ({featureId: item.featureId, draft: item.payload, contentHash: item.contentHash})),
-    taken: [...plan.update, ...plan.unchanged].map(item => ({featureId: item.featureId, ticketKey: item.ticketKey})),
+    taken: plan.unchanged.map(item => ({featureId: item.featureId, ticketKey: item.ticketKey})),
   }
 }

@@ -8,6 +8,9 @@
 // (7) claimView가 create=청구가능·나머지=잡힘으로 나눔(lazy-claim).
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import {mkdtempSync, readFileSync, rmSync} from 'node:fs'
+import {join} from 'node:path'
+import {tmpdir} from 'node:os'
 import {buildTicketDraft, unitContentHash, computeEmitPlan, formatEmitPreview, claimView} from './ticket/emit.mjs'
 import {parseLedger, ledgerState, serializeLedgerRecord} from './ticket/ledger.mjs'
 import {validateNormalizedTicket} from './ticket/normalize.mjs'
@@ -45,7 +48,7 @@ test('computeEmitPlan: 빈 원장 → 전부 생성', () => {
   assert.equal(plan.create[1].payload.specCompleteness.ready, false)
 })
 
-test('computeEmitPlan: 멱등 — 무변경 건너뜀, 변경 갱신, 사라짐 닫기', () => {
+test('computeEmitPlan: 멱등 — 무변경 건너뜀, 변경은 대체 발행, 사라짐 닫기', () => {
   const u = unit()
   const state = new Map([
     ['FEAT-001', {ticketKey: 'PROJ-1', contentHash: unitContentHash(u)}],
@@ -56,7 +59,9 @@ test('computeEmitPlan: 멱등 — 무변경 건너뜀, 변경 갱신, 사라짐 
   assert.deepEqual(plan.create.map(x => x.featureId), ['FEAT-002'])
   assert.deepEqual(plan.close.map(x => x.featureId), ['FEAT-009'])
   const plan2 = computeEmitPlan([unit({title: '검색 개선'})], new Map([['FEAT-001', {ticketKey: 'PROJ-1', contentHash: unitContentHash(u)}]]))
-  assert.deepEqual(plan2.update.map(x => x.ticketKey), ['PROJ-1'])
+  // 갱신이 아니라 **대체 발행**이다 — 이미 발행된 티켓의 본문을 고쳐 쓰지 않는다(2026-08-30 결정).
+  assert.deepEqual(plan2.supersede.map(x => x.priorTicketKey), ['PROJ-1'])
+  assert.equal(plan2.supersede[0].ticketKey, undefined, '새 티켓 번호는 발행 전이라 없다')
 })
 
 test('computeEmitPlan: 닫힌 FEAT 재등장 → 재개(생성), 이중 닫기 없음', () => {
@@ -89,5 +94,37 @@ test('원장: 파싱이 손상/스키마 위반 줄 제외·최신-이김, 분�
   assert.equal(state.get('FEAT-001').contentHash, 'h2')
   const [rec] = parseLedger(serializeLedgerRecord({featureId: 'FEAT-001', ticketKey: '#1', contentHash: 'h', createdAt: '2026-08-21T00:00:00Z'}))
   assert.equal(rec.assignee, undefined) // 분배는 코어 무관
-  assert.match(formatEmitPreview(computeEmitPlan([unit()])), /생성 1 · 갱신 0/)
+  assert.match(formatEmitPreview(computeEmitPlan([unit()])), /생성 1 · 대체 0/)
+})
+
+// ── 대체 발행(재바인딩) — 2026-08-30 ────────────────────────────────────────
+// 계획이 바뀌면 이미 발행된 티켓은 **갱신하지 않고 새로 낸다.** 본문을 고쳐 쓰면 그것을 읽고
+// 작업 중인 개발자 밑에서 계약이 조용히 바뀐다. 종전에는 이 경로가 아예 배선되지 않아
+// (batch-claim이 update를 alreadyClaimed로 접었다) 계획이 바뀌면 티켓이 영원히 낡은 채였다.
+test('batch-claim: 형상이 바뀐 FEAT를 alreadyClaimed로 접지 않는다', async () => {
+  const {computeBatchClaimPlan} = await import('./ticket/batch-claim.mjs')
+  const unit = {featureId: 'FEAT-001', title: '검색', body: 'v1', testCaseIds: ['TC-001-1'], type: 'feature'}
+  const ledgerState = new Map([['FEAT-001', {ticketKey: 'PROJ-1', contentHash: unitContentHash(unit)}]])
+  const same = computeBatchClaimPlan({units: [unit], ledgerState, branch: 'feature/x'})
+  assert.equal(same.supersede.length, 0)
+  assert.deepEqual(same.alreadyClaimed.map(i => i.featureId), ['FEAT-001'])
+
+  const changed = computeBatchClaimPlan({units: [{...unit, body: 'v2'}], ledgerState, branch: 'feature/x'})
+  assert.equal(changed.alreadyClaimed.length, 0, '바뀐 것을 이미청구로 접으면 영원히 낡는다')
+  assert.deepEqual(changed.supersede.map(i => i.priorTicketKey), ['PROJ-1'])
+})
+
+test('원장: 대체 기록은 무엇을 대체하는지 없으면 거부한다', async () => {
+  const {appendSupersedeRecord} = await import('./ticket/ledger-writer.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'wh-supersede-'))
+  try {
+    const path = join(dir, 'ledger.jsonl')
+    assert.throws(() => appendSupersedeRecord(path, {featureId: 'FEAT-001', ticketKey: '2', contentHash: 'h', createdAt: 't'}),
+      /LEDGER_SUPERSEDE_WITHOUT_PRIOR/, '근거 없는 재바인드는 여전히 막는다')
+    assert.throws(() => appendSupersedeRecord(path, {featureId: 'FEAT-001', ticketKey: '2', contentHash: 'h', createdAt: 't', supersedes: '2'}),
+      /LEDGER_SUPERSEDE_SELF/)
+    appendSupersedeRecord(path, {featureId: 'FEAT-001', ticketKey: '2', contentHash: 'h', createdAt: 't', supersedes: '1'})
+    const rows = readFileSync(path, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line))
+    assert.equal(rows.at(-1).supersedes, '1', '무엇을 무엇이 대체했는지 히스토리에 남아야 한다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
 })
