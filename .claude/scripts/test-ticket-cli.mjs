@@ -575,3 +575,32 @@ test('열린 티켓은 그대로 청구됨으로 본다', async () => {
   })
   assert.equal(result.alreadyClaimed, true)
 })
+
+// ── 디자인 참고 정본 ────────────────────────────────────────────────────────
+// 티켓만 읽고 개발하면 디자인 정본이 있다는 사실조차 모른다는 실측(2026-08-30)에서 나왔다.
+// **게이트가 아니라 포인터다** — 디자인은 언제든 추가·수정할 수 있고, 필요한 값이 없으면
+// 개발이 판단해 쓴 뒤 정본에 되쓴다.
+test('티켓 본문에 존재하는 디자인 정본만 실린다', async () => {
+  const {buildIssueFields, designSection} = await import('./ticket/provider-github.mjs')
+  const fields = buildIssueFields(buildTicketDraft(unit), {designRefs: ['_workspace/02_design/design-system']})
+  assert.match(fields.body, /## 참고 정본 \(디자인\)/)
+  assert.match(fields.body, /design-system/)
+  assert.match(fields.body, /그대로 구현한다/, '정본 준수를 먼저 말한다')
+  assert.match(fields.body, /정본에 추가·수정한다/, '되쓰기를 안내한다')
+  assert.equal(designSection([]), null, '디자인 정본이 없으면 절을 만들지 않는다')
+  assert.doesNotMatch(buildIssueFields(buildTicketDraft(unit), {}).body, /참고 정본/)
+})
+
+test('디자인 정본 탐색은 실제로 존재하는 경로만 돌려준다', async () => {
+  const {resolveDesignRefs} = await import('./ticket/cli.mjs')
+  const dir = tmpRoot()
+  try {
+    assert.deepEqual(resolveDesignRefs(dir), [])
+    mkdirSync(join(dir, '_workspace/02_design/design-system'), {recursive: true})
+    writeFileSync(join(dir, '_workspace/02_design/layout-spec.md'), '#')
+    const refs = resolveDesignRefs(dir)
+    assert.ok(refs.includes('_workspace/02_design/design-system'))
+    assert.ok(refs.includes('_workspace/02_design/layout-spec.md'))
+    assert.ok(!refs.includes('_workspace/02_design/component-spec'), '없는 경로는 적지 않는다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})

@@ -199,6 +199,20 @@ export function readChangeScopeFile(root) {
  * (충돌·순환이면 발행 안 함) → (3) --confirm일 때만 순서대로 발행+원장(청구는 rebind 가드).
  * 주입(io)은 테스트용 — 기본 실 gh/git/원장.
  */
+
+// 프로젝트에 실제로 존재하는 디자인 정본만 티켓에 적는다 — 없는 경로를 적으면 거짓 안내다.
+const DESIGN_REF_CANDIDATES = [
+  '_workspace/02_design/design-system',
+  '_workspace/02_design/design-system.md',
+  '_workspace/02_design/component-spec',
+  '_workspace/02_design/component-spec.md',
+  '_workspace/02_design/layout-spec.md',
+  '_workspace/02_design/piece-geometry.md',
+]
+export function resolveDesignRefs(root) {
+  return DESIGN_REF_CANDIDATES.filter(rel => existsSync(join(root, rel)))
+}
+
 /** origin 판정 전 remote-tracking을 갱신한다. 실패해도 막지 않고 **스냅샷 기준임을 표기**한다
  * — git-origin의 "선행하거나 표기하거나" 경고 중 둘 다 하는 쪽이다. `--no-fetch`로 끌 수 있다
  * (네트워크 없는 환경·테스트). 결과는 각 모드 응답의 `freshness`로 나간다. */
@@ -246,6 +260,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
   if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets}
   // 발행(순서대로) — provider(라벨 pre-create 포함) + 원장(청구는 rebind 가드 append)
   const provider = io.provider ?? createGithubProvider({repo})
+  const designRefs = resolveDesignRefs(root) // 티켓에 실을 참고 정본(게이트 아님 — 포인터다)
   const permission = await (io.permission ?? resolveViewerPermission)({repo})
   const unitById = new Map(units.map(unit => [unit.featureId, unit]))
   const results = []
@@ -261,6 +276,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
       branch,
       permission,
       repo,
+      designRefs,
     })
     results.push({featureId: item.featureId, ...outcome})
     if (outcome.blocked) break // 권한 차단은 반복 시도 무의미 — 첫 차단에서 멈추고 안내
@@ -273,7 +289,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 바뀐다. 원장은 `supersedes`로 무엇을 무엇이 대체했는지 남긴다(append-only).
   const superseded = []
   for (const item of plan.supersede ?? []) {
-    const fields = buildIssueFields(item.payload, {branch, assignee: flags.assignee ?? null})
+    const fields = buildIssueFields(item.payload, {branch, assignee: flags.assignee ?? null, designRefs})
     const issue = await provider.createIssue(fields)
     // `createIssue`는 `{number, url}`을 돌려준다 — `ticketKey`는 없고, 원장은 **문자열**을
     // 요구한다. 이 두 줄이 틀린 채 남아 있었다는 것은 대체 발행 경로가 한 번도 실행된 적이

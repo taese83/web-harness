@@ -46,6 +46,31 @@ export function parseBranchFromLabels(labels) {
  *   `branch:` 라벨(50자 이내일 때, 필터 편의)로 실린다.
  * @returns {{title: string, body: string, labels: string[], assignee: string|null}}
  */
+
+/**
+ * 티켓 본문의 **참고 정본** 절. 게이트가 아니라 포인터다 — 티켓만 읽고 개발하면 디자인 정본이
+ * 있다는 사실조차 모른다는 실측(2026-08-30)에서 나왔다. Phase 3은 이미 design-system·
+ * layout-spec·component-spec을 빌더 입력으로 넘기는데, 티켓 경로에는 그것이 없었다.
+ *
+ * **기대는 "최대한 구현"이고 기계 강제는 두지 않는다.** 정본에 정해진 것은 그대로 따르되,
+ * 없거나 맞지 않으면 개발이 판단해 정하고 **정본에 되쓴다** — 디자인은 확정 뒤에도 바꿀 수
+ * 있는 산출물이다(사용자 방침 2026-08-30). 토큰 준수를 게이트로 만들면 그 판단의 자리가
+ * 사라지고, 개발이 정본을 고치는 대신 우회하게 된다.
+ */
+export function designSection(refs) {
+  const list = (refs ?? []).filter(ref => typeof ref === 'string' && ref.trim())
+  if (list.length === 0) return null
+  return [
+    '',
+    '## 참고 정본 (디자인)',
+    ...list.map(ref => `- \`${ref}\``),
+    '',
+    '위 정본에 정해진 것(색·간격·타이포·상태·접근성)은 **그대로 구현한다** — 임의 값으로 대체하지 않는다.',
+    '없거나 이 화면에 맞지 않으면 적정한 값을 판단해 정하고 **그 값을 정본에 추가·수정한다**.',
+    '디자인은 확정 뒤에도 바꿀 수 있는 산출물이다. 정본을 고쳤으면 무엇을 왜 바꿨는지 PR에 남긴다.',
+  ]
+}
+
 export function buildIssueFields(draft, options = {}) {
   const featureIds = draft.harnessRefs?.featureIds ?? (draft.sourceKey ? [draft.sourceKey] : [])
   const testCaseIds = draft.harnessRefs?.testCaseIds ?? []
@@ -56,6 +81,7 @@ export function buildIssueFields(draft, options = {}) {
     '',
     '## 수용 기준 (AC ↔ TC)',
     acLines || '- (연결된 TC 없음 — 스펙 미완, pickup에서 되돌림 대상)',
+    ...(designSection(options.designRefs) ?? []),
     '',
     refsMarker,
   ].join('\n')
