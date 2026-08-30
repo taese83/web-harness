@@ -218,6 +218,16 @@ node .claude/scripts/spec.mjs --project-root {project-root}
 stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다 — `project-profile.json`·
 `web-execution-plan.json`과 같은 관례다. 스키마는 `.claude/schemas/spec.schema.json`.
 
+**스팩 확정은 구현 스폰의 전제조건이다.** `system-architect`(결정 기록)와 이 확정 단계는
+성격이 다르다 — 전자는 관측이라 실패해도 진행하지만, 후자가 없으면 `developer`는 **아무것도
+쓸 수 없다**. `agent-registry`의 `developer`는 소유권이 비어 있고(FSD 경로 폴백을 주면 그
+순간 다시 경로 처방이 되므로 의도된 설계다) `layerMap`이 소유를 공급하기 때문이다.
+
+종전에는 SKILL.md의 한 문장이 두 단계를 뭉개 "게이트가 아니니 없어도 그대로 진행"으로
+읽혔다. 실제로는 확정을 건너뛴 프로젝트에서 구현 스폰이 **디스크 변경 0건으로 반려**됐고,
+훅 메시지가 원인을 가리지 못해 개발자가 하네스를 직접 파헤쳐야 했다(2026-08-30 실측).
+Phase 3 3단계도 같은 전제조건을 명시한다.
+
 **스팩은 커밋한다.** 이 기제의 목적이 협업이므로 공유되지 않으면 값이 0이다 — 개발자 B가
 A의 스팩을 못 받으면 자기 실행에서 `architecture`·`layerMap`·`libraries`를 다시 도출하고,
 구조가 갈리면 스타일이 갈린다. `_workspace/03_dev/spec.json`과 `spec-ledger.jsonl`을

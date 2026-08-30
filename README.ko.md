@@ -25,7 +25,7 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
   경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 45,494 bytes <!-- inventory:entry-cost --> 의
+- **오케스트레이터 실행당 고정 계약 로드**: 45,459 bytes <!-- inventory:entry-cost --> 의
   always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 9k 토큰,
   토큰 카운트가 아니라 근사치다. skill 파일 자체(~9k 토큰), 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이

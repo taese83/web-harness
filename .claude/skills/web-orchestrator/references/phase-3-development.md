@@ -48,7 +48,12 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
    - `API_CONTRACT_MODE`이면 `/api-contract-typegen`을 실행해 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
    - `OAUTH_SERVER_MODE`이면 `/auth-setup`을 실행해 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
    - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
-3. **구현 — `developer`를 모듈 경계마다 스폰한다.** 스팩의 `moduleBoundaries` 각각이 한 스폰의
+3. **구현 — `developer`를 모듈 경계마다 스폰한다.**
+   **전제조건: `_workspace/03_dev/spec.json`이 있어야 한다.** 없으면 스폰하지 않는다 —
+   `developer`는 기본 소유권이 비어 있어 layerMap 없이는 아무것도 쓸 수 없고, 스폰해 봐야
+   디스크 변경 0건으로 반려된다(2026-08-30 실측). 스팩 확정(`spec.mjs`)으로 되돌린다.
+   위쪽 "스팩이 확정돼 있으면 … 확정이 없으면 기존 `WEB_PROFILE` 경로다"는 **빌더 세트
+   라우팅**에 대한 문장이지 소유권 면제가 아니다. 스팩의 `moduleBoundaries` 각각이 한 스폰의
    범위(`change-scope.md`의 `ALLOWED_PATHS`)가 되고, 소유권은 `layerMap`이 공급한다. **무엇을
    어느 순서로 만들지 지시하지 않는다** — 스팩이 정한 `architecture`·`layerMap`·`libraries` 안에서
    모델이 정한다. 경계가 겹치지 않으므로 병렬이 안전하다.
