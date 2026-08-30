@@ -59,6 +59,26 @@ node .claude/scripts/validate-development-readiness.mjs --project {root} [--fix]
 병합이 `project-profile.json`을 다시 쓰면 그것은 `LOCK_INPUTS` 변경이므로 **스팩을 재확정한다**.
 재생성 결과가 바이트 동일하면 아무 일도 일어나지 않는다 — 다르면 재확정이 의무다.
 
+## 배선 회귀 규율 (하네스 자신에 대한 규칙)
+
+**순수 함수에 회귀가 있다는 것은 배선이 산다는 뜻이 아니다.** 이 저장소가 §4에 세 번 등록한
+클래스다 — 소유권 훅, `claim-scope` 판정 셋, 계획↔스팩 결속이 모두 같은 이유로 조용히 끊겨
+있었다. 순수 함수는 테스트가 직접 부르니 살아 있고, `main()`은 아무도 안 부르니 죽어도 모른다.
+
+```bash
+node .claude/scripts/validate-wiring-coverage.mjs
+```
+
+`main()` 가드를 가진 스크립트 중 **프로세스로 실행해보는 테스트가 없는 것**과, 문서가 실행을
+지시하는데 **bash 정책에 등록되지 않은 명령**을 센다. 기존 부채는
+`validators/wiring-coverage-baseline.json`에 등록돼 있고 **늘어나는 것만 실패**다 —
+줄이는 갱신은 자유이고, 늘리는 갱신은 의식적 행위이므로 JUDGMENT에 사유를 남긴다.
+
+새 CLI를 만들면 규율은 둘이다: ① 프로세스로 실행하는 회귀를 하나 붙인다(종료 코드·판정
+출력·사용법 오류), ② 문서에 명령을 적기 전에 정책에 등록한다. 등록 없이 문서화하면
+에이전트 경로에서 `DENY_VALIDATION_COMMAND`로 막히는데, **저자는 메인 스레드라 그것이 안
+보인다** — 같은 날 두 번 실측됐다.
+
 ## Gate A0 — 의존성 pin 사전검증 (install 전, greenfield)
 
 `environment-scaffolder`가 `package.json`을 만든 뒤 **lockfile/install 전에** 실행한다:

@@ -12,6 +12,6 @@
     "console:test": "pnpm --filter @web-harness/console test",
     "validate": "node .claude/scripts/validate-harness.mjs",
     "validate:toolchain": "node .claude/scripts/validate-toolchain.mjs",
-    "ci": "node .claude/scripts/validate-toolchain.mjs && pnpm run console:check && pnpm run console:test && node --test .claude/scripts/test-*.mjs .claude/scripts/web-core/test-*.mjs && node .claude/scripts/validate-falsification.mjs && node .claude/scripts/validate-harness.mjs && node .claude/scripts/build-plugin.mjs"
+    "ci": "node .claude/scripts/validate-toolchain.mjs && pnpm run console:check && pnpm run console:test && node --test .claude/scripts/test-*.mjs .claude/scripts/web-core/test-*.mjs && node .claude/scripts/validate-falsification.mjs && node .claude/scripts/validate-wiring-coverage.mjs && node .claude/scripts/validate-harness.mjs && node .claude/scripts/build-plugin.mjs"
   }
 }
