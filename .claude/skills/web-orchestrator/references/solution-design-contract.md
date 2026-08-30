@@ -208,6 +208,17 @@ E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확�
 
 ## 6. 스팩 확정 (Stage 1)
 
+**확정 전에 프로필 해석과 브라운필드 오버레이를 끝낸다.** `project-profile.json`과
+`integration-overlay.json`은 둘 다 `LOCK_INPUTS`인데, 종전 순서는 이 둘을 Phase 3에서
+만들었다 — **확정하는 순간 낡도록 설계돼 있었다**(2026-08-30 실측: 확정 11:48, 프로필 생성
+12:53 → 즉시 stale). 순서를 앞으로 당긴다. 둘 다 스팩을 읽지 않으므로 앞당기는 데 의존성
+문제가 없고, 오버레이는 애초에 `system-architect`의 선언된 입력이라 그 앞에 있어야 맞다.
+
+```bash
+node .claude/scripts/web-core/resolve-profile.mjs …   # → _workspace/01_plan/project-profile.json
+# existing-change면 integration-overlay.json 생성·검증
+```
+
 결정이 전부 확정되면 확정한다. 스팩은 **협업 계약**이다 — 여러 사람이 같은 스팩에 맞춰
 개발하려면 그 스팩이 개발 중에 흔들리지 않아야 하고, 이 필요는 모델 능력과 무관하다.
 
