@@ -173,3 +173,26 @@ test('testLayerPaths는 선언되지 않은 값을 걸러낸다', () => {
   assert.deepEqual(testLayerPaths({testLayers: {unit: 'tests/', e2e: '(absent — UI 없음)'}}), ['tests/'])
   assert.deepEqual(testLayerPaths({}), [])
 })
+
+// 글롭 꼬리 — ALLOWED_PATHS를 `src/x/**`로 적은 스폰이 조용히 전부 거부되던 결함(2026-08-30 실측).
+// 이스케이프만 하면 정규식에 리터럴 `\*\*`가 박혀 아무것도 매칭하지 않는다.
+test('ALLOWED_PATHS의 글롭 꼬리는 디렉토리 접두와 같게 읽는다', () => {
+  const spec = {layerMap: {domain: 'src/domain/'}}
+  const own = resolveDeveloperOwnership(spec)
+  const withGlob = intersectWithScope(own, ['src/domain/**'])
+  const withStar = intersectWithScope(own, ['src/domain/*'])
+  const withSlash = intersectWithScope(own, ['src/domain/'])
+  for (const [label, patterns] of [['**', withGlob], ['*', withStar], ['/', withSlash]]) {
+    assert.equal(patterns.some(p => p.test('src/domain/track.ts')), true, `${label}: 하위 파일이 열려야 한다`)
+    assert.equal(patterns.some(p => p.test('src/other/x.ts')), false, `${label}: 범위 밖은 닫혀야 한다`)
+  }
+})
+
+test('글롭을 붙여도 스팩 소유권 밖으로 넓어지지 않는다', () => {
+  const spec = {layerMap: {domain: 'src/domain/'}}
+  const own = resolveDeveloperOwnership(spec)
+  const scoped = intersectWithScope(own, ['src/**'])
+  // 범위가 넓어도 교집합이므로 layerMap 밖은 여전히 닫힌다.
+  assert.equal(scoped.some(p => p.test('src/domain/track.ts')), true)
+  assert.equal(scoped.some(p => p.test('src/ui/Button.tsx')), false)
+})

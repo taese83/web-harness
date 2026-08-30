@@ -64,8 +64,16 @@ try {
     try {
       const source = readFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'utf8')
       const line = source.match(/^-?\s*\*\*?ALLOWED_PATHS\*\*?\s*[:：]\s*(.+)$/mi)
-      if (!line) return []
-      return line[1].split(/[,·]/).map(v => v.replace(/[`\s]/g, '')).filter(Boolean)
+      if (line) return line[1].split(/[,·]/).map(v => v.replace(/[`\s]/g, '')).filter(Boolean)
+      // 한 줄 표기가 없으면 JSON 배열 블록도 읽는다. 종전에는 한 줄만 파싱해서, 배열로 적은
+      // change-scope는 **범위가 통째로 미적용**됐다(2026-08-30 실측 — FEAT-001도 동일).
+      // 범위 미적용은 조용히 넓어지는 방향이라 더 나쁘다.
+      const block = source.match(/ALLOWED_PATHS\*?\*?\s*[:：]\s*(\[[\s\S]*?\])/i)
+      if (!block) return []
+      try {
+        const parsed = JSON.parse(block[1])
+        return Array.isArray(parsed) ? parsed.filter(value => typeof value === 'string' && value.trim()) : []
+      } catch { return [] }
     } catch { return [] }
   }
 
@@ -82,11 +90,26 @@ try {
     ? intersectWithScope(resolveDeveloperOwnership(spec) ?? [], readAllowedPaths(projectRoot))
     : resolveSpecOwnership(spec, agentType)
   const allowedPatterns = (specPatterns?.length ? specPatterns : null) ?? AGENT_OWNERSHIP[agentType]
-  if (!allowedPatterns) block(`Blocked: no write ownership is defined for ${input.agent_type}.`)
+  // developer는 기본 소유권이 **비어 있다** — 스팩의 layerMap이 소유를 공급하는 구조다
+  // (FSD 경로 폴백을 주면 그 순간 다시 경로 처방이 되므로 의도된 설계다). 그런데 스팩이
+  // 없으면 "소유권 정의 없음"이라는 같은 문구로 막혀, 개발자가 원인을 스스로 파헤쳐야 했다
+  // (2026-08-30 실측: spec.json이 없는 프로젝트에서 7경로 전부 default-deny).
+  // 무엇이 없어서 막혔고 무엇을 하면 풀리는지 말한다.
+  if (!allowedPatterns || allowedPatterns.length === 0) {
+    if (agentType === DEVELOPER_AGENT) {
+      block(`Blocked: ${input.agent_type} has no write ownership because the spec lock is missing or its layerMap is empty `
+        + `(_workspace/03_dev/spec.json). The developer agent owns nothing by default — the spec's layerMap supplies ownership. `
+        + `Confirm the spec before Phase 3 implementation spawns.`)
+    }
+    block(`Blocked: no write ownership is defined for ${input.agent_type}.`)
+  }
   const ownJournalPath = `_workspace/03_dev/change-journal/${agentType}.md`
   if (ownershipPath === ownJournalPath) process.exit(0)
   if (!allowedPatterns.some(pattern => pattern.test(ownershipPath))) {
-    const basis = specPatterns ? 'spec-lock layerMap' : 'default registry'
+    // `specPatterns`는 빈 배열일 수 있고 빈 배열은 truthy다 — 종전에는 폴백해 놓고도
+    // `spec-lock layerMap`이라 표시해 원인을 반대로 가리켰다(2026-08-30 실측).
+    // 실제로 판정에 쓰인 근거를 그대로 적는다.
+    const basis = specPatterns?.length ? 'spec-lock layerMap' : 'default registry'
     block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}). Route the change to the owning agent.`)
   }
 
