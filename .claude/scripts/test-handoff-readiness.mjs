@@ -11,7 +11,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -274,4 +274,64 @@ test('계획에 없는 FEAT를 가리키는 산문 간선은 지적하지 않는
   withProject(root => {
     assert.equal(checkProseEdgesDeclared(root, loadPlanUnits(root)).state, 'SKIPPED')
   }, {shards: {'a.md': DECLARED}})
+})
+
+// ── 병렬성 지표 (2026-08-30) ────────────────────────────────────────────────
+// 나눔의 목표는 "몇 조각인가"가 아니라 "몇 개를 동시에 진행할 수 있나"다. 규칙만 있고
+// 재는 것이 없으면 지켜졌는지 알 수 없다 — 오늘 반복해 본 형태다.
+test('세로 슬라이스는 사슬이 짧고 독립 단위가 많다', () => {
+  const flat = [
+    {featureId: 'FEAT-001', dependsOn: []},
+    {featureId: 'FEAT-002', dependsOn: []},
+    {featureId: 'FEAT-003', dependsOn: []},
+  ]
+  const metric = measureParallelism(flat)
+  assert.equal(metric.edges, 0)
+  assert.equal(metric.longestChain, 1, '전부 독립이면 한 웨이브다')
+  assert.equal(metric.independent, 3)
+  assert.equal(metric.bottleneck, null)
+})
+
+test('계층 슬라이스는 사슬이 길고 병목이 드러난다', () => {
+  const layered = [
+    {featureId: 'FEAT-001', dependsOn: []},
+    {featureId: 'FEAT-002', dependsOn: ['FEAT-001']},
+    {featureId: 'FEAT-003', dependsOn: ['FEAT-001']},
+    {featureId: 'FEAT-004', dependsOn: ['FEAT-002']},
+  ]
+  const metric = measureParallelism(layered)
+  assert.equal(metric.longestChain, 3)
+  assert.equal(metric.independent, 1)
+  assert.deepEqual(metric.bottleneck, {featureId: 'FEAT-001', blocks: 2})
+})
+
+test('계획 밖 FEAT를 가리키는 의존은 세지 않는다 — 없는 것으로 사슬을 늘리지 않는다', () => {
+  const metric = measureParallelism([{featureId: 'FEAT-001', dependsOn: ['FEAT-999']}])
+  assert.equal(metric.edges, 0)
+  assert.equal(metric.longestChain, 1)
+})
+
+test('의존 순환이 있어도 무한 재귀하지 않는다', () => {
+  const metric = measureParallelism([
+    {featureId: 'A', dependsOn: ['B']},
+    {featureId: 'B', dependsOn: ['A']},
+  ])
+  assert.ok(Number.isFinite(metric.longestChain), '순환은 computeClaimOrder가 따로 보고한다')
+})
+
+// 지표는 **실패로 만들지 않는다** — 파이프라인은 본래 순차이고, 의존이 많은 것이 항상
+// 잘못은 아니다. 재서 보여주기만 하고 판단은 사람이 한다.
+test('병렬성이 나빠도 그것 때문에 막지 않는다 — 재서 보여주기만 한다', () => {
+  const chain = [
+    '## FEAT-001 첫째', '<!-- web-harness:unit feat=FEAT-001 dependsOn=none paths=src/a -->', '- TC-001-1 x',
+    '## FEAT-002 둘째', '<!-- web-harness:unit feat=FEAT-002 dependsOn=FEAT-001 paths=src/b -->', '- TC-002-1 x',
+    '## FEAT-003 셋째', '<!-- web-harness:unit feat=FEAT-003 dependsOn=FEAT-002 paths=src/c -->', '- TC-003-1 x',
+  ].join('\n')
+  withProject(root => {
+    const report = analyzeHandoffReadiness(root, {to: 'development'})
+    assert.equal(report.parallelism.longestChain, 3, '사슬이 길다는 사실은 재서 싣는다')
+    assert.equal(report.parallelism.independent, 1)
+    assert.ok(!report.holes.some(hole => /병렬|사슬|parallel/.test(`${hole.id}${hole.detail}`)),
+      '병렬성은 판정 축이 아니다 — 파이프라인은 본래 순차이고 의존이 많은 것이 항상 잘못은 아니다')
+  }, {shards: {'a.md': chain}})
 })

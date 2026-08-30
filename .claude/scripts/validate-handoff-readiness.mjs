@@ -297,6 +297,40 @@ export function checkProseEdgesDeclared(root, units) {
     '산문이 명시한 간선을 dependsOn에 옮긴다 — 웨이브 목록은 묶음이지 간선이 아니다. 산문이 틀렸다면 산문을 고친다(둘 중 하나는 거짓이다)')
 }
 
+// ── 병렬성 지표 ─────────────────────────────────────────────────────────────
+// 나눔의 목표는 "몇 조각인가"가 아니라 **"몇 개를 동시에 진행할 수 있나"**다
+// (`feature-planner` 작업 원칙 4). 규칙만 있고 재는 것이 없으면 지켜졌는지 알 수 없다.
+//
+// **실패로 만들지 않는다** — 의존이 많은 것이 항상 잘못은 아니다(파이프라인은 본래 순차다).
+// 재서 보여주기만 한다. 판단은 사람이 하고, 이 숫자는 그 판단의 입력이다.
+export function measureParallelism(units) {
+  const list = units ?? []
+  if (list.length === 0) return null
+  const deps = new Map(list.map(u => [u.featureId, (u.dependsOn ?? []).filter(id => list.some(v => v.featureId === id))]))
+  const edges = [...deps.values()].reduce((sum, list_) => sum + list_.length, 0)
+  // 가장 긴 의존 사슬 — 이론상 최소 웨이브 수다.
+  const depth = new Map()
+  const chain = id => {
+    if (depth.has(id)) return depth.get(id)
+    depth.set(id, 1) // 순환 방어(순환은 computeClaimOrder가 보고한다)
+    const value = 1 + Math.max(0, ...(deps.get(id) ?? []).map(chain))
+    depth.set(id, value)
+    return value
+  }
+  for (const id of deps.keys()) chain(id)
+  // 병목: 자기를 기다리는 FEAT가 가장 많은 것.
+  const dependents = new Map([...deps.keys()].map(id => [id, 0]))
+  for (const [, list_] of deps) for (const id of list_) dependents.set(id, (dependents.get(id) ?? 0) + 1)
+  const top = [...dependents.entries()].sort((a, b) => b[1] - a[1])[0]
+  return {
+    units: list.length,
+    edges,
+    longestChain: Math.max(...depth.values()),
+    independent: [...deps.entries()].filter(([, list_]) => list_.length === 0).length,
+    bottleneck: top && top[1] > 0 ? {featureId: top[0], blocks: top[1]} : null,
+  }
+}
+
 export const HANDOFFS = ['design', 'development']
 
 export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
@@ -309,7 +343,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   if (to === 'design') {
     const results = [...planChecks, checkDesignInputs(root)]
     const holes = results.filter(r => r.state === 'HOLE')
-    return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes}
+    return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
   }
   const spec = readSpecAt(root)
   const results = [
@@ -320,7 +354,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
     spec ? checkDecisionsApplied(root, spec) : skip('decisions', '스팩이 없어 대조할 수 없다'),
   ]
   const holes = results.filter(r => r.state === 'HOLE' || r.state === 'FAIL')
-  return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes}
+  return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -342,6 +376,11 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       const mark = result.state === 'PASS' ? '✅' : result.state === 'SKIPPED' ? '· ' : '🕳'
       process.stdout.write(`  ${mark} ${result.id}: ${result.detail}\n`)
       if (result.remedy) process.stdout.write(`      → ${result.remedy}\n`)
+    }
+    if (report.parallelism) {
+      const p = report.parallelism
+      process.stdout.write(`\n  병렬성: FEAT ${p.units} · 의존 간선 ${p.edges} · 최장 사슬 ${p.longestChain}웨이브 · 선행 없는 단위 ${p.independent}개`
+        + `${p.bottleneck ? ` · 병목 ${p.bottleneck.featureId}(${p.bottleneck.blocks}건이 대기)` : ''}\n`)
     }
     process.stdout.write(report.verdict === 'READY'
       ? `\nREADY ✅ — ${to === 'design' ? '디자인' : '개발'}이 이 문서만으로 진행할 수 있다.\n`
