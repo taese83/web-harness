@@ -210,7 +210,35 @@ export function checkPathsAgainstSpec(units, spec) {
   }
   if (problems.length === 0) return ok('paths-attribution', '선언된 경로가 스팩 귀속과 일치한다')
   return hole('paths-attribution', problems.slice(0, 6).join(' · ') + (problems.length > 6 ? ` … 외 ${problems.length - 6}건` : ''),
-    '스팩 moduleBoundaries의 rationale이 FEAT를 명시한 경계만 그 FEAT의 paths로 적는다 — 공유 정본에 단일 소유자를 지어내면 거짓 충돌이 생겨 착수가 막힌다')
+    '그 FEAT가 그 경계를 정말 써야 하면 **스팩을 고친다** — moduleBoundaries의 rationale에 그 FEAT를 더한다. 쓰지 않아도 되면 paths에서 뺀다. **`none`으로 비우는 것은 답이 아니다** — 자기 TC를 검증할 수 없어져 paths-sufficiency가 막는다(둘은 같은 결함의 양면이다)')
+}
+
+// ── (2) 선언된 경로가 자기 TC를 검증하기에 충분한가 ─────────────────────────
+// **개발 중에 문서를 고치게 되면 그것은 인계 실패다.** 그런데 귀속 대조(위)는 공유 경계를
+// 선언하면 지적하므로, 저자가 게이트를 통과하는 **가장 쉬운 길이 `paths=none`**이 된다.
+// 그리고 `paths=none`은 지금까지 아무도 보지 않았다 — TC가 5개인 FEAT가 소유 경로 0개로
+// 통과했고, 그 결함은 **개발자가 픽업해서 ALLOWED_PATHS가 비어 있는 것을 발견할 때** 처음
+// 드러났다(2026-08-30 실측, track FEAT-010). 그 시점의 해법은 계획 수정뿐이고, 그것이
+// 정확히 "개발 중 문서 변경"이다.
+//
+// **판정**: TC를 가진 FEAT는 소유 경로를 하나 이상 선언해야 한다. 아무것도 소유하지 않는
+// 단위는 자기 수용 기준을 검증할 수 없다.
+//
+// 공유 표면이라 쓸 경계가 없다면 그것은 **스팩의 결함**이다 — moduleBoundaries의 rationale이
+// 그 FEAT를 명시하도록 고쳐야 하며, 계획에서 `none`으로 회피할 문제가 아니다.
+export function checkPathsSufficient(units) {
+  if (!units || units.length === 0) return skip('paths-sufficiency', '단위를 읽지 못해 대조할 수 없다')
+  const empty = units
+    .filter(unit => (unit.testCaseIds?.length ?? 0) > 0)
+    .filter(unit => Array.isArray(unit.paths) && unit.paths.length === 0)
+    .map(unit => unit.featureId)
+    .sort()
+  if (empty.length === 0) return ok('paths-sufficiency', 'TC를 가진 단위가 전부 소유 경로를 선언했다')
+  return hole('paths-sufficiency', `TC가 있는데 소유 경로가 없다: ${empty.join(', ')}`,
+    '그 FEAT가 실제로 쓸 경로를 선언한다 — 아무것도 소유하지 않으면 자기 TC를 검증할 수 없고, '
+    + '픽업 시점에 ALLOWED_PATHS가 비어 개발이 계획을 고치게 된다. 공유 표면이라 쓸 경계가 '
+    + '없다면 스팩 moduleBoundaries의 rationale이 그 FEAT를 명시하도록 고친다 — 계획에서 '
+    + '`none`으로 회피할 문제가 아니다')
 }
 
 // ── (3) 진행 중 픽업 보호 ───────────────────────────────────────────────────
@@ -527,6 +555,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   const results = [
     ...planChecks,
     checkPathsAgainstSpec(units, spec),
+    checkPathsSufficient(units),
     checkUpstreamDecisionsReachable(root),
     checkDesignDecisionsClosed(root),
     checkSpecReady(root),

@@ -11,7 +11,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached, checkPathsSufficient,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -510,4 +510,24 @@ test('계획 산문을 flat·sharded 양형에서 읽는다', () => {
     const result = checkProseOnlyOrdering(root, units)
     assert.equal(result.state, 'HOLE', 'flat 계획의 순서 산문을 읽어야 한다')
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// 개발 중 문서 변경은 인계 실패다. `paths=none`은 픽업 시점에 ALLOWED_PATHS가 비는 것으로만
+// 드러났고, 그때의 해법은 계획 수정뿐이었다 — 정확히 막으려던 그 일이다.
+test('TC가 있는데 소유 경로가 없으면 구멍이다', () => {
+  const result = checkPathsSufficient([
+    {featureId: 'FEAT-010', testCaseIds: ['TC-010-1', 'TC-010-2'], paths: []},
+    {featureId: 'FEAT-011', testCaseIds: ['TC-011-1'], paths: ['src/widgets/a']},
+  ])
+  assert.equal(result.state, 'HOLE')
+  assert.match(result.detail, /FEAT-010/)
+  assert.doesNotMatch(result.detail, /FEAT-011/)
+})
+
+test('TC가 없는 단위는 경로가 없어도 지적하지 않는다 — 완료 게이트가 따로 본다', () => {
+  assert.equal(checkPathsSufficient([{featureId: 'FEAT-099', testCaseIds: [], paths: []}]).state, 'PASS')
+})
+
+test('경로 미선언(undefined)은 이 축이 아니라 plan 축이 본다', () => {
+  assert.equal(checkPathsSufficient([{featureId: 'FEAT-010', testCaseIds: ['TC-010-1']}]).state, 'PASS')
 })
