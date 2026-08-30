@@ -19,6 +19,7 @@
 // 사용법:
 //   node .claude/scripts/validate-handoff-readiness.mjs --project <root> --to design|development [--json]
 // 종료 코드: 0 = 인계 가능, 1 = 미해결, 2 = 사용법 오류.
+import {ledgerState, parseLedger} from './ticket/ledger.mjs'
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
@@ -240,6 +241,149 @@ export function checkPathsSufficient(units) {
     + '없다면 스팩 moduleBoundaries의 rationale이 그 FEAT를 명시하도록 고친다 — 계획에서 '
     + '`none`으로 회피할 문제가 아니다')
 }
+
+/** 디렉터리 아래 확장자 일치 파일을 전부 이어 읽는다(재귀). 읽기 실패는 빈 문자열이다. */
+export function readTree(dir, extensions = ['.md']) {
+  let out = ''
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return out
+  for (const entry of readdirSync(dir, {withFileTypes: true})) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) out += readTree(path, extensions)
+    else if (extensions.some(ext => entry.name.endsWith(ext))) {
+      try { out += `\n${readFileSync(path, 'utf8')}` } catch { /* 읽기 실패는 미인용으로 둔다 */ }
+    }
+  }
+  return out
+}
+const readTreeMd = dir => readTree(dir, ['.md'])
+
+/** 결정 로그 — 계약상 flat `decision-log.md`이고 분할 프로젝트는 디렉터리다. 둘 다 읽는다. */
+export function readDecisionLog(root) {
+  let out = ''
+  const flat = join(root, '_workspace/01_plan/decision-log.md')
+  if (existsSync(flat) && statSync(flat).isFile()) out += readFileSync(flat, 'utf8')
+  out += readTreeMd(join(root, '_workspace/01_plan/decision-log'))
+  return out
+}
+
+/** 구현이 읽는 정본 — 계획과 설계. **프리뷰는 제외한다**(Phase 3의 구현 입력이 아니다). */
+export function readCanon(root) {
+  let out = planSources(root).join('\n')
+  const designDir = join(root, '_workspace/02_design')
+  if (!existsSync(designDir) || !statSync(designDir).isDirectory()) return out
+  for (const entry of readdirSync(designDir, {withFileTypes: true})) {
+    if (entry.name === 'preview') continue
+    const path = join(designDir, entry.name)
+    if (entry.isDirectory()) out += readTreeMd(path)
+    else if (entry.name.endsWith('.md')) {
+      try { out += `\n${readFileSync(path, 'utf8')}` } catch { /* 무시 */ }
+    }
+  }
+  return out
+}
+
+
+// ── (5) 논의가 산출물에 도달했는가 · 요구가 계획에 도달했는가 ────────────────
+// 앞의 `upstream-decisions`는 **프리뷰가 인용한** 결정만 본다. 그러나 프리뷰를 거치지 않고
+// 결정 로그에만 남은 조정도 있고, 요구가 계획에 매핑되지 않은 채 남기도 한다.
+//
+// 2026-08-30 실측(track): 결정 57건 중 **25건**을 정본이 한 번도 인용하지 않았고, 요구 28건 중
+// **13건**을 계획이 한 번도 언급하지 않았다. 그중 상당수는 내용이 다른 낱말로 반영돼 있으나,
+// ID 흔적이 없으면 "이 티켓이 어느 요구를 닫는가"에 답할 수 없다.
+//
+// **래칫으로 잰다.** 이미 쌓인 것을 한 번에 메우라고 하면 게이트가 통과 불가가 되어 우회를
+// 부른다 — 현재를 baseline으로 고정하고 **새로 새는 것만** 막는다(이 저장소의 always-read
+// 바이트·배선 커버리지와 같은 방식). baseline 갱신은 의식적 행위다.
+const COVERAGE_BASELINE = '_workspace/01_plan/coverage-baseline.json'
+
+export function readCoverageBaseline(root) {
+  const path = join(root, COVERAGE_BASELINE)
+  if (!existsSync(path)) return {decisions: [], requirements: []}
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'))
+    return {
+      decisions: Array.isArray(parsed?.decisions) ? parsed.decisions : [],
+      requirements: Array.isArray(parsed?.requirements) ? parsed.requirements : [],
+    }
+  } catch {
+    return {decisions: [], requirements: []} // 깨진 baseline은 면제 0 — fail-closed
+  }
+}
+
+/** 정본이 한 번도 인용하지 않은 결정(대체분은 후속이 도달했으면 제외). */
+export function strandedDecisions(root) {
+  const log = readDecisionLog(root)
+  const {ids: declared, prefixes} = declaredDecisions(log)
+  if (prefixes.size === 0) return null // 로그가 없거나 표제 규약 밖 — 판정 불가
+  const canon = readCanon(root)
+  const reached = new Set(canon.match(idPattern(prefixes)) ?? [])
+  const supersession = supersessionMap(log)
+  return [...declared]
+    .filter(id => !reached.has(id) && !supersededAndReached(id, supersession, reached))
+    .sort()
+}
+
+export function checkDecisionsLanded(root) {
+  const stranded = strandedDecisions(root)
+  if (stranded === null) return skip('decisions-landed', '결정 로그가 없거나 표제 규약 밖이다')
+  const known = new Set(readCoverageBaseline(root).decisions)
+  const fresh = stranded.filter(id => !known.has(id))
+  if (fresh.length === 0) {
+    const carried = stranded.length > 0 ? ` (baseline에 등록된 미도달 ${stranded.length}건은 그대로 남아 있다)` : ''
+    return ok('decisions-landed', `정본이 인용하지 않은 결정이 새로 늘지 않았다${carried}`)
+  }
+  return hole('decisions-landed', `정본이 인용하지 않는 새 결정 ${fresh.length}건: ${fresh.slice(0, 8).join(', ')}`,
+    '그 결정을 FEAT 스펙·설계 정본에서 ID로 인용한다 — 내용만 옮기면 "이 티켓이 어느 결정을 구현하는가"에 답할 수 없다. '
+    + `과정 기록이라 산출물이 없으면 ${COVERAGE_BASELINE}에 등록한다(의식적 행위다)`)
+}
+
+/** 요구 문서가 선언했는데 계획이 한 번도 언급하지 않은 요구. */
+export function uncoveredRequirements(root) {
+  const dir = join(root, '_workspace/01_plan/requirements')
+  const flat = join(root, '_workspace/01_plan/requirements.md')
+  let text = ''
+  if (existsSync(flat) && statSync(flat).isFile()) text += readFileSync(flat, 'utf8')
+  if (existsSync(dir) && statSync(dir).isDirectory()) text += readTreeMd(dir)
+  if (text === '') return null
+  const ids = [...new Set(text.match(/\bREQ-[A-Z]{1,4}-\d+\b/g) ?? [])]
+  if (ids.length === 0) return null
+  const plan = planSources(root).join('\n')
+  const mentioned = new Set(plan.match(/\bREQ-[A-Z]{1,4}-\d+\b/g) ?? [])
+  return ids.filter(id => !mentioned.has(id)).sort()
+}
+
+export function checkRequirementsCovered(root) {
+  const uncovered = uncoveredRequirements(root)
+  if (uncovered === null) return skip('requirements-covered', '요구 문서를 찾지 못했거나 ID가 없다')
+  const known = new Set(readCoverageBaseline(root).requirements)
+  const fresh = uncovered.filter(id => !known.has(id))
+  if (fresh.length === 0) {
+    const carried = uncovered.length > 0 ? ` (baseline에 등록된 미매핑 ${uncovered.length}건은 그대로 남아 있다)` : ''
+    return ok('requirements-covered', `계획이 다루지 않는 요구가 새로 늘지 않았다${carried}`)
+  }
+  return hole('requirements-covered', `계획이 언급하지 않는 새 요구 ${fresh.length}건: ${fresh.slice(0, 8).join(', ')}`,
+    '그 요구를 담당할 FEAT의 명세나 traceability 표에 ID로 적는다 — 담당이 없으면 티켓으로도 나가지 않고, '
+    + `어느 티켓이 그것을 닫는지 아무도 모른다. 의식적으로 범위 밖이면 ${COVERAGE_BASELINE}에 등록한다`)
+}
+
+/** 계획에 있는데 티켓이 발행되지 않은 FEAT. 원장이 있을 때만 잰다. */
+export function checkTicketsCoverPlan(root, units) {
+  if (!units || units.length === 0) return skip('tickets-cover-plan', '단위를 읽지 못해 대조할 수 없다')
+  const ledgerPath = join(root, '_workspace/03_dev/identity-ledger.jsonl')
+  if (!existsSync(ledgerPath)) return skip('tickets-cover-plan', '아직 티켓이 발행되지 않았다')
+  let issued
+  try {
+    issued = new Set(ledgerState(parseLedger(readFileSync(ledgerPath, 'utf8'))).keys())
+  } catch {
+    return skip('tickets-cover-plan', '원장을 읽지 못했다')
+  }
+  if (issued.size === 0) return skip('tickets-cover-plan', '원장에 유효한 티켓 기록이 없다')
+  const missing = units.map(unit => unit.featureId).filter(id => !issued.has(id)).sort()
+  if (missing.length === 0) return ok('tickets-cover-plan', `계획의 ${units.length}개 단위가 전부 티켓으로 발행됐다`)
+  return hole('tickets-cover-plan', `티켓이 없는 계획 단위 ${missing.length}건: ${missing.join(', ')}`,
+    'claim으로 발행한다 — 계획에 있는데 티켓이 없으면 보드에 안 보이고, 아무도 집지 않은 채 릴리스로 간다')
+}
+
 
 // ── (3) 진행 중 픽업 보호 ───────────────────────────────────────────────────
 // 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 순서가 바뀐다. 오늘 내가 그렇게 했다 —
@@ -474,25 +618,8 @@ export function checkUpstreamDecisionsReachable(root) {
   if (!existsSync(previewDir) || !statSync(previewDir).isDirectory()) {
     return skip('upstream-decisions', '프리뷰가 없어 대조할 수 없다')
   }
-  const readTreeLocal = (dir, extensions) => {
-    let out = ''
-    for (const entry of readdirSync(dir, {withFileTypes: true})) {
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) out += readTreeLocal(path, extensions)
-      else if (extensions.some(ext => entry.name.endsWith(ext))) {
-        try { out += `\n${readFileSync(path, 'utf8')}` } catch { /* 읽기 실패는 미인용으로 둔다 */ }
-      }
-    }
-    return out
-  }
-  const readTree = readTreeLocal
-  // 결정 로그은 계약상 flat(`decision-log.md`)이고, 분할된 프로젝트는 디렉터리를 쓴다 —
-  // 둘 다 읽는다(이 저장소가 계획 문서에서 이미 겪은 flat/sharded 실패 클래스다).
-  const logFlat = join(root, '_workspace/01_plan/decision-log.md')
-  const logDir = join(root, '_workspace/01_plan/decision-log')
-  let log = ''
-  if (existsSync(logFlat) && statSync(logFlat).isFile()) log += readFileSync(logFlat, 'utf8')
-  if (existsSync(logDir) && statSync(logDir).isDirectory()) log += readTree(logDir, ['.md'])
+  // 로그·정본 판독은 공용 reader를 쓴다 — 같은 파일 안에서 두 벌을 두면 한쪽만 고쳐진다.
+  const log = readDecisionLog(root)
   const {ids: declared, prefixes} = declaredDecisions(log)
   if (prefixes.size === 0) {
     return skip('upstream-decisions', '결정 로그에 `## <ID>-<3자리 이상>` 표제가 없어 ID 체계를 알 수 없다')
@@ -500,23 +627,7 @@ export function checkUpstreamDecisionsReachable(root) {
   const ID = idPattern(prefixes)
   const inPreview = new Set(readTree(previewDir, ['.js', '.ts', '.css', '.html']).match(ID) ?? [])
   if (inPreview.size === 0) return skip('upstream-decisions', '프리뷰가 인용하는 결정이 없다')
-  const canonDirs = [
-    join(root, '_workspace/01_plan/feature-plan'),
-    join(root, '_workspace/01_plan/feature-plan.md'),
-    join(root, '_workspace/02_design'),
-  ].filter(path => existsSync(path))
-  let canon = ''
-  for (const dir of canonDirs) {
-    if (statSync(dir).isFile()) { canon += `\n${readFileSync(dir, 'utf8')}`; continue }
-    for (const entry of readdirSync(dir, {withFileTypes: true})) {
-      if (entry.name === 'preview') continue // 프리뷰는 구현 입력이 아니다
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) canon += readTree(path, ['.md'])
-      else if (entry.name.endsWith('.md')) {
-        try { canon += `\n${readFileSync(path, 'utf8')}` } catch { /* 무시 */ }
-      }
-    }
-  }
+  const canon = readCanon(root)
   const reached = new Set(canon.match(ID) ?? [])
   const supersession = supersessionMap(log)
   // 로그에 **표제가 없는** ID는 존재하지 않는 결정을 가리키는 것이다 — 다른 종류의 결함이라
@@ -556,6 +667,9 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
     ...planChecks,
     checkPathsAgainstSpec(units, spec),
     checkPathsSufficient(units),
+    checkTicketsCoverPlan(root, units),
+    checkDecisionsLanded(root),
+    checkRequirementsCovered(root),
     checkUpstreamDecisionsReachable(root),
     checkDesignDecisionsClosed(root),
     checkSpecReady(root),

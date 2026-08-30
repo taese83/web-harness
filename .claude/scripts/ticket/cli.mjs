@@ -20,7 +20,7 @@ import {pickupWithOwnership} from './assign.mjs'
 import {isChangeScopeStale} from './pickup.mjs'
 import {evaluateTicketCompletion} from './completion.mjs'
 import {computeCloseLink, computePrLinkPlan} from './pr.mjs'
-import {renderCloseReference, parseBranchFromLabels} from './provider-github.mjs'
+import {renderCloseReference, parseBranchFromLabels, buildIssueFields} from './provider-github.mjs'
 import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs, issueSupersedeCloseArgs} from './provider-github-exec.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
@@ -226,7 +226,18 @@ export async function runClaim({root, repo, flags, io = {}}) {
   }
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const state = (io.readState ?? readLedgerState)(ledgerFile)
-  const plan = computeBatchClaimPlan({units, ledgerState: state, opts: {foundationRoots: splitList(flags['foundation-roots'])}, branch})
+  // 이미 나간 FEAT의 **미충족 수용 기준**을 잰다 — 구현이 안 됐거나 이슈가 있으면 fix
+  // 티켓이 있어야 한다. 원 티켓을 고치지 않고 별도 티켓으로 낸다.
+  const citedIds = collectCitedTestCaseIds(root)
+  const unmetByFeature = new Map()
+  for (const unit of units) {
+    if (!state.get(unit.featureId)?.prUrl) continue
+    const verdict = evaluateTicketCompletion({
+      featureId: unit.featureId, planText: '', testCaseIds: unit.testCaseIds, citedIds,
+    })
+    if (verdict.missing.length > 0) unmetByFeature.set(unit.featureId, verdict.missing)
+  }
+  const plan = computeBatchClaimPlan({units, ledgerState: state, opts: {foundationRoots: splitList(flags['foundation-roots'])}, branch, unmetByFeature})
   const preview = formatBatchClaimPreview(plan)
   if (plan.collisions.length > 0 || plan.cycles.length > 0) {
     return {ok: false, blocked: 'plan-defects', preview, guidance: '경로 충돌/순환 의존을 feature-planner에서 해소한 뒤 청구하세요'}
@@ -264,22 +275,47 @@ export async function runClaim({root, repo, flags, io = {}}) {
   for (const item of plan.supersede ?? []) {
     const fields = buildIssueFields(item.payload, {branch, assignee: flags.assignee ?? null})
     const issue = await provider.createIssue(fields)
+    // `createIssue`는 `{number, url}`을 돌려준다 — `ticketKey`는 없고, 원장은 **문자열**을
+    // 요구한다. 이 두 줄이 틀린 채 남아 있었다는 것은 대체 발행 경로가 한 번도 실행된 적이
+    // 없다는 뜻이다(2026-08-30, 첫 실행에서 LEDGER_INVALID_RECORD로 드러났다).
+    const ticketKey = String(issue.ticketKey ?? issue.number)
     ;(io.appendSupersede ?? appendSupersedeRecord)(ledgerFile, {
       featureId: item.featureId,
-      ticketKey: issue.ticketKey,
+      ticketKey,
       contentHash: item.contentHash,
       createdAt: new Date().toISOString(),
       branch,
       supersedes: item.priorTicketKey,
     })
     // 옛 티켓은 **완료가 아니라 superseded**로 닫는다 — 닫힘을 완료로 오독하면 보드가 거짓이 된다.
-    await (io.gh ?? runGh)(issueSupersedeCloseArgs(repo, item.priorTicketKey, issue.ticketKey))
-    superseded.push({featureId: item.featureId, priorTicketKey: item.priorTicketKey, ticketKey: issue.ticketKey})
+    await (io.gh ?? runGh)(issueSupersedeCloseArgs(repo, item.priorTicketKey, ticketKey))
+    superseded.push({featureId: item.featureId, priorTicketKey: item.priorTicketKey, ticketKey})
+  }
+  // **fix 티켓** — 이미 나갔는데 수용 기준이 미충족인 FEAT. 원 티켓을 고치거나 대체하지
+  // 않고 별도 티켓으로 낸다: 원 티켓은 그 시점의 계약이고, 미충족분은 새로 할 일이다.
+  // 원장에는 쓰지 않는다 — 원장은 FEAT당 하나의 정체성이고 fix는 그 FEAT의 후속 작업이지
+  // 새 정체성이 아니다(rebind 가드를 건드리면 안 된다).
+  const fixes = []
+  for (const item of plan.fix ?? []) {
+    const unit = unitById.get(item.featureId)
+    const body = [
+      `원 티켓 #${item.priorTicketKey}이 이미 PR로 나갔으나 아래 수용 기준이 검증되지 않았다.`,
+      '',
+      '## 미충족 수용 기준',
+      ...item.unmet.map(id => `- ${id}`),
+      '',
+      '판정 근거: 소스·테스트 어디에서도 위 TC ID가 인용되지 않는다(프록시 — 인용은 검증의',
+      '필요조건이지 충분조건이 아니다. 실제로 그 기준을 재는지는 리뷰가 본다).',
+      '',
+      `계약 본문은 원 티켓 #${item.priorTicketKey}과 \`${unit?.featureId}\` 명세를 따른다.`,
+    ].join('\n')
+    const issue = await provider.createIssue({title: item.title, body, labels: ['fix'], assignee: flags.assignee ?? null})
+    fixes.push({featureId: item.featureId, ticketKey: String(issue.ticketKey ?? issue.number), unmet: item.unmet, priorTicketKey: item.priorTicketKey})
   }
   // 이슈 자동 닫기 자산을 청구 브랜치에 설치한다(멱등, 덮어쓰지 않음). 커밋·push는
   // 브랜치를 만든 사람 몫이다 — CLI는 파일만 놓고 경로를 알린다.
   const installedCloseAssets = installTicketCloseAssets(root, closeAssets)
-  return {ok: true, dryRun: false, preview, results, superseded, freshness, closeAssets, installedCloseAssets}
+  return {ok: true, dryRun: false, preview, results, superseded, fixes, freshness, closeAssets, installedCloseAssets}
 }
 
 /**

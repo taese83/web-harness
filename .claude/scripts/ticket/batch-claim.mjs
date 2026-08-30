@@ -16,12 +16,38 @@ import {computeClaimOrder, findPathCollisions, classifyLayer} from './claim-scop
  * @param {{units: Array, ledgerState?: Map, opts?: {foundationRoots?: string[]}, branch?: string|null}} args
  * @returns {{branch: string|null, claim: Array, alreadyClaimed: Array, collisions: Array, cycles: string[], order: string[]}}
  */
-export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}, branch = null}) {
+export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}, branch = null, unmetByFeature = new Map()}) {
   const emit = computeEmitPlan(units, ledgerState)
   const order = computeClaimOrder(units, opts)
   const collisions = findPathCollisions(units, opts)
   const unitById = new Map(units.map(u => [u.featureId, u]))
   const orderIndex = new Map(order.order.map((id, i) => [id, i]))
+
+  // PR 링크 여부로 대체 대상을 가른다 — 링크된 것은 재발행하지 않는다.
+  const linked = new Set([...(ledgerState?.entries?.() ?? [])]
+    .filter(([, record]) => record?.prUrl)
+    .map(([featureId]) => featureId))
+  const supersede = emit.supersede.filter(item => !linked.has(item.featureId))
+  const changedAfterLink = emit.supersede
+    .filter(item => linked.has(item.featureId))
+    .map(item => ({featureId: item.featureId, ticketKey: item.priorTicketKey}))
+
+  // 이미 나간 FEAT 중 **수용 기준이 미충족**인 것 → fix 티켓. 판정 입력은 caller가 넘긴다
+  // (소스 인용 수집은 I/O라 순수 함수 밖이다).
+  const fix = [...linked]
+    .filter(featureId => (unmetByFeature.get(featureId)?.length ?? 0) > 0)
+    .filter(featureId => unitById.has(featureId))
+    .map(featureId => {
+      const unit = unitById.get(featureId)
+      const unmet = unmetByFeature.get(featureId)
+      return {
+        featureId,
+        title: `fix(${featureId}): ${unit.title ?? featureId} — 미충족 수용 기준 ${unmet.length}건`,
+        unmet,
+        priorTicketKey: ledgerState.get(featureId)?.ticketKey ?? null,
+      }
+    })
+    .sort((a, b) => a.featureId.localeCompare(b.featureId))
 
   const claim = emit.create
     .map(item => ({
@@ -40,7 +66,15 @@ export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}
     // 대체 대상을 alreadyClaimed로 접으면 계획이 바뀌어도 티켓이 영원히 낡은 채 남는다 —
     // 재바인딩 경로가 없던 원인이 바로 이 한 줄이었다(2026-08-30 실측).
     alreadyClaimed: emit.unchanged.map(i => ({featureId: i.featureId, ticketKey: i.ticketKey})),
-    supersede: emit.supersede.map(i => ({featureId: i.featureId, priorTicketKey: i.priorTicketKey, payload: i.payload, contentHash: i.contentHash})),
+    supersede: supersede.map(i => ({featureId: i.featureId, priorTicketKey: i.priorTicketKey, payload: i.payload, contentHash: i.contentHash})),
+    // **PR이 연결된 뒤 계획이 바뀐 것은 대체 발행 대상이 아니다.** 일이 이미 나갔는데 같은
+    // 티켓을 새로 내면 끝난 작업의 중복이 생긴다(2026-08-30 실측: 머지된 FEAT-003·005·006의
+    // 명세를 사후 보강했더니 셋 다 대체 대상으로 잡혔다).
+    changedAfterLink,
+    // 그렇다고 없던 일이 되지는 않는다 — **구현이 안 됐거나 이슈가 있으면 fix 티켓이 있어야
+    // 한다.** 이미 나간 FEAT 중 수용 기준이 미충족인 것(caller가 `unmetByFeature`로 넘긴다)에
+    // 대해 별도의 fix 티켓을 낸다. 원 티켓은 건드리지 않는다.
+    fix,
     collisions,
     cycles: order.cycles,
     order: order.order,
@@ -53,6 +87,14 @@ export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}
  */
 export function formatBatchClaimPreview(plan) {
   const lines = [`브랜치 ${plan.branch ?? '(미지정)'} · 발행 ${plan.claim.length} · 대체 ${plan.supersede.length} · 이미청구 ${plan.alreadyClaimed.length}`]
+  if ((plan.fix ?? []).length > 0) {
+    lines.push(`  🔧 fix 티켓 ${plan.fix.length}건 — 이미 나갔으나 수용 기준이 미충족이다:`)
+    for (const item of plan.fix) lines.push(`     ${item.title} (${item.unmet.join(', ')})`)
+  }
+  if ((plan.changedAfterLink ?? []).length > 0) {
+    lines.push(`  ℹ PR 연결 뒤 계획이 바뀐 ${plan.changedAfterLink.length}건(재발행하지 않는다): `
+      + plan.changedAfterLink.map(i => `${i.featureId}#${i.ticketKey}`).join(', '))
+  }
   if (plan.cycles.length > 0) lines.push(`  ⚠ 순환 의존: ${plan.cycles.join(', ')} — 순서 판정 불가, 상류 수정 필요`)
   for (const c of plan.collisions) lines.push(`  ⚠ 경로 충돌: ${c.a} ↔ ${c.b} — 병합 또는 foundation 승격`)
   for (const item of plan.claim) {
