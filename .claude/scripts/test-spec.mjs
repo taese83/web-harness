@@ -8,6 +8,7 @@
 //   (4) 수용 기준 부재는 거부가 아니라 specTier: unverifiable 라벨이다
 //   (5) 입력이 바뀌면 스팩은 stale이다 (부재 → 존재도 변경이다)
 //   (6) 확정 입력은 프로젝트 루트를 벗어날 수 없다
+//   (7) 확정 입력은 flat·sharded 양쪽으로 해소된다 — 분할된 기획·설계도 다이제스트에 든다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
@@ -15,7 +16,8 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   buildSpec, digestInputs, extractAcceptanceIds, extractDecisionBlock, hasUserInterface, isSpecStale,
-  lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, settleDecisions, validateTestLayers,
+  lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, resolveInputFiles, settleDecisions,
+  validateTestLayers,
 } from './spec.mjs'
 
 const decisionBlock = decision => [
@@ -212,6 +214,126 @@ test('digest는 부재를 present:false로 기록한다', () => {
     const design = digest.inputs.find(item => item.path.endsWith('solution-design.md'))
     assert.equal(design.present, true)
     assert.match(design.sha256, /^[0-9a-f]{64}$/)
+  })
+})
+
+// ── (5b) sharded 입력 해소 ───────────────────────────────────────────────────
+// 배경(2026-08-30 track 실측): 하네스는 `feature-plan/`·`component-spec/` 분할을 허용하는데
+// 확정 입력은 flat 경로 고정이었다. 8개 중 7개가 present:false로 잠겨 기획·설계 변경이
+// staleness에 안 잡히고, 수용 기준 85개가 실재하는데도 specTier가 unverifiable로 밀렸다.
+
+const writeShards = (root, directoryRelative, files) => {
+  mkdirSync(join(root, directoryRelative), {recursive: true})
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(root, directoryRelative, name), body)
+}
+
+test('flat이 없고 디렉터리가 있으면 sharded로 해소한다', () => {
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'b.md': 'b', 'a.md': 'a', 'skip.txt': 'x'})
+    const resolved = resolveInputFiles(root, '_workspace/01_plan/feature-plan.md')
+    assert.equal(resolved.kind, 'sharded')
+    assert.deepEqual(resolved.files.map(file => file.path), [
+      '_workspace/01_plan/feature-plan/a.md',
+      '_workspace/01_plan/feature-plan/b.md',
+    ], '파일명 정렬로 결정적 순서여야 한다 — 순서가 흔들리면 거짓 stale이 난다')
+  })
+})
+
+test('flat 파일이 있으면 디렉터리보다 flat이 이긴다', () => {
+  withProject(baseDecision(), root => {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '# FEAT-001')
+    writeShards(root, '_workspace/01_plan/feature-plan', {'a.md': 'a'})
+    assert.equal(resolveInputFiles(root, '_workspace/01_plan/feature-plan.md').kind, 'flat')
+  })
+})
+
+test('디렉터리가 비어 있으면 absent다 — 빈 껍데기를 존재로 세지 않는다', () => {
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'notes.txt': 'x'})
+    assert.equal(resolveInputFiles(root, '_workspace/01_plan/feature-plan.md').kind, 'absent')
+    const record = digestInputs(root).inputs.find(item => item.path.endsWith('feature-plan.md'))
+    assert.equal(record.present, false)
+  })
+})
+
+test('json 입력은 샤딩하지 않는다 — 기계가 읽는 단일 문서다', () => {
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/project-profile.json', {'a.md': 'a'})
+    assert.equal(resolveInputFiles(root, '_workspace/01_plan/project-profile.json').kind, 'absent')
+  })
+})
+
+test('샤드 내용이 바뀌면 스팩은 stale이다', () => {
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'a.md': '# FEAT-001'})
+    const lock = lockSpec(root)
+    assert.equal(isSpecStale(lock, root), false)
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan/a.md'), '# FEAT-001 수정')
+    assert.equal(isSpecStale(lock, root), true)
+  })
+})
+
+test('샤드가 추가·개명돼도 stale이다 — 경로도 다이제스트에 든다', () => {
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'a.md': '# FEAT-001'})
+    const lock = lockSpec(root)
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan/b.md'), '')
+    assert.equal(isSpecStale(lock, root), true, '빈 샤드 추가도 입력 변경이다')
+  })
+})
+
+test('sharded 기획의 수용 기준으로 verifiable 스팩을 확정한다', () => {
+  const decision = baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['FEAT-002', 'TC-003-1']})
+  withProject(decision, root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {
+      'INDEX.md': '# 목차',
+      'specs-scene.md': '- [ ] FEAT-002 장면\n  - TC-003-1 기대',
+    })
+    const lock = lockSpec(root)
+    assert.equal(lock.specTier, 'verifiable', '샤드에 실재하는 ID인데 unverifiable로 밀리면 안 된다')
+    const record = lock.sourceDigest.inputs.find(item => item.path.endsWith('feature-plan.md'))
+    assert.equal(record.kind, 'sharded')
+    assert.equal(record.shards.length, 2)
+  })
+})
+
+test('sharded 레코드는 스키마가 허용하는 키만 담는다', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schemas/spec.schema.json', import.meta.url), 'utf8'))
+  const allowed = new Set(Object.keys(schema.properties.sourceDigest.properties.inputs.items.properties))
+  const shardAllowed = new Set(Object.keys(schema.properties.sourceDigest.properties.inputs.items.properties.shards.items.properties))
+  withProject(baseDecision(), root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'a.md': '# FEAT-001'})
+    const record = digestInputs(root).inputs.find(item => item.kind === 'sharded')
+    for (const key of Object.keys(record)) assert.ok(allowed.has(key), `스키마에 없는 키: ${key}`)
+    for (const key of Object.keys(record.shards[0])) assert.ok(shardAllowed.has(key), `샤드 스키마에 없는 키: ${key}`)
+  })
+})
+
+// flat 다이제스트 불변을 **값으로 고정**한다. 산식을 건드리면 커밋된 모든 spec.json이 조용히
+// stale로 뒤집히는데, 분석적 논증만으로는 그 회귀가 잡히지 않는다(적대 리뷰 2026-08-30).
+// 이 값은 sharded 해소 **이전** 구현으로도 같게 나오는 것을 실행으로 확인했다
+// (eval-runs/complete-harness-packaging/2026-08-27.../fixture의 spec.mjs 스냅샷 대조).
+test('flat 입력의 combined는 알려진 값에 고정된다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-lock-pin-'))
+  try {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'FEAT-001\n')
+    assert.equal(
+      digestInputs(root).combined,
+      '3938a4100b1b7bf664ada56df4e2afff5c4692519047890ac4d73bed27630692',
+      'flat 다이제스트 산식이 바뀌었다 — 커밋된 스팩이 전부 stale이 된다. 의도한 변경이면 이 값을 갱신하라',
+    )
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('sharded 기획에도 없는 ID는 여전히 거부한다', () => {
+  const decision = baseDecision({acceptanceSource: 'feature-plan', acceptanceRefs: ['TC-999-1']})
+  withProject(decision, root => {
+    writeShards(root, '_workspace/01_plan/feature-plan', {'a.md': '- [ ] FEAT-002 장면'})
+    expectLockError(() => lockSpec(root), 'ACCEPTANCE_REF_NOT_FOUND')
   })
 })
 

@@ -24,7 +24,7 @@
 //     기획 없는 브라운필드 개선을 막지 않으면서 그 상태를 숨기지도 않는다.
 //     이 tier를 게이트가 어떻게 다룰지는 Stage 2의 결정이며 여기서 정하지 않는다.
 import {createHash} from 'node:crypto'
-import {existsSync, readFileSync, statSync} from 'node:fs'
+import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {pathToFileURL} from 'node:url'
@@ -33,10 +33,12 @@ import {readShapeChecks} from './validate-shape-checks.mjs'
 const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
 
 // 스팩이 유래한 입력. 없으면 없다고 기록한다 — 부재도 스팩의 일부다.
-// 한계(적대 리뷰 2026-08-26): flat 경로 고정이라 하네스가 허용하는 sharded 형태
-// (api-schema/INDEX.md 등)를 포섭하지 못한다. sharded 프로젝트에서는 실제 입력이
-// present:false로 기록돼 변경이 staleness에 안 잡힌다 — Stage 2에서 stale 게이트가 생기면
-// fail-open 방향이다. §4 등록, 해소는 Stage 2 전제조건.
+// flat·sharded 양쪽을 해소한다(2026-08-30). 종전에는 flat 경로 고정이라 하네스가 허용하는
+// sharded 형태(`feature-plan/INDEX.md` 등)를 못 봤고, sharded 프로젝트에서는 8개 입력 중
+// 7개가 present:false로 잠겨 (a) 기획·설계가 바뀌어도 staleness에 안 잡히고(fail-open),
+// (b) 수용 기준이 실재하는데도 `acceptanceSource: feature-plan`이 파일 부재로 거부돼
+// specTier가 unverifiable로 밀렸다 — 축이 없다는 이유로 검증이 면제되는 형태다.
+// §4 등록 항목의 해소이며, 해소 방식은 ticket/cli.mjs의 resolvePlanLocation과 같다.
 // 스팩 원장(append-only). 스팩 확정 자신의 해시를 기록해 **삭제와 사후 수정**을 탐지한다.
 // 배경(적대 리뷰 2026-08-26): sourceDigest는 스팩의 *입력*만 다이제스트하고 스팩 확정 *자신*은
 // 아니므로, layerMap·libraries를 사후 실측에 맞게 고쳐 써도 어떤 기계도 잡지 못했다.
@@ -117,6 +119,39 @@ export const settleDecisions = openDecisions => {
   })
 }
 
+// 논리 입력 하나가 실제로 어느 파일(들)인지 해소한다.
+//   flat    `x.md`가 파일로 있다
+//   sharded `x.md`가 없고 `x/` 디렉터리에 `.md`가 있다 — 파일명 정렬로 결정적 순서를 준다
+//           (순서가 흔들리면 내용이 같아도 다이제스트가 달라져 거짓 stale이 난다)
+//   absent  둘 다 없다
+// `.json` 입력은 샤딩하지 않는다 — 기계가 읽는 단일 문서라 분할 관례 자체가 없다.
+// 디렉터리는 있는데 `.md`가 하나도 없으면 absent다: 빈 껍데기를 '있음'으로 세면 그 순간
+// 존재 검사가 프록시가 된다.
+//
+// **flat과 디렉터리가 함께 있으면 flat이 이긴다.** 이 상태에서 샤드 편집은 다이제스트 밖이
+// 되는데, 그 방어는 여기가 아니라 `validate-artifact-sharding.mjs`가 동명 공존을 ERROR로
+// 잡는 데 있다(01_plan·02_design 전역). lockSpec 단독으로는 공존을 거부하지 않으므로 이
+// 의존을 명시한다 — 산문에만 있는 계약은 지켜지지 않는다는 것을 이미 두 번 실측했다.
+//
+// 기록·해시에 쓰는 경로는 **NFC로 정규화**한다. macOS는 readdir이 NFD로, Linux는 NFC로
+// 돌려주므로 한글 샤드명이 있으면 같은 내용에 다른 다이제스트가 나와 팀 간 거짓 stale이 난다.
+// 읽기는 파일시스템이 준 원본 이름으로 한다 — 정규화한 이름으로 읽으면 Linux에서 못 연다.
+export const resolveInputFiles = (root, relativePath) => {
+  const flat = resolve(root, relativePath)
+  if (existsSync(flat) && statSync(flat).isFile()) {
+    return {kind: 'flat', files: [{path: relativePath, read: relativePath}]}
+  }
+  if (!relativePath.endsWith('.md')) return {kind: 'absent', files: []}
+  const directoryRelative = relativePath.slice(0, -'.md'.length)
+  const directory = resolve(root, directoryRelative)
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) return {kind: 'absent', files: []}
+  const files = readdirSync(directory)
+    .filter(name => name.endsWith('.md'))
+    .map(name => ({path: `${directoryRelative}/${name.normalize('NFC')}`, read: `${directoryRelative}/${name}`}))
+    .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+  return files.length > 0 ? {kind: 'sharded', files} : {kind: 'absent', files: []}
+}
+
 // 입력 해시. 경로 탈출을 막고, 부재는 present:false로 남긴다.
 export const digestInputs = (projectRoot, inputs = LOCK_INPUTS) => {
   const root = resolve(projectRoot)
@@ -126,12 +161,24 @@ export const digestInputs = (projectRoot, inputs = LOCK_INPUTS) => {
     if (offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)) {
       throw new LockError('LOCK_INPUT_ESCAPES_ROOT', `확정 입력이 프로젝트 루트를 벗어난다: ${relativePath}`)
     }
-    if (!existsSync(candidate) || !statSync(candidate).isFile()) {
-      return {path: relativePath, present: false}
+    const {kind, files} = resolveInputFiles(root, relativePath)
+    if (kind === 'absent') return {path: relativePath, present: false}
+    if (kind === 'flat') return {path: relativePath, present: true, sha256: sha256(readFileSync(candidate))}
+    // 샤드는 **경로와 해시를 함께** 잇는다 — 샤드가 추가·삭제·개명되는 것도 입력 변경이다.
+    // 내용만 이으면 파일을 쪼개거나 합치는 것이 다이제스트에 안 잡힌다.
+    // 결합은 JSON으로 한다: 파일명은 콜론·개행을 담을 수 있어서 `path:hash`를 개행으로 이으면
+    // 서로 다른 샤드 집합이 같은 문자열을 만들 수 있다(인코딩 모호성).
+    const shards = files.map(file => ({path: file.path, sha256: sha256(readFileSync(resolve(root, file.read)))}))
+    return {
+      path: relativePath,
+      present: true,
+      kind: 'sharded',
+      shards,
+      sha256: sha256(JSON.stringify(shards.map(shard => [shard.path, shard.sha256]))),
     }
-    return {path: relativePath, present: true, sha256: sha256(readFileSync(candidate))}
   })
   // combined는 경로·존재여부·해시를 모두 반영한다 — 파일이 사라진 것도 변경이다.
+  // flat 프로젝트의 combined는 이 변경 전후로 동일하다(기존 스팩·receipt를 stale로 만들지 않는다).
   const combined = sha256(records.map(r => `${r.path}:${r.present ? r.sha256 : 'absent'}`).join('\n'))
   return {inputs: records, combined}
 }
@@ -404,9 +451,11 @@ export const lockSpec = projectRoot => {
     throw new LockError('SOLUTION_DESIGN_MISSING', 'solution-design.md가 없다 — 설계 단계를 먼저 실행하라', {path: designPath})
   }
   const decision = extractDecisionBlock(readFileSync(designPath, 'utf8'))
-  const planPath = join(root, FEATURE_PLAN_INPUT)
-  const acceptanceIds = existsSync(planPath) && statSync(planPath).isFile()
-    ? extractAcceptanceIds(readFileSync(planPath, 'utf8'))
+  // 수용 기준 색인도 샤드 전체에서 뽑는다 — flat만 읽으면 sharded 프로젝트의 ID가
+  // 통째로 없는 것으로 보여 ACCEPTANCE_REF_NOT_FOUND가 거짓으로 난다.
+  const planFiles = resolveInputFiles(root, FEATURE_PLAN_INPUT).files
+  const acceptanceIds = planFiles.length > 0
+    ? extractAcceptanceIds(planFiles.map(file => readFileSync(resolve(root, file.read), 'utf8')).join('\n'))
     : new Set()
   return buildSpec({decision, digest: digestInputs(root), acceptanceIds})
 }
