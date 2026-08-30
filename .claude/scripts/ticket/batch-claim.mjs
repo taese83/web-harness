@@ -9,7 +9,8 @@ import {computeClaimOrder, findPathCollisions, classifyLayer} from './claim-scop
 /**
  * 일괄 청구 미리보기를 만든다(순수). emit(무엇을 발행) + claim-scope(순서·계층·충돌)를 합친다.
  *  - claim: 이번에 발행할 티켓(청구 순서대로 — foundation 먼저, 의존 위상)
- *  - alreadyClaimed: 원장에 이미 있는 것(재발행 안 함 — 멱등)
+ *  - alreadyClaimed: 원장에 있고 **형상도 같은** 것(재발행 안 함 — 멱등)
+ *  - supersede: 원장에 있으나 형상이 바뀐 것 — 새 티켓으로 **대체 발행**하고 옛 것은 닫는다
  *  - collisions: 경로 충돌(병합 or foundation 승격 필요 — 발행 전 경고)
  *  - cycles: 순환 의존(순서 판정 불가 구간 — 상류 수정 필요)
  * @param {{units: Array, ledgerState?: Map, opts?: {foundationRoots?: string[]}, branch?: string|null}} args
@@ -36,7 +37,10 @@ export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}
   return {
     branch,
     claim,
-    alreadyClaimed: [...emit.update, ...emit.unchanged].map(i => ({featureId: i.featureId, ticketKey: i.ticketKey})),
+    // 대체 대상을 alreadyClaimed로 접으면 계획이 바뀌어도 티켓이 영원히 낡은 채 남는다 —
+    // 재바인딩 경로가 없던 원인이 바로 이 한 줄이었다(2026-08-30 실측).
+    alreadyClaimed: emit.unchanged.map(i => ({featureId: i.featureId, ticketKey: i.ticketKey})),
+    supersede: emit.supersede.map(i => ({featureId: i.featureId, priorTicketKey: i.priorTicketKey, payload: i.payload, contentHash: i.contentHash})),
     collisions,
     cycles: order.cycles,
     order: order.order,
@@ -48,7 +52,7 @@ export function computeBatchClaimPlan({units, ledgerState = new Map(), opts = {}
  * @param {ReturnType<typeof computeBatchClaimPlan>} plan
  */
 export function formatBatchClaimPreview(plan) {
-  const lines = [`브랜치 ${plan.branch ?? '(미지정)'} · 발행 ${plan.claim.length} · 이미청구 ${plan.alreadyClaimed.length}`]
+  const lines = [`브랜치 ${plan.branch ?? '(미지정)'} · 발행 ${plan.claim.length} · 대체 ${plan.supersede.length} · 이미청구 ${plan.alreadyClaimed.length}`]
   if (plan.cycles.length > 0) lines.push(`  ⚠ 순환 의존: ${plan.cycles.join(', ')} — 순서 판정 불가, 상류 수정 필요`)
   for (const c of plan.collisions) lines.push(`  ⚠ 경로 충돌: ${c.a} ↔ ${c.b} — 병합 또는 foundation 승격`)
   for (const item of plan.claim) {

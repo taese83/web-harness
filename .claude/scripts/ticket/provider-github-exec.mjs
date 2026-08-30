@@ -38,6 +38,12 @@ export const prCreateArgs = (repo, {title, body, base, head}) => {
   return args
 }
 export const issueCommentArgs = (repo, number, body) => ['issue', 'comment', String(number), '--repo', repo, '--body', body]
+// 대체 발행에서 옛 티켓을 닫는다. **완료가 아니라 대체**임이 코멘트로 남는다 — 닫힌 이슈를
+// 완료로 오독하면 보드와 실제가 갈린다.
+export const issueSupersedeCloseArgs = (repo, number, newNumber) => [
+  'issue', 'close', String(number), '--repo', repo,
+  '--comment', `계획 변경으로 대체됨 → #${newNumber} (완료가 아니라 superseded)`,
+]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
 // 보드 강화(배정 표시)·merged 출처 명세용 read-only argv.

@@ -54,6 +54,27 @@ export function appendLedgerRecord(path, record) {
  * 그대로). 계획 변경의 정당한 갱신·prUrl 링크는 appendLedgerRecord(비가드)를 쓰되 emit update
  * 경로/링크 멱등 판정을 거친다(경로 분리가 곧 계약).
  */
+/**
+ * **대체 발행 기록**(append-only). 같은 featureId를 새 ticketKey·새 contentHash로 다시
+ * 기록한다 — `appendClaimRecord`의 rebind 가드가 정확히 막던 그 형태다. 가드의 목적은
+ * "조용한 재바인드 금지"이지 "재바인드 금지"가 아니었고(에러 문구가 스스로 "재청구는 emit
+ * update 경로로"라 적고 있다), 그 경로가 배선되지 않아 계획이 바뀌면 티켓이 영원히 낡은 채
+ * 남았다(2026-08-30 실측).
+ *
+ * 조용하지 않게 만드는 것이 조건이다: `supersedes`(옛 ticketKey)가 **필수**이며, 그것이
+ * 원장에 남아 "무엇을 무엇으로 대체했는지"가 히스토리에 보인다. 없으면 거부한다 —
+ * 근거 없는 재바인드는 여전히 막는다.
+ */
+export function appendSupersedeRecord(path, record) {
+  if (record?.supersedes === undefined || record.supersedes === null || record.supersedes === '') {
+    throw new Error(`LEDGER_SUPERSEDE_WITHOUT_PRIOR: ${record?.featureId} — 무엇을 대체하는지(supersedes) 없이 재바인드할 수 없다`)
+  }
+  if (String(record.supersedes) === String(record.ticketKey)) {
+    throw new Error(`LEDGER_SUPERSEDE_SELF: ${record.featureId} — 자기 자신을 대체할 수 없다`)
+  }
+  return appendLedgerRecord(path, record)
+}
+
 export function appendClaimRecord(path, record) {
   const rebind = detectRebind(readLedger(path), record.contentHash, {
     digestField: 'contentHash',

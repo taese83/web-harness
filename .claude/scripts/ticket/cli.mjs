@@ -20,8 +20,8 @@ import {pickupWithOwnership} from './assign.mjs'
 import {isChangeScopeStale} from './pickup.mjs'
 import {computeCloseLink, computePrLinkPlan} from './pr.mjs'
 import {renderCloseReference, parseBranchFromLabels} from './provider-github.mjs'
-import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs} from './provider-github-exec.mjs'
-import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord} from './ledger-writer.mjs'
+import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs, issueSupersedeCloseArgs} from './provider-github-exec.mjs'
+import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
 
 export const LEDGER_RELATIVE = '_workspace/03_dev/identity-ledger.jsonl'
@@ -217,10 +217,29 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 부분 차단은 성공이 아니다(리뷰: exit 2 기계 신호 정렬) — 발행/차단 내역은 results에 그대로.
   const blockedAt = results.find(result => result.blocked)
   if (blockedAt) return {ok: false, blocked: `claim-blocked:${blockedAt.reason}`, guidance: blockedAt.guidance, dryRun: false, preview, results}
+  // 대체 발행: 계획이 바뀐 FEAT는 **옛 티켓을 고쳐 쓰지 않고** 새로 낸 뒤 옛 것을 닫는다.
+  // 이미 발행된 티켓의 본문을 바꾸면 그것을 읽고 작업 중인 개발자 밑에서 계약이 조용히
+  // 바뀐다. 원장은 `supersedes`로 무엇을 무엇이 대체했는지 남긴다(append-only).
+  const superseded = []
+  for (const item of plan.supersede ?? []) {
+    const fields = buildIssueFields(item.payload, {branch, assignee: flags.assignee ?? null})
+    const issue = await provider.createIssue(fields)
+    ;(io.appendSupersede ?? appendSupersedeRecord)(ledgerFile, {
+      featureId: item.featureId,
+      ticketKey: issue.ticketKey,
+      contentHash: item.contentHash,
+      createdAt: new Date().toISOString(),
+      branch,
+      supersedes: item.priorTicketKey,
+    })
+    // 옛 티켓은 **완료가 아니라 superseded**로 닫는다 — 닫힘을 완료로 오독하면 보드가 거짓이 된다.
+    await (io.gh ?? runGh)(issueSupersedeCloseArgs(repo, item.priorTicketKey, issue.ticketKey))
+    superseded.push({featureId: item.featureId, priorTicketKey: item.priorTicketKey, ticketKey: issue.ticketKey})
+  }
   // 이슈 자동 닫기 자산을 청구 브랜치에 설치한다(멱등, 덮어쓰지 않음). 커밋·push는
   // 브랜치를 만든 사람 몫이다 — CLI는 파일만 놓고 경로를 알린다.
   const installedCloseAssets = installTicketCloseAssets(root, closeAssets)
-  return {ok: true, dryRun: false, preview, results, freshness, closeAssets, installedCloseAssets}
+  return {ok: true, dryRun: false, preview, results, superseded, freshness, closeAssets, installedCloseAssets}
 }
 
 /**
