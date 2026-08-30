@@ -231,6 +231,72 @@ const defaultReadiness = (unit, units) => claimScopeReadiness({
   collisions: findPathCollisions(units),
 })
 
+// ── 산문이 말한 의존 간선이 선언에 있는가 ───────────────────────────────────
+// 오늘 세 번 같은 실수를 했다: 산문의 **웨이브 목록**을 간선으로 옮기면서 같은 문서가 네 줄
+// 위에서 준 **명시적 간선**을 안 읽었다(FEAT-008은 "FEAT-005와 FEAT-006 둘 다에 의존하지만"
+// 이라고 적혀 있는데 선언에서 006이 빠졌고, 그 한 줄이 잔여 8건 중 7건을 막았다).
+//
+// 웨이브는 묶음이지 간선이 아니다. 산문이 "A는 B에 의존한다"고 말하면 그것은 간선이다.
+//
+// **탐지 방식과 그 한계(프록시, §4 등록)**: `의존`이 나오는 자리 앞 창(80자)에서 FEAT ID를
+// 모아 첫 번째를 주체로, 나머지를 피의존으로 읽는다. 부정(`의존하지 않`)·독립 표현이 창에
+// 있으면 건너뛴다. 이것은 문장 구조 분석이 아니라 근접성 휴리스틱이다 —
+//   · 다른 말로 의존을 표현하면(“재사용한다”·“전제로 한다”) **놓친다**(과소 탐지, 정직한 방향)
+//   · 한 문장에 여러 절이 겹치면 주체를 잘못 집을 수 있다 — 그래서 판정에 **원문을 함께 싣는다**
+// 트리거를 `…에 의존` **절 형태**로 좁힌다. 단순히 `의존`만 보면 "파이프라인은 순차
+// 의존이므로"·웨이브 나열 같은 자리에서 엉뚱한 주체를 집는다(자체 실측: 오탐 4건).
+const DEPENDENCY_CLAUSE = /에\s*의존/g
+// 주체는 **주격·주제 조사가 붙은 FEAT**다. `FEAT-008(레인체인지)은`처럼 괄호가 끼어도 잡는다.
+// `\b`는 ASCII 단어 경계라 한글 조사 뒤에서 성립하지 않는다 — 붙이면 아무것도 안 잡힌다.
+const SUBJECT_MARKED = /FEAT-(\d{3,})(?:\([^)]*\))?\s*(?:은|는|이|가)/g
+const NEGATION = /(의존하지\s*않|독립적?으로|무관하)/
+
+export function extractProseEdges(text) {
+  const source = String(text ?? '')
+  const edges = new Map()
+  for (const match of source.matchAll(DEPENDENCY_CLAUSE)) {
+    const start = Math.max(0, match.index - 120)
+    const clause = source.slice(start, match.index)
+    if (NEGATION.test(source.slice(start, Math.min(source.length, match.index + 24)))) continue
+    // 주체: 창 안에서 **마지막으로** 조사가 붙은 FEAT(가장 가까운 절의 주어).
+    const marked = [...clause.matchAll(SUBJECT_MARKED)]
+    if (marked.length === 0) continue
+    const subjectMatch = marked[marked.length - 1]
+    const subject = `FEAT-${subjectMatch[1]}`
+    // 피의존: 주체 뒤부터 `에 의존` 사이에 나오는 FEAT들.
+    const tail = clause.slice(subjectMatch.index + subjectMatch[0].length)
+    for (const dep of new Set(tail.match(/FEAT-\d{3,}/g) ?? [])) {
+      if (dep === subject) continue
+      const key = `${subject}→${dep}`
+      if (!edges.has(key)) {
+        edges.set(key, {
+          subject, dep,
+          quote: source.slice(start + subjectMatch.index, Math.min(source.length, match.index + 12)).replace(/\s+/g, ' ').trim(),
+        })
+      }
+    }
+  }
+  return [...edges.values()]
+}
+
+export function checkProseEdgesDeclared(root, units) {
+  if (!units || units.length === 0) return skip('prose-edges', '단위를 읽지 못해 대조할 수 없다')
+  const dir = join(root, '_workspace/01_plan/feature-plan')
+  const text = existsSync(dir) && statSync(dir).isDirectory()
+    ? readdirSync(dir).filter(n => n.endsWith('.md')).sort().map(n => readFileSync(join(dir, n), 'utf8')).join('\n')
+    : (existsSync(join(root, '_workspace/01_plan/feature-plan.md')) ? readFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'utf8') : '')
+  const edges = extractProseEdges(text)
+  if (edges.length === 0) return skip('prose-edges', '산문에서 의존 진술을 찾지 못했다 — 없거나 다른 표현이다')
+  const declared = new Map(units.map(u => [u.featureId, new Set(u.dependsOn ?? [])]))
+  const known = new Set(units.map(u => u.featureId))
+  const missing = edges.filter(edge =>
+    known.has(edge.subject) && known.has(edge.dep) && !(declared.get(edge.subject)?.has(edge.dep)))
+  if (missing.length === 0) return ok('prose-edges', `산문이 말한 의존 ${edges.length}건이 전부 선언돼 있다`)
+  return hole('prose-edges',
+    missing.map(edge => `${edge.subject}→${edge.dep}: "${edge.quote}"`).join(' · '),
+    '산문이 명시한 간선을 dependsOn에 옮긴다 — 웨이브 목록은 묶음이지 간선이 아니다. 산문이 틀렸다면 산문을 고친다(둘 중 하나는 거짓이다)')
+}
+
 export const HANDOFFS = ['design', 'development']
 
 export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
@@ -238,8 +304,8 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   const units = loadPlanUnits(root)
   // 의존·경로는 **기획 산출물**이다. 디자인 인계에서 먼저 잡고, 개발 인계에서 다시 확인한다
   // (사이에 지워질 수 있다). 늦게 잡을수록 되돌리는 비용이 커진다.
-  const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkAcceptanceCoverage(units),
-    checkActivePickupIntact(root, units)]
+  const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkProseEdgesDeclared(root, units),
+    checkAcceptanceCoverage(units), checkActivePickupIntact(root, units)]
   if (to === 'design') {
     const results = [...planChecks, checkDesignInputs(root)]
     const holes = results.filter(r => r.state === 'HOLE')
