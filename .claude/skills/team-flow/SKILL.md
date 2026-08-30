@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.3.3
+  version: 0.4.0
   maturity: contract-only
   updated: 2026-08-30
-  changelog: 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  changelog: claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -79,6 +79,19 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
    (provider=`createGithubProvider`, ledger=`ledger-writer.appendLedgerRecord`, branch=현재 브랜치)로
    이슈를 생성하고 원장에 기록. 권한 부족이면 `permissions`가 등급별 안내(write=lazy-claim,
    triage=lead-emit, read=fork)로 정직 표기.
+
+5. **이슈 자동 닫기 설치.** 발행과 함께 `.github/workflows/ticket-close.yml`과
+   `.github/scripts/close-merged-tickets.mjs`를 청구 브랜치에 놓는다(멱등 — 이미 있으면
+   덮지 않는다). **커밋·push는 브랜치를 만든 사람 몫**이고 CLI는 경로만 알린다.
+
+   왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다.
+   팀 흐름은 여러 티켓을 청구 브랜치에 모아 통합하므로 그 머지에서는 안 닫힌다. 그런데
+   하네스의 완료 판정(`claim-scope`의 의존 해제·`board`의 merged)은 이미 "청구 브랜치
+   머지 = 완료"다 — 이 워크플로우가 없으면 보드는 완료라는데 이슈는 열린 채 남는다.
+
+   닫는 근거는 **원장 하나뿐**이다. PR 본문의 `#N`은 작성자가 아무 숫자나 적을 수 있어
+   남의 티켓을 닫는 경로가 된다. 원장에 `prUrl`이 기록되고 `branch`가 그 PR의 base와
+   같을 때만 닫는다 — 즉 `link`를 거친 PR만이다.
 
 ### `board` — 개발자 가용성 보드 (읽기 전용)
 

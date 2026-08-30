@@ -9,7 +9,8 @@
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
-import {basename, dirname, join} from 'node:path'
+import {basename, dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {computeBatchClaimPlan, formatBatchClaimPreview} from './batch-claim.mjs'
 import {computeClaimEligibility, claimEligibilityGuidance} from './claim-guard.mjs'
 import {resolveOriginPlanSync, resolveCurrentBranch, resolveWorktreeStatus, refreshRemoteRefs} from './git-origin.mjs'
@@ -43,6 +44,45 @@ export function parseArgs(argv) {
     else flags[arg.slice(2)] = true
   }
   return {command: command ?? null, positional, flags}
+}
+
+// 티켓 이슈 자동 닫기 자산 — 청구 브랜치에 설치한다.
+//
+// GitHub의 `Closes #N`은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은 청구 브랜치에 모아
+// 통합하므로 그 머지에서는 안 닫힌다. 그런데 하네스의 완료 판정(claim-scope 의존 해제·board
+// merged)은 이미 "청구 브랜치 머지 = 완료"다 — 보드는 완료라는데 이슈는 열린 채 남는다.
+// 이 워크플로우가 그 간극을 메운다.
+const ASSETS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills', 'team-flow', 'assets')
+export const TICKET_CLOSE_ASSETS = [
+  {asset: 'ticket-close.yml', target: '.github/workflows/ticket-close.yml'},
+  {asset: 'close-merged-tickets.mjs', target: '.github/scripts/close-merged-tickets.mjs'},
+]
+
+/** 설치 계획(순수 판정 + 파일 존재 조회). **덮어쓰지 않는다** — 프로젝트가 손본 사본을
+ * 조용히 되돌리면 안 된다. 자산 자체가 없으면(배포 형태 차이) 그 사실을 그대로 알린다. */
+export function planTicketCloseInstall(root, {assetsRoot = ASSETS_ROOT} = {}) {
+  const install = []
+  const present = []
+  const missingAssets = []
+  for (const entry of TICKET_CLOSE_ASSETS) {
+    const source = join(assetsRoot, entry.asset)
+    if (!existsSync(source)) { missingAssets.push(entry.asset); continue }
+    if (existsSync(join(root, entry.target))) present.push(entry.target)
+    else install.push({...entry, source})
+  }
+  return {install, present, missingAssets}
+}
+
+/** 계획대로 쓴다(멱등 — install 목록에만 쓴다). */
+export function installTicketCloseAssets(root, plan) {
+  const written = []
+  for (const entry of plan.install) {
+    const target = join(root, entry.target)
+    mkdirSync(dirname(target), {recursive: true})
+    writeFileSync(target, readFileSync(entry.source, 'utf8'))
+    written.push(entry.target)
+  }
+  return written
 }
 
 /** feature-plan의 위치를 해석한다 — sharding 계약상 **flat(.md) 또는 디렉터리** 두 형태다.
@@ -151,7 +191,8 @@ export async function runClaim({root, repo, flags, io = {}}) {
   if (plan.collisions.length > 0 || plan.cycles.length > 0) {
     return {ok: false, blocked: 'plan-defects', preview, guidance: '경로 충돌/순환 의존을 feature-planner에서 해소한 뒤 청구하세요'}
   }
-  if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness}
+  const closeAssets = planTicketCloseInstall(root)
+  if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets}
   // 발행(순서대로) — provider(라벨 pre-create 포함) + 원장(청구는 rebind 가드 append)
   const provider = io.provider ?? createGithubProvider({repo})
   const permission = await (io.permission ?? resolveViewerPermission)({repo})
@@ -176,7 +217,10 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 부분 차단은 성공이 아니다(리뷰: exit 2 기계 신호 정렬) — 발행/차단 내역은 results에 그대로.
   const blockedAt = results.find(result => result.blocked)
   if (blockedAt) return {ok: false, blocked: `claim-blocked:${blockedAt.reason}`, guidance: blockedAt.guidance, dryRun: false, preview, results}
-  return {ok: true, dryRun: false, preview, results, freshness}
+  // 이슈 자동 닫기 자산을 청구 브랜치에 설치한다(멱등, 덮어쓰지 않음). 커밋·push는
+  // 브랜치를 만든 사람 몫이다 — CLI는 파일만 놓고 경로를 알린다.
+  const installedCloseAssets = installTicketCloseAssets(root, closeAssets)
+  return {ok: true, dryRun: false, preview, results, freshness, closeAssets, installedCloseAssets}
 }
 
 /**

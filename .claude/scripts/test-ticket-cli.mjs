@@ -5,7 +5,7 @@
 // change-scope.md 발급, (3) link — STALE 차단·멱등·verified closeLine, (4) 원장 rebind 가드.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
+import {mkdtempSync, readFileSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {parseArgs, runClaim, runBoard, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
@@ -14,6 +14,7 @@ import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
 
 const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature'}
+const ASSETS_DIR = new URL('../skills/team-flow/assets/', import.meta.url).pathname
 const tmpRoot = () => mkdtempSync(join(tmpdir(), 'wh-cli-'))
 const withUnits = dir => {
   const path = join(dir, 'units.json')
@@ -335,4 +336,43 @@ test('board: merged 판정 전에도 갱신한다', async () => {
     assert.equal(order[0], 'fetch')
     assert.deepEqual(result.freshness, {fetched: true, basis: 'origin'})
   } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// 티켓 이슈 자동 닫기 자산 설치 — claim이 청구 브랜치에 놓는다. 멱등이고 덮어쓰지 않는다.
+test('claim: 이슈 자동 닫기 자산을 설치하되 기존 사본은 덮지 않는다', async () => {
+  const dir = tmpRoot()
+  try {
+    const io = {
+      refresh: async () => ({ok: true, reason: null}),
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+      permission: async () => 'write',
+      provider: {findByLabel: async () => null, ensureLabel: async () => {}, createIssue: async () => ({number: 7, url: 'https://x/issues/7'})},
+    }
+    const flags = {units: withUnits(dir), confirm: true}
+
+    const dry = await runClaim({root: dir, repo: 'o/r', flags: {units: flags.units}, io})
+    assert.deepEqual(dry.closeAssets.install.map(e => e.target),
+      ['.github/workflows/ticket-close.yml', '.github/scripts/close-merged-tickets.mjs'])
+    assert.equal(existsSync(join(dir, '.github/workflows/ticket-close.yml')), false)  // dry-run은 쓰지 않는다
+
+    const run = await runClaim({root: dir, repo: 'o/r', flags, io})
+    assert.deepEqual(run.installedCloseAssets,
+      ['.github/workflows/ticket-close.yml', '.github/scripts/close-merged-tickets.mjs'])
+    const workflow = readFileSync(join(dir, '.github/workflows/ticket-close.yml'), 'utf8')
+    assert.match(workflow, /issues: write/)
+
+    // 손댄 사본은 다시 청구해도 되돌아가지 않는다.
+    writeFileSync(join(dir, '.github/workflows/ticket-close.yml'), '# 프로젝트가 손본 사본\n')
+    const again = await runClaim({root: dir, repo: 'o/r', flags: {...flags}, io})
+    assert.deepEqual(again.installedCloseAssets, [])
+    assert.equal(readFileSync(join(dir, '.github/workflows/ticket-close.yml'), 'utf8'), '# 프로젝트가 손본 사본\n')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('설치된 워크플로우는 workflow 보안 검사를 통과한다', async () => {
+  const {inspectWorkflowSecurity} = await import('./validators/validate-workflows-and-evals.mjs')
+  const source = readFileSync(join(ASSETS_DIR, 'ticket-close.yml'), 'utf8')
+  const findings = inspectWorkflowSecurity({source, workflowPath: '.github/workflows/ticket-close.yml', trustedPromotionActions: []})
+  assert.deepEqual(findings.map(f => f.code), [])
 })
