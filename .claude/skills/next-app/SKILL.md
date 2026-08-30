@@ -88,7 +88,7 @@ Writable agent는 Bash를 사용하지 않는다. 각 구현 agent의 완료는 
 
 검증 전에 [QA/evidence contract](../../adapters/next-app-fullstack/references/qa-evidence-contract.md)를 읽는다.
 
-1. 로컬 진단은 오케스트레이터가 사용자 확인을 받은 뒤 공통 quality runner를 실행해 실제 exit와 source fingerprint receipt를 남긴다. 이 명령은 generated project의 package script를 실행하므로 자동 승인 대상이 아니다.
+1. 로컬 진단은 공통 quality runner를 실행해 실제 exit와 source fingerprint receipt를 남긴다. 이 명령은 generated project의 package script를 실행하므로 **프로젝트당 첫 실행은 `--allow-host-execution` 승인**이 필요하고, 그 승인은 기록돼 이후에는 다시 묻지 않는다(`development-gates-contract.md` 공통 규칙).
    ```bash
    node .claude/scripts/run-quality-gates.mjs --all --project {project-root} --allow-host-execution
    ```

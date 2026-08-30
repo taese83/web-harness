@@ -2,6 +2,7 @@
 
 import {spawnSync} from 'node:child_process'
 import {resolveProfileCommands} from './resolve-commands.mjs'
+import {evaluateHostExecutionGrant, recordHostExecutionGrant} from './host-execution-grant.mjs'
 import {randomUUID} from 'node:crypto'
 import {
   existsSync,
@@ -67,6 +68,7 @@ const FALLBACK_INGESTION_CHECK = {
   kind: 'contract',
   timeoutMs: 600_000,
 }
+const GRANT_NOTE = '되돌리려면 _workspace/03_dev/host-execution-grant.json 삭제'
 const args = process.argv.slice(2)
 let projectValue = process.cwd()
 let selectedCheck = null
@@ -98,11 +100,22 @@ if (allRequested && selectedCheck) {
   process.exit(2)
 }
 const externallyIsolated = process.env.WEB_HARNESS_ISOLATED_EXECUTION === '1'
-if (!externallyIsolated && !hostExecutionApproved) {
+const projectRoot = realpathSync(resolve(projectValue))
+// **한 번 승인하면 다시 묻지 않는다.** 이 러너는 생성된 프로젝트의 package script를 사용자
+// 머신에서 실행하므로 처음 한 번은 반드시 승인이 필요하다 — 그러나 매번 묻는 것은 판단이
+// 아니라 의식이다(Gate A·B·C·재시도마다 반복). 승인은 프로젝트+호스트에 결박해 기록되고,
+// 되돌리려면 `_workspace/03_dev/host-execution-grant.json`을 지운다.
+const standing = evaluateHostExecutionGrant(projectRoot)
+if (!externallyIsolated && !hostExecutionApproved && !standing.granted) {
   process.stderr.write('Quality runner executes project code; rerun after approval with --allow-host-execution or in isolated CI.\n')
+  if (standing.reason !== 'no-grant') process.stderr.write(`(기존 승인 무효: ${standing.reason})\n`)
   process.exit(2)
 }
-const projectRoot = realpathSync(resolve(projectValue))
+// 명시 승인으로 들어왔으면 그 사실을 남긴다 — 다음 게이트부터는 묻지 않는다.
+if (!externallyIsolated && hostExecutionApproved && !standing.granted) {
+  recordHostExecutionGrant(projectRoot)
+  process.stderr.write(`host 실행 승인을 기록했다 — 이 프로젝트에서는 다시 묻지 않는다(${GRANT_NOTE}).\n`)
+}
 // Toolchain pin preflight (development-gates-contract §toolchain pin): this runner spawns the
 // project's package scripts under the Node that launched it. If that Node is older than the
 // project's pinned major (.nvmrc), gates fail in confusing ways and any green is not valid
