@@ -11,7 +11,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -334,4 +334,180 @@ test('병렬성이 나빠도 그것 때문에 막지 않는다 — 재서 보여
     assert.ok(!report.holes.some(hole => /병렬|사슬|parallel/.test(`${hole.id}${hole.detail}`)),
       '병렬성은 판정 축이 아니다 — 파이프라인은 본래 순차이고 의존이 많은 것이 항상 잘못은 아니다')
   }, {shards: {'a.md': chain}})
+})
+
+// ── 상류 조정이 개발에 도달하는가 (2026-08-30) ──────────────────────────────
+// 기획·디자인·설계에서 조정한 결정이 **프리뷰 코드에만** 남으면 개발은 그것을 못 본다 —
+// Phase 3은 preview를 구현 입력으로 전달하는 것을 금지하므로 도달할 경로 자체가 없다.
+const withPreview = (fn, {preview = '', canon = '', log = ''} = {}) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-upstream-')))
+  try {
+    mkdirSync(join(root, '_workspace/02_design/preview'), {recursive: true})
+    mkdirSync(join(root, '_workspace/01_plan/decision-log'), {recursive: true})
+    mkdirSync(join(root, '_workspace/01_plan/feature-plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/preview/geom.js'), preview)
+    writeFileSync(join(root, '_workspace/01_plan/decision-log/log.md'), log)
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan/a.md'), canon)
+    return fn(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+test('프리뷰에만 있는 결정을 지적한다 — 개발이 도달할 경로가 없다', () => {
+  withPreview(root => {
+    const result = checkUpstreamDecisionsReachable(root)
+    assert.equal(result.state, 'HOLE')
+    assert.match(result.detail, /D-033/)
+  }, {
+    preview: '// 레인 폭은 D-033을 따른다',
+    log: '## D-033 · 레인체인지는 한 칸씩 순환 (2026-08-29)',
+    canon: '### FEAT-008 — 레인체인지\n시각적으로 구분해 표현한다.',
+  })
+})
+
+test('정본에 도달했으면 통과한다', () => {
+  withPreview(root => {
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'PASS')
+  }, {
+    preview: '// 레인 폭은 D-033을 따른다',
+    log: '## D-033 · 레인체인지는 한 칸씩 순환',
+    canon: '### FEAT-008\n레인은 한 칸씩 순환한다(D-033).',
+  })
+})
+
+// 자체 실측: 프리뷰가 인용한 5건 중 4건이 **대체된 결정**이었고 후속이 정본에 있었다.
+// 그것을 전부 지적하면 오탐이 되어 검사가 무시된다.
+test('대체·정정된 결정은 지적하지 않는다 — 후속이 정본에 있으면 도달한 것이다', () => {
+  withPreview(root => {
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'PASS')
+  }, {
+    preview: '// 뱅크 롤은 D-024',
+    log: ['## D-024 · 뱅크 롤 20°', '## D-042 · 뱅크 20° 복귀 — D-024 대체'].join('\n'),
+    canon: '### FEAT-005\n뱅크는 20°다(D-042).',
+  })
+})
+
+// 옮길 대상이 없는데 "옮겨라"라고 하면 처방이 틀린다.
+test('결정 로그에 없는 ID 인용은 다른 종류의 결함으로 가른다', () => {
+  withPreview(root => {
+    const result = checkUpstreamDecisionsReachable(root)
+    assert.equal(result.state, 'HOLE')
+    assert.match(result.detail, /결정 로그에 없는 ID/)
+    assert.match(result.remedy, /결정을 기록하거나 인용을 고친다/)
+  }, {preview: '// D-999를 따른다', log: '## D-001 · 무언가', canon: '내용'})
+})
+
+test('프리뷰가 없으면 검사하지 않는다 — 통과로 세지 않는다', () => {
+  withProject(root => {
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'SKIPPED')
+  }, {shards: {'a.md': DECLARED}})
+})
+
+// 방향을 뒤집으면 살아 있는 결정을 "도달했다"고 오판한다 — 실제 로그에서 물린 문장들.
+test('대체 방향은 계약된 표제 형태에서만 읽는다', () => {
+  const ids = supersededDecisionIds([
+    '## D-029 · 뱅크 구간 = 하나의 20° 기운 평면 — D-028 대체',
+    '## D-014 · 색 인덱스 의미 확정 — N-001 해소, D-003 등급 정정',
+    '## D-042 · 뱅크 20° 복귀 — 각도 드리프트 해소',
+    'D-022의 고도 공식(tan)은 D-023이 sin으로 정정',  // 표제가 아니다 — 보지 않는다
+  ].join('\n'))
+  assert.deepEqual([...ids].sort(), ['D-003', 'D-028'])
+})
+
+// 리뷰가 낸 fail-open 반례들. 제외는 stranded를 **줄이는** 방향으로만 작동하므로 방향을
+// 뒤집으면 살아 있는 결정이 조용히 통과한다 — 단정할 수 없으면 제외하지 않는 쪽이 맞다.
+test('피동문에서 방향을 뒤집지 않는다 — 단정 못 하면 제외하지 않는다', () => {
+  assert.deepEqual([...supersededDecisionIds('## D-024 · 뱅크 롤 — D-042로 대체됐다')], [])
+  assert.deepEqual([...supersededDecisionIds('## D-028 · 뱅크 — D-029에 의해 대체됐다')], [])
+})
+
+test('부정문을 대체로 읽지 않는다', () => {
+  assert.deepEqual([...supersededDecisionIds('## D-033 · 레인 순환 — D-030을 대체하지 않기로 했다')], [])
+})
+
+test('표제 밖 산문은 대체 판정에 쓰지 않는다', () => {
+  assert.deepEqual([...supersededDecisionIds('D-021 적용으로 렌더 지터 해소')], [])
+})
+
+// I3: ID 체계를 박지 않는다 — 하네스 계약은 PC-NNN, track은 D-NNN이다.
+test('로그가 선언한 접두사를 그대로 쓴다 — PC형과 D형 둘 다', () => {
+  const pc = declaredDecisions('## PC-014 (2026-08-10) — 주문 상세에 배송지 변경 추가')
+  assert.deepEqual([...pc.prefixes], ['PC'])
+  assert.ok(pc.ids.has('PC-014'))
+  const d = declaredDecisions('## D-036 · 프리뷰에서 확정한 형상 4건 (2026-08-29)')
+  assert.deepEqual([...d.prefixes], ['D'])
+  assert.ok(d.ids.has('D-036'))
+})
+
+test('표제 없는 로그는 SKIP이다 — 통과로 세지 않는다', () => {
+  withPreview(root => {
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'SKIPPED')
+  }, {preview: '// D-033을 따른다', log: '결정이 산문으로만 적혀 있다', canon: '내용'})
+})
+
+// 계약상 결정 로그는 **flat** `decision-log.md`다. 디렉터리만 읽으면 계약 준수 프로젝트에서
+// 이 검사가 영구 무의미해진다(2026-08-30 리뷰 BLOCK).
+test('계약 형태(flat decision-log.md, PC-NNN)에서도 동작한다', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-flat-log-')))
+  try {
+    mkdirSync(join(root, '_workspace/02_design/preview'), {recursive: true})
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/decision-log.md'),
+      '## PC-014 (2026-08-10) — 배송지 변경 추가\n## PC-015 (2026-08-11) — 재고 표기 정정')
+    writeFileSync(join(root, '_workspace/02_design/preview/app.js'), '// PC-015를 따른다')
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '### FEAT-001\n재고를 표기한다.')
+    const stranded = checkUpstreamDecisionsReachable(root)
+    assert.equal(stranded.state, 'HOLE')
+    assert.match(stranded.detail, /PC-015/)
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), '### FEAT-001\n재고를 표기한다(PC-015).')
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'PASS')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// 면제의 논거는 "후속이 정본에 있으면 도달한 것"이다 — 그 논거 자체를 검사하지 않으면
+// 옛 결정도 후속도 정본에 없는, **이 검사가 잡으려던 바로 그 상황**이 PASS로 나온다.
+test('대체됐어도 후속이 정본에 없으면 면제하지 않는다', () => {
+  withPreview(root => {
+    const result = checkUpstreamDecisionsReachable(root)
+    assert.equal(result.state, 'HOLE', '옛 결정도 후속도 정본에 없다')
+    assert.match(result.detail, /D-024/)
+  }, {
+    preview: '// 뱅크 롤은 D-024',
+    log: ['## D-024 · 뱅크 롤 20°', '## D-042 · 재조정 — D-024 대체'].join('\n'),
+    canon: '### FEAT-005\n뱅크를 그린다.',
+  })
+})
+
+test('후속의 사슬을 따라간다 — D-024 → D-042 → D-050이 정본에 있으면 면제한다', () => {
+  withPreview(root => {
+    assert.equal(checkUpstreamDecisionsReachable(root).state, 'PASS')
+  }, {
+    preview: '// 뱅크 롤은 D-024',
+    log: ['## D-024 · 뱅크 롤 20°', '## D-042 · 재조정 — D-024 대체', '## D-050 · 최종 — D-042 대체'].join('\n'),
+    canon: '### FEAT-005\n뱅크는 20°다(D-050).',
+  })
+})
+
+test('순환하는 대체 사슬에서도 멈춘다', () => {
+  const map = supersessionMap(['## D-001 · a — D-002 대체', '## D-002 · b — D-001 대체'].join('\n'))
+  assert.equal(supersededAndReached('D-001', map, new Set()), false)
+})
+
+// 한 표제에 진술이 둘이면 앞 진술의 행위자가 뒤 진술의 목적어로 새면 안 된다.
+test('키워드별로 직전 키워드 이후만 본다', () => {
+  const ids = supersededDecisionIds('## D-050 · x — D-001로 대체됐다, D-002 정정')
+  assert.deepEqual([...ids], ['D-002'], 'D-001은 피동 행위자다')
+})
+
+// flat 계획만 있는 프로젝트에서 "산문이 없다"는 **거짓 PASS**가 나던 자리.
+test('계획 산문을 flat·sharded 양형에서 읽는다', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-plan-shape-')))
+  try {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'),
+      '### FEAT-001\n### FEAT-002\nFEAT-002는 FEAT-001 이후에 진행한다.')
+    assert.equal(planSources(root).length, 1)
+    const units = [{featureId: 'FEAT-001', dependsOn: []}, {featureId: 'FEAT-002', dependsOn: []}]
+    const result = checkProseOnlyOrdering(root, units)
+    assert.equal(result.state, 'HOLE', 'flat 계획의 순서 산문을 읽어야 한다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })

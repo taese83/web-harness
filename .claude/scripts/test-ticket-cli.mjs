@@ -23,8 +23,13 @@ const withUnits = dir => {
   writeFileSync(path, JSON.stringify([unit]))
   return path
 }
+// 골든 경로는 완료 게이트를 **실제로 통과해야** 한다 — 통과하지 못하자 탈출 플래그를
+// 뿌린 것이 2026-08-30 리뷰의 HIGH였다. 청구 시드는 그 단위의 TC를 인용하는 소스를 함께
+// 둔다(실제 개발이 그러하듯이).
 const seedClaim = (dir, extra = {}) => {
   mkdirSync(join(dir, '_workspace', '03_dev'), {recursive: true})
+  mkdirSync(join(dir, 'src', 'features', 'dash'), {recursive: true})
+  writeFileSync(join(dir, 'src/features/dash/detail.test.ts'), "it('TC-001-1 상세를 표시한다', () => {})")
   appendLedgerRecord(join(dir, LEDGER_RELATIVE), {featureId: 'FEAT-001', ticketKey: '7', contentHash: unitContentHash(unit), createdAt: 't', branch: 'feature/dash', ...extra})
 }
 const issueBody = buildIssueFields(buildTicketDraft(unit), {branch: 'feature/dash'}).body
@@ -146,6 +151,9 @@ test('runLink: STALE 차단 · verified closeLine · 멱등 · 기본 실행', a
     const accepted = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true, 'accept-unverified-scope': true}})
     assert.equal(accepted.ok, true)
     assert.match(accepted.staleCheck, /not-performed/)
+    // 인수 사실이 **원장에 남는다** — 사후에 verified와 구별되지 않으면 휘발성 주장이다.
+    assert.equal(accepted.record.acceptedUnverifiedScope, true)
+    assert.match(accepted.record.staleCheck, /not-performed/)
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
 
@@ -441,5 +449,54 @@ test('pickup: --confirm 없이도 실행한다 — 미리보기는 --dry-run으�
     const preview = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me',
       flags: {units, 'dry-run': true, 'replace-scope': true}, io})
     assert.equal(preview.dryRun, true, '--dry-run은 여전히 미리보기다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// ── 완료 조건 게이트의 **배선** ────────────────────────────────────────────
+// 순수 코어(test-ticket-completion.mjs)만 회귀가 있고 main 경로가 0건이면, 이 저장소가 §4에
+// 세 번 등록한 클래스가 그대로 재발한다: *배선을 시험하는 회귀가 없으면 배선은 조용히 끊긴다.*
+// 아래 셋은 runLink를 실제로 태워 차단·통과·유예를 각각 잰다.
+test('runLink 배선: TC가 인용되지 않으면 플래그 없이 차단된다', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    seedClaim(dir)
+    rmSync(join(dir, 'src/features/dash/detail.test.ts')) // 인용을 없앤다
+    const {buildChangeScope} = await import('./ticket/pickup.mjs')
+    const {writeChangeScopeFile} = await import('./ticket/cli.mjs')
+    writeChangeScopeFile(dir, buildChangeScope({issue: {number: 7, title: 't', body: 'x'}, unit, testCaseIds: ['TC-001-1']}))
+    const blocked = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true}})
+    assert.equal(blocked.ok, false)
+    assert.equal(blocked.blocked, 'completion:uncited-test-cases')
+    assert.deepEqual(blocked.completion.missing, ['TC-001-1'])
+    // 명시 인수만 통과 — 그리고 그 사실이 **원장에 남는다**(휘발성 주장 금지).
+    const accepted = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9',
+      flags: {units, confirm: true, 'accept-incomplete': true}})
+    assert.equal(accepted.ok, true)
+    assert.equal(accepted.record.acceptedIncomplete, true)
+    assert.deepEqual(accepted.record.completion.missing, ['TC-001-1'])
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runLink 배선: 계획이 유예한 TC는 플래그 없이 통과하고 유예로 보고된다', async () => {
+  const dir = tmpRoot()
+  try {
+    const deferredUnit = {...unit, testCaseIds: ['TC-001-1', 'TC-001-2'],
+      body: '상세 표시\n- TC-001-2: 실기기 필요. [유예: 장비 확보 전까지]'}
+    const units = join(dir, 'units.json')
+    mkdirSync(dir, {recursive: true})
+    writeFileSync(units, JSON.stringify([deferredUnit]))
+    mkdirSync(join(dir, '_workspace', '03_dev'), {recursive: true})
+    mkdirSync(join(dir, 'src', 'features', 'dash'), {recursive: true})
+    writeFileSync(join(dir, 'src/features/dash/detail.test.ts'), "it('TC-001-1', () => {})")
+    appendLedgerRecord(join(dir, LEDGER_RELATIVE), {featureId: 'FEAT-001', ticketKey: '7',
+      contentHash: unitContentHash(deferredUnit), createdAt: 't', branch: 'feature/dash'})
+    const {buildChangeScope} = await import('./ticket/pickup.mjs')
+    const {writeChangeScopeFile} = await import('./ticket/cli.mjs')
+    writeChangeScopeFile(dir, buildChangeScope({issue: {number: 7, title: 't', body: 'x'}, unit: deferredUnit, testCaseIds: ['TC-001-1']}))
+    const linked = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true}})
+    assert.equal(linked.ok, true)
+    assert.equal(linked.record.acceptedIncomplete, undefined, '유예는 인수가 아니다')
+    assert.deepEqual(linked.record.completion.deferred, ['TC-001-2'], '유예는 숨기지 않고 기록한다')
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
