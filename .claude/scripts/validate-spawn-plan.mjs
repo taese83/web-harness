@@ -31,9 +31,11 @@
 // resume-manifest와 같은 파일을 공유해 교차 확인이 가능하다는 점에서 강하다.
 
 import {createHash} from 'node:crypto'
+import {AGENT_OWNERSHIP, isLayerPathDeclared, layerPattern, testLayerPaths} from './agent-registry.mjs'
+import {specDigest} from './spec.mjs'
 import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
-import {dirname, join, relative, resolve} from 'node:path'
+import {dirname, join, normalize, relative, resolve, sep} from 'node:path'
 import {pathToFileURL} from 'node:url'
 
 // 스팩 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
@@ -64,6 +66,78 @@ export function planDigest(plan) {
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16)
 }
+
+// 경로가 범위 안인지 — **훅과 같은 판정**을 쓴다. 종전 초안은 자체 구현이었는데 세 군데가
+// 어긋나 있었다(적대 리뷰 2026-08-30): 모노레포 선행 세그먼트(`apps/web/src/…`)를 훅은 덮고
+// 게이트는 못 덮어 정당한 계획을 REFUSE했고, 점이 든 디렉터리(`src/routes/app.tasks/`)는
+// 반대로 게이트만 통과시켰다. **판정이 둘이면 "계획은 통과, 훅은 차단"이 나고 그것이 바로
+// 이 커밋이 고치려는 문제다.** 판정은 등록부 한 곳에서만 나온다.
+export const withinScope = (path, scope) => {
+  if (!isLayerPathDeclared(scope)) return false
+  return layerPattern(scope).test(path)
+}
+
+// 이 계획이 **구현 스폰**인가. 자기선언이 아니라 outputs에서 도출한다 — `_workspace/` 밖에
+// 쓰면 소스를 만드는 것이고, 그것이 스팩을 전제조건으로 갖는 스폰이다. Phase 2 설계 스폰은
+// 산출물이 전부 `_workspace/` 안이라 이 규칙에 걸리지 않는다.
+// 경로는 **정규화 후** 본다 — `_workspace/../src/x.ts`로 적으면 검사가 통째로 꺼졌다.
+export const implementationOutputs = outputs =>
+  outputs.map(output => normalize(output).split(sep).join('/'))
+    .filter(output => !output.startsWith('_workspace/'))
+
+// 등록부 소유권(어떤 에이전트든)에 속하는가. 스캐폴더가 쓰는 `package.json`·`vite.config.ts`·
+// `docs/`는 layerMap에 있을 수 없고(루트를 레이어로 만들 수 없다) 훅은 **허용**한다 —
+// 이것을 소유권 밖으로 보면 정당한 스캐폴더 계획이 통째로 REFUSE된다(적대 리뷰가 잡은
+// 구조적 오탐). 훅이 허용하는 것을 게이트가 막으면 게이트를 건너뛰는 법을 학습시킨다.
+const ownedByAnyAgent = path =>
+  Object.values(AGENT_OWNERSHIP).some(patterns => patterns.some(pattern => pattern.test(path)))
+
+// 계획을 확정 스팩과 대조한다. 순수 — spec은 caller가 읽어 넘긴다.
+//
+// 왜 필요한가(2026-08-30 실측): 매니페스트가 스팩보다 76분 앞서 잠겼고, 아무것도 그 순서를
+// 보지 않았다. 매니페스트는 `lib/parse-track-string.ts`(평면)를, 스팩의 OD-001은
+// `lib/parse/`(하위 디렉터리)를 말했다. **두 아티팩트가 어긋난 채 구현에 도달했고, 개발
+// 세션이 판정 근거가 없어 사용자에게 "어느 쪽이 정본이냐"고 물었다** — 사용자가 알 수
+// 없는 질문이다(interaction-contract "묻지 않는 것"). 정본은 스팩이며 그 판정은 기계가 한다.
+export function checkPlanAgainstSpec(plan, spec) {
+  const outputs = Array.isArray(plan?.outputs) ? plan.outputs.filter(o => typeof o === 'string') : []
+  const sourceOutputs = implementationOutputs(outputs)
+  if (sourceOutputs.length === 0) return {state: 'NOT_IMPLEMENTATION', sourceOutputs}
+  if (!spec) return {state: 'SPEC_MISSING', sourceOutputs}
+  const ownership = [...Object.values(spec.layerMap ?? {}), ...testLayerPaths(spec)]
+    .filter(value => typeof value === 'string' && value.trim())
+  const boundaries = (Array.isArray(spec.moduleBoundaries) ? spec.moduleBoundaries : [])
+    .map(entry => entry?.scope).filter(value => typeof value === 'string' && value.trim())
+  const inSpecOwnership = sourceOutputs.filter(output => ownership.some(scope => withinScope(output, scope)))
+  return {
+    state: 'CHECKED',
+    sourceOutputs,
+    // 스팩도 등록부도 소유하지 않는 경로 = **아무도 소유하지 않는다**. 그것이 신호다.
+    outsideOwnership: sourceOutputs.filter(output =>
+      !ownership.some(scope => withinScope(output, scope)) && !ownedByAnyAgent(output)),
+    // 모듈 경계는 **스팩 소유 영역 안**에서만 의미가 있다 — 스캐폴더의 루트 설정은 경계를
+    // 가질 수 없고 가져서도 안 된다. moduleBoundaries 미선언은 검사 미수행(null)이며
+    // 통과가 아니다(§4 등록).
+    outsideBoundary: boundaries.length === 0
+      ? null
+      : inSpecOwnership.filter(output => !boundaries.some(scope => withinScope(output, scope))),
+    boundariesDeclared: boundaries.length,
+  }
+}
+
+export const specPathFor = root => join(root, '_workspace/03_dev/spec.json')
+
+export const readSpecAt = root => {
+  try {
+    return JSON.parse(readFileSync(specPathFor(root), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+// 스팩 확정 내용 자체의 해시 — planLock·원장에 함께 찍어 **계획이 어느 스팩 위에서 세워졌는지**를
+// 남긴다. 공식은 `spec.mjs`가 정본이다 — 재구현하면 한쪽이 정규화를 도입할 때 조용히 갈린다.
+export const specDigestOf = spec => (spec ? specDigest(spec) : null)
 
 export const DEFAULT_MAX_OUTPUTS = 8
 export const DEFAULT_MAX_READ_TOKENS = 60_000
@@ -190,6 +264,31 @@ export function analyzePlan(root, plan, opts = {}) {
     })
   }
 
+  // ── 확정 스팩과의 대조 ──────────────────────────────────────────────────
+  // 이 셋이 없어서 두 아티팩트가 어긋난 채 구현에 도달했다(2026-08-30 실측).
+  const specCheck = checkPlanAgainstSpec(plan, opts.spec !== undefined ? opts.spec : readSpecAt(root))
+  if (specCheck.state === 'SPEC_MISSING') {
+    violations.push({
+      rule: 'SPEC_REQUIRED',
+      detail: `소스에 쓰는 계획(${specCheck.sourceOutputs.length}개 산출물)인데 _workspace/03_dev/spec.json이 없다`,
+      remedy: '구현 스폰의 전제조건은 스팩 확정이다 — spec.mjs로 확정한 뒤 계획을 세운다. 스팩 없이 잠그면 나중에 확정된 스팩과 어긋난다',
+    })
+  }
+  if (specCheck.state === 'CHECKED' && specCheck.outsideOwnership.length > 0) {
+    violations.push({
+      rule: 'PLAN_OUTSIDE_SPEC_OWNERSHIP',
+      detail: `확정 스팩이 소유하지 않는 경로에 쓰려 한다: ${specCheck.outsideOwnership.join(', ')}`,
+      remedy: '스팩의 layerMap·testLayers도, 에이전트 등록부도 이 경로를 소유하지 않는다 — 스폰해도 소유권 훅이 막는다. 스팩을 재확정하거나 경로를 소유된 자리로 옮긴다',
+    })
+  }
+  if (specCheck.state === 'CHECKED' && specCheck.outsideBoundary && specCheck.outsideBoundary.length > 0) {
+    violations.push({
+      rule: 'PLAN_OUTSIDE_MODULE_BOUNDARY',
+      detail: `선언된 모듈 경계 ${specCheck.boundariesDeclared}개 어디에도 속하지 않는다: ${specCheck.outsideBoundary.join(', ')}`,
+      remedy: '모듈 경계는 병렬 쓰기 범위다 — 밖에 쓰면 다른 티켓과 같은 자리를 다투게 된다. **정본은 스팩이다**: 경로를 경계 안으로 옮겨 재계획하라(사용자에게 어느 쪽이 맞는지 묻지 않는다)',
+    })
+  }
+
   return {
     task: plan.task ?? null,
     readMode,
@@ -200,6 +299,7 @@ export function analyzePlan(root, plan, opts = {}) {
     maxReadTokens,
     largestReads: perFile.slice(0, 5),
     violations,
+    specCheck,
     verdict: violations.length === 0 ? 'FITS' : 'REFUSE',
   }
 }
@@ -258,8 +358,12 @@ function main() {
     // 안에만 있는" 약점 상태(§4)가 남지 않는다 — 같은 digest 재시도는 conflict가 아니라 멱등
     // 복구다. 원장은 매니페스트 바깥이라, 안에만 두면 지우거나(→unlocked) 축소 후 재확정해
     // 위조가 통하던 것을 최초 스팩 확정 한 줄로 드러낸다(실측 확인).
-    appendEvidenceLine(specLedgerPath(planPath), {task: plan.task ?? null, digest, at})
-    const stamped = {...plan, planLock: {digest, at}}
+    // 계획이 **어느 스팩 위에서** 세워졌는지 함께 남긴다. 이것이 없으면 스팩이 나중에
+    // 확정·재확정돼도 앞선 잠금이 그대로 살아남아 두 아티팩트가 조용히 어긋난다 —
+    // sourceFingerprint가 바뀌면 receipt가 stale이 되는 규율을 여기에도 건다.
+    const specDigest = specDigestOf(readSpecAt(root))
+    appendEvidenceLine(specLedgerPath(planPath), {task: plan.task ?? null, digest, at, specDigest})
+    const stamped = {...plan, planLock: {digest, at, ...(specDigest ? {specDigest} : {})}}
     writeFileSync(planPath, `${JSON.stringify(stamped, null, 2)}\n`)
     locked = digest
   }
@@ -294,7 +398,16 @@ function main() {
         console.log(`  ❌ ${v.rule}: ${v.detail}`)
         console.log(`      → ${v.remedy}`)
       }
-      console.log('REFUSE ⛔ — 이대로 스폰하면 재독 runaway 위험. 분할·발췌 후 다시 판정할 것.')
+      // 위반 클래스가 예산만이 아니게 됐다 — 스팩 어긋남에 "재독 runaway 위험"이라고
+      // 말하면 처방이 원인과 무관해진다(콘솔에서 반복해 잡았던 것과 같은 형태다).
+      const budgetRules = new Set(['OUTPUT_FANOUT', 'READ_BUDGET', 'READ_MISSING'])
+      const kinds = new Set(report.violations.map(v => (budgetRules.has(v.rule) ? 'budget' : 'spec')))
+      const tail = kinds.has('budget') && kinds.has('spec')
+        ? '예산과 스팩 정합 양쪽이 걸렸다 — 위 처방을 각각 따를 것.'
+        : kinds.has('budget')
+          ? '이대로 스폰하면 재독 runaway 위험. 분할·발췌 후 다시 판정할 것.'
+          : '계획이 확정 스팩과 어긋난다 — **정본은 스팩이다.** 스팩에 맞춰 재계획할 것.'
+      console.log(`REFUSE ⛔ — ${tail}`)
     }
   }
   process.exit(report.verdict === 'FITS' ? 0 : 1)
