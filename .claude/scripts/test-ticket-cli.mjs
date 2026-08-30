@@ -8,7 +8,7 @@ import test from 'node:test'
 import {mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {parseArgs, runClaim, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
+import {parseArgs, runClaim, runBoard, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
 import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
@@ -268,5 +268,71 @@ test('runClaim: sharded 계획에서도 origin 게이트가 디렉터리 경로�
     assert.equal(result.ok, true)
     assert.equal(result.dryRun, true)             // confirm 없으면 발행하지 않는다
     assert.match(result.preview, /FEAT-001/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// origin 신선도 — git-origin이 "판정 전 fetch를 선행하거나 스냅샷 기준임을 표기하라"고
+// 경고하면서 배선을 미뤄뒀고, 실제로는 claim·pickup·board 어디에도 fetch가 없었다.
+// 이제 둘 다 한다: 갱신을 시도하고, 실패하면 스냅샷 기준임을 응답에 표기한다.
+test('claim: origin 판정 전에 remote-tracking을 갱신하고 기준을 표기한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const order = []
+    const io = {
+      refresh: async () => { order.push('fetch'); return {ok: true, reason: null} },
+      originSync: async () => { order.push('judge'); return {originExists: true, planMatchesOrigin: true, base: 'origin/main'} },
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir)}, io})
+    assert.deepEqual(order, ['fetch', 'judge'])          // 갱신이 판정보다 앞선다
+    assert.deepEqual(result.freshness, {fetched: true, basis: 'origin'})
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('claim: fetch 실패는 판정을 막지 않고 스냅샷 기준으로 표기된다', async () => {
+  const dir = tmpRoot()
+  try {
+    const io = {
+      refresh: async () => ({ok: false, reason: 'network unreachable'}),
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir)}, io})
+    assert.equal(result.ok, true)                        // 네트워크 없어도 미리보기는 된다
+    assert.equal(result.freshness.fetched, false)
+    assert.equal(result.freshness.basis, 'local-snapshot')
+    assert.equal(result.freshness.reason, 'network unreachable')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('claim: --no-fetch면 갱신을 시도하지 않고 그 사실을 표기한다', async () => {
+  const dir = tmpRoot()
+  try {
+    let attempted = false
+    const io = {
+      refresh: async () => { attempted = true; return {ok: true, reason: null} },
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir), 'no-fetch': true}, io})
+    assert.equal(attempted, false)
+    assert.equal(result.freshness.basis, 'local-snapshot')
+    assert.match(result.freshness.reason, /no-fetch/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('board: merged 판정 전에도 갱신한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const order = []
+    const io = {
+      refresh: async () => { order.push('fetch'); return {ok: true, reason: null} },
+      merged: async () => { order.push('merged'); return [] },
+      issues: async () => [],
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runBoard({root: dir, repo: 'o/r', developer: null, flags: {units: withUnits(dir)}, io})
+    assert.equal(order[0], 'fetch')
+    assert.deepEqual(result.freshness, {fetched: true, basis: 'origin'})
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
