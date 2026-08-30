@@ -11,7 +11,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -223,5 +223,55 @@ test('진행 중인 픽업이 멀쩡하면 통과한다', () => {
 test('진행 중인 픽업이 없으면 검사하지 않는다 — 통과로 세지 않는다', () => {
   withProject(root => {
     assert.equal(checkActivePickupIntact(root, []).state, 'SKIPPED')
+  }, {shards: {'a.md': DECLARED}})
+})
+
+// ── 산문이 말한 의존 간선 (2026-08-30) ──────────────────────────────────────
+// 오늘 세 번 같은 실수를 했다: 산문의 **웨이브 목록**을 간선으로 옮기면서 같은 문서가
+// 네 줄 위에서 준 **명시적 간선**을 안 읽었다. 그 한 줄이 잔여 8건 중 7건을 막았다.
+test('산문의 명시적 간선을 뽑는다 — 웨이브는 묶음이지 간선이 아니다', () => {
+  const edges = extractProseEdges('FEAT-008(레인체인지)은 FEAT-005(고도)와 FEAT-006(배치) 둘 다에 의존하지만, laneOffset은 독립 축이다.')
+  assert.deepEqual(edges.map(e => `${e.subject}→${e.dep}`), ['FEAT-008→FEAT-005', 'FEAT-008→FEAT-006'])
+  assert.match(edges[0].quote, /둘 다에 의존/, '원문을 함께 실어야 사람이 즉시 판단한다')
+})
+
+test('주체는 조사가 붙은 가장 가까운 FEAT다 — 나열 속에서도 옳게 집는다', () => {
+  const wave = '{FEAT-006, FEAT-008, FEAT-010, FEAT-013} 병렬 → {FEAT-007, FEAT-012}(FEAT-007은 FEAT-012의 이벤트에 의존하므로 통합)'
+  assert.deepEqual(extractProseEdges(wave).map(e => `${e.subject}→${e.dep}`), ['FEAT-007→FEAT-012'])
+})
+
+test('부정·독립 진술은 간선이 아니다', () => {
+  assert.deepEqual(extractProseEdges('FEAT-011은 FEAT-006과 무관하며 의존하지 않는다'), [])
+  assert.deepEqual(extractProseEdges('FEAT-014는 FEAT-006 이전에 독립적으로 선행 개발 가능하다'), [])
+})
+
+// 자체 실측: 트리거가 `의존`만이면 "파이프라인은 순차 의존이므로"에서 엉뚱한 주체를 집어
+// 오탐 4건이 났다. `…에 의존` 절 형태로 좁혔다.
+test('의존이라는 낱말만으로는 간선을 만들지 않는다', () => {
+  assert.deepEqual(extractProseEdges('FEAT-001(fetch)이 실패하면 FEAT-002는 비활성이다. 파이프라인은 순차 의존이므로'), [])
+})
+
+test('산문 간선이 선언에 없으면 지적하고, 있으면 통과한다', () => {
+  const prose = '## 인접\n- FEAT-008(레인체인지)은 FEAT-005와 FEAT-006(배치) 둘 다에 의존하지만 독립 축이다.'
+  const shards = {'a.md': [
+    '## FEAT-005 고도', '<!-- web-harness:unit feat=FEAT-005 dependsOn=none paths=src/entities/e -->', '- TC-005-1 x',
+    '## FEAT-006 씬', '<!-- web-harness:unit feat=FEAT-006 dependsOn=none paths=src/widgets/c -->', '- TC-006-1 x',
+    '## FEAT-008 레인', '<!-- web-harness:unit feat=FEAT-008 dependsOn=FEAT-005 paths=src/widgets/l -->', '- TC-008-1 x',
+  ].join('\n'), 'b.md': prose}
+  withProject(root => {
+    const missing = checkProseEdgesDeclared(root, loadPlanUnits(root))
+    assert.equal(missing.state, 'HOLE')
+    assert.match(missing.detail, /FEAT-008→FEAT-006/)
+  }, {shards})
+
+  const fixed = {...shards, 'a.md': shards['a.md'].replace('feat=FEAT-008 dependsOn=FEAT-005', 'feat=FEAT-008 dependsOn=FEAT-005,FEAT-006')}
+  withProject(root => {
+    assert.equal(checkProseEdgesDeclared(root, loadPlanUnits(root)).state, 'PASS')
+  }, {shards: fixed})
+})
+
+test('계획에 없는 FEAT를 가리키는 산문 간선은 지적하지 않는다 — 없는 근거로 막지 않는다', () => {
+  withProject(root => {
+    assert.equal(checkProseEdgesDeclared(root, loadPlanUnits(root)).state, 'SKIPPED')
   }, {shards: {'a.md': DECLARED}})
 })
