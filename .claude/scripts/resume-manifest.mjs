@@ -29,7 +29,7 @@
 
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {extname, join, relative, resolve} from 'node:path'
-import {specLedgerPath, planDigest} from './validate-spawn-plan.mjs'
+import {specLedgerPath, planDigest, readSpecAt, specDigestOf} from './validate-spawn-plan.mjs'
 import {readEvidenceLog} from './evidence-log-lib.mjs'
 import {SCANNABLE, scanSource} from './verify-spawn-completion.mjs'
 import {pathToFileURL} from 'node:url'
@@ -113,6 +113,40 @@ export function classifyOutput(root, rel, {readFile = p => readFileSync(p, 'utf8
   return reasons.length > 0 ? {file: rel, status: 'truncated', reasons} : {file: rel, status: 'done', reasons: []}
 }
 
+// 계획이 세워진 스팩과 **지금** 스팩이 같은가. 증거는 **원장 우선**이다.
+//
+// 실측(2026-08-30): 매니페스트가 스팩보다 76분 앞서 잠겼고, 나중에 확정된 스팩의 결정
+// (OD-001 — 파서를 `lib/parse/` 하위에 둔다)과 계획 경로(`lib/parse-track-string.ts`)가
+// 어긋났다. **아무것도 그 어긋남을 보지 않아서** 개발 세션이 사용자에게 "어느 쪽이
+// 정본이냐"고 물었다 — 사용자가 답할 근거가 없는 질문이다. 정본은 스팩이고, 여기서 말한다.
+//
+// **원장을 먼저 읽는 이유**(적대 리뷰 2026-08-30이 잡음): `planDigest`는 `planLock`을 digest
+// 대상에서 제외하므로 매니페스트에서 `specDigest` 키 한 줄만 지우면 계획 digest는 그대로고
+// 판정만 STALE→UNBOUND(경고)로 강등됐다. planLock을 매니페스트 안에만 두었다가 두 우회로
+// 뚫렸던 판례(§4)의 재발이다 — 증거는 위조 대상 바깥에 둔다.
+//
+// 상태: NO_SPEC(결속도 스팩도 없음) · SPEC_GONE(결속은 있는데 스팩이 없거나 깨졌다 —
+//       **fail-closed**) · UNBOUND(결속 자체가 없다, 결속 도입 이전 잠금) · STALE · OK
+export function inspectPlanSpecBinding(root, lock, manifestPath = null, spec = undefined) {
+  const fromLedger = manifestPath
+    ? readEvidenceLog(specLedgerPath(manifestPath))
+      .filter(row => typeof row?.specDigest === 'string')
+      .at(-1)?.specDigest ?? null
+    : null
+  const bound = fromLedger ?? (typeof lock?.specDigest === 'string' ? lock.specDigest : null)
+  const source = fromLedger ? 'ledger' : (bound ? 'manifest' : null)
+  const resolved = spec === undefined ? readSpecAt(root) : spec
+  if (!resolved) {
+    // 결속 증거가 있는데 스팩이 없다 = 잠금 시점엔 있었다는 뜻이다. 부재로 강등하면
+    // STALE에 몰린 세션이 spec.json을 지우거나 한 바이트 깨뜨려 결박을 끌 수 있다
+    // (§4 spec-lock 행의 INVALID_SPEC 판례와 같은 클래스).
+    return bound ? {state: 'SPEC_GONE', bound, source} : {state: 'NO_SPEC', bound: null, source}
+  }
+  const current = specDigestOf(resolved)
+  if (!bound) return {state: 'UNBOUND', bound, current, source}
+  return bound === current ? {state: 'OK', bound, current, source} : {state: 'STALE', bound, current, source}
+}
+
 // 매니페스트 outputs 목록을 분류해 done/truncated/missing/remaining으로 나눈다. 순수.
 export function computeRemaining(root, outputs, deps) {
   const results = outputs.map(rel => classifyOutput(root, rel, deps))
@@ -153,9 +187,10 @@ function main() {
   const {results, done, truncated, missing, remaining} = computeRemaining(root, outputs)
   const lock = verifyPlanLock(manifest, readLockLedger(manifestPath))
   const cross = crossCheckOwned(root, outputs, opts.owned)
+  const specBinding = inspectPlanSpecBinding(root, manifest.planLock, manifestPath)
 
   if (opts.json) {
-    console.log(JSON.stringify({schemaVersion: 1, task: manifest.task ?? null, total: outputs.length, done, truncated: truncated.map(r => ({file: r.file, reasons: r.reasons})), missing, remaining, planLock: lock, ownedCrossCheck: cross}, null, 2))
+    console.log(JSON.stringify({schemaVersion: 1, task: manifest.task ?? null, total: outputs.length, done, truncated: truncated.map(r => ({file: r.file, reasons: r.reasons})), missing, remaining, planLock: lock, specBinding, ownedCrossCheck: cross}, null, 2))
   } else {
     for (const r of truncated) { console.log(`  ⚠️  TRUNCATED ${r.file}`); for (const reason of r.reasons) console.log(`      - ${reason}`) }
     for (const f of missing) console.log(`  ❌ MISSING ${f}`)
@@ -168,20 +203,36 @@ function main() {
     } else {
       console.log('  ⚠️  계획 스팩 확정 없음 — outputs는 검증되지 않은 자기선언이다(validate-spawn-plan --lock 권장).')
     }
+    if (specBinding.state === 'SPEC_GONE') {
+      console.log('  ⛔ SPEC_GONE — 이 계획은 스팩 위에서 잠겼는데 지금 그 스팩이 없거나 깨졌다')
+      console.log(`      결속 기록 ${specBinding.bound.slice(0, 16)} [${specBinding.source}] · 현재 spec.json 판독 불가`)
+      console.log('      스팩 부재로 강등해 통과시키지 않는다 — 스팩을 복구하거나 재확정하라.')
+    } else if (specBinding.state === 'STALE') {
+      console.log('  ⛔ PLAN_LOCK_SPEC_STALE — 이 계획은 **다른 스팩** 위에서 세워졌다')
+      console.log(`      계획이 본 스팩 ${specBinding.bound.slice(0, 16)} [${specBinding.source}] ≠ 현재 스팩 ${specBinding.current.slice(0, 16)}`)
+      console.log('      정본은 스팩이다. 계획 경로가 스팩의 layerMap·moduleBoundaries와 어긋나면')
+      console.log('      **스팩에 맞춰 새 task 이름으로 재계획**한다 — 어느 쪽이 맞는지 사람에게 묻지 않는다.')
+    } else if (specBinding.state === 'UNBOUND' && lock.status === 'locked') {
+      console.log('  ⚠️  이 계획에는 스팩 결속이 없다(결속 도입 이전 잠금) — 스팩과 어긋나도 기계가 잡지 못한다.')
+      console.log('      스팩을 정본으로 대조하고, 다시 잠글 때 새 task 이름으로 재계획한다.')
+    }
     if (cross && cross.undeclared.length > 0) {
       console.log(`  ⚠️  owned 범위에 선언되지 않은 산출물 ${cross.undeclared.length}개 — 매니페스트가 현실과 어긋난다:`)
       for (const f of cross.undeclared.slice(0, 10)) console.log(`      ${f}`)
       if (cross.undeclared.length > 10) console.log(`      … 외 ${cross.undeclared.length - 10}개`)
     }
-    if (remaining.length === 0 && lock.status !== 'TAMPERED') console.log('COMPLETE ✅ — 모든 선언 산출물 완결')
-    else if (remaining.length === 0) console.log('INVALID ⛔ — 선언분은 완결이나 계획이 변조됐다.')
+    if (remaining.length === 0 && lock.status !== 'TAMPERED' && !['STALE', 'SPEC_GONE'].includes(specBinding.state)) console.log('COMPLETE ✅ — 모든 선언 산출물 완결')
+    else if (remaining.length === 0 && lock.status === 'TAMPERED') console.log('INVALID ⛔ — 선언분은 완결이나 계획이 변조됐다.')
+    else if (remaining.length === 0) console.log('INVALID ⛔ — 선언분은 완결이나 계획의 스팩 결속이 깨졌다.')
     else {
       console.log(`RESUME ⟳ — 남은 ${remaining.length}개만 재스폰(완성분 재작성 금지):`)
       for (const f of remaining) console.log(`    ${f}`)
     }
   }
+  // STALE도 fail-closed다 — 낡은 전제 위의 계획을 COMPLETE로 인정하면 스팩이 정본이라는
+  // 규율이 이 경로에서만 무너진다.
   // TAMPERED는 remaining이 비어도 실패다(fail-closed) — 축소된 계획의 COMPLETE를 인정하지 않는다.
-  process.exit(remaining.length === 0 && lock.status !== 'TAMPERED' ? 0 : 1)
+  process.exit(remaining.length === 0 && lock.status !== 'TAMPERED' && !['STALE', 'SPEC_GONE'].includes(specBinding.state) ? 0 : 1)
 }
 
 // main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는

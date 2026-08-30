@@ -6,8 +6,8 @@ import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import test from 'node:test'
-import {classifyOutput, computeRemaining, crossCheckOwned, scanOwned, verifyPlanLock} from './resume-manifest.mjs'
-import {planDigest} from './validate-spawn-plan.mjs'
+import {classifyOutput, computeRemaining, crossCheckOwned, inspectPlanSpecBinding, scanOwned, verifyPlanLock} from './resume-manifest.mjs'
+import {planDigest, specDigestOf} from './validate-spawn-plan.mjs'
 
 function fixture(files) {
   const root = mkdtempSync(join(tmpdir(), 'wh-resume-'))
@@ -179,4 +179,58 @@ test('원장은 같은 task 항목만 대조한다(다른 task 오염 방지)', 
     {task: 'mine', digest: planDigest(mine), at: 'T1'},
   ]
   assert.equal(verifyPlanLock(mine, ledger).status, 'locked')
+})
+
+// ── 계획 ↔ 스팩 결속 (2026-08-30) ───────────────────────────────────────────
+// 매니페스트가 스팩보다 먼저 잠기면 그 계획은 낡은 전제 위에 선다. 종전에는 아무것도 그
+// 어긋남을 보지 않아서, 개발 세션이 사용자에게 "어느 쪽이 정본이냐"를 물었다.
+
+const SPEC = {schemaVersion: 2, layerMap: {domain: 'src/entities'}, testLayers: {unit: 'src'}}
+
+const withSpec = (spec, fn) => {
+  const root = fixture({})
+  try {
+    if (spec) {
+      mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+      writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify(spec))
+    }
+    return fn(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+test('결속도 스팩도 없으면 NO_SPEC — 결속을 주장하지 않는다', () => {
+  withSpec(null, root => {
+    assert.equal(inspectPlanSpecBinding(root, {digest: 'x', at: 'T0'}).state, 'NO_SPEC')
+  })
+})
+
+// 결속이 있는데 스팩이 없다 = 잠금 시점엔 있었다는 뜻이다. 부재로 강등하면 STALE에 몰린
+// 세션이 spec.json을 지워 결박을 끌 수 있다(§4 INVALID_SPEC 판례와 같은 클래스).
+test('결속은 있는데 스팩이 사라지면 SPEC_GONE — 부재로 강등하지 않는다', () => {
+  withSpec(null, root => {
+    const lock = {digest: 'x', at: 'T0', specDigest: 'a'.repeat(64)}
+    assert.equal(inspectPlanSpecBinding(root, lock).state, 'SPEC_GONE')
+  })
+})
+
+test('결속 없는 옛 잠금은 UNBOUND — 통과가 아니라 미검사다', () => {
+  withSpec(SPEC, root => {
+    assert.equal(inspectPlanSpecBinding(root, {digest: 'x', at: 'T0'}).state, 'UNBOUND')
+  })
+})
+
+test('같은 스팩 위에서 잠겼으면 OK', () => {
+  withSpec(SPEC, root => {
+    const lock = {digest: 'x', at: 'T0', specDigest: specDigestOf(SPEC)}
+    assert.equal(inspectPlanSpecBinding(root, lock).state, 'OK')
+  })
+})
+
+test('스팩이 그 뒤로 바뀌었으면 STALE — 계획이 낡은 것이지 스팩이 틀린 게 아니다', () => {
+  withSpec(SPEC, root => {
+    const lock = {digest: 'x', at: 'T0', specDigest: specDigestOf({...SPEC, layerMap: {domain: 'src/other'}})}
+    const result = inspectPlanSpecBinding(root, lock)
+    assert.equal(result.state, 'STALE')
+    assert.notEqual(result.bound, result.current)
+  })
 })
