@@ -42,12 +42,27 @@ false-fail 대신 미검사로 남긴다(신뢰성 우선). 네트워크(registr
 
 package, tooling, shared foundation, app shell과 활성 infrastructure가 완료된 뒤:
 
-1. package script ↔ config ↔ entrypoint closure
+1. package script ↔ config ↔ entrypoint closure — **기계로 대조한다**:
+
+   ```bash
+   node .claude/scripts/validate-environment-closure.mjs --project {project-root}
+   ```
+
+   필수 script(`build`·`lint`·`typecheck`·`test`·`test:coverage`·`test:tc`, web app이면
+   `dev`·`test:e2e`)와 ESLint 계열 의존성·Flat Config의 존재를 본다. 누락이면 `BLOCKED`이며
+   `environment-scaffolder`로 되돌린다. 산문 계약만으로는 지켜지지 않는다는 것이 실측됐다
+   (2026-08-30: lint·typecheck·test:coverage·test:tc·test:e2e 5개와 ESLint가 통째로 없는 채
+   Phase 3가 진행돼, 세 게이트가 요구하는 lint 축이 도구 부재로 조용히 사라졌다).
 2. locked profile/toolchain 재생성 및 execution-plan binding
 3. `typecheck`, `lint`
 4. 기존 프로젝트면 changed paths ↔ `ALLOWED_PATHS`와 owner journal
 
 entrypoint나 dependency가 아직 없어 check가 실행 불가능하면 `BLOCKED`다. 후속 UI가 해결할 오류로 넘기지 않는다.
+
+**축이 없으면 통과가 아니다(A·B·C 공통).** 도구·script가 없어 `typecheck`·`lint`·`build`를
+실행할 수 없으면 그 게이트는 `BLOCKED`다 — "미구성"으로 표기하고 넘어가면 계약이 요구하는
+축이 **없다는 이유로 면제**되어 §4 공허 통과가 된다. 표기는 정직해야 하지만, 정직한 표기가
+통과를 만들지는 않는다.
 
 ## Gate B — Surface Contract
 
