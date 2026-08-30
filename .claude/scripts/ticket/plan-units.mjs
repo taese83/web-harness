@@ -59,6 +59,18 @@ const parseList = value => {
   return value.split(',').map(entry => entry.trim()).filter(Boolean)
 }
 
+/**
+ * 본문에서 **하네스 제어 마커를 걷어낸다.** 청구 형상 해시(`unitContentHash`)가 body 원문을
+ * 해시하는데 그 원문에 하네스 자신의 기계 판독 마커가 들어 있었다 — **의존·경로를 선언하라고
+ * 요구한 바로 그 행위가 이미 발행된 티켓의 청구를 전부 무효화했다**(2026-08-30 실측: track
+ * 11건이 sync-required로 영구 픽업 불가. 마커를 빼고 다시 해시하니 원장 값이 4/4 정확히
+ * 복원됐다 — 스펙은 한 글자도 안 바뀌었다는 증거다).
+ *
+ * 게이트를 약하게 하는 것이 아니라 **"무엇이 내용인가"를 고치는 것**이다. 마커는 스케줄링
+ * 메타데이터이지 "무엇을 만드는가"가 아니다. 제목·TC·산문이 바뀌면 여전히 stale이 난다.
+ */
+export const stripUnitMarker = body => String(body ?? '').replace(UNIT_MARKER, '').replace(/\n{3,}/g, '\n\n').trim()
+
 /** FEAT 섹션 본문에서 병렬 안전성 선언을 뽑는다(순수). 미선언 필드는 담지 않는다. */
 export function parseUnitDeclaration(body, featureId) {
   const parsed = parseMarkerAttributes(body)

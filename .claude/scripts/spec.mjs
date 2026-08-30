@@ -72,6 +72,16 @@ export class LockError extends Error {
   }
 }
 
+// 하네스 제어 마커(`web-harness:unit` 등)는 **내용이 아니다.** 하네스가 "선언하라"고 요구해서
+// 넣은 주석이 그 하네스의 stale 판정을 발화시키면, 요구를 따르는 행위가 곧 자기 무효화가 된다
+// (2026-08-30 실측: 같은 결함이 티켓 청구 해시에서 먼저 터졌고 여기가 두 번째 자리였다).
+// 스케줄링 메타데이터를 빼도 기획·설계 본문이 바뀌면 여전히 잡힌다.
+const HARNESS_MARKERS = /<!--\s*web-harness:(?:unit|refs)\s[^>]*?-->\s*/g
+export const stripHarnessMarkers = value =>
+  Buffer.isBuffer(value) || typeof value === 'string'
+    ? String(value).replace(HARNESS_MARKERS, '')
+    : value
+
 const sha256 = value => createHash('sha256').update(value).digest('hex')
 
 const requireNonEmptyString = (value, code, message) => {
@@ -163,12 +173,12 @@ export const digestInputs = (projectRoot, inputs = LOCK_INPUTS) => {
     }
     const {kind, files} = resolveInputFiles(root, relativePath)
     if (kind === 'absent') return {path: relativePath, present: false}
-    if (kind === 'flat') return {path: relativePath, present: true, sha256: sha256(readFileSync(candidate))}
+    if (kind === 'flat') return {path: relativePath, present: true, sha256: sha256(stripHarnessMarkers(readFileSync(candidate, 'utf8')))}
     // 샤드는 **경로와 해시를 함께** 잇는다 — 샤드가 추가·삭제·개명되는 것도 입력 변경이다.
     // 내용만 이으면 파일을 쪼개거나 합치는 것이 다이제스트에 안 잡힌다.
     // 결합은 JSON으로 한다: 파일명은 콜론·개행을 담을 수 있어서 `path:hash`를 개행으로 이으면
     // 서로 다른 샤드 집합이 같은 문자열을 만들 수 있다(인코딩 모호성).
-    const shards = files.map(file => ({path: file.path, sha256: sha256(readFileSync(resolve(root, file.read)))}))
+    const shards = files.map(file => ({path: file.path, sha256: sha256(stripHarnessMarkers(readFileSync(resolve(root, file.read), 'utf8')))}))
     return {
       path: relativePath,
       present: true,

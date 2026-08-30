@@ -181,3 +181,22 @@ test('layer는 마커에서 받지 않는다 — 자기선언으로 게이트를
   const [unit] = parseFeaturePlanUnits(md)
   assert.equal(unit.layer, undefined)
 })
+
+// 하네스가 "선언하라"고 요구한 주석이 그 하네스의 stale 판정을 발화시키면, 요구를 따르는
+// 행위가 곧 자기 무효화다(2026-08-30 실측: 선언 커밋 하나로 track 11건이 영구 픽업 불가).
+test('마커는 청구 형상 해시에 들어가지 않는다 — 선언이 청구를 무효화하지 않는다', async () => {
+  const {unitContentHash} = await import('./ticket/emit.mjs')
+  const plain = '## FEAT-009 미지원 피스\n- TC-009-1 기대\n본문'
+  const marked = '## FEAT-009 미지원 피스\n\n<!-- web-harness:unit feat=FEAT-009 dependsOn=FEAT-002 paths=src/x/ -->\n- TC-009-1 기대\n본문'
+  const [a] = parseFeaturePlanUnits(plain)
+  const [b] = parseFeaturePlanUnits(marked)
+  assert.equal(unitContentHash(b), unitContentHash(a), '마커만 추가했는데 형상이 달라지면 청구가 무효화된다')
+  assert.deepEqual(b.dependsOn, ['FEAT-002'], '해시에서 뺐다고 선언까지 잃으면 안 된다')
+})
+
+test('본문이 실제로 바뀌면 여전히 잡는다 — 게이트를 약하게 한 것이 아니다', async () => {
+  const {unitContentHash} = await import('./ticket/emit.mjs')
+  const [a] = parseFeaturePlanUnits('## FEAT-009 x\n<!-- web-harness:unit feat=FEAT-009 dependsOn=none -->\n본문 v1')
+  const [b] = parseFeaturePlanUnits('## FEAT-009 x\n<!-- web-harness:unit feat=FEAT-009 dependsOn=none -->\n본문 v2')
+  assert.notEqual(unitContentHash(a), unitContentHash(b))
+})

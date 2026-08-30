@@ -603,3 +603,17 @@ test('ID 추출은 FEAT·TC와 다단 번호를 받고 그 밖은 무시한다',
   const ids = extractAcceptanceIds('# FEAT-007\n- TC-007-1\n- TC-007-1-2\n- ISSUE-3\n- feat-008\n')
   assert.deepEqual([...ids].sort(), ['FEAT-007', 'TC-007-1', 'TC-007-1-2'])
 })
+
+// 같은 클래스의 두 번째 자리. 티켓 해시에서 먼저 터졌고 스팩 다이제스트도 같은 구조였다.
+test('하네스 제어 마커는 스팩 입력 다이제스트에 들어가지 않는다', () => {
+  withProject(baseDecision(), root => {
+    mkdirSync(join(root, '_workspace/01_plan/feature-plan'), {recursive: true})
+    const shard = join(root, '_workspace/01_plan/feature-plan/a.md')
+    writeFileSync(shard, '## FEAT-001 x\n본문')
+    const before = digestInputs(root).combined
+    writeFileSync(shard, '## FEAT-001 x\n<!-- web-harness:unit feat=FEAT-001 dependsOn=none -->\n본문')
+    assert.equal(digestInputs(root).combined, before, '선언을 넣었다고 스팩이 stale이 되면 요구가 자기 무효화다')
+    writeFileSync(shard, '## FEAT-001 x\n<!-- web-harness:unit feat=FEAT-001 dependsOn=none -->\n본문 수정')
+    assert.notEqual(digestInputs(root).combined, before, '내용이 바뀌면 여전히 잡는다')
+  })
+})

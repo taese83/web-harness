@@ -8,6 +8,7 @@
 // **분배(assignment)는 emit의 일부가 아니다.** emit은 티켓 "생성"만 하고, "누가 맡느냐"는
 // 선택적 하류 단계(트래커 assignee)다 — 혼자 개발이면 분배 없이 본인이 픽업한다. 그래서
 // 이 코어는 assignee를 전혀 모른다.
+import {stripUnitMarker} from './plan-units.mjs'
 
 import {createHash} from 'node:crypto'
 
@@ -49,7 +50,11 @@ export function buildTicketDraft(unit) {
 export function unitContentHash(unit) {
   return sha256(JSON.stringify({
     title: unit.title ?? '',
-    body: unit.body ?? '',
+    // 하네스 제어 마커는 **내용이 아니다.** 넣으면 "의존을 선언하라"는 요구가 이미 발행된
+    // 티켓의 청구를 스스로 무효화한다(2026-08-30 실측: 선언 커밋 하나로 11건이 영구 픽업
+    // 불가). 스펙이 바뀐 것이 아니므로 stale로 볼 근거가 없다 — 제목·TC·산문이 바뀌면
+    // 여전히 잡힌다.
+    body: stripUnitMarker(unit.body ?? ''),
     testCaseIds: uniqueSorted(unit.testCaseIds ?? []),
     type: unit.type ?? 'feature',
   }))
