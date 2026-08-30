@@ -25,7 +25,7 @@ function gh(args, {host = 'github.com', timeoutMs = 30000} = {}) {
 }
 
 // --- 순수 argv 빌더 (회귀 테스트 대상 — 실 gh 없이 인자 구조를 고정) ---
-export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url', '--limit', '1']
+export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url,state', '--limit', '1']
 export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees']
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
@@ -93,6 +93,14 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     // 이슈 생성 — GitHub은 --label로 붙이려면 라벨이 먼저 존재해야 하므로(라이브 실측:
     // "could not add label: not found"), 각 라벨을 발행 *전에* 보장한다(--force=멱등).
     // 그 뒤 이슈 생성, 출력 URL에서 번호 파싱해 반환.
+    // 닫힌 티켓을 되살린다. 재개(reopen) 흐름에서 **새 번호를 내지 않기 위해서**다 —
+    // 내용이 같은 티켓을 번호만 바꿔 다시 내면 히스토리가 끊긴다.
+    async reopenIssue(ticketKey, comment = null) {
+      const args = ['issue', 'reopen', String(ticketKey), '--repo', repo]
+      if (comment) args.push('--comment', comment)
+      await run(args)
+      return {number: Number(ticketKey), ticketKey: String(ticketKey)}
+    },
     async createIssue(fields) {
       for (const label of fields.labels) await run(labelEnsureArgs(repo, label))
       const out = await run(createArgs(repo, fields))

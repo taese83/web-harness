@@ -42,11 +42,34 @@ export async function claimFeature({unit, provider, ledger, assignee = null, bra
   //    직전 생성 이슈를 못 보는 실측 갭이 있어(2026-08-21 라이브), 신뢰할 멱등 가드가 아니다.
   //    원장은 동기 기록·일관 조회라 같은 원장을 보는 흐름의 재청구를 확실히 잡는다.
   const recorded = ledger.find?.(featureId)
-  if (recorded) return {claimed: false, alreadyClaimed: true, issue: {ticketKey: recorded.ticketKey}, specWarning: null}
+  // **닫힌 레코드는 살아 있는 청구가 아니다.** 이 한 줄이 없어서 재개 경로가 막혔다 —
+  // emit이 `reopen: true`로 create 계획을 냈는데 여기서 alreadyClaimed로 되돌아갔고,
+  // 재청구가 조용히 no-op이 됐다(2026-08-30 실측).
+  if (recorded && !recorded.closed) {
+    return {claimed: false, alreadyClaimed: true, issue: {ticketKey: recorded.ticketKey}, specWarning: null}
+  }
   // 2. 트래커는 크로스-머신 2차 가드(다른 원장을 쓰는 개발자의 선행 청구). 지연은 잔여 race로
   //    남고, FEAT 고유 라벨이 사후 중복 감지·dedup의 기계 키가 된다.
   const existing = await provider.findByLabel(featLabel(featureId))
-  if (existing) return {claimed: false, alreadyClaimed: true, issue: existing, specWarning: null}
+  // 트래커에 **닫힌** 티켓이 있으면 새 번호를 내지 않고 되살린다 — 내용이 같은 티켓을 번호만
+  // 바꿔 다시 내면 히스토리가 끊긴다. 되살리기를 제공하지 않는 provider면 정직하게 막는다.
+  if (existing && String(existing.state ?? '').toUpperCase() === 'CLOSED') {
+    if (typeof provider.reopenIssue !== 'function') {
+      return {claimed: false, alreadyClaimed: true, issue: existing, specWarning: null,
+        note: 'closed-ticket-not-reopenable'}
+    }
+    const key = String(existing.ticketKey ?? existing.number)
+    await provider.reopenIssue(key, '계획이 다시 이 단위를 포함해 재개합니다.')
+    const reopenedRecord = {
+      featureId, ticketKey: key, contentHash: unitContentHash(unit), createdAt: now(),
+      ...(assignee ? {assignee} : {}), ...(branch ? {branch} : {}),
+    }
+    await ledger.append(reopenedRecord)
+    return {claimed: true, alreadyClaimed: false, reopened: true, issue: {...existing, ticketKey: key},
+      record: reopenedRecord, specWarning: null}
+  } else if (existing) {
+    return {claimed: false, alreadyClaimed: true, issue: existing, specWarning: null}
+  }
   // 2. draft → 이슈 필드(assignee=청구자). 스펙 미완이면 경고만 — 파서/발행은 게이트하지
   //    않고 pickup(단계 5)이 되돌림을 결정한다(스펙 상류 규율).
   const draft = buildTicketDraft(unit)

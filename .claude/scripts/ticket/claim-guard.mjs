@@ -29,3 +29,48 @@ export function claimEligibilityGuidance(reason) {
       return null
   }
 }
+
+/**
+ * 원장이 이미 정한 **청구 브랜치**. 티켓은 한 base 위에 모여야 한다 — 티켓마다 base가 다르면
+ * PR이 서로 다른 브랜치로 나가 흐름이 갈라진다.
+ *
+ * 판정은 **최빈값**이다(최신값이 아니다). 실수로 다른 브랜치에서 한 번 발행하면 그 뒤로는
+ * 그것이 "최신"이 되어 오염이 굳는다 — 2026-08-30 실측: 청구 브랜치가
+ * `feature/mini4wd-track-3d`(14건)인데 `main`에서 4건을 발행했고 아무도 막지 않았다.
+ * PR base가 갈라져 리뷰·머지 흐름이 둘로 쪼개진다.
+ */
+export function establishedClaimBranch(ledgerEntries) {
+  const counts = new Map()
+  for (const entry of ledgerEntries ?? []) {
+    const branch = entry?.branch
+    if (typeof branch !== 'string' || branch === '') continue
+    counts.set(branch, (counts.get(branch) ?? 0) + 1)
+  }
+  if (counts.size === 0) return null // 첫 청구 — 정할 것이 없다
+  let best = null
+  for (const [branch, count] of counts) {
+    if (best === null || count > best.count || (count === best.count && branch < best.branch)) {
+      best = {branch, count}
+    }
+  }
+  return best.branch
+}
+
+/**
+ * 현재 브랜치가 확립된 청구 브랜치와 다르면 막는다. 의도적 이전이면 `--claim-branch`로
+ * 명시하게 한다 — 조용히 갈라지는 것만 금지한다.
+ */
+export function checkClaimBranch({current, ledgerEntries, allow = null}) {
+  const established = establishedClaimBranch(ledgerEntries)
+  if (established === null) return {ok: true, established: current ?? null}
+  if (current === established) return {ok: true, established}
+  if (allow !== null && allow === current) return {ok: true, established: current, migrated: true}
+  return {
+    ok: false,
+    established,
+    current: current ?? null,
+    guidance: `이 프로젝트의 청구 브랜치는 \`${established}\`인데 지금은 \`${current ?? '(미지정)'}\`입니다 — `
+      + '티켓마다 base가 다르면 PR이 서로 다른 브랜치로 나가 흐름이 갈라집니다. '
+      + `그 브랜치에서 청구하거나, 의도적 이전이면 \`--claim-branch ${current ?? ''}\`로 명시하세요.`,
+  }
+}

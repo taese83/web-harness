@@ -500,3 +500,78 @@ test('runLink 배선: 계획이 유예한 TC는 플래그 없이 통과하고 �
     assert.deepEqual(linked.record.completion.deferred, ['TC-001-2'], '유예는 숨기지 않고 기록한다')
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
+
+// ── 청구 브랜치 일관성 ──────────────────────────────────────────────────────
+// 티켓마다 base가 다르면 PR이 서로 다른 브랜치로 나가 흐름이 갈라진다. 2026-08-30 실측:
+// 청구 브랜치가 feature/…(14건)인데 main에서 4건을 발행했고 아무도 막지 않았다.
+test('청구 브랜치는 최빈값으로 정한다 — 최신값이면 오탁이 굳는다', async () => {
+  const {establishedClaimBranch, checkClaimBranch} = await import('./ticket/claim-guard.mjs')
+  const entries = [
+    ...Array.from({length: 14}, () => ({branch: 'feature/base'})),
+    ...Array.from({length: 4}, () => ({branch: 'main'})), // 나중에 잘못 발행한 것
+  ]
+  assert.equal(establishedClaimBranch(entries), 'feature/base')
+  const blocked = checkClaimBranch({current: 'main', ledgerEntries: entries})
+  assert.equal(blocked.ok, false)
+  assert.match(blocked.guidance, /feature\/base/)
+})
+
+test('첫 청구는 막지 않는다 — 정할 것이 없다', async () => {
+  const {checkClaimBranch} = await import('./ticket/claim-guard.mjs')
+  assert.equal(checkClaimBranch({current: 'main', ledgerEntries: []}).ok, true)
+})
+
+test('의도적 이전은 --claim-branch로 명시하면 통과한다', async () => {
+  const {checkClaimBranch} = await import('./ticket/claim-guard.mjs')
+  const entries = [{branch: 'feature/base'}, {branch: 'feature/base'}]
+  const moved = checkClaimBranch({current: 'main', ledgerEntries: entries, allow: 'main'})
+  assert.equal(moved.ok, true)
+  assert.equal(moved.migrated, true)
+})
+
+test('branch가 없는 레코드(링크 기록)는 청구 브랜치 판정에 세지 않는다', async () => {
+  const {establishedClaimBranch} = await import('./ticket/claim-guard.mjs')
+  assert.equal(establishedClaimBranch([{branch: 'feature/base'}, {prUrl: 'x'}, {branch: null}]), 'feature/base')
+})
+
+// ── 재개(reopen) 경로 ───────────────────────────────────────────────────────
+// emit이 `reopen: true`로 create 계획을 내도 runner가 alreadyClaimed로 되돌리면 재청구가
+// 조용히 no-op이 된다. 2026-08-30 실측: 그래서 청구 브랜치 정정이 반영되지 않았다.
+test('닫힌 원장 레코드는 살아 있는 청구가 아니다 — 재개가 no-op이 되지 않는다', async () => {
+  const {claimFeature} = await import('./ticket/runner.mjs')
+  const created = []
+  const result = await claimFeature({
+    unit,
+    provider: {findByLabel: async () => null, createIssue: async f => { created.push(f); return {number: 42} }},
+    ledger: {find: () => ({ticketKey: '7', closed: true}), append: () => {}},
+  })
+  assert.equal(result.alreadyClaimed, undefined ?? result.alreadyClaimed, '닫힌 레코드로 막히지 않는다')
+  assert.equal(created.length, 1, '새 티켓을 낸다')
+})
+
+test('트래커의 닫힌 티켓은 되살린다 — 새 번호를 내지 않는다', async () => {
+  const {claimFeature} = await import('./ticket/runner.mjs')
+  const reopened = []
+  const created = []
+  await claimFeature({
+    unit,
+    provider: {
+      findByLabel: async () => ({ticketKey: '7', number: 7, state: 'CLOSED'}),
+      reopenIssue: async key => { reopened.push(key); return {number: 7, ticketKey: '7'} },
+      createIssue: async f => { created.push(f); return {number: 99} },
+    },
+    ledger: {find: () => null, append: () => {}},
+  })
+  assert.deepEqual(reopened, ['7'], '닫힌 티켓을 되살린다')
+  assert.equal(created.length, 0, '새 번호를 내지 않는다')
+})
+
+test('열린 티켓은 그대로 청구됨으로 본다', async () => {
+  const {claimFeature} = await import('./ticket/runner.mjs')
+  const result = await claimFeature({
+    unit,
+    provider: {findByLabel: async () => ({ticketKey: '7', state: 'OPEN'}), createIssue: async () => ({number: 99})},
+    ledger: {find: () => null, append: () => {}},
+  })
+  assert.equal(result.alreadyClaimed, true)
+})

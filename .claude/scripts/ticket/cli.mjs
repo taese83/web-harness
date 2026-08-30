@@ -12,7 +12,7 @@ import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSyn
 import {basename, dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {computeBatchClaimPlan, formatBatchClaimPreview} from './batch-claim.mjs'
-import {computeClaimEligibility, claimEligibilityGuidance} from './claim-guard.mjs'
+import {computeClaimEligibility, claimEligibilityGuidance, checkClaimBranch} from './claim-guard.mjs'
 import {resolveOriginPlanSync, resolveCurrentBranch, resolveWorktreeStatus, refreshRemoteRefs} from './git-origin.mjs'
 import {evaluatePickupReadiness} from './sync-guard.mjs'
 import {claimFeature} from './runner.mjs'

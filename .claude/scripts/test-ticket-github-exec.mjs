@@ -10,7 +10,7 @@ import {buildIssueFields} from './ticket/provider-github.mjs'
 const fields = buildIssueFields({sourceKey: 'FEAT-042', title: 't', body: 'b', acceptanceCriteria: ['TC-042-1'], harnessRefs: {featureIds: ['FEAT-042'], testCaseIds: ['TC-042-1']}}, {assignee: '@me'})
 
 test('argv 빌더: 인자 구조 고정', () => {
-  assert.deepEqual(listArgs('o/r', 'feat:FEAT-042'), ['issue', 'list', '--repo', 'o/r', '--label', 'feat:FEAT-042', '--state', 'all', '--json', 'number,title,url', '--limit', '1'])
+  assert.deepEqual(listArgs('o/r', 'feat:FEAT-042'), ['issue', 'list', '--repo', 'o/r', '--label', 'feat:FEAT-042', '--state', 'all', '--json', 'number,title,url,state', '--limit', '1'])  // state: 닫힌 티켓을 되살리려면 상태가 필요하다
   assert.deepEqual(labelEnsureArgs('o/r', 'feat:FEAT-042'), ['label', 'create', 'feat:FEAT-042', '--repo', 'o/r', '--color', 'ededed', '--force'])
   assert.deepEqual(permissionArgs('o/r'), ['repo', 'view', 'o/r', '--json', 'viewerPermission'])
   assert.ok(createArgs('o/r', fields).includes('--repo') && createArgs('o/r', fields).slice(-2)[0] === '--repo')
