@@ -734,6 +734,14 @@ const validationScriptContract = (script, args, context) => {
     const allowed = new Set(['--json', '--allow-no-ids'])
     return extra.every(a => allowed.has(a)) && extra.length === new Set(extra).size
   }
+  if (script === '.claude/scripts/validate-handoff-readiness.mjs') {
+    const commandArgs = withoutDirectoryOption(args, '--project', context)
+    if (!args.includes('--project') || !args.includes('--to')) return false
+    const toIndex = commandArgs.indexOf('--to')
+    if (toIndex === -1 || !['development'].includes(commandArgs[toIndex + 1] ?? '')) return false
+    const rest = [...commandArgs.slice(0, toIndex), ...commandArgs.slice(toIndex + 2)]
+    return rest.every(arg => arg === '--json') && rest.length === new Set(rest).size
+  }
   if (script === '.claude/scripts/validate-development-readiness.mjs') {
     // `--fix`는 `.github/` 아래에 티켓 자동 닫기 자산을 놓는 **쓰기**다. 인자 계약을 좁게
     // 고정해 그 밖의 어떤 것도 넘어가지 않게 한다.
