@@ -22,7 +22,16 @@ maxTurns: 20
 1. `planning-context.md`, `requirements.md`, `ux-brief.md`를 읽고 사용자 여정의 수직 slice를 FSD에 매핑한다
 2. 각 슬라이스의 api/, model/, ui/ 세그먼트 구조를 정의한다
 3. REST Mock은 MSW로, realtime 요구는 `TimeseriesTransport` fake adapter로 구현 가능하도록 설계한다
-4. 의존 관계를 명시해서 개발 팀이 병렬 작업 가능한 단위를 파악하게 한다
+4. 의존 관계를 **기계가 읽을 수 있게** 명시한다. 각 FEAT 섹션에 한 줄을 넣는다:
+
+   ```markdown
+   <!-- web-harness:unit feat=FEAT-012 dependsOn=FEAT-003, FEAT-004 paths=src/features/example/ -->
+   ```
+
+   `dependsOn`은 이 기능이 **머지돼 있어야** 착수 가능한 선행 FEAT, `paths`는 이 기능이
+   쓸 경로다. 의존이 없으면 **`dependsOn=none`으로 명시**한다 — 생략은 "없음"이 아니라
+   "선언 안 함"으로 읽혀 착수가 막힌다. 산문으로만 적으면 티켓 보드가 그 순서를 모른다
+   (2026-08-30 실측: 산문에만 있어 11건 전부 착수 가능으로 보였고 실제로는 4건이었다).
 5. timeseries 요구가 있으면 `time-range`, `chart-panel`, `live-mode`, `stream-status` 책임을 분리하고 historical query와 realtime subscription을 같은 hook에 숨기지 않는다
 6. high-frequency stream state는 일반 mutation이나 영속 Zustand store로 모델링하지 않는다
 7. `LOCAL_DOMAIN_STATE_MODE`이면 `.claude/skills/web-orchestrator/references/local-domain-state.md`를 읽고 authoritative state, derived view, command, selector, persistence adapter의 FSD owner를 분리한다.

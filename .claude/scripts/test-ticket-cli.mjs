@@ -13,9 +13,11 @@ import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
 
-const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature'}
+const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature', dependsOn: [], paths: ['src/features/dash/']}
 const ASSETS_DIR = new URL('../skills/team-flow/assets/', import.meta.url).pathname
 const tmpRoot = () => mkdtempSync(join(tmpdir(), 'wh-cli-'))
+// unit 픽스처는 **의존을 명시적으로 선언**한다(`dependsOn: []`). 미선언은 "없음"이 아니라
+// "선언 안 함"이라 pickup이 막히는데(2026-08-30 신설), 그것은 아래 전용 테스트가 따로 잰다.
 const withUnits = dir => {
   const path = join(dir, 'units.json')
   writeFileSync(path, JSON.stringify([unit]))
@@ -375,4 +377,44 @@ test('설치된 워크플로우는 workflow 보안 검사를 통과한다', asyn
   const source = readFileSync(join(ASSETS_DIR, 'ticket-close.yml'), 'utf8')
   const findings = inspectWorkflowSecurity({source, workflowPath: '.github/workflows/ticket-close.yml', trustedPromotionActions: []})
   assert.deepEqual(findings.map(f => f.code), [])
+})
+
+// ── pickup의 청구 범위 강제 (2026-08-30) ────────────────────────────────────
+// 종전에는 board만 강등하고 pickup은 그 판정을 보지 않았다 — 보드가 blocked라고 해도 그대로
+// 집을 수 있었다. 강등이 표시일 뿐 게이트가 아니었다.
+test('pickup: 의존 미선언이면 막는다 — 보드 강등이 표시로만 끝나지 않는다', async () => {
+  const dir = tmpRoot()
+  try {
+    const undeclared = {featureId: 'FEAT-001', title: 'x', body: 'b', testCaseIds: ['TC-001-1'], type: 'feature'}
+    const path = join(dir, 'units.json')
+    writeFileSync(path, JSON.stringify([undeclared]))
+    seedClaim(dir, {contentHash: unitContentHash(undeclared)})
+    const result = await runPickup({
+      root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me',
+      flags: {units: path, confirm: true},
+      io: {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false}), resolveIssue: async () => ({number: 7, title: 't', body: issueBody, assignees: ['me']})},
+    })
+    assert.equal(result.ok, false)
+    assert.equal(result.bounce.reason, 'deps-undeclared')
+    assert.match(result.guidance, /dependsOn=none/, '무엇을 하면 풀리는지 말해야 한다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('pickup: 선행 기능이 안 머지됐으면 막고 무엇을 기다리는지 말한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const dependent = {featureId: 'FEAT-001', title: 'x', body: 'b', testCaseIds: ['TC-001-1'], type: 'feature', dependsOn: ['FEAT-004']}
+    const path = join(dir, 'units.json')
+    writeFileSync(path, JSON.stringify([dependent]))
+    seedClaim(dir, {contentHash: unitContentHash(dependent)})
+    const result = await runPickup({
+      root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me',
+      flags: {units: path, confirm: true},
+      io: {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false}), resolveIssue: async () => ({number: 7, title: 't', body: issueBody, assignees: ['me']})},
+    })
+    assert.equal(result.ok, false)
+    assert.equal(result.bounce.reason, 'deps-incomplete')
+    assert.deepEqual(result.bounce.unmetDeps, ['FEAT-004'])
+    assert.match(result.guidance, /FEAT-004/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
 })

@@ -117,3 +117,67 @@ test('buildBranchCard: 상태 분포·병목 역집계·소실 브랜치', () =>
   // 중복 featureId units → 조용한 이중 계산 대신 loud(오버뷰 경로는 emit loud-fail 미경유, 리뷰 지적)
   assert.throws(() => buildBranchCard({branch: 'b', units: [{featureId: 'FEAT-009'}, {featureId: 'FEAT-009'}]}), /DUPLICATE_FEATURE_ID/)
 })
+
+// ── 병렬 안전성 선언 파싱 (2026-08-30) ──────────────────────────────────────
+// `claim-scope`는 `dependsOn`·`paths`를 읽는데 파서가 그 필드를 만든 적이 없었다 —
+// 두 판정이 처음부터 한 번도 발화하지 않았다. 순수 함수에는 회귀가 있고 배선에는 없던 그 클래스.
+test('unit 마커에서 dependsOn·paths를 읽는다', () => {
+  const md = [
+    '## FEAT-006 3D 씬',
+    '<!-- web-harness:unit feat=FEAT-006 dependsOn=FEAT-004,FEAT-005 paths=src/widgets/track-canvas/ -->',
+    '- TC-006-1 기대',
+  ].join('\n')
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.deepEqual(unit.dependsOn, ['FEAT-004', 'FEAT-005'])
+  assert.deepEqual(unit.paths, ['src/widgets/track-canvas/'])
+})
+
+test('선언이 없으면 필드를 만들지 않는다 — 빈 배열로 채우면 "없음"으로 읽힌다', () => {
+  const [unit] = parseFeaturePlanUnits('## FEAT-014 미선언\n본문')
+  assert.equal(unit.dependsOn, undefined)
+  assert.equal(unit.paths, undefined)
+})
+
+test('dependsOn=none은 명시적 없음이다 — 미선언과 다르다', () => {
+  const md = '## FEAT-011 성능\n<!-- web-harness:unit feat=FEAT-011 dependsOn=none -->'
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.deepEqual(unit.dependsOn, [], '선언된 빈 배열이어야 한다')
+})
+
+test('남의 FEAT를 가리키는 마커는 무시한다 — 지어내지 않는다', () => {
+  const md = '## FEAT-006 씬\n<!-- web-harness:unit feat=FEAT-999 dependsOn=FEAT-001 -->'
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.equal(unit.dependsOn, undefined)
+})
+
+// 적대 리뷰 2026-08-30이 잡은 fail-open 2종. 새 게이트가 **가장 자연스러운 입력**에서
+// 뚫리면 만든 의미가 없다.
+test('쉼표 뒤 공백을 허용한다 — 두 번째 의존이 조용히 사라지지 않는다', () => {
+  const md = '## FEAT-006 x\n<!-- web-harness:unit feat=FEAT-006 dependsOn=FEAT-004, FEAT-005 -->'
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.deepEqual(unit.dependsOn, ['FEAT-004', 'FEAT-005'],
+    '공백에서 끊으면 FEAT-005가 사라지고 미머지 선행 위에서 착수 가능해진다')
+})
+
+test('읽지 못한 잔여 토큰이 있으면 미선언으로 강등하고 사유를 싣는다', () => {
+  const [unit] = parseFeaturePlanUnits('## FEAT-006 x\n<!-- web-harness:unit feat=FEAT-006 dependsOn=FEAT-004 쓰레기 -->')
+  assert.equal(unit.dependsOn, undefined)
+  assert.match(unit.declarationError, /읽지 못한 토큰/)
+})
+
+test('마커가 둘이면 첫 매칭이 조용히 이기지 않는다', () => {
+  const md = ['## FEAT-006 x',
+    '<!-- web-harness:unit feat=FEAT-006 dependsOn=FEAT-004 -->',
+    '<!-- web-harness:unit feat=FEAT-006 dependsOn=none -->'].join('\n')
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.equal(unit.dependsOn, undefined)
+  assert.match(unit.declarationError, /마커가 2개/)
+})
+
+// foundation은 claimScopeReadiness에서 무조건 pickupable이다. 마커에서 받으면
+// deps-undeclared로 막힌 팀의 가장 싼 우회가 "전 유닛 foundation 선언"이 된다.
+test('layer는 마커에서 받지 않는다 — 자기선언으로 게이트를 우회하지 못한다', () => {
+  const md = '## FEAT-006 x\n<!-- web-harness:unit feat=FEAT-006 layer=foundation dependsOn=none -->'
+  const [unit] = parseFeaturePlanUnits(md)
+  assert.equal(unit.layer, undefined)
+})

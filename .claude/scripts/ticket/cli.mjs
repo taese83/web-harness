@@ -249,9 +249,42 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   if (!readiness.ready) return {ok: false, bounce: {reason: readiness.status}, guidance: readiness.need}
   // 소유권+비신뢰+버전 대조(순수 코어) — 이슈는 최신 조회
   const issue = await (io.resolveIssue ?? resolveIssue)({repo, number: record.ticketKey})
-  const pick = pickupWithOwnership({issue, developer, planUnits: units, ledgerRecord: record, allowedPathsSeed: splitList(flags['allowed-paths'])})
+    // 계획이 선언한 paths를 범위 seed로 흘린다 — 충돌 판정과 쓰기 허용이 서로 다른 세계를
+  // 보면 충돌 게이트가 픽션 위에서 판정한다(적대 리뷰 2026-08-30). 플래그가 있으면 플래그가
+  // 이긴다(운영자 명시 > 계획 선언). 단방향 정합이며 실제 쓰기와의 대조는 여전히 없다(§4).
+  const declaredScope = splitList(flags['allowed-paths'])
+  const pick = pickupWithOwnership({issue, developer, planUnits: units, ledgerRecord: record,
+    allowedPathsSeed: declaredScope.length > 0 ? declaredScope : (unit?.paths ?? [])})
   if (!pick.ok) return {ok: false, bounce: pick.bounce, injection: pick.injection}
-  if (!flags.confirm) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope, freshness}
+  // 청구 범위 판정(의존·충돌)을 **여기서도** 강제한다. 종전에는 board만 강등하고 pickup은
+  // 그 판정을 보지 않아, 보드가 blocked라고 해도 그대로 집을 수 있었다 — 강등이 표시일 뿐
+  // 게이트가 아니었다(2026-08-30). 선행 기능이 안 끝났는데 착수하면 그 위에서 개발한다.
+  const {claimScopeReadiness, findPathCollisions} = await import('./claim-scope.mjs')
+  const foundationRoots = splitList(flags['foundation-roots'])
+  const scope = claimScopeReadiness({
+    unit: unit ?? {featureId},
+    foundationComplete: flags['foundation-complete'] !== 'false',
+    mergedFeatureIds: await (io.merged ?? resolveMergedFeatures)({records: [...(io.readState ?? readLedgerState)(ledgerFile).values()]}),
+    collisions: findPathCollisions(units, {foundationRoots}),
+    opts: {foundationRoots},
+  })
+  if (!scope.pickupable) {
+    const guidance = {
+      'deps-undeclared': unit?.declarationError
+        // 마커를 **썼는데** 못 읽은 경우다 — "선언하세요"라고 답하면 원인을 반대로 가리킨다.
+        ? `계획의 unit 마커를 읽지 못했습니다(${unit.declarationError}) — 마커를 고치세요`
+        : `계획에 이 FEAT의 의존 선언이 없습니다 — \`<!-- web-harness:unit feat=${featureId} dependsOn=… -->\`를 `
+          + '추가하세요. 미선언은 "의존 없음"이 아니라 "선언 안 함"이라 착수 가능으로 세지 않습니다. 의존이 없으면 `dependsOn=none`.',
+      'deps-incomplete': `선행 기능이 아직 머지되지 않았습니다: ${(scope.unmetDeps ?? []).join(', ')} — 그 위에서 개발하면 재작업이 됩니다`,
+      'path-collision': '다른 FEAT와 쓰기 경로가 겹칩니다 — 순차화하거나 계획에서 경계를 나누세요',
+      'foundation-incomplete': '기반(foundation) 단위가 아직 완료되지 않았습니다',
+    }[scope.blockedReason] ?? '청구 범위 판정에서 막혔습니다'
+    return {ok: false, bounce: {reason: scope.blockedReason, unmetDeps: scope.unmetDeps ?? null}, guidance}
+  }
+  const collisionNote = unit?.paths === undefined
+    ? '충돌 검사 미수행(paths 미선언) — "충돌 없음"이 아니라 "검사 못 함"이다'
+    : null
+  if (!flags.confirm) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope, freshness, collisionNote}
   // 활성 change-scope 덮어쓰기 가드(리뷰): 다른 FEAT의 change-scope가 살아 있으면 침묵 덮어쓰기
   // 금지 — 진행 중 FEAT의 STALE 앵커가 소실된다. --replace-scope 명시 시에만 교체.
   const existingScope = readChangeScopeFile(root)
@@ -338,14 +371,26 @@ export async function runBoard({root, repo, developer, flags, io = {}}) {
   }
   const merged = await (io.merged ?? resolveMergedFeatures)({records: [...state.values()]})
   const {buildAvailabilityBoard} = await import('./assign.mjs')
-  const {annotateBoardScope, findPathCollisions} = await import('./claim-scope.mjs')
+  const {annotateBoardScope, findPathCollisions, uncheckedForCollision} = await import('./claim-scope.mjs')
   const foundationRoots = splitList(flags['foundation-roots'])
   const board = annotateBoardScope(
     buildAvailabilityBoard({units, ledgerState: state, issuesByFeature, developer}),
     units,
     {foundationComplete: flags['foundation-complete'] !== 'false', mergedFeatureIds: merged, collisions: findPathCollisions(units, {foundationRoots}), opts: {foundationRoots}},
   )
-  return {board, merged, tracker: trackerOk ? 'live' : 'unavailable', trackerNotes, freshness}
+  // 검사가 **돌지 않은** 것을 보고한다. 종전에는 "충돌 0건"과 "검사 0건"이 같아 보였고,
+  // 의존 미선언은 곧바로 pickupable로 나왔다 — 산문에만 있는 순서가 착수 가능으로 둔갑했다
+  // (2026-08-30 실측: 11건 pickupable, 실제 4건). 보드가 그 사실을 말하게 한다.
+  const undeclaredDeps = board.filter(row => row.blockedReason === 'deps-undeclared').map(row => row.featureId)
+  const collisionUnchecked = uncheckedForCollision(units, {foundationRoots})
+  if (undeclaredDeps.length > 0) {
+    trackerNotes.push(`deps-undeclared ${undeclaredDeps.length}건 — 계획에 \`<!-- web-harness:unit feat=… dependsOn=… -->\`가 없다. `
+      + '미선언은 "의존 없음"이 아니므로 착수 가능으로 세지 않는다. 의존이 없으면 `dependsOn=none`으로 명시하라')
+  }
+  if (collisionUnchecked.length > 0) {
+    trackerNotes.push(`충돌 검사 미수행 ${collisionUnchecked.length}건(paths 미선언) — "충돌 없음"이 아니라 "검사 못 함"이다`)
+  }
+  return {board, merged, tracker: trackerOk ? 'live' : 'unavailable', trackerNotes, freshness, undeclaredDeps, collisionUnchecked}
 }
 
 const splitList = value => value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []
