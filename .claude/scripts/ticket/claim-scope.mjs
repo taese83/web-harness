@@ -43,6 +43,8 @@ export function classifyLayer(unit, {foundationRoots = []} = {}) {
  */
 export function findPathCollisions(units, opts = {}) {
   const feats = (units ?? []).filter(u => classifyLayer(u, opts) === 'feature' && (u.paths?.length ?? 0) > 0)
+  // paths 미선언 unit은 검사에서 빠진다 — 그 사실을 caller가 볼 수 있어야 "충돌 0건"과
+  // "검사 0건"이 구분된다(unreportedCollisionCheck). 종전에는 둘이 같아 보였다.
   const collisions = []
   for (let i = 0; i < feats.length; i++) {
     for (let j = i + 1; j < feats.length; j++) {
@@ -52,6 +54,19 @@ export function findPathCollisions(units, opts = {}) {
     }
   }
   return collisions
+}
+
+/**
+ * 충돌 검사가 **돌지 않은** feature unit들. "충돌 없음"과 "검사 못 함"을 가른다 —
+ * 둘이 같아 보이면 미선언 계획에서 병렬 충돌이 조용히 통과한다(2026-08-30 실측).
+ * @param {Array} units
+ * @param {{foundationRoots?: string[]}} [opts]
+ * @returns {string[]}  paths 미선언 FEAT ID
+ */
+export function uncheckedForCollision(units, opts = {}) {
+  return (units ?? [])
+    .filter(u => classifyLayer(u, opts) === 'feature' && u.paths === undefined)
+    .map(u => u.featureId)
 }
 
 /**
@@ -93,16 +108,22 @@ export function computeClaimOrder(units, opts = {}) {
 /**
  * 한 unit이 지금 픽업 가능한지 범위 판정(순수). 동적 상태(foundation 완료·의존 머지·충돌)를 받는다.
  *  - foundation: 항상 pickupable(직렬 실행은 소유권 가드가 담당 — 여기선 계층만)
- *  - feature: foundation 완료 && 모든 dependsOn 머지 && 활성 충돌 없음 → pickupable
+ *  - feature: **dependsOn 선언됨** && foundation 완료 && 모든 dependsOn 머지 && 활성 충돌 없음
+ *    → pickupable. 선언 자체가 없으면 `deps-undeclared`로 막는다 — 미선언은 "없음"이 아니다.
  * @param {Object} args {unit, foundationComplete, mergedFeatureIds?, collisions?, opts?}
  * @returns {{pickupable: boolean, blockedReason: string|null}}
  */
 export function claimScopeReadiness({unit, foundationComplete = true, mergedFeatureIds = [], collisions = [], opts = {}}) {
   if (classifyLayer(unit, opts) === 'foundation') return {pickupable: true, blockedReason: null}
   if (!foundationComplete) return {pickupable: false, blockedReason: 'foundation-incomplete'}
+  // **미선언을 "의존 없음"으로 읽지 않는다.** 종전에는 `dependsOn ?? []`라 선언이 없으면
+  // 곧바로 pickupable이었다 — 실제 순서가 산문에만 있는 계획에서 **선행 기능이 안 끝났는데도
+  // 집을 수 있게** 보였다(2026-08-30 실측: track 11건이 전부 pickupable, 실제로는 4건).
+  // 명시적 없음은 `dependsOn=none`이다. 축이 없으면 통과가 아니다.
+  if (unit.dependsOn === undefined) return {pickupable: false, blockedReason: 'deps-undeclared'}
   const merged = new Set(mergedFeatureIds)
-  const unmetDeps = (unit.dependsOn ?? []).filter(d => !merged.has(d))
-  if (unmetDeps.length > 0) return {pickupable: false, blockedReason: 'deps-incomplete'}
+  const unmetDeps = unit.dependsOn.filter(d => !merged.has(d))
+  if (unmetDeps.length > 0) return {pickupable: false, blockedReason: 'deps-incomplete', unmetDeps}
   const inCollision = collisions.some(c => c.a === unit.featureId || c.b === unit.featureId)
   if (inCollision) return {pickupable: false, blockedReason: 'path-collision'}
   return {pickupable: true, blockedReason: null}

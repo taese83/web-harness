@@ -4,7 +4,7 @@
 // (5) claimScopeReadiness foundation/deps/collision 게이트.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {classifyLayer, pathsOverlap, findPathCollisions, computeClaimOrder, claimScopeReadiness, annotateBoardScope} from './ticket/claim-scope.mjs'
+import {classifyLayer, pathsOverlap, findPathCollisions, computeClaimOrder, claimScopeReadiness, annotateBoardScope, uncheckedForCollision} from './ticket/claim-scope.mjs'
 import {buildAvailabilityBoard} from './ticket/assign.mjs'
 import {ledgerState} from './ticket/ledger.mjs'
 
@@ -58,10 +58,43 @@ test('claimScopeReadiness: foundation/deps/collision 게이트', () => {
   assert.equal(claimScopeReadiness({unit: {featureId: 'A'}, foundationComplete: false, opts}).blockedReason, 'foundation-incomplete')
   // 의존 미머지 → 차단
   assert.equal(claimScopeReadiness({unit: {featureId: 'B', dependsOn: ['A']}, foundationComplete: true, mergedFeatureIds: [], opts}).blockedReason, 'deps-incomplete')
-  // 충돌 → 차단
-  assert.equal(claimScopeReadiness({unit: {featureId: 'C'}, foundationComplete: true, collisions: [{a: 'C', b: 'D'}], opts}).blockedReason, 'path-collision')
+  // 충돌 → 차단 (dependsOn을 명시적으로 선언해야 충돌 판정까지 내려온다)
+  assert.equal(claimScopeReadiness({unit: {featureId: 'C', dependsOn: []}, foundationComplete: true, collisions: [{a: 'C', b: 'D'}], opts}).blockedReason, 'path-collision')
   // 전부 OK → pickupable
   assert.equal(claimScopeReadiness({unit: {featureId: 'E', dependsOn: ['A']}, foundationComplete: true, mergedFeatureIds: ['A'], opts}).pickupable, true)
+})
+
+// 2026-08-30 실측: track 11건이 전부 pickupable로 보였는데 실제로는 4건이었다. 의존 순서가
+// data-model.md의 **산문**에만 있고 기계가 읽을 선언이 없었기 때문이다. 종전 구현은
+// `dependsOn ?? []`라 미선언을 곧바로 "의존 없음"으로 읽었다 — 선행 기능이 안 끝났는데도
+// 집을 수 있게 보인다. 미선언은 없음이 아니다.
+test('의존 선언이 없으면 pickupable이 아니다 — 미선언을 "없음"으로 읽지 않는다', () => {
+  const result = claimScopeReadiness({unit: {featureId: 'X'}, foundationComplete: true, opts: roots})
+  assert.equal(result.pickupable, false)
+  assert.equal(result.blockedReason, 'deps-undeclared')
+})
+
+test('명시적 없음(dependsOn: [])은 통과한다 — 선언과 부재를 가른다', () => {
+  const result = claimScopeReadiness({unit: {featureId: 'X', dependsOn: []}, foundationComplete: true, opts: roots})
+  assert.equal(result.pickupable, true)
+})
+
+test('막힌 의존을 이름으로 돌려준다 — 무엇을 기다리는지 말한다', () => {
+  const result = claimScopeReadiness({
+    unit: {featureId: 'FEAT-006', dependsOn: ['FEAT-004', 'FEAT-005']},
+    foundationComplete: true, mergedFeatureIds: ['FEAT-004'], opts: roots,
+  })
+  assert.equal(result.blockedReason, 'deps-incomplete')
+  assert.deepEqual(result.unmetDeps, ['FEAT-005'])
+})
+
+test('충돌 검사가 돌지 않은 unit을 보고한다 — "충돌 없음"과 "검사 못 함"을 가른다', () => {
+  const units = [
+    {featureId: 'FEAT-001', paths: ['src/a/']},
+    {featureId: 'FEAT-002'},
+    {featureId: 'FEAT-003'},
+  ]
+  assert.deepEqual(uncheckedForCollision(units, roots), ['FEAT-002', 'FEAT-003'])
 })
 
 test('annotateBoardScope: foundation 미완이면 feature를 blocked로 강등', () => {

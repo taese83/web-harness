@@ -17,12 +17,68 @@
 // **오수집**된다(FEAT-001-01 → featureId=FEAT-001, title="01 …"). 과소(미수집) 방향이 정직.
 const FEAT_HEADING = /^#{1,6}\s+(FEAT-\d{3,})(?!-\d)\s*(?:[-—:]\s*)?(.*)$/
 
-/**
- * feature-plan 마크다운(단일 텍스트)에서 티켓 unit들을 뽑는다(순수). 분할(sharded) 계획이면
- * caller가 샤드들을 이 함수에 각각 돌리고 이어붙인다(파일 경계는 caller 몫 — 정직).
- * @param {string} markdown
- * @returns {Array<{featureId: string, title: string, body: string, testCaseIds: string[], type: 'feature'}>}
- */
+// 병렬 안전성 선언. `claim-scope`의 의존·충돌 판정은 `dependsOn`·`paths`를 읽는데 **파서가
+// 그 필드를 만든 적이 없어서**, 두 판정이 처음부터 한 번도 발화하지 않았다(2026-08-30 실측:
+// track 14단위 전부 `paths: undefined` → 충돌 검사 0건, `dependsOn: undefined` → 의존 강등
+// 0건. 그 사이 설계 문서는 "FEAT-006이 FEAT-004/005를 필요로 한다"고 산문으로 적어뒀다).
+// 순수 함수에는 회귀가 있는데 그것을 먹이는 배선이 없던, §4에 등록된 그 클래스다.
+//
+//   <!-- web-harness:unit feat=FEAT-006 dependsOn=FEAT-004,FEAT-005 paths=src/widgets/track-canvas/ -->
+//
+// **미선언과 "없음"을 구분한다.** 속성이 없으면 필드도 `undefined`로 남긴다 — 빈 배열로
+// 채우면 "선언 안 함"이 "의존 없음"으로 읽혀 하류가 조용히 통과시킨다. 명시적 없음은
+// `dependsOn=none`이다. 이 구분이 없으면 산문에만 있는 순서가 pickupable로 둔갑한다.
+const UNIT_MARKER = /<!--\s*web-harness:unit\s+([^>]*?)-->/g
+const NONE_VALUES = new Set(['none', '없음', '-'])
+// 값은 쉼표 뒤 공백을 허용한다 — `dependsOn=FEAT-004, FEAT-005`가 사람이 가장 자연스럽게 쓰는
+// 형태인데, 공백에서 끊으면 **두 번째 의존이 조용히 사라진다**(적대 리뷰 2026-08-30: 마커를
+// 썼는데도 미머지 선행 위에서 착수 가능해진다 — 이 게이트가 닫으려던 바로 그 시나리오).
+const ATTRIBUTE = /([a-zA-Z][\w-]*)=((?:[^\s,]+)(?:\s*,\s*[^\s,]+)*)/g
+
+// 마커가 둘 이상이면 **미선언으로 강등한다.** 첫 매칭이 조용히 이기면 낡은 마커 아래 정정
+// 마커를 둔 계획에서 낡은 쪽이 이긴다. 같은 파일이 "파서가 병합으로 loud를 가리면 안 된다"를
+// 이미 천명하고 있고(중복 FEAT 헤딩), 마커 중복에도 같은 규율을 적용한다.
+const parseMarkerAttributes = source => {
+  const markers = [...String(source ?? '').matchAll(UNIT_MARKER)]
+  if (markers.length === 0) return {ok: true, attributes: {}}
+  if (markers.length > 1) return {ok: false, reason: `unit 마커가 ${markers.length}개다 — 정본이 하나여야 한다`}
+  const body = markers[0][1]
+  const attributes = {}
+  for (const [, key, value] of body.matchAll(ATTRIBUTE)) attributes[key] = value
+  // key=value로 읽히지 않은 잔여 토큰이 있으면 **조용히 버리지 않는다** — 값이 잘려나간
+  // 조각일 수 있고, 그 침묵이 곧 의존 삭제다.
+  const consumed = body.replace(ATTRIBUTE, ' ').trim()
+  if (consumed) return {ok: false, reason: `마커에서 읽지 못한 토큰: ${consumed}`}
+  return {ok: true, attributes}
+}
+
+// `a, b` → ['a','b'] · `none` → [] · 없음 → undefined(미선언)
+const parseList = value => {
+  if (value === undefined) return undefined
+  if (NONE_VALUES.has(value.trim().toLowerCase())) return []
+  return value.split(',').map(entry => entry.trim()).filter(Boolean)
+}
+
+/** FEAT 섹션 본문에서 병렬 안전성 선언을 뽑는다(순수). 미선언 필드는 담지 않는다. */
+export function parseUnitDeclaration(body, featureId) {
+  const parsed = parseMarkerAttributes(body)
+  // 읽을 수 없는 마커는 **미선언**이다(하류가 deps-undeclared로 막는다) + 사유를 싣는다.
+  if (!parsed.ok) return {declarationError: parsed.reason}
+  const attributes = parsed.attributes
+  // 마커의 feat이 섹션과 다르면 남의 선언이다 — 지어내지 않고 미선언으로 둔다.
+  if (attributes.feat && attributes.feat !== featureId) return {}
+  const declaration = {}
+  const dependsOn = parseList(attributes.dependsOn)
+  const paths = parseList(attributes.paths)
+  if (dependsOn !== undefined) declaration.dependsOn = dependsOn
+  if (paths !== undefined) declaration.paths = paths
+  // **`layer`는 마커에서 받지 않는다.** foundation은 `claimScopeReadiness`에서 무조건
+  // pickupable이라, 자기선언을 허용하면 deps-undeclared로 막힌 팀에게 가장 싼 우회가
+  // "전 유닛에 layer=foundation 찍기"가 된다(적대 리뷰 2026-08-30). 계층은 운영자가 주는
+  // `--foundation-roots`와 실제 경로에서 도출한다 — 계획 문서의 자기신고가 아니다.
+  return declaration
+}
+
 export function parseFeaturePlanUnits(markdown) {
   if (typeof markdown !== 'string' || !markdown.trim()) return []
   const lines = markdown.split(/\r?\n/)
@@ -41,6 +97,7 @@ export function parseFeaturePlanUnits(markdown) {
       body,
       testCaseIds: [...new Set(body.match(ownTc) ?? [])],
       type: 'feature',
+      ...parseUnitDeclaration(body, current.featureId),
     })
     current = null
   }

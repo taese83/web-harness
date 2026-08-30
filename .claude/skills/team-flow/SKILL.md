@@ -100,6 +100,11 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
    `claim-scope.annotateBoardScope`(layer + foundation/deps/collision 강등).
 3. 출력: FEAT마다 `unclaimed/pickupable/mine/in-progress/blocked` + layer + stale. **지금 안전하게
    집을 수 있는 것**(pickupable, 미blocked)만 강조. 브랜치는 그룹 축이 아니라 컨텍스트(공통 base).
+4. **미선언을 "없음"으로 읽지 않는다.** 계획에 `<!-- web-harness:unit feat=… dependsOn=… paths=… -->`가
+   없으면 `deps-undeclared`로 막고(`undeclaredDeps`), 충돌 검사는 "0건"이 아니라 **미수행**으로
+   보고한다(`collisionUnchecked`). 의존이 없으면 `dependsOn=none`으로 명시해야 통과한다.
+   근거: 순서가 산문에만 있으면 기계는 못 읽는다 — 실측에서 11건이 전부 착수 가능으로 보였고
+   실제로는 4건이었다(2026-08-30).
 
 ### `pickup <FEAT>` — 개발자 착수
 
