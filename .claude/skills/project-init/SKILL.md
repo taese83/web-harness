@@ -105,4 +105,4 @@ When the user invokes `/project-init` alone, start with:
 - `.claude` 하네스를 배포할 때 `README.md`, skills, agents, scripts, evals, adapters, schemas를 **모두** 복사하고, 생성 프로젝트에는 maintainer 설정이 아닌 `settings.project.json`을 `.claude/settings.json`으로 배포한다.
 - 복사 후 `node .claude/scripts/validate-harness.mjs`를 실행한다.
 <!-- repo-only:end -->
-- 생성 프로젝트의 test scaffold가 준비된 뒤 사용자 확인을 받고 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`으로 로컬 진단 receipt를 만든다. 최종 release manifest v3는 격리 CI에서 동일 cohort를 재실행하고 신뢰 attester가 서명한 뒤에만 검증한다. missing script를 임의 fallback command로 대체하지 않는다.
+- 생성 프로젝트의 test scaffold가 준비된 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`으로 로컬 진단 receipt를 만든다. 이 플래그가 **프로젝트당 한 번의 승인**이며 이후 게이트는 다시 묻지 않는다. 최종 release manifest v3는 격리 CI에서 동일 cohort를 재실행하고 신뢰 attester가 서명한 뒤에만 검증한다. missing script를 임의 fallback command로 대체하지 않는다.
