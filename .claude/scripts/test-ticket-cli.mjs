@@ -5,15 +5,16 @@
 // change-scope.md 발급, (3) link — STALE 차단·멱등·verified closeLine, (4) 원장 rebind 가드.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
+import {mkdtempSync, readFileSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {parseArgs, runClaim, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
+import {parseArgs, runClaim, runBoard, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
 import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
 
 const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature'}
+const ASSETS_DIR = new URL('../skills/team-flow/assets/', import.meta.url).pathname
 const tmpRoot = () => mkdtempSync(join(tmpdir(), 'wh-cli-'))
 const withUnits = dir => {
   const path = join(dir, 'units.json')
@@ -269,4 +270,109 @@ test('runClaim: sharded 계획에서도 origin 게이트가 디렉터리 경로�
     assert.equal(result.dryRun, true)             // confirm 없으면 발행하지 않는다
     assert.match(result.preview, /FEAT-001/)
   } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// origin 신선도 — git-origin이 "판정 전 fetch를 선행하거나 스냅샷 기준임을 표기하라"고
+// 경고하면서 배선을 미뤄뒀고, 실제로는 claim·pickup·board 어디에도 fetch가 없었다.
+// 이제 둘 다 한다: 갱신을 시도하고, 실패하면 스냅샷 기준임을 응답에 표기한다.
+test('claim: origin 판정 전에 remote-tracking을 갱신하고 기준을 표기한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const order = []
+    const io = {
+      refresh: async () => { order.push('fetch'); return {ok: true, reason: null} },
+      originSync: async () => { order.push('judge'); return {originExists: true, planMatchesOrigin: true, base: 'origin/main'} },
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir)}, io})
+    assert.deepEqual(order, ['fetch', 'judge'])          // 갱신이 판정보다 앞선다
+    assert.deepEqual(result.freshness, {fetched: true, basis: 'origin'})
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('claim: fetch 실패는 판정을 막지 않고 스냅샷 기준으로 표기된다', async () => {
+  const dir = tmpRoot()
+  try {
+    const io = {
+      refresh: async () => ({ok: false, reason: 'network unreachable'}),
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir)}, io})
+    assert.equal(result.ok, true)                        // 네트워크 없어도 미리보기는 된다
+    assert.equal(result.freshness.fetched, false)
+    assert.equal(result.freshness.basis, 'local-snapshot')
+    assert.equal(result.freshness.reason, 'network unreachable')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('claim: --no-fetch면 갱신을 시도하지 않고 그 사실을 표기한다', async () => {
+  const dir = tmpRoot()
+  try {
+    let attempted = false
+    const io = {
+      refresh: async () => { attempted = true; return {ok: true, reason: null} },
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runClaim({root: dir, repo: 'o/r', flags: {units: withUnits(dir), 'no-fetch': true}, io})
+    assert.equal(attempted, false)
+    assert.equal(result.freshness.basis, 'local-snapshot')
+    assert.match(result.freshness.reason, /no-fetch/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('board: merged 판정 전에도 갱신한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const order = []
+    const io = {
+      refresh: async () => { order.push('fetch'); return {ok: true, reason: null} },
+      merged: async () => { order.push('merged'); return [] },
+      issues: async () => [],
+      currentBranch: async () => 'feature/dash',
+    }
+    const result = await runBoard({root: dir, repo: 'o/r', developer: null, flags: {units: withUnits(dir)}, io})
+    assert.equal(order[0], 'fetch')
+    assert.deepEqual(result.freshness, {fetched: true, basis: 'origin'})
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// 티켓 이슈 자동 닫기 자산 설치 — claim이 청구 브랜치에 놓는다. 멱등이고 덮어쓰지 않는다.
+test('claim: 이슈 자동 닫기 자산을 설치하되 기존 사본은 덮지 않는다', async () => {
+  const dir = tmpRoot()
+  try {
+    const io = {
+      refresh: async () => ({ok: true, reason: null}),
+      originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+      currentBranch: async () => 'feature/dash',
+      permission: async () => 'write',
+      provider: {findByLabel: async () => null, ensureLabel: async () => {}, createIssue: async () => ({number: 7, url: 'https://x/issues/7'})},
+    }
+    const flags = {units: withUnits(dir), confirm: true}
+
+    const dry = await runClaim({root: dir, repo: 'o/r', flags: {units: flags.units}, io})
+    assert.deepEqual(dry.closeAssets.install.map(e => e.target),
+      ['.github/workflows/ticket-close.yml', '.github/scripts/close-merged-tickets.mjs'])
+    assert.equal(existsSync(join(dir, '.github/workflows/ticket-close.yml')), false)  // dry-run은 쓰지 않는다
+
+    const run = await runClaim({root: dir, repo: 'o/r', flags, io})
+    assert.deepEqual(run.installedCloseAssets,
+      ['.github/workflows/ticket-close.yml', '.github/scripts/close-merged-tickets.mjs'])
+    const workflow = readFileSync(join(dir, '.github/workflows/ticket-close.yml'), 'utf8')
+    assert.match(workflow, /issues: write/)
+
+    // 손댄 사본은 다시 청구해도 되돌아가지 않는다.
+    writeFileSync(join(dir, '.github/workflows/ticket-close.yml'), '# 프로젝트가 손본 사본\n')
+    const again = await runClaim({root: dir, repo: 'o/r', flags: {...flags}, io})
+    assert.deepEqual(again.installedCloseAssets, [])
+    assert.equal(readFileSync(join(dir, '.github/workflows/ticket-close.yml'), 'utf8'), '# 프로젝트가 손본 사본\n')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('설치된 워크플로우는 workflow 보안 검사를 통과한다', async () => {
+  const {inspectWorkflowSecurity} = await import('./validators/validate-workflows-and-evals.mjs')
+  const source = readFileSync(join(ASSETS_DIR, 'ticket-close.yml'), 'utf8')
+  const findings = inspectWorkflowSecurity({source, workflowPath: '.github/workflows/ticket-close.yml', trustedPromotionActions: []})
+  assert.deepEqual(findings.map(f => f.code), [])
 })

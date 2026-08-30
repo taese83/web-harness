@@ -9,10 +9,11 @@
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
-import {basename, dirname, join} from 'node:path'
+import {basename, dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {computeBatchClaimPlan, formatBatchClaimPreview} from './batch-claim.mjs'
 import {computeClaimEligibility, claimEligibilityGuidance} from './claim-guard.mjs'
-import {resolveOriginPlanSync, resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
+import {resolveOriginPlanSync, resolveCurrentBranch, resolveWorktreeStatus, refreshRemoteRefs} from './git-origin.mjs'
 import {evaluatePickupReadiness} from './sync-guard.mjs'
 import {claimFeature} from './runner.mjs'
 import {pickupWithOwnership} from './assign.mjs'
@@ -43,6 +44,45 @@ export function parseArgs(argv) {
     else flags[arg.slice(2)] = true
   }
   return {command: command ?? null, positional, flags}
+}
+
+// 티켓 이슈 자동 닫기 자산 — 청구 브랜치에 설치한다.
+//
+// GitHub의 `Closes #N`은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은 청구 브랜치에 모아
+// 통합하므로 그 머지에서는 안 닫힌다. 그런데 하네스의 완료 판정(claim-scope 의존 해제·board
+// merged)은 이미 "청구 브랜치 머지 = 완료"다 — 보드는 완료라는데 이슈는 열린 채 남는다.
+// 이 워크플로우가 그 간극을 메운다.
+const ASSETS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills', 'team-flow', 'assets')
+export const TICKET_CLOSE_ASSETS = [
+  {asset: 'ticket-close.yml', target: '.github/workflows/ticket-close.yml'},
+  {asset: 'close-merged-tickets.mjs', target: '.github/scripts/close-merged-tickets.mjs'},
+]
+
+/** 설치 계획(순수 판정 + 파일 존재 조회). **덮어쓰지 않는다** — 프로젝트가 손본 사본을
+ * 조용히 되돌리면 안 된다. 자산 자체가 없으면(배포 형태 차이) 그 사실을 그대로 알린다. */
+export function planTicketCloseInstall(root, {assetsRoot = ASSETS_ROOT} = {}) {
+  const install = []
+  const present = []
+  const missingAssets = []
+  for (const entry of TICKET_CLOSE_ASSETS) {
+    const source = join(assetsRoot, entry.asset)
+    if (!existsSync(source)) { missingAssets.push(entry.asset); continue }
+    if (existsSync(join(root, entry.target))) present.push(entry.target)
+    else install.push({...entry, source})
+  }
+  return {install, present, missingAssets}
+}
+
+/** 계획대로 쓴다(멱등 — install 목록에만 쓴다). */
+export function installTicketCloseAssets(root, plan) {
+  const written = []
+  for (const entry of plan.install) {
+    const target = join(root, entry.target)
+    mkdirSync(dirname(target), {recursive: true})
+    writeFileSync(target, readFileSync(entry.source, 'utf8'))
+    written.push(entry.target)
+  }
+  return written
 }
 
 /** feature-plan의 위치를 해석한다 — sharding 계약상 **flat(.md) 또는 디렉터리** 두 형태다.
@@ -119,6 +159,17 @@ export function readChangeScopeFile(root) {
  * (충돌·순환이면 발행 안 함) → (3) --confirm일 때만 순서대로 발행+원장(청구는 rebind 가드).
  * 주입(io)은 테스트용 — 기본 실 gh/git/원장.
  */
+/** origin 판정 전 remote-tracking을 갱신한다. 실패해도 막지 않고 **스냅샷 기준임을 표기**한다
+ * — git-origin의 "선행하거나 표기하거나" 경고 중 둘 다 하는 쪽이다. `--no-fetch`로 끌 수 있다
+ * (네트워크 없는 환경·테스트). 결과는 각 모드 응답의 `freshness`로 나간다. */
+async function ensureRemoteFreshness({root, flags, io}) {
+  if (flags?.['no-fetch']) return {fetched: false, basis: 'local-snapshot', reason: 'disabled by --no-fetch'}
+  const result = await (io.refresh ?? refreshRemoteRefs)({repoRoot: root})
+  return result.ok
+    ? {fetched: true, basis: 'origin'}
+    : {fetched: false, basis: 'local-snapshot', reason: result.reason}
+}
+
 export async function runClaim({root, repo, flags, io = {}}) {
   const units = loadUnits(root, flags)
   const branch = flags.branch ?? await (io.currentBranch ?? resolveCurrentBranch)({repoRoot: root})
@@ -126,10 +177,12 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 점 1: 청구는 origin 푸시분에만(fail-closed)
   // 게이트가 보는 경로도 해석 결과를 따른다 — flat만 보면 sharded 계획에서 오탐이 난다.
   const planPath = resolvePlanLocation(root)?.relative ?? PLAN_RELATIVE
+  // origin 판정 전 remote-tracking 갱신 — 안 하면 낡은 스냅샷 위에서 "origin과 같다"를 본다.
+  const freshness = await ensureRemoteFreshness({root, flags, io})
   const sync = await (io.originSync ?? resolveOriginPlanSync)({repoRoot: root, planPath})
   const eligibility = computeClaimEligibility(sync)
   if (!eligibility.eligible) {
-    return {ok: false, blocked: eligibility.reason, guidance: claimEligibilityGuidance(eligibility.reason)}
+    return {ok: false, blocked: eligibility.reason, guidance: claimEligibilityGuidance(eligibility.reason), freshness}
   }
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const state = (io.readState ?? readLedgerState)(ledgerFile)
@@ -138,7 +191,8 @@ export async function runClaim({root, repo, flags, io = {}}) {
   if (plan.collisions.length > 0 || plan.cycles.length > 0) {
     return {ok: false, blocked: 'plan-defects', preview, guidance: '경로 충돌/순환 의존을 feature-planner에서 해소한 뒤 청구하세요'}
   }
-  if (!flags.confirm) return {ok: true, dryRun: true, preview}
+  const closeAssets = planTicketCloseInstall(root)
+  if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets}
   // 발행(순서대로) — provider(라벨 pre-create 포함) + 원장(청구는 rebind 가드 append)
   const provider = io.provider ?? createGithubProvider({repo})
   const permission = await (io.permission ?? resolveViewerPermission)({repo})
@@ -163,7 +217,10 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 부분 차단은 성공이 아니다(리뷰: exit 2 기계 신호 정렬) — 발행/차단 내역은 results에 그대로.
   const blockedAt = results.find(result => result.blocked)
   if (blockedAt) return {ok: false, blocked: `claim-blocked:${blockedAt.reason}`, guidance: blockedAt.guidance, dryRun: false, preview, results}
-  return {ok: true, dryRun: false, preview, results}
+  // 이슈 자동 닫기 자산을 청구 브랜치에 설치한다(멱등, 덮어쓰지 않음). 커밋·push는
+  // 브랜치를 만든 사람 몫이다 — CLI는 파일만 놓고 경로를 알린다.
+  const installedCloseAssets = installTicketCloseAssets(root, closeAssets)
+  return {ok: true, dryRun: false, preview, results, freshness, closeAssets, installedCloseAssets}
 }
 
 /**
@@ -172,6 +229,8 @@ export async function runClaim({root, repo, flags, io = {}}) {
  * §4 조건 이행) → change-scope.md 발급.
  */
 export async function runPickup({root, repo, featureId, developer, flags, io = {}}) {
+  // 브랜치·형상 대조도 origin 스냅샷을 본다 — 판정 전에 갱신한다.
+  const freshness = await ensureRemoteFreshness({root, flags, io})
   if (!developer) throw new Error('NO_DEVELOPER: --developer <login> 필요(소유권 판정 주체)')
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const record = (io.readState ?? readLedgerState)(ledgerFile).get(featureId) ?? null
@@ -192,7 +251,7 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   const issue = await (io.resolveIssue ?? resolveIssue)({repo, number: record.ticketKey})
   const pick = pickupWithOwnership({issue, developer, planUnits: units, ledgerRecord: record, allowedPathsSeed: splitList(flags['allowed-paths'])})
   if (!pick.ok) return {ok: false, bounce: pick.bounce, injection: pick.injection}
-  if (!flags.confirm) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope}
+  if (!flags.confirm) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope, freshness}
   // 활성 change-scope 덮어쓰기 가드(리뷰): 다른 FEAT의 change-scope가 살아 있으면 침묵 덮어쓰기
   // 금지 — 진행 중 FEAT의 STALE 앵커가 소실된다. --replace-scope 명시 시에만 교체.
   const existingScope = readChangeScopeFile(root)
@@ -213,7 +272,7 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
     }
   }
   const written = writeChangeScopeFile(root, pick.changeScope)
-  return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written}
+  return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written, freshness}
 }
 
 /**
@@ -254,6 +313,8 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
 
 /** board: 보드 강화(배정·merged — 트래커 실측). read-only. */
 export async function runBoard({root, repo, developer, flags, io = {}}) {
+  // merged·배정 판정 전 갱신 — 낡은 스냅샷이면 방금 머지된 티켓이 안 보인다.
+  const freshness = await ensureRemoteFreshness({root, flags, io})
   const units = loadUnits(root, flags)
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const state = (io.readState ?? readLedgerState)(ledgerFile)
@@ -284,7 +345,7 @@ export async function runBoard({root, repo, developer, flags, io = {}}) {
     units,
     {foundationComplete: flags['foundation-complete'] !== 'false', mergedFeatureIds: merged, collisions: findPathCollisions(units, {foundationRoots}), opts: {foundationRoots}},
   )
-  return {board, merged, tracker: trackerOk ? 'live' : 'unavailable', trackerNotes}
+  return {board, merged, tracker: trackerOk ? 'live' : 'unavailable', trackerNotes, freshness}
 }
 
 const splitList = value => value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []

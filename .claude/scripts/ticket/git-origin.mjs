@@ -32,6 +32,8 @@ export const remoteBranchExistsArgs = ref => ['rev-parse', '--verify', '--quiet'
 export const worktreeStatusArgs = () => ['status', '--porcelain']
 // 라우팅(§4-3)의 유일한 쓰기 argv — 실행은 computeSwitchPlan 통과 + 사람 확인 뒤 caller 몫.
 export const checkoutArgs = branch => ['checkout', branch]
+// remote-tracking 갱신. `--prune`으로 서버에서 삭제된 브랜치의 유령 참조를 지운다.
+export const fetchArgs = (remote = 'origin') => ['fetch', '--prune', '--quiet', remote]
 
 /**
  * `git status --porcelain` 출력 → 라우팅 판정 입력(순수). XY 코드 기준:
@@ -59,6 +61,30 @@ export function parseWorktreeStatus(porcelain) {
  * @param {{repoRoot: string, planPath: string, base?: string|null, exec?: (a:string[])=>Promise<{code:number,out:string}>}} config
  * @returns {Promise<{originExists: boolean, planMatchesOrigin: boolean, base: string|null, reason?: string}>}
  */
+/**
+ * remote-tracking 참조를 갱신한다(읽기 전용 — 워킹 트리를 건드리지 않는다).
+ *
+ * **왜 필요한가**: `origin/<br>` 판정은 실서버가 아니라 **마지막 fetch 시점의 스냅샷**이다.
+ * 이 파일이 그 사실을 경고하면서 "소비자는 판정 전 fetch를 선행하거나 스냅샷 기준임을
+ * 표기해야 한다 — 배선 커밋에서 결정"이라고 미뤄뒀는데, 실제로는 claim·pickup·board 어디에도
+ * fetch가 없었다(실측). 그래서 청구 게이트가 낡은 스냅샷 위에서 "origin과 같다"를 판정했다.
+ *
+ * 실패해도 던지지 않는다 — 네트워크 없는 환경에서 판정 자체를 막지 않기 위해서다. 대신
+ * `{ok:false}`를 돌려 **소비자가 "스냅샷 기준"임을 표기**할 수 있게 한다(둘 중 하나는 해야
+ * 한다는 경고의 나머지 절반).
+ * @param {{repoRoot: string, remote?: string, exec?: (a:string[])=>Promise<{code:number,out:string}>}} config
+ * @returns {Promise<{ok: boolean, reason: string|null}>}
+ */
+export async function refreshRemoteRefs({repoRoot, remote = 'origin', exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  try {
+    await run(fetchArgs(remote))
+    return {ok: true, reason: null}
+  } catch (error) {
+    return {ok: false, reason: error?.message?.split('\n')[0] ?? 'fetch failed'}
+  }
+}
+
 export async function resolveOriginPlanSync({repoRoot, planPath, base = null, exec = null}) {
   const run = exec ?? (args => git(args, {cwd: repoRoot}))
   let resolvedBase = base

@@ -1,0 +1,43 @@
+# 티켓 이슈 자동 닫기 — PR이 **청구 브랜치**에 머지되면 그 티켓의 이슈를 닫는다.
+#
+# 왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은
+# 여러 티켓을 청구 브랜치 하나에 모아 통합하므로 그 머지에서는 발동하지 않는다. 그런데 하네스의
+# 완료 판정(claim-scope의 의존 해제·board의 merged)은 이미 "청구 브랜치 머지 = 완료"다 —
+# 이 워크플로우가 없으면 보드는 완료라고 하는데 이슈는 열린 채로 남아 두 채널이 어긋난다.
+#
+# 무엇을 근거로 닫는가: **원장(identity-ledger.jsonl)만** 본다. PR 본문의 `#N`은 작성자가
+# 아무 숫자나 적을 수 있어 남의 티켓을 닫는 경로가 된다. 원장에 `prUrl`이 기록된 티켓만,
+# 그것도 base 브랜치가 청구 브랜치와 같을 때만 닫는다(= `link`를 거친 PR만).
+#
+# action pin은 이 저장소 harness-ci.yml과 같은 확인본이다.
+name: ticket-close
+on:
+  pull_request:
+    types:
+      - closed
+permissions:
+  contents: read
+concurrency:
+  group: ticket-close-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  close:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout claim branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+      - name: Close ticket issues bound to this merged PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TICKET_REPO: ${{ github.repository }}
+          TICKET_PR_URL: ${{ github.event.pull_request.html_url }}
+          TICKET_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: node .github/scripts/close-merged-tickets.mjs
