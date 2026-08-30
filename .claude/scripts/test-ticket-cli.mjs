@@ -111,7 +111,7 @@ test('runPickup: 미청구·준비 게이트 차단 · TOCTOU 양보 · 다중�
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
 
-test('runLink: STALE 차단 · verified closeLine · 멱등 · confirm append', async () => {
+test('runLink: STALE 차단 · verified closeLine · 멱등 · 기본 실행', async () => {
   const dir = tmpRoot()
   try {
     const units = withUnits(dir)
@@ -120,7 +120,8 @@ test('runLink: STALE 차단 · verified closeLine · 멱등 · confirm append', 
     const {buildChangeScope} = await import('./ticket/pickup.mjs')
     const {writeChangeScopeFile} = await import('./ticket/cli.mjs')
     writeChangeScopeFile(dir, buildChangeScope({issue: {number: 7, title: 't', body: 'x'}, unit, testCaseIds: ['TC-001-1']}))
-    const dry = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units}})
+    // 개발 단계 명령은 **기본 실행**이다 — 미리보기는 명시적으로 요청한다(2026-08-30).
+    const dry = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, 'dry-run': true}})
     assert.equal(dry.dryRun, true)
     assert.match(dry.closeLine, /Closes #7/) // 원장 대조 verified
     const done = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units, confirm: true}})
@@ -416,5 +417,29 @@ test('pickup: 선행 기능이 안 머지됐으면 막고 무엇을 기다리는
     assert.equal(result.bounce.reason, 'deps-incomplete')
     assert.deepEqual(result.bounce.unmetDeps, ['FEAT-004'])
     assert.match(result.guidance, /FEAT-004/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// ── 개발 단계는 묻지 않는다 (2026-08-30) ────────────────────────────────────
+// pickup은 이미 확정된 것을 실행할 뿐이다 — 게이트가 전부 통과했고, 배정 대상은 요청자
+// 자신이며, 되돌릴 수 있다. 여기서 한 번 더 묻는 것은 판단 요구가 아니라 의식이다.
+// 확인을 받는 지점은 PR 직전 하나뿐이다(phase-3-development 형상 규율).
+test('pickup: --confirm 없이도 실행한다 — 미리보기는 --dry-run으로 명시한다', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    seedClaim(dir)
+    const io = {
+      currentBranch: async () => 'feature/dash',
+      worktree: async () => ({dirty: false, conflicted: false}),
+      resolveIssue: async () => ({number: 7, title: 't', body: issueBody, assignees: ['me']}),
+    }
+    const run = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units}, io})
+    assert.notEqual(run.dryRun, true, 'confirm을 안 줬다고 미리보기로 빠지면 안 된다')
+    assert.ok(existsSync(join(dir, '_workspace/03_dev/change-scope.md')), 'change-scope가 실제로 발급돼야 한다')
+
+    const preview = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me',
+      flags: {units, 'dry-run': true, 'replace-scope': true}, io})
+    assert.equal(preview.dryRun, true, '--dry-run은 여전히 미리보기다')
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })

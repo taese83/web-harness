@@ -303,7 +303,12 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   const collisionNote = unit?.paths === undefined
     ? '충돌 검사 미수행(paths 미선언) — "충돌 없음"이 아니라 "검사 못 함"이다'
     : null
-  if (!flags.confirm) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope, freshness, collisionNote}
+  // **개발 단계는 묻지 않는다.** 확인을 받는 지점은 PR 직전 하나뿐이다
+  // (`phase-3-development.md` 형상 규율). pickup은 이미 확정된 것을 실행할 뿐이다 —
+  // 게이트가 전부 통과했고, 배정 대상은 요청자 자신이며, 되돌릴 수 있다. 여기서 한 번 더
+  // 묻는 것은 판단을 요구하는 게 아니라 의식이다(사용자 지적 2026-08-30).
+  // 미리보기가 필요하면 `--dry-run`.
+  if (flags['dry-run']) return {ok: true, dryRun: true, assignment: pick.assignment, changeScope: pick.changeScope, freshness, collisionNote}
   // 활성 change-scope 덮어쓰기 가드(리뷰): 다른 FEAT의 change-scope가 살아 있으면 침묵 덮어쓰기
   // 금지 — 진행 중 FEAT의 STALE 앵커가 소실된다. --replace-scope 명시 시에만 교체.
   const existingScope = readChangeScopeFile(root)
@@ -350,7 +355,7 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
     staleCheck = 'verified'
   } else {
     staleCheck = changeScope === null ? 'not-performed:no-change-scope' : 'not-performed:different-feature'
-    if (flags.confirm && !flags['accept-unverified-scope']) {
+    if (!flags['dry-run'] && !flags['accept-unverified-scope']) {
       return {ok: false, blocked: 'stale-check-unavailable', staleCheck, guidance: 'change-scope가 없거나 다른 FEAT의 것이라 STALE 대조를 수행하지 못했습니다 — 픽업으로 발급하거나 --accept-unverified-scope로 명시 인수하세요'}
     }
   }
@@ -358,7 +363,8 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
   const closeLine = renderCloseReference(closeLink)
   const plan = computePrLinkPlan({featureId, ledgerState: state, prUrl, now: new Date().toISOString()})
   if (plan.status === 'already-linked') return {ok: true, idempotent: true, existing: plan.existing, closeLine, staleCheck}
-  if (!flags.confirm) return {ok: true, dryRun: true, closeLine, record: plan.record, staleCheck}
+  // link는 "이 PR이 이 티켓의 것"이라는 **사실 기록**이다 — 판단할 것이 없다. 기본 실행.
+  if (flags['dry-run']) return {ok: true, dryRun: true, closeLine, record: plan.record, staleCheck}
   ;(io.append ?? appendLedgerRecord)(ledgerFile, plan.record)
   return {ok: true, dryRun: false, closeLine, record: plan.record, staleCheck}
 }
