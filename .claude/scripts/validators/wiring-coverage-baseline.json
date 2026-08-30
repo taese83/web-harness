@@ -1,0 +1,22 @@
+{
+  "comment": "배선 회귀 baseline — 이 목록의 스크립트는 main() 경로를 프로세스로 실행해보는 테스트가 없다. §4에 세 번 등록된 클래스(배선을 시험하는 회귀가 없으면 배선은 조용히 끊긴다)의 기존 부채이며, 새로 늘어나는 것만 실패로 본다. 줄이는 방향의 갱신은 자유이고, 늘리는 갱신은 의식적 행위다 — JUDGMENT에 사유를 남긴다.",
+  "measuredAt": "2026-08-30",
+  "unwired": [
+    ".claude/scripts/derive-execution-graph.mjs",
+    ".claude/scripts/init-workspace.mjs",
+    ".claude/scripts/spec.mjs",
+    ".claude/scripts/ticket/cli.mjs",
+    ".claude/scripts/validate-dependency-pins.mjs",
+    ".claude/scripts/validate-falsification.mjs",
+    ".claude/scripts/validate-output-language.mjs",
+    ".claude/scripts/validate-requirements-notation.mjs",
+    ".claude/scripts/validate-shape-checks.mjs",
+    ".claude/scripts/validate-spec-conformance.mjs",
+    ".claude/scripts/validators/validate-marker-integrity.mjs"
+  ],
+  "unregistered": [
+    "init-workspace.mjs",
+    "run-golden-profile.mjs",
+    "ticket/cli.mjs"
+  ]
+}

@@ -734,6 +734,32 @@ const validationScriptContract = (script, args, context) => {
     const allowed = new Set(['--json', '--allow-no-ids'])
     return extra.every(a => allowed.has(a)) && extra.length === new Set(extra).size
   }
+  // 아래 셋은 **읽기 전용**이다(쓰기·프로세스 실행 호출 0건 확인). 문서가 실행을 지시하는데
+  // 등록이 없어 에이전트 경로에서 DENY_VALIDATION_COMMAND로 막혀 있었다 — 저자는 메인
+  // 스레드라 안 보였다(2026-08-30 배선 감사). 쓰기 능력이 있는 나머지(init-workspace ·
+  // run-golden-profile · ticket/cli)는 인자 계약 설계가 필요해 등록하지 않는다.
+  if (script === '.claude/scripts/validate-wiring-coverage.mjs') {
+    // 저장소 자신을 훑는 읽기 전용 감사 — 인자는 --json뿐이다.
+    return args.length === 0 || (args.length === 1 && args[0] === '--json')
+  }
+  if (script === '.claude/scripts/report-execution-telemetry.mjs') {
+    const commandArgs = withoutDirectoryOption(args, '--project', context)
+    return args.includes('--project') && commandArgs.length === 0
+  }
+  if (script === '.claude/scripts/validate-environment-closure.mjs') {
+    const commandArgs = withoutDirectoryOption(args, '--project', context)
+    const allowed = new Set(['--json', '--no-web-app'])
+    return args.includes('--project') && commandArgs.every(arg => allowed.has(arg))
+      && commandArgs.length === new Set(commandArgs).size
+  }
+  if (script === '.claude/scripts/verify-spawn-completion.mjs') {
+    // `--expect`·`--paths`는 값을 받고 `--`는 그 뒤를 통째로 넘긴다 — 값 검증은 스크립트 몫이고
+    // 여기서는 **읽기 전용 플래그 집합**만 고정한다(쓰기 옵션이 늘면 이 목록이 막는다).
+    const commandArgs = withoutDirectoryOption(args, '--root', context)
+    const allowed = new Set(['--json', '--return', '--allow-empty', '--allow-no-output', '--expect', '--paths', '--'])
+    return commandArgs.every((arg, index) =>
+      !arg.startsWith('--') || allowed.has(arg) || commandArgs[index - 1] === '--expect' || commandArgs[index - 1] === '--paths')
+  }
   if (script === '.claude/scripts/validate-handoff-readiness.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     if (!args.includes('--project') || !args.includes('--to')) return false
