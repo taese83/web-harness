@@ -17,12 +17,13 @@
 // 개발 중의 질문으로 돌아온다.
 //
 // 사용법:
-//   node .claude/scripts/validate-handoff-readiness.mjs --project <root> --to development [--json]
+//   node .claude/scripts/validate-handoff-readiness.mjs --project <root> --to design|development [--json]
 // 종료 코드: 0 = 인계 가능, 1 = 미해결, 2 = 사용법 오류.
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
+import {claimScopeReadiness, findPathCollisions} from './ticket/claim-scope.mjs'
 import {extractDecisionBlock} from './spec.mjs'
 import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
@@ -105,15 +106,149 @@ export function checkSpecReady(root) {
   return ok('spec', `확정됨 · ${spec.specTier}`)
 }
 
-export const HANDOFFS = ['development']
+// ── 디자인이 기획에게 요구하는 것 ───────────────────────────────────────────
+// `design-readiness-contract.md`가 필수로 규정한 절들이 실제로 있는가. 없으면 디자인이
+// 추론으로 채우고, 그 추론이 개발까지 흘러가 "왜 이렇게 됐지"가 된다.
+//
+// **한계(정직)**: 헤딩 존재만 본다 — 내용이 채워졌는지는 못 본다. 그 판정은 사람의 승인
+// 몫이고, 이 검사는 **없는 것을 없다고 말하는 것**까지다(§4 등록).
+const REQUIRED_PLAN_SECTIONS = [
+  {file: '_workspace/01_plan/ux-brief', heading: '화면별 정보 위계', why: '레이아웃을 정할 근거'},
+  {file: '_workspace/01_plan/ux-brief', heading: '디자인 방향', why: '시각 위계를 정할 근거'},
+]
+
+const readPlanArtifact = (root, base) => {
+  const flat = join(root, `${base}.md`)
+  if (existsSync(flat) && statSync(flat).isFile()) return readFileSync(flat, 'utf8')
+  const dir = join(root, base)
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return null
+  return readdirSync(dir).filter(n => n.endsWith('.md')).sort()
+    .map(n => readFileSync(join(dir, n), 'utf8')).join('\n')
+}
+
+export function checkDesignInputs(root) {
+  const missing = []
+  for (const section of REQUIRED_PLAN_SECTIONS) {
+    const text = readPlanArtifact(root, section.file)
+    if (text === null) { missing.push(`${section.file} 없음`); continue }
+    if (!text.includes(section.heading)) missing.push(`${section.heading}(${section.why})`)
+  }
+  if (missing.length === 0) return ok('design-inputs', '디자인이 요구하는 기획 절이 전부 있다')
+  return hole('design-inputs', `디자인 입력 누락: ${missing.join(' · ')}`,
+    'design-readiness-contract.md의 필수 절을 채운다 — 없으면 디자인이 추론으로 메우고 그 추론이 개발까지 흘러간다')
+}
+
+// FEAT마다 검증 기준이 있는가. 없으면 나중에 스팩이 unverifiable로 잠기고, 무엇이 완료인지
+// 개발이 스스로 판단하게 된다 — 그 원인은 여기다.
+export function checkAcceptanceCoverage(units) {
+  if (!units || units.length === 0) return skip('acceptance', '단위를 읽지 못해 대조할 수 없다')
+  const bare = units.filter(u => (u.testCaseIds?.length ?? 0) === 0).map(u => u.featureId)
+  if (bare.length === 0) return ok('acceptance', `FEAT ${units.length}건 전부 TC를 갖는다`)
+  return hole('acceptance', `검증 기준 없는 FEAT ${bare.length}건: ${bare.slice(0, 6).join(', ')}${bare.length > 6 ? ' …' : ''}`,
+    '각 FEAT에 TC를 적는다 — 없으면 스팩이 unverifiable로 잠기고 "무엇이 완료인가"를 개발이 판단하게 된다')
+}
+
+// rationale의 FEAT 표기를 읽는다. `FEAT-006/007/008` 축약을 지원한다 — 사람이 자연스럽게
+// 쓰는 형태인데 `FEAT-\d+`만 보면 **첫 번째만 읽고 나머지를 남의 것으로 오탐**한다
+// (자체 실측 2026-08-30: track의 track-canvas 경계가 다섯을 명시하는데 넷이 오탐으로 나왔다).
+export function featureIdsIn(text) {
+  const source = String(text ?? '')
+  const ids = new Set()
+  for (const match of source.matchAll(/FEAT-(\d{3,})((?:\/\d{3,})*)/g)) {
+    ids.add(`FEAT-${match[1]}`)
+    for (const tail of match[2].split('/').filter(Boolean)) ids.add(`FEAT-${tail}`)
+  }
+  return [...ids]
+}
+
+// ── (1) 선언된 경로 ↔ 스팩 귀속 대조 ────────────────────────────────────────
+// 선언은 자기보고다. 아무도 원문서와 대조하지 않으면 **지어낸 귀속**이 그대로 통과한다
+// (2026-08-30 실측: `src/entities/track/model`의 rationale은 어느 FEAT도 명시하지 않는
+// 공유 정본인데 네 FEAT의 paths에 들어가, 004↔005 거짓 충돌을 만들어 착수를 막았다).
+//
+// 스팩 `moduleBoundaries`의 rationale이 FEAT를 명시하면 그것이 귀속이다. 규칙 둘:
+//   · 남의 FEAT에 귀속된 경계를 선언하면 지적한다
+//   · **아무에게도 귀속되지 않은 경계**를 특정 FEAT가 선언하면 지적한다 — 공유 정본에
+//     단일 소유자를 지어내는 것이고, 그 순간 거짓 충돌이 생긴다
+export function checkPathsAgainstSpec(units, spec) {
+  if (!units || units.length === 0) return skip('paths-attribution', '단위를 읽지 못해 대조할 수 없다')
+  const boundaries = (Array.isArray(spec?.moduleBoundaries) ? spec.moduleBoundaries : [])
+    .filter(entry => typeof entry?.scope === 'string' && entry.scope.trim())
+  if (boundaries.length === 0) return skip('paths-attribution', '스팩에 moduleBoundaries가 없어 대조할 수 없다')
+  const attribution = new Map(boundaries.map(entry => [
+    entry.scope.replace(/\/+$/, ''),
+    new Set(featureIdsIn(entry.rationale)),
+  ]))
+  const problems = []
+  for (const unit of units) {
+    for (const declared of unit.paths ?? []) {
+      const clean = declared.replace(/\/+\*+$/, '').replace(/\/+$/, '')
+      const owners = attribution.get(clean)
+      if (owners === undefined) continue // 스팩이 모르는 경계 — 대조 대상 아님(정직)
+      if (owners.size === 0) {
+        problems.push(`${unit.featureId}: ${clean}은 어느 FEAT에도 귀속되지 않은 공유 경계다`)
+      } else if (!owners.has(unit.featureId)) {
+        problems.push(`${unit.featureId}: ${clean}은 ${[...owners].join('·')}에 귀속된 경계다`)
+      }
+    }
+  }
+  if (problems.length === 0) return ok('paths-attribution', '선언된 경로가 스팩 귀속과 일치한다')
+  return hole('paths-attribution', problems.slice(0, 6).join(' · ') + (problems.length > 6 ? ` … 외 ${problems.length - 6}건` : ''),
+    '스팩 moduleBoundaries의 rationale이 FEAT를 명시한 경계만 그 FEAT의 paths로 적는다 — 공유 정본에 단일 소유자를 지어내면 거짓 충돌이 생겨 착수가 막힌다')
+}
+
+// ── (3) 진행 중 픽업 보호 ───────────────────────────────────────────────────
+// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 순서가 바뀐다. 오늘 내가 그렇게 했다 —
+// FEAT-009를 픽업한 상태에서 그 FEAT의 dependsOn을 고쳐 진행 불가로 만들었다(코드 손실은
+// 없었지만 옳은 순서가 아니었다). 활성 change-scope가 있으면 그 FEAT가 **지금 계획으로도
+// 착수 가능한지** 확인한다.
+export function checkActivePickupIntact(root, units, {readiness = null} = {}) {
+  const scopePath = join(root, '_workspace/03_dev/change-scope.md')
+  if (!existsSync(scopePath)) return skip('active-pickup', '진행 중인 픽업이 없다')
+  let featureId = null
+  try {
+    const fence = readFileSync(scopePath, 'utf8').match(/```json\s+change-scope\s*\n([\s\S]*?)\n```/)
+    featureId = fence ? JSON.parse(fence[1])?.featureId ?? null : null
+  } catch { return skip('active-pickup', 'change-scope를 읽지 못했다') }
+  if (!featureId) return skip('active-pickup', 'change-scope에 featureId가 없다')
+  const unit = (units ?? []).find(entry => entry.featureId === featureId)
+  if (!unit) {
+    return hole('active-pickup', `진행 중인 ${featureId}가 계획에서 사라졌다`,
+      '픽업 중인 FEAT를 계획에서 지우면 그 작업의 근거가 없어진다 — 되돌리거나 픽업을 정리한다')
+  }
+  const verdict = (readiness ?? defaultReadiness)(unit, units)
+  if (verdict.pickupable) return ok('active-pickup', `진행 중인 ${featureId}가 현재 계획으로도 착수 가능하다`)
+  return hole('active-pickup', `진행 중인 ${featureId}가 현재 계획으로는 착수 불가다(${verdict.blockedReason})`,
+    '계획이 진행 중인 픽업 밑에서 바뀌었다 — 계획을 되돌리거나, 개발자에게 알리고 픽업을 정리한 뒤 바꾼다')
+}
+
+const defaultReadiness = (unit, units) => claimScopeReadiness({
+  unit,
+  foundationComplete: true,
+  // 머지 목록을 모르므로 **의존을 보지 않는다** — 여기서 묻는 것은 "계획 변경으로 구조가
+  // 깨졌는가"이지 "지금 순서가 왔는가"가 아니다. 충돌·미선언만 본다.
+  mergedFeatureIds: (unit.dependsOn ?? []),
+  collisions: findPathCollisions(units),
+})
+
+export const HANDOFFS = ['design', 'development']
 
 export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   if (!HANDOFFS.includes(to)) throw new Error(`UNKNOWN_HANDOFF: ${to} — ${HANDOFFS.join('|')}`)
   const units = loadPlanUnits(root)
+  // 의존·경로는 **기획 산출물**이다. 디자인 인계에서 먼저 잡고, 개발 인계에서 다시 확인한다
+  // (사이에 지워질 수 있다). 늦게 잡을수록 되돌리는 비용이 커진다.
+  const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkAcceptanceCoverage(units),
+    checkActivePickupIntact(root, units)]
+  if (to === 'design') {
+    const results = [...planChecks, checkDesignInputs(root)]
+    const holes = results.filter(r => r.state === 'HOLE')
+    return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes}
+  }
   const spec = readSpecAt(root)
   const results = [
-    checkPlanDeclarations(units),
-    checkProseOnlyOrdering(root, units),
+    ...planChecks,
+    checkPathsAgainstSpec(units, spec),
     checkDesignDecisionsClosed(root),
     checkSpecReady(root),
     spec ? checkDecisionsApplied(root, spec) : skip('decisions', '스팩이 없어 대조할 수 없다'),
@@ -136,15 +271,15 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   if (argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
   } else {
-    process.stdout.write(`인계 점검 → ${to}: 다음 단계가 이 문서만으로 질문 없이 진행 가능한가\n`)
+    process.stdout.write(`인계 점검 → ${to === 'design' ? '디자인' : '개발'}: 다음 단계가 이 문서만으로 질문 없이 진행 가능한가\n`)
     for (const result of report.results) {
       const mark = result.state === 'PASS' ? '✅' : result.state === 'SKIPPED' ? '· ' : '🕳'
       process.stdout.write(`  ${mark} ${result.id}: ${result.detail}\n`)
       if (result.remedy) process.stdout.write(`      → ${result.remedy}\n`)
     }
     process.stdout.write(report.verdict === 'READY'
-      ? '\nREADY ✅ — 개발이 이 문서만으로 진행할 수 있다.\n'
-      : `\nHOLES ⛔ — 구멍 ${report.holes.length}건. 지금 메우지 않으면 개발 중의 질문으로 돌아온다.\n`)
+      ? `\nREADY ✅ — ${to === 'design' ? '디자인' : '개발'}이 이 문서만으로 진행할 수 있다.\n`
+      : `\nHOLES ⛔ — 구멍 ${report.holes.length}건. 지금 메우지 않으면 뒤 단계의 질문으로 돌아온다.\n`)
   }
   process.exit(report.verdict === 'READY' ? 0 : 1)
 }

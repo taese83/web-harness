@@ -11,7 +11,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -35,11 +35,14 @@ const withProject = (fn, {shards = {}, design = SOLUTION_DESIGN([]), spec = {spe
   } finally { rmSync(root, {recursive: true, force: true}) }
 }
 
+// TC를 함께 둔다 — 검증 기준 없는 FEAT는 별도 테스트가 따로 잰다.
 const DECLARED = [
   '## FEAT-001 첫째',
   '<!-- web-harness:unit feat=FEAT-001 dependsOn=none paths=src/entities/a -->',
+  '- TC-001-1 기대',
   '## FEAT-002 둘째',
   '<!-- web-harness:unit feat=FEAT-002 dependsOn=FEAT-001 paths=src/entities/b -->',
+  '- TC-002-1 기대',
 ].join('\n')
 
 // ── 오늘의 구멍이 승인 시점에 잡히는가 ─────────────────────────────────────
@@ -137,4 +140,88 @@ test('feature-plan이 flat이어도 읽는다', () => {
     assert.equal(loadPlanUnits(root).length, 2)
     assert.equal(parseFeaturePlanUnits(DECLARED).length, 2)
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// ── (1) 선언된 경로 ↔ 스팩 귀속 (2026-08-30) ────────────────────────────────
+// 선언은 자기보고다. 대조가 없으면 지어낸 귀속이 통과하고, 그 순간 거짓 충돌이 생겨
+// 착수가 막힌다 — 오늘 `src/entities/track/model`이 정확히 그랬다.
+const SPEC_WITH_BOUNDARIES = {
+  specTier: 'verifiable', libraries: {}, constitution: {substrate: {}},
+  moduleBoundaries: [
+    {scope: 'src/entities/track/lib/closure', rationale: 'FEAT-004 폐곡선 검증'},
+    {scope: 'src/entities/track/model', rationale: '4단계 파이프라인 타입 정본'},
+    {scope: 'src/widgets/canvas', rationale: 'FEAT-006/007/008이 공유하는 표면'},
+  ],
+}
+
+test('아무에게도 귀속되지 않은 공유 경계를 특정 FEAT가 선언하면 지적한다', () => {
+  const units = [{featureId: 'FEAT-004', paths: ['src/entities/track/model'], testCaseIds: ['TC-004-1']}]
+  const result = checkPathsAgainstSpec(units, SPEC_WITH_BOUNDARIES)
+  assert.equal(result.state, 'HOLE')
+  assert.match(result.detail, /어느 FEAT에도 귀속되지 않은/)
+})
+
+test('남의 FEAT에 귀속된 경계를 선언하면 지적한다', () => {
+  const units = [{featureId: 'FEAT-005', paths: ['src/entities/track/lib/closure'], testCaseIds: ['TC-005-1']}]
+  const result = checkPathsAgainstSpec(units, SPEC_WITH_BOUNDARIES)
+  assert.equal(result.state, 'HOLE')
+  assert.match(result.detail, /FEAT-004에 귀속/)
+})
+
+// 자체 실측: `FEAT-006/007/008` 축약에서 첫 번째만 읽어 나머지 셋을 오탐했다.
+test('FEAT 축약 표기를 전부 읽는다 — 공유 경계를 오탐하지 않는다', () => {
+  assert.deepEqual(featureIdsIn('FEAT-006/007/008이 공유하는 표면'), ['FEAT-006', 'FEAT-007', 'FEAT-008'])
+  const units = [{featureId: 'FEAT-008', paths: ['src/widgets/canvas'], testCaseIds: ['TC-008-1']}]
+  assert.equal(checkPathsAgainstSpec(units, SPEC_WITH_BOUNDARIES).state, 'PASS')
+})
+
+test('스팩이 모르는 경계는 대조 대상이 아니다 — 없는 근거로 지적하지 않는다', () => {
+  const units = [{featureId: 'FEAT-004', paths: ['src/somewhere/else'], testCaseIds: ['TC-004-1']}]
+  assert.equal(checkPathsAgainstSpec(units, SPEC_WITH_BOUNDARIES).state, 'PASS')
+})
+
+// ── (3) 진행 중 픽업 보호 (2026-08-30) ──────────────────────────────────────
+// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 순서가 바뀐다. 오늘 내가 그렇게 했다.
+const writeScope = (root, featureId) => writeFileSync(
+  join(root, '_workspace/03_dev/change-scope.md'),
+  ['# s', '', '```json change-scope', JSON.stringify({featureId, ALLOWED_PATHS: []}), '```', ''].join('\n'),
+)
+
+test('진행 중인 픽업이 계획 변경으로 착수 불가가 되면 지적한다', () => {
+  withProject(root => {
+    writeScope(root, 'FEAT-009')
+    const units = [
+      {featureId: 'FEAT-009', paths: ['src/widgets/canvas'], dependsOn: [], testCaseIds: ['TC-009-1']},
+      {featureId: 'FEAT-006', paths: ['src/widgets/canvas'], dependsOn: [], testCaseIds: ['TC-006-1']},
+    ]
+    const result = checkActivePickupIntact(root, units)
+    assert.equal(result.state, 'HOLE')
+    assert.match(result.detail, /FEAT-009가 현재 계획으로는 착수 불가/)
+  }, {shards: {'a.md': DECLARED}})
+})
+
+test('진행 중인 픽업이 계획에서 사라지면 지적한다', () => {
+  withProject(root => {
+    writeScope(root, 'FEAT-999')
+    const result = checkActivePickupIntact(root, [{featureId: 'FEAT-001', dependsOn: [], paths: []}])
+    assert.equal(result.state, 'HOLE')
+    assert.match(result.detail, /계획에서 사라졌다/)
+  }, {shards: {'a.md': DECLARED}})
+})
+
+test('진행 중인 픽업이 멀쩡하면 통과한다', () => {
+  withProject(root => {
+    writeScope(root, 'FEAT-002')
+    const units = [
+      {featureId: 'FEAT-001', paths: ['src/entities/a'], dependsOn: [], testCaseIds: ['TC-001-1']},
+      {featureId: 'FEAT-002', paths: ['src/entities/b'], dependsOn: ['FEAT-001'], testCaseIds: ['TC-002-1']},
+    ]
+    assert.equal(checkActivePickupIntact(root, units).state, 'PASS')
+  }, {shards: {'a.md': DECLARED}})
+})
+
+test('진행 중인 픽업이 없으면 검사하지 않는다 — 통과로 세지 않는다', () => {
+  withProject(root => {
+    assert.equal(checkActivePickupIntact(root, []).state, 'SKIPPED')
+  }, {shards: {'a.md': DECLARED}})
 })
