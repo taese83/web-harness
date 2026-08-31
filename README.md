@@ -242,4 +242,5 @@ when auditing or customizing an agent.
 - [docs/brownfield-adoption.md](docs/brownfield-adoption.md) — adopting into an existing codebase
 - [docs/competitive-landscape.md](docs/competitive-landscape.md) — where this sits in the 2026 tool landscape, and what actually distinguishes it
 - [docs/field-guide-gap.md](docs/field-guide-gap.md) — ten agentic-engineering patterns checked against this codebase, with per-item evidence
+- [docs/ai-trends-2026-harness-fit.md](docs/ai-trends-2026-harness-fit.md) — 2026 AI technology trends mapped onto this harness: aligned, gaps, and the trends it deliberately does not follow
 - [CLAUDE.md](CLAUDE.md) — the judgment gate applied to changes in this repository

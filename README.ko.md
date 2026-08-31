@@ -223,4 +223,5 @@ design readiness 계약과 대조된다. agent만 번역하면 반쪽 한국어�
 - [docs/brownfield-adoption.md](docs/brownfield-adoption.md) — 기존 코드베이스에 채택하기
 - [docs/competitive-landscape.ko.md](docs/competitive-landscape.ko.md) — 2026 툴 지형에서의 위치와 실제 차별점
 - [docs/field-guide-gap.ko.md](docs/field-guide-gap.ko.md) — 에이전트 엔지니어링 10개 패턴을 이 코드베이스와 대조, 항목별 근거
+- [docs/ai-trends-2026-harness-fit.md](docs/ai-trends-2026-harness-fit.md) — 2026 AI 기술 동향 대비 정렬·공백·의도적 비추종 항목
 - [CLAUDE.md](CLAUDE.md) — 이 repository의 변경에 적용되는 판단 게이트
