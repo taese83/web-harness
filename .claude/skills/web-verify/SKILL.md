@@ -1,6 +1,6 @@
 ---
 name: web-verify
-description: Runs only Phase 4 (QA) of the web-harness independently. Use to re-run quality checks on an existing project without rebuilding from scratch.
+description: [내부] verify 레인에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 4 (QA) of the web-harness independently. Use to re-run quality checks on an existing project without rebuilding from scratch.
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 argument-hint: "[검증 대상 프로젝트 경로 (선택)]"

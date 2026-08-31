@@ -1,6 +1,6 @@
 ---
 name: vite-serverless-hybrid
-description: Implementation contract for the built-in vite-serverless-hybrid profile (certified — T1 isolated-CI receipt) — a Vite React SPA with Vercel-style serverless functions under a root api/ directory. Used by web-orchestrator when HYBRID_SERVERLESS_MODE locks this profile, or standalone to add a thin serverless backend to an existing Vite SPA. Endpoint guard contract (§7) precedes any handler implementation and is enforced by the profile DAG's api.guards/api.unit machine receipts.
+description: [내부] WEB_PROFILE=vite-serverless-hybrid가 고른다. 사용자 진입점은 /wh 하나다. Implementation contract for the built-in vite-serverless-hybrid profile (certified — T1 isolated-CI receipt) — a Vite React SPA with Vercel-style serverless functions under a root api/ directory. Used by web-orchestrator when HYBRID_SERVERLESS_MODE locks this profile, or standalone to add a thin serverless backend to an existing Vite SPA. Endpoint guard contract (§7) precedes any handler implementation and is enforced by the profile DAG's api.guards/api.unit machine receipts.
 argument-hint: "[project root or hybrid setup requirements]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

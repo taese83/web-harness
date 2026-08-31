@@ -1,6 +1,6 @@
 ---
 name: i18n-setup
-description: Introduces internationalization to a web-harness project — locale inventory, message catalog structure, ICU formatting, locale routing strategy, string extraction, and translation completeness checks. Use when a project needs more than one display language or locale-aware formatting.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Introduces internationalization to a web-harness project — locale inventory, message catalog structure, ICU formatting, locale routing strategy, string extraction, and translation completeness checks. Use when a project needs more than one display language or locale-aware formatting.
 argument-hint: "[locales and routing requirements]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

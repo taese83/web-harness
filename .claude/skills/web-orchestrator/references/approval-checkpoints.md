@@ -46,6 +46,55 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to develo
 
 수정 요청이 있으면 해당 design wave만 다시 실행한 후 체크포인트를 반복한다. 확인 전에는 Phase 3 source edit를 시작하지 않는다.
 
+## change 레인 → 개발
+
+`change` 레인(`request-type-contract.md`)은 **동작을 새로 정의한다.** 정의가 맞는지 확인받기 전에
+구현하면 되돌림이 코드에서 일어난다. 아래 네 단계를 거친 뒤 사용자에게 보여주고 확인한다.
+
+### ① 기획 개정 — 항상
+
+바뀌는 요구사항과 Feature List 항목만 개정한다. `tech-advisor`·`planning-synthesizer`는 실행하지
+않는다 — 스택과 project-brief는 이미 고정돼 있고 이번 변경이 그것을 바꾸지 않는다.
+바꾼다면 그때만 해당 wave로 승격한다.
+
+요구사항이 실제로 바뀌지 않는 변경(예: `infrastructure`)이면 개정할 것이 없다. 그때는 빈
+단계를 통과시키지 말고 **`기획 개정: none (사유: 사용자 관찰 동작 무변경)`**을 남긴다 —
+「바꿀 게 없었다」와 「안 봤다」를 구분하기 위해서다.
+
+### ② 디자인 델타 감지 — 항상, 리서치 없음
+
+개정된 기획을 `_workspace/02_design/`의 canonical 문서와 **대조**해 어긋나는 것을 뽑고
+`DOCS_TO_UPDATE`(`minimal-change-contract.md`)에 기록한다. 새로 만드는 것이 아니라 대조다 —
+`ux-researcher` 같은 리서치 에이전트는 실행하지 않는다.
+
+**감지 결과가 비어 있어도 그 사실을 남긴다.** `DOCS_TO_UPDATE: none (대조: layout-spec,
+component-spec, api-schema, design-system, state-contract)`처럼 **무엇을 대조했는지** 함께 적는다.
+비었다는 결론과 게으른 감지는 결과가 같아서, 대조 목록이 없으면 구분할 수 없다.
+
+### ③ 감지된 문서만 개정
+
+`DOCS_TO_UPDATE`에 나열된 문서만 해당 Phase 2 에이전트로 개정한다. 나열되지 않은 문서는 손대지
+않는다. 신규 화면·데이터 계약·아키텍처 변경이면 그 부분만 승격한다.
+
+### ④ 스팩 확정
+
+변경 범위의 스팩(수용 기준·TC)을 확정한다. 없으면 실측으로 만든다.
+
+### ✋ 승인 체크포인트
+
+다음을 보여주고 확인한다. **확인 전에는 source edit를 시작하지 않는다.**
+
+- 기획 변경: 개정된 요구사항·Feature List 항목 (변경된 행만)
+- 디자인 변경: `DOCS_TO_UPDATE`와 **대조한 문서 목록**, 각 문서의 개정 요지 1줄
+- 스팩: 수용 기준과 TC, `LOCAL_VERIFIABLE | DEPLOY_ONLY` 라벨
+- change brief: `ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`
+- 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`
+
+수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다.
+
+`fix`·`verify` 레인은 이 체크포인트를 거치지 않는다 — 동작을 새로 정의하지 않으므로 승인받을
+대상이 없다. 대신 유형별 보존 증거(`request-type-contract.md`)가 의무다.
+
 ## 질문 규칙
 
 한 번에 최대 3개만 질문한다. 구조를 바꾸지 않는 세부 선호는 제안값과 근거를 함께 제시하고 승인 항목에 포함한다.

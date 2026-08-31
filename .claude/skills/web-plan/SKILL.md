@@ -1,6 +1,6 @@
 ---
 name: web-plan
-description: Runs only Phase 1 (Planning) of the web-harness independently with product-first intake, UX risk review, data strategy, effort trade-offs, and readiness validation before design or implementation.
+description: [내부] new 레인(Phase 1 체크포인트에서 멈춘다)에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 1 (Planning) of the web-harness independently with product-first intake, UX risk review, data strategy, effort trade-offs, and readiness validation before design or implementation.
 argument-hint: "[service description]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent

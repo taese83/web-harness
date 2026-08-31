@@ -1,6 +1,6 @@
 ---
 name: analytics-chart-builder
-description: Designs, implements, and verifies semantic metric/dimension chart builders and editable dashboards. Use for BI-style query builders, chart-type switching, line/bar/table/funnel/retention/flow visualizations, panel configuration, dashboard layout editing, or analytics schema validation. Works with timeseries-dashboard when historical or realtime time-axis data is also required.
+description: [내부] ANALYTICS_BUILDER_MODE가 고른다. 사용자 진입점은 /wh 하나다. Designs, implements, and verifies semantic metric/dimension chart builders and editable dashboards. Use for BI-style query builders, chart-type switching, line/bar/table/funnel/retention/flow visualizations, panel configuration, dashboard layout editing, or analytics schema validation. Works with timeseries-dashboard when historical or realtime time-axis data is also required.
 argument-hint: "[analytics builder requirements or existing project path]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

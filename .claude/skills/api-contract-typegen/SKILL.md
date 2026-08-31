@@ -1,6 +1,6 @@
 ---
 name: api-contract-typegen
-description: Establishes a single source of truth for API contracts (OpenAPI or Zod) and generates TypeScript types shared between server handlers, MSW handlers, and frontend clients. Prevents drift where client casts responses to a type the server never returns. Use when API and frontend are developed separately, or when the current project has grown its own untyped fetch layer.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Establishes a single source of truth for API contracts (OpenAPI or Zod) and generates TypeScript types shared between server handlers, MSW handlers, and frontend clients. Prevents drift where client casts responses to a type the server never returns. Use when API and frontend are developed separately, or when the current project has grown its own untyped fetch layer.
 argument-hint: "[openapi path | zod-first | auto-detect]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

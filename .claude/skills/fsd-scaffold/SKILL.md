@@ -1,6 +1,6 @@
 ---
 name: fsd-scaffold
-description: Project-scoped scaffold guide for Feature-Sliced Design (FSD) in the web-harness repo. Use this skill when the user asks where to put a new file, how to create a new feature/entity/page slice, or needs FSD layer decision guidance. Also helps scaffold boilerplate for new slices following the project's conventions.
+description: [내부] Phase 3가 고른다. 사용자 진입점은 /wh 하나다. Project-scoped scaffold guide for Feature-Sliced Design (FSD) in the web-harness repo. Use this skill when the user asks where to put a new file, how to create a new feature/entity/page slice, or needs FSD layer decision guidance. Also helps scaffold boilerplate for new slices following the project's conventions.
 argument-hint: "[slice responsibility]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, AskUserQuestion

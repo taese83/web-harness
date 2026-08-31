@@ -1,6 +1,6 @@
 ---
 name: dev-orchestrator
-description: DEPRECATED — 진입점은 /web-orchestrator 하나다. 라이브러리·CLI 워크플로는 확정된 targetShapes가 고른다(shape-routing-contract.md). 이 스킬은 리다이렉트로만 남는다.
+description: DEPRECATED — 진입점은 /wh 하나다. 라이브러리·CLI 워크플로는 확정된 targetShapes가 고른다(shape-routing-contract.md). 이 스킬은 리다이렉트로만 남는다.
 argument-hint: "[project description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

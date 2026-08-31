@@ -50,13 +50,14 @@ mkdir -p _workspace/00_source _workspace/01_plan _workspace/02_design _workspace
 
 ## Iterate mode (이미 만들어진 프로젝트의 범위 좁힌 변경)
 
-buildable한 기존 프로젝트에 `request-type-contract.md`의 `feature`·`ui-change`·`bug-fix`·`refactor`·`api-integration` 요청이 오면 Phase 1~2 intake·mode 배너·workspace 재생성을 라운드마다 반복하지 않고 아래 경량 루프로 수행한다. Plan/Design 산출물은 최초 1회만 만들고 이후 라운드는 재사용한다.
+buildable한 기존 프로젝트에 `request-type-contract.md`가 `change`·`fix`·`verify` 레인으로 매핑하는 요청(`feature`·`ui-change`·`api-integration`·`infrastructure`·`bug-fix`·`refactor`·`verification-only`)이 오면 Phase 1~2 intake·mode 배너·workspace 재생성을 라운드마다 반복하지 않고 아래 경량 루프로 수행한다. Plan/Design 산출물은 최초 1회만 만들고 이후 라운드는 재사용한다.
 
-1. `request-type-contract.md`로 유형을 고정한다. 유형이 source 수정 범위를 크게 바꿀 때만 한 번 확인한다.
-2. `minimal-change-contract.md`의 change brief를 `_workspace/03_dev/change-scope.md`에 **라운드별 1항목 append**하고 그 계약대로 편집한다. `CAPABILITY_ESCALATION`·`DOCS_TO_UPDATE`를 포함한 전 필드를 기록한다.
+1. `request-type-contract.md`로 **레인**을 고정하고 레인·게이트를 1줄로 알린다(생략 금지). `fix`는 같은 계약의 자기검사를 먼저 통과해야 한다.
+1-A. `change` 레인이면 `approval-checkpoints.md`의 「change 레인 → 개발」(기획 개정 → 디자인 델타 감지 → 개정 → 스팩 → **✋승인**)을 수행한다. **확인 전에는 source edit를 시작하지 않는다.** `fix`·`verify`는 건너뛴다. 승인 뒤에는 `development-gates-contract.md`의 **Gate 0**(개발 착수 준비)을 돌린다 — Iterate는 Phase 3을 거치지 않으므로 여기서 걸지 않으면 그 관문이 도달 불가다.
+2. `minimal-change-contract.md`의 change brief를 `_workspace/03_dev/change-scope.md`에 **라운드별 1항목 append**하고 그 계약대로 편집한다. `CAPABILITY_ESCALATION`·`DOCS_TO_UPDATE`를 포함한 전 필드를 기록한다. `change`는 `DOCS_TO_UPDATE`를 1-A의 감지 결과로 채운다 — 사후 추측이 아니다.
 3. `development-gates-contract.md`의 게이트(typecheck·lint·test·build)를 프로젝트 toolchain pin으로 실행한다.
 4. 런타임 검증은 아래 **Runtime verifiability**를 따른다.
-5. **라운드 종료 게이트 3종** — 미충족이면 완료로 선언하지 않고 상태를 보고에 표기한다. `/feature-add` Phase 4와 같은 계약이며(진입점이 강도를 바꾸지 않는다) 세부는 `qa-evidence-contract.md`의 Iterate evidence가 canonical이다. ① 승격 QA: `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(+서버 계약이 생겼으면 `api-contract-verifier`) 재투입, 불가하면 `BLOCKED (사유)` ② Evidence 재발급: `_workspace/04_qa/evidence/`가 있으면 `run-quality-gates.mjs --project {root} --all`로 재발급, 불가하면 `STALE` ③ 문서 동기화: `DOCS_TO_UPDATE`가 `none`이 아니면 나열된 `02_design` 문서 개정 완료, 남으면 `PENDING`.
+5. **라운드 종료 게이트 3종** — 미충족이면 완료로 선언하지 않고 상태를 보고에 표기한다. 레인·진입 방식과 무관하게 같은 계약이며 세부는 `qa-evidence-contract.md`의 Iterate evidence가 canonical이다. ① 승격 QA: `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(+서버 계약이 생겼으면 `api-contract-verifier`) 재투입, 불가하면 `BLOCKED (사유)` ② Evidence 재발급: `_workspace/04_qa/evidence/`가 있으면 `run-quality-gates.mjs --project {root} --all`로 재발급, 불가하면 `STALE` ③ 문서 동기화: `DOCS_TO_UPDATE`가 `none`이 아니면 나열된 `02_design` 문서 개정 완료, 남으면 `PENDING`.
 6. 완료 보고에 changed files·보존 contract·scope deviation·요청 외 변경(있으면 승인 근거)·evidence와 게이트 3종 상태를 남긴다.
 
 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. full Phase 4 attestation·release manifest는 iterate 라운드의 기본 산출물이 아니며 배포 후보를 낼 때만 `qa-evidence-contract.md`로 승격한다.

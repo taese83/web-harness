@@ -1,6 +1,6 @@
 ---
 name: lib-advisor
-description: Library recommendation and setup advisor for React + TypeScript + Vite projects. Use this skill when the user wants to know which libraries to use for a new project or feature, needs help choosing between alternatives, or wants to set up a recommended library with initial configuration. Works for any service type — dashboard, e-commerce, blog, SaaS, etc.
+description: [내부] Phase 1 tech-advisor가 고른다. 사용자 진입점은 /wh 하나다. Library recommendation and setup advisor for React + TypeScript + Vite projects. Use this skill when the user wants to know which libraries to use for a new project or feature, needs help choosing between alternatives, or wants to set up a recommended library with initial configuration. Works for any service type — dashboard, e-commerce, blog, SaaS, etc.
 argument-hint: "[service type or required capability]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, WebSearch, WebFetch, AskUserQuestion

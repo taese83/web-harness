@@ -1,6 +1,6 @@
 ---
 name: timeseries-dashboard
-description: Designs and implements production-oriented time-series dashboards for high-volume historical and realtime data. Use for Grafana-like dashboards, metric charts, date-range exploration, live telemetry, WebSocket/SSE streams, chart performance, downsampling, reconnect/resume behavior, realtime mocks, or migration from mock streams to real APIs.
+description: [내부] TIMESERIES_MODE가 고른다. 사용자 진입점은 /wh 하나다. Designs and implements production-oriented time-series dashboards for high-volume historical and realtime data. Use for Grafana-like dashboards, metric charts, date-range exploration, live telemetry, WebSocket/SSE streams, chart performance, downsampling, reconnect/resume behavior, realtime mocks, or migration from mock streams to real APIs.
 argument-hint: "[dashboard requirements or existing project path]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

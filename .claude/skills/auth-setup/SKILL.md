@@ -1,6 +1,6 @@
 ---
 name: auth-setup
-description: Adds authentication and authorization to a completed web-harness project. Sets up a secure cookie or OIDC PKCE strategy, Axios credentials/interceptors, refresh flow, protected routing, and login/logout UI. Use after /web-orchestrator completes when the service requires login.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Adds authentication and authorization to a completed web-harness project. Sets up a secure cookie or OIDC PKCE strategy, Axios credentials/interceptors, refresh flow, protected routing, and login/logout UI. Use after /web-orchestrator completes when the service requires login.
 argument-hint: "[identity provider or auth requirements]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

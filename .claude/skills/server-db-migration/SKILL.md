@@ -1,6 +1,6 @@
 ---
 name: server-db-migration
-description: Establishes a repeatable, idempotent SQL migration workflow for web-harness projects using serverless-friendly databases (Neon Postgres, Supabase, PlanetScale, SQLite). Enforces file naming, idempotency patterns (IF NOT EXISTS, DO blocks), pooled vs direct DSN separation, forward-only migrations with recorded rollback SQL, and a lightweight runner that tracks applied migrations without introducing a heavyweight ORM. Use whenever a project needs schema evolution beyond a one-shot init.sql.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Establishes a repeatable, idempotent SQL migration workflow for web-harness projects using serverless-friendly databases (Neon Postgres, Supabase, PlanetScale, SQLite). Enforces file naming, idempotency patterns (IF NOT EXISTS, DO blocks), pooled vs direct DSN separation, forward-only migrations with recorded rollback SQL, and a lightweight runner that tracks applied migrations without introducing a heavyweight ORM. Use whenever a project needs schema evolution beyond a one-shot init.sql.
 argument-hint: "[db provider or migration requirements]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

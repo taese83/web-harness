@@ -1,6 +1,6 @@
 ---
 name: next-app
-description: Build or extend a Next.js App Router application through the next-app-fullstack adapter. Use for greenfield or existing Next App Router work that needs Server Components, Route Handlers, Server Actions, SSR/SSG/ISR, authenticated BFF behavior, or Node/static deployment while preserving profile, security-boundary, cache, and evidence contracts; Docker release remains blocked pending typed OCI evidence.
+description: [내부] WEB_PROFILE=next-app-fullstack가 고른다. 사용자 진입점은 /wh 하나다. Build or extend a Next.js App Router application through the next-app-fullstack adapter. Use for greenfield or existing Next App Router work that needs Server Components, Route Handlers, Server Actions, SSR/SSG/ISR, authenticated BFF behavior, or Node/static deployment while preserving profile, security-boundary, cache, and evidence contracts; Docker release remains blocked pending typed OCI evidence.
 argument-hint: "[project root and requested Next.js change]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

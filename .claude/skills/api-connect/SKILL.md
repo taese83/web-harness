@@ -1,6 +1,6 @@
 ---
 name: api-connect
-description: Connects a completed web-harness project to real REST and, when present, WebSocket/SSE endpoints. Replaces Mock adapters, updates environment variables, verifies snapshot/stream contracts, and writes migration guidance. Use after /web-orchestrator completes.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Connects a completed web-harness project to real REST and, when present, WebSocket/SSE endpoints. Replaces Mock adapters, updates environment variables, verifies snapshot/stream contracts, and writes migration guidance. Use after /web-orchestrator completes.
 argument-hint: "[API specification or endpoint]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion

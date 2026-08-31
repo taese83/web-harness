@@ -26,7 +26,7 @@ NON_GOALS: 이번 작업에서 하지 않을 것
 CHANGE_BUDGET: 예상 파일·component·dependency 범위
 TEST_EVIDENCE: 변경 전 재현과 변경 후 검증
 CAPABILITY_ESCALATION: none | detected: 신호 목록
-DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none
+DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none — **대조한 문서 목록을 괄호로 병기한다**(`none (대조: layout-spec, component-spec, api-schema)`). change 레인은 개발 전 감지 단계에서 채운다(`approval-checkpoints.md`)
 ```
 
 `CHANGE_BUDGET`은 line cap이 아니다. 예상 범위를 벗어나는 rewrite와 우발적 확장을 발견하기 위한 검토 기준이다.
@@ -37,7 +37,7 @@ DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none
 `detected`면 project profile의 capabilities를 현재화하고 **`security-reviewer`(+서버 계약이 생겼으면 `api-contract-verifier`) 재투입이 의무**다.
 최초 생성 시 `capabilities: base`였다는 사실은 면제 사유가 아니다 — 승격된 표면은 승격된 QA를 받는다.
 
-`DOCS_TO_UPDATE`는 이번 변경이 `_workspace/02_design/`의 canonical 계약(state-contract·api-schema·layout-spec·component-spec·design-system)과
+`DOCS_TO_UPDATE`는 이번 변경이 `_workspace/02_design/`의 canonical 계약(state-contract·api-schema·layout-spec·component-spec·design-system)과 — 소비 형태가 화면이 아니면 그 형태의 canonical로 읽는다(라이브러리·CLI는 `api-design.md`, `shape-routing-contract.md` §2). 대조 집합은 **그 프로젝트의 `02_design/`에 실재하는 문서 전부**이며, 위 열거는 web-app 형태의 예시다 —
 충돌할 때 그 문서를 나열한다. **나열된 문서의 개정이 끝나기 전에는 라운드를 완료로 선언하지 않는다.** change-scope의 누적 기록은
 canonical 문서의 대체물이 아니다 — 다음 라운드 에이전트는 canonical 문서를 믿고 움직이므로, 갱신 없이 닫힌 라운드는 미기록 계약 변경이다.
 

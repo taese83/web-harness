@@ -1,6 +1,6 @@
 ---
 name: component-gen
-description: Project-scoped component generator for web-harness. Use this skill when the user asks to create a new React component or UI boilerplate that follows the project's TypeScript conventions and its selected UI lane (MUI, or Tailwind + shadcn/ui vendored primitives). Generates code that respects Prettier config, the lane's public styling API rules, and the FSD layer the component belongs to.
+description: [내부] Phase 3가 고른다. 사용자 진입점은 /wh 하나다. Project-scoped component generator for web-harness. Use this skill when the user asks to create a new React component or UI boilerplate that follows the project's TypeScript conventions and its selected UI lane (MUI, or Tailwind + shadcn/ui vendored primitives). Generates code that respects Prettier config, the lane's public styling API rules, and the FSD layer the component belongs to.
 argument-hint: "[component name and responsibility]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion

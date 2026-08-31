@@ -1,6 +1,6 @@
 ---
 name: web-orchestrator
-description: Master orchestrator for building or extending any supported React/Vite or Next.js web application from a natural-language request or existing artifacts, including crawling, scheduled external-data ingestion, local domain state, AI, planning, implementation, QA, CI, and release evidence. Invoke explicitly with /web-orchestrator for a complete service or cross-lifecycle web change.
+description: [내부] Master orchestrator for building or extending any supported React/Vite or Next.js web application from a natural-language request or existing artifacts, including crawling, scheduled external-data ingestion, local domain state, AI, planning, implementation, QA, CI, and release evidence. 사용자 진입점은 /wh 하나다. Invoked by /wh for a complete service or cross-lifecycle web change.
 argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
@@ -89,7 +89,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 입력 모드 판별:
 
-0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `feature`·`ui-change`·`bug-fix`·`refactor`·`api-integration`·`verification-only` 같은 **범위가 좁혀진 변경 요청**이 오면(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
+0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `change`·`fix` 레인 요청이 오면(`verify`는 read-only 경로로 간다)(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
 1. **Resume Mode** — `_workspace/01_plan`과 `_workspace/02_design`의 필수 파일이 모두 존재하면 Phase 3부터 시작한다.
 2. **Source Artifact Mode** — 사용자가 기존 기획/디자인/API 문서나 폴더를 제공했으면 `source-artifact-ingestor`를 실행한다.
    - `planning-context.md`를 포함해 정규화하고 read-only `plan-reviewer` readiness gate를 통과한 뒤 다음 Phase로 간다.

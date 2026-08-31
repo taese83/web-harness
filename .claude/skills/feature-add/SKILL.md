@@ -1,6 +1,6 @@
 ---
 name: feature-add
-description: Adds a new feature to a completed web-harness project following FSD architecture. Runs the planning → design → development → QA mini-cycle for the new feature only. Use after /web-orchestrator completes.
+description: [내부] change 레인에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Adds a new feature to a completed web-harness project following FSD architecture. Runs the planning → design → development → QA mini-cycle for the new feature only. Use after /web-orchestrator completes.
 argument-hint: "[feature request]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
@@ -12,6 +12,11 @@ metadata:
 ---
 
 # Feature Add
+
+> **이 스킬은 `change` 레인의 구현 세부다.** 사용자 진입점은 `/wh` 하나이며 레인 판정·표시와
+> 승인 게이트는 `request-type-contract.md`·`approval-checkpoints.md`가 소유한다. 여기서
+> 다시 정의하지 않는다 — **아래 체크포인트 서술이 그 두 계약과 어긋나면 그 두 계약이 정본이다.**
+> `fix` 자기검사와 레인 표시 의무는 이 경로에도 동일하게 적용된다.
 
 완성된 프로젝트에 새 기능을 기획 → 디자인 → 개발 → QA 미니 사이클로 추가한다.
 
