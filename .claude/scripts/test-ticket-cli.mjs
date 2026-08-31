@@ -12,9 +12,10 @@ import {parseArgs, runClaim, runBoard, runPickup, runLink, readChangeScopeFile, 
 import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
+import {fileURLToPath} from 'node:url'
 
 const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature', dependsOn: [], paths: ['src/features/dash/']}
-const ASSETS_DIR = new URL('../skills/team-flow/assets/', import.meta.url).pathname
+const ASSETS_DIR = fileURLToPath(new URL('../skills/team-flow/assets/', import.meta.url))
 const tmpRoot = () => mkdtempSync(join(tmpdir(), 'wh-cli-'))
 // unit 픽스처는 **의존을 명시적으로 선언**한다(`dependsOn: []`). 미선언은 "없음"이 아니라
 // "선언 안 함"이라 pickup이 막히는데(2026-08-30 신설), 그것은 아래 전용 테스트가 따로 잰다.

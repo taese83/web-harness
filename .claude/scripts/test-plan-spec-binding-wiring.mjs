@@ -18,9 +18,10 @@ import {execFileSync} from 'node:child_process'
 import {mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
+import {fileURLToPath} from 'node:url'
 
-const SPAWN_PLAN = new URL('./validate-spawn-plan.mjs', import.meta.url).pathname
-const RESUME = new URL('./resume-manifest.mjs', import.meta.url).pathname
+const SPAWN_PLAN = fileURLToPath(new URL('./validate-spawn-plan.mjs', import.meta.url))
+const RESUME = fileURLToPath(new URL('./resume-manifest.mjs', import.meta.url))
 
 const run = (script, args, cwd) => {
   try {

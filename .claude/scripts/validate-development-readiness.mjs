@@ -24,7 +24,7 @@
 // 종료 코드: 0 = 착수 가능, 1 = 미해결 항목 있음, 2 = 사용법/입력 오류.
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
-import {pathToFileURL} from 'node:url'
+import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
 import {digestInputs, inspectSpecLedger, isSpecStale} from './spec.mjs'
 import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './validate-environment-closure.mjs'
@@ -32,7 +32,7 @@ import {checkPlanAgainstSpec, readSpecAt, withinScope} from './validate-spawn-pl
 import {inspectPlanSpecBinding} from './resume-manifest.mjs'
 import {TICKET_CLOSE_ASSETS, installTicketCloseAssets, planTicketCloseInstall} from './ticket/cli.mjs'
 
-const OWNERSHIP_HOOK = new URL('./enforce-agent-ownership.mjs', import.meta.url).pathname
+const OWNERSHIP_HOOK = fileURLToPath(new URL('./enforce-agent-ownership.mjs', import.meta.url))
 
 // 판정 하나의 형태. `state`는 셋뿐이다 — 통과 · 미해결 · 검사하지 않음.
 // **"검사하지 않음"을 통과로 세지 않는다**(축이 없으면 통과가 아니다).

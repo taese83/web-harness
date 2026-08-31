@@ -14,8 +14,9 @@ import {execFileSync} from 'node:child_process'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
+import {fileURLToPath} from 'node:url'
 
-const script = name => new URL(`./${name}`, import.meta.url).pathname
+const script = name => fileURLToPath(new URL(`./${name}`, import.meta.url))
 const HANDOFF = script('validate-handoff-readiness.mjs')
 const READINESS = script('validate-development-readiness.mjs')
 const WIRING = script('validate-wiring-coverage.mjs')

@@ -22,10 +22,10 @@
 //   node .claude/scripts/validate-wiring-coverage.mjs [--json]
 // 종료 코드: 0 = baseline 이내, 1 = 신규 미배선, 2 = 사용법 오류.
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
-import {join, relative, resolve} from 'node:path'
-import {pathToFileURL} from 'node:url'
+import {join, relative, resolve, sep} from 'node:path'
+import {pathToFileURL, fileURLToPath} from 'node:url'
 
-const ROOT = resolve(new URL('../..', import.meta.url).pathname)
+const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const SCRIPTS = join(ROOT, '.claude/scripts')
 const BASELINE = join(SCRIPTS, 'validators/wiring-coverage-baseline.json')
 
@@ -42,7 +42,13 @@ const walk = (dir, out = []) => {
   return out
 }
 
-export const isTestFile = path => /(^|\/)test-[\w.-]*\.mjs$/.test(path)
+// walk()가 만드는 경로는 플랫폼 구분자다. POSIX로 정규화하지 않으면 Windows에서 **어떤
+// 파일도 테스트로 분류되지 않아** tested가 항상 빈 집합이 되고, main 가드를 가진 전부가
+// 미배선으로 나온다(2026-08-31 실측: 오탐 8건). 조용히 통과하는 것이 아니라 **전량 오탐으로
+// 시끄럽게 실패**하므로, 진짜 신호가 소음에 묻혀 판별이 불가능해진다 — 결국 꺼진다.
+export const toPosix = path => String(path).split(sep).join('/')
+
+export const isTestFile = path => /(^|\/)test-[\w.-]*\.mjs$/.test(toPosix(path))
 
 /** `main()` 가드를 가진 스크립트 — 즉 CLI 표면이 있는 것들. */
 export function scriptsWithMain(files, read = readFileSync) {
@@ -65,7 +71,7 @@ export function processTestedScripts(files, read = readFileSync) {
     if (!/execFileSync|spawnSync|execFile\(|spawn\(/.test(source)) continue
     for (const candidate of files) {
       if (isTestFile(candidate)) continue
-      const base = candidate.split('/').pop()
+      const base = toPosix(candidate).split('/').pop()
       if (source.includes(base)) tested.add(candidate)
     }
   }
@@ -104,7 +110,8 @@ export function analyzeWiringCoverage(root = ROOT, {read = readFileSync} = {}) {
   const files = walk(join(root, '.claude/scripts'))
   const mains = scriptsWithMain(files, read)
   const tested = processTestedScripts(files, read)
-  const unwired = mains.filter(path => !tested.has(path)).map(path => relative(root, path)).sort()
+  // baseline은 POSIX 구분자로 기록된다 — 정규화하지 않으면 전 항목이 신규로 오탐된다.
+  const unwired = mains.filter(path => !tested.has(path)).map(path => toPosix(relative(root, path))).sort()
   return {
     schemaVersion: 1,
     totalWithMain: mains.length,

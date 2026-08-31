@@ -19,8 +19,9 @@ import {execFileSync} from 'node:child_process'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
+import {fileURLToPath} from 'node:url'
 
-const HOOK = new URL('./enforce-agent-ownership.mjs', import.meta.url).pathname
+const HOOK = fileURLToPath(new URL('./enforce-agent-ownership.mjs', import.meta.url))
 
 // 훅을 실제 프로세스로 돌린다. exit 0 = 허용, exit 2 = 차단(stderr에 사유).
 const runHook = ({cwd, agentType, filePath}) => {

@@ -11,8 +11,9 @@ import {mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync}
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import {classifyDelta, detectLateSnapshot, detectNoStableIds, detectResnapshot, extractIds, inventory, inventoryDigest} from './validate-plan-delta.mjs'
+import {fileURLToPath} from 'node:url'
 
-const SCRIPT = new URL('./validate-plan-delta.mjs', import.meta.url).pathname
+const SCRIPT = fileURLToPath(new URL('./validate-plan-delta.mjs', import.meta.url))
 function project(files) {
   const root = mkdtempSync(join(tmpdir(), 'wh-delta-'))
   for (const [rel, content] of Object.entries(files)) {
