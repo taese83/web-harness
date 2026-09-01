@@ -1,8 +1,35 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync} from 'node:fs'
+import {existsSync, readdirSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {AGENT_OWNERSHIP, VERIFIER_AGENTS} from '../agent-registry.mjs'
 import {evaluateGlobalBashPolicy} from '../global-bash-policy-lib.mjs'
+
+// 웹 인입 격리 — 규칙을 레인 문서가 아니라 **에이전트 계약**에 둔다.
+//
+// 왜 여기인가: quarantine 계약 경로를 수집 에이전트에 넘기라는 지시는 `web-orchestrator/SKILL.md`
+// 에만 있었다. 2026-08-29 `/wh` 통합으로 레인 정본이 갈리면서 `change`·`fix`(execution-contract.md)
+// 와 `verify`(web-verify/SKILL.md)에는 그 지시가 없고, 그 경로가 WebFetch를 가진
+// `source-artifact-ingestor`를 실행한다 — 즉 진입 레인에 따라 보호가 갈렸다. 레인 문서를 늘리면
+// 갈라진 것을 한 번 더 가르므로, 규칙은 도구를 든 에이전트 자신이 진다.
+//
+// 프록시 표기(I5): 이 검사는 **계약 경로 참조 여부**만 본다 — 참조가 곧 준수는 아니다.
+// 실제 준수(발췌 길이·INJECTION_SUSPECT 기록)는 이 게이트 밖이며 docs/protected-core.md §4에 등록한다.
+// 그러나 "참조조차 없음"은 조용한 미배선이었고, 그것을 시끄러운 실패로 바꾸는 것이 이 검사의 몫이다.
+export const QUARANTINE_CONTRACT_FILE = 'untrusted-content-quarantine.md'
+const WEB_INGEST_TOOL = /\b(?:WebSearch|WebFetch)\b/
+
+/**
+ * 웹 인입 도구를 가졌는데 격리 계약을 참조하지 않는 에이전트를 찾는다. 순수 함수 —
+ * 파일 시스템은 호출자가 읽는다.
+ * @param {{name: string, tools?: string, body?: string}[]} agents
+ * @returns {string[]} 정렬된 에이전트 이름
+ */
+export const findUnquarantinedWebAgents = agents =>
+  agents
+    .filter(agent => WEB_INGEST_TOOL.test(agent.tools ?? ''))
+    .filter(agent => !String(agent.body ?? '').includes(QUARANTINE_CONTRACT_FILE))
+    .map(agent => agent.name)
+    .sort()
 
 export const validateAgentBoundaries = ({
   claudeDirectory,
@@ -195,4 +222,34 @@ export const validateAgentBoundaries = ({
     }
   }
   pass('ownership hook allow/deny behavior checked')
+
+  // 목록을 하드코딩하지 않는다 — 디렉터리에서 도출해야 새로 추가되는 웹 인입 에이전트도 잡힌다.
+  const agentDirectory = join(claudeDirectory, 'agents')
+  const agentFiles = readdirSync(agentDirectory)
+    .filter(fileName => fileName.endsWith('.md'))
+    .sort()
+  if (agentFiles.length === 0) fail('agent directory is empty; web-ingest quarantine check cannot run')
+  const agents = agentFiles.map(fileName => {
+    const relativePath = `.claude/agents/${fileName}`
+    const source = read(relativePath)
+    return {
+      name: fileName.replace(/\.md$/, ''),
+      tools: parseFrontmatter(relativePath, source).tools ?? '',
+      body: source,
+    }
+  })
+  const webIngestAgents = agents.filter(agent => WEB_INGEST_TOOL.test(agent.tools))
+  if (webIngestAgents.length === 0) {
+    // 웹 인입 에이전트가 0이면 이 검사는 vacuous하게 통과한다. 사실을 표기해
+    // "검사했다"와 "검사 대상이 없었다"를 가른다.
+    pass('web-ingest quarantine check ran with no WebSearch/WebFetch agents present')
+  } else {
+    for (const agentName of findUnquarantinedWebAgents(agents)) {
+      fail(
+        `.claude/agents/${agentName}.md: has WebSearch/WebFetch but never references ${QUARANTINE_CONTRACT_FILE};` +
+          ' the quarantine rule must live in the agent contract, not only in a lane document',
+      )
+    }
+    pass(`web-ingest quarantine references checked (${webIngestAgents.length} agent(s) with web tools)`)
+  }
 }
