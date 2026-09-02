@@ -207,6 +207,13 @@ full 정규화를 돌리면 day-2 프로젝트에서 새 PRD 하나로 **`change
 예외는 대화 중 서술(inline `supplied`)뿐이며, 그것은 파일이 아니라 대화라 **오케스트레이터가
 `00_source/inline-{stage}.md`로 전사**한 뒤 ingestor에 파일로 넘긴다.
 
+**Figma MCP는 예외가 아니다** — ingestor가 읽기 전용 Figma 도구를 직접 갖는다(`.claude/agents/source-artifact-ingestor.md`). 링크만 있고 그 도구가 이 런타임에서 호출되지
+않으면 `supplied`가 아니라 미해결 입력이며, `source-artifacts.md`「도구 부재의 처리」로 간다.
+
+**강도 차이를 밝힌다**: ingestor의 도구 제한(쓰기 도구·`get_design_context`·Bash 배제)은
+frontmatter라 런타임이 강제한다. 반면 「오케스트레이터가 대신 전사하지 않는다」는 **산문 규칙**이다 —
+`enforce-agent-ownership`은 서브에이전트만 보므로 메인 세션의 `00_source/` 쓰기는 통과한다.
+
 **기존 것과 충돌하면 실측이 이긴다.** 브라운필드에서 공급된 문서가 코드·`integration-overlay.json`과
 어긋나면 문서를 정본으로 삼지 않는다 — 차이를 `00_source/gap-report.md`에 올리고 사용자에게
 보여준다(§3 브라운필드 우선 규칙과 같은 판단). **낡은 문서를 받았다는 이유로 코드를 낡은 쪽에

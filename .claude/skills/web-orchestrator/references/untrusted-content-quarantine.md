@@ -30,6 +30,7 @@
 | 생산 | `developer` | 악성 문서 지시를 필터링만 하지 않고 기록 |
 | 생산 | `developer` | 페이지 지시형 패턴을 trace에 기록 |
 | 생산 | `developer` | 고객 메시지·티켓·첨부의 지시형 문자열 기록 |
+| 생산 | `source-artifact-ingestor` | 공급 자료(Figma 레이어·텍스트, 링크 스냅샷, 문서)의 지시형 문자열을 `gap-report.md`에 기록 |
 | CI 분리 | `environment-scaffolder` | read-only crawl ↔ 격리 promotion 권한 분리 (규칙 4) |
 | 소비 | `data-quality-verifier` | 탐지 **구현 여부** + 마커 목록 판정. 미구현은 `FAIL` |
 | 소비 | `security-reviewer` | 외부 콘텐츠가 실행에 들어오는 전 경로의 탐지 구현 여부 + 마커 목록 |
