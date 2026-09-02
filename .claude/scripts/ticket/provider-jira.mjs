@@ -119,6 +119,36 @@ export function buildIssueFieldsFor(config, draft, {assignee = null, branch = nu
 }
 
 /**
+ * ADF → 평문. 왕복 마커를 되읽으려면 본문이 문자열이어야 한다(`refs.mjs`는 텍스트를 판다).
+ * Cloud가 description을 문서 객체로 돌려주므로 pickup 경로에 이 역변환이 필요하다.
+ */
+export function fromAdf(doc) {
+  if (typeof doc === 'string') return doc
+  const walk = node => {
+    if (!node) return ''
+    if (node.type === 'text') return node.text ?? ''
+    const inner = (node.content ?? []).map(walk).join('')
+    return node.type === 'paragraph' ? `${inner}\n` : inner
+  }
+  return (doc?.content ?? []).map(walk).join('').replace(/\n$/, '')
+}
+
+/** Jira 이슈 조회 응답 → pickup이 쓰는 형태(순수). GitHub `resolveIssue` 반환과 같은 모양이다. */
+export function parseIssueResponse(payload) {
+  if (!payload?.key) return null
+  const assignee = payload.fields?.assignee
+  return {
+    number: payload.key,       // pickup·overview가 `number`를 본다 — 트래커 키를 그대로 넣는다
+    ticketKey: payload.key,
+    title: payload.fields?.summary ?? '',
+    body: fromAdf(payload.fields?.description ?? ''),
+    labels: payload.fields?.labels ?? [],
+    // Jira의 assignee는 **단수다** — GitHub의 다중 배정 경합이 구조적으로 없다.
+    assignees: assignee ? [assignee.accountId ?? assignee.name ?? assignee.displayName] : [],
+  }
+}
+
+/**
  * 닫힘 판정. **status 이름이 아니라 statusCategory로 본다** — 이름은 팀마다 다르고 번역도 된다.
  * Jira의 statusCategory는 `new`·`indeterminate`·`done` 셋으로 고정이라 이름보다 안정적이다.
  */

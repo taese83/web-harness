@@ -45,7 +45,24 @@ if (bound.length === 0) {
 }
 
 let closed = 0
-for (const record of bound) {
+// **원장이 어느 트래커인지 안다.** `provider` 필드는 2026-09-02에 생겼고 그 전 레코드는 전부
+// GitHub이다(그래서 기본값이 github다). GitHub이 아닌 트래커는 `gh issue close`로 닫히지 않는다 —
+// PR 본문의 키 언급으로 자동 닫히지도 않으므로 **능동 전이가 필요하다.**
+//
+// 이 워크플로우는 그 전이를 여기서 수행하지 않는다. 인증(토큰)과 전이 매핑이 CI 시크릿·설정에
+// 있어야 하는데, 그것을 갖추지 못한 채 도는 것이 흔하기 때문이다. **대신 조용히 건너뛰지 않고
+// 남길 일을 남긴다** — 건너뛴 것과 닫은 것이 로그에서 구분되지 않으면, 보드는 완료라는데 티켓은
+// 열린 채인 그 상태가 원인 없이 재현된다(이 파일이 존재하는 이유와 같은 실패다).
+const nonGithub = bound.filter(record => (record.provider ?? 'github') !== 'github')
+if (nonGithub.length > 0) {
+  for (const record of nonGithub) {
+    log(`PENDING ${record.featureId} ${record.ticketKey}: provider=${record.provider} — 이 트래커는 자동 닫기가 없다. `
+      + `상태 전이가 필요하다(전이 매핑은 _workspace/03_dev/ticket-provider.json).`)
+  }
+  log(`⚠️ ${nonGithub.length}건이 자동으로 닫히지 않았다 — 위 목록을 확인하라.`)
+}
+
+for (const record of bound.filter(r => (r.provider ?? 'github') === 'github')) {
   const number = String(record.ticketKey)
   let state = null
   try {

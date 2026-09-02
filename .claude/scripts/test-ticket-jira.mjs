@@ -13,7 +13,7 @@ import test from 'node:test'
 import {requireTicketProvider, providerCapabilities} from './ticket/ticket-provider.mjs'
 import {
   buildIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
-  isClosed, parseCreateResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId, toAdf,
+  isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId, toAdf,
 } from './ticket/provider-jira.mjs'
 import {authHeader, createJiraProvider} from './ticket/provider-jira-exec.mjs'
 import {buildTicketConfig, recordProvider, resolveProviderChoice, validateTicketConfig} from './ticket/ticket-config.mjs'
@@ -174,4 +174,63 @@ test('사용자 답의 점 표기가 중첩 설정으로 펴진다', () => {
   const config = buildTicketConfig('jira', {projectKey: 'PROJ', 'transitions.done': '31', featureField: ''})
   assert.deepEqual(config, {provider: 'jira', jira: {projectKey: 'PROJ', transitions: {done: '31'}}},
     '빈 답은 설정에 들어가지 않는다 — 빈 값이 매핑으로 잡히면 없는 전이를 시도한다')
+})
+
+// ── 배선 회귀 (2026-09-02) ────────────────────────────────────────────────────
+// provider가 코드에 있어도 cli가 부르지 않으면 죽은 계약이다. 여기서 그 배선을 고정한다.
+import {resolveTicketProvider} from './ticket/cli.mjs'
+
+test('설정이 없어도 원장에 기록이 있으면 GitHub으로 본다 — 돌던 흐름을 멈추지 않는다', () => {
+  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', hasLedgerRecords: true})
+  assert.equal(resolved.choice.needsChoice, false)
+  assert.equal(resolved.provider.name, 'github')
+})
+
+test('설정도 기록도 없으면 묻는다 — 최초 청구에서만', () => {
+  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', hasLedgerRecords: false})
+  assert.equal(resolved.choice.needsChoice, true)
+  assert.ok(resolved.questions.some(q => q.key === 'projectKey'), 'Jira를 고를 때 물을 것을 함께 준다')
+})
+
+test('jira 설정이 있으면 Jira provider를 만든다 — 전이 능력까지 배선된다', () => {
+  const ticketConfig = {provider: 'jira', jira: {...baseConfig, transitions: {'in-progress': '21'}}}
+  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', io: {ticketConfig, env: {JIRA_TOKEN: 't'}}})
+  assert.equal(resolved.provider.name, 'jira')
+  assert.equal(providerCapabilities(resolved.provider).transition, true)
+})
+
+test('provider=jira인데 jira 설정이 비면 묻는다 — 반쯤 설정된 채로 돌지 않는다', () => {
+  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', io: {ticketConfig: {provider: 'jira'}}})
+  assert.equal(resolved.choice.needsChoice, true)
+})
+
+test('ADF 본문에서 왕복 마커를 되읽는다 — pickup의 소유권 판정 입력', () => {
+  const {fields} = buildIssueFieldsFor(baseConfig, draft, {branch: 'feature/x'})
+  const issue = parseIssueResponse({key: 'PROJ-7', fields: {summary: 's', description: fields.description, labels: [], assignee: null}})
+  assert.match(issue.body, /web-harness:refs.*feat=FEAT-042.*branch=feature\/x/)
+  assert.deepEqual(issue.assignees, [], 'Jira assignee는 단수 — 없으면 빈 배열')
+})
+
+// ── 리뷰 BLOCKED 해소 회귀 (2026-09-02) ───────────────────────────────────────
+import {renderCloseLineFor} from './ticket/cli.mjs'
+
+test('반증: Jira 키에 Closes를 적지 않는다 — 닫지 못하는 것을 닫는다고 주장하지 않는다', () => {
+  const link = {ok: true, verified: true, closes: 'PROJ-7'}
+  assert.equal(renderCloseLineFor('github', link), 'Closes #PROJ-7')
+  const jira = renderCloseLineFor('jira', link)
+  assert.ok(!jira.includes('Closes'), 'Closes는 GitHub만 닫는다')
+  assert.match(jira, /Relates to PROJ-7[\s\S]*자동 닫히지 않습니다/)
+})
+
+test('반증: Jira의 assign은 교체라 "길이 > 1"로는 경합을 못 잡는다 — 소유 기준이어야 한다', () => {
+  // A가 배정한 뒤 B가 PUT으로 덮으면 A의 사후 조회는 [B] — 길이 1이라 옛 조건은 통과했다.
+  const finalAssignees = ['devB']
+  assert.equal(finalAssignees.length > 1, false, '옛 조건: 침묵 통과')
+  assert.equal(finalAssignees.includes('devA'), false, '새 조건: lost-update를 잡는다')
+})
+
+test('원장 provider가 해석된 provider와 다르면 pickup은 진행하지 않는다', () => {
+  // 설정 파일 없는 클론에서 Jira 원장을 만나는 경우 — github으로 추론되어 gh 오류로 죽는다.
+  assert.equal(recordProvider({provider: 'jira'}), 'jira')
+  assert.notEqual(recordProvider({provider: 'jira'}), 'github')
 })

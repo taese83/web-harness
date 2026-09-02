@@ -31,12 +31,13 @@
  *   상태 전이. GitHub Issues는 open/closed뿐이라 **제공하지 않는다**. Jira는 제공한다.
  *   전이할 상태 이름·id는 팀마다 다르므로 provider 설정이 들고 있고 이 인터페이스는
  *   **의도(phase)만** 넘긴다. `'In Progress'`를 여기서 말하지 않는다.
- *   **아직 미배선이다** — pickup이 이 능력을 소비하도록 잇는 것은 배선 단계의 일이고,
- *   그때까지 이 선언은 발화하지 않는다(있는 척하지 않기 위해 여기 적어 둔다).
+ *   `runPickup`이 배정 뒤 `in-progress`로 호출하고, 결과를 `transition: {supported, done}`으로
+ *   **항상 표시한다** — 안 한 것과 못 한 것을 구분하지 않으면 사용자는 전이된 줄 안다.
  * @property {(key: string) => string|null} [closeReference]
  *   PR 본문에 넣을 자동 닫기 참조. GitHub은 `Closes #N`, **Jira는 자동 닫기가 없어 null**이다
- *   — null이면 머지 후 `transition`으로 능동 전이해야 한다. **아직 미배선이다**: `cli.mjs`는
- *   여전히 `renderCloseReference`를 직접 부른다(서식 정본은 그쪽 하나다).
+ *   — null이면 머지 후 `transition`으로 능동 전이해야 한다. **소비자는 아직 간접이다**:
+ *   `cli.mjs`의 `renderCloseLineFor`가 provider **이름**으로 갈라 서식을 고른다(서식 정본은
+ *   `renderCloseReference`). 이 메서드를 직접 부르도록 잇는 것은 남은 정리다.
  * @property {(message: string) => {kind: string, hint: string}} [classifyError]
  */
 

@@ -22,6 +22,9 @@ import {evaluateTicketCompletion} from './completion.mjs'
 import {computeCloseLink, computePrLinkPlan} from './pr.mjs'
 import {renderCloseReference, parseBranchFromLabels, buildIssueFields} from './provider-github.mjs'
 import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs, issueSupersedeCloseArgs} from './provider-github-exec.mjs'
+import {createJiraProvider} from './provider-jira-exec.mjs'
+import {JIRA_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice} from './ticket-config.mjs'
+import {providerCapabilities} from './ticket-provider.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
 
@@ -224,6 +227,44 @@ async function ensureRemoteFreshness({root, flags, io}) {
     : {fetched: false, basis: 'local-snapshot', reason: result.reason}
 }
 
+/**
+ * 이번 실행의 티켓 provider를 정한다.
+ *
+ * **하위호환이 먼저다.** 설정 파일이 없어도 원장에 기록이 있으면 그 프로젝트는 이미 GitHub으로
+ * 돌고 있는 것이다 — 거기에 "어느 트래커를 쓰겠냐"고 물으면 돌던 흐름이 멈춘다. 설정도 없고
+ * 기록도 없을 때만 묻는다(최초 청구).
+ *
+ * @returns {{provider?: Object, choice: Object, questions?: Array}}
+ */
+export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedgerRecords = false}) {
+  if (io.provider) return {provider: io.provider, choice: {provider: io.provider.name ?? 'test', needsChoice: false}}
+  const stored = io.ticketConfig ?? readTicketConfig(root)
+  // 설정은 없는데 원장이 있다 = 이 프로젝트는 GitHub으로 이미 돈다(추론이 아니라 실측이다).
+  const effective = stored ?? (hasLedgerRecords ? {provider: 'github'} : null)
+  const choice = resolveProviderChoice({stored: effective, requested: flags['ticket-provider'] ?? null})
+  if (choice.needsChoice) return {choice, questions: JIRA_QUESTIONS}
+  if (choice.provider === 'jira') {
+    if (!effective?.jira) {
+      return {choice: {...choice, needsChoice: true}, questions: JIRA_QUESTIONS}
+    }
+    return {provider: createJiraProvider({config: effective.jira, env: io.env ?? process.env}), choice}
+  }
+  return {provider: createGithubProvider({repo}), choice}
+}
+
+/**
+ * PR 본문의 close 참조를 트래커에 맞춰 렌더한다.
+ *
+ * GitHub은 `Closes #N`이 네이티브로 닫는다. **Jira는 닫지 않는다** — 키를 적어도 아무 일도
+ * 일어나지 않으므로 `Closes`라고 쓰면 그것은 닫는 시늉이다. 대신 관계만 적고 머지 후 전이가
+ * 필요하다는 사실을 그 자리에 남긴다(그 전이는 close 워크플로우 또는 사람이 한다).
+ */
+export function renderCloseLineFor(providerName, closeLink) {
+  if (providerName === 'github') return renderCloseReference(closeLink)
+  if (!closeLink?.ok || !closeLink.verified) return renderCloseReference(closeLink)
+  return `Relates to ${closeLink.closes}\n\n> ⚠️ ${providerName}은 PR 머지로 자동 닫히지 않습니다 — 머지 후 상태 전이가 필요합니다`
+}
+
 export async function runClaim({root, repo, flags, io = {}}) {
   const units = loadUnits(root, flags)
   const branch = flags.branch ?? await (io.currentBranch ?? resolveCurrentBranch)({repoRoot: root})
@@ -259,9 +300,26 @@ export async function runClaim({root, repo, flags, io = {}}) {
   const closeAssets = planTicketCloseInstall(root)
   if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets}
   // 발행(순서대로) — provider(라벨 pre-create 포함) + 원장(청구는 rebind 가드 append)
-  const provider = io.provider ?? createGithubProvider({repo})
+  const ledgerHasRecords = (io.readState ?? readLedgerState)(ledgerFile).size > 0
+  const resolved = resolveTicketProvider({root, repo, flags, io, hasLedgerRecords: ledgerHasRecords})
+  if (resolved.choice.needsChoice) {
+    return {ok: false, blocked: 'ticket-provider-unset', questions: resolved.questions,
+      guidance: '어느 트래커에 청구할지 먼저 정하세요 — GitHub Issues 또는 Jira. Jira면 프로젝트 정보가 필요합니다(설정은 _workspace/03_dev/ticket-provider.json).'}
+  }
+  if (resolved.choice.switching) {
+    // 조용히 바꾸면 기존 티켓이 다른 트래커에 남고 board가 두 소스를 읽어야 한다.
+    return {ok: false, blocked: 'ticket-provider-switch', switching: resolved.choice.switching,
+      guidance: `이 프로젝트는 ${resolved.choice.switching.from}으로 청구돼 있습니다 — ${resolved.choice.switching.to}로 바꾸려면 기존 티켓 처리를 먼저 정하세요(그대로 두기 / 마이그레이션 / 전환 취소).`}
+  }
+  const provider = resolved.provider
   const designRefs = resolveDesignRefs(root) // 티켓에 실을 참고 정본(게이트 아님 — 포인터다)
-  const permission = await (io.permission ?? resolveViewerPermission)({repo})
+  // 권한 pre-check는 **GHE repo 권한**을 본다. 교차 형태(티켓 Jira · 코드 GHE)에서는 그것이
+  // 티켓 생성 권한과 무관하다 — GHE read인 사람이 Jira 생성 권한을 가질 수 있다. GitHub일
+  // 때만 걸고, 아니면 reactive 분류(`provider.classifyError`)에 맡긴다.
+  // 주입된 권한 조회기가 있으면 그것이 이긴다(호출자가 축을 안다). 없을 때만 트래커로 가른다.
+  const permission = io.permission
+    ? await io.permission({repo})
+    : (provider.name === 'github' ? await resolveViewerPermission({repo}) : null)
   const unitById = new Map(units.map(unit => [unit.featureId, unit]))
   const results = []
   for (const item of plan.claim) {
@@ -289,7 +347,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 바뀐다. 원장은 `supersedes`로 무엇을 무엇이 대체했는지 남긴다(append-only).
   const superseded = []
   for (const item of plan.supersede ?? []) {
-    const fields = buildIssueFields(item.payload, {branch, assignee: flags.assignee ?? null, designRefs})
+    const fields = provider.buildFields(item.payload, {branch, assignee: flags.assignee ?? null, designRefs})
     const issue = await provider.createIssue(fields)
     // `createIssue`는 `{number, url}`을 돌려준다 — `ticketKey`는 없고, 원장은 **문자열**을
     // 요구한다. 이 두 줄이 틀린 채 남아 있었다는 것은 대체 발행 경로가 한 번도 실행된 적이
@@ -304,8 +362,16 @@ export async function runClaim({root, repo, flags, io = {}}) {
       supersedes: item.priorTicketKey,
     })
     // 옛 티켓은 **완료가 아니라 superseded**로 닫는다 — 닫힘을 완료로 오독하면 보드가 거짓이 된다.
-    await (io.gh ?? runGh)(issueSupersedeCloseArgs(repo, item.priorTicketKey, ticketKey))
-    superseded.push({featureId: item.featureId, priorTicketKey: item.priorTicketKey, ticketKey})
+    // 닫기는 GitHub 전용 경로다. 다른 트래커에서 `gh issue close PROJ-7`을 부르면 실패하고,
+    // 그 시점엔 이미 새 티켓과 원장 기록이 남아 **부분 side-effect**가 된다. 능력이 없으면
+    // 닫지 않고 `priorTicketPending`으로 남긴다 — 못 한 것을 한 것처럼 적지 않는다.
+    let priorTicketPending = null
+    if (provider.name === 'github') {
+      await (io.gh ?? runGh)(issueSupersedeCloseArgs(repo, item.priorTicketKey, ticketKey))
+    } else {
+      priorTicketPending = `${item.priorTicketKey}: ${provider.name}에는 superseded 닫기 경로가 없습니다 — 수동으로 닫으세요`
+    }
+    superseded.push({featureId: item.featureId, priorTicketKey: item.priorTicketKey, ticketKey, ...(priorTicketPending ? {priorTicketPending} : {})})
   }
   // **fix 티켓** — 이미 나갔는데 수용 기준이 미충족인 FEAT. 원 티켓을 고치거나 대체하지
   // 않고 별도 티켓으로 낸다: 원 티켓은 그 시점의 계약이고, 미충족분은 새로 할 일이다.
@@ -325,7 +391,13 @@ export async function runClaim({root, repo, flags, io = {}}) {
       '',
       `계약 본문은 원 티켓 #${item.priorTicketKey}과 \`${unit?.featureId}\` 명세를 따른다.`,
     ].join('\n')
-    const issue = await provider.createIssue({title: item.title, body, labels: ['fix'], assignee: flags.assignee ?? null})
+    // **buildFields를 우회하지 않는다.** 종전에는 GitHub 필드 형태를 직접 넘겼는데, Jira는
+    // `{fields:…}`를 요구하므로 그대로 POST되면 HTTP 400이다.
+    const fixFields = provider.buildFields(
+      {sourceKey: item.featureId, title: item.title, body, acceptanceCriteria: [], harnessRefs: {featureIds: [item.featureId], testCaseIds: item.unmet ?? []}},
+      {assignee: flags.assignee ?? null, branch, designRefs: []},
+    )
+    const issue = await provider.createIssue(fixFields)
     fixes.push({featureId: item.featureId, ticketKey: String(issue.ticketKey ?? issue.number), unmet: item.unmet, priorTicketKey: item.priorTicketKey})
   }
   // 이슈 자동 닫기 자산을 청구 브랜치에 설치한다(멱등, 덮어쓰지 않음). 커밋·push는
@@ -358,8 +430,24 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
     working: worktree,
   })
   if (!readiness.ready) return {ok: false, bounce: {reason: readiness.status}, guidance: readiness.need}
-  // 소유권+비신뢰+버전 대조(순수 코어) — 이슈는 최신 조회
-  const issue = await (io.resolveIssue ?? resolveIssue)({repo, number: record.ticketKey})
+  // 소유권+비신뢰+버전 대조(순수 코어) — 이슈는 최신 조회.
+  // 조회·배정·전이는 **provider 경유**다. 원장이 어느 트래커인지 알고 있다(record.provider).
+  const resolved = resolveTicketProvider({root, repo, flags, io, hasLedgerRecords: true})
+  if (resolved.choice.needsChoice) {
+    return {ok: false, bounce: {reason: 'ticket-provider-unset'}, guidance: '티켓 provider 설정이 없습니다 — claim에서 먼저 정하세요'}
+  }
+  const provider = resolved.provider
+  // **원장이 1차 근거다.** `resolveTicketProvider`는 설정이 없으면 "기록이 있으니 github"으로
+  // 추론하는데, Jira로 청구된 원장에 설정 파일이 없는 클론이면 그 추론이 틀린다 — 그러면
+  // `gh issue view PROJ-7`이 gh 오류로 죽고 원인은 "설정 없음"이 아니라 gh 문제로 보인다.
+  const claimedWith = recordProvider(record)
+  if (claimedWith !== provider.name) {
+    return {ok: false, bounce: {reason: 'ticket-provider-mismatch', claimedWith, resolved: provider.name},
+      guidance: `이 티켓은 ${claimedWith}에 청구됐는데 이 환경은 ${provider.name}으로 해석됩니다 — `
+        + '`_workspace/03_dev/ticket-provider.json`이 있는지 확인하세요(없으면 원장이 있어도 github으로 추론됩니다).'}
+  }
+  const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({repo, number: key}) : provider.resolveIssue(key))
+  const issue = await fetchIssue(record.ticketKey)
     // 계획이 선언한 paths를 범위 seed로 흘린다 — 충돌 판정과 쓰기 허용이 서로 다른 세계를
   // 보면 충돌 게이트가 픽션 위에서 판정한다(적대 리뷰 2026-08-30). 플래그가 있으면 플래그가
   // 이긴다(운영자 명시 > 계획 선언). 단방향 정합이며 실제 쓰기와의 대조는 여전히 없다(§4).
@@ -410,18 +498,43 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   if (pick.assignment.action === 'self-assign') {
     // TOCTOU 완화(§4 self-assign 행 조건): assign **직전 재조회·재판정** — 판정 후 남이 먼저
     // 배정했으면 양보(진입 차단). gh add-assignee는 additive라 CAS가 없다.
-    const fresh = await (io.resolveIssue ?? resolveIssue)({repo, number: record.ticketKey})
+    const fresh = await fetchIssue(record.ticketKey)
     const recheck = pickupWithOwnership({issue: fresh, developer, planUnits: units, ledgerRecord: record, allowedPathsSeed: splitList(flags['allowed-paths'])})
     if (!recheck.ok) return {ok: false, bounce: recheck.bounce, guidance: '판정 이후 다른 개발자가 먼저 배정했습니다 — 다른 티켓을 선택하세요'}
-    await (io.gh ?? runGh)(assignArgs(repo, record.ticketKey, developer))
+    if (io.gh) await io.gh(assignArgs(repo, record.ticketKey, developer))
+    else await provider.assign(record.ticketKey, developer)
     // 사후 다중배정 감지 — 동시 self-assign이 겹쳤으면 정직 경고(선착 양보 규약은 사람 조율)
-    const after = await (io.resolveIssue ?? resolveIssue)({repo, number: record.ticketKey})
-    if ((after.assignees ?? []).length > 1) {
-      return {ok: false, bounce: {reason: 'multi-assign-detected', assignees: after.assignees}, guidance: '동시 배정이 감지됐습니다 — 팀과 조율해 한 명이 양보하세요(자동 판정하지 않음)'}
+    // **사후 검사는 "최종 배정자가 나인가"다.** 종전에는 `assignees.length > 1`만 봤는데,
+    // 그것은 GitHub의 add-assignee가 additive라서 성립하던 조건이다. Jira의
+    // `PUT /assignee`는 **교체**라 A→B 순서로 겹치면 A의 사후 조회가 `[B]`(길이 1)를 보고
+    // 통과한다 — lost-update가 침묵으로 지나간다. 조건을 소유 기준으로 바꾸면 두 트래커에서
+    // 같은 뜻이 된다.
+    const after = await fetchIssue(record.ticketKey)
+    const finalAssignees = after.assignees ?? []
+    if (!finalAssignees.includes(developer)) {
+      return {ok: false, bounce: {reason: 'assign-lost', assignees: finalAssignees},
+        guidance: '배정 직후 다른 개발자가 배정을 가져갔습니다 — 다른 티켓을 선택하거나 팀과 조율하세요(자동 판정하지 않음)'}
+    }
+    if (finalAssignees.length > 1) {
+      return {ok: false, bounce: {reason: 'multi-assign-detected', assignees: finalAssignees}, guidance: '동시 배정이 감지됐습니다 — 팀과 조율해 한 명이 양보하세요(자동 판정하지 않음)'}
+    }
+  }
+  // **상태 전이 — 능력이 있을 때만.** GitHub Issues는 open/closed뿐이라 전이가 없다.
+  // 없으면 조용히 넘기지 않고 `transition: {supported: false}`로 **표시한다** — 안 한 것과
+  // 못 한 것을 구분하지 않으면 사용자는 티켓이 진행중으로 바뀐 줄 안다.
+  const caps = providerCapabilities(provider)
+  let transition = {supported: caps.transition, done: false}
+  if (caps.transition) {
+    try {
+      const result = await provider.transition(record.ticketKey, 'in-progress')
+      transition = {supported: true, done: Boolean(result?.transitioned), ...(result?.reason ? {reason: result.reason} : {})}
+    } catch (error) {
+      // 배정은 이미 됐다. 전이 실패로 픽업을 되돌리지 않되 **실패를 감추지도 않는다.**
+      transition = {supported: true, done: false, error: String(error?.message ?? error).slice(0, 200)}
     }
   }
   const written = writeChangeScopeFile(root, pick.changeScope)
-  return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written, freshness}
+  return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written, freshness, transition}
 }
 
 /**
@@ -455,7 +568,7 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
   // 않는다(그러면 재실행이 소스 상태에 따라 결과가 달라져 멱등 계약이 깨진다).
   if (state?.get?.(featureId)?.prUrl) {
     return {ok: true, idempotent: true, existing: state.get(featureId).prUrl,
-      closeLine: renderCloseReference(computeCloseLink({featureId, ticketKey: record?.ticketKey ?? null, ledgerState: state})),
+      closeLine: renderCloseLineFor(recordProvider(record), computeCloseLink({featureId, ticketKey: record?.ticketKey ?? null, ledgerState: state})),
       staleCheck}
   }
   // **완료 조건 검토.** PR을 티켓에 연결하는 것은 완료를 주장하는 것이다 — 그 자리에서
@@ -483,7 +596,10 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
     }
   }
   const closeLink = computeCloseLink({featureId, ticketKey: record?.ticketKey ?? null, ledgerState: state})
-  const closeLine = renderCloseReference(closeLink)
+  // **자동 닫기 서식은 트래커가 정한다.** 종전에는 무조건 GitHub 서식이라 Jira 키에도
+  // `Closes #PROJ-7`이 실렸다 — GitHub도 Jira도 닫지 않는데 PR 본문이 닫힌다고 주장했다.
+  // 그 트래커에 자동 닫기가 없으면 닫는다고 적지 않고, 머지 후 전이가 필요하다고 적는다.
+  const closeLine = renderCloseLineFor(recordProvider(record), closeLink)
   const plan = computePrLinkPlan({featureId, ledgerState: state, prUrl, now: new Date().toISOString()})
   if (plan.status === 'already-linked') return {ok: true, idempotent: true, existing: plan.existing, closeLine, staleCheck}
   // 완료 판정을 **원장에 남긴다** — 탈출구로 넘긴 링크와 전부 인용된 링크가 사후에 구별되지

@@ -101,6 +101,15 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     // 여기서는 그것을 위임만 한다(두 곳에서 만들면 갈라진다). cli 배선은 아직 그쪽을 직접 부른다.
     closeReference: key => renderCloseReference({ok: true, verified: true, closes: key}),
     classifyError: classifyGhError,
+    /** 이슈 조회 — pickup의 소유권 판정 입력. */
+    async resolveIssue(key) {
+      return resolveIssue({repo, number: key, host, exec})
+    },
+    /** 배정. gh add-assignee는 additive라 CAS가 없다 — 사후 다중배정 감지는 호출자 몫이다. */
+    async assign(key, login) {
+      await run(assignArgs(repo, key, login))
+      return {ticketKey: String(key), assignee: login}
+    },
     // FEAT 고유 라벨로 기존 이슈 조회(청구 경쟁 검사) — 있으면 첫 이슈, 없으면 null.
     // 하위호환으로 남긴다: 라벨을 직접 아는 호출자(exec 계층 내부)가 있다.
     async findByLabel(label) {

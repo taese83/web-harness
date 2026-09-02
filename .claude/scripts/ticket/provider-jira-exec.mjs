@@ -9,7 +9,7 @@
 
 import {
   buildIssueFieldsFor, classifyJiraError, closeReference, featureJql,
-  isClosed, parseCreateResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
+  isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
   supportedTransitions,
 } from './provider-jira.mjs'
 
@@ -81,6 +81,13 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     async availableTransitions(key) {
       const payload = await call(config, `/issue/${encodeURIComponent(key)}/transitions`, options)
       return payload?.transitions ?? []
+    },
+    /** 이슈 조회 — pickup의 소유권 판정 입력. GitHub `resolveIssue`와 같은 형태로 돌려준다. */
+    async resolveIssue(key) {
+      const payload = await call(config, `/issue/${encodeURIComponent(key)}?fields=summary,description,labels,assignee,status`, options)
+      const issue = parseIssueResponse(payload)
+      if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
+      return issue
     },
     async assign(key, assignee) {
       const body = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}

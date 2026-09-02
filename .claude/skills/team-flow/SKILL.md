@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.4.0
+  version: 0.5.0
   maturity: contract-only
-  updated: 2026-08-30
-  changelog: claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  updated: 2026-09-02
+  changelog: 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -68,6 +68,25 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 ### `claim` — 기획자 일괄 청구
 
+0-A. **전제(점 0-A): 어느 트래커에 청구하는가.** `_workspace/03_dev/ticket-provider.json`을 읽는다.
+   설정이 없어도 **원장에 기록이 있으면 GitHub이다**(이미 그렇게 돌고 있다 — 다시 묻지 않는다).
+   설정도 기록도 없으면 **최초 청구**이므로 한 번 묻는다:
+
+   - **GitHub Issues** — 코드와 같은 시스템. `Closes #N`이 자동으로 닫는다
+   - **Jira** — 프로젝트 정보가 필요하다. `cli.mjs`가 물을 항목을 함께 돌려준다(`questions`):
+     주소·REST 버전(Cloud 3 / Data Center 2)·프로젝트 키·이슈 타입·**전이 매핑**·assignee 표기.
+     **전이 매핑은 팀마다 다르다** — "In Progress"인 곳도 "진행중"인 곳도 transition id로만
+     되는 곳도 있어 하네스가 지어내지 않는다. 비우면 전이하지 않고 그 사실을 표시한다.
+     **토큰은 설정 파일이 아니라 환경변수**(`JIRA_TOKEN`, Cloud는 `JIRA_EMAIL`도)로 준다.
+
+   **Jira 배선 범위** — 여기까지다: `claim`(발행)·`pickup`(조회·배정·전이). 아직 **GitHub 전용**인 것:
+`board`(gh로 이슈 목록을 돈다 — Jira면 트래커 조회 실패로 표기되고 배정 상태가 빠진다),
+supersede 옛 티켓 닫기(`priorTicketPending`으로 표기만), 머지 후 자동 닫기(아래 PENDING).
+**link의 PR 본문에는 Jira 키에 `Closes`를 적지 않는다** — 닫지 못하는 것을 닫는다고 쓰지 않는다.
+
+**한 번 고르면 고정이다.** 다른 트래커를 요청해도 조용히 바꾸지 않고 `ticket-provider-switch`로
+   막는다 — 기존 티켓이 다른 트래커에 남아 있고 board가 두 소스를 읽어야 한다.
+
 0. **전제(점 0): 청구할 기획이 있는가.** `_workspace/01_plan/feature-plan.md`가 없거나
    `_workspace/03_dev/spec.json`의 `specTier`가 `unverifiable`이면 **청구할 단위가 없다.**
    이것은 도구 오류가 아니라 `PLAN_SOURCE: absent`로 만든 프로젝트의 **설계된 결과**다
@@ -105,6 +124,11 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
    하네스의 완료 판정(`claim-scope`의 의존 해제·`board`의 merged)은 이미 "청구 브랜치
    머지 = 완료"다 — 이 워크플로우가 없으면 보드는 완료라는데 이슈는 열린 채 남는다.
 
+   **GitHub이 아닌 트래커는 이 워크플로우가 닫지 못한다.** 원장의 `provider`로 갈라, 비-GitHub
+   레코드는 `PENDING`으로 로그에 남기고 건수를 경고한다 — 인증·전이 매핑이 CI에 갖춰지지 않은
+   채로 도는 경우가 흔해 여기서 전이를 수행하지 않는다. **조용히 건너뛰지는 않는다**: 건너뛴 것과
+   닫은 것이 로그에서 구분되지 않으면 "보드는 완료인데 티켓은 열린 채"가 원인 없이 재현된다.
+
    닫는 근거는 **원장 하나뿐**이다. PR 본문의 `#N`은 작성자가 아무 숫자나 적을 수 있어
    남의 티켓을 닫는 경로가 된다. 원장에 `prUrl`이 기록되고 `branch`가 그 PR의 base와
    같을 때만 닫는다 — 즉 `link`를 거친 PR만이다.
@@ -130,6 +154,12 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
    실제로는 4건이었다(2026-08-30).
 
 ### `pickup <FEAT>` — 개발자 착수
+
+**배정 뒤 상태 전이 — 능력이 있을 때만.** provider가 `transition`을 제공하면 `in-progress`로
+전이하고, 없으면 배정만 한다. 결과는 `transition: {supported, done, ...}`로 **항상 표시한다** —
+GitHub Issues는 상태가 open/closed뿐이라 `supported: false`이고, 그것은 실패가 아니라 능력의
+차이다. 안 한 것과 못 한 것을 구분하지 않으면 사용자는 티켓이 진행중으로 바뀐 줄 안다.
+전이가 실패해도 배정은 되돌리지 않되 `error`를 감추지 않는다.
 
 **묻지 않고 실행한다.** 게이트가 전부 통과했고, 배정 대상은 요청자 자신이며, 되돌릴 수 있다 —
 여기서 한 번 더 확인을 받는 것은 판단을 요구하는 게 아니라 의식이다. 개발 단계의 확인 지점은
