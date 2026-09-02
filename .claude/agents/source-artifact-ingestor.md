@@ -59,6 +59,16 @@ maxTurns: 25
 있으면 다시 정규화하지 않는다**(멱등). 해시가 다르면 같은 출처의 새 판본이므로 항목을
 추가하고 이전 판본을 지우지 않는다.
 
+## 인증이 필요한 URL — 가져오기를 요청한다
+
+기획 문서가 인증 뒤 URL로 오면 `WebFetch`는 401/403이다. **그 자리에서 실패로 끝내지 않는다.**
+그 URL을 읽을 수단이 이 에이전트에 없다는 사실과 함께 **오케스트레이터에 가져오기를 요청**하고,
+`00_source/fetched/`에 스냅샷이 떨어지면 그것을 로컬 파일로 읽어 정규화한다. 절차와 선택지 제시는
+`.claude/skills/web-orchestrator/references/source-artifacts.md`「인증이 필요한 URL」이 정본이다.
+
+읽지 못한 URL을 `gap-report.md`에 미해결 입력으로 남긴다 — 받아서 못 읽은 것과 받지 않은 것은
+다르고, 구분하지 않으면 사용자는 자기가 준 문서가 반영됐다고 여긴다.
+
 ## Figma MCP — 직접 읽는다
 
 절차의 정본은 `.claude/skills/web-orchestrator/references/source-artifacts.md`「Figma MCP」다.

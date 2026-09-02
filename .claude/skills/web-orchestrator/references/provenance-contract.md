@@ -204,8 +204,13 @@ full 정규화를 돌리면 day-2 프로젝트에서 새 PRD 하나로 **`change
 해시가 다르면 같은 출처의 **새 판본**이므로 새 항목으로 추가하고 이전 판본을 지우지 않는다.
 
 **`00_source/` 기록의 주체는 `source-artifact-ingestor`다** — full·record-only 양쪽에서 같다.
-예외는 대화 중 서술(inline `supplied`)뿐이며, 그것은 파일이 아니라 대화라 **오케스트레이터가
-`00_source/inline-{stage}.md`로 전사**한 뒤 ingestor에 파일로 넘긴다.
+예외는 **ingestor가 읽을 수단을 갖지 못하는 두 형태**뿐이고, 둘 다 오케스트레이터가 로컬
+파일로 떨군 뒤 ingestor에 넘긴다 — 기록 주체가 갈리는 것이 아니라 **가져오기만 앞당기는 것**이다.
+
+- **대화 중 서술**(inline `supplied`) — 파일이 아니라 대화다. `00_source/inline-{stage}.md`로 전사한다
+- **인증이 필요한 URL** — 그것을 읽는 커넥터는 런타임마다 다르고 이름도 계정마다 달라 에이전트
+  frontmatter에 박을 수 없다. 절차·머리말·해시 주체는 `source-artifacts.md`「인증이 필요한 URL」이
+  정본이다(여기에 옮겨 적지 않는다)
 
 **Figma MCP는 예외가 아니다** — ingestor가 읽기 전용 Figma 도구를 직접 갖는다(`.claude/agents/source-artifact-ingestor.md`). 링크만 있고 그 도구가 이 런타임에서 호출되지
 않으면 `supplied`가 아니라 미해결 입력이며, `source-artifacts.md`「도구 부재의 처리」로 간다.
