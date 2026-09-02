@@ -185,6 +185,38 @@ test('일반 flat 산출물의 섹션 트리거는 그대로 — 예외는 proje
   assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
 })
 
+// ── solution-design 축소-전용 (같은 클래스의 두 번째 자리: lockSpec이 flat 경로를 요구하므로
+//    분할이 금지인데 예산 초과 시 "split required"가 나왔다) ──
+
+test('solution-design: 20KB 초과는 위반이되 시정 지시가 분할이 아니다', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md': `# Design\n\n${'본문 채움 '.repeat(2200)}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('split required')).length, 0)
+  assert.equal(run.errors.filter(message => message.includes('shrink the prose')).length, 1)
+})
+
+test('solution-design: 섹션 11개여도 예산 내면 통과 — 분할 금지 문서에 섹션 트리거 미적용', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md': `# Design\n\n${manySections}`,
+  })
+  assert.equal(run.status, 0)
+  assert.deepEqual(run.errors, [])
+})
+
+// 반증 seed: 기계 블록을 예산에서 빼자는 제안이 있었다(2026-09-02 리뷰에서 BLOCKED).
+// 빼면 산문을 ```json web-harness:<아무이름> 펜스에 넣어 예산을 통째로 우회할 수 있다
+// (실측: 45,007B → 7B). 예산은 펜스 안이든 밖이든 바이트를 센다.
+test('반증: 산문을 web-harness 펜스로 감싸도 예산을 벗어나지 못한다', () => {
+  const run = runOn({
+    '_workspace/02_design/api-schema.md':
+      `# API\n\n\`\`\`json web-harness:notes\n${'본문 채움 '.repeat(2200)}\n\`\`\`\n`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
+})
+
 test('decision-log ID 구간 파일명(~)이 절 행으로 인식된다 — 계약 표기와 검증기 문자셋 정합(10호 회귀)', () => {
   const run = runOn({
     '_workspace/01_plan/decision-log/INDEX.md':

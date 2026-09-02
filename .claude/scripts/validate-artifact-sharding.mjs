@@ -26,7 +26,14 @@ const SECTION_COUNT_TRIGGER = 8
 // search-portal 파일럿 실측: 11섹션 project-brief에 "split required"가 나와 기계끼리 모순.
 // 경로 앵커 매칭 — basename 전역 매칭이면 토픽 폴더 내 동명 파일에 새는 이론적 스코프 누수가
 // 있다(리뷰 지적). 소유권 레지스트리가 이중 방어하지만 구조적으로도 좁힌다.
-const SHRINK_ONLY_PATHS = new Set([join('_workspace', '01_plan', 'project-brief.md')])
+// solution-design.md도 분할 금지다 — spec.mjs가 `_workspace/02_design/solution-design.md`를
+// 단일 경로로 하드코딩해(spec.mjs의 SOURCE 목록·확정 경로 둘 다) 분할하면 스팩 확정이 깨진다.
+// 종전에는 예산 초과 시 "split required"가 나왔는데 **분할이 금지된 문서에 분할을 지시**하는
+// 기계끼리의 모순이었다(project-brief에서 이미 한 번 고친 것과 같은 유형).
+const SHRINK_ONLY_PATHS = new Set([
+  join('_workspace', '01_plan', 'project-brief.md'),
+  join('_workspace', '02_design', 'solution-design.md'),
+])
 
 const argv = process.argv.slice(2)
 const jsonOutput = argv.includes('--json')
@@ -112,7 +119,13 @@ for (const relativeDirectory of pendingDirectories) {
       }
       if (SHRINK_ONLY_PATHS.has(entryPath)) {
         if (bytes > SINGLE_FILE_MAX_BYTES) {
-          errors.push(`${entryPath}: summary document is ${kb(bytes)} (budget ${kb(SINGLE_FILE_MAX_BYTES)}) — shrink the body and point to source shards (split is forbidden by contract)`)
+          // 시정 지시는 문서마다 다르다. project-brief는 원본 샤드를 가리키면 되지만
+          // solution-design은 요약 문서가 아니고 가리킬 샤드도 없다 — 같은 문구를 주면
+          // 설계 내용을 지우거나 없는 샤드를 가리키게 된다.
+          const remedy = entryPath.endsWith(join('02_design', 'solution-design.md'))
+            ? 'shrink the prose (rationale·alternatives) — the machine block stays; split is forbidden because lockSpec requires a flat path'
+            : 'shrink the body and point to source shards (split is forbidden by contract)'
+          errors.push(`${entryPath}: ${kb(bytes)} exceeds the single-file budget ${kb(SINGLE_FILE_MAX_BYTES)} — ${remedy}`)
         }
       } else if (bytes > SINGLE_FILE_MAX_BYTES) {
         errors.push(`${entryPath}: unsharded artifact is ${kb(bytes)} (budget ${kb(SINGLE_FILE_MAX_BYTES)}) — split required`)

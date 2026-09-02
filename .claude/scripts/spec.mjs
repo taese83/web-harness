@@ -27,6 +27,7 @@ import {createHash} from 'node:crypto'
 import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
+import {findLayerOverlaps} from './agent-registry.mjs'
 import {pathToFileURL} from 'node:url'
 import {readShapeChecks} from './validate-shape-checks.mjs'
 
@@ -270,6 +271,32 @@ export const hasUserInterface = (targetShapes, catalog = readShapeChecks()) => {
 // `unit-tests`·`tests`·`spec` 중 무엇이 테스트인지 이름으로 맞히면 그것이 프록시다.
 // 스팩이 직접 "이 경로가 테스트다"라고 말하게 한다. 경로가 layerMap 값과 겹쳐도 된다
 // (유닛 테스트를 소스 옆에 두는 것이 정상이다) — 겹침 금지는 layerMap 안에서만 적용된다.
+// layerMap — **소유 분할이다.** 겹치면 한 파일에 소유자가 둘이라 경계가 성립하지 않는다.
+// `resolveDeveloperOwnership`이 겹침을 보면 null을 반환하고, `developer`는 소유가 없어 **한 줄도
+// 쓰지 못한다**. 그 판정이 스폰 시점에만 있어서 구조적으로 무효한 layerMap이 확정을 통과했다
+// (2026-09-01 실측: 겹치는 13키가 다섯 번 확정된 뒤 developer 스폰에서야 막혔다). 확정이
+// 협업 계약인 이상 무효한 것을 얼려서는 안 된다 — 얼기 전에 여기서 잡는다.
+//
+// testLayers는 판정에 넣지 않는다 — 유닛 테스트를 소스 옆에 두면 layerMap 값과 겹치는 것이
+// 정상이다(agent-registry의 findLayerOverlaps와 같은 이유). 겹침 금지는 layerMap 안에서만이다.
+export const validateLayerMap = decision => {
+  const layerMap = decision?.layerMap ?? {}
+  if (typeof layerMap !== 'object' || Array.isArray(layerMap)) {
+    throw new LockError('LAYER_MAP_INVALID_SHAPE', 'layerMap이 객체가 아니다')
+  }
+  const overlaps = findLayerOverlaps(layerMap)
+  if (overlaps.length > 0) {
+    const detail = overlaps.map(({layers, paths}) => `${layers.join(' / ')} (${paths.join(' ⊃ ')})`).join(', ')
+    throw new LockError(
+      'LAYER_MAP_OVERLAP',
+      `layerMap의 경로가 겹친다 — 겹치면 developer가 소유를 받지 못해 파일을 하나도 쓸 수 없다. ` +
+        `하위 경로 키를 빼면 상위 키가 그대로 소유한다: ${detail}`,
+      {overlaps},
+    )
+  }
+  return layerMap
+}
+
 export const validateTestLayers = (decision, catalog = readShapeChecks()) => {
   const testLayers = decision?.testLayers ?? {}
   if (typeof testLayers !== 'object' || Array.isArray(testLayers)) {
@@ -407,7 +434,7 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
     architecture: {pattern: architecture.pattern, rationale: architecture.rationale},
     communication: Array.isArray(decision.communication) ? decision.communication : [],
     concurrency: Array.isArray(decision.concurrency) ? decision.concurrency : [],
-    layerMap: decision.layerMap ?? {},
+    layerMap: validateLayerMap(decision),
     testLayers,
     libraries,
     moduleBoundaries: Array.isArray(decision.moduleBoundaries) ? decision.moduleBoundaries : [],

@@ -17,7 +17,7 @@ import {tmpdir} from 'node:os'
 import {
   buildSpec, digestInputs, extractAcceptanceIds, extractDecisionBlock, hasUserInterface, isSpecStale,
   lockSpec, LockError, mergeSubstrate, readSubstrateDefaults, resolveInputFiles, settleDecisions,
-  validateTestLayers,
+  validateTestLayers, validateLayerMap,
 } from './spec.mjs'
 
 const decisionBlock = decision => [
@@ -616,4 +616,25 @@ test('하네스 제어 마커는 스팩 입력 다이제스트에 들어가지 �
     writeFileSync(shard, '## FEAT-001 x\n<!-- web-harness:unit feat=FEAT-001 dependsOn=none -->\n본문 수정')
     assert.notEqual(digestInputs(root).combined, before, '내용이 바뀌면 여전히 잡는다')
   })
+})
+
+// ── layerMap 겹침은 확정 시점에 거부한다 (2026-09-01 실측: 겹치는 키가 여러 번 확정된 뒤
+//    developer 스폰에서야 막혔다 — resolveDeveloperOwnership이 겹침에 null을 돌려 한 줄도 못 쓴다) ──
+
+test('반증: 겹치는 layerMap은 확정을 통과하지 못한다', () => {
+  assert.throws(
+    () => validateLayerMap({layerMap: {app: 'src/', routes: 'src/pages/'}}),
+    error => error instanceof LockError && error.code === 'LAYER_MAP_OVERLAP',
+    '겹침을 얼리면 developer가 소유를 받지 못해 개발이 통째로 막힌다',
+  )
+})
+
+test('겹치지 않는 layerMap은 그대로 통과한다 — 새 게이트가 정상 스팩을 깨지 않는다', () => {
+  const layerMap = {routes: 'src/pages/', 'pure-logic': 'src/utils/'}
+  assert.deepEqual(validateLayerMap({layerMap}), layerMap)
+})
+
+test('testLayers가 layerMap과 겹치는 것은 정상이다 — 유닛 테스트는 소스 옆에 둔다', () => {
+  const layerMap = {routes: 'src/pages/'}
+  assert.deepEqual(validateLayerMap({layerMap, testLayers: {unit: 'src/pages/'}}), layerMap)
 })

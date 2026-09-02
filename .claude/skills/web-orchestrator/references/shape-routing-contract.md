@@ -1,6 +1,6 @@
 # Shape Routing Contract — targetShapes가 빌더를 고른다
 
-**시점 로드**: Phase 2 시작 전. 스팩 확정(`_workspace/03_dev/spec.json`)이 선행한다.
+**시점 로드**: Phase 3 시작 전. 스팩 확정(`_workspace/03_dev/spec.json`)이 선행한다 — 확정 자체는 Phase 2 뒤에만 가능하다(`spec.mjs`가 `_workspace/02_design/solution-design.md`를 요구한다).
 
 사용자 진입점은 `/wh` **하나다**(`request-type-contract.md`). `/wh`가 레인을 판정해 이 문서의 라우팅을 적용한다. 산출물이 웹앱이든 라이브러리든 CLI든 같은 문으로 들어와
 같은 기획·디자인 게이트를 지나고, **확정된 `targetShapes`가 그 뒤의 빌더와 검증을 고른다.**
