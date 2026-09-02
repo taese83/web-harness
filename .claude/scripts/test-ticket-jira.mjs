@@ -234,3 +234,155 @@ test('원장 provider가 해석된 provider와 다르면 pickup은 진행하지 
   assert.equal(recordProvider({provider: 'jira'}), 'jira')
   assert.notEqual(recordProvider({provider: 'jira'}), 'github')
 })
+
+// ── components · labels (2026-09-02) ─────────────────────────────────────────
+test('컴포넌트는 지정했을 때만 필드로 나간다 — 빈 배열은 "지우라"는 뜻이 되는 설정이 있다', () => {
+  assert.equal(buildIssueFieldsFor(baseConfig, draft).fields.components, undefined)
+  assert.deepEqual(buildIssueFieldsFor({...baseConfig, components: ['웹', '공통']}, draft).fields.components,
+    [{name: '웹'}, {name: '공통'}])
+})
+
+test('팀 공통 라벨은 하네스 라벨에 더해지고, 하네스 것을 덮지 않는다', () => {
+  const {fields} = buildIssueFieldsFor({...baseConfig, labels: ['team-fe', 'feat-FEAT-042']}, draft, {branch: 'feature/x'})
+  assert.ok(fields.labels.includes('feat-FEAT-042'), 'feat- 라벨은 조회 키다 — 사라지면 왕복이 끊긴다')
+  assert.ok(fields.labels.includes('team-fe'))
+  assert.equal(fields.labels.filter(l => l === 'feat-FEAT-042').length, 1, '중복은 제거한다')
+})
+
+test('쉼표 구분 답이 배열로 펴진다 — 빈 답은 설정에 들어가지 않는다', () => {
+  const config = buildTicketConfig('jira', {projectKey: 'PROJ', components: '웹, 공통 , ', labels: ''})
+  assert.deepEqual(config.jira.components, ['웹', '공통'])
+  assert.equal('labels' in config.jira, false)
+})
+
+// ── 트래커 질문의 타이밍 (2026-09-02) ────────────────────────────────────────
+// 종전에는 판정이 `--confirm` 뒤에 있어서 "발행해"라고 한 다음에야 "어느 트래커?"를 물었다.
+import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {runClaim} from './ticket/cli.mjs'
+
+const withPlan = fn => {
+  const dir = mkdtempSync(join(tmpdir(), 'wh-claim-'))
+  try {
+    mkdirSync(join(dir, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(dir, '_workspace/01_plan/feature-plan.md'), '## FEAT-001 A\n- TC-001-1: a\n')
+    return fn(dir)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+}
+const io = {
+  originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
+  currentBranch: async () => 'feature/x',
+}
+
+test('dry-run은 트래커 미정이어도 미리보기를 준다 — 보면서 고르는 게 자연스럽다', async () => {
+  const result = await withPlan(dir => runClaim({root: dir, repo: 'o/r', flags: {}, io}))
+  assert.equal(result.ok, true)
+  assert.equal(result.dryRun, true)
+  assert.ok(result.preview, '계획을 보는 것은 트래커 선택 전에도 유효하다')
+  assert.equal(result.needsChoice, true, '질문은 미리보기와 함께 온다')
+  assert.ok(result.questions.some(q => q.key === 'projectKey'))
+})
+
+test('반증: 확정되지 않은 채 발행되지 않는다 — --confirm은 차단된다', async () => {
+  const result = await withPlan(dir => runClaim({root: dir, repo: 'o/r', flags: {confirm: true}, io}))
+  assert.equal(result.ok, false)
+  assert.equal(result.blocked, 'ticket-provider-unset')
+  assert.ok(result.preview, '차단해도 무엇이 막혔는지는 보여준다')
+})
+
+// ── configure writer (2026-09-02) ────────────────────────────────────────────
+// 종전에는 claim이 질문만 돌려주고 답을 적을 곳이 없었다 — "설정은 팀에 공유된다"는 설계가
+// 실제로는 성립하지 않았다(사람이 JSON을 손으로 만들어야 했다).
+import {existsSync, readFileSync as readFile} from 'node:fs'
+import {runConfigure} from './ticket/cli.mjs'
+import {writeTicketConfig} from './ticket/ticket-config.mjs'
+import {assertAllowedKeys, evaluateConfigWrite, validateTicketConfig as _v} from './ticket/ticket-config.mjs'
+import {parseArgs} from './ticket/cli.mjs'
+
+const tmp = () => mkdtempSync(join(tmpdir(), 'wh-cfg-'))
+const noShare = {checkShared: async () => ({shared: true})}
+
+test('반복 --set 이 배열로 모인다 — 덮어쓰면 설정이 조용히 하나만 남는다', () => {
+  const {flags} = parseArgs(['configure', '--provider', 'jira', '--set', 'a=1', '--set', 'b=2'])
+  assert.deepEqual(flags.set, ['a=1', 'b=2'])
+  assert.equal(parseArgs(['configure', '--set', 'a=1']).flags.set, 'a=1', '한 번이면 스칼라(하위호환)')
+})
+
+test('--confirm 없으면 쓰지 않는다 — side-effect 공통 규율', async () => {
+  const dir = tmp()
+  try {
+    const result = await runConfigure({root: dir, flags: {provider: 'jira', set: ['projectKey=PFFE', 'issueType=Task', 'baseUrl=https://x', 'apiVersion=2']}, io: noShare})
+    assert.equal(result.dryRun, true)
+    assert.equal(result.config.jira.projectKey, 'PFFE')
+    assert.equal(existsSync(join(dir, '_workspace/03_dev/ticket-provider.json')), false)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('--confirm이면 원장 옆에 기록한다 — 팀이 읽는 자리다', async () => {
+  const dir = tmp()
+  try {
+    const result = await runConfigure({root: dir, flags: {confirm: true, provider: 'jira', set: ['baseUrl=https://x', 'projectKey=PFFE', 'issueType=Task', 'transitions.done=51']}, io: noShare})
+    assert.equal(result.written, '_workspace/03_dev/ticket-provider.json')
+    const saved = JSON.parse(readFile(join(dir, result.written), 'utf8'))
+    assert.deepEqual(saved.jira.transitions, {done: '51'}, '점 표기가 중첩으로 펴진다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+// **키 이름 정규식은 프록시였다.** `jiraPat`·`pw`는 통과했고 모르는 키가 그대로 저장됐다.
+// 유효 키가 JIRA_QUESTIONS로 완전히 열거돼 있으므로 allowlist가 더 강한 하한이다.
+test('반증: 허용 목록 밖 키는 거부한다 — 어떤 이름의 비밀도, 오타도 여기서 막힌다', async () => {
+  for (const key of ['apiToken', 'jiraPat', 'pw', 'projectkey']) {
+    assert.throws(() => assertAllowedKeys({[key]: 'x'}), /TICKET_CONFIG_UNKNOWN_KEY/, `${key}가 통과했다`)
+  }
+  assert.deepEqual(assertAllowedKeys({projectKey: 'PFFE', 'transitions.done': '51'}), {projectKey: 'PFFE', 'transitions.done': '51'})
+  const result = await runConfigure({root: '/tmp', flags: {provider: 'jira', set: ['jiraPat=x']}, io: noShare})
+  assert.equal(result.blocked, 'key-refused')
+})
+
+test('반증: baseUrl에 숨은 자격증명은 값 검사로 막는다 — 키 이름으로는 안 잡힌다', () => {
+  const dir = tmp()
+  try {
+    assert.throws(() => writeTicketConfig(dir, {provider: 'jira', jira: {baseUrl: 'https://u:tok@jira.x'}}),
+      /TICKET_CONFIG_SECRET_REFUSED/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('반증: 손편집으로 labels가 문자열이면 막는다 — 글자 단위로 흩어져 조용히 발행된다', () => {
+  assert.throws(() => _v({provider: 'jira', jira: {labels: 'team-fe'}}), /TICKET_CONFIG_INVALID_SHAPE/)
+  assert.doesNotThrow(() => _v({provider: 'jira', jira: {labels: ['team-fe']}}))
+})
+
+test('같은 provider 재설정은 병합이다 — 항목 하나 주려다 transitions가 사라지지 않는다', () => {
+  const existing = {provider: 'jira', jira: {projectKey: 'PFFE', transitions: {done: '51'}}}
+  const next = {provider: 'jira', jira: {labels: ['team-fe']}}
+  const {merged} = evaluateConfigWrite({existing, next})
+  assert.equal(merged.jira.projectKey, 'PFFE', '기존 값이 살아남는다')
+  assert.deepEqual(merged.jira.transitions, {done: '51'}, '전이 매핑이 조용히 사라지지 않는다')
+  assert.deepEqual(merged.jira.labels, ['team-fe'])
+})
+
+test('반증: GitHub provider에 --set 을 주면 조용히 버리지 않는다', async () => {
+  const result = await runConfigure({root: '/tmp', flags: {provider: 'github', set: ['labels=x']}, io: noShare})
+  assert.equal(result.blocked, 'set-not-applicable')
+  assert.deepEqual(result.ignored, ['labels'])
+})
+
+test('반증: 한 번만 받아야 하는 플래그를 반복하면 loud하게 막는다', () => {
+  assert.throws(() => parseArgs(['claim', '--repo', 'a/b', '--repo', 'c/d']), /REPEATED_FLAG: --repo/)
+  assert.deepEqual(parseArgs(['configure', '--set', 'a=1', '--set', 'b=2']).flags.set, ['a=1', 'b=2'], 'set은 반복이 정상')
+})
+
+test('반증: provider를 바꾸는 덮어쓰기는 --replace 없이는 막는다', () => {
+  const existing = {provider: 'github'}
+  const next = {provider: 'jira', jira: {}}
+  assert.equal(evaluateConfigWrite({existing, next}).ok, false)
+  assert.deepEqual(evaluateConfigWrite({existing, next, replace: true}).switching, {from: 'github', to: 'jira'})
+  assert.equal(evaluateConfigWrite({existing: {provider: 'jira'}, next}).updating, true, '같은 provider면 갱신이다')
+})
+
+test('공유되지 않는 자리면 그 사실을 결과에 싣는다', async () => {
+  const checkShared = async () => ({shared: false, reason: 'gitignored', warning: '…'})
+  const result = await runConfigure({root: '/tmp', flags: {provider: 'github'}, io: {checkShared}})
+  assert.equal(result.shared.shared, false, '설정이 팀에 닿지 않으면 팀원마다 다른 트래커로 발행한다')
+})

@@ -105,7 +105,9 @@ export function toAdf(text) {
  */
 export function buildIssueFieldsFor(config, draft, {assignee = null, branch = null, designRefs = []} = {}) {
   const text = buildDescriptionText(draft, {branch, designRefs})
-  const labels = [featLabel(draft.sourceKey), branchLabel(branch)].filter(Boolean)
+  // 하네스 라벨(왕복 키)이 먼저고 팀 공통 라벨이 뒤에 붙는다. **중복은 제거하되 하네스 것을
+  // 덮어쓰지 않는다** — `feat-…`은 조회 키라 사라지면 왕복이 끊긴다.
+  const labels = [...new Set([featLabel(draft.sourceKey), branchLabel(branch), ...(config.labels ?? [])].filter(Boolean))]
   const fields = {
     project: {key: config.projectKey},
     issuetype: {name: config.issueType},
@@ -113,6 +115,10 @@ export function buildIssueFieldsFor(config, draft, {assignee = null, branch = nu
     description: String(config.apiVersion ?? '3') === '2' ? text : toAdf(text),
     labels,
   }
+  // 컴포넌트는 **그 프로젝트에 실재하는 이름**이어야 한다(없으면 Jira가 400). 비었으면 필드
+  // 자체를 넣지 않는다 — 빈 배열을 보내면 기존 값을 지우라는 뜻이 되는 설정이 있다.
+  const components = (config.components ?? []).filter(Boolean)
+  if (components.length > 0) fields.components = components.map(name => ({name}))
   // assignee 표기는 배포마다 다르다(Cloud=accountId, DC=name) — 설정이 정하고 여기서 고르지 않는다.
   if (assignee) fields.assignee = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}
   return {fields}

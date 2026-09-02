@@ -23,7 +23,7 @@ import {computeCloseLink, computePrLinkPlan} from './pr.mjs'
 import {renderCloseReference, parseBranchFromLabels, buildIssueFields} from './provider-github.mjs'
 import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs, issueSupersedeCloseArgs} from './provider-github-exec.mjs'
 import {createJiraProvider} from './provider-jira-exec.mjs'
-import {JIRA_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice} from './ticket-config.mjs'
+import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
@@ -34,18 +34,32 @@ export const PLAN_RELATIVE = '_workspace/01_plan/feature-plan.md'
 export const PLAN_DIR_RELATIVE = '_workspace/01_plan/feature-plan'
 
 /** argv → {command, positional, flags} (--k v | --k=v | --flag). */
+const SINGLE_VALUE_FLAGS = ['repo', 'root', 'units', 'developer', 'branch', 'provider']
+
 export function parseArgs(argv) {
   const [command, ...rest] = argv
   const positional = []
   const flags = {}
+  // **같은 플래그를 반복하면 배열로 모은다.** 종전에는 덮어써서 `--set a=1 --set b=2`가
+  // 조용히 `b=2` 하나만 남았다 — 설정을 여러 항목 주는 것이 configure의 기본 사용법이라
+  // 침묵 손실이 그대로 잘못된 설정 파일이 된다. 한 번만 준 플래그는 예전처럼 스칼라다.
+  const assign = (key, value) => {
+    if (!(key in flags)) { flags[key] = value; return }
+    flags[key] = [].concat(flags[key], value)
+  }
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i]
     if (!arg.startsWith('--')) { positional.push(arg); continue }
     const eq = arg.indexOf('=')
-    if (eq >= 0) { flags[arg.slice(2, eq)] = arg.slice(eq + 1); continue }
+    if (eq >= 0) { assign(arg.slice(2, eq), arg.slice(eq + 1)); continue }
     const next = rest[i + 1]
-    if (next != null && !next.startsWith('--')) { flags[arg.slice(2)] = next; i++ }
-    else flags[arg.slice(2)] = true
+    if (next != null && !next.startsWith('--')) { assign(arg.slice(2), next); i++ }
+    else assign(arg.slice(2), true)
+  }
+  // 배열을 받으면 안 되는 플래그는 여기서 막는다 — 반복하면 문자열로 강제돼 원인을 가리지 않는
+  // 오류(`MISSING_REPO`)나 TypeError로 나타난다.
+  for (const key of SINGLE_VALUE_FLAGS) {
+    if (Array.isArray(flags[key])) throw new Error(`REPEATED_FLAG: --${key}는 한 번만 지정한다(받은 값 ${flags[key].length}개)`)
   }
   return {command: command ?? null, positional, flags}
 }
@@ -253,6 +267,74 @@ export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedge
 }
 
 /**
+ * configure: 사용자에게 받은 트래커 설정을 `_workspace/03_dev/ticket-provider.json`에 기록한다.
+ *
+ * 종전에는 claim이 질문만 돌려주고 **답을 적을 곳이 없었다** — 사람이 JSON을 손으로 만들어야
+ * 했고, 그래서 "설정은 공유된다"는 설계가 실제로는 성립하지 않았다.
+ *
+ * 이 파일은 원장 옆에 있고 **팀에 공유된다**(청구는 origin에 푸시된 형상에만 — `claim` 점 1).
+ * 그래서 두 가지를 지킨다: 비밀은 쓰지 않고, 공유되지 않는 자리(gitignore)면 그 사실을 알린다.
+ *
+ * side-effect이므로 `--confirm` 없이는 쓰지 않는다(이 CLI의 공통 규율).
+ */
+export async function runConfigure({root, flags, io = {}}) {
+  const provider = flags.provider ?? null
+  if (!provider) {
+    return {ok: false, blocked: 'provider-required', questions: JIRA_QUESTIONS,
+      guidance: '--provider github|jira 를 지정하세요. jira면 --set key=value 로 항목을 채웁니다.'}
+  }
+  // `--set k=v` 반복 → 답 객체. 점 표기(`transitions.done`)와 목록(`components`)은 buildTicketConfig가 편다.
+  const answers = {}
+  for (const entry of [].concat(flags.set ?? [])) {
+    const index = String(entry).indexOf('=')
+    if (index < 0) return {ok: false, blocked: 'bad-set', guidance: `--set 은 key=value 형식이어야 합니다: ${entry}`}
+    answers[String(entry).slice(0, index).trim()] = String(entry).slice(index + 1).trim()
+  }
+  try {
+    assertAllowedKeys(answers)
+  } catch (error) {
+    return {ok: false, blocked: 'key-refused', guidance: error.message}
+  }
+  if (provider === 'github' && Object.keys(answers).length > 0) {
+    // 조용히 버리면 사용자는 반영된 줄 안다. GitHub provider의 발행 필드는 설정을 읽지 않는다.
+    return {ok: false, blocked: 'set-not-applicable', ignored: Object.keys(answers),
+      guidance: 'GitHub Issues provider는 프로젝트 설정을 받지 않습니다 — --set 항목은 Jira 전용입니다.'}
+  }
+  const next = buildTicketConfig(provider, answers)
+  const existing = io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })()
+  const writeCheck = evaluateConfigWrite({existing, next, replace: Boolean(flags.replace)})
+  if (!writeCheck.ok) {
+    return {ok: false, blocked: 'provider-switch', from: writeCheck.from, to: writeCheck.to,
+      guidance: `이미 ${writeCheck.from}으로 설정돼 있습니다 — 바꾸면 기존 티켓이 그쪽에 남습니다. `
+        + '기존 티켓 처리를 정한 뒤 --replace 로 명시하세요.'}
+  }
+  // **공유되지 않는 자리면 그 사실을 알린다.** 이 설정이 팀에 닿지 않으면 팀원마다 다른
+  // 트래커로 발행하는 사고가 난다 — 원장도 같은 디렉터리라 같이 새 나간다.
+  const shared = await (io.checkShared ?? checkConfigShared)({root})
+  const result = {ok: true, provider, config: next, path: TICKET_CONFIG_RELATIVE, shared,
+    ...(writeCheck.switching ? {switching: writeCheck.switching} : {}),
+    ...(writeCheck.updating ? {updating: true} : {}),
+    note: `인증은 이 파일이 아니라 환경변수입니다: ${JIRA_AUTH_ENV.join(' · ')}`}
+  const toWrite = writeCheck.merged ?? next
+  if (!flags.confirm) return {...result, config: toWrite, dryRun: true}
+  return {...result, config: toWrite, dryRun: false, written: writeTicketConfig(root, toWrite)}
+}
+
+/** 설정 경로가 git에 공유되는 자리인가(무시되면 팀에 닿지 않는다). 판정 불가면 unknown. */
+async function checkConfigShared({root}) {
+  try {
+    const {execFileSync} = await import('node:child_process')
+    execFileSync('git', ['check-ignore', '-q', TICKET_CONFIG_RELATIVE], {cwd: root, stdio: 'ignore'})
+    return {ignored: true, shared: false, reason: 'gitignored',
+      warning: `${TICKET_CONFIG_RELATIVE}가 gitignore에 걸려 있습니다 — 설정도 원장도 팀에 공유되지 않습니다(팀 흐름이 로컬 전용이 됩니다).`}
+  } catch (error) {
+    // exit 1 = 무시되지 않음(정상). 그 밖(git 없음·repo 아님)은 판정 불가.
+    if (error?.status === 1) return {ignored: false, shared: true, reason: 'not-ignored'}
+    return {ignored: null, shared: null, reason: 'undetermined'}
+  }
+}
+
+/**
  * PR 본문의 close 참조를 트래커에 맞춰 렌더한다.
  *
  * GitHub은 `Closes #N`이 네이티브로 닫는다. **Jira는 닫지 않는다** — 키를 적어도 아무 일도
@@ -298,20 +380,34 @@ export async function runClaim({root, repo, flags, io = {}}) {
     return {ok: false, blocked: 'plan-defects', preview, guidance: '경로 충돌/순환 의존을 feature-planner에서 해소한 뒤 청구하세요'}
   }
   const closeAssets = planTicketCloseInstall(root)
-  if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets}
-  // 발행(순서대로) — provider(라벨 pre-create 포함) + 원장(청구는 rebind 가드 append)
+  // **트래커 판정은 확인(confirm) 앞이다.** 종전에는 `--confirm` 뒤에 있어서, 사용자가
+  // 미리보기를 보고 "발행해"라고 한 **다음에야** "어느 트래커?"를 물었다 — 확인의 대상이
+  // 확정되지 않은 채 확인을 받은 셈이다. 판정을 앞으로 올리고, 물어야 하면 **미리보기와 함께**
+  // 돌려준다(무엇을 청구할지 보면서 트래커를 고를 수 있어야 한다).
   const ledgerHasRecords = (io.readState ?? readLedgerState)(ledgerFile).size > 0
   const resolved = resolveTicketProvider({root, repo, flags, io, hasLedgerRecords: ledgerHasRecords})
+  const providerGuidance = '어느 트래커에 청구할지 정하세요 — GitHub Issues 또는 Jira. '
+    + 'Jira면 프로젝트 정보가 필요합니다(설정은 _workspace/03_dev/ticket-provider.json).'
   if (resolved.choice.needsChoice) {
-    return {ok: false, blocked: 'ticket-provider-unset', questions: resolved.questions,
-      guidance: '어느 트래커에 청구할지 먼저 정하세요 — GitHub Issues 또는 Jira. Jira면 프로젝트 정보가 필요합니다(설정은 _workspace/03_dev/ticket-provider.json).'}
+    // **미리보기는 막지 않는다.** 무엇을 청구할지 보는 것은 트래커를 고르기 전에도 유용하고,
+    // 오히려 그것을 보면서 고르는 게 자연스럽다. 질문은 여기서 **함께** 띄우고, 실제 발행
+    // (`--confirm`)만 차단한다 — 확인의 대상이 확정되지 않은 채 확인을 받지 않기 위해서다.
+    if (!flags.confirm) {
+      return {ok: true, dryRun: true, preview, freshness, closeAssets,
+        ticketProvider: null, needsChoice: true, questions: resolved.questions, guidance: providerGuidance}
+    }
+    return {ok: false, blocked: 'ticket-provider-unset', questions: resolved.questions, preview, freshness, closeAssets,
+      guidance: providerGuidance}
   }
   if (resolved.choice.switching) {
     // 조용히 바꾸면 기존 티켓이 다른 트래커에 남고 board가 두 소스를 읽어야 한다.
-    return {ok: false, blocked: 'ticket-provider-switch', switching: resolved.choice.switching,
+    return {ok: false, blocked: 'ticket-provider-switch', switching: resolved.choice.switching, preview, freshness,
       guidance: `이 프로젝트는 ${resolved.choice.switching.from}으로 청구돼 있습니다 — ${resolved.choice.switching.to}로 바꾸려면 기존 티켓 처리를 먼저 정하세요(그대로 두기 / 마이그레이션 / 전환 취소).`}
   }
   const provider = resolved.provider
+  // 미리보기에 **어디로 나가는지**를 함께 싣는다 — 확인은 "무엇을"과 "어디에"가 다 보여야 한다.
+  if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets, ticketProvider: provider.name}
+  // 발행(순서대로) — provider + 원장(청구는 rebind 가드 append)
   const designRefs = resolveDesignRefs(root) // 티켓에 실을 참고 정본(게이트 아님 — 포인터다)
   // 권한 pre-check는 **GHE repo 권한**을 본다. 교차 형태(티켓 Jira · 코드 GHE)에서는 그것이
   // 티켓 생성 권한과 무관하다 — GHE read인 사람이 Jira 생성 권한을 가질 수 있다. GitHub일
@@ -693,7 +789,8 @@ if (invokedDirectly) {
       case 'pickup': requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board`)
+      case 'configure': return runConfigure({root, flags})
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|configure`)
     }
   }
   run().then(result => {

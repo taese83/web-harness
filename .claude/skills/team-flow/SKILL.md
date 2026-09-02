@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.5.0
+  version: 0.6.0
   maturity: contract-only
   updated: 2026-09-02
-  changelog: 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  changelog: configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -37,6 +37,7 @@ cli.mjs claim  --repo <o/r> [--units u.json] [--assignee me] [--confirm]   # ori
 cli.mjs board  --repo <o/r> [--developer me]                               # 배정·merged(gh pr state) 실측 보드
 cli.mjs pickup <FEAT> --repo <o/r> --developer me [--confirm]              # 게이트→TOCTOU 재판정→self-assign→change-scope 발급
 cli.mjs link   <FEAT> <pr-url> [--confirm]                                 # STALE 차단→verified Closes→원장 링크(멱등)
+cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
 ```
 
 내장 안전장치: 청구 원장 append는 최초-digest 가드(`LEDGER_REBIND_REFUSED`), pickup은 assign
@@ -74,7 +75,7 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
    - **GitHub Issues** — 코드와 같은 시스템. `Closes #N`이 자동으로 닫는다
    - **Jira** — 프로젝트 정보가 필요하다. `cli.mjs`가 물을 항목을 함께 돌려준다(`questions`):
-     주소·REST 버전(Cloud 3 / Data Center 2)·프로젝트 키·이슈 타입·**전이 매핑**·assignee 표기.
+     항목은 결과의 `questions`가 정본이다(주소·REST 버전·프로젝트 키·이슈 타입·전이 매핑·컴포넌트·라벨 등).
      **전이 매핑은 팀마다 다르다** — "In Progress"인 곳도 "진행중"인 곳도 transition id로만
      되는 곳도 있어 하네스가 지어내지 않는다. 비우면 전이하지 않고 그 사실을 표시한다.
      **토큰은 설정 파일이 아니라 환경변수**(`JIRA_TOKEN`, Cloud는 `JIRA_EMAIL`도)로 준다.
@@ -83,6 +84,22 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 `board`(gh로 이슈 목록을 돈다 — Jira면 트래커 조회 실패로 표기되고 배정 상태가 빠진다),
 supersede 옛 티켓 닫기(`priorTicketPending`으로 표기만), 머지 후 자동 닫기(아래 PENDING).
 **link의 PR 본문에는 Jira 키에 `Closes`를 적지 않는다** — 닫지 못하는 것을 닫는다고 쓰지 않는다.
+
+**답을 받으면 `configure`로 기록한다** — 사람이 JSON을 손으로 만들게 두지 않는다:
+
+```
+cli.mjs configure --provider jira \
+  --set baseUrl=… --set apiVersion=2 --set projectKey=… --set issueType=Task \
+  --set transitions.in-progress=<id> --set transitions.done=<id>
+```
+
+`--confirm` 없이 먼저 돌려 기록될 내용을 보여주고 확인받는다(이 CLI의 공통 규율).
+**물을 항목은 결과의 `questions` 배열이 정본이다** — 여기에 옮겨 적지 않는다(갈라진다).
+결과의 `needsChoice`·`shared`·`ignored`를 그대로 사용자에게 보여준다: `shared.ignored`가 true면
+설정도 원장도 팀에 닿지 않는다(팀 흐름이 로컬 전용이 된다).
+
+기록되는 곳은 `_workspace/03_dev/ticket-provider.json`(원장 옆, **팀 공유**)이고 **토큰은 여기
+넣지 않는다** — 허용 키 밖은 거부된다. 인증은 환경변수다.
 
 **한 번 고르면 고정이다.** 다른 트래커를 요청해도 조용히 바꾸지 않고 `ticket-provider-switch`로
    막는다 — 기존 티켓이 다른 트래커에 남아 있고 board가 두 소스를 읽어야 한다.
