@@ -47,12 +47,12 @@ mkdir -p _workspace/00_source _workspace/01_plan _workspace/02_design _workspace
 3. 외부 source만 있으면 먼저 정규화한 뒤 같은 규칙을 적용한다.
 4. documented non-blocking assumption만 허용한다.
 5. phase를 건너뛰어도 이후 phase의 input completeness를 다시 확인한다.
-
+6. 공급원이 `absent`인 단계는 "건너뛴 것"이 아니라 "없는 것"이다 — 1~2를 적용하지 않고 `specTier`가 상태를 들고 간다. 나중에 붙이면 스팩이 stale이 되어 재확정하고 1~2로 돌아온다(`provenance-contract.md`).
 ## Iterate mode (이미 만들어진 프로젝트의 범위 좁힌 변경)
 
 buildable한 기존 프로젝트에 `request-type-contract.md`가 `change`·`fix`·`verify` 레인으로 매핑하는 요청(`feature`·`ui-change`·`api-integration`·`infrastructure`·`bug-fix`·`refactor`·`verification-only`)이 오면 Phase 1~2 intake·mode 배너·workspace 재생성을 라운드마다 반복하지 않고 아래 경량 루프로 수행한다. Plan/Design 산출물은 최초 1회만 만들고 이후 라운드는 재사용한다.
 
-1. `request-type-contract.md`로 **레인**을 고정하고 레인·게이트를 1줄로 알린다(생략 금지). `fix`는 같은 계약의 자기검사를 먼저 통과해야 한다.
+1. 요청에 새 문서·링크·시안·Figma가 붙어 있으면 **레인 고정 전에** 공급 감지를 수행한다(`provenance-contract.md` §6 — 기존 산출물이 있으므로 `00_source/` 기록까지만). 그다음 `request-type-contract.md`로 **레인**을 고정하고 레인·게이트를 1줄로 알린다(생략 금지). `fix`는 같은 계약의 자기검사를 먼저 통과해야 한다.
 1-A. `change` 레인이면 `approval-checkpoints.md`의 「change 레인 → 개발」(기획 개정 → 디자인 델타 감지 → 개정 → 스팩 → **✋승인**)을 수행한다. **확인 전에는 source edit를 시작하지 않는다.** `fix`·`verify`는 건너뛴다. 승인 뒤에는 `development-gates-contract.md`의 **Gate 0**(개발 착수 준비)을 돌린다 — Iterate는 Phase 3을 거치지 않으므로 여기서 걸지 않으면 그 관문이 도달 불가다.
 2. `minimal-change-contract.md`의 change brief를 `_workspace/03_dev/change-scope.md`에 **라운드별 1항목 append**하고 그 계약대로 편집한다. `CAPABILITY_ESCALATION`·`DOCS_TO_UPDATE`를 포함한 전 필드를 기록한다. `change`는 `DOCS_TO_UPDATE`를 1-A의 감지 결과로 채운다 — 사후 추측이 아니다.
 3. `development-gates-contract.md`의 게이트(typecheck·lint·test·build)를 프로젝트 toolchain pin으로 실행한다.

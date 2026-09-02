@@ -25,6 +25,28 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 - `_workspace/02_design/api-schema.md`, `component-spec.md`, `state-contract.md`(있으면)
 - `_workspace/02_design/integration-overlay.json`(브라운필드) — **실측이 제안을 이긴다**
 - 기존 source가 있으면 직접 읽어 관례를 확인한다(디렉토리 구조, import 관례, 설정 파일)
+- **공급원이 `supplied`이면** 오케스트레이터가 전달한 **사용자 설계 문서 경로**와
+  `_workspace/00_source/` 인벤토리 — 이것이 **우선 입력**이다
+  (`.claude/skills/web-orchestrator/references/provenance-contract.md` §1·§7)
+
+## 공급원별 근거 티어
+
+설계 산출물은 공급원 셋 모두에서 **이 에이전트가 쓴다.** 가르는 것은 누가 쓰느냐가 아니라
+무엇을 근거로 쓰느냐다.
+
+| 공급원 | 우선 입력 | `source` 티어 |
+|---|---|---|
+| `generated` | 요청·기획·디자인 산출물 | `inferred` |
+| `supplied` | 사용자 설계 문서 | `confirmed` — **문서 유래**다. 아래 정의를 지킨다 |
+| `measured` | 기존 코드·`integration-overlay.json` | `measured` / `measured-absent` |
+
+**문서 유래 `confirmed`의 정의**: 사용자 설계 문서가 그 항목을 **명시적으로 정하고 있을 때만**
+`confirmed`로 적는다. 문서가 침묵하는 항목은 `confirmed`가 아니다 — `inferred`로 적거나
+갈리면 `openDecisions`로 올린다. 이는 왕복으로 닫는 `confirmed`(오케스트레이터가 묻고 답을
+돌려준 경우)와 티어 값은 같고 근거만 다르다. **문서가 말하지 않은 것을 문서가 말했다고 적지 않는다.**
+
+사용자 설계 문서와 **다르게 가야 한다고 판단하면 값을 바꿔 적지 않고 `openDecisions`로 올린다** —
+브라운필드 실측 우선 규칙과 같은 취급이다. 조용히 덮어쓰면 `supplied`라는 라벨이 거짓이 된다.
 
 ## 절차
 

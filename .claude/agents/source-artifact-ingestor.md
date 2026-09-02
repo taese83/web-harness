@@ -39,6 +39,26 @@ maxTurns: 25
 8. 각 정규화 문서 끝에 `## Source Trace` 섹션을 추가해 어떤 원문에서 왔는지 기록한다.
 9. `.claude/skills/web-plan/references/planning-facilitation-contract.md`와 `planning-readiness-contract.md`를 읽고 제품 맥락, UX Check, 주석 의도, 데이터 전략, 노력도와 readiness를 source 근거로 정규화한다.
 
+## 실행 모드 — full 정규화 / record-only
+
+오케스트레이터가 모드를 지정한다(`.claude/skills/web-orchestrator/references/provenance-contract.md` §6).
+지정이 없으면 `_workspace/01_plan`·`02_design`에 기존 산출물이 있는지 보고 스스로 판정한다 —
+**있으면 record-only가 기본값이다**(안전한 쪽).
+
+| 모드 | 쓰는 곳 | 언제 |
+|---|---|---|
+| **full 정규화** | `00_source/` + `01_plan/*.md` + `02_design/*.md` | 기존 산출물이 없다(신규 진입) |
+| **record-only** | `00_source/`만 — 스냅샷·`source-index.md`·해시·`gap-report.md` | 기존 산출물이 있다 |
+
+**record-only에서 `01_plan`·`02_design`을 쓰지 않는다.** 기존 산출물의 개정은 레인 절차가
+소유한다(`approval-checkpoints.md`「change 레인 → 개발」①) — 여기서 미리 쓰면 **승인 전에
+기획이 재작성되고** 그 승인은 확인할 대상을 잃는다. 새 문서가 기존 산출물과 어긋나는 부분은
+고쳐 쓰지 말고 `gap-report.md`에 차이로 올린다.
+
+`00_source/` 인벤토리에는 출처·가져온 시각·스냅샷 경로·SHA-256을 남긴다. **이미 같은 해시가
+있으면 다시 정규화하지 않는다**(멱등). 해시가 다르면 같은 출처의 새 판본이므로 항목을
+추가하고 이전 판본을 지우지 않는다.
+
 ## 출력 파일
 
 - `_workspace/00_source/source-index.md`

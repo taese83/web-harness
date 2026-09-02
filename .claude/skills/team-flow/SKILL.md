@@ -68,6 +68,22 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 ### `claim` — 기획자 일괄 청구
 
+0. **전제(점 0): 청구할 기획이 있는가.** `_workspace/01_plan/feature-plan.md`가 없거나
+   `_workspace/03_dev/spec.json`의 `specTier`가 `unverifiable`이면 **청구할 단위가 없다.**
+   이것은 도구 오류가 아니라 `PLAN_SOURCE: absent`로 만든 프로젝트의 **설계된 결과**다
+   (`../web-orchestrator/references/provenance-contract.md` §2) — 수용 기준 없이 나눠 주면
+   "완료"의 판정이 개발자마다 갈린다. 실패로 끝내지 말고 해소 경로를 보여준다:
+
+   - **기획을 지금 붙인다**(권장) — `provenance-contract.md` §3 지연 공급. 기획 wave를 실행하거나
+     기존 문서를 공급하면 `LOCK_INPUTS` 변화로 스팩이 stale이 되고, `acceptanceSource: "feature-plan"`
+     으로 재확정하면 `verifiable`로 올라 청구가 열린다
+   - **범위만큼만 붙인다** — 이번에 나눠 줄 기능만 FEAT/TC로 세운다. 전체 기획을 소급하지 않는다
+     (`../web-orchestrator/references/approval-checkpoints.md`「change 레인 → 개발」①과 같은 방식)
+   - **혼자 계속 간다** — 청구하지 않고 단독 개발을 이어간다. 그때 `unverifiable`은 유지된다
+
+   `feature-planner`로 되돌리기 전에 이 판정을 먼저 한다 — 단위가 **부실한 것**과 애초에 **없는 것**은
+   다른 문제이고, 후자에 TC 발명으로 답하면 수용 기준이 구현의 사본이 된다.
+
 1. **전제(점 1): origin 동기.** `git-origin.resolveOriginPlanSync`로 feature-plan이 origin에 푸시돼
    일치하는지 확인. 로컬≠origin이면 `claim-guard.computeClaimEligibility`가 거부 →
    `claimEligibilityGuidance`를 사람에게 보여주고 **커밋·push 먼저**. 청구는 공유된 형상에만.

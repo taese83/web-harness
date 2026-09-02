@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 46,212 bytes <!-- inventory:entry-cost --> of
+- **Fixed contract load per orchestrator run**: 47,849 bytes <!-- inventory:entry-cost --> of
   always-read contract files. That is a *byte* measurement of exactly those files — roughly 9k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the skill
   file itself (~9k tokens), the per-spawn agent definitions, runtime hook injection, and everything

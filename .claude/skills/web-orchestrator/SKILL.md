@@ -5,10 +5,10 @@ argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.6.6
+  version: 1.7.0
   maturity: eval-covered
-  updated: 2026-08-18
-  changelog: 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
+  updated: 2026-09-02
+  changelog: 공급원(provenance) 축 신설 — 기획·디자인·설계가 generated|supplied|absent 중 하나로 서고 Fresh Mode가 그 조합을 조립한다. 이전 — 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
 ---
 
 # Web Orchestrator
@@ -79,25 +79,32 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
   EXTERNAL_DATA_INGESTION_MODE: true/false
   VISUAL_QA_MODE: true/false
   WEB_PROFILE: react-vite-spa | next-app-fullstack | vite-serverless-hybrid  (판별 근거 한 줄)
+  PLAN_SOURCE: generated | supplied | absent      (사용자 선택)
+  DESIGN_SOURCE: generated | supplied | absent    (사용자 선택)
+  SOLUTION_SOURCE: generated | supplied | measured (absent 없음)
 
   (보조 skill은 Phase 3에서 확정된 스팩이 고른다 — intake에서 감지하지 않는다)
 
 → 틀린 항목이 있으면 알려주세요. 맞으면 계속 진행합니다.
 ```
 
-사용자가 수정 요청 없이 계속 진행하면 다음 단계로 넘어간다. 모드가 잘못 감지됐으면 즉시 재판별하고 다시 보여준다.
+세 `*_SOURCE`는 `references/provenance-contract.md`의 공급원이고 **`/wh`가 착수 전에 물어 받은 사용자
+선택**이다(`../wh/SKILL.md` §1-B). 여기서는 되비추고 정정만 받는다 — 스스로 판정해 채우지 않는다.
+확정 즉시 세 값을 `_workspace/web-harness.md` 마커에 적고, 있으면 그것이 정본이다(§5).
 
 입력 모드 판별:
 
+0-A. **공급 감지 — 모드보다 먼저.** 요청에 새 문서·링크·시안·Figma가 붙어 있으면 레인·모드와 무관하게 `source-artifact-ingestor`를 먼저 실행한 뒤 아래 판별로 돌아간다 — **기존 산출물이 있으면 `00_source/` 기록까지만**(record-only), 없으면 full 정규화(정본 `references/provenance-contract.md` §6). 없으면 Iterate가 먼저 걸려 사용자가 준 문서가 영영 읽히지 않는다.
+
 0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `change`·`fix` 레인 요청이 오면(`verify`는 read-only 경로로 간다)(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
 1. **Resume Mode** — `_workspace/01_plan`과 `_workspace/02_design`의 필수 파일이 모두 존재하면 Phase 3부터 시작한다.
-2. **Source Artifact Mode** — 사용자가 기존 기획/디자인/API 문서나 폴더를 제공했으면 `source-artifact-ingestor`를 실행한다.
+2. **Source Artifact Mode**(`supplied`) — 사용자가 기존 기획/디자인/API 문서·폴더·링크·시안 이미지·Figma 참조를 제공했으면 `source-artifact-ingestor`를 실행한다. 받는 형태와 URL·이미지·Figma MCP의 처리 절차는 `references/source-artifacts.md`가 정본이다.
    - `planning-context.md`를 포함해 정규화하고 read-only `plan-reviewer` readiness gate를 통과한 뒤 다음 Phase로 간다.
    - 정규화 후 Plan/Design 필수 파일이 모두 있으면 Phase 3부터 시작한다.
    - Plan만 충분하면 Phase 2부터 시작한다.
    - Design만 충분하면 `source-artifact-ingestor`가 최소 Plan 산출물을 `ASSUMPTION`으로 생성하고, 누락된 Design 산출물만 Phase 2 에이전트로 보강한다.
    - `gap-report.md`에 `BLOCKER`가 있으면 사용자에게 BLOCKER 목록을 보여주고 해소 방법을 확인한 뒤 진행한다. 자동으로 Phase 3으로 넘어가지 않는다.
-3. **Fresh Mode** — 기존 산출물이 없으면 Phase 1부터 전체 실행한다. 신규 서비스 요청은 골격만 만드는 `/project-init`으로 축소하지 않는다 — `project-init`은 scaffold 전용이고 기획·설계·QA 게이트를 갖지 않는다. 반대로 사용자가 **골격만** 명시했으면 Phase 1을 강요하지 않고 `/project-init`으로 넘긴다.
+3. **Fresh Mode** — 기존 산출물이 없으면 "Phase 1부터 전부"가 아니라 **공급원별로 단계를 조립한다**. 조립 규칙·승인·`absent` 처리는 `references/provenance-contract.md` §4가 정본이며 **진입 전에 읽는다**. 어느 조합이든 설계·스팩은 서고 Phase 3·4는 동일하다.
 
 ## Phase 실행 순서
 

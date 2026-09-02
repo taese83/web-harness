@@ -44,6 +44,7 @@
 
 | 트리거 | 계약 |
 |---|---|
+| **요청에 새 문서·링크·시안 이미지·Figma가 붙어 있을 때** | `provenance-contract.md` §6 — **레인 판정 전** 공급 감지. 기존 산출물이 있으면 `00_source/` 기록까지만(record-only). 이 행이 없으면 재진입 경로에서 사용자가 준 문서가 조용히 읽히지 않는다 |
 | 에이전트를 스폰하기 전(승격 QA 포함) | `execution-budget-contract.md` — telemetry 기록 의무 포함 |
 | QA 재시도를 결정하기 전 | `retry-policy.md` |
 | `DEPLOY_ONLY` criterion을 fixture 주입으로 검증할 때 | `auth-verification-contract.md` |
