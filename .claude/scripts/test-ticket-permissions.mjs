@@ -44,8 +44,8 @@ test('permissionGuidance: 등급별 실행 가능 안내', () => {
 })
 
 // --- runner 권한 게이팅 ---
-const failProvider = {findByLabel: async () => { throw new Error('should not be called') }, createIssue: async () => { throw new Error('should not be called') }}
-const forbidProvider = {findByLabel: async () => null, createIssue: async () => { throw new Error('gh exit 1: HTTP 403: Resource not accessible by integration') }}
+const failProvider = {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => { throw new Error('should not be called') }, createIssue: async () => { throw new Error('should not be called') }}
+const forbidProvider = {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => null, createIssue: async () => { throw new Error('gh exit 1: HTTP 403: Resource not accessible by integration') }, classifyError: classifyGhError}
 const ledger = () => ({records: [], append(r){this.records.push(r)}, find(){return null}})
 const unit = {featureId: 'FEAT-042', title: 't', body: 'b', testCaseIds: ['TC-042-1']}
 

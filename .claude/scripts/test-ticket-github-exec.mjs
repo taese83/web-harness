@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {createGithubProvider, resolveViewerPermission, listArgs, labelEnsureArgs, createArgs, permissionArgs} from './ticket/provider-github-exec.mjs'
+import {providerCapabilities, requireTicketProvider} from './ticket/ticket-provider.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 
 const fields = buildIssueFields({sourceKey: 'FEAT-042', title: 't', body: 'b', acceptanceCriteria: ['TC-042-1'], harnessRefs: {featureIds: ['FEAT-042'], testCaseIds: ['TC-042-1']}}, {assignee: '@me'})
@@ -49,4 +50,25 @@ test('resolveViewerPermission: 파싱 + 실패 시 보수 read', async () => {
 
 test('repo 형식 검증: 잘못된 repo는 loud-fail', () => {
   assert.throws(() => createGithubProvider({repo: 'bad repo'}), /INVALID_REPO/)
+})
+
+// ── 실 provider가 TicketProvider 계약을 만족하는가 (이관 회귀) ──
+
+test('createGithubProvider는 TicketProvider 필수부를 만족한다', () => {
+  const provider = createGithubProvider({repo: 'o/r', exec: async () => '[]'})
+  assert.equal(requireTicketProvider(provider), provider)
+  assert.equal(provider.name, 'github')
+})
+
+test('GitHub은 transition을 제공하지 않는다 — 상태가 open/closed뿐이라 "진행중"이 없다', () => {
+  const caps = providerCapabilities(createGithubProvider({repo: 'o/r', exec: async () => '[]'}))
+  assert.deepEqual(caps, {reopen: true, transition: false, autoClose: true},
+    '없는 능력을 흉내 내면 pickup이 전이했다고 보고하게 된다')
+})
+
+test('findByFeature는 FEAT를 라벨로 바꿔 조회한다 — 그 변환은 provider 안에 머문다', async () => {
+  const calls = []
+  const provider = createGithubProvider({repo: 'o/r', exec: async args => { calls.push(args); return '[]' }})
+  await provider.findByFeature('FEAT-042')
+  assert.ok(calls[0].includes('feat:FEAT-042'), '조회 키 생성이 호출자에게 새지 않는다')
 })

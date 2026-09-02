@@ -8,11 +8,15 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {claimFeature} from './ticket/runner.mjs'
 
-// mock provider: findByLabel이 미리 심은 이슈를 반환, createIssue는 호출 기록 + 가짜 번호.
+// mock provider: findByFeature가 findByLabel에 위임해 미리 심은 이슈를 반환(트래커 조회 동작 동일),
+// createIssue는 호출 기록 + 가짜 번호. 필수부(name·buildFields)는 TicketProvider 계약.
 const mockProvider = (existing = null) => {
   const created = []
   return {
     created,
+    name: 'test',
+    buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}),
+    findByFeature(f) { return this.findByLabel('feat:' + f) },
     findByLabel: async () => existing,
     createIssue: async fields => { created.push(fields); return {number: 101, ...fields} },
   }
@@ -28,7 +32,7 @@ test('신규 청구: 이슈 생성 + assignee + 원장 append', async () => {
   assert.equal(result.alreadyClaimed, false)
   assert.equal(provider.created.length, 1)
   assert.equal(provider.created[0].assignee, 'devX')
-  assert.deepEqual(ledger.records, [{featureId: 'FEAT-042', ticketKey: '101', contentHash: result.record.contentHash, createdAt: '2026-08-21T00:00:00Z', assignee: 'devX'}])
+  assert.deepEqual(ledger.records, [{featureId: 'FEAT-042', ticketKey: '101', provider: 'test', contentHash: result.record.contentHash, createdAt: '2026-08-21T00:00:00Z', assignee: 'devX'}])
   assert.equal(result.specWarning, null)
 })
 
@@ -71,4 +75,35 @@ test('assignee 미지정: 원장에 assignee 필드 없음(분배 무관)', asyn
   const ledger = mockLedger()
   await claimFeature({unit: unit(), provider: mockProvider(), ledger})
   assert.equal('assignee' in ledger.records[0], false)
+})
+
+// ── TicketProvider 계약 (2026-09-02) ──
+// 종전에는 runner가 provider-github을 정적 import해 필드 빌드와 조회 키(라벨)를 직접 알았다.
+// provider를 주입해도 GitHub 어휘가 오케스트레이션에 남아 있었다는 뜻이다.
+
+test('반증: 필수부가 없는 provider는 loud하게 거부된다 — 반쯤 구현된 채로 돌지 않는다', async () => {
+  await assert.rejects(
+    () => claimFeature({unit: unit(), provider: {createIssue: async () => ({number: 1})}, ledger: mockLedger()}),
+    /TICKET_PROVIDER_INCOMPLETE/,
+  )
+})
+
+test('원장은 어느 트래커에 냈는지 기록한다 — 두 트래커가 섞이면 조회의 근거다', async () => {
+  const ledger = mockLedger()
+  await claimFeature({unit: unit(), provider: {...mockProvider(), name: 'jira'}, ledger})
+  assert.equal(ledger.records[0].provider, 'jira')
+})
+
+test('조회 키의 형태는 provider가 정한다 — 호출자는 FEAT만 넘긴다', async () => {
+  const seen = []
+  const provider = {...mockProvider(), findByFeature: async f => { seen.push(f); return null }}
+  await claimFeature({unit: unit(), provider, ledger: mockLedger()})
+  assert.deepEqual(seen, ['FEAT-042'], '라벨·JQL 같은 트래커 어휘가 runner로 새지 않는다')
+})
+
+test('전이 능력이 없는 provider도 청구는 된다 — 없는 능력은 결함이 아니다', async () => {
+  const provider = mockProvider()
+  assert.equal(typeof provider.transition, 'undefined')
+  const result = await claimFeature({unit: unit(), provider, ledger: mockLedger()})
+  assert.equal(result.claimed, true)
 })

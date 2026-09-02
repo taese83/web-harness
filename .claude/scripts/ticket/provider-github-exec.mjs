@@ -3,7 +3,8 @@
 // provider-github.mjs에 있고, 여기서는 그 결과로 gh를 호출할 뿐이다. confirm(=개발자의
 // 선택 행위) 뒤 runner.claimFeature가 이 provider를 주입받아 쓴다.
 import {spawn} from 'node:child_process'
-import {featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl} from './provider-github.mjs'
+import {buildIssueFields, featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
+import {classifyGhError} from './permissions.mjs'
 import {parseViewerPermission} from './permissions.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
@@ -86,7 +87,22 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
   const run = exec ?? (args => gh(args, {host}))
   return {
+    // ── TicketProvider 필수부(`ticket-provider.mjs`) ──
+    name: 'github',
+    buildFields: buildIssueFields,
+    // **조회 키가 라벨인 것은 GitHub의 사정이다.** 호출자는 FEAT만 준다.
+    async findByFeature(featureId) {
+      return this.findByLabel(featLabel(featureId))
+    },
+    // ── 선택부 — 있는 능력만 노출한다 ──
+    // `transition`은 **주지 않는다**: GitHub Issues의 상태는 open/closed뿐이라 "진행중"이 없다.
+    // 없는 것을 흉내 내면 pickup이 전이했다고 보고하게 된다.
+    // PR 본문의 자동 닫기 참조 — GitHub은 네이티브 지원. **서식 정본은 `renderCloseReference`**이고
+    // 여기서는 그것을 위임만 한다(두 곳에서 만들면 갈라진다). cli 배선은 아직 그쪽을 직접 부른다.
+    closeReference: key => renderCloseReference({ok: true, verified: true, closes: key}),
+    classifyError: classifyGhError,
     // FEAT 고유 라벨로 기존 이슈 조회(청구 경쟁 검사) — 있으면 첫 이슈, 없으면 null.
+    // 하위호환으로 남긴다: 라벨을 직접 아는 호출자(exec 계층 내부)가 있다.
     async findByLabel(label) {
       return parseIssueListJson(await run(listArgs(repo, label)))[0] ?? null
     },

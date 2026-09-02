@@ -13,6 +13,9 @@ const FEAT_ID_ONE = /^FEAT-\d{3,}$/
  * @property {string} featureId     FEAT-NNN — 하네스측 안정 식별자(왕복 앵커)
  * @property {string} ticketKey     외부 트래커 이슈 키 (예: "PROJ-123")
  * @property {string} contentHash   발행 시점 unit 내용 해시(재발행 멱등 판정용)
+ * @property {string} [provider]    티켓 트래커 식별자('github' · 'jira'). **선택 — 없으면 'github'**
+ *   (하위호환: 이 필드 도입 전 레코드가 전부 GitHub이다). 두 트래커가 한 원장에 섞이면
+ *   무엇으로 조회할지의 근거가 되고, board가 소스를 나눠 읽는 기준이 된다.
  * @property {string} createdAt      ISO 시각
  * @property {string} [prUrl]        C(PR/status)가 채우는 PR 링크 — 없으면 미연결
  * @property {boolean} [closed]      units에서 사라져 닫힌 티켓

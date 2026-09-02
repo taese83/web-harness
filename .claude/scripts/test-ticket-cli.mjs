@@ -50,7 +50,7 @@ test('runClaim: origin 미동기 fail-closed(발행 미도달) · dry-run · con
       io: {
         currentBranch: async () => 'feature/dash',
         permission: async () => 'write',
-        provider: {findByLabel: async () => { providerTouched = true; return null }, createIssue: async () => { providerTouched = true; return {number: 7, url: 'https://x/issues/7'} }},
+        provider: {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => { providerTouched = true; return null }, createIssue: async () => { providerTouched = true; return {number: 7, url: 'https://x/issues/7'} }},
       },
     }
     // 점 1 미충족 → 차단, provider 미호출(fail-closed)
@@ -168,7 +168,7 @@ test('runClaim: 권한 차단은 부분 성공이 아니라 ok:false(exit 2 정�
         currentBranch: async () => 'feature/dash',
         originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/feature/dash'}),
         permission: async () => 'read', // 이슈 생성 불가 등급 → runner가 blocked 반환
-        provider: {findByLabel: async () => null, createIssue: async () => { throw new Error('도달하면 안 됨') }},
+        provider: {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => null, createIssue: async () => { throw new Error('도달하면 안 됨') }},
       },
     })
     assert.equal(blocked.ok, false)                       // 기계 신호 정렬(exit 2 방향)
@@ -359,7 +359,7 @@ test('claim: 이슈 자동 닫기 자산을 설치하되 기존 사본은 덮지
       originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
       currentBranch: async () => 'feature/dash',
       permission: async () => 'write',
-      provider: {findByLabel: async () => null, ensureLabel: async () => {}, createIssue: async () => ({number: 7, url: 'https://x/issues/7'})},
+      provider: {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => null, ensureLabel: async () => {}, createIssue: async () => ({number: 7, url: 'https://x/issues/7'})},
     }
     const flags = {units: withUnits(dir), confirm: true}
 
@@ -543,7 +543,7 @@ test('닫힌 원장 레코드는 살아 있는 청구가 아니다 — 재개가
   const created = []
   const result = await claimFeature({
     unit,
-    provider: {findByLabel: async () => null, createIssue: async f => { created.push(f); return {number: 42} }},
+    provider: {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => null, createIssue: async f => { created.push(f); return {number: 42} }},
     ledger: {find: () => ({ticketKey: '7', closed: true}), append: () => {}},
   })
   assert.equal(result.alreadyClaimed, undefined ?? result.alreadyClaimed, '닫힌 레코드로 막히지 않는다')
@@ -557,6 +557,7 @@ test('트래커의 닫힌 티켓은 되살린다 — 새 번호를 내지 않는
   await claimFeature({
     unit,
     provider: {
+      name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) },
       findByLabel: async () => ({ticketKey: '7', number: 7, state: 'CLOSED'}),
       reopenIssue: async key => { reopened.push(key); return {number: 7, ticketKey: '7'} },
       createIssue: async f => { created.push(f); return {number: 99} },
@@ -571,7 +572,7 @@ test('열린 티켓은 그대로 청구됨으로 본다', async () => {
   const {claimFeature} = await import('./ticket/runner.mjs')
   const result = await claimFeature({
     unit,
-    provider: {findByLabel: async () => ({ticketKey: '7', state: 'OPEN'}), createIssue: async () => ({number: 99})},
+    provider: {name: 'test', buildFields: (draft, o = {}) => ({title: draft.title, body: draft.body, labels: [], assignee: o.assignee ?? null}), findByFeature(f) { return this.findByLabel('feat:' + f) }, findByLabel: async () => ({ticketKey: '7', state: 'OPEN'}), createIssue: async () => ({number: 99})},
     ledger: {find: () => null, append: () => {}},
   })
   assert.equal(result.alreadyClaimed, true)
