@@ -207,7 +207,8 @@ test('solution-design: 섹션 11개여도 예산 내면 통과 — 분할 금지
 
 // 반증 seed: 기계 블록을 예산에서 빼자는 제안이 있었다(2026-09-02 리뷰에서 BLOCKED).
 // 빼면 산문을 ```json web-harness:<아무이름> 펜스에 넣어 예산을 통째로 우회할 수 있다
-// (실측: 45,007B → 7B). 예산은 펜스 안이든 밖이든 바이트를 센다.
+// (실측: 45,007B → 7B). 예산은 펜스 안이든 밖이든 바이트를 센다 — 유일한 예외는
+// solution-design.md의 유효 결정 블록이며 그것도 세 겹 AND + 자체 상한이다(아래).
 test('반증: 산문을 web-harness 펜스로 감싸도 예산을 벗어나지 못한다', () => {
   const run = runOn({
     '_workspace/02_design/api-schema.md':
@@ -215,6 +216,84 @@ test('반증: 산문을 web-harness 펜스로 감싸도 예산을 벗어나지 �
   })
   assert.equal(run.status, 1)
   assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
+})
+
+// ── 결정 블록 예산 제외는 세 겹으로 좁다. 셋 중 하나라도 어긋나면 산문으로 센다 ──
+
+const bigProse = '본문 채움 '.repeat(2200)
+const decisionBlock = body => `\`\`\`json web-harness:solution-design\n${body}\n\`\`\`\n`
+
+test('solution-design의 유효 결정 블록은 예산에서 빠진다 — 저자가 줄일 수 있는 대상이 아니다', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md':
+      `# Design\n\n짧은 산문.\n\n${decisionBlock(JSON.stringify({layerMap: {routes: 'x'.repeat(11000)}}))}`,
+  })
+  assert.equal(run.status, 0)
+  assert.deepEqual(run.errors, [])
+})
+
+test('반증 ①: 같은 라벨이라도 다른 파일에서는 예산에 그대로 잡힌다', () => {
+  const run = runOn({
+    '_workspace/02_design/api-schema.md': `# API\n\n${decisionBlock(bigProse)}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('split required')).length, 1)
+})
+
+test('반증 ②: 라벨을 흉내 낸 다른 이름은 제외되지 않는다 — 와일드카드 없음', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md':
+      `# Design\n\n\`\`\`json web-harness:notes\n${bigProse}\n\`\`\`\n`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('shrink the prose')).length, 1)
+})
+
+test('반증 ③: JSON으로 파싱되지 않으면 산문이다 — 펜스만 두른 산문은 예산에 남는다', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md': `# Design\n\n${decisionBlock(bigProse)}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('shrink the prose')).length, 1)
+})
+
+test('반증 ④: 제외되는 블록에도 상한이 있다 — 유효 JSON 문자열에 산문을 넣는 잔여 경로를 유계로 만든다', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md':
+      `# Design\n\n${decisionBlock(JSON.stringify({notes: 'x'.repeat(16 * 1024)}))}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('decision block is')).length, 1)
+})
+
+// MEDIUM(리뷰): 위 seed들은 "제외가 발동하지 않는다"만 잰다. `bytes`가 "블록 있으면 0"으로
+// 퇴행해도 전부 통과했다 — 제외가 산문 검사 자체를 지우지 않는다는 것을 따로 고정한다.
+
+test('반증 ⑤: 유효 블록이 있어도 산문이 예산을 넘으면 잡힌다 — 제외가 검사를 지우지 않는다', () => {
+  const run = runOn({
+    '_workspace/02_design/solution-design.md':
+      `# Design\n\n${bigProse}\n\n${decisionBlock(JSON.stringify({layerMap: {routes: 'x'.repeat(9000)}}))}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('shrink the prose')).length, 1)
+  assert.equal(run.errors.filter(message => message.includes('decision block is')).length, 0)
+})
+
+test('반증 ⑥: 복수 블록은 합산해서 상한을 잰다 — 쪼개면 통과하지 않는다', () => {
+  const half = () => decisionBlock(JSON.stringify({notes: 'x'.repeat(8 * 1024)}))
+  const run = runOn({
+    '_workspace/02_design/solution-design.md': `# Design\n\n${half()}\n${half()}`,
+  })
+  assert.equal(run.status, 1)
+  assert.equal(run.errors.filter(message => message.includes('decision block is')).length, 1)
+})
+
+// Windows 오탐 선례(7f9c3b5)가 있어 줄바꿈 형식을 고정한다.
+test('CRLF 문서에서도 결정 블록 제외가 동일하게 동작한다', () => {
+  const body = `# Design\n\n짧은 산문.\n\n${decisionBlock(JSON.stringify({layerMap: {routes: 'x'.repeat(11000)}}))}`
+  const run = runOn({'_workspace/02_design/solution-design.md': body.replace(/\n/g, '\r\n')})
+  assert.equal(run.status, 0)
+  assert.deepEqual(run.errors, [])
 })
 
 test('decision-log ID 구간 파일명(~)이 절 행으로 인식된다 — 계약 표기와 검증기 문자셋 정합(10호 회귀)', () => {

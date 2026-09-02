@@ -35,6 +35,40 @@ const SHRINK_ONLY_PATHS = new Set([
   join('_workspace', '02_design', 'solution-design.md'),
 ])
 
+// solution-design.md의 결정 블록만 예산에서 뺀다. **측정 규칙의 정본은
+// `artifact-sharding-contract.md` §검증이다** — 여기 옮겨 적지 않는다. 왜 좁혔는지만 남긴다:
+// 선행 제안은 ```json web-harness:* 를 모든 파일에서 뺐고, 이름 제한도 JSON 검사도 없어
+// 아무 라벨이나 붙여 산문을 감싸면 예산이 사라졌다(2026-09-02 실측 45,007B → 7B).
+// 그래서 경로·정확 라벨·JSON 파싱 세 겹 AND이고, 어느 하나라도 어긋나면 산문으로 센다.
+//
+// 상한 15KB는 `SECTION_MAX_BYTES`와 같은 값이다 — 블록은 기능적으로 절 하나다. 실측 n=3
+// (11,815 / 6,752 / 6,886B)에 최대 대비 27% 헤드룸이며, 첫 초과가 관측되면 재조정한다.
+// 복수 블록은 합산해 잰다. 다만 실사용에서는 `spec.mjs`가 블록 2개 이상을
+// `DECISION_BLOCK_AMBIGUOUS`로 먼저 거부한다 — 두 게이트의 판정 기준이 다르다(여기는 유효
+// JSON만 세고, spec.mjs는 유효 여부와 무관하게 개수를 본다).
+//
+// TODO: 정규식이 `spec.mjs`의 것과 복제다. spec.mjs가 바뀌면 여기가 "spec.mjs가 소비하지
+// 않는 블록"을 제외하게 되어 제외 근거가 조용히 깨진다 — export 공유를 검토한다.
+const DECISION_BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```\s*/g
+const MACHINE_BLOCK_MAX_BYTES = 15 * 1024
+const SOLUTION_DESIGN_PATH = join('_workspace', '02_design', 'solution-design.md')
+
+// 반환: {bytes, blockBytes} — bytes는 예산에 재는 산문, blockBytes는 뺀 결정 블록.
+const measureArtifact = (entryPath, source) => {
+  const total = Buffer.byteLength(source, 'utf8')
+  if (entryPath !== SOLUTION_DESIGN_PATH) return {bytes: total, blockBytes: 0}
+  let blockBytes = 0
+  for (const match of source.matchAll(DECISION_BLOCK)) {
+    try {
+      JSON.parse(match[1])
+    } catch {
+      continue // 파싱 실패 = 산문. 라벨만 흉내 낸 블록은 예산에 그대로 남는다
+    }
+    blockBytes += Buffer.byteLength(match[0], 'utf8')
+  }
+  return {bytes: total - blockBytes, blockBytes}
+}
+
 const argv = process.argv.slice(2)
 const jsonOutput = argv.includes('--json')
 const options = argv.filter(value => value !== '--json')
@@ -109,8 +143,12 @@ for (const relativeDirectory of pendingDirectories) {
     // ── 단일 파일 산출물: 20KB 초과 또는 절 8개 초과면 분할 필수
     if (entry.isFile() && entry.name.endsWith('.md')) {
       const absolutePath = join(projectRoot, entryPath)
-      const bytes = statSync(absolutePath).size
-      const sections = countSections(readFileSync(absolutePath, 'utf8'))
+      const source = readFileSync(absolutePath, 'utf8')
+      const {bytes, blockBytes} = measureArtifact(entryPath, source)
+      if (blockBytes > MACHINE_BLOCK_MAX_BYTES) {
+        errors.push(`${entryPath}: decision block is ${kb(blockBytes)} (budget ${kb(MACHINE_BLOCK_MAX_BYTES)}) — the block is excluded from the prose budget, so it carries its own; shrink rationale/alternatives inside it`)
+      }
+      const sections = countSections(source)
       inspected.push({path: entryPath, kind: 'single-file', bytes, sections})
       // 디렉토리와 동명 .md 공존 금지 (계약 §디렉토리 레이아웃)
       const twinDirectory = join(projectRoot, relativeDirectory, entry.name.replace(/\.md$/, ''))
