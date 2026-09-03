@@ -29,6 +29,17 @@ maxTurns: 20
 
 원칙과 다른 배치를 결정할 때는 layout-spec 해당 절에 근거 한 줄을 남긴다.
 
+## 공급된 디자인 근거 (있을 때만)
+
+`_workspace/00_source/design-binding.json`이 있으면 읽고, 라우팅 맵에 **route ↔ `PAGE-NNN` ↔
+`referenceId`**를 잇는다. 이 파일은 어느 시안이 어느 화면의 어느 조건인지를 사람이 선언한 기록이며
+(`.claude/skills/web-orchestrator/references/design-binding-contract.md`), 여기서 끊기면 시각 검증이
+자기 근거를 다시 지어내게 된다.
+
+- `resolution: derive`인 조건은 근거가 없다고 **결정된** 것이다 — 시스템 원리에서 파생하고,
+  없는 시안을 있는 것처럼 인용하지 않는다.
+- 바인딩에 없는 화면을 만나면 스스로 귀속을 정하지 않고 `NEEDS_DECISION`으로 보고한다.
+
 ## 작업 원칙
 
 1. `_workspace/01_plan/ux-brief.md`와 `_workspace/01_plan/project-brief.md`를 읽는다. ux-brief의 **화면별 정보 위계** 표(`design-readiness-contract.md`)가 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다. Primary 순서를 시각 위계(크기·위치·대비)의 근거로 사용하고 근거 없는 재배열을 하지 않는다

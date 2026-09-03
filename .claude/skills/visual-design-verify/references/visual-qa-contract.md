@@ -30,6 +30,8 @@ reference는 `figma-node | image | specification | none` 중 하나다.
 
 Figma Remote MCP를 사용할 수 있으면 frame, component, variable context를 읽고 Code Connect mapping을 기록한다. 연결이 없으면 export를 사용하며 원격 URL을 읽었다고 주장하지 않는다.
 
+공급된 디자인이 있으면 reference의 상류 정본은 `_workspace/00_source/design-binding.json`이다(`.claude/skills/web-orchestrator/references/design-binding-contract.md`). 그 파일이 어느 화면의 어느 조건에 어느 근거가 붙는지를 이미 선언했으므로 여기서 다시 정하지 않고 **같은 id로 같은 것을 가리킨다** — 어긋나면 `visual-evidence-lib`가 거부한다. 공급된 근거 전부를 target으로 올릴 필요는 없다(critical·brand·layout-risk 선택 기준이 우선). 요구되는 것은 일치이지 전수 채택이 아니다.
+
 Pixel-perfect Figma 일치를 범용 hard gate로 사용하지 않는다. text rendering과 responsive semantic change는 structural assertion, token mapping, controlled screenshot diff, human review를 함께 사용한다.
 
 ## Token contract

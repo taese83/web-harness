@@ -39,6 +39,11 @@ Use this reference when the user already has planning, design, API, or product d
 | **시안 이미지** | 스크린샷·export PNG/JPG/PDF | 파일 경로 + SHA-256 + 어느 화면인지 매핑 |
 | **Figma MCP** | 승인·가용할 때만. 아래 절차 | node ID + frame/component/variable 목록 + Code Connect mapping(있으면) |
 
+**형태와 무관하게, 받은 근거가 어느 화면의 어느 조건인지는 따로 기록한다.** 그 정본은
+`_workspace/00_source/design-binding.json`이며 형식과 소유는 `design-binding-contract.md`가 갖는다
+— 여기서 정하는 것은 수집 절차까지다. 하나의 화면이 조건(권한 없음·빈 상태·모바일)에 따라 여러
+근거를 갖는 것이 정상이고, 그 대응을 산문 `Source Trace`로만 남기면 기계가 승계하지 못한다.
+
 ### URL·링크
 
 1. **읽을 수 있다고 가정하지 않는다.** 링크가 있다는 것과 읽힌다는 것은 다르다. 판정은 선언이
@@ -127,6 +132,7 @@ export 경로로 간다. **fixture 검증은 아직 없다 — 명명 수준이�
 | 반복 UI 패턴과 상태 | `02_design/component-spec.md` |
 | 색·타이포·간격·radius·그림자 토큰 | `02_design/design-system.md` |
 | 화면 ↔ route 매핑 | `layout-spec.md`의 라우팅 맵 |
+| 화면·조건 ↔ 시안 매핑 | `00_source/design-binding.json` (`design-binding-contract.md`) |
 
 **픽셀 단위 동일은 보장하지 않는다.** `visual-design-verify`의 `visual-qa-contract.md`가
 "Pixel-perfect Figma 일치를 범용 hard gate로 사용하지 않는다"를 이미 결정했다 — 텍스트 렌더링과
@@ -154,6 +160,11 @@ seat/plan 제약과 화면·디자인 데이터의 외부 전송 경계를 사�
 2. 노드마다 구조(`get_metadata`)와 변수(`get_variable_defs`)를 가져오고, 필요하면 스크린샷으로
    시각을 확인한다. Code Connect가 있으면 design ↔ code 매핑을 보존한다.
    **호출은 유한하다** — 아래 「호출 한도」를 지킨다.
+2-1. **node-id를 받을 때 어느 화면·어느 조건인지 함께 받는다.** 이름 유사도로 추론하지 않는다
+   (`design-binding-contract.md` §4 — `declaredBy` 어휘에 `inferred`가 없다). 사용자가 말하지
+   않았으면 후보를 제시해 되묻고, 답을 받기 전에는 `design-binding.json`의 `unbound.references`에
+   둔다. **수집 순서는 각 화면의 `default` 조건부터** — 호출 한도로 절단되면 default 없이
+   조건 프레임만 남는다.
 3. `00_source/figma-{fileKey}-{nodeId}.md`에 **텍스트 스냅샷**을 남긴다 — fileKey·node ID·가져온
    시각·구조 트리·변수 목록·(있으면) Code Connect 매핑. **이후 추적성의 정본은 Figma URL이 아니라
    이 스냅샷이다**(원격 파일은 변하고 재현되지 않는다).

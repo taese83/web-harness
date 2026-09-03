@@ -28,6 +28,7 @@ import {claimScopeReadiness, findPathCollisions} from './ticket/claim-scope.mjs'
 import {extractDecisionBlock} from './spec.mjs'
 import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
+import {DESIGN_BINDING_PATH, collectDesignBinding} from './design-binding-lib.mjs'
 
 const ok = (id, detail) => ({id, state: 'PASS', detail})
 const hole = (id, detail, remedy) => ({id, state: 'HOLE', detail, remedy})
@@ -153,6 +154,73 @@ export function checkDesignInputs(root) {
   if (missing.length === 0) return ok('design-inputs', '디자인이 요구하는 기획 절이 전부 있다')
   return hole('design-inputs', `디자인 입력 누락: ${missing.join(' · ')}`,
     'design-readiness-contract.md의 필수 절을 채운다 — 없으면 디자인이 추론으로 메우고 그 추론이 개발까지 흘러간다')
+}
+
+// 선언된 Page Group 집합. 정본은 `## Page Groups` **표**이지 산문의 언급이 아니다
+// (design-readiness-contract §3). 문서 전체에서 `PAGE-\d+`를 긁으면 FEAT 설명이나 주석에
+// 한 번 적힌 이름이 선언으로 승격되고, 그 이름에 근거를 붙여 미바인딩 검사를 우회할 수 있다
+// (교차 모델 리뷰 2026-09-03). `PAGE-000`은 단일 페이지에 귀속되지 않는 전역 책임의 예약
+// ID이므로 화면 근거를 요구하지 않는다.
+export function pageGroupIdsIn(text) {
+  const ids = new Set()
+  for (const section of String(text ?? '').matchAll(/(?:^|\n)#{1,6}[^\S\n]*Page Groups[^\n]*\n([\s\S]*?)(?=\n#{1,6}[^\S\n]|$)/gi)) {
+    for (const row of section[1].matchAll(/^[^\S\n]*\|[^\S\n]*(PAGE-\d{3,})[^\S\n]*\|/gm)) ids.add(row[1])
+  }
+  ids.delete('PAGE-000')
+  return [...ids]
+}
+
+// ── 공급된 디자인 근거가 기획 단위에 붙었는가 ───────────────────────────────
+// 파일이 없는 것은 정상이다 — 디자인 `generated`·`absent` 경로에는 공급된 근거가 없다.
+// 있으면 묻는 것은 둘이다: (1) 기록 자체가 유효한가 (2) **미결이 남아 있지 않은가.**
+//
+// `unbound`는 "아직 정하지 않았다"는 뜻이고, 이 자리에서 메우는 비용이 디자인·구현 중에
+// 메우는 비용보다 싸다. 근거가 없다고 결정하는 것은 미결이 아니다 — 그때는 조건 행에
+// `resolution: derive|reuse:`를 적으면 되고, 그것으로 `unbound`에서 빠진다.
+//
+// **범위(정직)**: PAGE 단위 커버리지까지만 본다. 조건 단위(빈 상태·오류·권한 없음)는
+// 분모인 ux-brief 「화면별 정보 위계」 표의 칸이 비어도 통과하므로 여기서는 세기만 한다.
+// 분모를 강제하는 것은 plan-reviewer 강화의 몫이며, 그 전에 게이트로 올리면 조건을
+// 안 적는 것이 통과하는 길이 된다(protected-core §4 등록).
+export function checkDesignBinding(root) {
+  const binding = collectDesignBinding(root)
+  if (!binding.present) return skip('design-binding', `${DESIGN_BINDING_PATH}이 없다 — 공급된 디자인 근거가 없는 경로다`)
+  if (binding.errors.length > 0) {
+    return hole('design-binding', `디자인 근거 기록이 유효하지 않다: ${binding.errors.slice(0, 3).join(' · ')}${binding.errors.length > 3 ? ` 외 ${binding.errors.length - 3}건` : ''}`,
+      'design-binding-contract.md의 형식으로 고친다 — 이 기록이 깨지면 시안이 어느 화면의 것인지 아무도 승계하지 못한다')
+  }
+  const document = binding.document
+  const declaredPages = new Set(planSources(root).flatMap(pageGroupIdsIn))
+  const accounted = new Set([...binding.boundPageGroups, ...document.unbound.pageGroups])
+  const missing = [...declaredPages].filter(id => !accounted.has(id)).sort()
+  const problems = []
+  if (document.unbound.references.length > 0) {
+    problems.push(`어느 조건에도 붙지 않은 근거 ${document.unbound.references.length}건: ${document.unbound.references.slice(0, 6).join(', ')}`)
+  }
+  if (document.unbound.pageGroups.length > 0) {
+    problems.push(`디자인 근거가 미결인 화면 ${document.unbound.pageGroups.length}건: ${document.unbound.pageGroups.slice(0, 6).join(', ')}`)
+  }
+  if (missing.length > 0) {
+    problems.push(`기획에 있으나 기록에 없는 화면 ${missing.length}건: ${missing.slice(0, 6).join(', ')}`)
+  }
+  // 역방향도 본다. 한쪽만 보면 **유령 화면**이 우회로가 된다 — 기획에 없는 PAGE-999를 만들어
+  // 근거를 거기 붙이면 `unbound.references`가 비어 통과하고, layout-designer는 라우팅 맵에
+  // 없는 화면을 입력으로 받는다(교차 모델 리뷰 2026-09-03). 기획을 못 읽었으면 대조하지
+  // 않는다 — 없는 것과 못 읽은 것은 다르다.
+  if (declaredPages.size > 0) {
+    const ghosts = [...accounted].filter(id => !declaredPages.has(id)).sort()
+    if (ghosts.length > 0) problems.push(`기획에 없는 화면에 붙은 기록 ${ghosts.length}건: ${ghosts.slice(0, 6).join(', ')}`)
+  }
+  // `pending`은 행이 있을 뿐 결정이 아니다. `unbound`를 비우려고 `pending`을 적는 우회를
+  // 막는다 — 그 우회를 허용하면 이 검사는 "행이 있는가"만 세는 프록시가 된다.
+  const pending = document.bindings.filter(b => b.resolution === 'pending')
+    .map(b => `${b.pageGroup}[${Object.entries(b.condition).map(([k, v]) => `${k}=${v}`).join('&')}]`)
+  if (pending.length > 0) problems.push(`결정이 미뤄진 조건 ${pending.length}건: ${pending.slice(0, 6).join(', ')}`)
+  const c = binding.coverage
+  const summary = `근거 ${c.references}건 · 바인딩 ${c.bindings}건(공급 ${c.resolutions.supplied} · 파생 ${c.resolutions.derive} · 재사용 ${c.resolutions.reuse} · 미정 ${c.resolutions.pending}) · 화면 ${c.pageGroups}개`
+  if (problems.length === 0) return ok('design-binding', summary)
+  return hole('design-binding', `${problems.join(' · ')} [${summary}]`,
+    '각 화면·조건에 근거를 붙이거나, 근거가 없다고 **결정**해 resolution(derive|reuse:<id>)을 적는다 — 빈 칸으로 두면 그 결정은 구현 중에 즉흥으로 내려진다')
 }
 
 // FEAT마다 검증 기준이 있는가. 없으면 나중에 스팩이 unverifiable로 잠기고, 무엇이 완료인지
@@ -658,7 +726,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkProseEdgesDeclared(root, units),
     checkAcceptanceCoverage(units), checkActivePickupIntact(root, units)]
   if (to === 'design') {
-    const results = [...planChecks, checkDesignInputs(root), checkUpstreamDecisionsReachable(root)]
+    const results = [...planChecks, checkDesignInputs(root), checkDesignBinding(root), checkUpstreamDecisionsReachable(root)]
     const holes = results.filter(r => r.state === 'HOLE')
     return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
   }
@@ -668,6 +736,9 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
     checkPathsAgainstSpec(units, spec),
     checkPathsSufficient(units),
     checkTicketsCoverPlan(root, units),
+    // 디자인 인계에서 통과한 기록이 그 사이에 지워지거나 어긋날 수 있다 — 늦게 잡을수록
+    // 되돌리는 비용이 커진다(planChecks가 두 인계에 모두 서는 것과 같은 판단).
+    checkDesignBinding(root),
     checkDecisionsLanded(root),
     checkRequirementsCovered(root),
     checkUpstreamDecisionsReachable(root),

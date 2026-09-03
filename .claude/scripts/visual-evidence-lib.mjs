@@ -2,12 +2,15 @@ import {existsSync} from 'node:fs'
 import {join} from 'node:path'
 import {listSourceFiles, sha256} from './evidence-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
+import {collectDesignBinding, crossCheckVisualReferences} from './design-binding-lib.mjs'
 
 export const VISUAL_CONTRACT_PATH = '_workspace/02_design/visual-qa-contract.json'
 export const VISUAL_MANIFEST_PATH = '_workspace/02_design/visual-baseline-manifest.json'
 
 const ID = /^[a-z0-9][a-z0-9-]*$/
 const SHA256 = /^[0-9a-f]{64}$/
+// visual-qa-contract.schema.json의 references 허용 키. 스키마와 갈라지면 schema-parity가 잡는다.
+const VISUAL_REFERENCE_KEYS = ['id', 'kind', 'locator', 'sha256']
 const safeRelativePath = value =>
   typeof value === 'string' &&
   !value.includes('\0') &&
@@ -38,7 +41,7 @@ const unique = (values, label, errors) => {
   return seen
 }
 
-const validateContract = (contract, errors) => {
+export const validateVisualContract = (contract, errors) => {
   if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
     errors.push(`${VISUAL_CONTRACT_PATH}: contract must be an object`)
     return
@@ -89,6 +92,13 @@ const validateContract = (contract, errors) => {
     if (!ID.test(reference?.id ?? '') || !['figma-node', 'image', 'specification', 'none'].includes(reference?.kind)) {
       errors.push(`${VISUAL_CONTRACT_PATH}: invalid reference`)
     }
+    // 스키마는 `additionalProperties: false`인데 이 수기 미러가 그것을 안 봤다. 상류
+    // `design-binding.json`의 reference를 **통째로 복사**하면 `capturedAt`·`snapshot`이 딸려
+    // 들어오고, 스키마상 무효한 계약이 receipt까지 조용히 통과한다(교차 모델 리뷰 2026-09-03).
+    const unknown = Object.keys(reference ?? {}).filter(key => !VISUAL_REFERENCE_KEYS.includes(key))
+    if (unknown.length > 0) {
+      errors.push(`${VISUAL_CONTRACT_PATH}: reference ${reference?.id ?? '<missing>'} has unknown keys: ${unknown.sort().join(', ')}`)
+    }
     if (reference?.kind === 'image' && !SHA256.test(reference?.sha256 ?? '')) {
       errors.push(`${VISUAL_CONTRACT_PATH}: image reference ${reference?.id ?? '<missing>'} requires SHA-256`)
     }
@@ -133,7 +143,7 @@ export const collectVisualEvidence = (projectRoot, discoveredTestFiles = null) =
 
   const contractDocument = readJson(projectRoot, VISUAL_CONTRACT_PATH, errors)
   const contract = contractDocument?.value ?? null
-  validateContract(contract, errors)
+  validateVisualContract(contract, errors)
   const referenceEvidence = []
   for (const reference of Array.isArray(contract?.references) ? contract.references : []) {
     if (reference?.kind !== 'image') continue
@@ -150,6 +160,16 @@ export const collectVisualEvidence = (projectRoot, discoveredTestFiles = null) =
       errors.push(`${reference.locator}: design reference cannot be read: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
+  // 공급된 디자인 근거가 있으면 같은 id는 같은 것을 가리켜야 한다. 부분집합은 요구하지
+  // 않는다 — visual-qa는 critical target만 고르므로 공급분 전부가 오르는 것이 정상이 아니다.
+  // 검사하는 것은 **발산**이다: 한 이름이 두 곳에서 다른 것을 가리키면 정본이 둘이 되고,
+  // 그러면 baseline이 무엇의 근거인지 아무도 말할 수 없다.
+  const designBinding = collectDesignBinding(projectRoot)
+  if (designBinding.present) {
+    errors.push(...designBinding.errors)
+    errors.push(...crossCheckVisualReferences(designBinding.document, contract?.references))
+  }
+
   const manifestDocument = existsSync(join(projectRoot, VISUAL_MANIFEST_PATH))
     ? readJson(projectRoot, VISUAL_MANIFEST_PATH, errors)
     : (errors.push(`${VISUAL_MANIFEST_PATH}: approved baseline manifest is missing`), null)

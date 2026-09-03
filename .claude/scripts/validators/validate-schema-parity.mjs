@@ -46,6 +46,13 @@ const PARITY_CASES = [
     values: ['disabled', 'reflowCssWidth', 'zoomEquivalentPercent', 'clsMax', 320, 400],
   },
   {
+    // `declaredBy` 어휘와 `figma-node` 해시 금지는 이 계약의 위조 방지 장치 자체다 —
+    // 스키마와 수기 미러 중 한쪽에서만 사라지면 그 방지가 조용히 꺼진다.
+    schema: '.claude/schemas/design-binding.schema.json',
+    mirror: '.claude/scripts/design-binding-lib.mjs',
+    values: ['figma-node', 'specification', 'user', 'carried', '^PAGE-[0-9]{3,}$', 'snapshot', 'capturedAt', 'resolution'],
+  },
+  {
     schema: '.claude/schemas/visual-baseline-manifest.schema.json',
     mirror: '.claude/scripts/validators/validate-visual-design.mjs',
     values: ['approvedBy', 'approvedAt', 'sha256'],

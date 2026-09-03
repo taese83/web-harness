@@ -305,6 +305,22 @@
       "replace": "    if (false) {",
       "test": ".claude/scripts/test-design-preview.mjs",
       "why": "부트스트랩 없는 앵커는 무력하다 — 앵커만 박힌 채 배지가 뜨지 않는 바탕이 승인된다"
+    },
+    {
+      "id": "design-binding-forged-hash",
+      "file": ".claude/scripts/design-binding-lib.mjs",
+      "find": "if (reference?.sha256 !== undefined) push(",
+      "replace": "if (false) push(",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "figma-node의 해시 금지를 끄면 계산할 수단이 없는 값을 적을 수 있게 된다 — 이 계약이 문법으로 막는다고 주장하는 유일한 자리가 관행이 된다(로컬 원본은 실물 대조가 담당한다)"
+    },
+    {
+      "id": "design-binding-declared-by",
+      "file": ".claude/scripts/design-binding-lib.mjs",
+      "find": "if (!DECLARED_BY.includes(binding?.declaredBy)) push(",
+      "replace": "if (false) push(",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "declaredBy 어휘 검사를 끄면 `inferred`가 값으로 들어와 추론이 선언과 같은 자리를 차지한다. 이 검사가 지키는 것은 추론 자체의 차단이 아니라 **어휘의 좁음**이다 — user는 여전히 자기신고이며 그 한계는 protected-core §4에 등록돼 있다"
     }
   ]
 }

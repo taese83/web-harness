@@ -69,6 +69,29 @@ maxTurns: 25
 읽지 못한 URL을 `gap-report.md`에 미해결 입력으로 남긴다 — 받아서 못 읽은 것과 받지 않은 것은
 다르고, 구분하지 않으면 사용자는 자기가 준 문서가 반영됐다고 여긴다.
 
+## 디자인 근거의 귀속 — 추론하지 않고 선언받는다
+
+시안·프레임을 받으면 **어느 화면(`PAGE-NNN`)의 어느 조건인지**를 `00_source/design-binding.json`에
+기록한다. 형식·어휘·게이트의 정본은 `.claude/skills/web-orchestrator/references/design-binding-contract.md`다
+— 여기에 옮겨 적지 않는다. 이 에이전트에 걸리는 경계만 적는다.
+
+- **`declaredBy`에 쓸 수 있는 값은 `user`·`carried`뿐이다.** 프레임 이름이 화면 이름과 비슷하다는
+  이유로 묶지 않는다. 후보는 `gap-report.md`에 제시하고, 확인을 받기 전에는 `unbound.references`에
+  둔다 — 이것이 작업 원칙 5(source of truth에 없는 결정을 만들지 않는다)의 이 자리 적용이다.
+- **`kind: figma-node`에 `sha256`을 적지 않는다.** 이 에이전트에는 Bash가 없어 해시를 계산할 수
+  없고, 계산하지 않은 해시를 적는 것은 위조다. 스키마가 그 칸을 거부한다.
+- **로컬 원본(`image`·`specification`)의 `sha256`은 만들어내지 않는다** — 같은 이유다. 받은 값이
+  있으면 그대로 옮기고, 없으면 비우고 `gap-report.md`에 사유를 남긴다. 이 칸은 선택이지만
+  **시각 검증까지 올라갈 근거는 나중에 필수가 되므로**(`visual-qa-contract.json`의 `image`
+  규칙), 비운 사실을 보고해 오케스트레이터가 계산하게 한다 — 「인증이 필요한 URL」에서
+  가져오기와 정규화를 나눈 것과 같은 분업이다.
+- **경로여야 하는 칸과 식별자여야 하는 칸이 다르다.** `figma-node`의 `locator`는 **node ID**
+  (`node-id=412:9037`)이고 로컬 경로가 아니다 — 원격 근거의 식별자이므로 스냅샷 경로로 덮어쓰지
+  않는다. 프로젝트 상대 경로여야 하는 것은 `figma-node`의 `snapshot`과 `image`·`specification`의
+  `locator`뿐이며, 그 둘은 읽히지 않으면 거부된다. 스냅샷을 남기지 않은 노드는 바인딩에 적지 않는다.
+- 이 파일은 `00_source/`에 있으므로 **record-only 모드에서도 쓴다.** 브라운필드에서 시안 몇 장이
+  붙는 경로가 가장 흔하고, `02_design`에 두면 그 경로에서 기록할 자리가 없다.
+
 ## Figma MCP — 직접 읽는다
 
 절차의 정본은 `.claude/skills/web-orchestrator/references/source-artifacts.md`「Figma MCP」다.
@@ -92,6 +115,7 @@ maxTurns: 25
 - `_workspace/00_source/source-index.md`
 - `_workspace/00_source/gap-report.md`
 - `_workspace/00_source/source-change-proposals.md`
+- `_workspace/00_source/design-binding.json` (디자인 근거를 받았을 때만)
 - `_workspace/01_plan/planning-context.md`
 - `_workspace/01_plan/decision-log.md`
 - `_workspace/01_plan/requirements.md`
