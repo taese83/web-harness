@@ -5,10 +5,10 @@ argument-hint: "[new|change|fix|verify] <요청>"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   maturity: contract-only
-  updated: 2026-09-02
-  changelog: new 레인 착수 전 공급원 3문항(§1-B) — 기획·디자인·설계를 문서/링크·글로 설명·하네스가 만든다·없이 진행 중에서 고른다. 이전 — 신설: 진입점을 하나로 모으고 레인별 게이트를 명시한다.
+  updated: 2026-09-04
+  changelog: 디자인 ④의 대가를 성질로 말하고 목록은 조건 표가 서는 즉시(Phase 1 → 2) 보여준다고 약속한다 — 이 시점에는 조건을 셀 수 없다. 이전 — new 레인 착수 전 공급원 3문항(§1-B) — 기획·디자인·설계를 문서/링크·글로 설명·하네스가 만든다·없이 진행 중에서 고른다. 이전 — 신설: 진입점을 하나로 모으고 레인별 게이트를 명시한다.
 ---
 
 # wh — Web Harness 진입점
@@ -85,6 +85,15 @@ metadata:
 **④를 고르면 그 자리에서 대가를 함께 보여준다**(`provenance-contract.md` §2):
 `specTier: unverifiable` · 팀 인계와 티켓 청구 차단 · 종료 조건이 실행 예산뿐. 대가를 모른 채
 고른 선택은 선택이 아니다. 대신 **나중에 붙일 수 있다** — `provenance-contract.md` §3 지연 공급이 그 경로다.
+
+**디자인 ④의 대가는 여기서 목록으로 보여줄 수 없다** — 조건(빈 상태·오류·권한 없음)은
+`ux-brief`의 정보 위계 표가 세우고, 이 시점은 **그 표가 서기 전**이다(기획 ①·②로 문서를
+가져왔더라도 아직 정규화 전이다). 그래서 성질만 말한다: 디자인 부재는 기획 부재와 달리
+**어느 인계에서도 막히지 않으며**(실측 2026-09-04, 같은 §2), 조건별 결정이 사라지는 것이 아니라
+구현자에게 넘어간다. **그 목록은 조건 표가 서는 즉시 보여준다** — `approval-checkpoints.md`
+Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent` 유지 여부를 한 줄로 확인한다.
+**기획도 ④면 그 체크포인트가 서지 않으므로** 첫 표시는 개발 착수 직전이 된다
+(`phase-3-development.md` 「디자인 부채 청구」).
 
 ### 2. 레인 표시 — 생략하지 않는다
 

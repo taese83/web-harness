@@ -984,6 +984,20 @@ test('배선: --design-debt가 프로세스로 돌고 진행을 막지 않는다
   }, {brief: FULL_BRIEF, document: null})
 })
 
+test('배선: 두 시점이 청구서를 부른다 — 부르지 않는 절차는 존재하지 않는 것과 같다', () => {
+  // 개발 착수 직전(결정 요구)과 기획 발행 직후(보여주기)의 두 자리다. 산문에서 명령이
+  // 사라지면 기계는 그대로 도는데 아무도 부르지 않는 상태가 된다 — 이 저장소가 `--to design`
+  // 에서 이미 겪은 형태이며, 그것은 protected-core §4에 한계로 등록돼 있다.
+  const surface = name => readFileSync(new URL(`../skills/web-orchestrator/references/${name}`, import.meta.url), 'utf8')
+  assert.match(surface('phase-3-development.md'), /--design-debt/, '개발 착수 직전 청구가 없다')
+  const checkpoints = surface('approval-checkpoints.md')
+  assert.match(checkpoints, /--design-debt/, 'Phase 1 → 2에서 부채를 보여주지 않는다')
+  // 그 자리의 **강도**가 명시돼야 한다 — 조건별 결정을 요구하면 근거 없는 결정을 받게 된다.
+  assert.match(checkpoints, /조건별 결정은 요구하지 않는다/, '기획 발행 시점의 강도가 명시되지 않았다')
+  // 다만 "붙일지"는 여기서 확인한다 — 그 비용이 여기가 가장 싸다(스팩 재확정이 없다).
+  assert.match(checkpoints, /absent 유지/, '되돌릴 기회가 확인 항목에 없다')
+})
+
 test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명령은 에이전트 경로에서 막힌다', () => {
   // 오케스트레이터가 부를 명령을 정책에 등록하지 않으면 에이전트 경로에서 DENY로 막히고,
   // 저자는 메인 스레드라 그것을 못 본다 — 이 저장소가 이미 두 번 물린 클래스다.

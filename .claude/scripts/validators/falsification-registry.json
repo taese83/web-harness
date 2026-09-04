@@ -353,6 +353,14 @@
       "replace": "    if (false && commandArgs.includes('--design-debt')) {",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "정책 등록을 끄면 오케스트레이터가 청구 명령을 실행할 수 없고, 저자는 메인 스레드라 그 DENY를 못 본다 — 문서에만 있고 실행되지 않는 절차가 된다"
+    },
+    {
+      "id": "design-debt-plan-checkpoint",
+      "file": ".claude/skills/web-orchestrator/references/approval-checkpoints.md",
+      "find": "  node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-debt",
+      "replace": "  node .claude/scripts/validate-handoff-readiness.mjs --project {root}",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "기획 발행 시점에 청구서를 부르지 않으면 디자인 absent를 고른 사용자가 그 대가를 목록으로 보는 자리가 없어진다 — /wh 시점에는 조건 표가 서기 전이라 셀 수 없고, 여기서 안 보여주면 개발 착수까지 아무도 모른다"
     }
   ]
 }

@@ -1210,7 +1210,10 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
         process.stdout.write(`시각 근거가 없는 조건 ${debt.planOnly.length}건 — 무엇을 보여줄지는 기획에 있고, 어떻게 그릴지가 없다\n`)
         for (const item of debt.planOnly) process.stdout.write(`  · ${item.pageGroup}[${item.label}]\n`)
       }
-      process.stdout.write('\n지금 정하지 않으면 구현하는 사람이 그 자리에서 정하게 된다.\n')
+      // **시점 중립으로 쓴다.** 이 출력은 기획 발행 직후(보여주기)와 개발 착수 직전(결정)
+      // 두 자리에서 쓰인다 — "지금 정하라"고 쓰면 결정을 요구하지 않는 자리에서 산문과
+      // 충돌한다(적대 리뷰 2026-09-04). 결정 시점은 부르는 쪽이 말한다.
+      process.stdout.write('\n정하지 않은 조건은 구현하는 사람이 그 자리에서 정하게 된다.\n')
     }
     process.exit(0)
   }

@@ -13,6 +13,39 @@ Phase 1이 끝나면 다음 내용을 사용자에게 보여주고 명시적으�
 - `S | M | L | XL` 상대 노력도, driver, `invest | reduce | split`, 가장 작은 가시적 검토 단위
 - `WEB_PROFILE`, 주요 라이브러리, provider/runtime target
 - **디자인 근거의 귀속**(`DESIGN_SOURCE: supplied`일 때): `00_source/design-binding.json`의 화면·조건별 근거와 **미결**(`unbound`·`resolution: pending`)을 그대로 보여주고 확정받는다. 근거가 없는 조건은 빈 칸이 아니라 `derive | reuse:<id>`로 **결정**한다 (`design-binding-contract.md`) — 이 결정을 미루면 구현 중에 즉흥으로 내려진다
+- **디자인 부채 — `DESIGN_SOURCE`가 `absent`일 때 반드시**(그 외에는 생략한다):
+
+  ```bash
+  node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-debt
+  ```
+
+  **조건별 결정은 요구하지 않는다.** 이 시점의 디자인 방향은 아직 `ASSUMPTION(시안 확정)`이고
+  (`design-readiness-contract.md` §2), 근거가 없는 상태에서 "이 조건을 어떻게 그릴지 정하라"고
+  물으면 답할 수 없다. 그 결정을 받는 자리는 개발 착수 직전이다(`phase-3-development.md`
+  「디자인 부채 청구」). 출력의 마지막 줄("정하지 않은 조건은 구현하는 사람이 그 자리에서
+  정하게 된다")은 **시점 중립**이며, 여기서는 그 시점이 개발 착수 직전임을 함께 말한다.
+
+  **다만 하나는 여기서 확인한다 — 위 확인 목록에 한 줄로 넣는다:**
+  `디자인: absent 유지 (부채 N건 인지)`. 조건별 결정과 달리 **"디자인을 붙일지"는 지금도 답할
+  수 있는 결정**이고, **그 비용이 여기가 가장 싸다** — 지금 `generated`·`supplied`로 되돌리면
+  Phase 2를 정상 수행하면 되지만, 개발 착수 후에 붙이면 `LOCK_INPUTS`가 바뀌어 **스팩 재확정과
+  receipt 재발급이 따라온다**(`provenance-contract.md` §3). 질문을 늘리지 않는다 — 이미 명시적
+  확인을 받는 자리이므로 항목 하나가 늘 뿐이다.
+
+  보여주는 이유는 **선택의 대가를 그 자리에 두기 위해서**다. `/wh`에서 디자인 ④를 고를 때는
+  조건 표가 아직 서기 전이라 셀 수 없었고(기획 문서를 가져왔더라도 정규화 전이다), 지금은
+  셀 수 있다 — `provenance-contract.md` §2가
+  기획 `absent`에 요구하는 것("대가를 숨기지 않는다")의 디자인판이다.
+
+  **`denominator-broken`이면 부채 목록이 아니라 기획 결함이다.** 조건 분모(`ux-brief` 정보 위계
+  표)가 서지 않은 것이므로 "보여주고 넘어가지" 않고 **이 체크포인트의 수정 요청 경로로 다룬다**
+  — 아래 "수정 요청이 있으면 해당 planning wave만 다시 실행한다"가 그 자리다. 기존 형식
+  ux-brief는 이 상태가 흔하며, 고치는 비용이 여기가 가장 싸다.
+
+  **`generated`·`supplied`에서는 이 항목을 돌리지 않는다.** 돌리면 **거짓 청구서**가 나오기
+  때문이다 — 두 경로 모두 Phase 2 이전이라 디자인 산출물이 없고, 보고는 모든 조건을 근거
+  없음으로 센다. `supplied`의 귀속 기록 부재는 위 「디자인 근거의 귀속」 항목이 이미 사람
+  확인으로 덮고, 무문서 경로는 `docs/protected-core.md` §4에 등록돼 있다.
 - 미해결 `ASSUMPTION`, `NEEDS_DECISION`, `BLOCKED`
 - `plan-review.md`의 `PASS | NEEDS_DECISION | BLOCKED`와 최대 3개의 우선 결정사항
 
