@@ -25,6 +25,7 @@ Phase 1 산출물을 독립적으로 검토하고 `_workspace/01_plan/plan-revie
 - S/M/L/XL driver, `invest | reduce | split`, 최소 가시적 검토 단위
 - requirement → owner → evidence traceability
 - **design readiness** (`.claude/skills/web-plan/references/design-readiness-contract.md`): 화면별 정보 위계 표·디자인 방향 절 존재, 고아 화면/고아 Must 기능(Feature List 매핑 누락), Primary 3개 초과 화면 — 위반은 `NEEDS_DECISION`
+- **조건의 분모** (같은 계약 §1 「이 표는 조건의 분모다」): 정보 위계 표가 **채워졌는가**. ① 데이터 행에 빈 칸이 있는가(빈 칸은 결정이 아니라 미결 — 해당하지 않으면 `해당 없음(사유)`로 명시한다) ② 조건 열의 헤더가 `축:값` 형식인가(`state:empty`·`variant:권한 없음`) ③ 첫 열이 `PAGE-NNN` 또는 Page Groups의 `Page`·`Route/Screen`과 정확히 일치하는가 — 위반은 `NEEDS_DECISION`. 이 표가 비면 디자인 근거 커버리지가 `0/0`으로 서고, 권한 없음·빈 상태 화면이 구현 중에 즉흥으로 결정된다
 - **동작 명세·test case** (§3-1): 모든 Must FEAT에 동작 명세와 `TC-NNN-N` test case가 있는가, test case가 관찰 가능한 결과로 쓰였고 정상·실패·경계를 포함하는가, requirements의 Must AC와 trace되는가(발명이 아니라 재사용), LOCAL_DOMAIN_STATE면 불변식이 test case로 표현됐는가 — 누락은 `NEEDS_DECISION`(프리뷰·구현이 무엇을 동작시킬지 알 수 없음)
 - **plan history** (`.claude/skills/web-plan/references/plan-history-contract.md`): 재실행·다듬기 라운드에서 기획 문서가 바뀌었는데 대응 `PC-NNN` 엔트리가 없거나, 기존 엔트리가 수정·삭제됐거나(append-only 위반), REQ/FEAT ID가 재사용·불연속이면 지적
 

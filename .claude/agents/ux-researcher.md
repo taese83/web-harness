@@ -55,8 +55,17 @@ Login → Dashboard home → Panel selection → Detail chart
 || Screen | Path | Purpose | Key Components ||
 
 ## Information Hierarchy per Screen
-<!-- design-readiness-contract.md format required — the design phase is BLOCKED without this table -->
-|| Screen | Primary info (1~3, order=priority) | Secondary | Density | Empty state content | Error state content | No-permission state ||
+<!-- design-readiness-contract.md §1 format required — the design phase is BLOCKED without this table.
+     First column: PAGE-NNN, or a string that exactly matches the Page Groups `Page`/`Route/Screen` cell.
+     EVERY header after the first MUST carry a type prefix: `state:` / `modeId:` / `variant:` for conditions,
+     `info:` for descriptive columns. This table is the denominator design-binding measures coverage against,
+     and an untyped header is neither — the harness will not guess which of the two it was.
+     Never leave a data cell empty; write `해당 없음(사유)` / `not applicable (reason)` instead.
+     Write a REAL markdown table with a separator row — the `|| ... ||` shorthand used elsewhere in this
+     template is not parsed, and this is the one table the harness reads. -->
+| Screen | info:Primary info (1~3, order=priority) | info:Secondary | info:Density | state:empty | state:error | variant:no-permission |
+|---|---|---|---|---|---|---|
+| PAGE-001 | ... | ... | ... | ... | ... | 해당 없음(사유) |
 
 ## Design Direction
 <!-- Intake results — mark unknown items as ASSUMPTION(시안 확정) -->

@@ -28,7 +28,7 @@ import {claimScopeReadiness, findPathCollisions} from './ticket/claim-scope.mjs'
 import {extractDecisionBlock} from './spec.mjs'
 import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
-import {DESIGN_BINDING_PATH, collectDesignBinding} from './design-binding-lib.mjs'
+import {DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, conditionLabel} from './design-binding-lib.mjs'
 
 const ok = (id, detail) => ({id, state: 'PASS', detail})
 const hole = (id, detail, remedy) => ({id, state: 'HOLE', detail, remedy})
@@ -130,9 +130,12 @@ export function checkSpecReady(root) {
 //
 // **한계(정직)**: 헤딩 존재만 본다 — 내용이 채워졌는지는 못 본다. 그 판정은 사람의 승인
 // 몫이고, 이 검사는 **없는 것을 없다고 말하는 것**까지다(§4 등록).
+// 앵커는 **파서와 같은 언어 집합**이어야 한다. 종전에는 이 검사가 한국어 헤딩만 인정하고
+// 파서는 영어도 받아, 영어로 산출하는 생산자 템플릿의 정상 출력이 여기서 먼저 막혔다
+// (교차 모델 리뷰 2026-09-04). 두 판정이 어긋나면 어느 쪽이 진실인지 아무도 모른다.
 const REQUIRED_PLAN_SECTIONS = [
-  {file: '_workspace/01_plan/ux-brief', heading: '화면별 정보 위계', why: '레이아웃을 정할 근거'},
-  {file: '_workspace/01_plan/ux-brief', heading: '디자인 방향', why: '시각 위계를 정할 근거'},
+  {file: '_workspace/01_plan/ux-brief', anchor: /(?:^|\n)#{1,6}[^\S\n]*(?:화면별 정보 위계|Information hierarchy)/i, heading: '화면별 정보 위계', why: '레이아웃을 정할 근거'},
+  {file: '_workspace/01_plan/ux-brief', anchor: /(?:^|\n)#{1,6}[^\S\n]*(?:디자인 방향|Design direction)/i, heading: '디자인 방향', why: '시각 위계를 정할 근거'},
 ]
 
 const readPlanArtifact = (root, base) => {
@@ -149,11 +152,214 @@ export function checkDesignInputs(root) {
   for (const section of REQUIRED_PLAN_SECTIONS) {
     const text = readPlanArtifact(root, section.file)
     if (text === null) { missing.push(`${section.file} 없음`); continue }
-    if (!text.includes(section.heading)) missing.push(`${section.heading}(${section.why})`)
+    if (!section.anchor.test(text)) missing.push(`${section.heading}(${section.why})`)
   }
-  if (missing.length === 0) return ok('design-inputs', '디자인이 요구하는 기획 절이 전부 있다')
-  return hole('design-inputs', `디자인 입력 누락: ${missing.join(' · ')}`,
-    'design-readiness-contract.md의 필수 절을 채운다 — 없으면 디자인이 추론으로 메우고 그 추론이 개발까지 흘러간다')
+  if (missing.length > 0) {
+    return hole('design-inputs', `디자인 입력 누락: ${missing.join(' · ')}`,
+      'design-readiness-contract.md의 필수 절을 채운다 — 없으면 디자인이 추론으로 메우고 그 추론이 개발까지 흘러간다')
+  }
+  // 절이 있는 것과 채워진 것은 다르다. 종전에는 헤딩 존재만 봤고, 그래서 표를 만들고 상태
+  // 칸을 비워두면 통과했다 — 조건 분모가 0이면 커버리지도 0/0으로 서고, **조건을 안 적는
+  // 것이 통과하는 길**이 된다(protected-core §4 등록 항목의 부분 해소).
+  const table = parseInformationHierarchy(readPlanArtifact(root, '_workspace/01_plan/ux-brief'))
+  const problems = denominatorProblems(table, planSources(root).flatMap(parsePageGroups))
+  if (problems.length > 0) {
+    return hole('design-inputs', problems.join(' · '),
+      '내용을 적거나, 그 조건이 이 화면에 없으면 `해당 없음(사유)`로 **명시**한다. 조건 열의 헤더에는 축 접두를 붙인다(`state:empty`·`variant:권한 없음`) — 접두가 없으면 그 열은 서술로 읽혀 분모에서 빠지고, 커버리지가 조용히 default 하나로 줄어든다(design-readiness-contract §1)')
+  }
+  return ok('design-inputs', `디자인이 요구하는 기획 절이 전부 있다 · 화면 ${table.rows.length}개 · 조건 열 ${table.axes.length}개`)
+}
+
+// 분모 자체가 서 있는가. `design-inputs`와 `design-binding`이 **같은 함수**를 부른다 —
+// 판정을 복제하면 문구가 갈라지고, 같은 사실이 구멍 둘로 보고된다(적대 리뷰 2026-09-04).
+// 중복 보고는 호출부에서 막는다(`analyzeHandoffReadiness`가 design 인계에서만 design-inputs를
+// 세우고, 개발 인계에서는 design-binding이 든다).
+export function denominatorProblems(table, groups = []) {
+  // 절을 **헤딩으로** 찾지 못한 것도 분모 부재다. 필수 절 검사는 `includes`라 산문에 그
+  // 문구만 있어도 통과하는데, 파서는 헤딩을 요구한다 — 두 판정이 어긋나면 표가 전혀 없는
+  // 문서가 통과한다(교차 모델 리뷰 2026-09-04).
+  if (!table.present) return ['「화면별 정보 위계」를 헤딩으로 찾지 못했다 — 산문에 문구만 있으면 조건 분모가 서지 않는다']
+  const problems = []
+  if (table.malformed) {
+    problems.push('정보 위계 표에 구분선(`|---|`)이 없다 — 마크다운 표가 아니면 헤더가 데이터 행으로 읽혀 판정이 통째로 어긋난다')
+  } else if (table.rows.length === 0) {
+    problems.push('정보 위계 절에 표가 없다 — 헤딩만 있으면 조건 분모가 서지 않는다')
+  }
+  if (table.blanks.length > 0) {
+    problems.push(`정보 위계 표의 빈 칸 ${table.blanks.length}건: ${table.blanks.slice(0, 6).join(', ')} — 빈 칸은 결정이 아니라 미결이고, 그 자리는 조건 분모에서 빠진다`)
+  }
+  // 형 없는 열은 **유효한 축이 함께 있어도** 보고한다. `state:empty` 하나만 형을 붙이고
+  // 나머지를 그대로 두면 그 나머지가 분모에서 빠지던 자리다(교차 모델 리뷰 2026-09-04).
+  if (table.untypedHeaders.length > 0) {
+    const hint = table.untypedHeaders.filter(header => LEGACY_CONDITION_HEADER.test(header))
+    problems.push(`형이 없는 열 ${table.untypedHeaders.length}개: ${table.untypedHeaders.slice(0, 6).join(', ')} — 조건이면 \`state:empty\`·\`variant:권한 없음\`, 서술이면 \`info:밀도\` 형식으로 적는다. 형이 없으면 조건인지 서술인지 알 수 없어 분모에서 빠진다`
+      + (hint.length > 0 ? ` (조건으로 보이는 것: ${hint.slice(0, 4).join(', ')})` : ''))
+  }
+  if (table.rows.length > 0 && table.axes.length === 0 && table.untypedHeaders.length === 0) {
+    problems.push('조건 열이 하나도 없다 — 화면마다 기본 조건 하나만 분모에 서고, 권한 없음·빈 상태는 아무도 요구하지 않게 된다')
+  }
+  // 기본 조건(`state:default`)을 요구하는 근거는 Primary·Secondary 서술이다. 그 열이 없으면
+  // 서술하지 않은 것을 서술했다고 가정하는 셈이고, 정보 위계가 비어 있는 문서가 통과한다
+  // (교차 모델 리뷰 2026-09-04).
+  if (table.rows.length > 0 && table.infoHeaders.length === 0) {
+    problems.push('서술 열(`info:`)이 하나도 없다 — Primary·Secondary가 없으면 기본 조건을 무엇으로 서술했다고 볼 근거가 없다')
+  }
+  // 행이 어느 화면의 것인지 여기서 판정한다. 종전에는 바인딩 문서가 있을 때만 봤는데,
+  // 그러면 디자인 근거가 붙기 전에는 해소되지 않는 행이 조용히 통과했다 — 계약이 loud라고
+  // 적어둔 자리다(교차 모델 리뷰 2026-09-04).
+  // Page Groups가 없으면 **판정을 생략하지 않고 그 사실을 올린다.** 종전에는 조용히
+  // 넘겼는데, 그러면 Page Groups만 빠뜨리는 것으로 조건 커버리지 전체를 끌 수 있었다
+  // (교차 모델 리뷰 2026-09-04). 못 재는 것과 잴 것이 없는 것은 다르고, 못 재면 말한다.
+  if (groups.length === 0) {
+    return [...problems, 'Page Groups 표를 읽지 못했다 — 정보 위계 행이 어느 화면인지 해소할 수 없어 조건 커버리지를 잴 수 없다']
+  }
+  const unresolved = table.rows.map(row => row.key).filter(key => resolvePageGroup(groups, key) === null)
+  if (unresolved.length > 0) {
+    problems.push(`Page Groups로 해소되지 않는 정보 위계 행 ${unresolved.length}건: ${unresolved.slice(0, 6).join(', ')} — 첫 열은 PAGE-NNN이거나 Page Groups의 Page·Route/Screen과 정확히 같아야 한다`)
+  }
+  // 반대 방향도 본다. 한쪽만 보면 **행을 통째로 빼는 것**이 분모를 줄이는 길이 된다 —
+  // PAGE-002를 선언해놓고 정보 위계에 적지 않으면 그 화면의 조건이 아무도 요구하지 않는
+  // 상태가 됐다(교차 모델 리뷰 2026-09-04, 유령 화면 대조와 같은 클래스).
+  const described = new Set(table.rows.map(row => resolvePageGroup(groups, row.key)))
+  const undescribed = groups.map(row => row.id).filter(id => id !== 'PAGE-000' && !described.has(id))
+  if (undescribed.length > 0) {
+    problems.push(`정보 위계 행이 없는 화면 ${undescribed.length}건: ${[...new Set(undescribed)].slice(0, 6).join(', ')} — 표에 없는 화면은 조건 분모가 서지 않아 권한 없음·빈 상태를 아무도 요구하지 않게 된다`)
+  }
+  return problems
+}
+
+// 정보 위계 행의 첫 열을 PAGE-NNN으로 해소한다 — ID 자체이거나, Page Groups의
+// `Page`·`Route/Screen`과 정확히 일치하는 이름이다.
+const resolvePageGroup = (groups, key) => groups.find(row =>
+  row.id === key || normalizeKey(row.page) === key || normalizeKey(row.route) === key)?.id ?? null
+
+// ── 조건의 분모 — ux-brief 「화면별 정보 위계」 표 ───────────────────────────
+// 하나의 화면은 조건에 따라 여러 디자인을 갖는다. 그 조건 목록의 정본이 이 표이며
+// (`design-readiness-contract.md` §1), `design-binding`이 이것을 분모로 커버리지를 판정한다.
+//
+// 조건 열은 헤더가 `축:값`이다(`state:empty`·`variant:권한 없음`). 접두 없는 열은 서술이다.
+// `state:default`는 열로 두지 않는다 — Primary·Secondary가 그것을 서술하므로 표에 오른 모든
+// 화면이 기본 조건을 갖는 것으로 본다.
+//
+// **한계(정직)**: 절 앵커가 한국어·영어 헤딩 문자열이라 다른 언어로 옮기면 발화하지 않는다
+// (산문 간선 대조와 같은 클래스, protected-core §4).
+const HIERARCHY_SECTION = /(?:^|\n)#{1,6}[^\S\n]*(?:화면별 정보 위계|Information hierarchy)[^\n]*\n([\s\S]*?)(?=\n#{1,6}[^\S\n]|$)/gi
+// 표의 열은 **전부 형이 붙는다** — 조건은 `state|modeId|variant`, 서술은 `info`.
+// 종전에는 접두 없는 열을 키워드 휴리스틱으로 골라냈는데, 그것은 완전할 수 없다:
+// `무료 플랜 시` 같은 임의의 variant 조건이 목록에 없으면 조용히 서술로 버려졌다
+// (교차 모델 리뷰 2026-09-04). 형을 전부 요구하면 판정이 **전역 함수**가 된다 — 형이 없는
+// 열은 조건인지 서술인지 하네스가 알 수 없고, 알 수 없는 것을 통과시키지 않는다.
+const COLUMN_HEADER = /^(state|modeId|variant|info)[^\S\n]*:[^\S\n]*(.+)$/
+const CONDITION_AXES = ['state', 'modeId', 'variant']
+// `\b`를 쓰지 않는다 — 한글은 JS 정규식에서 비단어 문자라 `없음(` 사이에 경계가 서지 않고
+// `해당 없음(사유)`가 통째로 안 잡혔다(자체 실측). 경계가 필요한 것은 라틴 표기뿐이다.
+// 어휘는 실제 코퍼스에 맞춰 넓혔다 — `비적용`·`—`를 이미 쓰고 있었다(적대 리뷰 2026-09-04
+// 실측 5개 워크스페이스). **어휘 결박은 남는다**: 목록 밖 낱말로 적으면 조건이 있는 것으로
+// 세어져 근거를 요구한다(protected-core §4 등록).
+// **칸 전체**가 N/A 표기여야 한다. 접두만 보면 `해당 없음 안내와 문의 CTA` 같은 실제 화면
+// 내용이 N/A로 오인돼 그 조건이 분모에서 빠진다 — 조건 분모 축소가 다시 열리는 자리다
+// (교차 모델 리뷰 2026-09-04). 괄호 안 사유는 계약이 요구하는 형식이므로 함께 받는다.
+const NOT_APPLICABLE = /^(?:(?:해당\s*없음|비적용|not\s*applicable|n\/a)\s*(?:[(（][^)）]*[)）])?|[-—–]+)$/i
+// 형 없는 열이 조건이었을 가능성을 **문구로만** 쓴다(판정이 아니라 안내). 실측 5/5
+// 워크스페이스가 종전 형식이었으므로 이행 대상을 이름으로 짚어준다.
+const LEGACY_CONDITION_HEADER = /(?:empty|error|권한|permission|모바일|mobile|다크|dark|상태|state|시 내용|플랜|역할|role|plan)/i
+const tableCells = line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim())
+// Page Groups의 Route는 관행상 백틱으로 감싸 적는다(`` `/sessions` ``). 정규화하지 않으면
+// 정보 위계 행이 정당한데도 해소되지 않는다(적대 리뷰 2026-09-04, 실측).
+const normalizeKey = value => String(value ?? '').replace(/`/g, '').trim()
+const isSeparatorRow = (cells, columns) => cells.length === columns && cells.every(cell => /^:?-{2,}:?$/.test(cell))
+
+// `ux-brief`는 sharding을 지원하고 `readPlanArtifact`가 shard를 이어 붙인다. 절을 **하나만**
+// 읽으면 두 번째 shard 이후의 화면이 통째로 검사에서 빠진다 — 나눠 적는 것이 게이트를 끄는
+// 길이 된다(교차 모델 리뷰 2026-09-04). 그래서 모든 절을 읽어 합친다.
+export function parseInformationHierarchy(text) {
+  const empty = {present: false, malformed: false, rows: [], axes: [], infoHeaders: [], blanks: [], untypedHeaders: []}
+  const sections = [...String(text ?? '').matchAll(HIERARCHY_SECTION)]
+  if (sections.length === 0) return empty
+  const parsed = sections.map(section => parseHierarchySection(section[1]))
+  // 열은 절의 **합집합**이고, 그 합집합을 **모든 행에 적용한다** — 조건 열이든 서술 열이든
+  // 같다. 절마다 따로 보면 한 절에 화면 행을 몰아넣고 다른 절에 데이터 없는 열만 두는 것으로
+  // 분모를 비울 수 있었다(교차 모델 리뷰 2026-09-04, 조건 열에서 한 번·서술 열에서 한 번).
+  // 어떤 절이든 열을 선언했으면 모든 화면이 그것에 답한다 — 해당하지 않으면 `해당 없음(사유)`로.
+  const columns = [...new Map(parsed.flatMap(part => part.columns).map(column => [`${column.axis}:${column.value}`, column])).values()]
+  const rows = parsed.flatMap(part => part.rows)
+  const blanks = parsed.flatMap(part => part.blanks)
+  for (const row of rows) {
+    for (const column of columns) {
+      if (!row.addressed.has(`${column.axis}:${column.value}`)) blanks.push(`${row.key}/${column.label}`)
+    }
+  }
+  return {
+    present: true,
+    malformed: parsed.some(part => part.malformed),
+    rows,
+    axes: columns.filter(column => CONDITION_AXES.includes(column.axis)),
+    infoHeaders: columns.filter(column => column.axis === 'info').map(column => column.label),
+    untypedHeaders: [...new Set(parsed.flatMap(part => part.untypedHeaders))],
+    blanks: [...new Set(blanks)].sort(),
+  }
+}
+
+function parseHierarchySection(body) {
+  const empty = {malformed: false, rows: [], columns: [], blanks: [], untypedHeaders: []}
+  const lines = body.split('\n').filter(line => line.trim().startsWith('|'))
+  // 절이 있는데 표가 없다. 이것을 `{rows: []}`로 조용히 돌려주면 **헤딩만 쓰면 통과**가 된다 —
+  // 빈 칸 우회를 닫으면서 그 옆에 같은 우회를 열어두는 셈이다(적대 리뷰 2026-09-04).
+  if (lines.length < 2) return empty
+  // 구분선을 **요구한다.** 없으면 마크다운 표가 아니고, 표가 아닌 것을 표로 읽으면 헤더가
+  // 데이터 행이 되어 판정이 통째로 어긋난다(교차 모델 리뷰 2026-09-04).
+  if (!isSeparatorRow(tableCells(lines[1]), tableCells(lines[0]).length)) return {...empty, malformed: true}
+  const headers = tableCells(lines[0])
+  // 조건 열의 위치와 조건 값. 접두 없는 열은 서술이므로 분모에 들어가지 않는다.
+  const typed = headers.map((header, index) => {
+    const match = index === 0 ? null : header.match(COLUMN_HEADER)
+    return match === null ? null : {index, axis: match[1], value: match[2].trim(), label: header}
+  })
+  const columns = typed.filter(column => column !== null)
+  const axes = columns.filter(column => CONDITION_AXES.includes(column.axis))
+  // 형이 없는 열. 조건인지 서술인지 알 수 없으므로 **전부** 이름을 들고 나온다 — 어느 것이
+  // 조건이었는지 고르는 것은 사람이고, 하네스가 골라주면 그 고름이 곧 프록시다.
+  const untypedHeaders = headers.filter((header, index) => index !== 0 && typed[index] === null)
+  const rows = []
+  const blanks = []
+  // 0번은 헤더, 1번은 구분선(`|---|`). 데이터는 2번부터다.
+  for (const line of lines.slice(1)) {
+    const cells = tableCells(line)
+    if (isSeparatorRow(cells, headers.length)) continue
+    const key = normalizeKey(cells[0])
+    if (!key) { blanks.push('<이름 없는 행>'); continue }
+    // **헤더 수를 기준으로 돈다.** `cells`만 순회하면 뒤쪽 칸을 아예 생략한 짧은 행에서
+    // 그 칸들이 검사 대상에서 빠진다 — 빈 칸을 미결로 잡겠다고 해놓고 가장 흔한 형태의
+    // 빈 칸을 놓치는 자리였다(교차 모델 리뷰 2026-09-04).
+    const conditions = []
+    // 이 행이 **답한** 조건. 합침 단계에서 다른 절의 조건까지 요구하려면 무엇에 답했는지를
+    // 알아야 한다 — 빈 칸이면 답한 것이 아니다.
+    const addressed = new Set()
+    for (const [index, header] of headers.entries()) {
+      if (index === 0) continue
+      const cell = cells[index] ?? ''
+      const column = columns.find(candidate => candidate.index === index)
+      if (cell === '') { blanks.push(`${key}/${column?.label ?? header}`); continue }
+      if (column === undefined) continue
+      addressed.add(`${column.axis}:${column.value}`)
+      if (!CONDITION_AXES.includes(column.axis) || NOT_APPLICABLE.test(cell)) continue
+      conditions.push({[column.axis]: column.value})
+    }
+    rows.push({key, conditions, addressed})
+  }
+  return {malformed: false, rows, columns, untypedHeaders, blanks: [...new Set(blanks)].sort()}
+}
+
+// Page Groups 표의 행. 정보 위계 표의 첫 열을 PAGE-NNN으로 해소하는 데 쓴다.
+export function parsePageGroups(text) {
+  const rows = []
+  for (const section of String(text ?? '').matchAll(/(?:^|\n)#{1,6}[^\S\n]*Page Groups[^\n]*\n([\s\S]*?)(?=\n#{1,6}[^\S\n]|$)/gi)) {
+    for (const line of section[1].split('\n').filter(line => line.trim().startsWith('|'))) {
+      const cells = tableCells(line)
+      if (/^PAGE-\d{3,}$/.test(cells[0] ?? '')) rows.push({id: cells[0], page: cells[1] ?? '', route: cells[2] ?? ''})
+    }
+  }
+  return rows
 }
 
 // 선언된 Page Group 집합. 정본은 `## Page Groups` **표**이지 산문의 언급이 아니다
@@ -162,10 +368,7 @@ export function checkDesignInputs(root) {
 // (교차 모델 리뷰 2026-09-03). `PAGE-000`은 단일 페이지에 귀속되지 않는 전역 책임의 예약
 // ID이므로 화면 근거를 요구하지 않는다.
 export function pageGroupIdsIn(text) {
-  const ids = new Set()
-  for (const section of String(text ?? '').matchAll(/(?:^|\n)#{1,6}[^\S\n]*Page Groups[^\n]*\n([\s\S]*?)(?=\n#{1,6}[^\S\n]|$)/gi)) {
-    for (const row of section[1].matchAll(/^[^\S\n]*\|[^\S\n]*(PAGE-\d{3,})[^\S\n]*\|/gm)) ids.add(row[1])
-  }
+  const ids = new Set(parsePageGroups(text).map(row => row.id))
   ids.delete('PAGE-000')
   return [...ids]
 }
@@ -178,11 +381,59 @@ export function pageGroupIdsIn(text) {
 // 메우는 비용보다 싸다. 근거가 없다고 결정하는 것은 미결이 아니다 — 그때는 조건 행에
 // `resolution: derive|reuse:`를 적으면 되고, 그것으로 `unbound`에서 빠진다.
 //
-// **범위(정직)**: PAGE 단위 커버리지까지만 본다. 조건 단위(빈 상태·오류·권한 없음)는
-// 분모인 ux-brief 「화면별 정보 위계」 표의 칸이 비어도 통과하므로 여기서는 세기만 한다.
-// 분모를 강제하는 것은 plan-reviewer 강화의 몫이며, 그 전에 게이트로 올리면 조건을
-// 안 적는 것이 통과하는 길이 된다(protected-core §4 등록).
-export function checkDesignBinding(root) {
+// 조건 커버리지 — 기획이 선언한 조건 중 디자인 근거가 없는 것.
+//
+// 1차 커밋에서는 **정보성 보고**였다. 분모인 정보 위계 표가 헤딩 존재만 검사돼 빈 칸이
+// 통과했고, 그 위에 게이트를 올리면 조건을 **안 적는 것이 통과하는 길**이 되기 때문이다(I5).
+// 이제 분모가 서므로 게이트로 올린다.
+//
+// 분모의 문제는 **한 검사만** 보고한다. `design-inputs`가 서는 인계에서는 그쪽이 맡고
+// (`reportDenominator: false`), 그것이 없는 개발 인계에서는 여기가 맡는다 — 같은 사실을 둘이
+// 각자 보고하면 사용자는 구멍이 둘이라고 읽는다. 어느 쪽이든 분모가 깨졌으면 커버리지는
+// 재지 않는다: 깨진 분모로 잰 숫자는 사실이 아니다.
+//
+// 절 자체의 부재도 같은 규칙이되, 보고를 아무도 안 하는 상태를 만들지 않는다. 개발 인계에서
+// 이것을 빈 배열로 돌려주면 **디자인 인계를 통과한 뒤 절을 지우는 것**이 우회가 된다 —
+// 개발 인계는 `design-inputs`를 다시 세우지 않기 때문이다(교차 모델 리뷰 2026-09-04).
+export function conditionCoverageProblems(root, document, {reportDenominator = true} = {}) {
+  const table = parseInformationHierarchy(readPlanArtifact(root, '_workspace/01_plan/ux-brief'))
+  const groups = planSources(root).flatMap(parsePageGroups)
+  const denominator = denominatorProblems(table, groups)
+  if (!reportDenominator) return denominator.length > 0 ? [] : coverageProblems(groups, table, document)
+  if (denominator.length > 0) return denominator
+  return coverageProblems(groups, table, document)
+}
+
+// 분모가 선 뒤의 실제 대조. 표의 각 행이 선언한 조건마다 바인딩 행이 있는가.
+function coverageProblems(groups, table, document) {
+  // Page Groups를 못 읽었으면 대조하지 않는다 — 없는 것과 못 읽은 것은 다르다.
+  if (table.rows.length === 0 || groups.length === 0) return []
+  const resolve = key => resolvePageGroup(groups, key)
+  const covered = new Map()
+  for (const binding of document.bindings) {
+    if (!covered.has(binding.pageGroup)) covered.set(binding.pageGroup, new Set())
+    covered.get(binding.pageGroup).add(conditionKey(binding.condition))
+  }
+  const problems = []
+  const uncovered = []
+  for (const row of table.rows) {
+    // 해소 실패는 `denominatorProblems`가 이미 보고했다 — 여기서 다시 세지 않는다.
+    const pageGroup = resolve(row.key)
+    if (pageGroup === null) continue
+    if (pageGroup === 'PAGE-000') continue
+    const have = covered.get(pageGroup) ?? new Set()
+    // Primary·Secondary가 기본 조건을 서술하므로 표에 오른 화면은 모두 그것을 요구한다.
+    for (const condition of [{state: 'default'}, ...row.conditions]) {
+      if (!have.has(conditionKey(condition))) uncovered.push(`${pageGroup}[${conditionLabel(condition)}]`)
+    }
+  }
+  if (uncovered.length > 0) {
+    problems.push(`기획이 선언했으나 디자인 근거가 없는 조건 ${uncovered.length}건: ${uncovered.slice(0, 6).join(', ')}`)
+  }
+  return problems
+}
+
+export function checkDesignBinding(root, {reportDenominator = true} = {}) {
   const binding = collectDesignBinding(root)
   if (!binding.present) return skip('design-binding', `${DESIGN_BINDING_PATH}이 없다 — 공급된 디자인 근거가 없는 경로다`)
   if (binding.errors.length > 0) {
@@ -214,8 +465,9 @@ export function checkDesignBinding(root) {
   // `pending`은 행이 있을 뿐 결정이 아니다. `unbound`를 비우려고 `pending`을 적는 우회를
   // 막는다 — 그 우회를 허용하면 이 검사는 "행이 있는가"만 세는 프록시가 된다.
   const pending = document.bindings.filter(b => b.resolution === 'pending')
-    .map(b => `${b.pageGroup}[${Object.entries(b.condition).map(([k, v]) => `${k}=${v}`).join('&')}]`)
+    .map(b => `${b.pageGroup}[${conditionLabel(b.condition)}]`)
   if (pending.length > 0) problems.push(`결정이 미뤄진 조건 ${pending.length}건: ${pending.slice(0, 6).join(', ')}`)
+  problems.push(...conditionCoverageProblems(root, document, {reportDenominator}))
   const c = binding.coverage
   const summary = `근거 ${c.references}건 · 바인딩 ${c.bindings}건(공급 ${c.resolutions.supplied} · 파생 ${c.resolutions.derive} · 재사용 ${c.resolutions.reuse} · 미정 ${c.resolutions.pending}) · 화면 ${c.pageGroups}개`
   if (problems.length === 0) return ok('design-binding', summary)
@@ -726,7 +978,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkProseEdgesDeclared(root, units),
     checkAcceptanceCoverage(units), checkActivePickupIntact(root, units)]
   if (to === 'design') {
-    const results = [...planChecks, checkDesignInputs(root), checkDesignBinding(root), checkUpstreamDecisionsReachable(root)]
+    const results = [...planChecks, checkDesignInputs(root), checkDesignBinding(root, {reportDenominator: false}), checkUpstreamDecisionsReachable(root)]
     const holes = results.filter(r => r.state === 'HOLE')
     return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
   }

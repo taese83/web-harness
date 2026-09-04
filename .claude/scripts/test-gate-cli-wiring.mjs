@@ -37,12 +37,31 @@ const withCleanProject = fn => {
     mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
     mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
     mkdirSync(join(root, '_workspace/01_plan/ux-brief'), {recursive: true})
+    // Page Groups는 화면이 있는 계획의 필수 절이다(design-readiness-contract §3). 없으면
+    // 정보 위계 행이 어느 화면인지 해소할 수 없어 조건 커버리지를 잴 수 없다 — 종전
+    // fixture는 이 표 없이 통과했다.
     writeFileSync(join(root, '_workspace/01_plan/feature-plan/a.md'), [
+      '## Page Groups',
+      '| Page Group ID | Page | Route/Screen | Order |',
+      '|---|---|---|---|',
+      '| PAGE-001 | Home | home | 1 |',
+      '',
       '## FEAT-001 첫째',
       '<!-- web-harness:unit feat=FEAT-001 dependsOn=none paths=src/entities -->',
       '- TC-001-1 기대',
     ].join('\n'))
-    writeFileSync(join(root, '_workspace/01_plan/ux-brief/a.md'), '## 화면별 정보 위계\n표\n\n## 디자인 방향\n방향\n')
+    // 정보 위계 절은 **표**여야 하고 조건 열에 축 접두가 있어야 한다 — 헤딩과 산문만 있으면
+    // 조건 분모가 서지 않는다(design-readiness-contract §1). 종전 fixture는 헤딩만 있었고,
+    // 그 상태가 READY로 나오던 것이 닫은 우회다.
+    writeFileSync(join(root, '_workspace/01_plan/ux-brief/a.md'), [
+      '## 화면별 정보 위계',
+      '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty |',
+      '|---|---|---|---|---|',
+      '| PAGE-001 | ① 목록 | 요약 | 표준 | 첫 항목 안내 |',
+      '',
+      '## 디자인 방향',
+      '방향',
+    ].join('\n'))
     writeFileSync(join(root, '_workspace/02_design/solution-design.md'), [
       '```json web-harness:solution-design',
       JSON.stringify({targetShapes: ['web-app'], layerMap: {domain: 'src/entities'}, openDecisions: []}),
