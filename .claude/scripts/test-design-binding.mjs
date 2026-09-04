@@ -10,16 +10,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {spawnSync} from 'node:child_process'
 import {join} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {tmpdir} from 'node:os'
 import {
   DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, crossCheckVisualReferences, validateDesignBinding,
 } from './design-binding-lib.mjs'
 import {
-  analyzeHandoffReadiness, checkDesignBinding, checkDesignInputs, pageGroupIdsIn,
+  analyzeHandoffReadiness, checkDesignBinding, checkDesignInputs, designDebtReport, pageGroupIdsIn, readDecisionLog,
   parseInformationHierarchy, parsePageGroups,
 } from './validate-handoff-readiness.mjs'
+import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
 import {validateVisualContract} from './visual-evidence-lib.mjs'
+import {hasUserInterface} from './spec.mjs'
 
 const AT = '2026-01-01T00:00:00.000Z'
 const FIGMA = {
@@ -697,4 +701,300 @@ test('두 인계 모두에서 검사가 선다 — 한쪽만 배선되면 사이
       assert.ok(report.results.some(r => r.id === 'design-binding' && r.state === 'HOLE'), `${to}에서 design-binding 구멍이 보고되지 않았다`)
     }
   }, {document: broken})
+})
+
+// ── 디자인 부채 청구 (DESIGN_SOURCE: absent 경로) ────────────────────────────
+// 실측(2026-09-04): 디자인 부재는 인계 판정에 흔적을 남기지 않는다 — 양쪽 인계 READY,
+// 대조군 대비 판정 변화 0건. 그래서 막는 대신 개발 시점에 청구한다. 여기서 고정하는 것은
+// **청구서가 실제로 무엇이 미결인지 이름으로 말하는가**이다.
+const FULL_BRIEF = [
+  '## 화면별 정보 위계',
+  '| 화면 | info:Primary | info:밀도 | state:empty | variant:권한 없음 |',
+  '|---|---|---|---|---|',
+  '| PAGE-002 | ① 주문 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |',
+].join('\n')
+
+test('디자인이 없으면 화면의 모든 조건이 시각 근거를 잃는다 — default 포함', () => {
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.equal(debt.bindingPresent, false)
+    assert.equal(debt.designSource, null, '마커가 없으면 공급원은 모른다')
+    assert.equal(debt.status, 'debt')
+    assert.deepEqual(debt.denominatorProblems, [])
+    // 내용은 기획에 있다 — 없는 것은 **어떻게 그리는가**뿐이므로 planOnly로 가른다.
+    assert.deepEqual(debt.planOnly.map(item => `${item.pageGroup}[${item.label}]`),
+      ['PAGE-002[state=default]', 'PAGE-002[state=empty]', 'PAGE-002[variant=권한 없음]'])
+    assert.deepEqual(debt.deferred, [])
+  }, {brief: FULL_BRIEF, document: null})
+})
+
+test('근거가 붙은 조건은 부채가 아니다 — 파생·재사용도 결정이다', () => {
+  const document = binding()
+  document.bindings.push({
+    pageGroup: 'PAGE-002', condition: {variant: '권한 없음'}, referenceIds: [],
+    resolution: 'reuse:order-detail', declaredBy: 'user', declaredAt: AT,
+  })
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'clear')
+    assert.deepEqual([...debt.deferred, ...debt.planOnly], [], '공급·파생·재사용이 부채로 잡혔다')
+    assert.deepEqual(debt.screens[0].conditions.map(item => item.basis), ['supplied', 'derive', 'reuse:order-detail'])
+  }, {brief: FULL_BRIEF, document})
+})
+
+test('분할된 decision-log도 정본이다 — 인수 기록을 찾지 못하면 경로가 완결되지 않는다', () => {
+  // `artifact-sharding-contract.md`는 결정 로그를 ID 구간으로 나누고 디렉터리와 동명 `.md`를
+  // 함께 두는 것을 금지한다. 계약이 flat만 말하면 분할 프로젝트에서 ③이 성립하지 않는다
+  // (교차 모델 리뷰 2026-09-04). 기계는 이미 두 형태를 읽는다 — 산문이 그것을 따라간다.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+  try {
+    mkdirSync(join(root, '_workspace/01_plan/decision-log'), {recursive: true})
+    writeFileSync(join(root, '_workspace/01_plan/decision-log/PC-001~050.md'), '## PC-007 디자인 부채 인수\n범위: 이 프로젝트의 화면 조건 전부\n')
+    assert.match(readDecisionLog(root), /PC-007/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('결정을 미룬 것(pending)은 시각 근거 부재와 다른 부류다 — 대가가 다르다', () => {
+  const document = binding()
+  document.bindings[1].resolution = 'pending'
+  document.bindings.push({
+    pageGroup: 'PAGE-002', condition: {variant: '권한 없음'}, referenceIds: [],
+    resolution: 'derive', declaredBy: 'user', declaredAt: AT,
+  })
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.deferred.map(item => `${item.pageGroup}[${item.label}]`), ['PAGE-002[state=empty]'])
+    assert.deepEqual(debt.planOnly, [])
+  }, {brief: FULL_BRIEF, document})
+})
+
+test('기획이 없는 것을 "화면이 없다"로 말하지 않는다 — 부채가 최대인 상태다', () => {
+  // 적대 리뷰(2026-09-04)가 실제 트리 2곳에서 재현한 거짓 보고다. 기획·디자인이 둘 다
+  // absent인 web-app과 브라운필드 첫 작업이 "청구할 것이 없다"로 나왔다.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+  try {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'no-plan')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('화면 없는 형태는 기획이 없어도 청구 대상이 아니다 — 형태 판정이 먼저다', () => {
+  // 기획 부재를 먼저 보면 library·cli가 기획을 세우지 않은 **정상 경로**인데도
+  // "부채가 최대"로 나온다(교차 모델 리뷰 2026-09-04).
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({targetShapes: ['library']}))
+    assert.equal(designDebtReport(root).status, 'no-screens')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('검증 전 문서의 형태를 가정하지 않는다 — 보고가 비정상 종료하면 exit 0 약속이 깨진다', () => {
+  // `binding-invalid` 판정보다 근거 수집이 먼저 돌므로, 유효 JSON이되 구조가 깨진 문서에서
+  // TypeError가 나면 항상 exit 0을 약속한 보고가 죽는다(교차 모델 리뷰 2026-09-04).
+  for (const bindings of [[null], ['문자열'], [{}], [{pageGroup: 7}]]) {
+    withProject(root => {
+      const debt = designDebtReport(root)
+      assert.equal(debt.status, 'binding-invalid', JSON.stringify(bindings))
+    }, {brief: FULL_BRIEF, document: {schemaVersion: 1, references: [], bindings, unbound: {references: [], pageGroups: []}}})
+  }
+})
+
+test('깨진 근거 기록은 clear가 될 수 없다 — 막지 않는 보고가 거짓말하면 방어가 없다', () => {
+  const broken = binding()
+  broken.bindings[0].declaredBy = 'inferred'
+  broken.bindings.push({
+    pageGroup: 'PAGE-002', condition: {variant: '권한 없음'}, referenceIds: ['order-detail'],
+    declaredBy: 'user', declaredAt: AT,
+  })
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'binding-invalid')
+    assert.ok(debt.bindingProblems.length > 0)
+    // 같은 상태에서 인계 검사는 이미 HOLE이다 — 두 판정이 어긋나면 안 된다.
+    assert.equal(checkDesignBinding(root).state, 'HOLE')
+  }, {brief: FULL_BRIEF, document: broken})
+})
+
+test('UI로 확정된 스팩에서는 PAGE-000뿐인 것이 "화면 없음"이 아니다 — 불완전한 기획이다', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+  try {
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({targetShapes: ['web-app']}))
+    writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), pageGroups('| PAGE-000 | Common | all | 99 |'))
+    assert.equal(designDebtReport(root).status, 'denominator-broken')
+    // 정보 위계 표가 **유효한데 PAGE-000 행뿐**이어도 같다 — 잴 화면이 0개면 `clear`가
+    // "부채 없음 — 화면 0개"라는 공허한 통과가 된다.
+    writeFileSync(join(root, '_workspace/01_plan/ux-brief.md'),
+      `${hierarchy('| PAGE-000 | ① 공통 | 이력 | 표준 | 비적용(-) | 비적용(-) |')}${DESIGN_DIRECTION}`)
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.screens, [])
+    assert.equal(debt.status, 'denominator-broken')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('디자인 산출물이 있으면 청구하지 않는다 — generated 경로를 되묻지 않는다', () => {
+  // `design-binding.json`은 **공급된** 근거의 귀속 기록이라 `generated`에는 생기지 않는다.
+  // 그것만 보고 판정하면 정상적으로 디자인을 만들고 승인받은 프로젝트가 전건 부채로 나오고,
+  // 사용자는 이미 내린 결정을 다시 요구받는다(교차 모델 리뷰 2026-09-04).
+  for (const artifact of ['design-system.md', 'layout-spec.md', 'component-spec.md']) {
+    withProject(root => {
+      assert.equal(designDebtReport(root).status, 'debt', `${artifact} 이전`)
+      mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+      writeFileSync(join(root, '_workspace/02_design', artifact), '# 산출물\n')
+      assert.equal(designDebtReport(root).status, 'design-present', artifact)
+    }, {brief: FULL_BRIEF, document: null})
+  }
+  // 공급된 귀속 기록이 있으면 산출물이 있어도 조건별로 잰다 — 그때는 잴 근거가 있다.
+  withProject(root => {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/layout-spec.md'), '# 산출물\n')
+    assert.equal(designDebtReport(root).status, 'debt')
+  }, {brief: FULL_BRIEF})
+})
+
+test('공급된 디자인인데 귀속 기록이 없으면 무문서 SKIP이지 generated가 아니다', () => {
+  // 산출물 존재만 보면 supplied 무문서 우회가 이리로 옮겨온다(교차 모델 리뷰 2026-09-04).
+  // 마커가 정본이고, 없으면 `00_source/` 인벤토리가 공급 흔적이다.
+  const probe = (setup, expected) => withProject(root => {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/layout-spec.md'), '# 산출물\n')
+    setup(root)
+    assert.equal(designDebtReport(root).status, expected)
+  }, {brief: FULL_BRIEF, document: null})
+
+  probe(() => {}, 'design-present')
+  // **면제는 분모를 확인한 뒤에만.** 중단 과정에서 남은 산출물 하나가 깨진 기획을 통째로
+  // 면제하면 반대 방향으로 샌다(교차 모델 리뷰 2026-09-04).
+  const brokenDenominator = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+  try {
+    mkdirSync(join(brokenDenominator, '_workspace/02_design'), {recursive: true})
+    mkdirSync(join(brokenDenominator, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(brokenDenominator, '_workspace/02_design/layout-spec.md'), '# 산출물\n')
+    writeFileSync(join(brokenDenominator, '_workspace/01_plan/feature-plan.md'), pageGroups('| PAGE-002 | Order | order-detail | 1 |'))
+    // ux-brief가 없다 — 분모가 서지 않는다.
+    assert.equal(designDebtReport(brokenDenominator).status, 'denominator-broken')
+  } finally { rmSync(brokenDenominator, {recursive: true, force: true}) }
+  probe(root => writeFileSync(join(root, '_workspace/web-harness.md'), '- DESIGN_SOURCE: supplied\n'), 'binding-missing')
+  probe(root => writeFileSync(join(root, '_workspace/web-harness.md'), '- DESIGN_SOURCE: generated\n'), 'design-present')
+  // **`absent`는 면제하지 않는다** — 그 경로는 Phase 2 체크포인트를 돌지 않았으므로 "이미
+  // 확인했다"가 사실이 아니다. 중단된 실행이 남긴 산출물 하나로 청구가 사라지면 안 된다
+  // (교차 모델 리뷰 2026-09-04).
+  probe(root => writeFileSync(join(root, '_workspace/web-harness.md'), '- DESIGN_SOURCE: absent\n'), 'debt')
+  // **인벤토리는 공급 신호가 아니다.** `00_source/source-index.md`는 기획·API·설계 공급에도
+  // 생기며, 실제로 기획만 공급받고 디자인은 생성한 프로젝트가 있다(교차 모델 리뷰 2026-09-04).
+  // 그것으로 공급을 단정하면 정상 프로젝트에 없는 귀속 기록을 요구하게 된다.
+  probe(root => {
+    mkdirSync(join(root, '_workspace/00_source'), {recursive: true})
+    writeFileSync(join(root, '_workspace/00_source/source-index.md'), '# Source Index\n\n기획만 공급받았다.\n')
+  }, 'design-present')
+})
+
+test('스팩도 검증 전 문서다 — 형태를 가정하면 보고가 죽거나 화면을 잃는다', () => {
+  const probe = spec => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+    try {
+      mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+      mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+      writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify(spec))
+      writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), pageGroups('| PAGE-002 | Order | order-detail | 1 |'))
+      writeFileSync(join(root, '_workspace/01_plan/ux-brief.md'), `${FULL_BRIEF}${DESIGN_DIRECTION}`)
+      return designDebtReport(root).status
+    } finally { rmSync(root, {recursive: true, force: true}) }
+  }
+  // 배열이 아닌 형태에서 죽지 않는다.
+  assert.equal(probe({targetShapes: 'web-app'}), 'debt')
+  // 프로토타입과 겹치는 이름을 "등록된 형태"로 오인하지 않는다 — 오인하면 UI 없음으로
+  // 확정되고 청구가 통째로 빠진다(fail-open).
+  for (const shape of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+    assert.equal(hasUserInterface([shape]), 'unknown', shape)
+    assert.equal(probe({targetShapes: [shape], testLayers: {unit: 'src', e2e: 'e2e'}}), 'debt', shape)
+  }
+  // 비어 있거나 없는 것은 "화면 없음"이 아니라 "모른다" — Page Groups가 이어서 판정한다.
+  assert.equal(probe({targetShapes: []}), 'debt')
+  assert.equal(probe({}), 'debt')
+})
+
+test('공급원 판정 불가를 단정하지 않는다 — 보고 필드가 자기모순이면 안 된다', () => {
+  withProject(root => {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/layout-spec.md'), '# 산출물\n')
+    // 마커가 없으면 모른다 — `false`가 아니다.
+    assert.equal(designDebtReport(root).designSource, null)
+    writeFileSync(join(root, '_workspace/web-harness.md'), '- DESIGN_SOURCE: supplied\n')
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'binding-missing')
+    assert.equal(debt.designSource, 'supplied', 'status는 supplied라 하고 필드는 아니라고 하면 안 된다')
+    assert.equal(debt.bindingPresent, false)
+  }, {brief: FULL_BRIEF, document: null})
+})
+
+test('카탈로그 밖 형태는 testLayers.e2e가 화면 여부를 말한다', () => {
+  // `spec.mjs`가 미등록 형태에 대해 "경로를 적거나 (absent — 이유)로 명시하라"고 이미
+  // 요구한다. 그 선언을 안 보고 Page Groups로 넘어가면 미등록 UI 형태가 PAGE-000뿐일 때
+  // 불완전한 기획이 "화면 없음"으로 통과한다(교차 모델 리뷰 2026-09-04).
+  const probe = (testLayers, expected) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-debt-')))
+    try {
+      mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+      mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+      writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({targetShapes: ['dashboard-app'], testLayers}))
+      writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), pageGroups('| PAGE-000 | Common | all | 99 |'))
+      assert.equal(designDebtReport(root).status, expected, JSON.stringify(testLayers))
+    } finally { rmSync(root, {recursive: true, force: true}) }
+  }
+  probe({unit: 'src', e2e: 'e2e'}, 'denominator-broken')          // UI가 있다 — 기획이 불완전하다
+  probe({unit: 'src', e2e: '(absent — 화면 없음)'}, 'no-screens')  // 스팩이 화면 없음을 선언했다
+  probe({unit: 'src'}, 'no-screens')                               // 말하지 않았다 — Page Groups로 판정
+})
+
+test('화면이 없는 형태에는 청구할 것이 없다 — Page Groups가 전역 책임뿐일 때', () => {
+  withProject(root => {
+    assert.equal(designDebtReport(root).status, 'no-screens')
+  }, {brief: null, plan: pageGroups('| PAGE-000 | Common | all | 99 |'), document: null})
+})
+
+test('Page Groups 표가 없는 것은 화면이 없는 것이 아니다', () => {
+  withProject(root => {
+    assert.equal(designDebtReport(root).status, 'denominator-broken')
+  }, {brief: FULL_BRIEF, plan: '## FEAT-001 첫째\n- TC-001-1 기대\n', document: null})
+})
+
+test('분모를 못 읽으면 청구 대신 그 사실을 낸다 — 범위 없는 인수를 만들지 않는다', () => {
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'denominator-broken')
+    assert.ok(debt.denominatorProblems.length > 0)
+  }, {brief: '## 화면별 정보 위계\n표는 아직 없다.\n', document: null})
+})
+
+test('배선: --design-debt가 프로세스로 돌고 진행을 막지 않는다', () => {
+  withProject(root => {
+    const result = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./validate-handoff-readiness.mjs', import.meta.url)),
+      '--project', root, '--design-debt',
+    ], {encoding: 'utf8'})
+    // **보고이지 판정이 아니다** — 부채가 있어도 exit 0이다. 여기서 막으면 absent를 고를 수
+    // 없게 되고, 고를 수 없으면 사용자는 우회로 돌아간다(provenance §3).
+    assert.equal(result.status, 0, result.stdout + result.stderr)
+    assert.match(result.stdout, /시각 근거가 없는 조건 3건/)
+    assert.match(result.stdout, /PAGE-002\[variant=권한 없음\]/)
+  }, {brief: FULL_BRIEF, document: null})
+})
+
+test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명령은 에이전트 경로에서 막힌다', () => {
+  // 오케스트레이터가 부를 명령을 정책에 등록하지 않으면 에이전트 경로에서 DENY로 막히고,
+  // 저자는 메인 스레드라 그것을 못 본다 — 이 저장소가 이미 두 번 물린 클래스다.
+  const decide = command => evaluateGlobalBashPolicy({
+    agent_type: 'code-reviewer', tool_name: 'Bash', tool_input: {command},
+  }).allowed
+  const base = 'node .claude/scripts/validate-handoff-readiness.mjs --project . --design-debt'
+  assert.equal(decide(base), true)
+  assert.equal(decide(`${base} --json`), true)
+  // 인자 계약은 좁게 유지한다 — 알 수 없는 플래그가 함께 오면 허용하지 않는다.
+  assert.equal(decide(`${base} --fix`), false)
+  // 기존 형태는 그대로 허용된다(약화 없음).
+  assert.equal(decide('node .claude/scripts/validate-handoff-readiness.mjs --project . --to development'), true)
 })

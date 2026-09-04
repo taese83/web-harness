@@ -762,7 +762,15 @@ const validationScriptContract = (script, args, context) => {
   }
   if (script === '.claude/scripts/validate-handoff-readiness.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
-    if (!args.includes('--project') || !args.includes('--to')) return false
+    if (!args.includes('--project')) return false
+    // `--design-debt`는 판정이 아니라 **읽기 전용 보고**다(exit 0 고정). 등록하지 않으면
+    // 오케스트레이터 경로에서 DENY로 막히고, 저자는 메인 스레드라 그것을 못 본다 —
+    // 이 저장소가 이미 두 번 물린 클래스(wiring-coverage의 `unregistered`).
+    if (commandArgs.includes('--design-debt')) {
+      const rest = commandArgs.filter(arg => arg !== '--design-debt' && arg !== '--json')
+      return rest.length === 0
+    }
+    if (!args.includes('--to')) return false
     const toIndex = commandArgs.indexOf('--to')
     if (toIndex === -1 || !['development'].includes(commandArgs[toIndex + 1] ?? '')) return false
     const rest = [...commandArgs.slice(0, toIndex), ...commandArgs.slice(toIndex + 2)]

@@ -133,8 +133,8 @@
     {
       "id": "spec-test-layers-e2e-ui",
       "file": ".claude/scripts/spec.mjs",
-      "find": "catalog?.shapes?.[shape]?.userInterface === true)",
-      "replace": "catalog?.shapes?.[shape]?.userInterface === false)",
+      "find": "shapeEntry(catalog, shape)?.userInterface === true)",
+      "replace": "false)",
       "test": ".claude/scripts/test-spec.mjs",
       "why": "UI 판정을 뒤집으면 화면이 있는 형태에서 e2e 레이어 요구가 사라진다 — 화면이 있으면 화면을 통과하는 검증이 있어야 한다"
     },
@@ -149,8 +149,8 @@
     {
       "id": "spec-unknown-shape-e2e-undecided",
       "file": ".claude/scripts/spec.mjs",
-      "find": "  if (shapes.some(shape => catalog?.shapes?.[shape] === undefined)) return 'unknown'",
-      "replace": "  // disabled",
+      "find": "if (shapes.some(shape => shapeEntry(catalog, shape) === undefined)) return 'unknown'",
+      "replace": "if (false) return 'unknown'",
       "test": ".claude/scripts/test-spec.mjs",
       "why": "미등록 형태를 unknown이 아니라 비UI로 퇴화시키면, targetShapes에 카탈로그 밖 이름을 적는 것만으로 e2e 요구가 조용히 증발한다 — 적대 리뷰(2026-08-28)가 잡은 fail-open이다"
     },
@@ -337,6 +337,22 @@
       "replace": "  if (false) {\n    problems.push(`정보 위계 표의 빈 칸",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "빈 칸 검사를 끄면 표를 만들고 상태 칸을 비워두는 것으로 조건 분모가 줄고, 커버리지 게이트가 그만큼 헐거워진다 — 조건을 안 적는 것이 통과하는 길이 되는 바로 그 우회다. 같은 판정을 design-inputs와 design-binding이 공유하므로 이 한 자리가 두 검사를 함께 끈다"
+    },
+    {
+      "id": "design-debt-report-basis",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "        basis: have.get(conditionKey(condition)) ?? 'plan',",
+      "replace": "        basis: have.get(conditionKey(condition)) ?? 'supplied',",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "근거 없는 조건을 공급된 것으로 표시하면 디자인 부채 청구서가 항상 비어 나온다 — 막지 않는 보고이므로 내용이 거짓이면 그 경로에는 아무 방어도 남지 않는다"
+    },
+    {
+      "id": "design-debt-bash-policy",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "    if (commandArgs.includes('--design-debt')) {",
+      "replace": "    if (false && commandArgs.includes('--design-debt')) {",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "정책 등록을 끄면 오케스트레이터가 청구 명령을 실행할 수 없고, 저자는 메인 스레드라 그 DENY를 못 본다 — 문서에만 있고 실행되지 않는 절차가 된다"
     }
   ]
 }

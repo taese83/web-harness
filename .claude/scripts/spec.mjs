@@ -256,10 +256,17 @@ export const extractAcceptanceIds = source =>
 // 카탈로그 밖 이름을 적는 것만으로 e2e 요구가 **조용히 증발**한다. 그렇다고 미등록 형태를
 // 실패로 만들 수는 없다 — shape-routing-contract §4가 "하네스가 모르는 것을 실패로 만들지
 // 않는다"를 이미 결정했다. 실패시키지 않되 **판단을 스팩에 되돌린다**.
+// 카탈로그 조회는 **own property로만** 한다. `["constructor"]`·`["toString"]`처럼 프로토타입과
+// 겹치는 이름은 유효한 형태 문자열인데, 인덱스 접근은 그것을 상속 프로퍼티로 찾아내 "등록된
+// 형태"로 오인한다 — `userInterface`가 없으니 `false`(UI 없음)로 확정되고, 그 방향은
+// fail-open이다(교차 모델 리뷰 2026-09-04). 모르는 이름은 `unknown`으로 나가야 한다.
+const shapeEntry = (catalog, shape) =>
+  Object.hasOwn(catalog?.shapes ?? {}, shape) ? catalog.shapes[shape] : undefined
+
 export const hasUserInterface = (targetShapes, catalog = readShapeChecks()) => {
   const shapes = targetShapes ?? []
-  if (shapes.some(shape => catalog?.shapes?.[shape]?.userInterface === true)) return true
-  if (shapes.some(shape => catalog?.shapes?.[shape] === undefined)) return 'unknown'
+  if (shapes.some(shape => shapeEntry(catalog, shape)?.userInterface === true)) return true
+  if (shapes.some(shape => shapeEntry(catalog, shape) === undefined)) return 'unknown'
   return false
 }
 

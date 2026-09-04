@@ -54,7 +54,13 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to develo
 빠지는 것은 체크포인트의 **대상**이지 강도가 아니다 — 아래 세 조건은 전부 기존 게이트다.
 
 한 단계만 `absent`면 나머지 단계의 체크포인트는 **그대로 선다**. 디자인만 `absent`이면 Phase 1
-체크포인트를 정상 수행하고 Phase 2 자리에 이 절이 들어간다. 기획이 있으면 `acceptanceSource`가
+체크포인트를 정상 수행하고 Phase 2 자리에 이 절이 들어간다.
+
+**디자인 `absent`의 결정 지점은 여기가 아니라 Phase 3 착수 직전이다.** 실측(2026-09-04)에서
+디자인 부재는 이 승인의 세 조건 어디에도 걸리지 않는다 — 인계 판정이 대조군과 동일하게 READY다
+(`provenance-contract.md` §2 「디자인 `absent`의 대가」). 그래서 그 청구는 개발이 실제로 화면에
+부딪히는 자리로 옮겨져 있다(`phase-3-development.md` 「디자인 부채 청구」가 정본). 이 절만 읽고
+"디자인은 물을 것이 없다"고 결론짓지 않는다. 기획이 있으면 `acceptanceSource`가
 `feature-plan`이 될 수 있으므로 ③의 인수가 필요 없을 수도 있다 — ②의 실행 결과가 정한다.
 
 ### ① 스팩이 확정됐다 — 기계가 강제한다

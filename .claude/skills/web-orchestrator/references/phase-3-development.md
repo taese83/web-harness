@@ -76,6 +76,74 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
 
 **스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `shape-routing-contract.md` §2의 `library` 행 세트로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `/next-app`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
 
+## 디자인 부채 청구 — 화면을 만드는 첫 스폰 **전에** 한 번
+
+**프로필 공통 전제다.** 아래 Vite 전용 단계 목록 밖에 두는 이유는 `next-app-fullstack`이 그 목록을 실행하지 않기 때문이다(`/next-app` 위임) — 청구의 조건은 "화면을 만든다"이지 번들러가 아니다(적대 리뷰 2026-09-04).
+`DESIGN_SOURCE: absent`는 "디자인이 필요 없다"가 아니라 "지금 만들지 않는다"다
+(`provenance-contract.md` §3). 그 결정은 사라지지 않고 **구현하는 사람에게 넘어간다** —
+실측(2026-09-04)에서 디자인 부재는 인계 판정에 흔적을 남기지 않았다(양쪽 인계 READY,
+판정 변화 0건). 그래서 개발이 실제로 그 화면에 부딪히는 여기서 청구한다.
+
+```bash
+node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-debt
+```
+
+**이 출력은 진행을 막지 않는다**(항상 exit 0). 막으면 `absent`를 고를 수 없게 되고,
+고를 수 없으면 사용자는 우회로 돌아간다 — §3이 존재하는 이유다. 대신:
+
+보고는 여섯 상태 중 하나를 낸다. **상태마다 다음 행동이 다르다** — "보여주고 진행"으로
+끝내면 청구가 공허해진다.
+
+| `status` | 뜻 | 다음 행동 |
+|---|---|---|
+| `no-screens` | 화면이 없는 형태(library·cli) | 청구 없음. 그대로 진행 |
+| `design-present` | **분모가 선 뒤에** 디자인 산출물이 있고 마커가 `supplied`라고 말하지 않는다 | **청구 없음.** 이 경로의 조건 확인은 Phase 2 체크포인트가 이미 했다 — 여기서 다시 물으면 이미 내린 결정을 되묻는 것이다. 조건별 귀속은 재지 않았고 보고가 그 사실을 적는다. 마커에 `DESIGN_SOURCE`가 없으면 **판정 불가**임을 함께 알린다 — 시안을 받아 만든 것이라면 귀속 기록이 필요하다 |
+| `binding-missing` | **분모가 선 뒤에** 마커가 `DESIGN_SOURCE: supplied`인데 귀속 기록이 없다 | 아래 ④ — 디자인을 다시 만들지 않고 `design-binding.json`에 귀속을 적는다 |
+| `binding-invalid` | 근거 기록(`design-binding.json`)이 유효하지 않다 | **청구하지 않는다** — 깨진 기록을 근거로 센 숫자는 사실이 아니다. `design-binding-contract.md` 형식으로 고친 뒤 재실행한다. 같은 상태에서 `--to development`도 `design-binding` HOLE을 낸다 |
+| `clear` | 조건이 전부 시각 근거를 갖는다 | 그대로 진행 |
+| `no-plan` | 기획 문서를 못 찾았다 | **"청구할 것이 없다"가 아니다.** 기획·디자인이 둘 다 없으면 부채가 최대다 — `PLAN_SOURCE`를 확인하고, `absent`가 의식적 선택이면 그 사실과 함께 아래 ③을 받는다 |
+| `denominator-broken` | 조건 분모를 못 읽었다 | ⓐ `ux-brief` 표를 `형:이름` 형식으로 고친 뒤 재실행(`ux-researcher` 재스폰 또는 사용자 편집) 또는 ⓑ **범위 없는 인수임을 명시**하고 ③으로 간다. 무엇이 미결인지 셀 수 없는 상태의 인수는 범위가 없다 |
+| `debt` | 미결이 있다 | 아래 넷 중 하나를 받는다 |
+
+`debt`이면 **목록을 그대로 보여준다.** 출력은 두 부류를 나눠 적는다 — `결정이 보류된 조건`
+(`resolution: pending`으로 **명시적으로 미룬 것**)과 `시각 근거가 없는 조건`(바인딩 행이 아예
+없는 것). 둘 다 조건의 **내용**은 기획에 있다(빈 칸이면 분모 검사가 먼저 잡는다) — 없는 것은
+그리는 방식이다. 앞의 것은 `--to development`가 이미 구멍으로 잡으므로 대가가 더 급하다.
+
+① **지금 붙인다** — 디자인 공급원을 `generated`(Phase 2 wave) 또는 `supplied`로 바꾼다.
+§3 지연 공급이며, 붙는 순간 `component-spec.md` 등이 `LOCK_INPUTS`에 잡혀 **스팩이
+자동으로 stale**이 되므로 재확정한다(실측: `sourceDigest` cf3a7647 → c5718dc0).
+② **첫 화면 하나로 언어를 세운다** — `design-approval-contract.md` 「시스템 추출」이
+화면 1장에서 시스템을 뽑는 절차를 이미 갖고 있다. `absent` 경로는 그 1장을 Phase 2가
+아니라 **여기서** 받는다. 그 뒤 화면은 원리에서 파생하고, 원리로 안 되는 것만 다시 묻는다.
+③ **인수한다** — 구현이 그 자리에서 정하는 것을 사용자가 받아들인다.
+④ **`supplied`인데 귀속 기록이 없다** — 시안을 받았는데 `design-binding.json`이 없으면
+디자인을 다시 만드는 것이 아니라 귀속을 기록한다(`design-binding-contract.md`,
+`protected-core.md` §4 「무문서 SKIP」). `generated`는 이 경우가 아니다 — 산출물이 있으면
+보고가 `design-present`로 끝난다.
+
+**어느 쪽이든 결정을 남긴다 — 그리고 그 기록이 `developer`의 정지를 푼다.**
+
+`developer`는 조건 내용이 없으면 지어내지 않고 멈춘다(그 규율이 이 청구의 backstop이다).
+따라서 **인수(③)를 골랐는데 기록이 없으면 첫 스폰이 다시 막히고, 사용자가 고른 경로가
+완결되지 않는다**(교차 모델 리뷰 2026-09-04). 기록은 형식이 아니라 그 정지를 푸는 열쇠다.
+
+- `decision-log`에 `PC-NNN`으로 남긴다(`plan-history-contract.md`). **flat·sharded 두 형태다** —
+  `_workspace/01_plan/decision-log.md`가 있으면 거기에, `decision-log/`로 분할돼 있으면
+  **최신 ID 구간 절에 append**한다(`artifact-sharding-contract.md`: 디렉터리와 동명 `.md`를
+  함께 두지 않는다 — 새 flat 파일을 만들면 정본이 둘이 된다). 둘 다 없으면 flat으로 만든다.
+- **엔트리에 인수 범위를 명시한다.** 분모가 선 상태(`debt`)면 인수한 조건을 이름으로 적고
+  (`PAGE-002[variant=권한 없음]`), 분모가 없는 상태(`no-plan`·`denominator-broken`)면
+  **"이 프로젝트의 화면 조건 전부"**라고 적는다 — 후자는 범위가 넓다는 사실 자체가 기록돼야
+  한다. 범위를 적지 않은 인수는 나중에 무엇이 인수됐는지 아무도 모른다.
+- **표가 있으면 `ux-brief`의 해당 행에도 그 `PC-NNN`을 인용한다.** 두 이유다:
+  ⓐ `checkDecisionsLanded`는 정본(`01_plan`·`02_design`)이 인용하지 않는 새 결정을 구멍으로
+  잡으므로, 인용 없이 로그에만 적으면 **다음 인계가 이 절차 때문에 HOLE이 된다**
+  (적대 리뷰 2026-09-04). ⓑ 인용이 있으면 "이 조건은 인수됐다"가 파일에 남아, 청구가
+  일어났는지를 나중에 대조할 수 있다 — 자기신고를 파일 대조로 바꾸는 앵커다.
+  분모가 없어 인용할 행이 없으면 ⓐ의 대가가 남는다: 다음 인계에서 그 PC가 stranded로 잡히면
+  **그때 표를 세우고 인용을 붙인다**. 인용할 자리를 만드는 것이 곧 분모를 세우는 것이다.
+
 1. 패키지/도구/앱 기반 생성 (순서 있음):
    - `environment-scaffolder` — package/workspace metadata → TS/Vite/ESLint/Vitest 설정까지 한 스폰
    - `developer` — shared/api/config/store/env/MSW 기반

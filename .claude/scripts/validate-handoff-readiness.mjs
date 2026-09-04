@@ -28,6 +28,7 @@ import {claimScopeReadiness, findPathCollisions} from './ticket/claim-scope.mjs'
 import {extractDecisionBlock} from './spec.mjs'
 import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
+import {hasUserInterface} from './spec.mjs'
 import {DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, conditionLabel} from './design-binding-lib.mjs'
 
 const ok = (id, detail) => ({id, state: 'PASS', detail})
@@ -431,6 +432,161 @@ function coverageProblems(groups, table, document) {
     problems.push(`기획이 선언했으나 디자인 근거가 없는 조건 ${uncovered.length}건: ${uncovered.slice(0, 6).join(', ')}`)
   }
   return problems
+}
+
+// ── 디자인 부채 — 개발 시점에 청구할 내용 ───────────────────────────────────
+// `DESIGN_SOURCE: absent`는 "디자인이 필요 없다"가 아니라 "지금 만들지 않는다"다. 그러면
+// 그 결정은 사라지는 것이 아니라 **구현하는 사람에게 넘어간다** — 실측(2026-09-04)에서
+// 디자인 부재는 인계 판정에 흔적을 남기지 않았고(양쪽 인계 READY, 판정 변화 0건), 그래서
+// 권한 없음·빈 상태 화면이 아무도 모르게 즉흥으로 결정됐다.
+//
+// 이 보고는 **막지 않는다.** 막으면 `absent`를 고를 수 없게 되고, 고를 수 없으면 사용자는
+// 우회로 돌아간다(`provenance-contract.md` §3이 존재하는 이유). 대신 개발이 실제로 그 화면에
+// 부딪히는 자리에서 **무엇이 미결인지 이름으로** 제시해 사람이 결정하게 한다.
+//
+// 분모는 디자인이 아니라 **기획**이 소유한다 — `ux-brief`의 「화면별 정보 위계」 표는
+// `PLAN_SOURCE`의 산출물이라 디자인이 없어도 선다. 디자인이 없을 때야말로 그 표가 조건의
+// 유일한 근거다.
+export function designDebtReport(root) {
+  const sources = planSources(root)
+  const table = parseInformationHierarchy(readPlanArtifact(root, '_workspace/01_plan/ux-brief'))
+  const groups = sources.flatMap(parsePageGroups)
+  const binding = collectDesignBinding(root)
+  const denominator = denominatorProblems(table, groups)
+  const declared = new Map()
+  // **문서는 아직 검증 전이다.** `binding-invalid` 판정보다 이 순회가 먼저 돌므로 여기서
+  // 형태를 가정하면 `"bindings":[null]` 같은 유효 JSON이 TypeError를 낸다 — 항상 exit 0을
+  // 약속한 보고가 비정상 종료한다(교차 모델 리뷰 2026-09-04). 읽을 수 있는 행만 읽는다.
+  for (const row of Array.isArray(binding.document?.bindings) ? binding.document.bindings : []) {
+    if (!row || typeof row !== 'object' || typeof row.pageGroup !== 'string') continue
+    if (!declared.has(row.pageGroup)) declared.set(row.pageGroup, new Map())
+    declared.get(row.pageGroup).set(conditionKey(row.condition),
+      Array.isArray(row.referenceIds) && row.referenceIds.length > 0 ? 'supplied' : (row.resolution ?? 'pending'))
+  }
+  const screens = []
+  for (const row of table.rows) {
+    const pageGroup = resolvePageGroup(groups, row.key)
+    if (pageGroup === null || pageGroup === 'PAGE-000') continue
+    const have = declared.get(pageGroup) ?? new Map()
+    screens.push({
+      pageGroup,
+      conditions: [{state: 'default'}, ...row.conditions].map(condition => ({
+        condition,
+        label: conditionLabel(condition),
+        // 근거는 두 층이다. 바인딩 행이 있으면 그것이 근거고, 없어도 정보 위계 표에 **내용**이
+        // 있으면 구현이 무엇을 보여줄지는 안다 — 모르는 것은 그것을 **어떻게 그리는가**뿐이다.
+        // 이 둘을 한 낱말로 부르면 청구서가 과장된다(적대 리뷰 2026-09-04): 표가 다 채워진
+        // 프로젝트에 "무엇으로 그릴지 정해진 바가 없다"고 말하게 된다.
+        basis: have.get(conditionKey(condition)) ?? 'plan',
+      })),
+    })
+  }
+  const pick = (...values) => screens.flatMap(screen =>
+    screen.conditions.filter(item => values.includes(item.basis))
+      .map(item => ({pageGroup: screen.pageGroup, label: item.label, basis: item.basis})))
+  return {
+    schemaVersion: 1,
+    // **"기획이 없다"를 "화면이 없다"로 말하지 않는다.** 둘을 한 분기로 뭉개면 부채가 최대인
+    // 상태(기획·디자인 둘 다 absent, 브라운필드 첫 작업)에서 "청구할 것이 없다"가 나온다 —
+    // 이 저장소가 Page Groups 부재에서 이미 닫은 클래스가 보고에서 다시 열린 것이었다
+    // (적대 리뷰 2026-09-04, 실제 트리 2곳에서 재현).
+    status: designDebtStatus({root, sources, table, groups, denominator, screens, binding}),
+    bindingPresent: binding.present,
+    // 공급원 선언. `null`은 **모른다**이지 `generated`가 아니다 — 마커가 없으면 단정하지 않는다.
+    designSource: declaredDesignSource(root),
+    denominatorProblems: denominator,
+    bindingProblems: binding.errors,
+    screens,
+    deferred: pick('pending'),
+    planOnly: pick('plan'),
+  }
+}
+
+// 스팩이 화면을 기대하는가. 형태 카탈로그가 아는 형태면 `userInterface`가 답하고, **모르는
+// 형태면 `testLayers.e2e`가 답한다** — `spec.mjs`가 미등록 형태에 대해 "경로를 적거나
+// `(absent — 이유)`로 명시하라"고 이미 요구하고 있기 때문이다(`E2E_TEST_LAYER_UNDECIDED`).
+// 그 선언을 안 보고 Page Groups로 넘어가면, 미등록 UI 형태가 PAGE-000뿐일 때 불완전한 기획이
+// "화면 없음"으로 통과한다(교차 모델 리뷰 2026-09-04).
+// 디자인 단계가 산출물을 냈는가. flat·sharded 두 형태를 본다.
+const DESIGN_ARTIFACTS = ['design-system', 'layout-spec', 'component-spec']
+const hasDesignArtifacts = root => DESIGN_ARTIFACTS.some(name => {
+  const base = join(root, '_workspace/02_design', name)
+  return (existsSync(`${base}.md`) && statSync(`${base}.md`).isFile()) ||
+    (existsSync(base) && statSync(base).isDirectory())
+})
+
+// 디자인이 **공급**됐는가. 마커(`provenance-contract.md` §5)가 있으면 그것이 정본이고,
+// 없으면 `00_source/` 인벤토리의 존재로 판정한다 — 마커는 어떤 validator도 검사하지 않아
+// 없을 수 있지만(§5 한계), ingestor는 공급 경로에서 반드시 인벤토리를 남긴다.
+// 판정 불가는 `null`이다. **`00_source/source-index.md`의 존재를 신호로 쓰지 않는다** —
+// 그 인벤토리는 기획·API·설계 공급에도 생기며, 실제로 기획만 공급받고 디자인은 생성한
+// 프로젝트가 존재한다(교차 모델 리뷰 2026-09-04, `workspace/minicar-laptime` 실측).
+// 그것으로 공급을 단정하면 정상 프로젝트에 없는 귀속 기록을 요구하게 된다.
+const declaredDesignSource = root => {
+  const marker = join(root, '_workspace/web-harness.md')
+  if (!existsSync(marker) || !statSync(marker).isFile()) return null
+  const declared = readFileSync(marker, 'utf8').match(/DESIGN_SOURCE\s*:\s*(generated|supplied|absent)/i)
+  return declared ? declared[1].toLowerCase() : null
+}
+
+const E2E_ABSENT = /^\(\s*absent\b/i
+export const resolveScreenExpectation = spec => {
+  // **스팩도 검증 전 문서다.** `{"targetShapes":"web-app"}` 같은 유효 JSON이 그대로 들어오면
+  // `hasUserInterface`가 `shapes.some is not a function`으로 죽고, 항상 exit 0을 약속한 보고가
+  // 비정상 종료한다(교차 모델 리뷰 2026-09-04 — 바인딩 문서에서 이미 한 번 물린 클래스다).
+  // 비어 있거나 형태가 아닌 것은 `false`가 아니라 **모른다**다 — 화면이 없다고 단정하면
+  // 기획에 화면이 있는데도 청구가 통째로 빠진다.
+  if (!Array.isArray(spec?.targetShapes) || spec.targetShapes.length === 0) return null
+  const ui = hasUserInterface(spec.targetShapes)
+  if (ui !== 'unknown') return ui
+  const e2e = spec?.testLayers?.e2e
+  if (typeof e2e !== 'string' || e2e.trim() === '') return null // 스팩이 말하지 않았다 — 모른다
+  return !E2E_ABSENT.test(e2e.trim())
+}
+
+// 화면이 있는 형태인가를 **기획 부재와 구분해서** 판정한다. 형태 정보는 스팩의
+// `targetShapes`가 정본이며(`hasUserInterface` — 카탈로그 밖 이름은 `unknown`으로 돌아온다),
+// 스팩이 아직 없으면 Page Groups 표로 판정한다. 어느 쪽도 없으면 **모른다고 말한다.**
+const designDebtStatus = ({root, sources, table, groups, denominator, screens, binding}) => {
+  // 형태 판정이 **가장 먼저**다. 기획 부재를 먼저 보면 화면 없는 형태(library·cli)가 기획을
+  // 세우지 않은 정상 경로인데도 "부채가 최대"로 나온다(교차 모델 리뷰 2026-09-04).
+  const spec = readSpecAt(root)
+  const ui = spec ? resolveScreenExpectation(spec) : null
+  if (ui === false) return 'no-screens'
+  // 바인딩 기록이 깨졌으면 그것을 근거로 센 숫자는 사실이 아니다. `checkDesignBinding`이
+  // HOLE을 내는 상태에서 이 보고만 `clear`를 내면 **막지 않는 보고가 거짓말을 한다**.
+  if (binding.present && binding.errors.length > 0) return 'binding-invalid'
+  if (sources.length === 0) return 'no-plan'
+  // Page Groups가 **있는데** 전역 책임뿐이면 화면이 없다. 이 판정은 분모 검사보다 앞에
+  // 서야 한다 — 화면이 없는 프로젝트에 정보 위계 표를 요구하는 것은 틀린 요구다.
+  // 단 **스팩이 UI 있음으로 확정한 경우에는 적용하지 않는다** — 그때 PAGE-000뿐인 것은
+  // 화면이 없는 것이 아니라 기획이 불완전한 것이고, 그것을 "그대로 진행"으로 보고하면
+  // 청구가 통째로 빠진다(교차 모델 리뷰 2026-09-04). Page Groups 추론은 형태를 모를 때만이다.
+  if (ui !== true && groups.length > 0 && !groups.some(row => row.id !== 'PAGE-000')) return 'no-screens'
+  if (groups.length === 0 || denominator.length > 0 || table.rows.length === 0) return 'denominator-broken'
+  // 여기까지 왔는데 잴 화면이 하나도 없으면 `clear`가 아니다 — 앞의 분기들이 "화면이 없는
+  // 형태"를 이미 걸렀으므로, 남은 0건은 **화면이 있어야 하는데 표에 없는 것**이다.
+  // `clear`로 내면 "부채 없음 — 화면 0개"라는 공허한 통과가 된다(교차 모델 리뷰 2026-09-04).
+  if (screens.length === 0) return 'denominator-broken'
+  // 디자인 산출물이 있으면 청구하지 않는다 — 단 **분모를 확인한 뒤에** 면제한다.
+  // `design-binding.json`은 공급된 근거의 귀속 기록이라 `generated` 경로에는 애초에 생기지
+  // 않으므로, 그것만 보고 판정하면 정상적으로 디자인을 만든 프로젝트가 전건 부채로 나온다.
+  // 그러나 이 면제를 기획·분모 검사보다 **앞에** 두면 반대 방향으로 샌다 — 중단 과정에서
+  // 남은 `layout-spec.md` 하나가 깨진 기획을 통째로 면제했다(교차 모델 리뷰 2026-09-04).
+  // 산출물의 존재는 "디자인 단계가 돌았다"는 신호일 뿐 분모가 성립한다는 뜻이 아니다.
+  if (!binding.present && hasDesignArtifacts(root)) {
+    const source = declaredDesignSource(root)
+    // **공급된 디자인인데 귀속 기록이 없는 것**은 다른 사연이다 — 시안을 받아놓고 어느
+    // 화면의 것인지 적지 않은 상태이며, `protected-core.md` §4의 「무문서 SKIP」 그 자체다.
+    if (source === 'supplied') return 'binding-missing'
+    // **`absent`는 면제하지 않는다.** 그 경로는 Phase 2 체크포인트를 수행하지 않았으므로
+    // "이미 확인했다"가 사실이 아니다 — 중단된 실행이 남긴 산출물 하나로 청구가 사라진다
+    // (교차 모델 리뷰 2026-09-04). 면제의 근거는 파일의 존재가 아니라 **그 단계가 돌았다는
+    // 선언**이다. 마커가 없으면 판정 불가이며 그 사실을 출력에 적는다.
+    if (source !== 'absent') return 'design-present'
+  }
+  return screens.some(screen => screen.conditions.some(item => item.basis === 'pending' || item.basis === 'plan'))
+    ? 'debt' : 'clear'
 }
 
 export function checkDesignBinding(root, {reportDenominator = true} = {}) {
@@ -1009,8 +1165,54 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   const projectRoot = projectIndex >= 0 ? argv[projectIndex + 1] : undefined
   const to = toIndex >= 0 ? argv[toIndex + 1] : 'development'
   if (!projectRoot || !HANDOFFS.includes(to)) {
-    process.stderr.write(`사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> --to ${HANDOFFS.join('|')} [--json]\n`)
+    process.stderr.write(`사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> [--to ${HANDOFFS.join('|')} | --design-debt] [--json]\n`)
     process.exit(2)
+  }
+  // 디자인 부채 청구서. **판정이 아니라 보고이므로 항상 exit 0이다** — 이 출력으로 진행을
+  // 막지 않는다(`provenance-contract.md` §3). 결정은 사람이 하고 인수는 decision-log에 남는다.
+  if (argv.includes('--design-debt')) {
+    const debt = designDebtReport(resolve(projectRoot))
+    if (argv.includes('--json')) {
+      process.stdout.write(`${JSON.stringify(debt, null, 2)}\n`)
+    } else if (debt.status === 'binding-missing') {
+      process.stdout.write('디자인 부채: 공급된 디자인인데 귀속 기록이 없다 — 어느 화면의 시안인지 아무도 승계하지 못한다\n')
+      process.stdout.write('  디자인을 다시 만드는 것이 아니라 `00_source/design-binding.json`에 귀속을 적는다(design-binding-contract.md).\n')
+    } else if (debt.status === 'design-present') {
+      process.stdout.write('디자인 부채: 디자인 단계 산출물이 있다 — 청구하지 않는다\n')
+      process.stdout.write('  조건별 귀속(`design-binding.json`)은 공급된 근거가 있을 때만 재며, 여기서는 재지 않았다.\n')
+      if (debt.designSource === null) {
+        process.stdout.write('  공급원을 판정할 수 없다(마커에 `DESIGN_SOURCE`가 없다) — 시안을 받아 만든 것이라면 귀속 기록이 필요하다.\n')
+      }
+    } else if (debt.status === 'binding-invalid') {
+      process.stdout.write('디자인 부채: 근거 기록이 유효하지 않다 — 그것을 근거로 센 숫자는 사실이 아니다\n')
+      for (const problem of debt.bindingProblems.slice(0, 6)) process.stdout.write(`  · ${problem}\n`)
+    } else if (debt.status === 'no-plan') {
+      process.stdout.write('디자인 부채: 기획 문서를 찾지 못했다 — 무엇이 미결인지 셀 분모가 없다\n')
+      process.stdout.write('  이것은 "청구할 것이 없다"가 아니다. 기획·디자인이 둘 다 없으면 부채는 최대다.\n')
+    } else if (debt.status === 'no-screens') {
+      process.stdout.write('디자인 부채: 화면이 없는 형태다 — 청구할 것이 없다\n')
+    } else if (debt.status === 'denominator-broken') {
+      process.stdout.write('디자인 부채: 조건 분모를 읽지 못했다 — 무엇이 미결인지 셀 수 없다\n')
+      for (const problem of debt.denominatorProblems) process.stdout.write(`  · ${problem}\n`)
+      if (debt.denominatorProblems.length === 0) process.stdout.write('  · Page Groups 표 또는 정보 위계 행이 없다\n')
+    } else if (debt.status === 'clear') {
+      process.stdout.write(`디자인 부채 없음 — 화면 ${debt.screens.length}개의 조건이 전부 시각 근거를 갖는다\n`)
+    } else {
+      // `pending`은 **내용이 없는 것이 아니라** 근거 방식을 명시적으로 미룬 것이다
+      // (`design-binding-contract.md` §3). 내용은 정보 위계 표에 있다 — 빈 칸이면 분모
+      // 검사가 먼저 잡는다. 두 부류를 "내용 유무"로 가르면 잘못된 결정을 요구하게 된다
+      // (교차 모델 리뷰 2026-09-04).
+      if (debt.deferred.length > 0) {
+        process.stdout.write(`결정이 보류된 조건 ${debt.deferred.length}건 — 근거 방식을 미뤄둔 자리다(인계 검사도 구멍으로 잡는다)\n`)
+        for (const item of debt.deferred) process.stdout.write(`  · ${item.pageGroup}[${item.label}]\n`)
+      }
+      if (debt.planOnly.length > 0) {
+        process.stdout.write(`시각 근거가 없는 조건 ${debt.planOnly.length}건 — 무엇을 보여줄지는 기획에 있고, 어떻게 그릴지가 없다\n`)
+        for (const item of debt.planOnly) process.stdout.write(`  · ${item.pageGroup}[${item.label}]\n`)
+      }
+      process.stdout.write('\n지금 정하지 않으면 구현하는 사람이 그 자리에서 정하게 된다.\n')
+    }
+    process.exit(0)
   }
   const report = analyzeHandoffReadiness(resolve(projectRoot), {to})
   if (argv.includes('--json')) {
