@@ -409,6 +409,22 @@
       "replace": "  const unbound = []",
       "test": ".claude/scripts/test-release-gate-spec.mjs",
       "why": "선언된 경로의 부재를 세지 않으면 설계가 선언한 화면이 없는데도 BOUND로 보고된다 — 실측에서 완주한 프로젝트 두 곳과 미완 한 곳이 전부 이 검사로 드러났다"
+    },
+    {
+      "id": "symbol-binding-rename-vs-unbuilt",
+      "file": ".claude/scripts/design-evidence-lib.mjs",
+      "find": "    if (found) renamed.push({declared: relative, actual: found[0], symbol})\n    else unbuilt.push(relative)",
+      "replace": "    unbuilt.push(relative)",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "개명을 미구현으로 접으면 심볼 대조가 하는 유일한 일이 사라진다 — 경로만으로도 「없다」는 알 수 있고, 심볼이 더하는 것은 「다른 곳에 있다」뿐이다"
+    },
+    {
+      "id": "symbol-binding-hollow",
+      "file": ".claude/scripts/design-evidence-lib.mjs",
+      "find": "  const hollow = (binding.declaredPaths ?? []).filter(relative => (namesOf(relative) ?? null)?.length === 0)",
+      "replace": "  const hollow = []",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "경로 검사는 실재하는 빈 파일을 BOUND로 통과시킨다 — 껍데기 계상을 끄면 §4가 「구멍」으로 등록했던 그 자리가 되돌아온다"
     }
   ]
 }

@@ -64,6 +64,8 @@ export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, acti
   for (const [relativePath, maximumLines] of [
     ['.claude/scripts/validate-harness.mjs', 400],
     ['.claude/scripts/release-gate-lib.mjs', 400],
+    // 추출로 상한을 지킨 모듈은 **추출 시점에 등록한다** — 안 하면 다음 추가에서 조용히 넘는다.
+    ['.claude/scripts/design-evidence-lib.mjs', 400],
   ]) {
     if (lineCount(read(relativePath)) > maximumLines) fail(`${relativePath}: script exceeds ${maximumLines} lines`)
   }

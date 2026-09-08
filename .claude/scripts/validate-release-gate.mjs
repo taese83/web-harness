@@ -24,6 +24,10 @@ if (writeManifest) {
     if (binding && ['UNBOUND', 'UNRECOGNIZED'].includes(binding.state)) {
       process.stderr.write(`설계→코드 결속: ${binding.state} — ${binding.note}\n`)
     }
+    const symbols = manifest?.symbolBinding
+    if (symbols && ['UNBUILT', 'DIVERGED', 'PARTIAL', 'NOT_MEASURED'].includes(symbols.state)) {
+      process.stderr.write(`심볼 대조: ${symbols.state} — ${symbols.note}\n`)
+    }
   } catch (error) {
     process.stderr.write(`QA manifest could not be written securely: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(2)

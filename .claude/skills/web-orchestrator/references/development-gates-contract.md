@@ -129,14 +129,20 @@ entrypoint나 dependency가 아직 없어 check가 실행 불가능하면 `BLOCK
 API contract/auth, route, Mock, component가 완료된 뒤:
 
 1. API schema ↔ runtime validation ↔ Mock method/path/status/body
-2. route ↔ page/widget/component public export — **파일 경로의 실재만 기계가 센다**
-   (라우트 배선·export·심볼은 보지 않는다)
-   (`release-gate-lib`의 `routeBinding`, Phase 4). `layout-spec` 표 행이 선언한 소스 경로가
-   실재하는지 대조해 릴리스 매니페스트에 남긴다. **막지 않는다** — 경로만으로는 미구현과
-   개명을 구별할 수 없어서다(실측 근거는 `docs/protected-core.md` §4). **판정은 여전히 이
-   게이트의 사람·에이전트 몫이다**: 부재가 보고되면 미구현인지 개명인지 보고, 미구현이면
-   만들고 개명이면 `layout-spec`을 고친다. 심볼 수준(파일 안에 그 export가 있는가)은
-   기계가 보지 않는다
+2. route ↔ page/widget/component public export — **경로와 export 이름을 기계가 센다**
+   (`release-gate-lib`의 `routeBinding`·`resolveSymbols`, Phase 4). 선언된 파일이 실재하는지,
+   없으면 그 심볼이 **다른 파일에 있는지**(개명) 아니면 **그 이름이 어디에도 없는지** 가르고,
+   실재하지만 **아무것도 export하지 않는 껍데기**도 잡는다. 심볼 파싱은 **프로젝트의
+   TypeScript를 빌려** 하며 없으면 `NOT_MEASURED`(통과가 아니다).
+   **여전히 보지 않는 것**: 그 컴포넌트가 실제로 그 route에 걸렸는가 · props 계약 ·
+   라우팅 표의 `Component` 열에 적힌 심볼 이름(기대 심볼은 파일명에서 유도한다).
+   실재 파일은 **export가 하나라도 있으면 통과한다** — 파일명과 심볼이 다른 것이 정상인
+   경우가 있어 일치를 요구하면 오탐이 된다(실측 근거는 `docs/protected-core.md` §4).
+   「그 이름이 어디에도 없음」은 **미구현과 같지 않다** — 이름까지 바뀐 개명이 여기 섞인다
+   (실측: `*Page` 선언 3건이 실제로는 `*Screen`으로 존재했다).
+   **막지 않는다** — 보고이며 **판정은 이 게이트의 사람·에이전트 몫이다**: 부재가 보고되면
+   미구현인지 개명인지 보고, 미구현이면 만들고 개명이면 `layout-spec`을 고친다.
+   실행 시점은 **Phase 4 릴리스**다 — 이 게이트 시점에는 여전히 사람·에이전트가 본다
 3. production build에서 Mock activation이 가능한 구조인지 정적 확인
 4. `typecheck`, `lint`
 

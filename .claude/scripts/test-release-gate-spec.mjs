@@ -8,10 +8,11 @@
 //   (4) 검사가 던져도 게이트가 통째로 죽지 않고 그 사실이 error로 남는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {createRequire} from 'node:module'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {designRoundSummary, routeBindingSummary, validateReleaseGate} from './release-gate-lib.mjs'
+import {designRoundSummary, exportedNames, resolveSymbols, routeBindingSummary, validateReleaseGate} from './release-gate-lib.mjs'
 import {lockSpec} from './spec.mjs'
 
 const specErrors = errors => errors.filter(message => message.startsWith('Spec conformance'))
@@ -243,7 +244,7 @@ test('실측 칸이 비면 그 축은 대조된 것이 아니다 — 신호로 �
 // 이 저장소의 가장 큰 공백이었다 — Gate B가 「route ↔ component public export」를 요구하는데
 // 그것을 보는 기계 소비자가 0건이었다. 여기서 고정하는 것:
 //   (1) 표 행의 경로만 본다 — 산문의 경로는 반례·설명일 수 있다
-//   (2) 레이어가 없으면 미구현(차단), 레이어가 있으면 개명(기록만) — 강도가 다르다
+//   (2) 부재는 한 상태(`UNBOUND`)로만 보고한다 — 경로만으로는 미구현과 개명을 못 가른다
 //   (3) 선언이 없는 형태(library·서피스 맵)는 요구하지 않는다
 
 const withLayout = ({spec = null, files = [], sharded = false} = {}, run) => {
@@ -355,4 +356,168 @@ test('분할된 layout-spec 디렉터리도 읽는다', () => {
   withLayout({spec: ROUTES, sharded: true, files: ['src/pages/home/ui/HomePage.tsx', 'src/pages/detail/ui/DetailPage.tsx']}, root => {
     assert.equal(routeBindingSummary(root).state, 'BOUND')
   })
+})
+
+// ── 심볼 수준 대조 ────────────────────────────────────────────────────────────
+// 경로만 보면 미구현과 개명이 똑같이 보인다(위 회귀가 그 사실을 고정한다). 심볼을 보면 갈린다.
+//
+// **분류 로직을 저장소 밖 파서에 결박하지 않는다.** 픽스처를 `workspace/track`의 TypeScript에
+// 걸었더니, gitignore된 그 디렉터리가 없는 CI 조건에서 회귀 6건이 조용히 skip돼 **반증 seed를
+// 껐는데도 exit 0**이었다(2026-09-08 실측: 같은 변형이 로컬 exit 1, CI 조건 exit 0).
+// 그래서 export 추출기를 주입한다 — 아래 픽스처 소스에 대해 명백히 옳고, CI에서 실제로 돈다.
+// 파서 자체(`exportedNames`)의 정확성은 맨 아래 실파서 테스트와 4개 프로젝트 실측이 맡는다.
+const readExports = source =>
+  [...source.matchAll(/export (?:const|function|class) (\w+)/g)].map(match => match[1])
+
+const withSpec = ({spec, files = {}}, run) => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-binding-'))
+  try {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design/layout-spec.md'), spec)
+    for (const [rel, body] of Object.entries(files)) {
+      mkdirSync(join(root, rel.split('/').slice(0, -1).join('/')), {recursive: true})
+      writeFileSync(join(root, rel), body)
+    }
+    return run(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+const ROUTE_ROW = path => ['| Path | Component |', '|---|---|', `| \`/\` | \`${path}\` |`].join('\n')
+const summaryFor = (root, options) => resolveSymbols(root, routeBindingSummary(root), options)
+
+test('추출기를 얻지 못하면 NOT_MEASURED다 — 통과가 아니다', () => {
+  // 주입도 없고 프로젝트 TypeScript도 없는 조건 — 기본 경로(`projectExportReader`)를 탄다.
+  withSpec({spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx')}, root => {
+    const summary = summaryFor(root)
+    assert.equal(summary.state, 'NOT_MEASURED')
+    assert.match(summary.note, /통과가 아니다/)
+  })
+})
+
+test('선언된 심볼이 다른 파일에 있으면 개명이다 — 경로만으로는 못 가르던 것', () => {
+  // 실측(search-portal): 스펙 `ui/HomePage.tsx`, 실제 `index.tsx`가 `HomePage`를 export한다.
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/pages/home/index.tsx': 'export const HomePage = () => null\n'},
+  }, root => {
+    const summary = summaryFor(root, {readExports})
+    assert.equal(summary.state, 'DIVERGED', summary.note)
+    assert.equal(summary.renamed.length, 1)
+    assert.equal(summary.renamed[0].actual, 'src/pages/home/index.tsx')
+    assert.equal(summary.unbuilt.length, 0, '개명이 미구현으로 세어졌다')
+  })
+})
+
+test('그 심볼 이름이 어디에도 없으면 UNBUILT다 — 미구현과 같지 않다', () => {
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/app/App.tsx': 'export const App = () => null\n'},
+  }, root => {
+    const summary = summaryFor(root, {readExports})
+    assert.equal(summary.state, 'UNBUILT', summary.note)
+    assert.deepEqual(summary.unbuilt, ['src/pages/home/ui/HomePage.tsx'])
+    assert.equal(summary.renamed.length, 0)
+  })
+})
+
+test('파일명이 식별자가 아니어도 개명을 찾는다 — kebab-case 관용구', () => {
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/home-page.tsx'),
+    files: {'src/pages/home/index.tsx': 'export const HomePage = () => null\n'},
+  }, root => {
+    const summary = summaryFor(root, {readExports})
+    assert.equal(summary.unbuilt.length, 0, 'kebab 파일명이 미구현으로 접혔다')
+    assert.equal(summary.renamed.length, 1)
+  })
+})
+
+test('index 배럴은 심볼을 유도하지 않는다 — 파일명이 심볼이 아니다', () => {
+  // 실측(search-portal): `src/pages/home/index.ts`가 `index`라는 심볼이 없다는 이유로
+  // 미구현으로 잘못 잡혔다. 배럴은 판정 보류로 센다.
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/index.ts'),
+    files: {'src/app/App.tsx': 'export const App = () => null\n'},
+  }, root => {
+    const summary = summaryFor(root, {readExports})
+    assert.deepEqual(summary.unbuilt, [], '배럴이 미구현으로 세어졌다')
+    assert.deepEqual(summary.unresolved, ['src/pages/home/index.ts'])
+    assert.equal(summary.state, 'PARTIAL', '보류를 RESOLVED로 접었다')
+  })
+})
+
+test('export가 없는 껍데기 파일을 잡는다 — 경로 검사가 통과시키던 구멍', () => {
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/pages/home/ui/HomePage.tsx': '// 아직 아무것도 없다\n'},
+  }, root => {
+    const binding = routeBindingSummary(root)
+    assert.equal(binding.state, 'BOUND', '경로 검사는 껍데기를 통과시킨다')
+    const summary = resolveSymbols(root, binding, {readExports})
+    assert.equal(summary.state, 'DIVERGED')
+    assert.deepEqual(summary.hollow, ['src/pages/home/ui/HomePage.tsx'])
+  })
+})
+
+test('실재 파일은 export가 하나만 있으면 통과한다 — 강도를 과장하지 않는다', () => {
+  // 실측 12건 중 2건(`Routes.tsx` → `AppRouter`)이 파일명≠심볼인 **정상**이라 일치를
+  // 요구하면 오탐이 된다. 그래서 요구하지 않으며, note도 「전부 그 자리에 있다」고 말하지 않는다.
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/pages/home/ui/HomePage.tsx': 'export const somethingElse = 1\n'},
+  }, root => {
+    const summary = resolveSymbols(root, routeBindingSummary(root), {readExports})
+    assert.equal(summary.state, 'RESOLVED')
+    assert.doesNotMatch(summary.note, /심볼이 전부/, 'note가 검사보다 강하게 주장한다')
+  })
+})
+
+test('색인이 잘리면 「어디에도 없음」을 보류한다 — 부분 색인으로 없다고 말하지 않는다', () => {
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/app/App.tsx': 'export const App = () => null\n'},
+  }, root => {
+    const summary = summaryFor(root, {readExports, maxScan: 1})
+    assert.equal(summary.state, 'PARTIAL', summary.note)
+    assert.deepEqual(summary.unbuilt, [], '절단된 색인으로 미구현을 단정했다')
+    assert.deepEqual(summary.unresolved, ['src/pages/home/ui/HomePage.tsx'])
+    assert.match(summary.note, /스캔 상한/)
+  })
+})
+
+test('심볼 대조는 릴리스를 막지 않는다 — 판정이 결정적이어도 강도는 그대로다', () => {
+  // 주입을 `validateReleaseGate`까지 뚫었다. 뚫지 않으면 두 픽스처가 모두 파서 부재로
+  // `NOT_MEASURED`가 돼 **UNBUILT가 게이트를 통과하는지 아무도 보지 않는다** — 직전 리뷰가
+  // 잡은 vacuous green과 같은 클래스다.
+  const errorsFor = files => withSpec({spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'), files},
+    root => {
+      const {errors, manifest} = validateReleaseGate(root, {readExports})
+      return {state: manifest?.symbolBinding?.state ?? buildStateOf(root),
+        errors: errors.map(message => message.replace(/\/[^\s']*/g, '<path>'))}
+    })
+  const unbuilt = errorsFor({'src/app/App.tsx': 'export const App = () => null\n'})
+  const resolved = errorsFor({'src/pages/home/ui/HomePage.tsx': 'export function HomePage() { return null }\n'})
+  // 두 픽스처가 실제로 **다른 심볼 상태**여야 이 비교가 무언가를 말한다.
+  assert.equal(unbuilt.state, 'UNBUILT', unbuilt.state)
+  assert.equal(resolved.state, 'RESOLVED', resolved.state)
+  assert.deepEqual(unbuilt.errors, resolved.errors, '심볼 상태가 릴리스 판정을 바꿨다')
+})
+
+// 매니페스트가 안 써지는 경로(QA 부재)에서도 상태를 확인할 수 있게 직접 계산한다.
+function buildStateOf(root) {
+  return resolveSymbols(root, routeBindingSummary(root), {readExports}).state
+}
+
+test('실파서로 export 이름을 읽는다 — CI에는 파서가 없어 로컬에서만 돈다', () => {
+  // **CI에서는 vacuous하다**(§4 등록). 파서 정확성의 실제 근거는 4개 프로젝트 실측이고,
+  // 이 테스트는 로컬에서 그 실측을 재현 가능하게 남겨둔 것이다.
+  const entry = join(process.cwd(), 'workspace/track/node_modules/typescript/lib/typescript.js')
+  if (!existsSync(entry)) return
+  const ts = createRequire(import.meta.url)(entry)
+  const source = [
+    'const HomePage = () => null', 'export default HomePage',
+    'export enum Mode { A }', 'export class Widget {}',
+  ].join('\n')
+  assert.deepEqual(exportedNames(ts, source, 'x.tsx').sort(), ['HomePage', 'Mode', 'Widget', 'default'])
+  // `.ts`는 TSX로 파싱하면 `<T>expr` 단언이 JSX로 읽혀 복구 파싱에 들어간다.
+  assert.deepEqual(exportedNames(ts, 'export const cast = <T,>(v: T) => <T>v', 'x.ts'), ['cast'])
 })
