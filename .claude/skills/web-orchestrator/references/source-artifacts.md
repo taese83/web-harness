@@ -312,6 +312,7 @@ Record every conflict in `_workspace/00_source/gap-report.md`.
 
 ## 정규화 규칙은 별도 문서다
 
-원문을 받은 **뒤** 적용하는 것 — 변환 규칙·갭 분류(`INFO`·`ASSUMPTION`·`CONFLICT`·`BLOCKER`)·
-Source Trace 형식·원문 변경 제안 — 은 `source-normalization.md`가 정본이다.
+원문을 받은 **뒤** 적용하는 것 — 변환 규칙·판본/스펙아웃 처리·갭 분류(`INFO`·`ASSUMPTION`·
+`QUESTION`·`CONFLICT`·`BLOCKER`)·질문지·Source Trace 형식·원문 변경 제안 — 은
+`source-normalization.md`가 정본이다.
 이 문서는 **획득**까지만 다룬다. 둘을 한 파일에 두면 소비자가 갈리는데 크기는 한 덩어리로 커진다.

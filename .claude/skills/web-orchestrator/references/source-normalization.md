@@ -19,6 +19,12 @@ Use `_workspace/00_source/source-change-proposals.md` for suggested original-sou
 ## Normalization Rules
 
 - Preserve the user's terminology for domain entities, menu labels, and business concepts.
+- **판본이 여럿이면 최신판이 정본이다.** 근거는 ① 문서 자신의 변경 이력(이름은 문서마다 다르다)
+  ② 명시적 버전 표기 순. 둘 다 없으면 고르지 말고 `QUESTION`으로 묻는다. 채택은 `CONFLICT`로 남기고
+  구판은 지우지 않는다(`decision-log.md`에 대체 관계).
+- **원문이 "스펙아웃"·"제외"·"보류"로 표시한 항목은 요구사항으로 세우지 않는다** — 주석을 달아 남기면
+  하류가 살아 있는 요구로 읽는다. `Won't`로 옮기고 Source Trace에 표시 위치를 남긴다 — 지우면
+  "작성자가 제외했다"와 "원문에 없었다"를 구별할 수 없다.
 - Convert design screens to routes and page responsibilities in `layout-spec.md`.
 - Convert reusable UI patterns to `component-spec.md`.
 - Convert visual tokens to `design-system.md`; if tokens are missing, mark defaults as `ASSUMPTION`.
@@ -34,9 +40,26 @@ Use `_workspace/00_source/source-change-proposals.md` for suggested original-sou
 Use these labels in `gap-report.md`:
 
 - `INFO` — useful context missing, but development can continue.
-- `ASSUMPTION` — a reasonable default was chosen and documented.
+- `ASSUMPTION` — **표현 기본값**만. 아래 경계를 지킨다.
+- `QUESTION` — 원문 작성자에게 물어야 답이 나오는 것. 아래 「질문지」로 옮긴다.
 - `CONFLICT` — two sources disagree; the chosen source and reason are recorded.
 - `BLOCKER` — implementation should not continue without user input.
+
+### `ASSUMPTION`과 `QUESTION`의 경계 — 지어낸 것은 묻는다
+
+가르는 축은 **시안·계약이 오면 자동으로 대체되는가, 아니면 원문 작성자만이 답을 바꿀 수 있는가**다.
+규모도 확신도도 아니다. **아래는 예시이지 분류표가 아니다** — 같은 항목이 서비스에 따라 갈린다.
+브랜드 가이드가 계약인 서비스에서 색 토큰은 제품 결정이고(`source-artifacts.md`「Figma MCP」 절차 5가
+팔레트→역할 매핑을 되묻게 하는 것과 같은 이유), 사내 관리자 도구에서 오류 문구는 i18n 키 자리표시자다.
+
+- **제품 결정**(무엇을·언제·어떤 규칙으로·무슨 문구로) → **`QUESTION`**. 예: 재방문자에게 온보딩을
+  다시 보일지, 한도 초과를 막을지 경고만 할지, 오류 문구
+- **표현 기본값**(시안·계약이 오면 대체되는 자리표시자) → `ASSUMPTION`. 예: 색·타이포·간격 토큰,
+  mock fixture 스키마, 파일 배치
+
+**"일반적 관행이니까"는 `ASSUMPTION`의 사유가 될 수 없다** — 관행은 근거가 아니라 추측인데
+`ASSUMPTION` 딱지가 붙으면 검토자는 이미 판단된 것으로 읽는다. 확신이 높아도 제품 결정이면
+묻는다(실측 2026-09-07: "재방문자에게 온보딩 재노출 안 함"이 *일반적 관행*을 사유로 TC가 됐다).
 
 Treat these as `BLOCKER` unless the user explicitly allows assumptions:
 
@@ -45,6 +68,39 @@ Treat these as `BLOCKER` unless the user explicitly allows assumptions:
 - design contradicts required feature scope
 - API requires real credentials or production mutations
 - existing target directory contains unrelated user files
+
+## 질문지 — `00_source/author-questions.md`
+
+`QUESTION`과 답이 필요한 `BLOCKER`·`NEEDS_DECISION`을 **원문 작성자가 그대로 읽고 답할 수 있는
+문서**로 옮긴다. `gap-report.md`는 하네스 내부 기록이고 이 파일은 밖으로 나가는 문서다 — 합치지 않는다.
+
+**자기완결적이어야 한다.** 작성자는 `_workspace`를 읽지 않는다 — 하네스 어휘(FEAT·TC·`PAGE-NNN`)를
+설명 없이 쓰지 말고 **원문의 말로** 묻는다. 항목마다: `Q-NNN`(gap-report 상호 참조) · 질문 한 문장 ·
+**원문 위치**(p.N·절 이름) · 답이 없으면 무엇이 막히는지 한 줄 · 선택지(있으면, **"둘 다 아님·모르겠음"을
+항상 포함** — 선택지만 주면 유도가 된다) · `막음`/`나중`.
+
+**`막음`은 `gap-report.md`의 `BLOCKER`와 같은 항목이다** — 질문지에만 있고 gap-report에 없으면
+아무것도 멈추지 않는다(완료 조건과 오케스트레이터는 `BLOCKER`만 본다 — 둘 다 산문 규칙이다).
+두 곳에 같은 항목을 두고 `Q-NNN`으로 상호 참조한다. `나중`은 진행을 허용하지만 **사유 없는
+`ASSUMPTION`이 되어서는 안 된다** — 해당 항목은 정규화 산출물에 `QUESTION(Q-NNN)` 마커로 남겨
+결정 없이 구현하면 안 되는 자리를 표시한다. 마커 없이 항목만 빠지면 발명이 사라지는 것이 아니라
+**하류로 무표시 이동**한다(feature-planner·developer가 라벨 없이 채운다).
+
+**0건이면 파일을 만들지 않고** `gap-report.md`에 `INFO`로 남긴다(`design-binding.json`과 같은 규율 —
+만들지 않은 것과 묻지 않은 것을 구분한다). **답이 와도 원문은 고치지 않는다** — `decision-log.md`에
+출처(누가·언제)와 함께 기록하고, 원문 수정은 `source-change-proposals.md`에 제안으로 남긴다.
+
+### 이 절의 강도 — 기계 둘, 사람 하나, 나머지 산문
+
+**기계가 보는 것은 둘뿐이다** — `validate-planning-facilitation.mjs`의 파일별 마커 검사와
+`validate-contract-hygiene.mjs`의 `## 일반화 근거` 헤딩 검사. 변환 규칙·갭 분류·질문지 형식·
+Source Trace 형식은 **전부 미검사**다.
+
+**사람 탐지망은 하나 있다.** `plan-reviewer`가 `00_source/`의 `ASSUMPTION`/`QUESTION` 분류와
+`QUESTION(Q-NNN)` 마커를 검토 항목으로 갖는다(`.claude/agents/plan-reviewer.md`). 그 판정은
+read-only 지적이지 게이트가 아니며, **`QUESTION(Q-NNN)` 마커를 읽는 기계 소비자는 여전히 0이다.**
+이 축은 `provenance-contract.md`의 `supplied` 자기보고와 같은 등급이고 `docs/protected-core.md`
+§4에 등록한다.
 
 ## Source Trace Format
 
@@ -82,5 +138,9 @@ Add this section to each normalized output:
 계약에 경로로 박지 않는 것이 I3 규율이라 경로를 인용하지 않는다.
 **이 커밋에서 재현 가능한 것은 하나다**: 옮긴 네 절이 HEAD~ 대비 바이트 동등하다는 사실.
 
-**이 커밋의 범위(정직)**: 규칙의 **이동**이다. 규칙 자체는 바뀌지 않았고 새 어휘도 없다 —
-이동으로 달라지는 것은 누가 무엇을 읽는가뿐이다.
+**어디까지 실행됐는지 정직하게**: 위 두 형태에서 실제로 발화한 것은 **갭 4분류**
+(`INFO`·`ASSUMPTION`·`CONFLICT`·`BLOCKER`)와 판본 선택까지다. **`QUESTION`·질문지·
+`막음`/`나중`·`QUESTION(Q-NNN)` 마커는 어느 쪽에서도 실행된 적이 없다** — 두 프로브 모두 이
+규칙이 생기기 전에 돌았다. 그 부분은 **명명 수준**이고 eval 시나리오에도 등록되지 않았다.
+신설의 계기는 그 프로브 하나에서 "재방문자에게 온보딩 재노출 안 함"이 *일반적 관행*을 사유로
+`ASSUMPTION`이 되어 TC까지 간 것이다 — 제품 결정이 표기 없이 하류로 넘어갔다.

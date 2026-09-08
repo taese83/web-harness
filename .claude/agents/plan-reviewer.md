@@ -21,6 +21,7 @@ Phase 1 산출물을 독립적으로 검토하고 `_workspace/01_plan/plan-revie
 - 자동 UX Check trigger, critical state, annotation intent의 누락
 - `scenario-contract.md`의 관련 카테고리와 미결 시나리오
 - ASSUMPTION의 검증 방법과 BLOCKER 누락
+- **공급 원문의 갭 분류** (`.claude/skills/web-orchestrator/references/source-normalization.md`): `_workspace/00_source/`가 있으면 `gap-report.md`의 `ASSUMPTION`이 **표현 기본값**인가 — 제품 결정(무엇을·언제·어떤 규칙으로·무슨 문구로)이 `ASSUMPTION`으로 분류돼 있으면 `QUESTION`으로 되돌릴 대상이고, 사유가 "일반적 관행"이면 그 자체가 지적 사유다. `author-questions.md`의 `막음` 항목이 `gap-report.md`의 `BLOCKER`와 짝을 이루는가(질문지에만 있으면 아무것도 멈추지 않는다). 정규화 산출물에 남은 `QUESTION(Q-NNN)` 마커가 결정 없이 구현될 자리인가 — 위반은 `NEEDS_DECISION`
 - `mock | dev-read-only | real-read-only | production-integration-later` 선택, 안전 경계, Mock→real 전환
 - S/M/L/XL driver, `invest | reduce | split`, 최소 가시적 검토 단위
 - requirement → owner → evidence traceability

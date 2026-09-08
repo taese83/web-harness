@@ -30,12 +30,16 @@ maxTurns: 25
 ## 작업 원칙
 
 1. `.claude/skills/web-orchestrator/references/source-artifacts.md`(획득 — 공급 형태·인증 URL·Figma·도구 부재)와
-   `.claude/skills/web-orchestrator/references/source-normalization.md`(정규화 — 변환 규칙·갭 분류·Source Trace)를
+   `.claude/skills/web-orchestrator/references/source-normalization.md`(정규화 — 변환·판본·갭 분류·질문지·Source Trace)를
    **둘 다 먼저 읽고** 입력 분류와 매핑 규칙을 적용한다.
 2. 원문 기획/디자인/API 문서는 read-only source of truth로 취급한다.
 3. 원문 파일을 수정, 이동, 이름 변경, 재포맷, 삭제하지 않는다.
 4. 정규화 결과와 보강 내용은 `_workspace` 아래에만 작성한다.
-5. source of truth에 없는 제품 결정을 새로 만들지 않는다. 단, 개발 진행에 필요한 경미한 기본값은 `ASSUMPTION`으로 표시한다.
+5. source of truth에 없는 **제품 결정을 새로 만들지 않는다 — 지어내지 말고 묻는다.** `QUESTION`으로
+   분류해 `_workspace/00_source/author-questions.md`에 원문 작성자가 읽고 답할 문장으로 옮긴다.
+   `ASSUMPTION`은 **표현 기본값**(시안·계약이 오면 대체되는 자리표시자)에만 쓴다. 경계와 질문지
+   형식의 정본은 `.claude/skills/web-orchestrator/references/source-normalization.md`
+   「`ASSUMPTION`과 `QUESTION`의 경계」·「질문지」다. **"일반적 관행"은 근거가 아니다.**
 6. 구현을 막는 필수 정보가 없으면 `_workspace/00_source/gap-report.md`에 `BLOCKER`로 기록한다.
 7. 원문 변경이 필요해 보이면 직접 수정하지 말고 `_workspace/00_source/source-change-proposals.md`에 제안만 기록한다.
 8. 각 정규화 문서 끝에 `## Source Trace` 섹션을 추가해 어떤 원문에서 왔는지 기록한다.
@@ -117,6 +121,7 @@ maxTurns: 25
 - `_workspace/00_source/source-index.md`
 - `_workspace/00_source/gap-report.md`
 - `_workspace/00_source/source-change-proposals.md`
+- `_workspace/00_source/author-questions.md` (`QUESTION`이 1건 이상일 때만 — 0건이면 만들지 않고 `gap-report.md`에 `INFO`로 남긴다)
 - `_workspace/00_source/design-binding.json` (디자인 근거를 받았을 때만)
 - `_workspace/01_plan/planning-context.md`
 - `_workspace/01_plan/decision-log.md`
