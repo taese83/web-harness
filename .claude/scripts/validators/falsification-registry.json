@@ -341,8 +341,8 @@
     {
       "id": "design-debt-report-basis",
       "file": ".claude/scripts/validate-handoff-readiness.mjs",
-      "find": "        basis: have.get(conditionKey(condition)) ?? 'plan',",
-      "replace": "        basis: have.get(conditionKey(condition)) ?? 'supplied',",
+      "find": "        const basis = have.get(conditionKey(condition)) ?? 'plan'",
+      "replace": "        const basis = have.get(conditionKey(condition)) ?? 'supplied'",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "근거 없는 조건을 공급된 것으로 표시하면 디자인 부채 청구서가 항상 비어 나온다 — 막지 않는 보고이므로 내용이 거짓이면 그 경로에는 아무 방어도 남지 않는다"
     },
@@ -361,6 +361,22 @@
       "replace": "  node .claude/scripts/validate-handoff-readiness.mjs --project {root}",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "기획 발행 시점에 청구서를 부르지 않으면 디자인 absent를 고른 사용자가 그 대가를 목록으로 보는 자리가 없어진다 — /wh 시점에는 조건 표가 서기 전이라 셀 수 없고, 여기서 안 보여주면 개발 착수까지 아무도 모른다"
+    },
+    {
+      "id": "design-debt-acknowledgement-verified",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "      const known = cited.filter(id => loggedDecisions.has(id))",
+      "replace": "      const known = cited",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "인용을 결정 로그와 대조하지 않으면 없는 ID를 적는 것만으로 미결이 지워진다 — 자기신고를 파일 대조로 바꾸려던 자리가 자기신고보다 나빠진다(파일에 거짓이 남는다)"
+    },
+    {
+      "id": "design-debt-acknowledgement-heading-bound",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  const {ids: loggedDecisions} = declaredDecisions(readDecisionLog(root))",
+      "replace": "  const __log = readDecisionLog(root); const loggedDecisions = {has: id => __log.includes(id)}",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "표제 대조를 로그 본문 포함 검사로 바꾸면 「PC-007은 아직 보류한다」처럼 결정이 아니라고 적은 줄이 인수를 세운다 — 대조가 결정의 존재 확인이 아니라 문자열 검색이 된다"
     }
   ]
 }

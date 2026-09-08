@@ -931,6 +931,136 @@ test('공급원 판정 불가를 단정하지 않는다 — 보고 필드가 자
   }, {brief: FULL_BRIEF, document: null})
 })
 
+// ── 인수 기록 대조 (acknowledgedBy) ─────────────────────────────────────────
+// 청구가 자기신고로 끝나지 않게 하는 자리. `ux-brief` 행·칸의 결정 ID 인용을 **결정 로그와
+// 대조**해 실재할 때만 인수로 센다. 없는 ID를 적어 미결을 지우는 것은 자기신고보다 나쁘다.
+const ackBrief = (row) => [
+  '## 화면별 정보 위계',
+  '| 화면 | info:Primary | info:밀도 | state:empty | variant:권한 없음 |',
+  '|---|---|---|---|---|',
+  row,
+].join('\n')
+const withLog = (root, body) => {
+  mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+  writeFileSync(join(root, '_workspace/01_plan/decision-log.md'), body)
+}
+
+test('조건 칸의 인수 토큰은 그 조건만 인수한다', () => {
+  withProject(root => {
+    withLog(root, '## PC-007 (2026-09-04) — 빈 상태는 구현 판단에 맡긴다\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged.map(i => `${i.label}←${i.acknowledgedBy}`), ['state=empty←PC-007'])
+    assert.deepEqual(debt.planOnly.map(i => i.label), ['state=default', 'variant=권한 없음'])
+    assert.equal(debt.status, 'debt', '일부만 인수됐으면 아직 부채다')
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 | 표준 | 첫 주문 안내 (ack:PC-007) | 읽기 전용 배너 |'), document: null})
+})
+
+test('이름 칸의 인수 토큰은 그 화면의 조건 전부를 인수한다', () => {
+  withProject(root => {
+    withLog(root, '## PC-011 (2026-09-04) — 이 화면의 조건은 구현이 정한다\n')
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'acknowledged', '전부 인수됐으면 미결이 아니다')
+    assert.deepEqual(debt.planOnly, [])
+    assert.equal(debt.acknowledged.length, 3)
+  }, {brief: ackBrief('| PAGE-002 (ack:PC-011) | ① 주문 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |'), document: null})
+})
+
+test('없는 결정을 인수 토큰으로 적으면 인수가 아니다 — 파일에 남은 거짓을 이름으로 낸다', () => {
+  withProject(root => {
+    withLog(root, '## PC-007 (2026-09-04) — 다른 결정\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged, [], '로그에 없는 ID가 인수로 세어졌다')
+    assert.deepEqual(debt.danglingCitations.map(i => i.id), ['PC-999'])
+    assert.equal(debt.status, 'debt')
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 | 표준 | 첫 주문 안내 (ack:PC-999) | 읽기 전용 배너 |'), document: null})
+})
+
+test('결정 로그가 없으면 어떤 인수 토큰도 인수가 아니다', () => {
+  withProject(root => {
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged, [])
+    assert.deepEqual(debt.danglingCitations.map(i => i.id), ['PC-007'])
+    assert.equal(debt.status, 'debt')
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 | 표준 | 첫 주문 안내 (ack:PC-007) | 읽기 전용 배너 |'), document: null})
+})
+
+test('표제가 아닌 ID는 인수가 아니다 — 로그 본문 언급을 인수로 읽으면 대조가 문자열 검색이 된다', () => {
+  // 대조는 `declaredDecisions`(표제)로 한다. 본문 포함 검사로 바꾸면 "PC-007은 보류한다"처럼
+  // **결정이 아니라고 적은 줄**이 인수를 세운다 — 이 회귀가 그 변이를 잡는다(적대 리뷰 2026-09-04).
+  withProject(root => {
+    withLog(root, '## D-001 (2026-09-04) — 다른 결정\n\n- PC-007은 아직 보류한다.\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged, [], '표제가 아닌 본문 언급이 인수로 세어졌다')
+    assert.deepEqual(debt.danglingCitations.map(i => i.id), ['PC-007'])
+    assert.equal(debt.status, 'debt')
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 | 표준 | 첫 주문 안내 (ack:PC-007) | 읽기 전용 배너 |'), document: null})
+})
+
+test('맨 ID는 인수가 아니다 — 내용 근거 인용을 인수로 읽으면 다른 게이트가 부채를 지운다', () => {
+  // `checkDecisionsLanded`는 정본이 새 결정을 ID로 인용하도록 밀고, 실제 트리에 그 습관이
+  // 있다("decision-log PC-002 연계"). 그 인용을 인수로 세면 하네스의 게이트를 따르는 것이
+  // 곧 부채를 지우는 행위가 된다(적대 리뷰 2026-09-04).
+  withProject(root => {
+    withLog(root, '## PC-002 (2026-09-04) — 주문 상세 정보 위계 조정\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged, [], '내용 인용이 인수로 세어졌다')
+    assert.deepEqual(debt.danglingCitations, [])
+    assert.equal(debt.status, 'debt')
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 (decision-log PC-002 연계) | 표준 | 첫 주문 안내 | 읽기 전용 배너 |'), document: null})
+})
+
+test('하네스 자신의 ID는 인수 토큰이 아니다 — REQ-F-001의 F-001로 오탐하지 않는다', () => {
+  // 종전 구현은 `PAGE|FEAT|TC|REQ` 전방탐색으로 걸렀는데 `REQ-F-001`의 `F-001`이 빠져나가
+  // "결정 로그에 없는 ID를 인용했다"는 거짓 보고를 냈다(실측 2026-09-04).
+  withProject(root => {
+    withLog(root, '## PC-007 (2026-09-04) — 결정\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.danglingCitations, [], '하네스 자신의 ID가 인용으로 읽혔다')
+    assert.deepEqual(debt.acknowledged, [])
+  }, {brief: ackBrief('| PAGE-002 | ① 주문 (REQ-F-001, FEAT-003, TC-003-1) | 표준 | 첫 주문 안내 | 읽기 전용 배너 |'), document: null})
+})
+
+test('ID 체계를 박지 않는다 — 인수 토큰 뒤의 어떤 접두도 로그와 대조한다', () => {
+  // 하네스 계약은 `PC-NNN`이고 track은 `D-NNN`을 쓴다. 하나를 박으면 다른 쪽에서 이 대조가
+  // 전건 오탐이 된다(`declaredDecisions`가 같은 이유로 접두를 로그에서 읽는다).
+  withProject(root => {
+    withLog(root, '## D-042 (2026-09-04) — 이 화면의 조건은 구현이 정한다\n')
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'acknowledged')
+    assert.deepEqual([...new Set(debt.acknowledged.map(i => i.acknowledgedBy))], ['D-042'])
+  }, {brief: ackBrief('| PAGE-002 (ack:D-042) | ① 주문 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |'), document: null})
+})
+
+test('근거가 있는 조건에 인수 토큰을 얹어도 인수 목록에 들어가지 않는다', () => {
+  // `derive`·`reuse:*`는 이미 결정된 조건이라 인수 대상이 아니다 — "인수된 부채 N건"이
+  // 부채가 아니었던 것을 세면 숫자가 사실보다 커진다.
+  withProject(root => {
+    withLog(root, '## PC-011 (2026-09-04) — 인수\n')
+    const debt = designDebtReport(root)
+    assert.deepEqual(debt.acknowledged.map(i => i.label), ['variant=권한 없음'],
+      'supplied·derive 조건이 인수 목록에 들어갔다')
+  }, {brief: ackBrief('| PAGE-002 (ack:PC-011) | ① 주문 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |')})
+})
+
+test('인수 토큰만 있는 칸을 빈 칸으로 잡지 않는다 — 현재 계약은 내용 있음으로 본다', () => {
+  const table = parseInformationHierarchy(ackBrief('| PAGE-002 | ① 주문 | 표준 | (ack:PC-007) | 배너 |'))
+  assert.deepEqual(table.blanks, [], '토큰이 있는 칸을 빈 칸으로 볼지는 내용 판정이 아니다')
+  // 토큰은 내용이 아니지만 칸이 비어 있지도 않다 — 현재 계약은 이 자리를 "내용 있음"으로
+  // 본다. 그 판단을 명시적으로 고정한다(바꾸려면 이 회귀가 먼저 깨진다).
+  assert.deepEqual(table.rows[0].conditions.map(c => Object.values(c)[0]), ['empty', '권한 없음'])
+})
+
+test('인수는 시각 근거가 아니다 — clear와 섞지 않는다', () => {
+  withProject(root => {
+    withLog(root, '## PC-011 (2026-09-04) — 인수\n')
+    const debt = designDebtReport(root)
+    assert.equal(debt.status, 'acknowledged')
+    assert.notEqual(debt.status, 'clear')
+    // 근거가 있는 조건은 인수 목록에 들어가지 않는다.
+    assert.ok(debt.acknowledged.every(item => item.acknowledgedBy !== null))
+  }, {brief: ackBrief('| PAGE-002 (ack:PC-011) | ① 주문 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |'), document: null})
+})
+
 test('카탈로그 밖 형태는 testLayers.e2e가 화면 여부를 말한다', () => {
   // `spec.mjs`가 미등록 형태에 대해 "경로를 적거나 (absent — 이유)로 명시하라"고 이미
   // 요구한다. 그 선언을 안 보고 Page Groups로 넘어가면 미등록 UI 형태가 PAGE-000뿐일 때

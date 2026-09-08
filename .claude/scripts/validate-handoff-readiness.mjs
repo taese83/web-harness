@@ -327,7 +327,10 @@ function parseHierarchySection(body) {
   for (const line of lines.slice(1)) {
     const cells = tableCells(line)
     if (isSeparatorRow(cells, headers.length)) continue
-    const key = normalizeKey(cells[0])
+    // **인용을 걷어낸 뒤 해소한다.** 이름 칸에 `(ack:PC-011)`을 적는 것이 계약이 요구하는 형태인데
+    // 그대로 해소하면 Page Groups와 안 맞아 그 행이 통째로 미해소가 된다 — 계약을 따르는 것이
+    // 곧 실패가 되는 자리다(자체 실측 2026-09-04).
+    const key = normalizeKey(stripAcknowledgements(cells[0] ?? ''))
     if (!key) { blanks.push('<이름 없는 행>'); continue }
     // **헤더 수를 기준으로 돈다.** `cells`만 순회하면 뒤쪽 칸을 아예 생략한 짧은 행에서
     // 그 칸들이 검사 대상에서 빠진다 — 빈 칸을 미결로 잡겠다고 해놓고 가장 흔한 형태의
@@ -336,17 +339,29 @@ function parseHierarchySection(body) {
     // 이 행이 **답한** 조건. 합침 단계에서 다른 절의 조건까지 요구하려면 무엇에 답했는지를
     // 알아야 한다 — 빈 칸이면 답한 것이 아니다.
     const addressed = new Set()
+    // 인수 토큰(`ack:<ID>`). **접두를 박지 않는다** — 어느 체계인지는 결정 로그가 스스로
+    // 선언하고(`declaredDecisions`) 여기서는 형태만 걷어 위에서 대조한다(`PC`·`D` 양쪽 성립).
+    // 조건 칸의 토큰은 그 조건, 그 밖(이름 칸·서술 칸)의 토큰은 그 행 전체를 가리킨다.
+    const cellDecisions = new Map()
+    const rowDecisions = new Set()
+    for (const id of citedAcknowledgements(cells[0])) rowDecisions.add(id)
     for (const [index, header] of headers.entries()) {
       if (index === 0) continue
       const cell = cells[index] ?? ''
       const column = columns.find(candidate => candidate.index === index)
+      const cited = citedAcknowledgements(cell)
+      if (column !== undefined && CONDITION_AXES.includes(column.axis)) {
+        if (cited.length > 0) cellDecisions.set(`${column.axis}:${column.value}`, cited)
+      } else {
+        for (const id of cited) rowDecisions.add(id)
+      }
       if (cell === '') { blanks.push(`${key}/${column?.label ?? header}`); continue }
       if (column === undefined) continue
       addressed.add(`${column.axis}:${column.value}`)
       if (!CONDITION_AXES.includes(column.axis) || NOT_APPLICABLE.test(cell)) continue
       conditions.push({[column.axis]: column.value})
     }
-    rows.push({key, conditions, addressed})
+    rows.push({key, conditions, addressed, cellDecisions, rowDecisions: [...rowDecisions]})
   }
   return {malformed: false, rows, columns, untypedHeaders, blanks: [...new Set(blanks)].sort()}
 }
@@ -463,27 +478,44 @@ export function designDebtReport(root) {
     declared.get(row.pageGroup).set(conditionKey(row.condition),
       Array.isArray(row.referenceIds) && row.referenceIds.length > 0 ? 'supplied' : (row.resolution ?? 'pending'))
   }
+  // 인수 기록. **인용은 로그와 대조한 뒤에만 인수로 센다** — 없는 ID를 적어 미결을 지우는
+  // 것은 자기신고보다 나쁘다(파일에 거짓이 남는다). 어느 ID 체계인지는 로그가 선언한다.
+  const {ids: loggedDecisions} = declaredDecisions(readDecisionLog(root))
   const screens = []
+  const dangling = []
   for (const row of table.rows) {
     const pageGroup = resolvePageGroup(groups, row.key)
     if (pageGroup === null || pageGroup === 'PAGE-000') continue
     const have = declared.get(pageGroup) ?? new Map()
+    const verify = (cited, label) => {
+      const known = cited.filter(id => loggedDecisions.has(id))
+      for (const id of cited) {
+        if (!loggedDecisions.has(id)) dangling.push({pageGroup, label, id})
+      }
+      return known[0] ?? null
+    }
+    const rowAck = verify(row.rowDecisions ?? [], null)
     screens.push({
       pageGroup,
-      conditions: [{state: 'default'}, ...row.conditions].map(condition => ({
-        condition,
-        label: conditionLabel(condition),
+      conditions: [{state: 'default'}, ...row.conditions].map(condition => {
+        const label = conditionLabel(condition)
         // 근거는 두 층이다. 바인딩 행이 있으면 그것이 근거고, 없어도 정보 위계 표에 **내용**이
         // 있으면 구현이 무엇을 보여줄지는 안다 — 모르는 것은 그것을 **어떻게 그리는가**뿐이다.
         // 이 둘을 한 낱말로 부르면 청구서가 과장된다(적대 리뷰 2026-09-04): 표가 다 채워진
         // 프로젝트에 "무엇으로 그릴지 정해진 바가 없다"고 말하게 된다.
-        basis: have.get(conditionKey(condition)) ?? 'plan',
-      })),
+        const basis = have.get(conditionKey(condition)) ?? 'plan'
+        const cellAck = verify(row.cellDecisions?.get(`${Object.keys(condition)[0]}:${Object.values(condition)[0]}`) ?? [], label)
+        return {condition, label, basis, acknowledgedBy: cellAck ?? rowAck}
+      }),
     })
   }
   const pick = (...values) => screens.flatMap(screen =>
-    screen.conditions.filter(item => values.includes(item.basis))
+    screen.conditions.filter(item => values.includes(item.basis) && item.acknowledgedBy === null)
       .map(item => ({pageGroup: screen.pageGroup, label: item.label, basis: item.basis})))
+  const acknowledged = screens.flatMap(screen =>
+    // **부채였던 것만 센다.** `derive`·`reuse:*`는 이미 결정된 조건이라 인수 대상이 아니다.
+    screen.conditions.filter(item => ['plan', 'pending'].includes(item.basis) && item.acknowledgedBy !== null)
+      .map(item => ({pageGroup: screen.pageGroup, label: item.label, acknowledgedBy: item.acknowledgedBy})))
   return {
     schemaVersion: 1,
     // **"기획이 없다"를 "화면이 없다"로 말하지 않는다.** 둘을 한 분기로 뭉개면 부채가 최대인
@@ -499,6 +531,17 @@ export function designDebtReport(root) {
     screens,
     deferred: pick('pending'),
     planOnly: pick('plan'),
+    // 인수된 미결 — 시각 근거는 없고 **결정만 있다**. 인용된 ID가 결정 로그에 실재할 때만
+    // 여기 들어온다(파일 대조). 이것이 자기신고를 파일 대조로 바꾸는 자리다.
+    acknowledged,
+    // 한 결정이 몇 조건을 인수했는가. **값을 검사하지 않고 낼 수 있는 정직한 신호**다 —
+    // 결정 하나로 전건을 인수하는 것은 허용 형태이지만(범위 없는 인수), 그 사실이 숫자로
+    // 보이면 사람이 판단할 수 있다(적대 리뷰 2026-09-04).
+    acknowledgementFanOut: Object.fromEntries(
+      [...acknowledged.reduce((counts, item) =>
+        counts.set(item.acknowledgedBy, (counts.get(item.acknowledgedBy) ?? 0) + 1), new Map())]),
+    // 실재하지 않는 결정을 인용해 미결을 지운 자리. **인수보다 나쁘다** — 파일에 거짓이 남는다.
+    danglingCitations: dangling,
   }
 }
 
@@ -528,6 +571,26 @@ const declaredDesignSource = root => {
   const declared = readFileSync(marker, 'utf8').match(/DESIGN_SOURCE\s*:\s*(generated|supplied|absent)/i)
   return declared ? declared[1].toLowerCase() : null
 }
+
+// 결정 ID의 **형태**만 안다. 어느 접두가 유효한지는 결정 로그가 선언한다(`declaredDecisions`).
+// 인수는 **명시 토큰**으로만 표시한다: `ack:PC-007`.
+//
+// 맨 ID를 인수로 읽으면 안 된다. `checkDecisionsLanded`가 정본(`01_plan` — `ux-brief` 포함)에
+// 결정 ID를 **내용 근거로** 인용하라고 이미 밀고 있고, 실제 트리에 그 습관이 있다
+// (`workspace/nocode-builder/…/ux-brief.md`의 "decision-log PC-002 연계"). 그 인용을 인수로
+// 세면 하네스의 다른 게이트를 따르는 것이 곧 부채를 지우는 행위가 된다 — 이 보고가 막으려던
+// 바로 그 fail-open이다(적대 리뷰 2026-09-04).
+//
+// 토큰을 쓰면 ID 네임스페이스를 열거할 필요도 없어진다. 종전에는 `PAGE|FEAT|TC|REQ`를 뺐는데
+// `REQ-F-001`의 `F-001`이 그 전방탐색을 빠져나가 오탐이 났다(실측: `'REQ-F-001'.match(…)`
+// → `['F-001']`). `ack:` 뒤만 읽으면 그 문제가 성립하지 않는다.
+const ACK_CITATION = /\back:\s*([A-Z]{1,4}-\d{3,})\b/gi
+const citedAcknowledgements = value =>
+  [...String(value ?? '').matchAll(ACK_CITATION)].map(match => match[1].toUpperCase())
+// 이름 칸에서 인수 토큰만 걷어낸다 — 화면 ID(`PAGE-002`)는 건드리지 않는다.
+const stripAcknowledgements = value => String(value ?? '')
+  .replace(/[([（]\s*(?:ack:\s*[A-Z]{1,4}-\d{3,}[\s,·]*)+[)\]）]/gi, ' ')
+  .replace(ACK_CITATION, ' ')
 
 const E2E_ABSENT = /^\(\s*absent\b/i
 export const resolveScreenExpectation = spec => {
@@ -585,8 +648,11 @@ const designDebtStatus = ({root, sources, table, groups, denominator, screens, b
     // 선언**이다. 마커가 없으면 판정 불가이며 그 사실을 출력에 적는다.
     if (source !== 'absent') return 'design-present'
   }
-  return screens.some(screen => screen.conditions.some(item => item.basis === 'pending' || item.basis === 'plan'))
-    ? 'debt' : 'clear'
+  const unbacked = screens.flatMap(screen => screen.conditions.filter(item => item.basis === 'pending' || item.basis === 'plan'))
+  if (unbacked.length === 0) return 'clear'
+  // **전부 인수됐으면 미결이 아니다.** 다만 `clear`("전부 시각 근거를 갖는다")도 아니다 —
+  // 근거가 아니라 결정이 있는 상태이고, 두 낱말을 섞으면 보고가 사실보다 강해진다.
+  return unbacked.every(item => item.acknowledgedBy !== null) ? 'acknowledged' : 'debt'
 }
 
 export function checkDesignBinding(root, {reportDenominator = true} = {}) {
@@ -1174,7 +1240,18 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     const debt = designDebtReport(resolve(projectRoot))
     if (argv.includes('--json')) {
       process.stdout.write(`${JSON.stringify(debt, null, 2)}\n`)
-    } else if (debt.status === 'binding-missing') {
+      process.exit(0)
+    }
+    if (debt.danglingCitations.length > 0) {
+      // 상태와 무관하게 **먼저** 말한다. 없는 결정을 인용해 미결을 지운 것은 자기신고보다
+      // 나쁘다 — 파일에 거짓이 남고, 그것을 근거로 다음 사람이 넘어간다.
+      process.stdout.write(`결정 로그에 없는 ID를 인용한 자리 ${debt.danglingCitations.length}건 — 인수로 세지 않았다\n`)
+      for (const item of debt.danglingCitations) {
+        process.stdout.write(`  · ${item.pageGroup}${item.label ? `[${item.label}]` : ''} → ${item.id}\n`)
+      }
+      process.stdout.write('\n')
+    }
+    if (debt.status === 'binding-missing') {
       process.stdout.write('디자인 부채: 공급된 디자인인데 귀속 기록이 없다 — 어느 화면의 시안인지 아무도 승계하지 못한다\n')
       process.stdout.write('  디자인을 다시 만드는 것이 아니라 `00_source/design-binding.json`에 귀속을 적는다(design-binding-contract.md).\n')
     } else if (debt.status === 'design-present') {
@@ -1197,6 +1274,13 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       if (debt.denominatorProblems.length === 0) process.stdout.write('  · Page Groups 표 또는 정보 위계 행이 없다\n')
     } else if (debt.status === 'clear') {
       process.stdout.write(`디자인 부채 없음 — 화면 ${debt.screens.length}개의 조건이 전부 시각 근거를 갖는다\n`)
+    } else if (debt.status === 'acknowledged') {
+      // `clear`와 섞지 않는다 — 근거가 아니라 **결정**이 있는 상태다.
+      process.stdout.write(`인수된 부채 ${debt.acknowledged.length}건 — 시각 근거는 없고 결정이 있다\n`)
+      for (const item of debt.acknowledged) process.stdout.write(`  · ${item.pageGroup}[${item.label}] ← ${item.acknowledgedBy}\n`)
+      for (const [id, count] of Object.entries(debt.acknowledgementFanOut)) {
+        if (count > 1) process.stdout.write(`  (${id} 하나가 ${count}건을 인수했다 — 범위가 넓다면 나눠 적는다)\n`)
+      }
     } else {
       // `pending`은 **내용이 없는 것이 아니라** 근거 방식을 명시적으로 미룬 것이다
       // (`design-binding-contract.md` §3). 내용은 정보 위계 표에 있다 — 빈 칸이면 분모
@@ -1213,6 +1297,10 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       // **시점 중립으로 쓴다.** 이 출력은 기획 발행 직후(보여주기)와 개발 착수 직전(결정)
       // 두 자리에서 쓰인다 — "지금 정하라"고 쓰면 결정을 요구하지 않는 자리에서 산문과
       // 충돌한다(적대 리뷰 2026-09-04). 결정 시점은 부르는 쪽이 말한다.
+      if (debt.acknowledged.length > 0) {
+        process.stdout.write(`인수된 조건 ${debt.acknowledged.length}건 — 결정이 기록돼 있다\n`)
+        for (const item of debt.acknowledged) process.stdout.write(`  · ${item.pageGroup}[${item.label}] ← ${item.acknowledgedBy}\n`)
+      }
       process.stdout.write('\n정하지 않은 조건은 구현하는 사람이 그 자리에서 정하게 된다.\n')
     }
     process.exit(0)
