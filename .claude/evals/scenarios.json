@@ -493,5 +493,31 @@
       "design review checks token semantics (what each token is for) rather than only token existence when a spec consumes a token outside its declared purpose",
       "if the spec author cannot justify a token choice against its declared purpose, the mismatch is surfaced as a spec defect rather than passing spec-conformance checks"
     ]
+  },
+  {
+    "id": "supplied-planning-design-normalization",
+    "entrySkill": "/wh",
+    "prompt": "PRD 문서랑 대시보드 화면 시안 이미지 2장이 있어. 이걸로 관리자 대시보드 만들어줘. 시안은 대시보드랑 설정 화면만 있고 나머지 3개 화면은 아직 없어.",
+    "assertions": [
+      "the new lane asks the three provenance questions before starting and records PLAN_SOURCE and DESIGN_SOURCE as supplied rather than inferring them, and the supplied design is confirmed as which artifact form it takes (document, link, image, or Figma MCP)",
+      "source-artifact-ingestor writes _workspace/00_source/source-index.md in the inventory-table form with a required 소비 지점 column naming which normalized artifact each source became, and every named artifact carries a ## Source Trace that cites the same snapshot back",
+      "partial supply is recorded as coverage rather than as a label: the two supplied screens are normalized and the three missing ones are filled by the design wave and marked ASSUMPTION, with the mix disclosed in the completion report instead of a bare 디자인: supplied",
+      "design evidence attribution lands in _workspace/00_source/design-binding.json keyed by (pageGroup, condition) with declaredBy limited to user or carried, and unbound or pending entries are surfaced at the Phase 1 to 2 checkpoint instead of being resolved silently",
+      "validate-handoff-readiness --to design is actually run at the Phase 1 to 2 checkpoint and its verdict is shown, with the reported strength being advisory rather than an automatic block",
+      "the ux-brief information-hierarchy table is emitted with 형:이름 headers so the condition denominator is machine readable, and blank condition cells are reported as NEEDS_DECISION rather than passed over"
+    ]
+  },
+  {
+    "id": "supplied-source-author-questions",
+    "entrySkill": "/wh",
+    "prompt": "이 기획서로 예약 서비스 만들어줘. 문서에 정원 초과 시 어떻게 할지랑 재방문자 온보딩 재노출 여부는 안 적혀 있어.",
+    "assertions": [
+      "the two gaps the source document does not answer are classified as QUESTION rather than ASSUMPTION, because they are product decisions only the original author can settle, and 일반적 관행 is explicitly rejected as a reason for an ASSUMPTION",
+      "a self-contained _workspace/00_source/author-questions.md is produced in the language of the source document, where each item carries a Q-NNN id, the location in the original, what is blocked without an answer, and a 막음 or 나중 marker, and any option list always includes a none-of-these choice",
+      "items marked 막음 also appear as BLOCKER in gap-report.md cross-referenced by the same Q-NNN, because the orchestrator and completion conditions only read BLOCKER",
+      "items marked 나중 leave a QUESTION(Q-NNN) marker in the normalized artifact instead of silently becoming an unexplained ASSUMPTION, so the place that must not be implemented without a decision stays visible",
+      "when there are zero QUESTION items the file is not created at all and an INFO line is left in gap-report.md instead, so not asking and having nothing to ask stay distinguishable",
+      "answers from the author are recorded in decision-log.md with attribution and time while the original document is never edited, and any needed source change is only proposed in source-change-proposals.md"
+    ]
   }
 ]
