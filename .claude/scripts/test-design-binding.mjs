@@ -393,6 +393,26 @@ test('빈 칸은 미결이다 — 표의 존재만 보던 것이 분모를 0으�
   }, {brief})
 })
 
+test('첫 열의 선행 ID를 읽는다 — 라벨을 덧붙였다고 분모가 붕괴하면 오탐이다', () => {
+  // 실측(2026-09-08 프로브): 계약을 따라 돈 ingestor가 `PAGE-001 세미나 목록`을 냈고,
+  // 종전 판정은 6행 전부를 미해소로 잡아 분모를 통째로 무너뜨렸다. ID가 앞에 있으면
+  // 어느 화면인지 모호하지 않다 — 이것은 완화가 아니라 오탐 제거다.
+  const brief = hierarchy('| PAGE-002 주문 상세 | \u2460 주문 상태 | 이력 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |')
+  withProject(root => {
+    const inputs = checkDesignInputs(root)
+    assert.equal(inputs.state, 'PASS', inputs.detail)
+  }, {brief})
+})
+
+test('선행 ID가 없고 라벨도 안 맞으면 여전히 미해소다 — 오탐만 줄이고 검사는 남긴다', () => {
+  const brief = hierarchy('| 주문 상세 화면 | \u2460 주문 상태 | 이력 | 표준 | 첫 주문 안내 | 읽기 전용 배너 |')
+  withProject(root => {
+    const inputs = checkDesignInputs(root)
+    assert.equal(inputs.state, 'HOLE')
+    assert.match(inputs.detail, /Page Groups로 해소되지 않는/)
+  }, {brief})
+})
+
 test('형 없는 열은 분모를 붕괴시킨다 — 조용히 넘기지 않는다', () => {
   // 빈 칸 우회를 닫으면 우회가 헤더로 옮겨간다. 종전 형식(`empty 시 내용`)은 서술로 읽혀
   // 분모가 state:default 하나로 줄고, 그러면 커버리지 게이트가 이름만 남는다.

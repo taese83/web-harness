@@ -329,8 +329,18 @@ export function denominatorProblems(table, groups = []) {
 
 // 정보 위계 행의 첫 열을 PAGE-NNN으로 해소한다 — ID 자체이거나, Page Groups의
 // `Page`·`Route/Screen`과 정확히 일치하는 이름이다.
-const resolvePageGroup = (groups, key) => groups.find(row =>
-  row.id === key || normalizeKey(row.page) === key || normalizeKey(row.route) === key)?.id ?? null
+// **선행 ID 토큰을 허용한다.** `PAGE-001 세미나 목록`처럼 ID 뒤에 라벨을 덧붙이는 것은
+// 사람이 읽기 좋으라고 하는 정상 표기이고, 실측(2026-09-08 프로브)에서 계약을 따라 돈
+// ingestor가 정확히 그 형태를 냈다. 종전 판정은 그 행을 통째로 미해소로 잡아 **분모 6/6이
+// 붕괴**했다 — 잘 쓴 기획서가 "분모 없음"이 되는 최악의 실패 모드다. ID가 앞에 있으면
+// 어느 화면인지 모호하지 않으므로 이것은 완화가 아니라 **오탐 제거**다(I2: 느슨해지는 축이
+// 없다 — ID는 여전히 필수이고, ID도 라벨도 못 맞추는 행은 그대로 미해소다).
+const LEADING_PAGE_ID = /^(PAGE-\d{3,})\b/i
+const resolvePageGroup = (groups, key) => {
+  const leading = LEADING_PAGE_ID.exec(String(key ?? ''))?.[1]?.toUpperCase()
+  return groups.find(row =>
+    row.id === key || row.id === leading || normalizeKey(row.page) === key || normalizeKey(row.route) === key)?.id ?? null
+}
 
 // ── 조건의 분모 — ux-brief 「화면별 정보 위계」 표 ───────────────────────────
 // 하나의 화면은 조건에 따라 여러 디자인을 갖는다. 그 조건 목록의 정본이 이 표이며
