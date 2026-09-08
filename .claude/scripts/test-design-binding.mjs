@@ -1162,6 +1162,21 @@ test('배선: Phase 1 → 2가 --to design을 부른다 — 코드에만 있는 
   assert.match(phase1to2, /다시 재지 않는다/, '넘어갈 때 무엇을 잃는지 적히지 않았다')
 })
 
+test('배선: bash 정책이 --to design을 허용한다 — 계약이 부르는 명령이 정책 밖이면 에이전트에서 막힌다', () => {
+  // 2026-09-08 자체 실측: Phase 1 → 2에 `--to design` 실행 문장을 넣으면서 정책 등록을
+  // 빠뜨렸다. 정책은 `--to development`만 허용하고 있었고, 그러면 오케스트레이터는
+  // DENY_VALIDATION_COMMAND로 막히는데 **저자는 메인 스레드라 그것을 못 본다** —
+  // 이 저장소가 세 번째로 물린 클래스다(development-gates-contract 「배선 회귀 규율」).
+  const decide = command => evaluateGlobalBashPolicy({
+    agent_type: 'code-reviewer', tool_name: 'Bash', tool_input: {command},
+  })
+  const base = 'node .claude/scripts/validate-handoff-readiness.mjs --project .'
+  assert.equal(decide(`${base} --to design`).allowed, true, 'Phase 1 → 2가 부르는 명령이 막힌다')
+  assert.equal(decide(`${base} --to development`).allowed, true, 'Phase 2 → 3이 부르는 명령이 막힌다')
+  // 등록되지 않은 인계 이름은 그대로 막힌다 — 넓히는 것이 아니라 계약이 부르는 둘만 연다.
+  assert.equal(decide(`${base} --to release`).allowed, false, '정책이 필요 이상으로 넓어졌다')
+})
+
 test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명령은 에이전트 경로에서 막힌다', () => {
   // 오케스트레이터가 부를 명령을 정책에 등록하지 않으면 에이전트 경로에서 DENY로 막히고,
   // 저자는 메인 스레드라 그것을 못 본다 — 이 저장소가 이미 두 번 물린 클래스다.

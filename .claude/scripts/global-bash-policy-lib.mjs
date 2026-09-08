@@ -772,7 +772,10 @@ const validationScriptContract = (script, args, context) => {
     }
     if (!args.includes('--to')) return false
     const toIndex = commandArgs.indexOf('--to')
-    if (toIndex === -1 || !['development'].includes(commandArgs[toIndex + 1] ?? '')) return false
+    // `design`은 Phase 1 → 2 체크포인트가 부른다(`approval-checkpoints.md`). 계약에 명령을
+    // 적고 정책에 등록하지 않으면 에이전트 경로에서 DENY로 막히는데 **저자는 메인 스레드라
+    // 그것이 안 보인다** — 이 저장소가 세 번째로 물린 클래스다(2026-09-08 자체 실측).
+    if (toIndex === -1 || !['development', 'design'].includes(commandArgs[toIndex + 1] ?? '')) return false
     const rest = [...commandArgs.slice(0, toIndex), ...commandArgs.slice(toIndex + 2)]
     return rest.every(arg => arg === '--json') && rest.length === new Set(rest).size
   }
