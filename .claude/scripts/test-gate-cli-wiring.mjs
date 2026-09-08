@@ -57,9 +57,9 @@ const withCleanProject = fn => {
     // 그 상태가 READY로 나오던 것이 닫은 우회다.
     writeFileSync(join(root, '_workspace/01_plan/ux-brief/a.md'), [
       '## 화면별 정보 위계',
-      '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty |',
-      '|---|---|---|---|---|',
-      '| PAGE-001 | ① 목록 | 요약 | 표준 | 첫 항목 안내 |',
+      '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty | state:error | variant:권한 없음 |',
+      '|---|---|---|---|---|---|---|',
+      '| PAGE-001 | ① 목록 | 요약 | 표준 | 첫 항목 안내 | 재시도 안내 | 해당 없음(단일 사용자) |',
       '',
       '## 디자인 방향',
       '방향',

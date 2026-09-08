@@ -318,12 +318,47 @@ export function checkDesignInputs(root) {
   // 칸을 비워두면 통과했다 — 조건 분모가 0이면 커버리지도 0/0으로 서고, **조건을 안 적는
   // 것이 통과하는 길**이 된다(protected-core §4 등록 항목의 부분 해소).
   const table = parseInformationHierarchy(readPlanArtifact(root, '_workspace/01_plan/ux-brief'))
-  const problems = denominatorProblems(table, planSources(root).flatMap(parsePageGroups))
+  const groups = planSources(root).flatMap(parsePageGroups)
+  const problems = denominatorProblems(table, groups)
+  // 축 보고는 **판정에 들어가지 않는다** — 어느 상태든 detail에 덧붙기만 한다.
+  const axisNote = missingRequiredAxes(table)
+  const withNote = detail => (axisNote === null ? detail : `${detail} · ${axisNote}`)
   if (problems.length > 0) {
-    return hole('design-inputs', problems.join(' · '),
+    return hole('design-inputs', withNote(problems.join(' · ')),
       '내용을 적거나, 그 조건이 이 화면에 없으면 `해당 없음(사유)`로 **명시**한다. 조건 열의 헤더에는 축 접두를 붙인다(`state:empty`·`variant:권한 없음`) — 접두가 없으면 그 열은 서술로 읽혀 분모에서 빠지고, 커버리지가 조용히 default 하나로 줄어든다(design-readiness-contract §1)')
   }
-  return ok('design-inputs', `디자인이 요구하는 기획 절이 전부 있다 · 화면 ${table.rows.length}개 · 조건 열 ${table.axes.length}개`)
+  // **행 수를 화면 수로 세지 않는다.** 단일 라우트 다상태 앱은 한 화면에 행이 여럿이고
+  // (실측: `track`은 PAGE-001 하나에 상태 행 6개), 행 수로 세면 「화면 6개」라는 거짓을 낸다.
+  const screens = new Set(table.rows.map(row => resolvePageGroup(groups, row.key)).filter(Boolean))
+  return ok('design-inputs', withNote(
+    `디자인이 요구하는 기획 절이 전부 있다 · 화면 ${screens.size}개(위계 행 ${table.rows.length}개) · 조건 열 ${table.axes.length}개`))
+}
+
+// 필수 축이 **열로** 서 있는가. **막지 않는다 — 보고다.**
+//
+// 막으려다 되돌린 기록(2026-09-08 적대 리뷰): 코퍼스 전수(24개)에서 이 검사가 실제로 발화하는
+// 프로젝트는 둘뿐이고 그중 **하나가 오탐**이었다 — `nps-ingest-probe-2`는 계약 형식(`축:값`)을
+// 지켰는데 권한 부류를 `variant:인증단계`·`variant:자격`으로 쓴다(본인인증 서비스). 정규식을
+// `인증|자격`으로 넓히는 것은 경계를 옮길 뿐이다(다음은 `variant:guest`). 오탐이 하나라도
+// 있으면 막지 않는다는 이 저장소 규율대로 보고로 낮췄다.
+//
+// 「코퍼스 4/4 오탐 0」이라던 최초 주장은 **vacuous**였다 — 그 4개는 접두 없는 헤더라
+// `axes.length === 0`이고 이 검사는 그 경우 아무 말도 하지 않는다. 발화조차 하지 않았다.
+//
+// 실질 해소는 **프로젝트별 래칫**(분모가 이전 판정보다 줄면 잡는다)이며 이름 프록시가 아니다 —
+// 미구현이고 §4에 등록했다.
+//
+// `denominatorProblems`가 아니라 여기에 두는 이유는 따로다: 이것은 「기획 문서가 완결됐는가」이고
+// 공유 함수가 답하는 「선언된 조건에 근거가 있는가」와 다른 질문이다(실측: 공유 함수에 넣었더니
+// design-binding 회귀 20건이 분모 변화로 무너졌다).
+export function missingRequiredAxes(table) {
+  if (!table.present || table.rows.length === 0 || table.axes.length === 0) return []
+  const declared = table.axes.map(column => `${column.axis}:${column.value}`)
+  const missing = COMMON_AXES.filter(([, pattern]) => !declared.some(label => pattern.test(label)))
+  if (missing.length === 0) return null
+  return `상용 조건 축 ${missing.length}개가 열로 없다: ${missing.map(([name]) => name).join(', ')}`
+    + ' — 이 서비스에 그 부류가 없으면 정상이고, 있는데 빠졌으면 그 조건은 아무도 요구하지 않게 된다.'
+    + ' 있는데 이 화면들에 해당이 없는 경우라면 열을 두고 칸에 `해당 없음(사유)`를 적는다 (막지 않는다 — 판정은 사람 몫이다)'
 }
 
 // 분모 자체가 서 있는가. `design-inputs`와 `design-binding`이 **같은 함수**를 부른다 —
@@ -428,6 +463,17 @@ const CONDITION_AXES = ['state', 'modeId', 'variant']
 const NOT_APPLICABLE = /^(?:(?:해당\s*없음|비적용|not\s*applicable|n\/a)\s*(?:[(（][^)）]*[)）])?|[-—–]+)$/i
 // 형 없는 열이 조건이었을 가능성을 **문구로만** 쓴다(판정이 아니라 안내). 실측 5/5
 // 워크스페이스가 종전 형식이었으므로 이행 대상을 이름으로 짚어준다.
+// **상용 조건 축.** 실측에서 자주 나오는 셋이다 — 빈 상태·오류·권한. **필수가 아니다**:
+// 코퍼스 전수에서 계약 형식을 지키고도 다른 부류를 쓰는 프로젝트가 나왔다(아래 참조). 그런데 게이트는 「조건 열이 하나도 없다」만
+// 막았고, **축 하나만 남기고 나머지를 지우면 READY**였다(D3·D5 실측: 3개→2개→1개 전부 통과).
+// 분모가 조용히 줄어드는 것을 막는 것이 이 계약의 존재 이유인데 그 자리가 비어 있었다.
+// 해당이 없는 화면은 열을 지우는 게 아니라 칸에 `해당 없음(사유)`를 적는다 — 계약이 이미
+// 그렇게 말하고, 실측에서 `track`이 권한 축 전 칸을 `N/A(계정 없음)`로 채워 그 형태를 보였다.
+const COMMON_AXES = [
+  ['빈 상태', /empty|빈\s*상태|비어/i],
+  ['오류', /error|오류|실패/i],
+  ['권한', /권한|permission|role|auth/i],
+]
 const LEGACY_CONDITION_HEADER = /(?:empty|error|권한|permission|모바일|mobile|다크|dark|상태|state|시 내용|플랜|역할|role|plan)/i
 const tableCells = line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim())
 // Page Groups의 Route는 관행상 백틱으로 감싸 적는다(`` `/sessions` ``). 정규화하지 않으면

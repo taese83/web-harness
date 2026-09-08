@@ -232,18 +232,22 @@ test('선언 집합은 Page Groups 표다 — 산문의 언급은 선언이 아�
 
 // ── 배선 ────────────────────────────────────────────────────────────────────
 const pageGroups = (...rows) => ['## Page Groups', '| Page Group ID | Page | Route/Screen | Order |', '|---|---|---|---|', ...rows].join('\n')
+// 필수 조건 축 셋(빈 상태·오류·권한)을 헬퍼가 채운다 — 축이 빠진 픽스처는 그 자체로 구멍이다
+// (2026-09-08 코퍼스 검증). 오류 축은 **전 칸 N/A**라 분모에는 들어가지 않는다 — 축 유무를
+// 보는 검사만 만족시키고, 근거를 보는 검사의 분모는 이 헬퍼를 쓰던 그대로 남는다.
 const hierarchy = (...rows) => [
   '## 화면별 정보 위계',
-  '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty | variant:권한 없음 |',
-  '|---|---|---|---|---|---|',
-  ...rows,
+  '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty | variant:권한 없음 | state:error |',
+  '|---|---|---|---|---|---|---|',
+  ...rows.map(row => `${row} 해당 없음(픽스처) |`),
 ].join('\n')
 const DESIGN_DIRECTION = '\n\n## 디자인 방향\n- 브랜드 제약: 없음\n'
 // 기본 brief는 조건을 하나도 요구하지 않는 최소 형태다 — 조건 커버리지를 재지 않는 테스트가
 // 분모 부재로 실패하지 않게 한다. 분모 자체를 보는 테스트는 brief를 직접 넘긴다.
 const MINIMAL_BRIEF = ['## 화면별 정보 위계',
-  '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty |', '|---|---|---|---|---|',
-  '| PAGE-002 | ① 주문 | 이력 | 표준 | 비적용(항상 값이 있다) |'].join('\n')
+  '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty | state:error | variant:권한 없음 |',
+  '|---|---|---|---|---|---|---|',
+  '| PAGE-002 | ① 주문 | 이력 | 표준 | 비적용(항상 값이 있다) | 해당 없음(픽스처) | 해당 없음(픽스처) |'].join('\n')
 const withProject = (fn, {document = binding(), plan = pageGroups('| PAGE-002 | Order Detail | order-detail | 1 |'), brief = MINIMAL_BRIEF, system = null} = {}) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-binding-')))
   try {
@@ -373,7 +377,8 @@ test('조건 열만 분모다 — 접두 없는 열은 서술이고, 해당 없�
     '| PAGE-003 | ① 설정 | — | 표준 | 해당 없음(항상 값이 있다) | 접근 요청 안내 |',
   ))
   assert.deepEqual(table.blanks, [])
-  assert.deepEqual(table.axes.map(a => `${a.axis}:${a.value}`), ['state:empty', 'variant:권한 없음'])
+  // 헬퍼가 오류 축을 열로 더한다(전 칸 N/A) — 축 목록에는 서고 조건 분모에는 안 든다.
+  assert.deepEqual(table.axes.map(a => `${a.axis}:${a.value}`), ['state:empty', 'variant:권한 없음', 'state:error'])
   assert.deepEqual(table.rows[0].conditions, [{state: 'empty'}, {variant: '권한 없음'}])
   assert.deepEqual(table.rows[1].conditions, [{variant: '권한 없음'}])
 })
@@ -1221,4 +1226,50 @@ test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명
   assert.equal(decide(`${base} --fix`), false)
   // 기존 형태는 그대로 허용된다(약화 없음).
   assert.equal(decide('node .claude/scripts/validate-handoff-readiness.mjs --project . --to development'), true)
+})
+
+// ── 필수 조건 축 ─────────────────────────────────────────────────────────────
+// 2026-09-08 코퍼스 검증에서 나온 구멍이다. 게이트는 「조건 열이 **하나도** 없다」만 막았고,
+// 축 하나만 남기고 나머지를 지우면 READY였다 — 실측으로 3개→2개→1개 전부 통과시켰다.
+// 분모가 조용히 줄어드는 것을 막는 것이 이 계약의 존재 이유인데 그 자리가 비어 있었다.
+// 필수 축은 실측 근거다: 정보 위계 표를 가진 4개 프로젝트가 예외 없이 빈 상태·오류·권한을 썼다.
+const axisBrief = (...headers) => ['## 화면별 정보 위계',
+  `| 화면 | info:Primary | ${headers.join(' | ')} |`,
+  `|---|---|${headers.map(() => '---|').join('')}`,
+  `| PAGE-002 | ① 주문 | ${headers.map(() => '내용').join(' | ')} |`].join('\n')
+
+test('축이 빠지면 보고한다 — 그리고 막지 않는다', () => {
+  // **막으려다 되돌렸다.** 코퍼스 전수(24개)에서 이 검사가 발화하는 프로젝트는 둘뿐이고
+  // 그중 하나가 오탐이었다 — `nps-ingest-probe-2`는 계약 형식을 지켰는데 권한 부류를
+  // `variant:인증단계`·`variant:자격`으로 쓴다. 오탐이 있으면 막지 않는다.
+  withProject(root => {
+    const result = checkDesignInputs(root)
+    assert.equal(result.state, 'PASS', result.detail)
+    assert.match(result.detail, /상용 조건 축 2개가 열로 없다: 오류, 권한/)
+    assert.match(result.detail, /막지 않는다/)
+  }, {brief: axisBrief('state:empty'), document: null})
+})
+
+test('축이 전부 있으면 보고도 없다', () => {
+  withProject(root => {
+    const result = checkDesignInputs(root)
+    assert.equal(result.state, 'PASS', result.detail)
+    assert.doesNotMatch(result.detail, /상용 조건 축/)
+  }, {
+    brief: ['## 화면별 정보 위계',
+      '| 화면 | info:Primary | state:empty | state:error | variant:권한 없음 |', '|---|---|---|---|---|',
+      '| PAGE-002 | ① 주문 | 첫 주문 안내 | 재시도 안내 | 해당 없음(계정 없음) |'].join('\n'),
+    document: null})
+})
+
+test('화면 수는 행 수가 아니다 — 단일 라우트 다상태 앱을 화면 여럿으로 세지 않는다', () => {
+  // 실측(`track`): PAGE-001 하나에 상태 행이 6개다. 행으로 세면 「화면 6개」라는 거짓을 낸다.
+  withProject(root => {
+    const result = checkDesignInputs(root)
+    assert.equal(result.state, 'PASS', result.detail)
+    assert.match(result.detail, /화면 1개\(위계 행 2개\)/)
+  }, {
+    brief: hierarchy('| PAGE-002 입력 대기 | ① 주문 | 이력 | 표준 | 첫 주문 안내 | 비적용(-) |',
+      '| PAGE-002 로딩 | ① 진행 | 이력 | 표준 | 비적용(-) | 비적용(-) |'),
+    document: null})
 })

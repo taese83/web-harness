@@ -449,6 +449,22 @@
       "replace": "- 설계→코드 결속을 요약해 적는다(규칙 정본은",
       "test": ".claude/scripts/test-release-gate-spec.mjs",
       "why": "에이전트가 실제로 읽는 파일에서 인용이 사라지면 계약 정본만 남고 실행되지 않는다 — 절마다 seed가 있어야 한쪽이 조용히 죽지 않는다"
+    },
+    {
+      "id": "common-condition-axes-reported",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  const missing = COMMON_AXES.filter(([, pattern]) => !declared.some(label => pattern.test(label)))",
+      "replace": "  const missing = []",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "축이 빠진 것을 보고하지 않으면 조건 분모가 조용히 줄어든다 — 2026-09-08 코퍼스 검증에서 축 3→2→1 삭제가 전부 무증상 통과였다. 막지는 않지만 **말은 해야** 사람이 판정할 수 있다"
+    },
+    {
+      "id": "hierarchy-screen-count",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  const screens = new Set(table.rows.map(row => resolvePageGroup(groups, row.key)).filter(Boolean))",
+      "replace": "  const screens = {size: table.rows.length}",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "행 수를 화면 수로 세면 단일 라우트 다상태 앱이 「화면 6개」로 보고된다 — 실측 `track`은 화면 1개에 상태 행 6개다"
     }
   ]
 }
