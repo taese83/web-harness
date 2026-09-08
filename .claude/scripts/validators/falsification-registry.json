@@ -385,6 +385,14 @@
       "replace": "      if (false) {",
       "test": ".claude/scripts/test-handoff-readiness.mjs",
       "why": "역방향 대조를 끄면 인벤토리에 아무 산출물이나 소비 지점으로 적어 통과시킬 수 있다 — 한 방향만 보면 유령 연결이 supplied를 사실처럼 만든다"
+    },
+    {
+      "id": "motion-role-period-token",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  const hasPeriodToken = joined.split('\\n').some(line => PERIOD_TOKEN.test(line) && MOTION_TOKEN_LINE.test(line))",
+      "replace": "  const hasPeriodToken = true",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "주기 토큰 존재 확인을 끄면 반복 모션을 서술하면서 주기 토큰이 없는 상태가 조용히 통과한다 — 그 상태가 파일럿에서 200ms 인터랙션 토큰을 스켈레톤 루프 주기로 만든 근인이다"
     }
   ]
 }

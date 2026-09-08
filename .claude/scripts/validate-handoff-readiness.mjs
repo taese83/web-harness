@@ -246,6 +246,63 @@ export function checkSourceConsumption(root) {
   return ok('source-consumption', `공급 원문 ${inventory.rows.length}건이 산출물로 이어진다 · 양방향 대조 ${traced}건`)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 모션 역할 공백 — 반복 모션을 서술하면서 주기 토큰을 선언하지 않았는가
+//
+// 실측 근거(greenfield-pilot-2 부록 A-1): `component-spec`이 `duration-base`(200ms 인터랙션
+// 토큰)를 스켈레톤 shimmer의 **루프 주기**로 오처방했고, `design-reviewer`를 포함한 14종
+// verifier가 **전부 통과**시켰다. 사용자가 육안으로 잡았다 — 「틀린 스펙은 무사통과한다」의
+// 대표 사례다.
+//
+// **근인은 오용이 아니라 선언의 공백이다.** 잘 만들어진 토큰 집합에는 주기 토큰이 따로 있고
+// (`pulsePeriodMs: 1200` vs `enterMs: 200`), 없으면 구현자는 가장 가까운 duration을 빌린다.
+// 그래서 이 검사는 **선언 측만** 본다.
+//
+// **사용처 검사는 의식적으로 포기했다.** 「루프를 서술한 줄이 인용한 토큰의 역할」을 보려면
+// 줄 단위 키워드 매칭이 필요한데, 전 workspace 드라이런에서 토큰·ms를 같은 줄에 가진 4건이
+// **4건 모두 오탐**이었다(reduced-motion 행 2 · 토큰 선언 행 2). 정밀화하려면 맥락 규칙을
+// 계속 얹어야 하고 규칙마다 새 프록시가 생긴다 — 못 잡는 변종은 §4에 등록한다.
+const MOTION_ARTIFACTS = ['_workspace/02_design/design-system', '_workspace/02_design/component-spec']
+// 닫힌 어휘다. 다른 말로 쓰면 놓친다 — **과소 탐지이며 안전한 방향**이다(§4 등록).
+const LOOPING_MOTION = /skeleton|shimmer|spinner|pulse|펄스|무한\s*(?:반복|루프)|반복\s*애니|루프\s*애니|infinite|iteration\s*count/i
+// reduced-motion을 말하는 줄은 루프 **처방**이 아니라 그 반대다 — 드라이런에서 오탐 2건이 여기였다.
+const REDUCED_MOTION_LINE = /reduced-motion|prefers-reduced-motion|정지\s*점|정적|1회|한\s*번|once\b|one-shot|단발/i
+// 역할은 이름이 말한다. 값은 보지 않는다 — 주기의 적정 범위는 서비스마다 다르다(I3).
+const PERIOD_TOKEN = /\b[A-Za-z-]*(?:period|loop|cycle|interval|shimmer|spin|blink|breath|marquee|ticker)[A-Za-z-]*\b|주기/i
+// 토큰 선언 형태는 프로젝트마다 다르다 — TS 객체(`pulsePeriodMs: 1200,`), CSS 변수
+// (`--duration-loop`), 마크다운 표 행(`| pulsePeriodMs | 1200 |`), 산문 인용
+// (`` `duration-shimmer`(2000ms) ``). 전부 읽는다 — 한 형태만 읽으면 정직한 선언이
+// 형식 때문에 미선언으로 잡힌다(드라이런에서 실제로 그렇게 오탐이 났다).
+const MOTION_TOKEN_LINE = /\b\w*(?:Ms|ms)\b\s*[:=]|--duration|--motion|motionTokens|\bduration-[a-z][\w-]*|\d+\s*ms\b|\|\s*\d{2,5}\s*\|/i
+
+export function checkMotionRoleTokens(root) {
+  const texts = MOTION_ARTIFACTS
+    .map(base => ({base, text: readWorkspaceArtifact(root, base)}))
+    .filter(entry => entry.text !== null)
+  if (texts.length === 0) {
+    return skip('motion-role', '디자인 산출물이 없어 모션 역할을 볼 수 없다')
+  }
+  const looping = []
+  for (const {base, text} of texts) {
+    for (const line of text.split('\n')) {
+      if (!LOOPING_MOTION.test(line)) continue
+      if (REDUCED_MOTION_LINE.test(line)) continue
+      looping.push(`${base.split('/').pop()}: ${line.trim().slice(0, 70)}`)
+    }
+  }
+  if (looping.length === 0) {
+    return skip('motion-role', '반복 모션 서술이 없다 — 주기 토큰을 요구할 근거가 없다')
+  }
+  const joined = texts.map(entry => entry.text).join('\n')
+  const hasPeriodToken = joined.split('\n').some(line => PERIOD_TOKEN.test(line) && MOTION_TOKEN_LINE.test(line))
+  if (!hasPeriodToken) {
+    return hole('motion-role',
+      `반복 모션을 ${looping.length}곳에서 서술하는데 주기 역할 토큰이 없다 — ${looping[0]}`,
+      '`pulsePeriodMs`·`--duration-loop`처럼 **주기 역할이 이름에 드러나는** 모션 토큰을 design-system에 선언한다. 없으면 구현이 가장 가까운 인터랙션 토큰을 빌려 쓰고(실측: 200ms 인터랙션 토큰이 스켈레톤 루프 주기가 됐다) 스펙 대조 검증은 전 계층을 통과한다')
+  }
+  return ok('motion-role', `반복 모션 서술 ${looping.length}곳 · 주기 역할 토큰 선언됨`)
+}
+
 export function checkDesignInputs(root) {
   const missing = []
   for (const section of REQUIRED_PLAN_SECTIONS) {
@@ -1340,11 +1397,28 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   const projectRoot = projectIndex >= 0 ? argv[projectIndex + 1] : undefined
   const to = toIndex >= 0 ? argv[toIndex + 1] : 'development'
   if (!projectRoot || !HANDOFFS.includes(to)) {
-    process.stderr.write(`사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> [--to ${HANDOFFS.join('|')} | --design-debt] [--json]\n`)
+    process.stderr.write(`사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> [--to ${HANDOFFS.join('|')} | --design-debt | --motion-role] [--json]\n`)
     process.exit(2)
   }
   // 디자인 부채 청구서. **판정이 아니라 보고이므로 항상 exit 0이다** — 이 출력으로 진행을
   // 막지 않는다(`provenance-contract.md` §3). 결정은 사람이 하고 인수는 decision-log에 남는다.
+  // 모션 역할 공백 보고. **판정이 아니라 보고이므로 항상 exit 0이다** — 전수 드라이런에서
+  // 오탐 2건(18개 프로젝트 중 telemetry-viewer·minicar-laptime)이 나왔고, 자연어 중의성
+  // (부정문·다의어)에서 오는 것이라 규칙을 더 얹어도 완전해지지 않는다. 막지 않는 대신
+  // 이름으로 드러낸다 — `--design-debt`와 같은 취급이다.
+  if (argv.includes('--motion-role')) {
+    const report = checkMotionRoleTokens(resolve(projectRoot))
+    if (argv.includes('--json')) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      process.exit(0)
+    }
+    process.stdout.write(`모션 역할: ${report.state} — ${report.detail}\n`)
+    if (report.state === 'HOLE') {
+      process.stdout.write(`  ${report.remedy}\n`)
+      process.stdout.write('  이 보고는 진행을 막지 않는다. 반복 모션이 없는데 잡혔다면 오탐이며 그대로 진행한다.\n')
+    }
+    process.exit(0)
+  }
   if (argv.includes('--design-debt')) {
     const debt = designDebtReport(resolve(projectRoot))
     if (argv.includes('--json')) {

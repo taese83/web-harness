@@ -18,7 +18,7 @@ import {
   DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, crossCheckVisualReferences, validateDesignBinding,
 } from './design-binding-lib.mjs'
 import {
-  analyzeHandoffReadiness, checkDesignBinding, checkDesignInputs, designDebtReport, pageGroupIdsIn, readDecisionLog,
+  analyzeHandoffReadiness, checkDesignBinding, checkDesignInputs, checkMotionRoleTokens, designDebtReport, pageGroupIdsIn, readDecisionLog,
   parseInformationHierarchy, parsePageGroups,
 } from './validate-handoff-readiness.mjs'
 import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
@@ -244,11 +244,13 @@ const DESIGN_DIRECTION = '\n\n## 디자인 방향\n- 브랜드 제약: 없음\n'
 const MINIMAL_BRIEF = ['## 화면별 정보 위계',
   '| 화면 | info:Primary | info:Secondary | info:밀도 | state:empty |', '|---|---|---|---|---|',
   '| PAGE-002 | ① 주문 | 이력 | 표준 | 비적용(항상 값이 있다) |'].join('\n')
-const withProject = (fn, {document = binding(), plan = pageGroups('| PAGE-002 | Order Detail | order-detail | 1 |'), brief = MINIMAL_BRIEF} = {}) => {
+const withProject = (fn, {document = binding(), plan = pageGroups('| PAGE-002 | Order Detail | order-detail | 1 |'), brief = MINIMAL_BRIEF, system = null} = {}) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-binding-')))
   try {
     mkdirSync(join(root, '_workspace/00_source'), {recursive: true})
     mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    if (system) writeFileSync(join(root, '_workspace/02_design/design-system.md'), system)
     writeFileSync(join(root, '_workspace/00_source/figma-a1-412-9037.md'), '# snapshot')
     if (document) writeFileSync(join(root, DESIGN_BINDING_PATH), JSON.stringify(document))
     if (plan) writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), plan)
@@ -1160,6 +1162,35 @@ test('배선: Phase 1 → 2가 --to design을 부른다 — 코드에만 있는 
   assert.match(phase1to2, /자동 차단이 아니다/, '이 자리의 강도가 명시되지 않았다')
   // 넘어갈 때의 대가도 적혀야 한다 — design-inputs는 이 인계에만 있다.
   assert.match(phase1to2, /다시 재지 않는다/, '넘어갈 때 무엇을 잃는지 적히지 않았다')
+})
+
+test('모션 역할: 반복 모션 서술이 없으면 주기 토큰을 요구하지 않는다', () => {
+  withProject(root => {
+    assert.equal(checkMotionRoleTokens(root).state, 'SKIPPED')
+  }, {system: '# Design System\n\n| 토큰 | 값 |\n|---|---|\n| hoverMs | 140 |\n'})
+})
+
+test('모션 역할: 반복 모션을 서술하는데 주기 토큰이 없으면 보고한다 — 파일럿 결함의 근인', () => {
+  // 실측(greenfield-pilot-2 A-1): 주기 토큰이 없어 200ms 인터랙션 토큰이 스켈레톤 루프
+  // 주기로 쓰였고 14종 verifier가 전부 통과시켰다. 근인은 오용이 아니라 선언의 공백이다.
+  withProject(root => {
+    const r = checkMotionRoleTokens(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /주기 역할 토큰이 없다/)
+  }, {system: '# Design System\n\n- Skeleton: shimmer 스윕으로 로딩을 표시한다\n\n| 토큰 | 값 |\n|---|---|\n| enterMs | 200 |\n'})
+})
+
+test('모션 역할: 주기 역할 토큰이 있으면 통과한다 — 이름이 역할을 말한다', () => {
+  withProject(root => {
+    const r = checkMotionRoleTokens(root)
+    assert.equal(r.state, 'PASS', r.detail)
+  }, {system: '# Design System\n\n- Skeleton: shimmer 스윕으로 로딩을 표시한다\n\n| 토큰 | 값 |\n|---|---|\n| pulsePeriodMs | 1200 |\n'})
+})
+
+test('모션 역할: reduced-motion과 1회성 서술은 루프가 아니다 — 드라이런 오탐 2건의 근원', () => {
+  withProject(root => {
+    assert.equal(checkMotionRoleTokens(root).state, 'SKIPPED')
+  }, {system: '# Design System\n\n| prefers-reduced-motion | 전역 0ms + 펄스 정지 점 |\n| 통과 피드백 | warning-border 1회 pulse |\n'})
 })
 
 test('배선: bash 정책이 --to design을 허용한다 — 계약이 부르는 명령이 정책 밖이면 에이전트에서 막힌다', () => {

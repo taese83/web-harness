@@ -770,6 +770,12 @@ const validationScriptContract = (script, args, context) => {
       const rest = commandArgs.filter(arg => arg !== '--design-debt' && arg !== '--json')
       return rest.length === 0
     }
+    // `--motion-role`도 판정이 아니라 읽기 전용 보고다(exit 0 고정). 계약에 적기 전에
+    // 등록한다 — 순서를 뒤집으면 세 번 물린 그 자리로 돌아간다.
+    if (commandArgs.includes('--motion-role')) {
+      const rest = commandArgs.filter(arg => arg !== '--motion-role' && arg !== '--json')
+      return rest.length === 0
+    }
     if (!args.includes('--to')) return false
     const toIndex = commandArgs.indexOf('--to')
     // `design`은 Phase 1 → 2 체크포인트가 부른다(`approval-checkpoints.md`). 계약에 명령을
