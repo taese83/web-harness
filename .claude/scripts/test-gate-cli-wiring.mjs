@@ -15,11 +15,13 @@ import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from 'node:
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
+import {ownersOf} from './validate-ownership-coverage.mjs'
 
 const script = name => fileURLToPath(new URL(`./${name}`, import.meta.url))
 const HANDOFF = script('validate-handoff-readiness.mjs')
 const READINESS = script('validate-development-readiness.mjs')
 const WIRING = script('validate-wiring-coverage.mjs')
+const OWNERSHIP = script('validate-ownership-coverage.mjs')
 
 const run = (path, args, cwd = process.cwd()) => {
   try {
@@ -145,4 +147,31 @@ test('배선: 배선 감사가 스스로를 프로세스로 실행할 수 있다
   assert.ok(report.totalWithMain > 0)
   assert.ok(Array.isArray(report.unwired))
   assert.ok(Array.isArray(report.newUnwired), 'baseline 대비 신규가 분리돼 나와야 한다')
+})
+
+// ── 소유 커버리지 게이트 (파일럿 결함 13·15호의 구조 해법) ────────────────────
+// "greenfield 프로필이 계약상 생성하는 최상위 디렉토리 전수와 registry 소유의 대조표가 없어
+//  공백이 하나씩 실측으로만 발견되고 있다" — 파일럿 종합 판정이 명명한 미구현 항목이다.
+
+test('소유 커버리지: 프로세스로 돌면 프로필별 판정을 stdout에 낸다', () => {
+  const {code, out} = run(OWNERSHIP, [])
+  assert.equal(code, 0, out)
+  assert.match(out, /vite-serverless-hybrid/, '측정한 프로필이 보고에 없다')
+  assert.match(out, /전부 소유자가 있다|소유 공백/, '판정이 stdout에 없다')
+})
+
+test('소유 커버리지: spec이 없는 골든은 미측정이며 통과라 부르지 않는다', () => {
+  // 통과와 미수행을 섞으면 커버리지가 실제보다 넓어 보인다 — 이 저장소가 SKIPPED에 대해
+  // 반복해서 세운 규율이다.
+  const {out} = run(OWNERSHIP, [])
+  assert.match(out, /미측정 — .*spec\.json.*\(통과가 아니다\)/, '미측정 표기가 통과처럼 읽힌다')
+})
+
+test('소유 커버리지: 소유자 없는 경로를 실제로 잡는다 — 감시망 자체의 반증', () => {
+  // 게이트가 "항상 0건"을 내는지 아니면 실제로 세는지 가른다. registry의 정적 소유와
+  // layerMap 둘 다에 걸리지 않는 경로를 만들어 판정을 뒤집는다.
+  assert.deepEqual(ownersOf('전혀-소유되지-않는-경로/x.tsx', []), [], '무소유 경로가 소유된 것으로 읽혔다')
+  assert.ok(ownersOf('index.html', []).length > 0, 'Vite 엔트리포인트에 소유자가 없다')
+  assert.ok(ownersOf('src/entities/order/model.ts', [/^src\//]).includes('developer'),
+    'layerMap 소유가 developer로 귀속되지 않는다')
 })

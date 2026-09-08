@@ -70,6 +70,12 @@ export const AGENT_OWNERSHIP = {
     /^(?:(?:[^/]+\/)+)?(?:tsconfig(?:\.[^.]+)?\.json|vite\.config\.ts|vitest(?:\.[^.]+)?\.config\.ts|playwright\.config\.ts)$/,
     /^(?:(?:[^/]+\/)+)?src\/vite-env\.d\.ts$/,
     /^(?:eslint\.config\.js|\.prettierrc)$/,
+    // 소유 커버리지 게이트가 찾은 공백 3건(2026-09-08). 전부 **부트스트랩 표면**이며
+    // 어떤 정규식도 매칭하지 않아 무소유였다 — `index.html`은 Vite 엔트리포인트라
+    // 계약 표면인데도 아무도 소유하지 않았다(파일럿 결함 13·15호와 같은 클래스).
+    // 겹침 증명: 세 경로 모두 추가 전 매칭 소유자 0이었고(전수 대조), layerMap이
+    // 덮는 것은 디렉토리(src·api·dev·tests·e2e)라 루트 파일과 교차하지 않는다.
+    /^(?:(?:[^/]+\/)+)?index\.html$/, /^\.gitignore$/, /^(?:(?:[^/]+\/)+)?\.env\.example$/,
     /^(?:(?:[^/]+\/)+)?eslint\.config\.js$/,
     /^\.husky\//,
     /^(?:(?:[^/]+\/)+)?src\/test\//,
