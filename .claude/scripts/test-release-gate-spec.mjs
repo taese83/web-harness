@@ -11,7 +11,7 @@ import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {validateReleaseGate} from './release-gate-lib.mjs'
+import {designRoundSummary, validateReleaseGate} from './release-gate-lib.mjs'
 import {lockSpec} from './spec.mjs'
 
 const specErrors = errors => errors.filter(message => message.startsWith('Spec conformance'))
@@ -146,5 +146,95 @@ test('RUN 상태에서 실제로 빠진 요구는 잡는다', () => {
     writeFileSync(join(dir, 'lint.json'), JSON.stringify({id: 'lint', status: 'PASS'}))
     const spec = specErrors(validateReleaseGate(root).errors)
     assert.ok(spec.some(m => m.includes('quality.typecheck')), '빠진 요구는 여전히 잡아야 한다')
+  })
+})
+
+// ── 시안 구현 축별 대조표 ─────────────────────────────────────────────────────
+// 계기: motor-lab v4에서 **색상만 적용된 리컬러**가 시안 구현으로 완료 선언되고 릴리스까지
+// 통과했다(사용자 발견). 그 뒤 계약이 대조표를 요구했으나 **존재를 검사하는 기계가 없었다.**
+// 여기서 고정하는 것: 선정된 시안이 없으면 발화하지 않고, 있는데 표가 없으면 막고,
+// 표가 얇으면 신호로만 남긴다.
+
+const withRound = ({render = null, verdict = null, round = '2026-09-08-probe'} = {}, run) => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-design-round-'))
+  try {
+    const dir = join(root, '_workspace/02_design/design-system/style-tiles', round)
+    mkdirSync(dir, {recursive: true})
+    if (render !== null) writeFileSync(join(dir, 'RENDER-VERDICT.md'), render)
+    if (verdict !== null) writeFileSync(join(dir, 'IMPLEMENTATION-VERDICT.md'), verdict)
+    return run(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+const AXES = header => [
+  header,
+  '| 축 | 시안 기준 | 실측 | 판정 |',
+  '|---|---|---|---|',
+  '| 색 | 카퍼 #B85C1E | palette-primary-main 실측 | PASS |',
+  '| 타이포 | 모노 디스플레이 | h1 computed 모노 28px | PASS |',
+  '| 밀도 | cardPad 16 | 블록에 16 반영 | PASS |',
+  '| 형태 | radius 12 | borderRadius 12px 실측 | PASS |',
+  '| 위계 | 크기·웨이트 대비 | h1 28/800 vs body | PASS |',
+].join('\n')
+
+test('시안 라운드가 없으면 대조표를 요구하지 않는다 — 발화하면 기존 프로젝트가 전부 막힌다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-design-round-'))
+  try { assert.equal(designRoundSummary(root).state, 'NO_ROUND') }
+  finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('선정된 시안이 없으면 요구하지 않는다 — 라운드만 돌고 고르지 않은 상태는 정상이다', () => {
+  withRound({render: '# Render Verdict\n\n후보 셋 렌더만 했다.\n'}, root => {
+    assert.equal(designRoundSummary(root).state, 'NO_SELECTION')
+  })
+})
+
+test('선정됐는데 대조표가 없으면 릴리스를 막는다 — motor-lab 사고 당시의 상태다', () => {
+  withRound({render: '# Render Verdict\n\nSELECTED_CANDIDATE: candidate-a\n'}, root => {
+    const summary = designRoundSummary(root)
+    assert.equal(summary.state, 'MISSING')
+    assert.deepEqual(summary.missing, ['2026-09-08-probe'])
+    const {errors} = validateReleaseGate(root)
+    assert.ok(errors.some(message => /Design round implementation verdict is missing/.test(message)),
+      '릴리스 게이트가 대조표 부재를 막지 않는다')
+  })
+})
+
+test('대조표가 있으면 통과한다 — 축 이름은 검사하지 않는다', () => {
+  // 실측(tamiya v4.1)에서 정당한 표가 색·타이포·밀도·형태·위계로 적었다. 계약이 나열한
+  // 이름(폰트·radius·spacing·그림자·액센트)으로 재면 그 표가 오탐으로 걸린다.
+  withRound({
+    render: '# Render Verdict\n\nSELECTED_CANDIDATE: candidate-a\n',
+    verdict: AXES('# 구현 축별 대조표'),
+  }, root => {
+    assert.equal(designRoundSummary(root).state, 'PASS')
+  })
+})
+
+test('행이 최소 축수에 못 미치면 신호로 남긴다 — 막지는 않는다', () => {
+  // 「색만 확인하고 5축 통과로 기재」가 등록 계기다. 행 수는 **신호**이지 판정이 아니다 —
+  // 5행을 그럴듯한 문장으로 채우면 통과한다(§4 등록).
+  withRound({
+    render: '# Render Verdict\n\nSELECTED_CANDIDATE: candidate-a\n',
+    verdict: ['# 구현 축별 대조표', '| 축 | 기준 | 실측 | 판정 |', '|---|---|---|---|',
+      '| 색 | 카퍼 | 실측함 | PASS |'].join('\n'),
+  }, root => {
+    const summary = designRoundSummary(root)
+    assert.equal(summary.state, 'THIN')
+    assert.match(summary.note, /대조 행 1건/)
+    const {errors} = validateReleaseGate(root)
+    assert.ok(!errors.some(message => /implementation verdict/i.test(message)), '신호가 릴리스를 막았다')
+  })
+})
+
+test('실측 칸이 비면 그 축은 대조된 것이 아니다 — 신호로 남긴다', () => {
+  withRound({
+    render: '# Render Verdict\n\nSELECTED_CANDIDATE: candidate-a\n',
+    verdict: AXES('# 구현 축별 대조표').replace('| 위계 | 크기·웨이트 대비 | h1 28/800 vs body | PASS |',
+      '| 위계 |  |  | PASS |'),
+  }, root => {
+    const summary = designRoundSummary(root)
+    assert.equal(summary.state, 'THIN')
+    assert.match(summary.note, /빈 대조 칸/)
   })
 })

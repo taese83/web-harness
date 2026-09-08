@@ -393,6 +393,14 @@
       "replace": "  const hasPeriodToken = true",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "주기 토큰 존재 확인을 끄면 반복 모션을 서술하면서 주기 토큰이 없는 상태가 조용히 통과한다 — 그 상태가 파일럿에서 200ms 인터랙션 토큰을 스켈레톤 루프 주기로 만든 근인이다"
+    },
+    {
+      "id": "design-round-verdict-required",
+      "file": ".claude/scripts/release-gate-lib.mjs",
+      "find": "  if (designRound.state === 'MISSING') errors.push(`Design round implementation verdict is missing: ${designRound.missing.join(', ')}`)",
+      "replace": "  if (false) errors.push('unreachable')",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "선정된 시안이 있는데 구현 대조표가 없는 상태를 막지 않으면 색상만 적용된 리컬러가 시안 구현으로 릴리스된다 — motor-lab v4에서 실제로 일어났고 사용자가 발견했다"
     }
   ]
 }
