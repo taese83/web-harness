@@ -17,6 +17,13 @@ if (writeManifest) {
       '_workspace/04_qa/qa-manifest.json',
       `${JSON.stringify(manifest, null, 2)}\n`,
     )
+    // 설계→코드 결속은 **판정이 아니라 보고**다 — exit 코드를 바꾸지 않는다.
+    // 매니페스트에만 남기면 아무도 읽지 않는다(이 저장소가 `SURFACE_MODEL`·`QUESTION`에서
+    // 이미 겪은 「소비자 0」 클래스다). 그래서 여기서 한 줄 낸다.
+    const binding = manifest?.routeBinding
+    if (binding && ['UNBOUND', 'UNRECOGNIZED'].includes(binding.state)) {
+      process.stderr.write(`설계→코드 결속: ${binding.state} — ${binding.note}\n`)
+    }
   } catch (error) {
     process.stderr.write(`QA manifest could not be written securely: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(2)

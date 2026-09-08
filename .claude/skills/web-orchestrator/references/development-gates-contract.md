@@ -129,7 +129,14 @@ entrypoint나 dependency가 아직 없어 check가 실행 불가능하면 `BLOCK
 API contract/auth, route, Mock, component가 완료된 뒤:
 
 1. API schema ↔ runtime validation ↔ Mock method/path/status/body
-2. route ↔ page/widget/component public export
+2. route ↔ page/widget/component public export — **파일 경로의 실재만 기계가 센다**
+   (라우트 배선·export·심볼은 보지 않는다)
+   (`release-gate-lib`의 `routeBinding`, Phase 4). `layout-spec` 표 행이 선언한 소스 경로가
+   실재하는지 대조해 릴리스 매니페스트에 남긴다. **막지 않는다** — 경로만으로는 미구현과
+   개명을 구별할 수 없어서다(실측 근거는 `docs/protected-core.md` §4). **판정은 여전히 이
+   게이트의 사람·에이전트 몫이다**: 부재가 보고되면 미구현인지 개명인지 보고, 미구현이면
+   만들고 개명이면 `layout-spec`을 고친다. 심볼 수준(파일 안에 그 export가 있는가)은
+   기계가 보지 않는다
 3. production build에서 Mock activation이 가능한 구조인지 정적 확인
 4. `typecheck`, `lint`
 

@@ -401,6 +401,14 @@
       "replace": "  if (false) errors.push('unreachable')",
       "test": ".claude/scripts/test-release-gate-spec.mjs",
       "why": "선정된 시안이 있는데 구현 대조표가 없는 상태를 막지 않으면 색상만 적용된 리컬러가 시안 구현으로 릴리스된다 — motor-lab v4에서 실제로 일어났고 사용자가 발견했다"
+    },
+    {
+      "id": "route-binding-reported",
+      "file": ".claude/scripts/design-evidence-lib.mjs",
+      "find": "  const unbound = declared.filter(relativePath => !existsSync(join(projectRoot, relativePath)))",
+      "replace": "  const unbound = []",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "선언된 경로의 부재를 세지 않으면 설계가 선언한 화면이 없는데도 BOUND로 보고된다 — 실측에서 완주한 프로젝트 두 곳과 미완 한 곳이 전부 이 검사로 드러났다"
     }
   ]
 }

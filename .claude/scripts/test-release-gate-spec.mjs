@@ -11,7 +11,7 @@ import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {designRoundSummary, validateReleaseGate} from './release-gate-lib.mjs'
+import {designRoundSummary, routeBindingSummary, validateReleaseGate} from './release-gate-lib.mjs'
 import {lockSpec} from './spec.mjs'
 
 const specErrors = errors => errors.filter(message => message.startsWith('Spec conformance'))
@@ -236,5 +236,123 @@ test('실측 칸이 비면 그 축은 대조된 것이 아니다 — 신호로 �
     const summary = designRoundSummary(root)
     assert.equal(summary.state, 'THIN')
     assert.match(summary.note, /빈 대조 칸/)
+  })
+})
+
+// ── 설계 → 코드 결속 ──────────────────────────────────────────────────────────
+// 이 저장소의 가장 큰 공백이었다 — Gate B가 「route ↔ component public export」를 요구하는데
+// 그것을 보는 기계 소비자가 0건이었다. 여기서 고정하는 것:
+//   (1) 표 행의 경로만 본다 — 산문의 경로는 반례·설명일 수 있다
+//   (2) 레이어가 없으면 미구현(차단), 레이어가 있으면 개명(기록만) — 강도가 다르다
+//   (3) 선언이 없는 형태(library·서피스 맵)는 요구하지 않는다
+
+const withLayout = ({spec = null, files = [], sharded = false} = {}, run) => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-route-'))
+  try {
+    if (spec !== null) {
+      if (sharded) {
+        mkdirSync(join(root, '_workspace/02_design/layout-spec'), {recursive: true})
+        writeFileSync(join(root, '_workspace/02_design/layout-spec/global.md'), spec)
+      } else {
+        mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+        writeFileSync(join(root, '_workspace/02_design/layout-spec.md'), spec)
+      }
+    }
+    for (const file of files) {
+      mkdirSync(join(root, file.split('/').slice(0, -1).join('/')), {recursive: true})
+      writeFileSync(join(root, file), '// generated\n')
+    }
+    return run(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+const ROUTES = [
+  '## Routing map', '',
+  '| Path | Component | Description |',
+  '|---|---|---|',
+  '| `/` | `src/pages/home/ui/HomePage.tsx` | 홈 |',
+  '| `/detail` | `src/pages/detail/ui/DetailPage.tsx` | 상세 |',
+].join('\n')
+
+test('layout-spec이 없으면 화면 결속을 요구하지 않는다', () => {
+  withLayout({}, root => { assert.equal(routeBindingSummary(root).state, 'NO_LAYOUT') })
+})
+
+test('표에 소스 경로 선언이 없으면 요구하지 않는다 — library·서피스 맵이 정상 경로다', () => {
+  withLayout({spec: '# Layout\n\n| Path | Component |\n|---|---|\n| `/` | 홈 화면 |\n'}, root => {
+    assert.equal(routeBindingSummary(root).state, 'NO_DECLARED_PATHS')
+  })
+})
+
+test('선언한 경로가 전부 실재하면 통과한다', () => {
+  withLayout({
+    spec: ROUTES,
+    files: ['src/pages/home/ui/HomePage.tsx', 'src/pages/detail/ui/DetailPage.tsx'],
+  }, root => {
+    const summary = routeBindingSummary(root)
+    assert.equal(summary.state, 'BOUND', summary.note)
+    assert.equal(summary.declared, 2)
+  })
+})
+
+test('선언한 경로가 없으면 보고한다 — 그리고 막지 않는다', () => {
+  // 실측(2026-09-08): 완주한 프로젝트 두 곳이 개명 형태였다 — tamiya는 `router.tsx` →
+  // 실제 `Routes.tsx`, search-portal은 `ui/HomePage.tsx` → 실제 `index.tsx`.
+  // 차단하면 정직하게 완주한 프로젝트가 막힌다.
+  withLayout({
+    spec: ROUTES,
+    files: ['src/pages/home/index.tsx', 'src/pages/detail/index.tsx'],
+  }, root => {
+    const summary = routeBindingSummary(root)
+    assert.equal(summary.state, 'UNBOUND')
+    assert.equal(summary.unbound.length, 2)
+    assert.equal(summary.bound, 0)
+    const {errors} = validateReleaseGate(root)
+    assert.ok(!errors.some(message => /layout spec/i.test(message)), '보고가 릴리스를 막았다')
+  })
+})
+
+test('미구현과 개명을 구별한다고 주장하지 않는다 — 경로만으로는 같아 보인다', () => {
+  // 초안은 「레이어 부재 = 미구현(차단) / 파일 부재 = 개명(기록)」으로 나눴다가 되돌렸다.
+  // `api/handlers/x.ts` 선언에 실제 파일이 `api/x.ts`인 **개명**이 「레이어 없음」으로 읽혀
+  // 차단됐다(자체 실측). 어느 조상까지 보는지를 바꿔도 얕은 경로와 깊은 경로 중 한쪽이
+  // 항상 틀렸다 — 이 회귀가 그 판정을 되살리지 못하게 막는다.
+  withLayout({
+    spec: ['| Path | Component |', '|---|---|', '| `/api/x` | `api/handlers/x.ts` |'].join('\n'),
+    files: ['api/x.ts'],
+  }, root => {
+    const summary = routeBindingSummary(root)
+    assert.equal(summary.state, 'UNBOUND', '개명이 별도 상태로 갈렸다')
+    assert.match(summary.note, /판정하지 못한다/, '구별하지 못한다는 사실이 보고에 없다')
+    const {errors} = validateReleaseGate(root)
+    assert.equal(errors.filter(m => /layout spec/i.test(m)).length, 0, '개명이 릴리스를 막았다')
+  })
+})
+
+test('코드펜스 안의 표는 예시다 — 선언으로 읽지 않는다', () => {
+  // 자체 실측: 계약 문서의 예시 표가 선언으로 읽혀 차단됐다.
+  const spec = ['```markdown', ...ROUTES.split('\n'), '```'].join('\n')
+  withLayout({spec, files: ['src/app/App.tsx']}, root => {
+    assert.equal(routeBindingSummary(root).state, 'NO_DECLARED_PATHS')
+  })
+})
+
+test('산문의 경로는 세지 않는다 — 표 행만 본다', () => {
+  // 계약 문서는 "이렇게 하지 마라"로 경로를 인용한다. 그것을 선언으로 읽으면 오탐이 난다.
+  const spec = [
+    '# Layout', '',
+    '`src/pages/legacy/OldPage.tsx`는 더 이상 만들지 않는다.', '',
+    ROUTES,
+  ].join('\n')
+  withLayout({spec, files: ['src/pages/home/ui/HomePage.tsx', 'src/pages/detail/ui/DetailPage.tsx']}, root => {
+    const summary = routeBindingSummary(root)
+    assert.equal(summary.state, 'BOUND', summary.note)
+    assert.equal(summary.declared, 2, '산문의 경로가 선언으로 세어졌다')
+  })
+})
+
+test('분할된 layout-spec 디렉터리도 읽는다', () => {
+  withLayout({spec: ROUTES, sharded: true, files: ['src/pages/home/ui/HomePage.tsx', 'src/pages/detail/ui/DetailPage.tsx']}, root => {
+    assert.equal(routeBindingSummary(root).state, 'BOUND')
   })
 })

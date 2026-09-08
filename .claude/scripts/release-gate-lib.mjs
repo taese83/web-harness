@@ -23,8 +23,10 @@ import {
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
 import {inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
 import {inspectSpecConformance} from './validate-spec-conformance.mjs'
+import {acceptanceSummary, designRoundSummary, routeBindingSummary} from './design-evidence-lib.mjs'
 export {computeSourceFingerprint, listSourceFiles, normalizePath, sha256} from './evidence-lib.mjs'
 export {releaseReportRequirements} from './release-report-policy.mjs'
+export {acceptanceSummary, designRoundSummary, routeBindingSummary} from './design-evidence-lib.mjs'
 export const REQUIRED_CHECKS = new Map([
   ['typecheck', 'code'],
   ['lint', 'code'],
@@ -96,6 +98,20 @@ export const requiresProtectedPrebuiltDeployment = lockedProfile => Boolean(
   lockedProfile.selection.selectedCapabilities?.includes('external-ingestion') &&
   ['static-cdn', 'static-export'].includes(lockedProfile.selection.target?.id)
 )
+
+const collectSpecConformanceErrors = (projectRoot, errors) => {
+  let result
+  try {
+    result = inspectSpecConformance({projectRoot})
+  } catch (error) {
+    errors.push(`Spec conformance could not be inspected: ${error instanceof Error ? error.message : String(error)}`)
+    return
+  }
+  if (result.status !== 'FAIL') return
+  for (const failure of result.failures) {
+    errors.push(`Spec conformance [${failure.kind}]: ${failure.reason}`)
+  }
+}
 
 export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
   if (!['attestation-request', 'final'].includes(phase)) {
@@ -281,6 +297,9 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
     errors.push('Source tree changed while release evidence was being validated')
   }
   // 시안 구현 대조표 — 표 부재는 계약 의무 불이행이라 막고, 부실 기재 신호는 기록만 한다.
+  // 설계 → 코드 결속. **기록만 한다** — 경로만으로는 미구현과 개명을 구별할 수 없어
+  // 차단하면 개명한 정직한 프로젝트를 막는다(실측 근거는 `routeBindingSummary` 머리말).
+  const routeBinding = routeBindingSummary(projectPath)
   const designRound = designRoundSummary(projectPath)
   if (designRound.state === 'MISSING') errors.push(`Design round implementation verdict is missing: ${designRound.missing.join(', ')}`)
   const manifest = {
@@ -295,137 +314,13 @@ export const buildReleaseManifest = (projectPath, {phase = 'final'} = {}) => {
     attestation,
     acceptance: acceptanceSummary(projectPath),
     designRound,
+    routeBinding,
     profile: releaseProfileSummary(lockedProfile),
     adapterChecks,
     artifacts,
   }
 
   return {errors: [...new Set(errors)], manifest}
-}
-
-// 확정된 스팩이 있으면 릴리스가 그 스팩에 묶인다(Stage 2b 배선).
-// **스팩이 없으면 발화하지 않는다** — 스팩은 opt-in이고, 한 번 확정하면 구속력을 갖는다.
-// visual-qa-contract.json 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
-// 정합 검사가 판정하지 못한 것(unverifiable)은 여기서 errors로 올리지 않는다 — 미판정을
-// 실패로 바꾸는 것도, 통과로 바꾸는 것도 아니다.
-// 릴리스 산출물에 **수용 기준의 상태**를 남긴다.
-//
-// `specTier: "unverifiable"`은 "설계는 확정됐으나 맞는지 판정할 기준이 없다"는 뜻이다.
-// 이것을 FAIL로 바꾸면 기획 없는 브라운필드 개선이 막히고, 조용히 두면 **수용 기준 없이
-// 만들어진 결과가 그 사실을 잃은 채 릴리스된다**. 그래서 막지 않되 **표기한다** —
-// 나중에 이 릴리스를 보는 사람이 무엇이 검증되지 않았는지 알 수 있어야 한다(2026-08-28).
-
-// ── 시안 구현 축별 대조표 ─────────────────────────────────────────────────────
-// **계기(실측)**: motor-lab v4에서 **색상만 적용된 리컬러**가 "시안 구현"으로 완료 선언되고
-// 릴리스까지 통과했다 — 사용자가 발견했다(`docs/efficacy/receipts/`).
-// `design-principles-research.md` §2가 그 뒤로 대조표를 요구하지만 **존재·형식을 검사하는
-// 기계가 없었다**(`docs/protected-core.md` §4 「시안 구현 축별 대조표」 — "순수 자기 기록").
-//
-// 활성 조건은 `RENDER-VERDICT.md`의 `SELECTED_CANDIDATE:` 마커다 — 시안이 선정되지 않았으면
-// 구현할 시안도 없다. `visual-qa-contract.json` 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
-//
-// **강도를 나눈다.** 표가 **아예 없는 것**은 계약 의무 불이행이고 모호하지 않으므로 errors다
-// (그리고 그것이 motor-lab 사고 당시의 상태였다). **행 수·빈 칸**은 부실 기재의 *신호*이지
-// 판정이 아니므로 note로 남긴다 — 5행을 그럴듯한 문장으로 채우면 통과하며 그 한계는 §4에 있다.
-const STYLE_TILES = '_workspace/02_design/design-system/style-tiles'
-const SELECTED_CANDIDATE = /^SELECTED_CANDIDATE:\s*\S+/m
-const IMPLEMENTATION_VERDICT = 'IMPLEMENTATION-VERDICT.md'
-// 계약이 요구하는 최소 대조 항목 수(폰트·radius·spacing·그림자·액센트).
-// **축 이름은 검사하지 않는다** — 실측(tamiya v4.1)에서 정당한 표가 색·타이포·밀도·형태·위계로
-// 적었다. 이름으로 재면 잘 만든 표가 오탐으로 걸린다.
-const MINIMUM_AXES = 5
-
-const tableRows = text => {
-  const rows = []
-  for (const line of String(text ?? '').split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed.startsWith('|')) { if (rows.length > 0) break; continue }
-    const cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim())
-    if (cells.every(cell => /^:?-{2,}:?$/.test(cell))) continue
-    rows.push(cells)
-  }
-  return rows
-}
-
-export const designRoundSummary = projectPath => {
-  const projectRoot = resolve(projectPath)
-  const tilesRoot = join(projectRoot, STYLE_TILES)
-  if (!existsSync(tilesRoot)) return {state: 'NO_ROUND', note: '시안 라운드가 없다 — 구현 대조표를 요구하지 않는다'}
-  let rounds
-  try {
-    rounds = readdirSync(tilesRoot, {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
-  } catch { return {state: 'NO_ROUND', note: '시안 라운드 디렉터리를 읽을 수 없다'} }
-
-  const selected = []
-  for (const round of rounds) {
-    const renderVerdict = join(tilesRoot, round, 'RENDER-VERDICT.md')
-    if (!existsSync(renderVerdict)) continue
-    let text
-    try { text = readFileSync(renderVerdict, 'utf8') } catch { continue }
-    if (SELECTED_CANDIDATE.test(text)) selected.push(round)
-  }
-  if (selected.length === 0) {
-    return {state: 'NO_SELECTION', rounds: rounds.length, note: '선정된 시안이 없다 — 구현 대조표를 요구하지 않는다'}
-  }
-
-  const missing = []
-  const thin = []
-  for (const round of selected) {
-    const verdictPath = join(tilesRoot, round, IMPLEMENTATION_VERDICT)
-    if (!existsSync(verdictPath)) { missing.push(round); continue }
-    let text
-    try { text = readFileSync(verdictPath, 'utf8') } catch { missing.push(round); continue }
-    const rows = tableRows(text)
-    const header = rows[0] ?? []
-    const data = rows.slice(1)
-    if (data.length < MINIMUM_AXES) {
-      thin.push(`${round}: 대조 행 ${data.length}건 (계약 최소 ${MINIMUM_AXES})`)
-      continue
-    }
-    // 기준·실측 칸이 비어 있으면 그 축은 대조된 것이 아니다. 이름 대신 **칸이 찼는가**만 본다.
-    const blank = data.filter(row => row.slice(1, Math.max(3, header.length - 1)).some(cell => cell === ''))
-    if (blank.length > 0) thin.push(`${round}: 빈 대조 칸이 있는 행 ${blank.length}건`)
-  }
-  if (missing.length > 0) {
-    return {state: 'MISSING', selected, missing,
-      note: `선정된 시안이 있는데 ${IMPLEMENTATION_VERDICT}가 없다: ${missing.join(', ')}`}
-  }
-  if (thin.length > 0) {
-    return {state: 'THIN', selected, signals: thin,
-      note: `대조표가 있으나 부실 기재 신호가 있다 — ${thin.join(' · ')}. **판정이 아니라 신호다**(축 이름은 검사하지 않는다)`}
-  }
-  return {state: 'PASS', selected,
-    note: `선정 시안 ${selected.length}건 전부 구현 대조표를 갖는다 · 최소 ${MINIMUM_AXES}축`}
-}
-
-export const acceptanceSummary = projectRoot => {
-  const specPath = join(resolve(projectRoot), '_workspace/03_dev/spec.json')
-  if (!existsSync(specPath)) return {state: 'NO_SPEC', note: '확정 스팩이 없다 — 수용 기준 추적 없음'}
-  let spec
-  try { spec = JSON.parse(readFileSync(specPath, 'utf8')) } catch { return {state: 'INVALID_SPEC', note: 'spec.json을 읽을 수 없다'} }
-  const refs = Array.isArray(spec?.acceptanceRefs) ? spec.acceptanceRefs : []
-  if (spec?.specTier === 'verifiable') {
-    return {state: 'VERIFIABLE', acceptanceRefs: refs, note: `수용 기준 ${refs.length}건에 결박된 릴리스다`}
-  }
-  return {
-    state: 'UNVERIFIABLE',
-    acceptanceRefs: refs,
-    note: '수용 기준 없이 확정된 스팩이다 — 이 릴리스는 ‘요구를 만족하는가’를 판정할 기준을 갖지 않는다. 검증된 것은 게이트가 본 것(lint·typecheck·test·build)뿐이다',
-  }
-}
-
-const collectSpecConformanceErrors = (projectRoot, errors) => {
-  let result
-  try {
-    result = inspectSpecConformance({projectRoot})
-  } catch (error) {
-    errors.push(`Spec conformance could not be inspected: ${error instanceof Error ? error.message : String(error)}`)
-    return
-  }
-  if (result.status !== 'FAIL') return
-  for (const failure of result.failures) {
-    errors.push(`Spec conformance [${failure.kind}]: ${failure.reason}`)
-  }
 }
 
 export const validateReleaseGate = projectPath => {
