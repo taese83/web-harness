@@ -48,9 +48,16 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
       fail(`${relativePath}: planning agents are not ordered product context → requirements → UX → feature → tech → synthesis → review`)
     }
   }
-  const sourceIngestion = `${read('.claude/skills/web-orchestrator/references/source-artifacts.md')}\n${read('.claude/agents/source-artifact-ingestor.md')}`
+  // **파일별로 단언한다.** 종전에는 두 파일을 합쳐 `includes`했는데, ingestor 하나가 세 마커를
+  // 모두 갖고 있어 계약 파일 쪽은 비어도 통과했다 — 합집합 검사는 소유자를 강제하지 못한다
+  // (적대 리뷰 2026-09-04). 정규화 규칙의 집은 이제 source-normalization.md다.
+  const normalization = read('.claude/skills/web-orchestrator/references/source-normalization.md')
   for (const marker of ['planning-context.md', 'planning-facilitation-contract.md', 'planning-readiness-contract.md']) {
-    if (!sourceIngestion.includes(marker)) fail(`source artifact planning normalization is missing ${marker}`)
+    if (!normalization.includes(marker)) fail(`source-normalization.md is missing the planning normalization marker ${marker}`)
+  }
+  const ingestor = read('.claude/agents/source-artifact-ingestor.md')
+  for (const pointer of ['source-artifacts.md', 'source-normalization.md']) {
+    if (!ingestor.includes(pointer)) fail(`source-artifact-ingestor must read ${pointer}`)
   }
 
   const facilitation = read('.claude/skills/web-plan/references/planning-facilitation-contract.md')

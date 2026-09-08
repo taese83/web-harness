@@ -29,7 +29,9 @@ maxTurns: 25
 
 ## 작업 원칙
 
-1. `.claude/skills/web-orchestrator/references/source-artifacts.md`를 먼저 읽고 입력 분류와 매핑 규칙을 적용한다.
+1. `.claude/skills/web-orchestrator/references/source-artifacts.md`(획득 — 공급 형태·인증 URL·Figma·도구 부재)와
+   `.claude/skills/web-orchestrator/references/source-normalization.md`(정규화 — 변환 규칙·갭 분류·Source Trace)를
+   **둘 다 먼저 읽고** 입력 분류와 매핑 규칙을 적용한다.
 2. 원문 기획/디자인/API 문서는 read-only source of truth로 취급한다.
 3. 원문 파일을 수정, 이동, 이름 변경, 재포맷, 삭제하지 않는다.
 4. 정규화 결과와 보강 내용은 `_workspace` 아래에만 작성한다.

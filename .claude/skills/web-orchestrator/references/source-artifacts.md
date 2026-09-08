@@ -310,57 +310,8 @@ When documents conflict:
 
 Record every conflict in `_workspace/00_source/gap-report.md`.
 
-## Source Change Proposal Format
+## 정규화 규칙은 별도 문서다
 
-Use `_workspace/00_source/source-change-proposals.md` for suggested original-source changes:
-
-```markdown
-# Source Change Proposals
-
-| Source | Section | Issue | Proposed change | Reason |
-|---|---|---|---|---|
-| `_inputs/api/openapi.yaml` | `GET /users` | response conflicts with sample JSON | align `status` enum with sample | implementation type safety |
-```
-
-## Normalization Rules
-
-- Preserve the user's terminology for domain entities, menu labels, and business concepts.
-- Convert design screens to routes and page responsibilities in `layout-spec.md`.
-- Convert reusable UI patterns to `component-spec.md`.
-- Convert visual tokens to `design-system.md`; if tokens are missing, mark defaults as `ASSUMPTION`.
-- 여러 노드의 변수를 `design-system.md`로 합칠 때 **컬렉션을 통합하지 않는다.** 컬렉션별로 구분해
-  적고 각 토큰에 출처 노드를 남긴다. 어휘를 하나로 고르는 것은 정규화가 아니라 사용자 결정이다.
-- Convert API tables/OpenAPI/sample JSON to `api-schema.md`; if no API exists, use MSW-only mock endpoints and mark them as `ASSUMPTION`.
-- Convert acceptance criteria to feature completion checks in `feature-plan.md`.
-- Normalize target screen, primary user task, current pain, observable success, annotation intent, critical states, data strategy, and effort trade-off into `planning-context.md`.
-- Apply `../../web-plan/references/planning-facilitation-contract.md` and `planning-readiness-contract.md`; missing product context or conflicting annotations remain `NEEDS_DECISION | BLOCKER`.
-
-## Gap Categories
-
-Use these labels in `gap-report.md`:
-
-- `INFO` — useful context missing, but development can continue.
-- `ASSUMPTION` — a reasonable default was chosen and documented.
-- `CONFLICT` — two sources disagree; the chosen source and reason are recorded.
-- `BLOCKER` — implementation should not continue without user input.
-
-Treat these as `BLOCKER` unless the user explicitly allows assumptions:
-
-- no target screen list and no way to infer routes
-- no primary user role or audience for a role-sensitive app
-- design contradicts required feature scope
-- API requires real credentials or production mutations
-- existing target directory contains unrelated user files
-
-## Source Trace Format
-
-Add this section to each normalized output:
-
-```markdown
-## Source Trace
-
-| Section | Source | Notes |
-|---|---|---|
-| 화면 목록 | `_inputs/design/screen-spec.md#Dashboard` | route로 변환 |
-| 결제 상태 | `_inputs/planning/prd.md#Billing` | business rule |
-```
+원문을 받은 **뒤** 적용하는 것 — 변환 규칙·갭 분류(`INFO`·`ASSUMPTION`·`CONFLICT`·`BLOCKER`)·
+Source Trace 형식·원문 변경 제안 — 은 `source-normalization.md`가 정본이다.
+이 문서는 **획득**까지만 다룬다. 둘을 한 파일에 두면 소비자가 갈리는데 크기는 한 덩어리로 커진다.
