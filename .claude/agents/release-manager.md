@@ -18,6 +18,7 @@ release gate가 통과하지 않았지만 QA 사이클이 끝났으면 HANDOFF.m
 
 - tier 판정(`DIAGNOSTIC_VERIFIED` | `ISOLATED_VERIFIED` | `NOT_VERIFIED`)과 근거(receipt cohort, fingerprint, gate error 요약)
 - QA report별 상태 표와 다음 tier 승급에 필요한 정확한 항목
+- **설계→코드 결속 한 줄** — `_workspace/04_qa/qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다(규칙 정본은 `release-tier-contract.md`의 Readiness Report 절)
 - 이 문서는 evidence가 아니며 어떤 상위 tier 표현도 쓰지 않는다는 고지
 
 readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate exit 0에서만 생성한다.
@@ -60,6 +61,7 @@ pnpm dev
 - Running on Mock API (no real backend)
 - Implemented screens: [list]
 - Not implemented (Could Have): [list]
+- 설계→코드 결속: `qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 note를 그대로 옮긴다 — 위 두 줄은 자기 신고지만 이 줄은 기계가 센 것이다. `RELEASED`여도 이 상태는 `UNBUILT`일 수 있고(이 검사는 릴리스를 막지 않는다), `UNBUILT`는 **개명일 수 있다** — 어느 쪽인지 확인해 적는다. `NOT_MEASURED`는 통과가 아니다
 
 ## Approved design preview (if any)
 `_workspace/02_design/preview/`가 있으면 위치·재기동 명령·승인된 test case 커버리지를 기록한다 — 개발과 분리된 보존 자산이라 완료 후에도 고객이 언제든 재확인할 수 있다.

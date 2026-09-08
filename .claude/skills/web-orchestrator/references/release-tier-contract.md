@@ -30,6 +30,11 @@ T2 미만이면 `release-manager`가 HANDOFF.md 대신 `_workspace/RELEASE/relea
 
 - 판정 tier와 근거 (receipt cohort ID, fingerprint, gate error 요약)
 - QA report별 상태 표
+- **설계→코드 결속 한 줄** — `_workspace/04_qa/qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다. 이 줄은 QA report 자기 신고와 달리 기계가 센 것이다
+  - 상태 라벨을 요약·완화하지 않는다. 매니페스트가 없으면 「미생성」이라고 적는다 — 생략하지 않는다
+  - `symbolBinding.state`가 `NOT_MEASURED`면 **통과가 아니다**(프로젝트에 파서가 없어 측정하지 못했다)
+  - `UNBUILT`는 「그 심볼 이름이 어디에도 없다」는 뜻이며 **미구현과 같지 않다** — 이름까지 바뀐 개명이 섞인다. 어느 쪽인지 확인해 적는다
+  - 이 검사는 **릴리스를 막지 않는다** — 상위 tier에서도 이 상태가 미해결일 수 있고, 그렇기 때문에 보고에 남긴다
 - **승급 경로**: 현재 tier → 다음 tier에 부족한 정확한 항목과 명령/인프라
 - 이 문서 자체는 evidence가 아니라는 고지
 

@@ -425,6 +425,30 @@
       "replace": "  const hollow = []",
       "test": ".claude/scripts/test-release-gate-spec.mjs",
       "why": "경로 검사는 실재하는 빈 파일을 BOUND로 통과시킨다 — 껍데기 계상을 끄면 §4가 「구멍」으로 등록했던 그 자리가 되돌아온다"
+    },
+    {
+      "id": "release-report-cites-binding-state",
+      "file": ".claude/skills/web-orchestrator/references/release-tier-contract.md",
+      "find": "`routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다",
+      "replace": "결속 상태를 요약해 옮긴다",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "계약이 필드를 인용하지 않으면 지시가 매니페스트에 닿지 않는다 — 「계약 문장이 실행 불가」 클래스다. readiness 절이 인용을 잃는 변이"
+    },
+    {
+      "id": "handoff-cites-binding-state",
+      "file": ".claude/agents/release-manager.md",
+      "find": "- 설계→코드 결속: `qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 note를 그대로 옮긴다",
+      "replace": "- 설계→코드 결속: 상태를 요약해 옮긴다",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "T2 HANDOFF의 `Current status`는 `Implemented screens`를 **자기 신고**로 적는 자리다 — 기계가 센 결속 상태가 여기서 빠지면 `RELEASED` 라벨이 미해결 결속을 덮는다"
+    },
+    {
+      "id": "readiness-mode-cites-binding-state",
+      "file": ".claude/agents/release-manager.md",
+      "find": "- **설계→코드 결속 한 줄** — `_workspace/04_qa/qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다(규칙 정본은",
+      "replace": "- 설계→코드 결속을 요약해 적는다(규칙 정본은",
+      "test": ".claude/scripts/test-release-gate-spec.mjs",
+      "why": "에이전트가 실제로 읽는 파일에서 인용이 사라지면 계약 정본만 남고 실행되지 않는다 — 절마다 seed가 있어야 한쪽이 조용히 죽지 않는다"
     }
   ]
 }

@@ -8,11 +8,12 @@
 //   (4) 검사가 던져도 게이트가 통째로 죽지 않고 그 사실이 error로 남는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import {fileURLToPath} from 'node:url'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {designRoundSummary, exportedNames, resolveSymbols, routeBindingSummary, validateReleaseGate} from './release-gate-lib.mjs'
+import {buildReleaseManifest, designRoundSummary, exportedNames, resolveSymbols, routeBindingSummary, validateReleaseGate} from './release-gate-lib.mjs'
 import {lockSpec} from './spec.mjs'
 
 const specErrors = errors => errors.filter(message => message.startsWith('Spec conformance'))
@@ -520,4 +521,51 @@ test('실파서로 export 이름을 읽는다 — CI에는 파서가 없어 로�
   assert.deepEqual(exportedNames(ts, source, 'x.tsx').sort(), ['HomePage', 'Mode', 'Widget', 'default'])
   // `.ts`는 TSX로 파싱하면 `<T>expr` 단언이 JSX로 읽혀 복구 파싱에 들어간다.
   assert.deepEqual(exportedNames(ts, 'export const cast = <T,>(v: T) => <T>v', 'x.ts'), ['cast'])
+})
+
+// ── 릴리스 보고가 결속 상태를 싣는가 ──────────────────────────────────────────
+// 매니페스트에만 남기면 아무도 읽지 않는다 — 이 저장소의 「소비자 0」 클래스다. 그래서
+// `release-tier-contract`(readiness)와 `release-manager`(HANDOFF)가 **매니페스트의 그 필드를
+// 옮기라**고 지시한다. 그런데 그 지시 자체가 조용히 죽는 실패를 이 저장소는 세 번 겪었다:
+// **계약 문장이 실행 가능한지 검사하지 않았다.** 여기서 계약이 인용한 필드 경로를 뽑아
+// 실제 매니페스트로 확인한다 — 산문 지시를 파일 대조로 끌어올리는 만큼이 이 회귀의 강도다.
+// **문서가 실제로 쓰였는지는 여전히 검사하지 않는다**(생성 프로젝트 산출물이라 하네스가 못 본다).
+const REPOSITORY_ROOT = fileURLToPath(new URL('../../', import.meta.url))
+// **파일이 아니라 절 단위로 본다.** `release-manager.md`에는 인용이 두 곳(readiness·HANDOFF)이라
+// 파일 전체를 훑으면 **한쪽이 사라져도 다른 쪽이 통과시킨다** — 적대 리뷰가 잡은 자리다.
+const REPORT_SECTIONS = [
+  ['.claude/skills/web-orchestrator/references/release-tier-contract.md', '## Readiness Report'],
+  ['.claude/agents/release-manager.md', '## Readiness Mode'],
+  ['.claude/agents/release-manager.md', '## Current status'],
+]
+const sectionOf = (text, heading) => {
+  const start = text.indexOf(heading)
+  if (start < 0) return null
+  const next = text.indexOf('\n## ', start + heading.length)
+  return text.slice(start, next < 0 ? undefined : next)
+}
+
+test('릴리스 보고 계약이 인용한 매니페스트 필드가 실재한다', () => {
+  const cited = new Set()
+  for (const [relative, heading] of REPORT_SECTIONS) {
+    const section = sectionOf(readFileSync(join(REPOSITORY_ROOT, relative), 'utf8'), heading)
+    assert.ok(section, `${relative}에 ${heading} 절이 없다`)
+    const here = [...section.matchAll(/`((?:routeBinding|symbolBinding)\.\w+)`/g)].map(match => match[1])
+    for (const path of here) cited.add(path)
+    for (const required of ['routeBinding.state', 'symbolBinding.state']) {
+      assert.ok(here.includes(required),
+        `${relative} 「${heading}」가 ${required}를 인용하지 않는다 — 그 보고에 상태가 실리지 않는다`)
+    }
+  }
+  withSpec({
+    spec: ROUTE_ROW('src/pages/home/ui/HomePage.tsx'),
+    files: {'src/app/App.tsx': 'export const App = () => null\n'},
+  }, root => {
+    const {manifest} = buildReleaseManifest(root, {readExports})
+    for (const path of cited) {
+      const value = path.split('.').reduce((node, key) => node?.[key], manifest)
+      assert.notEqual(value, undefined, `계약이 인용한 ${path}가 매니페스트에 없다 — 지시가 조용히 죽는다`)
+    }
+    assert.equal(manifest.symbolBinding.state, 'UNBUILT', '보고할 상태가 실제로 계산되지 않았다')
+  })
 })
