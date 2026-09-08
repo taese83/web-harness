@@ -21,7 +21,7 @@ Phase 2 설계 산출물에서 **무의존 인터랙티브 프로토타입**을 
 - `_workspace/01_plan/feature-plan.md`의 **Feature List**와 FSD/Local Domain State 절 — 프로토타입이 시연해야 할 **동작의 정본**. 없으면 `BLOCKED`
 - `_workspace/01_plan/ux-brief.md`의 **화면별 정보 위계**와 **디자인 방향** 절 (`design-readiness-contract.md` 형식) — 없으면 `BLOCKED`
 - `_workspace/02_design/design-system(.md|/)` (+ `theme.code.ts` 토큰)
-- `_workspace/02_design/layout-spec(.md|/)` (화면·라우팅 맵), `component-spec(.md|/)` (컴포넌트 상태 계약)
+- `_workspace/02_design/layout-spec(.md|/)` (화면·라우팅 맵 또는 서피스 맵), `component-spec(.md|/)` (컴포넌트 상태 계약)
 - `_workspace/02_design/state-contract(.md|/)`가 있으면 command·불변식을 메모리 store의 동작 규칙으로 사용한다
 
 ## 산출물
@@ -32,13 +32,14 @@ _workspace/02_design/preview/
   tokens.css         # theme 토큰 → CSS 변수
   app.css            # 셸·컴포넌트 근사 스타일
   store.js           # in-memory 도메인 store — state-contract의 command·불변식을 구현 (seed 데이터 포함)
-  router.js          # 해시 기반 클라이언트 라우팅 (layout-spec 라우팅 맵)
+  router.js          # 화면 전환의 소유자 — route면 해시 라우팅(layout-spec 라우팅 맵),
+                     #   overlay면 열림 서피스 스택. 파일명은 두 모델 모두 router.js다
   app.js             # 화면 렌더링 + 이벤트 바인딩 (CRUD·DnD·상태 전이 실제 동작)
   behaviors.md       # 동작 커버리지 매트릭스 (Feature List Must ↔ 프로토타입에서 수행하는 방법)
   traceability.json  # FEAT ↔ TC ↔ 화면 요소 앵커의 machine-readable 매핑
 ```
 
-단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. 프리뷰는 **커밋된 단일 시안**이 기본이다 — 비교 토글은 사용자가 명시적으로 요청했거나 스펙이 opt-in으로 지정한 축에만 만들고, 그때도 별도 파일이 아니라 앱 내 토글로 전환한다.
+단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. project-brief가 `SURFACE_MODEL: overlay`를 선언했으면(layout-spec은 라우팅 맵 대신 서피스 맵을 담는다) 화면 전환이 URL이 아니므로 `router.js`가 해시 라우팅 대신 **열림 서피스 스택**을 소유한다 — 스택이 없으면 두 곳에서 열리거나 닫아도 남는다. **`router.js`는 어느 모델에서도 생략하지 않는다**(`design-preview-status-lib.mjs`의 필수 산출물). 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. 프리뷰는 **커밋된 단일 시안**이 기본이다 — 비교 토글은 사용자가 명시적으로 요청했거나 스펙이 opt-in으로 지정한 축에만 만들고, 그때도 별도 파일이 아니라 앱 내 토글로 전환한다.
 
 ## 생성 규칙
 
@@ -47,11 +48,12 @@ _workspace/02_design/preview/
    - 수정: 값 변경 → 저장 → 반영된다.
    - 삭제: 단건·다건 선택 → 삭제 → 목록에서 **실제로 사라지고** confirm dialog를 거친다.
    - 페이지 이동: 링크·탭 클릭 → 해시 라우팅으로 화면이 전환되고 컨텍스트(선택된 도구/테이블)가 유지된다.
+     `overlay`면 대신 **열림·닫힘이 실제로 동작**해야 한다 — 트리거로 열리고, Esc와 명시적 닫기로 닫히고, 닫을 때 포커스가 연 트리거로 돌아가고, 뒤 표면의 상태가 보존된다. 승인 대상은 화면 그림이 아니라 이 동작이다.
    - 상태 전이: 빈 상태 → 첫 등록 → populated, 저장 중 → 완료 등 **조건에 의해** 전이된다 (인위적 토글이 아니라 실제 데이터 유무·진행 상태로).
    - 드래그앤드롭: 필드/행 순서 변경이 실제 드래그로 재배열되고 store의 order가 갱신된다. 키보드 대체 조작(위/아래)도 동작한다.
 2. **메모리 state 기반**: 데이터는 `store.js`의 in-memory 객체에 둔다. localStorage 영속은 선택 — 새로고침 유지가 동작 시연에 필요하면 써도 되지만, 실제 DB/API/네트워크는 호출하지 않는다.
 3. **state-contract 준수**: state-contract가 있으면 command(create/update/delete/reorder 등)의 precondition·postcondition·불변식(참조 무결성, 구조 필드 격리, cascade, stale selection 정리)을 store가 실제로 지킨다 — 프로토타입에서 불변식 위반이 재현되면 안 된다.
-4. **무의존**: 외부 CDN·폰트·라이브러리 로드 금지, 설치 필요한 빌드 금지. 순수 HTML + CSS + vanilla JS(ES 모듈)만. 드래그는 Pointer Events, 라우팅은 `hashchange`로 직접 구현한다.
+4. **무의존**: 외부 CDN·폰트·라이브러리 로드 금지, 설치 필요한 빌드 금지. 순수 HTML + CSS + vanilla JS(ES 모듈)만. 드래그는 Pointer Events, 라우팅은 `hashchange`로 직접 구현한다(`overlay`면 같은 자리에 서피스 스택을 직접 구현한다).
 5. **충실도 고지 의무**: 앱 상단에 "이 프로토타입의 **동작**은 실제이며 메모리 state로 수행됩니다. **시각 렌더링**은 토큰·레이아웃의 근사치이며 실제 UI 라이브러리(예: MUI)와 다릅니다. 실제 DB·API·영속성·성능은 구현·QA 단계에서 검증됩니다." 배너를 고정한다.
 5-1. **"시각은 근사"의 정확한 의미 — design-system 토큰은 반드시 반영한다**: "근사"는 실제 UI 라이브러리 컴포넌트의 픽셀·모션·내부 마크업이 다르다는 뜻일 뿐, design-system이 **명세한 토큰을 단순화·생략해도 된다는 뜻이 아니다**. 색 팔레트, 타이포 스케일, 밀도, 그리고 특히 **필드/상태 타입별 아이콘+색상 인코딩** 같은 명세된 시각 규칙은 프로토타입에 그대로 나타나야 한다. 동작 구현이 시각 토큰 준수를 대체하지 않는다 — 참조 무드(예: Airtable의 타입별 색상 배지)가 스펙에 있으면 프로토타입에서 그 색이 실제로 보여야 하고, 회색 텍스트 라벨로 대체하면 불이행이다. 재생성 시에도 이전 시각 충실도를 후퇴시키지 않는다.
 5-2. **viewport meta 전략 — 실제 크기를 왜곡하지 않는다**: `<meta name="viewport">`에 `width=<고정px>`(예: `width=1280`)를 쓰지 않는다. 고정 width는 창을 줄일 때 페이지를 통째로 축소(zoom-out)시켜 실제 렌더 크기·글자 크기·간격을 왜곡하므로 시각 승인 판단을 흐린다. **`width=device-width, initial-scale=1, minimum-scale=1`**을 사용한다. `minimum-scale=1`이 없으면 콘텐츠가 창보다 넓을 때 일부 브라우저가 로드 직후 페이지를 창에 맞춰 자동 축소(shrink-to-fit)하므로 반드시 포함한다(줌인은 여전히 허용되어 접근성에 영향 없음, `user-scalable=no`는 쓰지 않는다). 데스크탑 전용 앱이면 layout-spec의 최소 지원 폭을 CSS `min-width`로 두어 좁은 창에서는 축소가 아니라 **가로 스크롤**이 나게 한다 — 실제 브라우저 동작과 일치한다.
@@ -81,7 +83,7 @@ _workspace/02_design/preview/
 
 인터랙티브 프로토타입은 작업량이 크다. turn이 소진돼도 필수 산출물이 남도록 이 순서를 지킨다:
 1. tokens.css·app.css (시각 토큰 — design-system 색상/타이포/밀도, 필드 타입 색상 인코딩 포함)
-2. store.js (in-memory 도메인 store + 불변식) → router.js → app.js (핵심 화면 렌더+CRUD)
+2. store.js (in-memory 도메인 store + 불변식) → router.js (전환 소유자 — 해시 라우팅 또는 서피스 스택) → app.js (핵심 화면 렌더+CRUD)
 3. **behaviors.md (TC 커버리지) — 늦어도 이 시점까지 반드시 작성한다.** UI 미세 조정·리팩토링보다 우선한다.
 4. traceability.json + 화면 요소 `data-wh-*` 앵커 + FEAT 배지/side panel.
 5. 남은 화면 상호작용 다듬기·시각 미세 조정.

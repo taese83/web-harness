@@ -46,6 +46,13 @@ Phase 1이 끝나면 다음 내용을 사용자에게 보여주고 명시적으�
   때문이다 — 두 경로 모두 Phase 2 이전이라 디자인 산출물이 없고, 보고는 모든 조건을 근거
   없음으로 센다. `supplied`의 귀속 기록 부재는 위 「디자인 근거의 귀속」 항목이 이미 사람
   확인으로 덮고, 무문서 경로는 `docs/protected-core.md` §4에 등록돼 있다.
+- **`SURFACE_MODEL: overlay`를 선언했으면 Phase 3 미정합을 함께 알린다**(`project-brief.md`에
+  그 행이 있을 때만). 화면 단위가 route가 아닌 형태는 Phase 2까지만 성립한다 —
+  `buildable-app-contract.md`는 여전히 route table과 concrete page를, `integration-verifier`는
+  명시적 404 route를 **무조건** 요구한다. 게이트를 끄지 않았으므로 overlay 프로젝트는 개발
+  진입에서 loud하게 막힌다. 그 사실을 승인 **전에** 말한다 — 승인 뒤에 알면 벽을 없앤 것이
+  아니라 뒤로 옮긴 것이 된다. 확인 항목은 한 줄이다: `서피스 모델: overlay (Phase 3 미정합 인지)`.
+  어휘와 커버 범위의 정본은 `../../../agents/layout-designer.md`「서피스 모델」이다
 - 미해결 `ASSUMPTION`, `NEEDS_DECISION`, `BLOCKED`
 - `plan-review.md`의 `PASS | NEEDS_DECISION | BLOCKED`와 최대 3개의 우선 결정사항
 

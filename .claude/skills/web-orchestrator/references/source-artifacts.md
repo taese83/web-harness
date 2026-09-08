@@ -131,7 +131,7 @@ export 경로로 간다. **fixture 검증은 아직 없다 — 명명 수준이�
 | 화면 구조·정보 위계·영역 분할 | `02_design/layout-spec.md` |
 | 반복 UI 패턴과 상태 | `02_design/component-spec.md` |
 | 색·타이포·간격·radius·그림자 토큰 | `02_design/design-system.md` |
-| 화면 ↔ route 매핑 | `layout-spec.md`의 라우팅 맵 |
+| 화면 ↔ route 매핑 | `layout-spec.md`의 라우팅 맵 (`SURFACE_MODEL: overlay`면 서피스 맵) |
 | 화면·조건 ↔ 시안 매핑 | `00_source/design-binding.json` (`design-binding-contract.md`) |
 
 **픽셀 단위 동일은 보장하지 않는다.** `visual-design-verify`의 `visual-qa-contract.md`가

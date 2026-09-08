@@ -26,6 +26,8 @@ Use `_workspace/00_source/source-change-proposals.md` for suggested original-sou
   하류가 살아 있는 요구로 읽는다. `Won't`로 옮기고 Source Trace에 표시 위치를 남긴다 — 지우면
   "작성자가 제외했다"와 "원문에 없었다"를 구별할 수 없다.
 - Convert design screens to routes and page responsibilities in `layout-spec.md`.
+  `SURFACE_MODEL: overlay`(`project-brief.md` 선언)면 route가 아니라 **서피스 맵**으로 변환한다
+  — 어휘와 커버 범위는 `.claude/agents/layout-designer.md`「서피스 모델」이 정본이다.
 - Convert reusable UI patterns to `component-spec.md`.
 - Convert visual tokens to `design-system.md`; if tokens are missing, mark defaults as `ASSUMPTION`.
 - 여러 노드의 변수를 `design-system.md`로 합칠 때 **컬렉션을 통합하지 않는다.** 컬렉션별로 구분해
@@ -64,6 +66,8 @@ Use these labels in `gap-report.md`:
 Treat these as `BLOCKER` unless the user explicitly allows assumptions:
 
 - no target screen list and no way to infer routes
+  (**`SURFACE_MODEL: overlay`면 이 항목을 적용하지 않는다** — 화면 단위가 route가 아닌 것은
+  결함이 아니라 선언된 형태다. 화면 목록 자체가 없으면 그때는 여전히 `BLOCKER`다)
 - no primary user role or audience for a role-sensitive app
 - design contradicts required feature scope
 - API requires real credentials or production mutations

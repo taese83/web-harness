@@ -129,7 +129,12 @@ maxTurns: 25
 - `_workspace/01_plan/ux-brief.md`
 - `_workspace/01_plan/tech-stack.md`
 - `_workspace/01_plan/feature-plan.md`
-- `_workspace/01_plan/project-brief.md`
+- `_workspace/01_plan/project-brief.md` — 원문에 근거가 있으면 `SURFACE_MODEL`(`route`|`overlay`)을 함께 적는다.
+  근거가 없으면 **생략한다**(미선언은 소비자가 `route`로 읽는다). 두 값 어디에도 맞지 않는 형태면
+  `gap-report.md`에 **`BLOCKER`로** 올린다 — 오케스트레이터와 완료 조건이 기계적으로 보는 것은
+  `BLOCKER`뿐이고, 더 낮은 등급으로 적으면 Phase 2에서 `layout-designer`가 어차피 멈추는 것을
+  아무도 미리 알지 못한다.
+  정본 정의는 `.claude/agents/layout-designer.md`「서피스 모델」이다
 - `_workspace/02_design/design-system.md`
 - `_workspace/02_design/layout-spec.md`
 - `_workspace/02_design/component-spec.md`
