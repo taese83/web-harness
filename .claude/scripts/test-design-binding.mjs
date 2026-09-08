@@ -384,8 +384,9 @@ test('빈 칸은 미결이다 — 표의 존재만 보던 것이 분모를 0으�
     const inputs = checkDesignInputs(root)
     assert.equal(inputs.state, 'HOLE')
     assert.match(inputs.detail, /빈 칸 1건: PAGE-002\/state:empty/)
-    // `design-inputs`는 `--to design`에만 서고 그 인계를 부르는 계약 문장이 아직 없다.
-    // 부르지 않는 검사에 분모를 맡기면 분모가 없는 것과 같으므로 `design-binding`도 본다.
+    // `design-inputs`는 `--to design`에만 선다. 그 인계를 부르는 문장은 이제 있으나
+    // (Phase 1 → 2, 자동 차단 아님) 넘어갈 수 있으므로 `design-binding`도 함께 본다 —
+    // 그쪽은 `--to development`에서 다시 걸린다.
     const bound = checkDesignBinding(root)
     assert.equal(bound.state, 'HOLE')
     assert.match(bound.detail, /빈 칸 1건: PAGE-002\/state:empty/)
@@ -1117,7 +1118,7 @@ test('배선: --design-debt가 프로세스로 돌고 진행을 막지 않는다
 test('배선: 두 시점이 청구서를 부른다 — 부르지 않는 절차는 존재하지 않는 것과 같다', () => {
   // 개발 착수 직전(결정 요구)과 기획 발행 직후(보여주기)의 두 자리다. 산문에서 명령이
   // 사라지면 기계는 그대로 도는데 아무도 부르지 않는 상태가 된다 — 이 저장소가 `--to design`
-  // 에서 이미 겪은 형태이며, 그것은 protected-core §4에 한계로 등록돼 있다.
+  // 에서 이미 겪은 형태다(2026-09-08에 부르는 문장을 만들어 닫았고, 아래 회귀가 그것을 지킨다).
   const surface = name => readFileSync(new URL(`../skills/web-orchestrator/references/${name}`, import.meta.url), 'utf8')
   assert.match(surface('phase-3-development.md'), /--design-debt/, '개발 착수 직전 청구가 없다')
   const checkpoints = surface('approval-checkpoints.md')
@@ -1126,6 +1127,19 @@ test('배선: 두 시점이 청구서를 부른다 — 부르지 않는 절차�
   assert.match(checkpoints, /조건별 결정은 요구하지 않는다/, '기획 발행 시점의 강도가 명시되지 않았다')
   // 다만 "붙일지"는 여기서 확인한다 — 그 비용이 여기가 가장 싸다(스팩 재확정이 없다).
   assert.match(checkpoints, /absent 유지/, '되돌릴 기회가 확인 항목에 없다')
+})
+
+test('배선: Phase 1 → 2가 --to design을 부른다 — 코드에만 있는 검사는 없는 것과 같다', () => {
+  // 이 검사는 2026-08-30부터 코드에 있었으나 부르는 계약 문장이 없어 한 번도 실행되지 않았다
+  // (protected-core §4 「단계 인계 판정」 ③). 문장이 사라지면 같은 상태로 돌아간다.
+  const checkpoints = readFileSync(new URL('../skills/web-orchestrator/references/approval-checkpoints.md', import.meta.url), 'utf8')
+  const phase1to2 = checkpoints.slice(0, checkpoints.indexOf('## Phase 2 → Phase 3'))
+  assert.match(phase1to2, /--to design/, 'Phase 1 → 2가 design 인계 판정을 부르지 않는다')
+  // **강도가 함께 적혀야 한다.** 자동 차단이 아닌 것을 적지 않으면 다음 사람이 게이트로 읽고,
+  // 게이트가 아닌 것을 게이트라 부르는 것은 I1 위반이다.
+  assert.match(phase1to2, /자동 차단이 아니다/, '이 자리의 강도가 명시되지 않았다')
+  // 넘어갈 때의 대가도 적혀야 한다 — design-inputs는 이 인계에만 있다.
+  assert.match(phase1to2, /다시 재지 않는다/, '넘어갈 때 무엇을 잃는지 적히지 않았다')
 })
 
 test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명령은 에이전트 경로에서 막힌다', () => {
