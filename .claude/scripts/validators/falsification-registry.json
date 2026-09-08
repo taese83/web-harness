@@ -377,6 +377,14 @@
       "replace": "  const __log = readDecisionLog(root); const loggedDecisions = {has: id => __log.includes(id)}",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "표제 대조를 로그 본문 포함 검사로 바꾸면 「PC-007은 아직 보류한다」처럼 결정이 아니라고 적은 줄이 인수를 세운다 — 대조가 결정의 존재 확인이 아니라 문자열 검색이 된다"
+    },
+    {
+      "id": "source-consumption-bidirectional",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "      if (snapshotName !== '' && !text.includes(snapshotName)) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "역방향 대조를 끄면 인벤토리에 아무 산출물이나 소비 지점으로 적어 통과시킬 수 있다 — 한 방향만 보면 유령 연결이 supplied를 사실처럼 만든다"
     }
   ]
 }

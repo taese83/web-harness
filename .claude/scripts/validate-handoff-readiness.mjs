@@ -148,6 +148,104 @@ const readPlanArtifact = (root, base) => {
     .map(n => readFileSync(join(dir, n), 'utf8')).join('\n')
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 공급물의 소비 대조 — 받았다는 기록과 썼다는 기록을 맞춘다
+//
+// `supplied`는 자기보고였다. `00_source/`에 인벤토리를 남기고도 그 내용이 정규화 산출물에
+// 실제로 반영됐는지는 아무도 대조하지 않았고, `PLAN_SOURCE: supplied`가 완료 보고에 사실처럼
+// 실렸다(`provenance-contract.md` §2 「`supplied`의 한계」가 그렇게 적는다).
+//
+// 대조 가능하려면 인벤토리가 기계가 읽는 형식이어야 한다. 실측(2026-09-08)에서 두 프로브의
+// `source-index.md`는 **형식이 서로 완전히 달랐다**(가로 인벤토리 표 / 세로 key-value 표) —
+// 계약이 「기록한다」까지만 정하고 형태를 고정하지 않았기 때문이다.
+const SOURCE_INDEX = '_workspace/00_source/source-index.md'
+const CONSUMED_HEADER = /^(소비 지점|consumed by)$/i
+const SNAPSHOT_HEADER = /^(스냅샷 경로|스냅샷|snapshot)$/i
+const CONSUMED_NONE = /^없음\s*\(/
+
+// 인벤토리 행이 가리키는 산출물은 flat(`x.md`)일 수도 분할(`x/`)일 수도 있다 —
+// `readPlanArtifact`와 같은 규율이다(`artifact-sharding-contract.md`).
+const readWorkspaceArtifact = (root, rel) => {
+  const clean = rel.replace(/^\.?\/*/, '').replace(/^_workspace\//, '')
+  const flat = join(root, '_workspace', clean.endsWith('.md') ? clean : `${clean}.md`)
+  if (existsSync(flat) && statSync(flat).isFile()) return readFileSync(flat, 'utf8')
+  const dir = join(root, '_workspace', clean.replace(/\.md$/, ''))
+  if (existsSync(dir) && statSync(dir).isDirectory()) {
+    return readdirSync(dir).filter(n => n.endsWith('.md')).sort()
+      .map(n => readFileSync(join(dir, n), 'utf8')).join('\n')
+  }
+  return null
+}
+
+export function parseSourceInventory(text) {
+  const lines = String(text ?? '').split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!lines[i].trim().startsWith('|')) continue
+    const headers = tableCells(lines[i])
+    const consumedAt = headers.findIndex(h => CONSUMED_HEADER.test(h))
+    if (consumedAt === -1) continue
+    const snapshotAt = headers.findIndex(h => SNAPSHOT_HEADER.test(h))
+    const rows = []
+    for (let j = i + 1; j < lines.length && lines[j].trim().startsWith('|'); j += 1) {
+      const cells = tableCells(lines[j])
+      if (isSeparatorRow(cells, headers.length)) continue
+      rows.push({
+        label: (cells[0] ?? '').replace(/`/g, '').trim() || `행 ${rows.length + 1}`,
+        consumed: (cells[consumedAt] ?? '').trim(),
+        snapshot: snapshotAt === -1 ? '' : (cells[snapshotAt] ?? '').trim(),
+      })
+    }
+    return {found: true, rows}
+  }
+  return {found: false, rows: []}
+}
+
+// 소비 지점 칸에서 산출물 경로만 뽑는다. 산문이 섞여도(`01_plan/requirements.md 3절`) 읽힌다.
+const consumedPaths = cell => [...String(cell).matchAll(/(?:_workspace\/)?(0[12]_[a-z]+\/[A-Za-z0-9_\-.]+)/g)]
+  .map(m => m[1].replace(/\.md$/, ''))
+
+export function checkSourceConsumption(root) {
+  const indexPath = join(root, SOURCE_INDEX)
+  if (!existsSync(indexPath)) {
+    return skip('source-consumption', '공급 원문 인벤토리가 없다 — 이 프로젝트는 공급 경로를 쓰지 않았다')
+  }
+  const inventory = parseSourceInventory(readFileSync(indexPath, 'utf8'))
+  if (!inventory.found) {
+    return hole('source-consumption', `${SOURCE_INDEX}에 「소비 지점」 열을 가진 인벤토리 표가 없다`,
+      'source-artifacts.md 「인벤토리 표」 형식으로 적는다 — 열이 없으면 무엇이 어디로 갔는지 기계가 읽지 못하고 공급원 라벨은 자기보고로 남는다')
+  }
+  if (inventory.rows.length === 0) {
+    return hole('source-consumption', `${SOURCE_INDEX}의 인벤토리 표에 행이 없다`,
+      '받은 원문을 행으로 적는다 — 표만 있고 행이 없으면 "받은 것이 없다"와 "적지 않았다"를 구별할 수 없다')
+  }
+  const problems = []
+  let traced = 0
+  for (const row of inventory.rows) {
+    if (row.consumed === '') { problems.push(`${row.label}: 소비 지점 빈 칸`); continue }
+    if (CONSUMED_NONE.test(row.consumed)) continue   // `없음(사유)` — 받았으나 쓰지 않았다는 **결정**
+    const targets = consumedPaths(row.consumed)
+    if (targets.length === 0) { problems.push(`${row.label}: 소비 지점에 산출물 경로가 없다`); continue }
+    for (const target of targets) {
+      const text = readWorkspaceArtifact(root, target)
+      if (text === null) { problems.push(`${row.label} → ${target} 없음`); continue }
+      if (!/^#{2,3}\s*Source Trace/m.test(text)) { problems.push(`${row.label} → ${target}에 Source Trace 절이 없다`); continue }
+      // **역방향.** 산출물이 그 원문을 되짚는가. 스냅샷 파일명으로 맞춘다 — 경로 표기가
+      // 문서마다 달라도(`_workspace/00_source/…` vs `00_source/…`) 파일명은 같다.
+      const snapshotName = (row.snapshot.replace(/`/g, '').trim().split('/').pop() ?? '').trim()
+      if (snapshotName !== '' && !text.includes(snapshotName)) {
+        problems.push(`${row.label} → ${target}의 Source Trace가 ${snapshotName}을 되짚지 않는다`)
+        continue
+      }
+      traced += 1
+    }
+  }
+  if (problems.length > 0) {
+    return hole('source-consumption', `공급물 소비 대조 실패 ${problems.length}건: ${problems.join(' · ')}`,
+      '인벤토리의 각 원문이 어느 산출물로 갔는지 적고, 그 산출물의 Source Trace가 같은 스냅샷을 되짚게 한다. 쓰지 않았으면 `없음(사유)`로 **명시**한다 — 빈 칸은 결정이 아니라 미기록이다')
+  }
+  return ok('source-consumption', `공급 원문 ${inventory.rows.length}건이 산출물로 이어진다 · 양방향 대조 ${traced}건`)
+}
+
 export function checkDesignInputs(root) {
   const missing = []
   for (const section of REQUIRED_PLAN_SECTIONS) {
@@ -1200,13 +1298,14 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkProseEdgesDeclared(root, units),
     checkAcceptanceCoverage(units), checkActivePickupIntact(root, units)]
   if (to === 'design') {
-    const results = [...planChecks, checkDesignInputs(root), checkDesignBinding(root, {reportDenominator: false}), checkUpstreamDecisionsReachable(root)]
+    const results = [...planChecks, checkSourceConsumption(root), checkDesignInputs(root), checkDesignBinding(root, {reportDenominator: false}), checkUpstreamDecisionsReachable(root)]
     const holes = results.filter(r => r.state === 'HOLE')
     return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
   }
   const spec = readSpecAt(root)
   const results = [
     ...planChecks,
+    checkSourceConsumption(root),
     checkPathsAgainstSpec(units, spec),
     checkPathsSufficient(units),
     checkTicketsCoverPlan(root, units),

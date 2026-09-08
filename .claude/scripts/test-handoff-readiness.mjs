@@ -6,12 +6,12 @@
 // **2026-08-30에 개발 중에 터진 것들이 승인 시점에 잡히는가.**
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached, checkPathsSufficient,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached, checkPathsSufficient, checkSourceConsumption,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
@@ -530,4 +530,117 @@ test('TC가 없는 단위는 경로가 없어도 지적하지 않는다 — 완�
 
 test('경로 미선언(undefined)은 이 축이 아니라 plan 축이 본다', () => {
   assert.equal(checkPathsSufficient([{featureId: 'FEAT-010', testCaseIds: ['TC-010-1']}]).state, 'PASS')
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 공급물 소비 대조 — 받았다는 기록과 썼다는 기록을 맞춘다.
+//
+// `supplied`는 자기보고였다. 인벤토리를 남기고도 그 내용이 산출물에 반영됐는지 아무도 안 봤고,
+// 완료 보고에는 `PLAN_SOURCE: supplied`가 사실처럼 실렸다(provenance §2). 여기서 고정하는 것은
+// **연결의 실재가 양방향으로 잡히는가**이며, 내용의 반영은 여전히 미검사다(§4 등록).
+
+const withSourceIndex = (fn, {index = null, outputs = {}} = {}) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-source-')))
+  try {
+    mkdirSync(join(root, '_workspace/00_source'), {recursive: true})
+    mkdirSync(join(root, '_workspace/01_plan'), {recursive: true})
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    if (index !== null) writeFileSync(join(root, '_workspace/00_source/source-index.md'), index)
+    for (const [rel, body] of Object.entries(outputs)) writeFileSync(join(root, '_workspace', rel), body)
+    return fn(root)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+}
+
+const INVENTORY = rows => [
+  '# Source Index', '', '## 인벤토리', '',
+  '| 출처 | 형태 | 스냅샷 경로 | SHA-256 | 분류 | 소비 지점 |',
+  '|---|---|---|---|---|---|',
+  ...rows, '',
+].join('\n')
+
+const TRACED = snapshot => [
+  '# Requirements', '', '## Source Trace', '',
+  '| Section | Source | Notes |', '|---|---|---|',
+  `| 요구사항 | \`00_source/fetched/${snapshot}\` | 그대로 옮김 |`, '',
+].join('\n')
+
+test('공급 인벤토리가 없으면 대조하지 않는다 — 공급 경로를 쓰지 않은 프로젝트와 구별한다', () => {
+  withSourceIndex(root => {
+    assert.equal(checkSourceConsumption(root).state, 'SKIPPED')
+  })
+})
+
+test('소비 지점 열이 없는 인벤토리는 대조 불가다 — 형식을 고정하지 않으면 supplied는 영원히 자기보고다', () => {
+  // 실측(2026-09-08): 두 프로브의 source-index.md 형식이 서로 완전히 달랐다.
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /소비 지점.*열/)
+  }, {index: '# Source Index\n\n| 항목 | 값 |\n|---|---|\n| 원본 | PRD |\n'})
+})
+
+test('소비 지점 빈 칸은 결정이 아니라 미기록이다', () => {
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /소비 지점 빈 칸/)
+  }, {index: INVENTORY(['| PRD | URL | `00_source/fetched/prd.md` | `a1` | 기획 입력 |  |'])})
+})
+
+test('없음(사유)는 통과한다 — 받았으나 쓰지 않은 것은 정상이며 결정이다', () => {
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'PASS')
+  }, {index: INVENTORY(['| 구 운영 가이드 | 로컬 | `00_source/legacy.md` | `a1` | 참고 | 없음(범위 밖 — 운영 절차만 담김) |'])})
+})
+
+test('소비 지점이 없는 산출물을 가리키면 잡는다', () => {
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /01_plan\/requirements 없음/)
+  }, {index: INVENTORY(['| PRD | URL | `00_source/fetched/prd.md` | `a1` | 기획 | `01_plan/requirements.md` |'])})
+})
+
+test('산출물에 Source Trace 절이 없으면 잡는다 — 한 방향만 적으면 대조가 아니다', () => {
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /Source Trace 절이 없다/)
+  }, {
+    index: INVENTORY(['| PRD | URL | `00_source/fetched/prd.md` | `a1` | 기획 | `01_plan/requirements.md` |']),
+    outputs: {'01_plan/requirements.md': '# Requirements\n\n- 아무 근거도 되짚지 않는다\n'},
+  })
+})
+
+test('역방향: Source Trace가 그 스냅샷을 되짚지 않으면 잡는다 — 유령 연결을 막는다', () => {
+  // 앞 방향만 보면 인벤토리에 아무 산출물이나 적어 통과시킬 수 있다.
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'HOLE')
+    assert.match(r.detail, /되짚지 않는다/)
+  }, {
+    index: INVENTORY(['| PRD | URL | `00_source/fetched/prd.md` | `a1` | 기획 | `01_plan/requirements.md` |']),
+    outputs: {'01_plan/requirements.md': TRACED('other-doc.md')},
+  })
+})
+
+test('양방향이 맞으면 통과하고 대조 건수를 보고한다', () => {
+  withSourceIndex(root => {
+    const r = checkSourceConsumption(root)
+    assert.equal(r.state, 'PASS', r.detail)
+    assert.match(r.detail, /양방향 대조 1건/)
+  }, {
+    index: INVENTORY(['| PRD | URL | `00_source/fetched/prd.md` | `a1` | 기획 | `01_plan/requirements.md` |']),
+    outputs: {'01_plan/requirements.md': TRACED('prd.md')},
+  })
+})
+
+test('배선: 두 인계가 모두 이 대조를 세운다 — 디자인에서 먼저 잡고 개발에서 다시 본다', () => {
+  const surface = readFileSync(new URL('./validate-handoff-readiness.mjs', import.meta.url), 'utf8')
+  const assembly = surface.slice(surface.indexOf('export function analyzeHandoffReadiness'))
+  const design = assembly.slice(assembly.indexOf("if (to === 'design')"), assembly.indexOf('const spec = readSpecAt(root)'))
+  assert.match(design, /checkSourceConsumption\(root\)/, '디자인 인계에 없다')
+  const dev = assembly.slice(assembly.indexOf('const spec = readSpecAt(root)'))
+  assert.match(dev, /checkSourceConsumption\(root\)/, '개발 인계에 없다')
 })

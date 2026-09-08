@@ -25,6 +25,36 @@ Use this reference when the user already has planning, design, API, or product d
 넘기고, 그 에이전트가 `confirmed` 티어로 블록을 쓴다
 (`provenance-contract.md` §1·§7, `.claude/agents/system-architect.md`).
 
+## 인벤토리 표 — `00_source/source-index.md`
+
+받은 원문을 **한 행씩** 적는다. 형태가 고정돼야 하는 이유는 하나다 — **받았다는 기록과 썼다는
+기록을 맞추기 위해서**다. 종전에는 「기록한다」까지만 정하고 형태를 두지 않았고, 그래서 실제
+산출물의 형식이 서로 달랐다(실측 2026-09-08: 가로 인벤토리 표 / 세로 key-value 표). 형식이
+다르면 `supplied`는 영원히 자기보고로 남는다.
+
+```markdown
+## 인벤토리
+
+| 출처 | 형태 | 스냅샷 경로 | 가져온 시각 | 가져온 주체·수단 | SHA-256 | 분류 | 소비 지점 |
+|---|---|---|---|---|---|---|---|
+| PRD (Confluence) | URL(인증) | `00_source/fetched/prd.md` | 2026-09-08T01:00Z | 오케스트레이터 / 커넥터 | `a1b2…` | 기획 입력 | `01_plan/requirements.md`, `01_plan/feature-plan.md` |
+| 대시보드 시안 | 시안 이미지 | `00_source/design/dashboard.png` | 2026-09-08T01:04Z | 사용자 export | `c3d4…` | 디자인 입력 | `02_design/layout-spec.md` |
+| 구 운영 가이드 | 로컬 파일 | `00_source/legacy-ops.md` | 2026-09-08T01:06Z | 로컬 경로 | `e5f6…` | 참고 | 없음(범위 밖 — 운영 절차만 담김) |
+```
+
+- **`소비 지점` 열은 필수다.** 그 원문이 어느 정규화 산출물로 갔는지 프로젝트 상대 경로로 적는다
+  (`01_plan/…` · `02_design/…`, 여럿이면 쉼표). 열 이름은 `소비 지점` 또는 `Consumed by`다.
+- **쓰지 않았으면 `없음(사유)`로 명시한다.** 받았으나 쓰지 않은 것은 정상이며 그것은 **결정**이다.
+  빈 칸은 결정이 아니라 미기록이고, 인계 판정이 미기록으로 잡는다.
+- **소비 지점으로 적은 산출물은 자기 `## Source Trace`에서 그 스냅샷을 되짚어야 한다.**
+  한쪽만 적으면 대조가 성립하지 않는다 — `design-binding`이 화면 집합을 양방향으로 보는 것과
+  같은 이유다(한 방향만 보면 유령 항목이 통과한다).
+- 다른 열은 아래 「공급 형태」 표가 요구하는 것을 그대로 옮긴다. 해시를 낼 수단이 없으면
+  **칸을 비우고 사유를 적는다** — 계산하지 않은 해시를 적는 것은 위조다.
+
+기계 대조는 `validate-handoff-readiness.mjs`의 `source-consumption`이 하며, 이 파일이 없으면
+`SKIPPED`다(공급 경로를 쓰지 않은 프로젝트).
+
 ## 공급 형태 — 무엇을 어떻게 받는가
 
 공급원이 `supplied`인 단계는 아래 다섯 형태 중 하나로 들어온다(`provenance-contract.md` §1).

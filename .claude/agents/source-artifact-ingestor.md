@@ -118,7 +118,9 @@ maxTurns: 25
 
 ## 출력 파일
 
-- `_workspace/00_source/source-index.md`
+- `_workspace/00_source/source-index.md` — 「인벤토리 표」 형식을 따른다(`source-artifacts.md`).
+  **`소비 지점` 열은 필수**이며 그 원문이 어느 산출물로 갔는지 적는다. 쓰지 않았으면 `없음(사유)`다 —
+  빈 칸은 인계 판정이 미기록으로 잡는다
 - `_workspace/00_source/gap-report.md`
 - `_workspace/00_source/source-change-proposals.md`
 - `_workspace/00_source/author-questions.md` (`QUESTION`이 1건 이상일 때만 — 0건이면 만들지 않고 `gap-report.md`에 `INFO`로 남긴다)
