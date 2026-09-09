@@ -42,6 +42,11 @@
  *   티켓에 코멘트를 남긴다. **되돌림을 기획자에게 알리는 유일한 경로**다 — 없으면 개발자
  *   터미널에서 끝나고 기획자는 막힌 사실을 모른다. 없는 provider도 있을 수 있으므로 선택이며,
  *   호출자는 `notified: {supported, done}`으로 **안 한 것과 못 한 것을 구분해** 표시한다.
+ * @property {(key: string, body: string) => Promise<any>} [updateBody]
+ *   이슈 본문을 **교체**한다. 역방향 인테이크(사람이 쓴 티켓에 왕복 마커를 스탬프)의 유일한
+ *   경로다. **원시 교체이므로 호출자가 `stampRefsInto`로 덧붙인 본문을 넘겨야 한다** —
+ *   이 메서드가 직접 본문을 지어내면 기획자가 쓴 내용이 사라진다. 없는 provider도 있을 수
+ *   있으므로 선택이며, 호출자는 능력 부재를 표시한다.
  * @property {(message: string) => {kind: string, hint: string}} [classifyError]
  */
 
@@ -83,7 +88,7 @@ export function isClosedIssue(provider, issue) {
 
 /**
  * provider가 가진 선택 능력을 이름으로 돌려준다 — 호출자가 "없어서 안 한 것"을 표시할 수 있게.
- * @returns {{reopen: boolean, transition: boolean, autoClose: boolean, comment: boolean}}
+ * @returns {{reopen: boolean, transition: boolean, autoClose: boolean, comment: boolean, updateBody: boolean}}
  */
 export function providerCapabilities(provider) {
   return {
@@ -91,6 +96,7 @@ export function providerCapabilities(provider) {
     transition: typeof provider?.transition === 'function',
     autoClose: typeof provider?.closeReference === 'function',
     comment: typeof provider?.comment === 'function',
+    updateBody: typeof provider?.updateBody === 'function',
   }
 }
 

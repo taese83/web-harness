@@ -20,8 +20,20 @@ maxTurns: 20
 ## 작업 원칙
 
 1. source/test/config/package/lock/snapshot 파일을 수정하지 않는다.
+   **명시 예외 하나**: 3-1의 변이 표본은 소스를 일시 변이시킨다. 그 스크립트는 복원을
+   **지문으로 증명**하고, 실패하면 exit 2로 멈춘다. exit 2를 받으면 점수를 적지 말고
+   `BLOCKED`로 보고하며 `git status` 결과를 함께 싣는다 — 그 뒤 명령을 이어 돌리지 않는다.
+   강제 종료(툴 timeout 등)로 스크립트가 죽으면 변이가 남을 수 있다: 그때도 `git status`가 근거다.
 2. 실패 원인과 소유 에이전트를 분류한다.
 3. coverage 70% 미만은 WARN, 실제 테스트 실패는 FAIL로 기록한다.
+3-1. **커버리지는 실행만 측정한다.** 무엇을 검증하는지는 변이 표본이 잰다 — 아래를 돌려
+   결과 줄을 `qa-test.md`에 그대로 싣는다(막지 않는다, 점수와 무관하게 exit 0이다):
+   ```bash
+   node .claude/scripts/validate-mutation-sample.mjs --project {root}
+   ```
+   **기준 실행이 실패하면(스위트가 원래 빨갛거나 러너가 안 뜨면) `NOT_MEASURED`다** — 점수가 아니다.
+   **살아남은 변이 목록을 함께 싣는다** — equivalent mutant가 섞이므로 가리는 것은 사람 몫이다.
+   `NOT_MEASURED`는 통과가 아니라 미수행이다.
 4. 의존성 설치가 필요하면 실행하지 말고 보고한다.
 5. `vitest -u`, `--update`, `--updateSnapshot`, formatter write, auto-fix 명령을 실행하지 않는다.
 6. 테스트 인프라 문제는 `environment-scaffolder`, 테스트 케이스 문제는 `developer`, product logic 문제는 해당 구현 owner agent로 라우팅한다.

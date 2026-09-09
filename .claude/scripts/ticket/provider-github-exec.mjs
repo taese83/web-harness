@@ -8,9 +8,13 @@ import {classifyGhError} from './permissions.mjs'
 import {parseViewerPermission} from './permissions.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
-function gh(args, {host = 'github.com', timeoutMs = 30000} = {}) {
+// `stdin`은 **본문처럼 긴 값**을 넘기는 통로다 — argv로 넘기면 인자 길이 한계와 셸 인용에
+// 걸린다(`gh issue edit --body-file -`). 없으면 종전대로 stdin을 닫는다.
+function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn('gh', args, {env: {...process.env, GH_HOST: host}, stdio: ['ignore', 'pipe', 'pipe']})
+    const child = spawn('gh', args,
+      {env: {...process.env, GH_HOST: host}, stdio: [stdin === null ? 'ignore' : 'pipe', 'pipe', 'pipe']})
+    if (stdin !== null) { child.stdin.end(String(stdin)) }
     let out = ''
     let err = ''
     const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`gh timeout: ${args[0]} ${args[1]}`)) }, timeoutMs)
@@ -65,7 +69,7 @@ export function runGh(args, options = {}) {
  * @returns {Promise<string[]>} merged featureIds
  */
 export async function resolveMergedFeatures({records, exec = null, host = 'github.com'}) {
-  const run = exec ?? (args => gh(args, {host}))
+  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
   const merged = []
   for (const record of records ?? []) {
     if (!record?.prUrl) continue
@@ -85,7 +89,7 @@ export async function resolveMergedFeatures({records, exec = null, host = 'githu
  */
 export function createGithubProvider({repo, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
-  const run = exec ?? (args => gh(args, {host}))
+  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
   return {
     // ── TicketProvider 필수부(`ticket-provider.mjs`) ──
     name: 'github',
@@ -132,6 +136,12 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       await run(['issue', 'comment', String(ticketKey), '--repo', repo, '--body', String(text)])
       return {ticketKey: String(ticketKey), commented: true}
     },
+    // 본문 교체 — 역방향 인테이크의 스탬프 경로. **호출자가 덧붙인 본문을 넘긴다**(`stampRefsInto`).
+    // `--body`는 인자 길이 한계와 셸 인용 문제가 있어 stdin으로 넘긴다.
+    async updateBody(ticketKey, body) {
+      await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: String(body)})
+      return {ticketKey: String(ticketKey), updated: true}
+    },
     async createIssue(fields) {
       for (const label of fields.labels) await run(labelEnsureArgs(repo, label))
       const out = await run(createArgs(repo, fields))
@@ -150,7 +160,7 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
  */
 export async function resolveIssue({repo, number, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
-  const run = exec ?? (args => gh(args, {host}))
+  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
   const parsed = JSON.parse(await run(viewArgs(repo, number)))
   return {
     number: parsed.number,
@@ -169,7 +179,7 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
  */
 export async function resolveViewerPermission({repo, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
-  const run = exec ?? (args => gh(args, {host}))
+  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
   try {
     return parseViewerPermission(await run(permissionArgs(repo)))
   } catch {

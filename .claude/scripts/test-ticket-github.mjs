@@ -93,3 +93,52 @@ test('parseCreatedIssueUrl: gh issue create URL에서 번호 추출', () => {
   assert.deepEqual(parseCreatedIssueUrl('https://github.com/taese83/harness-ticket-test/issues/42\n'), {number: 42, url: 'https://github.com/taese83/harness-ticket-test/issues/42'})
   assert.equal(parseCreatedIssueUrl('출력 없음'), null)
 })
+
+// ── 역방향 인테이크: 사람이 쓴 티켓에 마커를 **덧붙인다** ──────────────────────
+test('스탬프는 덮어쓰지 않는다 — 기획자가 쓴 본문이 남아야 한다', async () => {
+  const {buildRefsMarker, parseIssueRefs, stampRefsInto} = await import('./ticket/refs.mjs')
+  const human = '## 배경\n임직원이 세미나를 메일로 신청한다.\n\n## 요구사항\n- 신청 버튼'
+  const marker = buildRefsMarker(['FEAT-007'], ['TC-007-1'])
+  const stamped = stampRefsInto(human, marker)
+  // 되돌릴 수 없는 파괴이므로 이 경로에는 교체가 없다.
+  assert.ok(stamped.includes('임직원이 세미나를 메일로 신청한다'), '사람이 쓴 본문이 사라졌다')
+  assert.ok(stamped.includes('- 신청 버튼'))
+  assert.deepEqual(parseIssueRefs(stamped).featureIds, ['FEAT-007'], '스탬프 뒤 되읽기가 안 된다')
+  // 멱등 — 재실행이 티켓을 마커로 도배하지 않는다.
+  assert.equal(stampRefsInto(stamped, marker), null)
+  // 이미 다른 FEAT에 묶인 티켓은 조용히 바꾸지 않는다 — 원장과 본문이 갈라진다.
+  assert.throws(() => stampRefsInto(stamped, buildRefsMarker(['FEAT-009'], [])), /REFS_MARKER_CONFLICT/)
+  // 마커가 아닌 문자열을 넘기면 loud하게 거부한다.
+  assert.throws(() => stampRefsInto(human, '아무 문자열'), /INVALID_REFS_MARKER/)
+})
+
+test('배선: 두 provider가 본문을 교체할 수 있고 능력으로 표시된다', async () => {
+  const {createGithubProvider} = await import('./ticket/provider-github-exec.mjs')
+  const {createJiraProvider} = await import('./ticket/provider-jira-exec.mjs')
+  const {providerCapabilities} = await import('./ticket/ticket-provider.mjs')
+
+  // GitHub: 본문은 **stdin**으로 넘긴다 — argv는 인자 길이 한계와 셸 인용에 걸린다.
+  const calls = []
+  const gh = createGithubProvider({repo: 'o/r', exec: async (args, options) => { calls.push({args, stdin: options?.stdin}); return '' }})
+  await gh.updateBody(42, '본문 + 마커')
+  assert.deepEqual(calls[0].args, ['issue', 'edit', '42', '--repo', 'o/r', '--body-file', '-'])
+  assert.equal(calls[0].stdin, '본문 + 마커', '본문이 argv로 새어나갔다')
+  assert.equal(providerCapabilities(gh).updateBody, true)
+
+  // Jira: description은 코멘트와 같은 버전 분기를 탄다(Cloud v3는 ADF, DC v2는 평문).
+  const seen = []
+  const capture = async (url, init) => {
+    seen.push({url, method: init.method, body: JSON.parse(init.body)})
+    return {ok: true, status: 200, json: async () => ({}), text: async () => '{}'}
+  }
+  const base = {baseUrl: 'https://j.example.com', projectKey: 'P', issueType: 'Task'}
+  const cloud = createJiraProvider({config: {...base, apiVersion: '3'}, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
+  await cloud.updateBody('PF-1', '본문')
+  assert.equal(seen[0].method, 'PUT')
+  assert.match(seen[0].url, /\/rest\/api\/3\/issue\/PF-1$/)
+  assert.equal(seen[0].body.fields.description.type, 'doc', 'Cloud에 평문을 보냈다 — 400이 난다')
+
+  const dc = createJiraProvider({config: {...base, apiVersion: '2'}, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
+  await dc.updateBody('PF-1', '본문')
+  assert.equal(seen[1].body.fields.description, '본문')
+})

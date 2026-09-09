@@ -129,6 +129,13 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     return {ticketKey: String(key), commented: true}
   }
 
+  // 본문 교체 — 역방향 인테이크의 스탬프 경로. description은 코멘트와 같은 버전 분기를 탄다.
+  provider.updateBody = async (key, body) => {
+    await call(config, `/issue/${encodeURIComponent(key)}`, {...options, method: 'PUT',
+      body: {fields: {description: commentBody(body)}}})
+    return {ticketKey: String(key), updated: true}
+  }
+
   // 되살리기는 Jira에서 별도 API가 아니라 전이다 — 그 phase 매핑이 있을 때만 노출한다.
   if (phases.includes('reopen')) {
     provider.reopenIssue = async (key, comment = null) => {

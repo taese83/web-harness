@@ -529,6 +529,30 @@
       "replace": "    const at = lines.findIndex(line => line.includes(field.label))",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "항목 줄 형태로 앵커하지 않으면 기획 산문에 같은 문구가 있을 때 그 줄을 답으로 읽는다 — 빈 항목이 채워진 것으로 통과한다"
+    },
+    {
+      "id": "mutation-sample-survivor-classification",
+      "file": ".claude/scripts/mutation-sample-lib.mjs",
+      "find": "      if (await runTests() === 0) survivors.push({file: item.file, label: item.label})\n      else killed++",
+      "replace": "      killed++",
+      "test": ".claude/scripts/test-mutation-sample.mjs",
+      "why": "살아남은 변이를 잡힌 것으로 세면 점수가 항상 100%가 된다 — 이 검사가 하는 유일한 일이 「테스트가 못 잡는 것」을 세는 것이고, 접으면 커버리지와 같은 프록시로 되돌아간다"
+    },
+    {
+      "id": "mutation-sample-restores-source",
+      "file": ".claude/scripts/mutation-sample-lib.mjs",
+      "find": "    } finally {\n      write(item.file, original)\n      onInFlight?.(null)\n    }",
+      "replace": "    } finally {\n      onInFlight?.(null)\n    }",
+      "test": ".claude/scripts/test-mutation-sample.mjs",
+      "why": "복원하지 않으면 변이가 사용자의 소스에 남는다 — 이 스크립트가 가진 유일한 실질 위험이며, 실패 경로에서도 복원되어야 한다"
+    },
+    {
+      "id": "mutation-sample-baseline-run",
+      "file": ".claude/scripts/mutation-sample-lib.mjs",
+      "find": "  if (baseline !== 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-mutation-sample.mjs",
+      "why": "기준 실행 없이 재면 원래 빨간 스위트도 러너가 못 뜨는 경우도 모든 변이가 「잡혔다」로 세어져 점수가 항상 100%가 된다 — 적대 리뷰가 실행으로 재현한 BLOCK이며, 반증 seed가 막으려던 결과가 다른 문으로 열려 있었다"
     }
   ]
 }

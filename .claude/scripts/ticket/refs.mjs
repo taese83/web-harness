@@ -52,3 +52,32 @@ export function parseIssueRefs(body) {
     branch: branchMatch ? branchMatch[1] : null,
   }
 }
+
+/**
+ * 사람이 쓴 티켓 본문에 왕복 마커를 **덧붙인다**(순수).
+ *
+ * **덮어쓰지 않는다.** 이 함수의 존재 이유가 그것이다 — 역방향 인테이크는 사람이 직접 쓴
+ * 티켓을 대상으로 하고, 본문을 통째로 교체하면 **기획자가 쓴 내용이 사라진다.** 되돌릴 수
+ * 없는 파괴이므로 이 경로에는 교체가 없다: 기존 본문을 그대로 두고 끝에 마커만 붙인다.
+ *
+ * **멱등이다.** 이미 같은 마커가 있으면 `null`을 돌려주고 호출부는 쓰기를 건너뛴다 —
+ * 재실행이 티켓을 마커로 도배하지 않는다.
+ *
+ * @param {string} body  현재 본문(트래커에서 방금 읽은 것)
+ * @param {string} marker  `buildRefsMarker` 산출
+ * @returns {string|null}  붙인 본문, 또는 이미 있으면 `null`
+ */
+export function stampRefsInto(body, marker) {
+  const current = String(body ?? '')
+  if (typeof marker !== 'string' || !marker.startsWith(MARKER_BEGIN)) {
+    throw new Error(`INVALID_REFS_MARKER: buildRefsMarker 산출이 아니다: ${String(marker).slice(0, 40)}`)
+  }
+  // 같은 마커가 이미 있으면 아무것도 하지 않는다.
+  if (current.includes(marker)) return null
+  // **다른 마커가 이미 있으면 손대지 않는다.** 그것은 이 티켓이 이미 다른 FEAT에 묶여 있다는
+  // 뜻이고, 조용히 바꾸면 원장과 본문이 갈라진다 — 판단은 사람 몫이다.
+  if (current.includes(MARKER_BEGIN)) {
+    throw new Error('REFS_MARKER_CONFLICT: 이미 다른 왕복 마커가 있다 — 원장과 본문이 갈라지지 않게 사람이 정한다')
+  }
+  return `${current.replace(/\s+$/, '')}\n\n${marker}\n`
+}

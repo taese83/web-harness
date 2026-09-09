@@ -43,7 +43,7 @@ test('전이 매핑이 없으면 transition 능력을 노출하지 않는다', (
   assert.equal(requireTicketProvider(provider), provider)
   // **코멘트는 전이 매핑과 무관하다** — Jira에서 코멘트는 별도 엔드포인트라, 전이 phase가
   // 하나도 설정되지 않아도 되돌림을 기획자에게 알릴 수는 있다.
-  assert.deepEqual(providerCapabilities(provider), {reopen: false, transition: false, autoClose: true, comment: true})
+  assert.deepEqual(providerCapabilities(provider), {reopen: false, transition: false, autoClose: true, comment: true, updateBody: true})
   assert.equal(typeof provider.transition, 'undefined', '없는 능력을 노출하면 호출자가 전이했다고 보고한다')
 })
 
