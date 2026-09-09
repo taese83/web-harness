@@ -465,6 +465,14 @@
       "replace": "  const screens = {size: table.rows.length}",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "행 수를 화면 수로 세면 단일 라우트 다상태 앱이 「화면 6개」로 보고된다 — 실측 `track`은 화면 1개에 상태 행 6개다"
+    },
+    {
+      "id": "init-workspace-policy-registered",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "  if (script === '.claude/scripts/init-workspace.mjs') {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-design-binding.mjs",
+      "why": "등록이 빠지면 Phase 0의 첫 명령이 에이전트 경로에서 DENY로 막힌다 — 저자는 메인 스레드라 못 보는 클래스이며 이 저장소가 세 번 물렸다"
     }
   ]
 }

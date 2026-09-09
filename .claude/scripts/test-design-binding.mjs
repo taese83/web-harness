@@ -9,7 +9,7 @@
 // green이 된다(wiring-coverage가 §4에 등록한 클래스).
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {spawnSync} from 'node:child_process'
 import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -1226,6 +1226,53 @@ test('배선: bash 정책이 --design-debt를 허용한다 — 등록 없는 명
   assert.equal(decide(`${base} --fix`), false)
   // 기존 형태는 그대로 허용된다(약화 없음).
   assert.equal(decide('node .claude/scripts/validate-handoff-readiness.mjs --project . --to development'), true)
+})
+
+test('배선: bash 정책이 init-workspace를 허용한다 — Phase 0의 첫 명령이 막혀 있었다', () => {
+  // 2026-09-08 실행 확인: `web-orchestrator/SKILL.md`가 Phase 0에서 이 명령을 지시하는데
+  // 정책 미등록이라 에이전트 경로에서 `DENY_VALIDATION_COMMAND`였다 — 파이프라인 시작 자체가
+  // 막혀 있었고 저자는 메인 스레드라 못 봤다. `--to design`·`--design-debt`와 같은 클래스다.
+  const verdict = command => evaluateGlobalBashPolicy({
+    agent_type: 'code-reviewer', tool_name: 'Bash', tool_input: {command},
+  })
+  const base = 'node .claude/scripts/init-workspace.mjs --project-root'
+  // **경로는 깨끗한 체크아웃에 존재하는 것을 쓴다.** `workspace/*`는 gitignore라 CI에서는
+  // `DENY_PATH_MISSING`이 되어 이 회귀가 red가 된다 — 이 세션에서 세 번째로 밟은 클래스다
+  // (2026-09-08 실측: workspace 없는 사본에서 이 테스트가 실제로 실패했다).
+  assert.equal(verdict(`${base} .`).allowed, true, 'Phase 0이 부르는 명령이 막힌다')
+  assert.equal(verdict(`${base} golden`).allowed, true)
+  // **거부는 이유까지 본다.** `.allowed`만 보면 경로가 없어서 막힌 것과 계약이 막은 것이
+  // 구별되지 않아 「맞는 결과, 틀린 이유」가 통과한다(적대 리뷰 2026-09-08).
+  assert.equal(verdict(`${base} . --force`).code, 'DENY_VALIDATION_COMMAND', '덮어쓰기가 열렸다')
+  assert.equal(verdict(`${base} /etc`).code, 'DENY_PATH_OUTSIDE', '프로젝트 밖 경로가 열렸다')
+  // 문서가 부르지 않는 형태는 열지 않는다 — SKILL.md는 항상 `--project-root`를 붙인다.
+  assert.equal(verdict('node .claude/scripts/init-workspace.mjs').allowed, false, '생략형이 열렸다')
+  // 유보한 나머지는 그대로 막혀 있어야 한다 — 이 커밋이 넓힌 것은 하나다.
+  assert.equal(verdict('node .claude/scripts/run-golden-profile.mjs --profile x').allowed, false, '정책이 필요 이상으로 넓어졌다')
+})
+
+test('배선: init-workspace가 프로세스로 돌아 디렉터리 6종과 마커를 만든다', () => {
+  // 정책만 열고 실행을 시험하지 않으면 배선은 여전히 미증명이다 — `wiring-coverage`의
+  // `unwired` 부채가 그것이고, 이 저장소는 그 프록시가 **파일에 이름 문자열만 있어도**
+  // 만족된다(적대 리뷰 2026-09-08). 그래서 실제로 돌린다.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-initws-')))
+  try {
+    const result = spawnSync(process.execPath, [
+      fileURLToPath(new URL('./init-workspace.mjs', import.meta.url)), '--project-root', root,
+    ], {encoding: 'utf8'})
+    assert.equal(result.status, 0, result.stdout + result.stderr)
+    for (const dir of ['00_source', '01_plan', '02_design', '03_dev', '04_qa', 'RELEASE']) {
+      assert.ok(existsSync(join(root, '_workspace', dir)), `${dir}가 만들어지지 않았다`)
+    }
+    assert.ok(existsSync(join(root, '_workspace/web-harness.md')), '재진입 마커가 없다')
+    // **멱등이다.** 두 번째 실행은 마커를 덮어쓰지 않는다 — 브라운필드 재진입이 같은 명령이다.
+    writeFileSync(join(root, '_workspace/web-harness.md'), '사람이 손으로 적은 내용\n')
+    spawnSync(process.execPath, [
+      fileURLToPath(new URL('./init-workspace.mjs', import.meta.url)), '--project-root', root,
+    ], {encoding: 'utf8'})
+    assert.match(readFileSync(join(root, '_workspace/web-harness.md'), 'utf8'), /사람이 손으로 적은 내용/,
+      '재실행이 사람이 적은 마커를 덮어썼다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
 // ── 필수 조건 축 ─────────────────────────────────────────────────────────────

@@ -3,7 +3,6 @@
   "measuredAt": "2026-08-30",
   "unwired": [
     ".claude/scripts/derive-execution-graph.mjs",
-    ".claude/scripts/init-workspace.mjs",
     ".claude/scripts/spec.mjs",
     ".claude/scripts/ticket/cli.mjs",
     ".claude/scripts/validate-dependency-pins.mjs",
@@ -15,7 +14,6 @@
     ".claude/scripts/validators/validate-marker-integrity.mjs"
   ],
   "unregistered": [
-    "init-workspace.mjs",
     "run-golden-profile.mjs",
     "ticket/cli.mjs"
   ]
