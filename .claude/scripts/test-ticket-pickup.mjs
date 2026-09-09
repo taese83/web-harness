@@ -13,7 +13,10 @@ import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
 
 const planUnit = {featureId: 'FEAT-007', title: '모터 상세', body: '모터 선택 시 상세 표시', testCaseIds: ['TC-007-1', 'TC-007-2'], type: 'feature'}
 // 왕복 마커가 든 실제 이슈 본문(emit이 만든 형식)
-const issueBody = buildIssueFields(buildTicketDraft(planUnit)).body
+// 기획자가 채운 티켓이 골든 픽스처다 — 안 채운 티켓은 이제 `content-incomplete`로 막힌다.
+const fillReadiness = body => body.split('\n')
+  .flatMap(line => (/^- \[ \] /.test(line) ? [line, '      (기획자가 채운 값)'] : [line])).join('\n')
+const issueBody = fillReadiness(buildIssueFields(buildTicketDraft(planUnit)).body)
 const issue = {number: 3, title: '모터 상세', body: issueBody}
 
 test('scanUntrustedBody: 정상 스펙 통과, 지시 패턴 플래그', () => {
@@ -102,4 +105,19 @@ test('pickupTicket: clean 왕복 + 본문 인젝션 → injection-suspect fail-c
   assert.equal(res.injection.injectionSuspect, true)
   assert.ok(res.injection.markers.includes('destructive-exec'))
   assert.equal(res.changeScope, undefined)          // change-scope 미발급(비신뢰 격리)
+})
+
+test('채워지지 않은 자리가 있으면 개발이 착수하지 않는다 — 그리고 마커가 없으면 막지 않는다', async () => {
+  const {parseReadiness} = await import('./ticket/readiness.mjs')
+  // 발행 직후(아무도 안 채움) → 막힌다. 이것이 `normalize.mjs`가 약속만 하고 하지 않던 판정이다.
+  const fresh = buildIssueFields(buildTicketDraft(planUnit)).body
+  assert.equal(parseReadiness(fresh).state, 'INCOMPLETE')
+  const blocked = pickupTicket({issue: {number: 3, title: 't', body: fresh}, planUnits: [planUnit]})
+  assert.equal(blocked.ok, false)
+  assert.equal(blocked.bounce.reason, 'content-incomplete')
+  assert.ok(blocked.bounce.missing.length > 0, '무엇이 비었는지 실어야 기획자에게 전할 수 있다')
+  // **마커가 없는 옛 티켓은 막지 않는다** — 막으면 이 형식 이전에 발행된 티켓이 소급해서 전부 선다.
+  const legacy = {number: 3, title: 't', body: fresh.replace(/<!-- web-harness:readiness[^>]*-->/, '')}
+  assert.equal(parseReadiness(legacy.body).state, 'NO_MARKER')
+  assert.equal(pickupTicket({issue: legacy, planUnits: [planUnit]}).ok, true, '옛 티켓이 소급해서 막혔다')
 })

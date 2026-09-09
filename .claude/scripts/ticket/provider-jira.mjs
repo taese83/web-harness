@@ -15,7 +15,7 @@
 // 본문에서는 HTML 주석이 숨겨지지 않아 **평문으로 보인다** — 보기 좋지는 않지만 마커 형식을
 // 트래커별로 가르지 않는 쪽을 택했다(가르면 왕복 파서가 둘이 된다).
 
-import {plannerChecklist} from './readiness.mjs'
+import {providedByPlan, readinessSection} from './readiness.mjs'
 import {buildRefsMarker} from './refs.mjs'
 
 /** FEAT 고유 라벨. Jira 라벨은 공백을 못 넣고 콜론이 버전에 따라 불안정해 하이픈을 쓴다. */
@@ -71,7 +71,7 @@ export function featureJql(config, featureId) {
 }
 
 /** Jira 본문 텍스트 — 동작 명세 + AC + 왕복 마커. 트래커 무관 마커를 평문으로 싣는다. */
-export function buildDescriptionText(draft, {branch = null, designRefs = []} = {}) {
+export function buildDescriptionText(draft, {branch = null, designRefs = [], readiness = undefined} = {}) {
   const lines = [draft.body ?? '']
   const criteria = draft.acceptanceCriteria ?? []
   if (criteria.length > 0) {
@@ -81,7 +81,7 @@ export function buildDescriptionText(draft, {branch = null, designRefs = []} = {
     lines.push('', '참고 정본 (게이트가 아니라 포인터다)', ...designRefs.map(ref => `- ${ref}`))
   }
   // 기획자가 채울 자리 — GitHub 본문과 **같은 절**이다(`readiness.mjs`가 정본).
-  const checklist = plannerChecklist(draft.specCompleteness?.missing)
+  const checklist = readinessSection({...readiness, provided: providedByPlan(draft)})
   if (checklist) lines.push(...checklist)
   const refs = draft.harnessRefs ?? {}
   lines.push('', buildRefsMarker(refs.featureIds, refs.testCaseIds, {branch}))
@@ -107,8 +107,8 @@ export function toAdf(text) {
  * TicketDraft → Jira 이슈 필드(순수). `TicketProvider.buildFields` 구현체.
  * @param {Object} config  requireJiraConfig 통과분
  */
-export function buildIssueFieldsFor(config, draft, {assignee = null, branch = null, designRefs = []} = {}) {
-  const text = buildDescriptionText(draft, {branch, designRefs})
+export function buildIssueFieldsFor(config, draft, {assignee = null, branch = null, designRefs = [], readiness = undefined} = {}) {
+  const text = buildDescriptionText(draft, {branch, designRefs, readiness})
   // 하네스 라벨(왕복 키)이 먼저고 팀 공통 라벨이 뒤에 붙는다. **중복은 제거하되 하네스 것을
   // 덮어쓰지 않는다** — `feat-…`은 조회 키라 사라지면 왕복이 끊긴다.
   const labels = [...new Set([featLabel(draft.sourceKey), branchLabel(branch), ...(config.labels ?? [])].filter(Boolean))]

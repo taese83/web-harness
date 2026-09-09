@@ -13,7 +13,9 @@ import {ledgerState} from './ticket/ledger.mjs'
 import {assignArgs} from './ticket/provider-github-exec.mjs'
 
 const unit = {featureId: 'FEAT-007', title: '모터 상세', body: '모터 선택 시 상세 표시', testCaseIds: ['TC-007-1', 'TC-007-2'], type: 'feature'}
-const issueBody = buildIssueFields(buildTicketDraft(unit)).body
+// 기획자가 채운 티켓이 골든 픽스처다 — 안 채운 티켓은 `content-incomplete`로 막힌다.
+const issueBody = buildIssueFields(buildTicketDraft(unit)).body.split('\n')
+  .flatMap(line => (/^- \[ \] /.test(line) ? [line, '      (기획자가 채운 값)'] : [line])).join('\n')
 
 test('computeAssignmentPlan: 미배정/내것/남의것/개발자없음', () => {
   assert.equal(computeAssignmentPlan({issue: {assignees: []}, developer: 'me'}).status, 'assignable')

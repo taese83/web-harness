@@ -9,6 +9,7 @@
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
 import {bounceComment} from './readiness.mjs'
+import {hasUserInterface} from '../spec.mjs'
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -231,6 +232,34 @@ export function resolveDesignRefs(root) {
   return DESIGN_REF_CANDIDATES.filter(rel => existsSync(join(root, rel)))
 }
 
+/**
+ * 발행 본문의 「채워 주실 것」에 필요한 **선언**을 프로필에서 읽는다. 조건의 참·거짓을 여기서
+ * 만들고 `readiness.mjs`는 이름만 안다 — 서비스 지식이 순수 코어에 들어가지 않게(I3).
+ * 프로필이 없으면 조건은 전부 거짓이고 언어는 미선언이다 — **추측하지 않는다.**
+ */
+export function resolveReadinessContext(root) {
+  let profile = {}
+  try { profile = JSON.parse(readFileSync(join(root, '_workspace/01_plan/project-profile.json'), 'utf8')) } catch { profile = {} }
+  // **시안은 `supplied`일 때만 묻는다.** 종전 초안은 `02_design/*` 파일 존재로 추론했는데,
+  // 그 파일들은 **하네스가 생성한 것**이라 Phase 2를 돈 모든 프로젝트가 존재하지 않는 Figma
+  // 링크를 요구받았다 — 채울 수 없는 요구는 아무 문자나 적게 만든다(적대 리뷰 2026-09-09).
+  // 정본은 `_workspace/web-harness.md`의 `DESIGN_SOURCE` 마커다.
+  const marker = join(root, '_workspace/web-harness.md')
+  let designSource = null
+  try {
+    designSource = (readFileSync(marker, 'utf8').match(/DESIGN_SOURCE\s*:\s*(generated|supplied|absent)/i) ?? [])[1]?.toLowerCase() ?? null
+  } catch { designSource = null }
+  return {
+    outputLanguage: profile.outputLanguage ?? null,
+    conditions: {
+      designDeclared: designSource === 'supplied',
+      // 화면이 있는 형태에서만 화면을 묻는다. 선언이 없으면 **묻지 않는다** — 추측해서
+      // 막는 것보다 안 묻고 넘기는 쪽이 이 저장소 규율에 맞다.
+      hasUserInterface: hasUserInterface(profile.targetShapes) === true,
+    },
+  }
+}
+
 /** origin 판정 전 remote-tracking을 갱신한다. 실패해도 막지 않고 **스냅샷 기준임을 표기**한다
  * — git-origin의 "선행하거나 표기하거나" 경고 중 둘 다 하는 쪽이다. `--no-fetch`로 끌 수 있다
  * (네트워크 없는 환경·테스트). 결과는 각 모드 응답의 `freshness`로 나간다. */
@@ -410,6 +439,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
   if (!flags.confirm) return {ok: true, dryRun: true, preview, freshness, closeAssets, ticketProvider: provider.name}
   // 발행(순서대로) — provider + 원장(청구는 rebind 가드 append)
   const designRefs = resolveDesignRefs(root) // 티켓에 실을 참고 정본(게이트 아님 — 포인터다)
+  const readiness = resolveReadinessContext(root) // 기획자에게 물을 것(선언에서 온다)
   // 권한 pre-check는 **GHE repo 권한**을 본다. 교차 형태(티켓 Jira · 코드 GHE)에서는 그것이
   // 티켓 생성 권한과 무관하다 — GHE read인 사람이 Jira 생성 권한을 가질 수 있다. GitHub일
   // 때만 걸고, 아니면 reactive 분류(`provider.classifyError`)에 맡긴다.
@@ -444,7 +474,7 @@ export async function runClaim({root, repo, flags, io = {}}) {
   // 바뀐다. 원장은 `supersedes`로 무엇을 무엇이 대체했는지 남긴다(append-only).
   const superseded = []
   for (const item of plan.supersede ?? []) {
-    const fields = provider.buildFields(item.payload, {branch, assignee: flags.assignee ?? null, designRefs})
+    const fields = provider.buildFields(item.payload, {branch, assignee: flags.assignee ?? null, designRefs, readiness})
     const issue = await provider.createIssue(fields)
     // `createIssue`는 `{number, url}`을 돌려준다 — `ticketKey`는 없고, 원장은 **문자열**을
     // 요구한다. 이 두 줄이 틀린 채 남아 있었다는 것은 대체 발행 경로가 한 번도 실행된 적이
@@ -551,7 +581,7 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   const declaredScope = splitList(flags['allowed-paths'])
   const pick = pickupWithOwnership({issue, developer, planUnits: units, ledgerRecord: record,
     allowedPathsSeed: declaredScope.length > 0 ? declaredScope : (unit?.paths ?? [])})
-  if (!pick.ok) return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: pick.bounce, io, dryRun: flags['dry-run']}),
+  if (!pick.ok) return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: pick.bounce, io, dryRun: flags['dry-run'], readinessLanguage: readiness.outputLanguage}),
     ok: false, bounce: pick.bounce, injection: pick.injection}
   // 청구 범위 판정(의존·충돌)을 **여기서도** 강제한다. 종전에는 board만 강등하고 pickup은
   // 그 판정을 보지 않아, 보드가 blocked라고 해도 그대로 집을 수 있었다 — 강등이 표시일 뿐
@@ -579,7 +609,7 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
     // **범위 되돌림도 기획자에게 간다.** guidance가 "계획에 의존을 선언하세요"·"계획에서
     // 경계를 나누세요"라고 말하는데 그 말이 개발자 터미널에서만 끝나면 고칠 사람이 못 본다.
     const scopeBounce = {reason: scope.blockedReason, unmetDeps: scope.unmetDeps ?? null}
-    return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: scopeBounce, io, dryRun: flags['dry-run']}),
+    return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: scopeBounce, io, dryRun: flags['dry-run'], readinessLanguage: readiness.outputLanguage}),
       ok: false, bounce: scopeBounce, guidance}
   }
   const collisionNote = unit?.paths === undefined
@@ -647,10 +677,12 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
  * **안 한 것과 못 한 것을 구분해 표시한다** — `transition`에 쓴 규율 그대로다. 실패해도
  * 되돌림 자체를 뒤집지 않는다: 알림이 안 갔다고 픽업이 통과하면 게이트가 알림에 종속된다.
  */
-export async function notifyPlanner({provider, ticketKey, featureId, bounce, io = {}, dryRun = false}) {
-  const detail = bounce?.unmatchedTcs?.length ? `대조되지 않은 TC: ${bounce.unmatchedTcs.join(', ')}`
-    : bounce?.unmetDeps?.length ? `끝나지 않은 선행: ${bounce.unmetDeps.join(', ')}` : null
-  const text = bounceComment({featureId, reason: bounce?.reason, missing: bounce?.missing ?? [], detail})
+export async function notifyPlanner({provider, ticketKey, featureId, bounce, io = {}, dryRun = false, readinessLanguage = null}) {
+  // 상세는 **ID 목록**이라 언어 중립이다 — 문장으로 감싸면 그 문장이 하드코딩된 언어가 된다.
+  const detail = bounce?.unmatchedTcs?.length ? `TC: ${bounce.unmatchedTcs.join(', ')}`
+    : bounce?.unmetDeps?.length ? `FEAT: ${bounce.unmetDeps.join(', ')}` : null
+  const text = bounceComment({featureId, reason: bounce?.reason, missing: bounce?.missing ?? [], detail,
+    outputLanguage: bounce?.outputLanguage ?? readinessLanguage})
   if (!text) return {}
   // **미리보기는 트래커에 쓰지 않는다.** 코멘트는 지울 수 없는 부작용이고, 이 파일 머리말이
   // 이미 그 규율을 선언한다 — 알림을 dry-run 검사보다 앞에 두면서 그것을 어겼다(적대 리뷰).

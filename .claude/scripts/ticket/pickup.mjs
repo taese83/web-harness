@@ -6,6 +6,7 @@
 // (2) 식별자 왕복 vs 맨몸 티켓 → feature-plan 대조, TC를 지어내지 않음(불일치면 되돌림),
 // (3) ALLOWED_PATHS는 이슈가 아니라 FEAT 소유에서 seed(+개발자 확인). change-scope는 소스
 // 스펙 digest를 물어 상류 기획 변경 시 STALE로 감지한다(프리뷰 승인과 같은 관용구).
+import {parseReadiness} from './readiness.mjs'
 import {unitContentHash} from './emit.mjs'
 import {parseIssueRefs} from './refs.mjs' // 트래커 무관 모듈에서 직접(I3)
 
@@ -134,6 +135,17 @@ export function pickupTicket({issue, planUnits, ledgerRecord = null, allowedPath
     // 정직: 정규식 프록시라 오탐 가능 — 되돌림은 "차단"이지 "유죄 판정"이 아니다.
     return {ok: false, bounce: {reason: 'injection-suspect', markers: injection.markers}, injection}
   }
+  // **채워지지 않은 자리가 있으면 개발이 착수하지 않는다.** 이것이 `normalize.mjs`가
+  // "pickup이 이 판정으로 되돌림 여부를 결정한다"고 적어두고도 하지 않던 그 판정이다.
+  //
+  // **마커가 없으면 막지 않는다.** 이 형식 이전에 발행된 티켓은 요구 목록 자체가 없고,
+  // 막으면 기존 티켓이 소급해서 전부 선다 — 강도는 새 티켓부터 붙는다.
+  // 되돌아가는 길(`notifyPlanner`)은 이미 있으므로 막힌 사실이 기획자에게 간다.
+  const readiness = parseReadiness(issue?.body ?? '')
+  if (readiness.state === 'INCOMPLETE') {
+    return {ok: false, injection,
+      bounce: {reason: 'content-incomplete', missing: readiness.missing, outputLanguage: readiness.lang}}
+  }
   const refs = parseIssueRefs(issue?.body ?? '')
   const rec = reconcileWithPlan(refs, planUnits)
   if (rec.status !== 'clean') {
@@ -147,5 +159,7 @@ export function pickupTicket({issue, planUnits, ledgerRecord = null, allowedPath
     return {ok: false, bounce: {reason: 'plan-out-of-sync', claimedHash: version.claimedHash, localHash: version.localHash}, injection}
   }
   const changeScope = buildChangeScope({issue, unit: rec.unit, testCaseIds: rec.testCaseIds, allowedPathsSeed, preserve, requestType})
-  return {ok: true, changeScope, injection}
+  // **재지 못한 것을 통과로 접지 않는다.** 마커가 없는 티켓은 막지 않지만(소급 차단 회피)
+  // 그 사실을 결과에 싣는다 — 이 저장소는 `NOT_MEASURED`를 통과로 부르지 않는다.
+  return {ok: true, changeScope, injection, readiness: readiness.state}
 }

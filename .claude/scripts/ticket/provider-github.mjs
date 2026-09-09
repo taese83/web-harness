@@ -7,7 +7,7 @@
 // 몫이며, 여기서는 실행하지 않는다(child_process import 없음). runner는 아래 buildIssueFields의
 // 결과로 `gh issue create`를 구성하고, listExistingIssues의 결과로 claim 경쟁을 검사한다.
 
-import {plannerChecklist} from './readiness.mjs'
+import {providedByPlan, readinessSection} from './readiness.mjs'
 import {buildRefsMarker, parseIssueRefs} from './refs.mjs'
 
 const unique = values => [...new Set(values)]
@@ -83,9 +83,8 @@ export function buildIssueFields(draft, options = {}) {
     '## 수용 기준 (AC ↔ TC)',
     acLines || '- (연결된 TC 없음 — 스펙 미완, pickup에서 되돌림 대상)',
     ...(designSection(options.designRefs) ?? []),
-    // **기획자가 채울 자리를 티켓 안에 남긴다.** 비어 있는 채로 발행하고 개발 시점에 막기만
-    // 하면 개발자가 막히고 거기서 끝난다 — 기획자는 막힌 사실을 모른다(`readiness.mjs` 머리말).
-    ...(plannerChecklist(draft.specCompleteness?.missing) ?? []),
+    // **기획자가 채울 자리를 티켓 안에 남긴다.** 라벨은 선언 언어를 따르고 키는 마커에만 있다.
+    ...(readinessSection({...options.readiness, provided: providedByPlan(draft)}) ?? []),
     '',
     refsMarker,
   ].join('\n')

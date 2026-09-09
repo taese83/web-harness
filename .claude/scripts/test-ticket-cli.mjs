@@ -33,7 +33,11 @@ const seedClaim = (dir, extra = {}) => {
   writeFileSync(join(dir, 'src/features/dash/detail.test.ts'), "it('TC-001-1 상세를 표시한다', () => {})")
   appendLedgerRecord(join(dir, LEDGER_RELATIVE), {featureId: 'FEAT-001', ticketKey: '7', contentHash: unitContentHash(unit), createdAt: 't', branch: 'feature/dash', ...extra})
 }
-const issueBody = buildIssueFields(buildTicketDraft(unit), {branch: 'feature/dash'}).body
+// **기획자가 채운 티켓**을 픽스처로 쓴다. 안 채운 티켓은 이제 픽업에서 막히므로(신설),
+// 골든 경로 픽스처가 그 상태면 다른 게이트를 시험하지 못한다 — 채우는 것이 정상 흐름이다.
+const fillReadiness = body => body.split('\n')
+  .flatMap(line => (/^- \[ \] /.test(line) ? [line, '      (기획자가 채운 값)'] : [line])).join('\n')
+const issueBody = fillReadiness(buildIssueFields(buildTicketDraft(unit), {branch: 'feature/dash'}).body)
 
 test('parseArgs: 명령·위치·플래그', () => {
   assert.deepEqual(parseArgs(['pickup', 'FEAT-001', '--developer', 'me', '--confirm']),
@@ -626,7 +630,7 @@ test('runPickup: 되돌림이 기획자에게 간다 — 개발자 터미널에�
     assert.equal(bounced.ok, false)
     assert.deepEqual(bounced.notified, {supported: true, done: true}, '되돌림이 기획자에게 가지 않았다')
     assert.equal(posted.length, 1)
-    assert.match(posted[0].text, /개발 착수가 되돌아갔습니다/)
+    assert.match(posted[0].text, /Pickup was sent back/, '미선언 프로젝트인데 한국어가 나갔다')
     assert.match(posted[0].text, /FEAT-001/)
 
     // **기획자가 할 일이 없는 되돌림에는 코멘트하지 않는다** — 티켓이 소음으로 차면
@@ -664,25 +668,83 @@ test('runPickup: 되돌림이 기획자에게 간다 — 개발자 터미널에�
     assert.deepEqual(await notifyPlanner({provider: {comment: async (k, t) => scoped.push(t)},
       ticketKey: '7', featureId: 'FEAT-001', bounce: {reason: 'deps-undeclared'}}),
       {notified: {supported: true, done: true}})
-    assert.match(scoped[0], /선행 의존이 계획에 선언돼 있지 않다/)
+    assert.match(scoped[0], /declares no prerequisites/)
     // 중복을 나중에 걷어낼 근거 — 지금은 아무도 읽지 않지만 마커는 남긴다.
     assert.match(scoped[0], /<!-- web-harness:bounce reason=deps-undeclared feat=FEAT-001 -->/)
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
 
-test('발행 본문이 기획자가 채울 자리를 남긴다 — 티켓이 곧 질문지다', () => {
-  const empty = buildIssueFields(buildTicketDraft({featureId: 'FEAT-002', title: '빈 단위'}), {})
-  assert.match(empty.body, /## 기획자가 채울 것/)
-  assert.match(empty.body, /- \[ \] \*\*behavior\*\*/, '빈 자리가 체크박스로 서지 않았다')
-  // 채워진 단위에는 그 절이 없다 — 항상 붙이면 아무도 안 읽는다.
-  assert.doesNotMatch(buildIssueFields(buildTicketDraft(unit), {}).body, /기획자가 채울 것/)
+test('발행 본문이 채울 자리를 남긴다 — 라벨은 선언 언어, 키는 마커에만', async () => {
+  const {parseReadiness, parseReadinessMarker} = await import('./ticket/readiness.mjs')
+  const ko = buildIssueFields(buildTicketDraft(unit), {readiness: {outputLanguage: 'ko', conditions: {designDeclared: true, hasUserInterface: true}}})
+  assert.match(ko.body, /## 채워 주실 것/)
+  assert.match(ko.body, /- \[ \] 시안 — Figma 프레임 링크/, '시안 항목이 서지 않았다')
+  // **계획이 이미 준 것은 다시 묻지 않는다** — 동작 명세와 완료 기준은 기획서에서 나왔다.
+  assert.doesNotMatch(ko.body, /- \[ \] 어떻게 동작하는가/, '계획이 준 것을 또 물었다')
+  assert.doesNotMatch(ko.body, /- \[ \] 무엇이 되면 완료인가/)
+  // **키는 사람에게 보이지 않는다** — 기획 템플릿 부록이 "기술 표기는 따라 쓰지 마십시오"라고
+  // 못 박아뒀다. 키는 마커에만 있다.
+  assert.doesNotMatch(ko.body.split('<!--')[0], /designRef|behavior/, '기술 표기가 본문에 새어나왔다')
+  assert.deepEqual(parseReadinessMarker(ko.body).required.map(f => f.key),
+    ['screens', 'failureCriteria', 'designRef'], '계획이 준 것까지 요구 목록에 들었다')
+  assert.equal(parseReadiness(ko.body).state, 'INCOMPLETE', '빈 자리인데 준비됐다고 읽었다')
+
+  // 시안 근거가 선언되지 않은 프로젝트에는 시안을 묻지 않는다 — 없는 것을 물으면 소음이다.
+  const noDesign = buildIssueFields(buildTicketDraft(unit), {readiness: {outputLanguage: 'ko', conditions: {hasUserInterface: true}}})
+  assert.doesNotMatch(noDesign.body, /시안/)
+
+  // **선언이 없으면 영어로 떨어뜨리고 그 사실을 적는다** — 조용히 다른 언어를 내보내지 않는다.
+  const undeclared = buildIssueFields(buildTicketDraft(unit), {})
+  assert.match(undeclared.body, /## Please fill in/)
+  assert.match(undeclared.body, /output language not declared or unsupported/)
 })
 
 test('Jira 본문에도 같은 절이 들어간다 — 트래커에 따라 물어보는 것이 달라지지 않는다', async () => {
   const {buildDescriptionText} = await import('./ticket/provider-jira.mjs')
-  const text = buildDescriptionText(buildTicketDraft({featureId: 'FEAT-002', title: '빈 단위'}), {})
-  assert.match(text, /기획자가 채울 것/)
-  // **다만 Jira에서는 체크박스가 리터럴 텍스트다** — 설명이 평문/ADF 문단이라 마크다운
-  // 체크박스가 렌더되지 않는다. 물어보는 내용은 같고 조작 감각만 다르다(§4 등록).
-  assert.match(text, /- \[ \] \*\*behavior\*\*/)
+  const text = buildDescriptionText(buildTicketDraft(unit), {readiness: {outputLanguage: 'ko', conditions: {hasUserInterface: true}}})
+  assert.match(text, /채워 주실 것/)
+  // **다만 Jira에서는 체크박스가 리터럴 텍스트다**(§4 등록) — 그래서 판정 신호로 쓰지 않는다.
+  assert.match(text, /- \[ \] 어느 화면에서/)
+})
+
+test('판정은 내용 유무 하나다 — 체크만 하거나 줄을 지우는 것으로 통과할 수 없다', async () => {
+  const {readinessSection, parseReadiness} = await import('./ticket/readiness.mjs')
+  const body = readinessSection({outputLanguage: 'ko', conditions: {designDeclared: true, hasUserInterface: true}}).join('\n')
+  // 체크만 하고 내용을 안 적으면 통과가 아니다 — 어제 §4에 등록한 프록시 구멍이다.
+  assert.deepEqual(parseReadiness(body.replace('- [ ] 어느 화면에서', '- [x] 어느 화면에서')).filled, [])
+  // 내용을 적으면 그 항목만 충족된다.
+  assert.deepEqual(parseReadiness(body.replace('- [ ] 어느 화면에서', '- [ ] 어느 화면에서\n      신청 목록')).filled, ['screens'])
+  // **줄을 지우는 것은 통과가 아니라 미충족이다.** 요구 목록이 마커에 박혀 있어서다 —
+  // 보이는 곳에만 두면 지우는 것이 곧 통과가 된다(2026-09-08 조건 분모 실측이 연 구멍).
+  const cut = body.split('\n').filter(line => !line.startsWith('- [ ] 시안')).join('\n')
+  assert.equal(parseReadiness(cut).missing.find(item => item.key === 'designRef')?.reason, 'removed')
+  // 마커가 없으면 "요구가 없다"가 아니라 "못 읽었다"로 낸다.
+  assert.equal(parseReadiness('본문만 있다').state, 'NO_MARKER')
+})
+
+test('실제 발행 본문으로 판정한다 — 절만 떼어 재면 마지막 항목이 통째로 새어나간다', async () => {
+  const {parseReadiness, parseReadinessMarker} = await import('./ticket/readiness.mjs')
+  const {buildDescriptionText} = await import('./ticket/provider-jira.mjs')
+  // 적대 리뷰(2026-09-09)가 실행으로 재현한 자리다: 발행 본문은 readiness 절 **뒤에**
+  // `<!-- web-harness:refs … -->`를 붙이고, 마지막 항목의 내용 수집이 그 줄을 삼켜
+  // `failureCriteria`가 모든 실제 티켓에서 「채워짐」으로 읽혔다. 절 단독 문자열로 재던
+  // 회귀는 그것을 못 잡는다 — **발행기가 만든 본문 그대로** 잰다.
+  const opts = {branch: 'b', designRefs: ['_workspace/02_design/layout-spec.md'],
+    readiness: {outputLanguage: 'ko', conditions: {hasUserInterface: true}}}
+  for (const body of [buildIssueFields(buildTicketDraft(unit), opts).body,
+    buildDescriptionText(buildTicketDraft(unit), opts)]) {
+    const required = parseReadinessMarker(body).required.map(field => field.key)
+    assert.deepEqual(parseReadiness(body).missing.map(item => item.key), required,
+      '빈 티켓인데 채워진 것으로 읽힌 항목이 있다')
+    assert.deepEqual(parseReadiness(body).filled, [])
+  }
+})
+
+test('라벨과 같은 문구가 기획 산문에 있어도 그 줄을 답으로 읽지 않는다', async () => {
+  const {parseReadiness} = await import('./ticket/readiness.mjs')
+  // 적대 리뷰가 짚고 자체 실측으로 재현했다 — `includes`로 찾으면 동작 명세 문장이 답이 된다.
+  const prose = {...unit, body: '어느 화면에서 눌러도 같은 결과가 나온다'}
+  const body = buildIssueFields(buildTicketDraft(prose), {readiness: {outputLanguage: 'ko', conditions: {hasUserInterface: true}}}).body
+  assert.ok(parseReadiness(body).missing.some(item => item.key === 'screens'),
+    '산문이 답으로 세어졌다 — 항목 줄 형태로 앵커해야 한다')
 })
