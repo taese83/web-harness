@@ -85,7 +85,12 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     },
     /** 이슈 조회 — pickup의 소유권 판정 입력. GitHub `resolveIssue`와 같은 형태로 돌려준다. */
     async resolveIssue(key) {
-      const payload = await call(config, `/issue/${encodeURIComponent(key)}?fields=summary,description,labels,assignee,status`, options)
+      // **`components`·`issuetype`을 빠뜨리면 인테이크가 축을 못 본다.** 필드를 제한하는
+      // 것은 응답 크기 때문인데, 목록에서 빠진 필드는 `undefined`로 와서 「없다」와
+      // 구별되지 않는다 — 실측(2026-09-09 AOA-3): 티켓에 `PLAN` 컴포넌트가 있는데
+      // 인테이크가 `미분류`를 냈다. 주입 stub을 쓰는 회귀는 이 경로를 타지 않는다.
+      const payload = await call(config, `/issue/${encodeURIComponent(key)}`
+        + '?fields=summary,description,labels,assignee,status,components,issuetype', options)
       const issue = parseIssueResponse(payload)
       if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
       return issue

@@ -410,3 +410,21 @@ test('코멘트 본문은 REST 버전이 가른다 — Cloud(v3)에 평문을 �
   await dc.comment('PF-1', '되돌아갔습니다')
   assert.equal(calls[1].body.body, '되돌아갔습니다', 'Data Center에는 평문이어야 한다')
 })
+
+test('resolveIssue는 분류 근거 필드를 함께 가져온다 — 빠뜨리면 인테이크가 축을 못 본다', async () => {
+  // **실 Jira 실측(2026-09-09, AOA-3)**: 티켓에 `PLAN` 컴포넌트가 있는데 인테이크가 `미분류`를
+  // 냈다. `?fields=` 목록에 `components`·`issuetype`이 없어 응답에서 빠졌고, 빠진 필드는
+  // `undefined`로 와서 **「없다」와 구별되지 않는다.**
+  // 주입 stub을 쓰는 회귀는 이 경로를 타지 않는다 — 필드 목록을 여기서 고정한다.
+  const seen = []
+  const capture = async url => {
+    seen.push(url)
+    return {ok: true, status: 200, json: async () => ({key: 'AOA-3', fields: {summary: 't', description: 'd'}}),
+      text: async () => '{}'}
+  }
+  const provider = createJiraProvider({config: baseConfig, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
+  await provider.resolveIssue('AOA-3')
+  for (const field of ['summary', 'description', 'labels', 'assignee', 'status', 'components', 'issuetype']) {
+    assert.ok(seen[0].includes(field), `${field}를 가져오지 않는다 — 그 필드를 쓰는 소비자가 침묵한다`)
+  }
+})

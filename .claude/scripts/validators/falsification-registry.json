@@ -625,6 +625,14 @@
       "replace": "      if (!VALUED.has(arg)) continue",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "허용 목록 밖 플래그를 통과시키면 `--accept-unverified-scope`·`--replace-scope` 같은 탈출 플래그가 열린다 — 에이전트가 스스로 게이트를 끄면 그 게이트는 없는 것과 같다"
+    },
+    {
+      "id": "jira-resolve-issue-fetches-axis-fields",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "        + '?fields=summary,description,labels,assignee,status,components,issuetype', options)",
+      "replace": "        + '?fields=summary,description,labels,assignee,status', options)",
+      "test": ".claude/scripts/test-ticket-jira.mjs",
+      "why": "`?fields=`에서 빠진 필드는 undefined로 와서 「없다」와 구별되지 않는다 — 실 Jira 실측(AOA-3)에서 PLAN 컴포넌트가 있는데 인테이크가 미분류를 냈다. 주입 stub 회귀는 이 경로를 타지 않는다"
     }
   ]
 }
