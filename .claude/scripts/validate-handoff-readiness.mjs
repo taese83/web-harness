@@ -30,6 +30,7 @@ import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
 import {hasUserInterface} from './spec.mjs'
 import {DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, conditionLabel} from './design-binding-lib.mjs'
+import {checkShapeEvidence} from './validate-spec-conformance.mjs'
 
 const ok = (id, detail) => ({id, state: 'PASS', detail})
 const hole = (id, detail, remedy) => ({id, state: 'HOLE', detail, remedy})
@@ -1401,7 +1402,36 @@ export function checkUpstreamDecisionsReachable(root) {
       : '프리뷰·구현이 존재하지 않는 결정을 가리킨다 — 결정을 기록하거나 인용을 고친다')
 }
 
-export const HANDOFFS = ['design', 'development']
+// 요구된 검증이 **실제로 수행됐는가.** 목록(`requiredChecks`)과 상태(`evidenceState`)는
+// validate-spec-conformance가 이미 만든다 — 그런데 거기서는 `NOT_RUN`을 note로만 적는다.
+// Phase 1·2에서는 그것이 옳다(아직 검증 단계가 아니다). **완료 인계에서는 다르다** —
+// `NOT_RUN`은 "아직"이 아니라 "아무것도 안 돌았다"이고, 그대로 완료라고 말하면 사람이
+// 전부 손으로 다시 확인하게 된다(2026-09-02 실측: 1단계 골격이 "완료"로 보고됐는데
+// build·test·lint 중 무엇도 실행된 적이 없었다).
+//
+// 쓰는 에이전트(developer·environment-scaffolder)는 Bash가 없어 스스로 못 돌린다 —
+// 의도된 분리다(쓴 사람이 채점하면 테스트를 고쳐 통과시킬 수 있다). 그래서 검증자를
+// 따로 띄워야 하는데, 그 사실이 산문으로만 있으면 빠뜨린다. 이 검사가 그 자리를 막는다.
+export function checkVerificationEvidence(root) {
+  const spec = readSpecAt(root)
+  if (!spec) return skip('evidence', '스팩이 없어 요구 검증 목록을 모른다')
+  const evidence = checkShapeEvidence(spec, root)
+  if (evidence.required.length === 0) {
+    return skip('evidence', `targetShapes(${(spec.targetShapes ?? []).join(', ')})가 요구하는 검증이 없다`)
+  }
+  if (evidence.evidenceState === 'NOT_RUN') {
+    return hole('evidence', `요구 검증 ${evidence.required.length}종이 하나도 수행되지 않았다(${evidence.required.join(', ')})`,
+      '검증자를 띄운다 — integration-verifier(build·라우트·dev 서버) · test-executor(테스트·커버리지) · code-reviewer. 쓰는 에이전트는 Bash가 없어 스스로 돌리지 못한다')
+  }
+  const broken = [...evidence.missing.map(c => `${c}: receipt 없음`), ...evidence.failing.map(c => `${c}: PASS 아님`)]
+  if (broken.length > 0) {
+    return hole('evidence', `요구 검증 ${broken.length}건이 통과하지 않았다 — ${broken.join(' · ')}`,
+      '실패한 검증을 고치고 다시 돌린다. 통과하지 않은 것을 완료라고 말하지 않는다')
+  }
+  return ok('evidence', `요구 검증 ${evidence.required.length}종이 모두 PASS다`)
+}
+
+export const HANDOFFS = ['design', 'development', 'completion']
 
 export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   if (!HANDOFFS.includes(to)) throw new Error(`UNKNOWN_HANDOFF: ${to} — ${HANDOFFS.join('|')}`)
@@ -1413,6 +1443,12 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   if (to === 'design') {
     const results = [...planChecks, checkSourceConsumption(root), checkDesignInputs(root), checkDesignBinding(root, {reportDenominator: false}), checkUpstreamDecisionsReachable(root)]
     const holes = results.filter(r => r.state === 'HOLE')
+    return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
+  }
+  if (to === 'completion') {
+    // 완료 인계는 **수행 여부**를 본다. 계획 산출물의 구멍은 이미 앞 두 인계가 잡았다.
+    const results = [checkSpecReady(root), checkVerificationEvidence(root)]
+    const holes = results.filter(r => r.state === 'HOLE' || r.state === 'FAIL')
     return {schemaVersion: 1, to, verdict: holes.length === 0 ? 'READY' : 'HOLES', results, holes, parallelism: measureParallelism(units)}
   }
   const spec = readSpecAt(root)
@@ -1538,7 +1574,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   if (argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
   } else {
-    process.stdout.write(`인계 점검 → ${to === 'design' ? '디자인' : '개발'}: 다음 단계가 이 문서만으로 질문 없이 진행 가능한가\n`)
+    process.stdout.write(`인계 점검 → ${to === 'design' ? '디자인' : to === 'completion' ? '완료' : '개발'}: 다음 단계가 이 문서만으로 질문 없이 진행 가능한가\n`)
     for (const result of report.results) {
       const mark = result.state === 'PASS' ? '✅' : result.state === 'SKIPPED' ? '· ' : '🕳'
       process.stdout.write(`  ${mark} ${result.id}: ${result.detail}\n`)

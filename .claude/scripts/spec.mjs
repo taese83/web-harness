@@ -85,6 +85,8 @@ export const stripHarnessMarkers = value =>
 
 const sha256 = value => createHash('sha256').update(value).digest('hex')
 
+const isNonEmptyString = value => typeof value === 'string' && value.trim() !== ''
+
 const requireNonEmptyString = (value, code, message) => {
   if (typeof value !== 'string' || value.trim() === '') throw new LockError(code, message)
   return value
@@ -286,6 +288,96 @@ export const hasUserInterface = (targetShapes, catalog = readShapeChecks()) => {
 //
 // testLayers는 판정에 넣지 않는다 — 유닛 테스트를 소스 옆에 두면 layerMap 값과 겹치는 것이
 // 정상이다(agent-registry의 findLayerOverlaps와 같은 이유). 겹침 금지는 layerMap 안에서만이다.
+// designSource — 디자인 **값의 원본**을 기계가 읽을 자리다. 종전에는 산문(design-system-architect
+// 규칙 7 "…매핑을 명세한다")과 인제스트 스냅샷뿐이라, "원본이 무엇이고 지금 읽을 수 있는가"를
+// 어떤 기계도 대조하지 못했다. validate-design-tokens가 이 선언과 실제 토큰 파일을 대조한다.
+//
+// 선택 필드다. 라이브러리·CLI처럼 디자인 값이 없는 산출물에서 강제하지 않는다 — 없으면
+// 검사도 UNDECLARED로 끝난다(validate-ui-lane 관용구, 조용한 통과가 아니다).
+//
+// `readable`은 **실측이다**. source-artifacts.md의 「감지는 선언이 아니라 실측이다」와 같은
+// 규칙 — 링크가 있다는 것과 이 런타임이 읽을 수 있다는 것은 다르다. 읽을 수 없는 원본은
+// 정본이 아니라 그림이고, 그 사실이 스팩에 남아야 다음 사람이 같은 것을 다시 알아내지 않는다.
+//
+// modes의 selector 어휘를 프로젝트가 정하는 이유는 layerMap과 같다 — 하네스가
+// `[data-theme="dark"]`인지 `.dark`인지 `prefers-color-scheme`인지 이름으로 맞히면 그것이 프록시다.
+const DESIGN_SOURCE_KINDS = new Set(['figma', 'markup', 'inline', 'none'])
+const TOKEN_FORMATS = new Set(['dtcg', 'css-vars', 'none'])
+
+// designPreview — **기본 동작을 끄는 결정이 사람의 기억이 아니라 스팩에 남는 자리다.**
+//
+// Design Preview Loop는 Phase 2가 기본 실행하고(`phase-2-design.md` Wave 2) Phase 3이
+// `APPROVED`가 아니면 막는다(`phase-3-development.md`). 프리뷰를 만들지 않기로 한 프로젝트는
+// 그 결정을 담을 곳이 없어 **매 라운드 사람이 "만들지 마라"를 말해야 했다** — 한 번 빠뜨리면
+// 프리뷰가 생기고, 그다음 개발이 STALE로 막힌다(2026-09-02 실측).
+//
+// 선택 필드이고 기본은 `required`다. 없으면 종전 동작과 같다.
+// `skip`에 rationale을 요구하는 이유는 constitution.substrate의 `declared`와 같다 —
+// 기본을 벗어나는 것은 판단이므로 근거가 남아야 한다.
+const DESIGN_PREVIEW_POLICIES = new Set(['required', 'skip'])
+
+export const validateDesignPreview = decision => {
+  const designPreview = decision?.designPreview
+  if (designPreview === undefined || designPreview === null) return undefined
+  if (typeof designPreview !== 'object' || Array.isArray(designPreview)) {
+    throw new LockError('DESIGN_PREVIEW_INVALID_SHAPE', 'designPreview가 객체가 아니다')
+  }
+  const {policy, rationale} = designPreview
+  if (!DESIGN_PREVIEW_POLICIES.has(policy)) {
+    throw new LockError(
+      'DESIGN_PREVIEW_POLICY_INVALID',
+      `designPreview.policy는 ${[...DESIGN_PREVIEW_POLICIES].join('|')} 중 하나여야 한다: ${policy}`,
+    )
+  }
+  if (policy === 'skip' && !isNonEmptyString(rationale)) {
+    throw new LockError(
+      'DESIGN_PREVIEW_RATIONALE_MISSING',
+      'designPreview.policy=skip이면 rationale이 필요하다 — 기본을 끄는 것은 판단이므로 근거가 남아야 한다',
+    )
+  }
+  return designPreview
+}
+
+export const validateDesignSource = decision => {
+  const designSource = decision?.designSource
+  if (designSource === undefined || designSource === null) return undefined
+  if (typeof designSource !== 'object' || Array.isArray(designSource)) {
+    throw new LockError('DESIGN_SOURCE_INVALID_SHAPE', 'designSource가 객체가 아니다')
+  }
+  const {kind, tokenFormat, tokenPath, modes} = designSource
+  if (!DESIGN_SOURCE_KINDS.has(kind)) {
+    throw new LockError(
+      'DESIGN_SOURCE_KIND_INVALID',
+      `designSource.kind는 ${[...DESIGN_SOURCE_KINDS].join('|')} 중 하나여야 한다: ${kind}`,
+    )
+  }
+  if (tokenFormat !== undefined && !TOKEN_FORMATS.has(tokenFormat)) {
+    throw new LockError(
+      'DESIGN_SOURCE_TOKEN_FORMAT_INVALID',
+      `designSource.tokenFormat은 ${[...TOKEN_FORMATS].join('|')} 중 하나여야 한다: ${tokenFormat}`,
+    )
+  }
+  // kind가 none이 아니면 검사 대상이 있어야 한다 — 없으면 선언이 검사로 이어지지 않는다.
+  if (kind !== 'none' && !isNonEmptyString(tokenPath)) {
+    throw new LockError(
+      'DESIGN_SOURCE_TOKEN_PATH_MISSING',
+      `designSource.kind='${kind}'이면 tokenPath가 필요하다 — 이것이 없으면 대조할 대상이 없다`,
+    )
+  }
+  if (modes !== undefined) {
+    if (!Array.isArray(modes)) throw new LockError('DESIGN_SOURCE_MODES_INVALID', 'designSource.modes가 배열이 아니다')
+    for (const mode of modes) {
+      if (!isNonEmptyString(mode?.name) || !isNonEmptyString(mode?.selector)) {
+        throw new LockError(
+          'DESIGN_SOURCE_MODE_INVALID',
+          'designSource.modes의 각 항목은 name과 selector를 문자열로 가져야 한다 — selector는 토큰 파일에서 찾을 부분 문자열이다',
+        )
+      }
+    }
+  }
+  return designSource
+}
+
 export const validateLayerMap = decision => {
   const layerMap = decision?.layerMap ?? {}
   if (typeof layerMap !== 'object' || Array.isArray(layerMap)) {
@@ -442,6 +534,8 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
     communication: Array.isArray(decision.communication) ? decision.communication : [],
     concurrency: Array.isArray(decision.concurrency) ? decision.concurrency : [],
     layerMap: validateLayerMap(decision),
+    designSource: validateDesignSource(decision),
+    designPreview: validateDesignPreview(decision),
     testLayers,
     libraries,
     moduleBoundaries: Array.isArray(decision.moduleBoundaries) ? decision.moduleBoundaries : [],

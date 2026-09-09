@@ -11,4 +11,18 @@
 - **단계별 공급원과 `specTier`** — `PLAN_SOURCE`·`DESIGN_SOURCE`·`SOLUTION_SOURCE`(`provenance-contract.md` §1)와 `_workspace/03_dev/spec.json`의 `specTier`를 그대로 적는다. `unverifiable`이면 **"수용 기준이 없어 무엇이 완료인지 판정하지 않았다"**를 명시하고, 팀 인계·티켓 청구가 막혀 있다는 사실과 `provenance-contract.md` §3 지연 공급으로 승격하는 경로를 함께 준다. 부분 공급이면 `기획: supplied (핵심 플로우 3건 공급 · 나머지 보강, gap-report 참조)`처럼 **혼합을 드러낸다**(`provenance-contract.md` §9). 이 표기를 생략하면 검증되지 않은 것이 검증된 것처럼 인계된다
 - 후속 명령: `/wh <요청>` 하나다. 레인 판정과 게이트 안내를 받으려면 보조 skill을 직접 부르지 않는다
 
+**완료라고 말하기 전에 수행 여부를 기계로 확인한다.**
+
+```bash
+node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to completion
+```
+
+`HOLES`면 "완료"라고 쓰지 않는다. 요구 검증이 하나도 수행되지 않았는데 완료로 보고하면
+사람이 전부 손으로 다시 확인하게 된다(2026-09-02 실측: 골격 단계가 "완료"로 보고됐는데
+build·test·lint 중 무엇도 실행된 적이 없었다).
+
+쓰는 에이전트(`developer`·`environment-scaffolder`)는 Bash가 없어 스스로 돌리지 못한다 —
+쓴 사람이 채점하면 테스트를 고쳐 통과시킬 수 있으므로 **의도된 분리**다. 그래서 검증자를
+따로 띄워야 하고, 그 사실이 산문으로만 있으면 빠뜨린다. 이 검사가 그 자리를 막는다.
+
 release gate가 통과하지 않았으면 “완성”이라고 표현하지 않는다. 완료 상태는 `release-tier-contract.md`의 tier 라벨(`DIAGNOSTIC_VERIFIED` | `ISOLATED_VERIFIED` | `RELEASED`)을 그대로 사용하고, T2 미만이면 HANDOFF 링크 대신 `_workspace/RELEASE/release-readiness.md` 링크와 다음 tier 승급에 필요한 항목을 제공한다.

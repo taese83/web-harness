@@ -26,6 +26,30 @@ export const upstreamArgs = () => ['rev-parse', '--abbrev-ref', '--symbolic-full
 export const currentBranchArgs = () => ['rev-parse', '--abbrev-ref', 'HEAD']
 export const originExistsArgs = (base, planPath) => ['cat-file', '-e', `${base}:${planPath}`]
 export const originDiffArgs = (base, planPath) => ['diff', '--quiet', base, '--', planPath]
+/**
+ * 원격 URL에서 호스트를 뽑는다(순수). `ticket-provider.json`의 `github.host` **기본값 제안**에
+ * 쓴다 — 사용자가 사내 GitHub 주소를 외워 적게 하지 않는다.
+ *
+ * 뽑기만 하고 저장하지 않는다. 저장은 사람 확인을 거친 `configure`의 몫이다 — 원격이 fork나
+ * 미러일 수 있어 자동 채택은 조용한 오설정이 된다.
+ *
+ *   https://github.example.com/owner/name.git  → github.example.com
+ *   git@github.example.com:owner/name.git      → github.example.com
+ *   ssh://git@github.example.com:22/owner/name → github.example.com
+ *
+ * @param {string} url `git remote get-url origin` 출력
+ * @returns {string|null} 호스트. 형태를 못 알아보면 null(추측하지 않는다)
+ */
+export function hostFromRemoteUrl(url) {
+  const raw = String(url ?? '').trim()
+  if (!raw) return null
+  const scp = raw.match(/^[\w.-]+@([^:/]+):/)      // git@host:owner/name
+  if (scp) return scp[1]
+  const uri = raw.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?([^:/]+)/i) // scheme://[user@]host[:port]/
+  if (uri) return uri[1]
+  return null
+}
+
 export const conflictArgs = () => ['diff', '--name-only', '--diff-filter=U']
 export const showFileArgs = (ref, path) => ['show', `${ref}:${path}`]
 export const remoteBranchExistsArgs = ref => ['rev-parse', '--verify', '--quiet', ref]

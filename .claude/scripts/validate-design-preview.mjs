@@ -28,7 +28,10 @@ try {
       : inspectDesignPreview(options.project)
   process.stdout.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : `design preview status: ${result.status}${result.reason ? ` (${result.reason})` : ''}\n`)
   if (result.errors?.length) process.stderr.write(`${result.errors.join('\n')}\n`)
+  // SKIPPED = 프로젝트가 프리뷰를 만들지 않기로 선언했다(spec.json designPreview.policy).
+  // 통과이지 미수행이 아니다 — 미수행은 MISSING이고 그것은 여전히 막는다.
   const accepted = result.status === 'APPROVED'
+    || result.status === 'SKIPPED'
     || (options.writeSourceSnapshot && result.status === 'UNAPPROVED')
     || (options.recordApproval && result.status === 'APPROVED')
     || (options.allowUnapproved && result.status === 'UNAPPROVED')

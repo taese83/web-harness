@@ -7,8 +7,21 @@
   "allOf": [
     {
       "$comment": "세대 2부터 testLayers를 요구한다. 세대 1(2026-08-28 이전 확정)은 그대로 유효하다 — 커밋된 증거를 새 규칙에 맞춰 고쳐 쓰지 않기 위한 마이그레이션이다.",
-      "if": {"properties": {"schemaVersion": {"const": 2}}, "required": ["schemaVersion"]},
-      "then": {"required": ["testLayers"]}
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": 2
+          }
+        },
+        "required": [
+          "schemaVersion"
+        ]
+      },
+      "then": {
+        "required": [
+          "testLayers"
+        ]
+      }
     }
   ],
   "required": [
@@ -28,7 +41,10 @@
   ],
   "properties": {
     "schemaVersion": {
-      "enum": [1, 2],
+      "enum": [
+        1,
+        2
+      ],
       "description": "2 = testLayers를 담는 세대(2026-08-28). 1은 그 이전에 확정된 스팩이며 읽기 전용 이력이다 — 이미 커밋된 증거에 결박된 스팩을 새 규칙에 맞춰 고쳐 쓰지 않는다. 신규 확정은 항상 2다."
     },
     "specTier": {
@@ -82,10 +98,18 @@
       "type": "object",
       "description": "테스트가 놓일 경로. 개발 에이전트의 쓰기 소유권이 여기서 나온다. unit은 항상 필요하고(유닛 테스트는 형태와 무관하게 항상 수행한다), e2e는 targetShapes에 UI를 가진 형태가 있으면 필요하다(형태 카탈로그 shapes.<name>.userInterface에서 도출). layerMap과 별도인 이유: layerMap은 레이어 이름을 프로젝트가 정하므로 어느 레이어가 테스트인지 이름으로 맞히면 프록시가 된다. 경로가 layerMap 값과 겹쳐도 된다 — 유닛 테스트를 소스 옆에 두는 것이 정상이다.",
       "additionalProperties": false,
-      "required": ["unit"],
+      "required": [
+        "unit"
+      ],
       "properties": {
-        "unit": {"type": "string", "minLength": 1},
-        "e2e": {"type": "string", "minLength": 1}
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "e2e": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "libraries": {
@@ -321,6 +345,87 @@
         "minLength": 1
       },
       "description": "산출물 형태. **배열이다** — 하나의 패키지가 라이브러리이면서 CLI인 것은 정상 패턴이다(exports + bin의 dual entry point). 형태가 다르면 검증도 다르므로 검사 세트는 선언된 형태의 **합집합**이 된다. web-app·library·cli 등 열린 문자열이며 예시일 뿐이다."
+    },
+    "designSource": {
+      "type": "object",
+      "description": "디자인 값의 원본. 선택 필드다 — 디자인이 없는 산출물(라이브러리·CLI)에서 강제하지 않는다. validate-design-tokens가 이 선언과 프로젝트의 실제 토큰 파일을 대조한다. 값 자체를 여기 적지 않는다(그것은 토큰 파일의 몫이다).",
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "figma",
+            "markup",
+            "inline",
+            "none"
+          ],
+          "description": "figma=디자인 도구가 원본 · markup=퍼블리싱 산출물이 원본 · inline=대화/문서로 받은 값 · none=디자인 값이 없는 산출물"
+        },
+        "ref": {
+          "type": "string",
+          "description": "원본 식별자. figma면 fileKey, markup이면 저장소/브랜치, inline이면 근거 문서 경로. 비밀이 아닌 식별자만 적는다"
+        },
+        "tokenFormat": {
+          "enum": [
+            "dtcg",
+            "css-vars",
+            "none"
+          ],
+          "description": "원본과 코드 사이의 중간 형식. 도구 종속을 피하는 자리다"
+        },
+        "tokenPath": {
+          "type": "string",
+          "description": "프로젝트에서 토큰이 사는 파일 경로(프로젝트 루트 기준). kind가 none이 아니면 필요하다 — 이것이 없으면 검사할 대상이 없다"
+        },
+        "readable": {
+          "type": "boolean",
+          "description": "이 런타임에서 원본을 실제로 읽을 수 있는가. **선언이 아니라 실측이다**(source-artifacts.md 「감지는 선언이 아니라 실측이다」). 링크가 있다는 것은 읽을 수 있다는 뜻이 아니다"
+        },
+        "modes": {
+          "type": "array",
+          "description": "표시 모드와 그것을 토큰 파일에서 찾을 문자열. 셀렉터 어휘를 프로젝트가 정한다 — layerMap과 같은 이유로 하네스가 이름을 맞히지 않는다",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "selector"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string",
+                "description": "토큰 파일에서 찾을 부분 문자열. CSS 파서가 아니라 존재 검사다 — 예: ':root', '[data-theme=\"dark\"]', 'prefers-contrast: more'"
+              }
+            }
+          }
+        }
+      }
+    },
+    "designPreview": {
+      "type": "object",
+      "description": "디자인 프리뷰(행위 프로토타입) 정책. 선택 필드다 — 없으면 종전대로 Design Preview Loop를 기본 실행한다. `skip`은 프로젝트가 그 기본을 끄기로 한 결정이며, 그 결정이 사람의 기억이 아니라 스팩에 남는다.",
+      "required": [
+        "policy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "enum": [
+            "required",
+            "skip"
+          ],
+          "description": "required=기본. Phase 2가 프리뷰를 만들고 Phase 3이 APPROVED를 요구한다 · skip=만들지 않고 Phase 3도 프리뷰로 막지 않는다"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "skip이면 필수. 기본을 끄는 것은 판단이므로 근거가 남아야 한다(constitution.substrate의 declared와 같은 규칙)"
+        }
+      }
     }
   }
 }

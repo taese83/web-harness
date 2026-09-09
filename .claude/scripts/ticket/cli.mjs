@@ -25,7 +25,7 @@ import {computeCloseLink, computePrLinkPlan} from './pr.mjs'
 import {renderCloseReference, parseBranchFromLabels, buildIssueFields} from './provider-github.mjs'
 import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMergedFeatures, runGh, assignArgs, issueSupersedeCloseArgs} from './provider-github-exec.mjs'
 import {createJiraProvider} from './provider-jira-exec.mjs'
-import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
+import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, PROVIDER_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
@@ -286,14 +286,17 @@ export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedge
   // 설정은 없는데 원장이 있다 = 이 프로젝트는 GitHub으로 이미 돈다(추론이 아니라 실측이다).
   const effective = stored ?? (hasLedgerRecords ? {provider: 'github'} : null)
   const choice = resolveProviderChoice({stored: effective, requested: flags['ticket-provider'] ?? null})
-  if (choice.needsChoice) return {choice, questions: JIRA_QUESTIONS}
+  if (choice.needsChoice) return {choice, questions: PROVIDER_QUESTIONS[choice.provider] ?? JIRA_QUESTIONS}
   if (choice.provider === 'jira') {
     if (!effective?.jira) {
       return {choice: {...choice, needsChoice: true}, questions: JIRA_QUESTIONS}
     }
     return {provider: createJiraProvider({config: effective.jira, env: io.env ?? process.env}), choice}
   }
-  return {provider: createGithubProvider({repo}), choice}
+  // host를 넘기지 않으면 createGithubProvider의 기본값(github.com)이 늘 이긴다 — GitHub
+  // Enterprise 저장소에서 owner/name은 맞게 뽑히고 host만 유실돼 gh가 없는 저장소를 찾았다
+  // (2026-09-02 실측). 실행부는 이미 host를 GH_HOST로 넘기게 돼 있었고 배선만 없었다.
+  return {provider: createGithubProvider({repo, host: effective?.github?.host}), choice}
 }
 
 /**
@@ -310,8 +313,8 @@ export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedge
 export async function runConfigure({root, flags, io = {}}) {
   const provider = flags.provider ?? null
   if (!provider) {
-    return {ok: false, blocked: 'provider-required', questions: JIRA_QUESTIONS,
-      guidance: '--provider github|jira 를 지정하세요. jira면 --set key=value 로 항목을 채웁니다.'}
+    return {ok: false, blocked: 'provider-required', questions: PROVIDER_QUESTIONS,
+      guidance: '--provider github|jira 를 지정하세요. github는 사내 GitHub Enterprise면 --set host=<주소>, jira면 --set key=value 로 항목을 채웁니다.'}
   }
   // `--set k=v` 반복 → 답 객체. 점 표기(`transitions.done`)와 목록(`components`)은 buildTicketConfig가 편다.
   const answers = {}
@@ -321,14 +324,9 @@ export async function runConfigure({root, flags, io = {}}) {
     answers[String(entry).slice(0, index).trim()] = String(entry).slice(index + 1).trim()
   }
   try {
-    assertAllowedKeys(answers)
+    assertAllowedKeys(answers, provider)
   } catch (error) {
     return {ok: false, blocked: 'key-refused', guidance: error.message}
-  }
-  if (provider === 'github' && Object.keys(answers).length > 0) {
-    // 조용히 버리면 사용자는 반영된 줄 안다. GitHub provider의 발행 필드는 설정을 읽지 않는다.
-    return {ok: false, blocked: 'set-not-applicable', ignored: Object.keys(answers),
-      guidance: 'GitHub Issues provider는 프로젝트 설정을 받지 않습니다 — --set 항목은 Jira 전용입니다.'}
   }
   const next = buildTicketConfig(provider, answers)
   const existing = io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })()

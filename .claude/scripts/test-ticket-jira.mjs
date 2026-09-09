@@ -364,10 +364,14 @@ test('같은 provider 재설정은 병합이다 — 항목 하나 주려다 tran
   assert.deepEqual(merged.jira.labels, ['team-fe'])
 })
 
-test('반증: GitHub provider에 --set 을 주면 조용히 버리지 않는다', async () => {
+test('반증: GitHub provider에 모르는 --set 키를 주면 조용히 버리지 않는다', async () => {
+  // 0.23.10부터 github도 설정을 받는다(`host` — 사내 GitHub Enterprise 주소). 그래서 판정이
+  // 「이 provider는 설정을 안 받는다」에서 **「그 키가 허용 목록에 없다」**로 바뀌었고,
+  // 거절 메시지가 **거절된 키와 허용 목록을 함께** 말한다. 버리지 않는다는 계약은 그대로다.
   const result = await runConfigure({root: '/tmp', flags: {provider: 'github', set: ['labels=x']}, io: noShare})
-  assert.equal(result.blocked, 'set-not-applicable')
-  assert.deepEqual(result.ignored, ['labels'])
+  assert.equal(result.blocked, 'key-refused')
+  assert.match(result.guidance, /labels/, '거절된 키를 말하지 않으면 사용자는 무엇이 틀렸는지 모른다')
+  assert.match(result.guidance, /허용\(github\): host/, '허용 목록을 말하지 않으면 되물어야 한다')
 })
 
 test('반증: 한 번만 받아야 하는 플래그를 반복하면 loud하게 막는다', () => {

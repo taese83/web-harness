@@ -93,6 +93,19 @@ cli.mjs configure --provider jira \
   --set transitions.in-progress=<id> --set transitions.done=<id>
 ```
 
+**GitHub이 사내 GitHub Enterprise면 `host`를 기록한다.** 이것을 빠뜨리면 `gh`가
+`GH_HOST=github.com`으로 돌아 **존재하지 않는 저장소를 찾는다** — owner/name은 맞게 뽑히고
+호스트만 유실되므로, 실패가 "권한 없음"이나 "저장소 없음"으로 보여 원인이 가려진다
+(2026-09-02 실측).
+
+```
+cli.mjs configure --provider github --set host=github.example.com
+```
+
+기본값(`github.com`)이면 적지 않는다 — 설정 파일은 **다른 것만** 담아야 읽을 때 의미가 있다.
+호스트는 저장소 원격에서 뽑아 **기본값으로 제안**할 수 있다(`git-origin.hostFromRemoteUrl`).
+다만 자동 채택하지 않는다 — 원격이 fork나 미러일 수 있어 조용한 오설정이 된다.
+
 `--confirm` 없이 먼저 돌려 기록될 내용을 보여주고 확인받는다(이 CLI의 공통 규율).
 **물을 항목은 결과의 `questions` 배열이 정본이다** — 여기에 옮겨 적지 않는다(갈라진다).
 결과의 `needsChoice`·`shared`·`ignored`를 그대로 사용자에게 보여준다: `shared.ignored`가 true면

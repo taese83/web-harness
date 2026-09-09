@@ -46,6 +46,14 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 | **고정 기반** | 도구 substrate — 패키지 매니저·번들러·테스트 러너·언어·lint·formatter·e2e | `constitution.substrate` |
 | **유동 선택** | 서비스마다 답이 다른 것 | `targetShape`·`architecture`·`layerMap`·`testLayers`·`libraries`·`communication`·`concurrency`·`moduleBoundaries` |
 
+**`designSource`는 선택이다.** 디자인 값이 없는 산출물(라이브러리·CLI)에서 강제하지 않는다 —
+없으면 `Gate D`가 `UNDECLARED`로 명시 보고하고 끝난다. 있으면 값이 **어디서 오는지**와 **지금
+읽을 수 있는지**가 기계가 읽을 수 있는 형태로 남는다. 종전에는 이것이 산문(`design-system-architect`
+규칙 7)과 인제스트 스냅샷뿐이라, 「원본이 무엇이고 지금 읽히는가」를 어떤 기계도 대조하지 못했다.
+
+`modes`의 `selector` 어휘를 프로젝트가 정하는 이유는 `layerMap`과 같다 — 하네스가
+`[data-theme="dark"]`인지 `.dark`인지 `prefers-color-scheme`인지 이름으로 맞히면 그것이 프록시다.
+
 **고정 기반은 기본 제공 + 브라운필드 실측 우선이다.** 하네스가 `.claude/substrate-defaults.json`으로
 기본값을 주고, 프로젝트가 지정하지 않은 키만 그 값으로 채워진다(`source: "default"`).
 
@@ -143,26 +151,8 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격되므로
 **형식을 임의로 바꾸지 않는다.**
 
-````
-```json web-harness:solution-design
-{
-  "stage": 0,
-  "targetShapes": ["web-app|library|cli|<기타>"],
-  "constitution": {"substrate": {"<키>": {"value": "...", "source": "default|measured|declared", "rationale": "declared면 필수"}}},
-  "communication": ["rest|graphql|websocket|sse|streaming"],
-  "concurrency": ["web-worker|service-worker|worker-thread"],
-  "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},
-  "layerMap": {"<논리 레이어>": "<실제 경로>"},
-  "testLayers": {"unit": "<유닛 테스트 경로>", "e2e": "<e2e 경로 — UI가 있으면 필수>"},
-  "libraries": {"<역할>": {"choice": "...", "alternatives": ["..."], "source": "measured|measured-absent|proposed"}},
-  "moduleBoundaries": [{"scope": "<glob>", "rationale": "..."}],
-  "acceptanceSource": "feature-plan|absent",
-  "acceptanceRefs": ["FEAT-001", "TC-001-1"],
-  "nonGoals": ["..."],
-  "openDecisions": [{"id": "...", "question": "...", "options": ["..."], "recommended": "...", "status": "open|assumed|confirmed"}]
-}
-```
-````
+형식 예시는 `assets/solution-design-block.md`에 있다 — 활성 참조 400줄 상한 때문에 옮겼고
+내용은 그대로다(`validate-modularity`가 제시한 「asset으로 만든다」).
 
 `pattern`의 나열값은 **예시이며 열린 문자열이다** — hexagonal 등 미등재 패턴도 유효하다.
 

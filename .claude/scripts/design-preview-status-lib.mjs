@@ -482,10 +482,43 @@ const inspectPreviewCore = (projectRoot, baseErrors) => {
   return {schemaVersion: 1, mode, status: 'APPROVED', errors: [], source, preview, approval, traceability}
 }
 
+// 스팩의 프리뷰 정책을 읽는다. 스팩이 없거나 필드가 없으면 undefined — **종전 동작과 같다.**
+// 여기서 spec.json을 읽는 것은 이 판정이 프로젝트 결정에 종속되기 때문이다. 파싱 실패를
+// 조용히 삼키지 않는다 — 깨진 스팩을 "정책 없음"으로 접으면 skip 선언이 조용히 무시된다.
+const readDesignPreviewPolicy = projectRoot => {
+  const specPath = join(projectRoot, '_workspace', '03_dev', 'spec.json')
+  if (!existsSync(specPath)) return {policy: undefined, error: null}
+  try {
+    return {policy: JSON.parse(readFileSync(specPath, 'utf8'))?.designPreview?.policy, error: null}
+  } catch (error) {
+    return {policy: undefined, error: `spec.json을 읽지 못해 프리뷰 정책을 확인하지 못했다: ${error.message}`}
+  }
+}
+
 export const inspectDesignPreview = project => {
   const projectRoot = resolve(project)
+  const {policy, error: policyError} = readDesignPreviewPolicy(projectRoot)
+  if (policy === 'skip') {
+    // 선언과 실물이 어긋나면 조용히 넘기지 않는다. `skip`인데 프리뷰가 남아 있으면 둘 중
+    // 하나다 — 정책을 바꾸기 전 산출물이 안 지워졌거나, 누군가 정책을 무시하고 만들었다.
+    // 어느 쪽이든 사람이 알아야 한다(지우는 것은 사람의 결정이라 여기서 지우지 않는다).
+    const previewRoot = join(projectRoot, '_workspace', '02_design', 'preview')
+    if (existsSync(previewRoot)) {
+      return {
+        schemaVersion: 1,
+        mode: 'prototype',
+        status: 'OPT_OUT_CONFLICT',
+        reason: 'PREVIEW_PRESENT_WHILE_SKIPPED',
+        errors: [
+          ...(policyError ? [policyError] : []),
+          `designPreview.policy=skip인데 ${previewRoot}가 존재한다 — 남은 산출물을 지우거나 정책을 required로 되돌린다`,
+        ],
+      }
+    }
+    return {schemaVersion: 1, mode: 'prototype', status: 'SKIPPED', reason: 'DESIGN_PREVIEW_POLICY_SKIP', errors: policyError ? [policyError] : []}
+  }
   const base = readBaseSnapshot(projectRoot)
-  const result = inspectPreviewCore(projectRoot, base.errors)
+  const result = inspectPreviewCore(projectRoot, policyError ? [...base.errors, policyError] : base.errors)
   return base.present ? {...result, base: {captures: base.meta?.captures ?? [], capturedAt: base.meta?.capturedAt ?? null}} : result
 }
 

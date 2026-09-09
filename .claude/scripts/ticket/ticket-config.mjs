@@ -33,6 +33,26 @@ export const JIRA_QUESTIONS = [
   {key: 'labels', required: false, ask: '모든 티켓에 공통으로 붙일 라벨 (쉼표 구분). 하네스 라벨(feat-·branch-)에 더해집니다'},
 ]
 
+/**
+ * GitHub은 발행 필드를 설정에서 읽지 않는다 — 라벨과 본문은 하네스가 만든다. 그러나 **어느
+ * 호스트인가는 프로젝트마다 다르다.** GitHub Enterprise(사내 GitHub)를 쓰는 팀에서 이 값이
+ * 없으면 `gh`가 `GH_HOST=github.com`으로 돌아 **존재하지 않는 저장소를 찾는다**(2026-09-02 실측:
+ * github.daumkakao.com 저장소에서 owner/name은 맞게 뽑히고 host만 유실됐다).
+ *
+ * Jira가 `baseUrl`을 묻는 것과 같은 자리다 — 주소는 provider마다 다르고 하네스가 지어낼 수 없다.
+ */
+export const GITHUB_QUESTIONS = [
+  {
+    key: 'host',
+    required: false,
+    ask: 'GitHub 호스트 — github.com 또는 사내 GitHub Enterprise 주소(예: github.example.com). 저장소 원격에서 뽑아 제안할 수 있다(git-origin.hostFromRemoteUrl)',
+    default: 'github.com',
+  },
+]
+
+/** provider별 질문. 선택이 정해지기 전에는 무엇을 물을지 모른다. */
+export const PROVIDER_QUESTIONS = {github: GITHUB_QUESTIONS, jira: JIRA_QUESTIONS}
+
 /** 인증은 파일이 아니라 환경변수다. 어떤 변수를 보는지 한 곳에서 말한다. */
 export const JIRA_AUTH_ENV = ['JIRA_TOKEN', 'JIRA_EMAIL']
 
@@ -68,6 +88,15 @@ export function validateTicketConfig(config) {
   }
   if (provider === 'jira' && !config.jira) {
     throw new Error('TICKET_CONFIG_INCOMPLETE: provider=jira인데 jira 설정이 없다')
+  }
+  // github은 설정이 **없어도 정상**이다(host 기본값 = github.com). 있으면 형태만 본다.
+  if (config.github !== undefined) {
+    if (typeof config.github !== 'object' || Array.isArray(config.github)) {
+      throw new Error('TICKET_CONFIG_INCOMPLETE: github 설정이 객체가 아니다')
+    }
+    if (config.github.host !== undefined && typeof config.github.host !== 'string') {
+      throw new Error('TICKET_CONFIG_INCOMPLETE: github.host는 문자열이어야 한다')
+    }
   }
   assertListShape(config.jira)
   return config
@@ -115,7 +144,11 @@ export function buildTicketConfig(provider, answers = {}) {
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     throw new Error(`TICKET_PROVIDER_UNKNOWN: "${provider}"`)
   }
-  if (provider === 'github') return {provider}
+  if (provider === 'github') {
+    const host = typeof answers.host === 'string' ? answers.host.trim() : ''
+    // 기본값과 같으면 적지 않는다 — 설정 파일은 **다른 것만** 담아야 읽을 때 의미가 있다.
+    return host && host !== 'github.com' ? {provider, github: {host}} : {provider}
+  }
   const jira = {}
   for (const [key, value] of Object.entries(answers)) {
     if (value === undefined || value === null || value === '') continue
@@ -142,8 +175,10 @@ export function buildTicketConfig(provider, answers = {}) {
  */
 const SECRET_LIKE = /(token|secret|password|passwd|apikey|api_key|credential|auth|pat|pw)/i
 
-/** 설정에 들어갈 수 있는 키 — `JIRA_QUESTIONS`가 정본이다(그 목록이 곧 스키마다). */
+/** 설정에 들어갈 수 있는 키 — `*_QUESTIONS`가 정본이다(그 목록이 곧 스키마다). */
 export const ALLOWED_JIRA_KEYS = new Set(JIRA_QUESTIONS.map(q => q.key))
+export const ALLOWED_GITHUB_KEYS = new Set(GITHUB_QUESTIONS.map(q => q.key))
+const ALLOWED_KEYS_BY_PROVIDER = {github: ALLOWED_GITHUB_KEYS, jira: ALLOWED_JIRA_KEYS}
 
 /**
  * **허용 목록 밖의 키는 받지 않는다.** 종전에는 "비밀로 보이는 이름"만 걸렀는데, 그것은
@@ -153,15 +188,16 @@ export const ALLOWED_JIRA_KEYS = new Set(JIRA_QUESTIONS.map(q => q.key))
  *
  * SECRET_LIKE는 이제 **거부 사유를 더 정확히 말하기 위한 힌트**로만 쓴다.
  */
-export function assertAllowedKeys(answers = {}) {
-  const unknown = Object.keys(answers).filter(key => !ALLOWED_JIRA_KEYS.has(key))
+export function assertAllowedKeys(answers = {}, provider = 'jira') {
+  const allowed = ALLOWED_KEYS_BY_PROVIDER[provider] ?? ALLOWED_JIRA_KEYS
+  const unknown = Object.keys(answers).filter(key => !allowed.has(key))
   if (unknown.length === 0) return answers
   const secretish = unknown.filter(key => SECRET_LIKE.test(key))
   const hint = secretish.length > 0
     ? `\n  ${secretish.join(', ')}는 비밀로 보인다 — 이 파일은 repo에 커밋되고 팀에 공유된다. 인증은 환경변수다(${JIRA_AUTH_ENV.join(' · ')}).`
     : ''
   throw new Error(
-    `TICKET_CONFIG_UNKNOWN_KEY: ${unknown.join(', ')} — 허용: ${[...ALLOWED_JIRA_KEYS].join(', ')}${hint}`,
+    `TICKET_CONFIG_UNKNOWN_KEY: ${unknown.join(', ')} — 허용(${provider}): ${[...allowed].join(', ')}${hint}`,
   )
 }
 
