@@ -8,6 +8,7 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
+import {bounceComment} from './readiness.mjs'
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -550,7 +551,8 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   const declaredScope = splitList(flags['allowed-paths'])
   const pick = pickupWithOwnership({issue, developer, planUnits: units, ledgerRecord: record,
     allowedPathsSeed: declaredScope.length > 0 ? declaredScope : (unit?.paths ?? [])})
-  if (!pick.ok) return {ok: false, bounce: pick.bounce, injection: pick.injection}
+  if (!pick.ok) return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: pick.bounce, io, dryRun: flags['dry-run']}),
+    ok: false, bounce: pick.bounce, injection: pick.injection}
   // 청구 범위 판정(의존·충돌)을 **여기서도** 강제한다. 종전에는 board만 강등하고 pickup은
   // 그 판정을 보지 않아, 보드가 blocked라고 해도 그대로 집을 수 있었다 — 강등이 표시일 뿐
   // 게이트가 아니었다(2026-08-30). 선행 기능이 안 끝났는데 착수하면 그 위에서 개발한다.
@@ -574,7 +576,11 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
       'path-collision': '다른 FEAT와 쓰기 경로가 겹칩니다 — 순차화하거나 계획에서 경계를 나누세요',
       'foundation-incomplete': '기반(foundation) 단위가 아직 완료되지 않았습니다',
     }[scope.blockedReason] ?? '청구 범위 판정에서 막혔습니다'
-    return {ok: false, bounce: {reason: scope.blockedReason, unmetDeps: scope.unmetDeps ?? null}, guidance}
+    // **범위 되돌림도 기획자에게 간다.** guidance가 "계획에 의존을 선언하세요"·"계획에서
+    // 경계를 나누세요"라고 말하는데 그 말이 개발자 터미널에서만 끝나면 고칠 사람이 못 본다.
+    const scopeBounce = {reason: scope.blockedReason, unmetDeps: scope.unmetDeps ?? null}
+    return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: scopeBounce, io, dryRun: flags['dry-run']}),
+      ok: false, bounce: scopeBounce, guidance}
   }
   const collisionNote = unit?.paths === undefined
     ? '충돌 검사 미수행(paths 미선언) — "충돌 없음"이 아니라 "검사 못 함"이다'
@@ -631,6 +637,32 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   }
   const written = writeChangeScopeFile(root, pick.changeScope)
   return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written, freshness, transition}
+}
+
+/**
+ * 되돌림을 **기획자에게** 알린다 — 개발자 터미널에서 끝나면 기획자는 막힌 사실을 모른다
+ * (`readiness.mjs` 머리말). 기획자가 할 일이 없는 되돌림(배정 경합·인젝션 의심)은
+ * `bounceComment`가 `null`을 내므로 티켓이 소음으로 차지 않는다.
+ *
+ * **안 한 것과 못 한 것을 구분해 표시한다** — `transition`에 쓴 규율 그대로다. 실패해도
+ * 되돌림 자체를 뒤집지 않는다: 알림이 안 갔다고 픽업이 통과하면 게이트가 알림에 종속된다.
+ */
+export async function notifyPlanner({provider, ticketKey, featureId, bounce, io = {}, dryRun = false}) {
+  const detail = bounce?.unmatchedTcs?.length ? `대조되지 않은 TC: ${bounce.unmatchedTcs.join(', ')}`
+    : bounce?.unmetDeps?.length ? `끝나지 않은 선행: ${bounce.unmetDeps.join(', ')}` : null
+  const text = bounceComment({featureId, reason: bounce?.reason, missing: bounce?.missing ?? [], detail})
+  if (!text) return {}
+  // **미리보기는 트래커에 쓰지 않는다.** 코멘트는 지울 수 없는 부작용이고, 이 파일 머리말이
+  // 이미 그 규율을 선언한다 — 알림을 dry-run 검사보다 앞에 두면서 그것을 어겼다(적대 리뷰).
+  if (dryRun) return {notified: {supported: null, done: false, reason: 'dry-run'}}
+  const post = io.comment ?? (typeof provider?.comment === 'function' ? provider.comment.bind(provider) : null)
+  if (!post) return {notified: {supported: false, done: false}}
+  try {
+    await post(ticketKey, text)
+    return {notified: {supported: true, done: true}}
+  } catch (error) {
+    return {notified: {supported: true, done: false, error: String(error?.message ?? error).slice(0, 200)}}
+  }
 }
 
 /**

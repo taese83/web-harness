@@ -473,6 +473,30 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-design-binding.mjs",
       "why": "등록이 빠지면 Phase 0의 첫 명령이 에이전트 경로에서 DENY로 막힌다 — 저자는 메인 스레드라 못 보는 클래스이며 이 저장소가 세 번 물렸다"
+    },
+    {
+      "id": "pickup-bounce-notifies-planner",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  if (!pick.ok) return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: pick.bounce, io, dryRun: flags['dry-run']}),",
+      "replace": "  if (!pick.ok) return {...({}),",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "알림을 끄면 되돌림이 개발자 터미널에서 끝나고 기획자는 막힌 사실을 모른다 — 되돌아가는 길이 없으면 게이트는 개발만 세운다"
+    },
+    {
+      "id": "emit-leaves-planner-checklist",
+      "file": ".claude/scripts/ticket/provider-github.mjs",
+      "find": "    ...(plannerChecklist(draft.specCompleteness?.missing) ?? []),",
+      "replace": "    ...([]),",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "발행 본문에 채울 자리가 없으면 기획자는 무엇을 적어야 하는지 티켓만 보고는 알 수 없다 — 티켓이 질문지 역할을 못 한다"
+    },
+    {
+      "id": "jira-comment-format-by-version",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "  const commentBody = text => (String(config.apiVersion ?? '3') === '2' ? String(text) : toAdf(String(text)))",
+      "replace": "  const commentBody = text => String(text)",
+      "test": ".claude/scripts/test-ticket-jira.mjs",
+      "why": "Cloud(v3)는 코멘트 본문이 ADF여야 하고 평문은 400이다 — 기본 설정이 v3라 형식을 안 가르면 「되돌아가는 길」이 기본값에서 매번 실패한다"
     }
   ]
 }

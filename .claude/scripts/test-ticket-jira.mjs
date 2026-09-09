@@ -41,7 +41,9 @@ test('닫힘은 statusCategory로 판정한다 — status 이름은 팀마다 �
 test('전이 매핑이 없으면 transition 능력을 노출하지 않는다', () => {
   const provider = createJiraProvider({config: baseConfig, fetchImpl: async () => {}, env: {JIRA_TOKEN: 't'}})
   assert.equal(requireTicketProvider(provider), provider)
-  assert.deepEqual(providerCapabilities(provider), {reopen: false, transition: false, autoClose: true})
+  // **코멘트는 전이 매핑과 무관하다** — Jira에서 코멘트는 별도 엔드포인트라, 전이 phase가
+  // 하나도 설정되지 않아도 되돌림을 기획자에게 알릴 수는 있다.
+  assert.deepEqual(providerCapabilities(provider), {reopen: false, transition: false, autoClose: true, comment: true})
   assert.equal(typeof provider.transition, 'undefined', '없는 능력을 노출하면 호출자가 전이했다고 보고한다')
 })
 
@@ -385,4 +387,22 @@ test('공유되지 않는 자리면 그 사실을 결과에 싣는다', async ()
   const checkShared = async () => ({shared: false, reason: 'gitignored', warning: '…'})
   const result = await runConfigure({root: '/tmp', flags: {provider: 'github'}, io: {checkShared}})
   assert.equal(result.shared.shared, false, '설정이 팀에 닿지 않으면 팀원마다 다른 트래커로 발행한다')
+})
+
+test('코멘트 본문은 REST 버전이 가른다 — Cloud(v3)에 평문을 보내면 400이다', async () => {
+  // 되돌림 알림이 **기본 설정에서 매번 실패**하던 자리다(적대 리뷰 2026-09-09). description은
+  // 이미 버전을 가르는데 코멘트만 안 갈랐고, 기본값이 `apiVersion: '3'`이다.
+  const calls = []
+  const capture = async (url, init) => {
+    calls.push({url, body: JSON.parse(init.body)})
+    return {ok: true, status: 200, json: async () => ({}), text: async () => '{}'}
+  }
+  const cloud = createJiraProvider({config: {...baseConfig, apiVersion: '3'}, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
+  await cloud.comment('PF-1', '되돌아갔습니다')
+  assert.match(calls[0].url, /\/issue\/PF-1\/comment$/)
+  assert.equal(calls[0].body.body.type, 'doc', 'Cloud에 평문을 보냈다 — 400이 난다')
+
+  const dc = createJiraProvider({config: {...baseConfig, apiVersion: '2'}, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
+  await dc.comment('PF-1', '되돌아갔습니다')
+  assert.equal(calls[1].body.body, '되돌아갔습니다', 'Data Center에는 평문이어야 한다')
 })

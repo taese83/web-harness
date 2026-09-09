@@ -8,6 +8,7 @@
 // `exec` 주입과 같은 규율).
 
 import {
+  toAdf,
   buildIssueFieldsFor, classifyJiraError, closeReference, featureJql,
   isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
   supportedTransitions,
@@ -116,10 +117,23 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     provider.transitionPhases = phases
   }
 
+  // 되돌림 알림 — Jira는 코멘트가 별도 엔드포인트라 전이 능력과 무관하게 항상 있다.
+  //
+  // **본문 형식은 REST 버전이 가른다.** Cloud(v3)는 ADF 문서를 요구하고 평문을 보내면 400이다.
+  // description은 이미 그렇게 가르는데(`provider-jira.mjs`) 코멘트는 안 갈랐다 — 기본 설정이
+  // `apiVersion: '3'`이라 **기본값에서 「되돌아가는 길」이 매번 실패**했다(적대 리뷰 2026-09-09).
+  // 사내 배포가 DC(v2)라 파일럿에서는 드러나지 않는 형태다.
+  const commentBody = text => (String(config.apiVersion ?? '3') === '2' ? String(text) : toAdf(String(text)))
+  provider.comment = async (key, text) => {
+    await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: commentBody(text)}})
+    return {ticketKey: String(key), commented: true}
+  }
+
   // 되살리기는 Jira에서 별도 API가 아니라 전이다 — 그 phase 매핑이 있을 때만 노출한다.
   if (phases.includes('reopen')) {
     provider.reopenIssue = async (key, comment = null) => {
-      if (comment) await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: comment}})
+      // 같은 결함이 여기에도 있었다 — 위 `commentBody`로 통일한다.
+      if (comment) await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: commentBody(comment)}})
       return provider.transition(key, 'reopen')
     }
   }

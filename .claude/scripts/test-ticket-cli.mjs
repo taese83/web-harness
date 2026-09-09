@@ -8,7 +8,7 @@ import test from 'node:test'
 import {mkdtempSync, readFileSync, mkdirSync, rmSync, writeFileSync, existsSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {parseArgs, runClaim, runBoard, runPickup, runLink, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
+import {parseArgs, runClaim, runBoard, runPickup, runLink, notifyPlanner, readChangeScopeFile, resolvePlanLocation, loadUnits, LEDGER_RELATIVE, CHANGE_SCOPE_RELATIVE, PLAN_RELATIVE, PLAN_DIR_RELATIVE} from './ticket/cli.mjs'
 import {appendClaimRecord, appendLedgerRecord, readLedger} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
 import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
@@ -605,4 +605,84 @@ test('디자인 정본 탐색은 실제로 존재하는 경로만 돌려준다',
     assert.ok(refs.includes('_workspace/02_design/layout-spec.md'))
     assert.ok(!refs.includes('_workspace/02_design/component-spec'), '없는 경로는 적지 않는다')
   } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runPickup: 되돌림이 기획자에게 간다 — 개발자 터미널에서 끝나지 않는다', async () => {
+  // 계기(2026-09-09): `normalize.mjs`가 "pickup이 이 판정으로 되돌림을 결정한다"고, 발행 본문이
+  // "pickup에서 되돌림 대상"이라고 적어두고 있었는데 **배선이 없었다.** 게이트를 세우기 전에
+  // 되돌아가는 길부터 만든다 — 길 없이 막으면 개발자가 막히고 기획자는 그 사실을 모른다.
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    const flags = {units, confirm: true}
+    seedClaim(dir)
+    const cleanIo = {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false})}
+    // 계획에 없는 FEAT를 인용하는 본문 → 기획자가 고쳐야 하는 되돌림이다.
+    const strayBody = buildIssueFields(buildTicketDraft({...unit, featureId: 'FEAT-404'}), {}).body
+    const posted = []
+    const bounced = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags,
+      io: {...cleanIo, resolveIssue: async () => ({number: 7, title: 't', body: strayBody, assignees: []}),
+        comment: async (key, text) => { posted.push({key, text}) }}})
+    assert.equal(bounced.ok, false)
+    assert.deepEqual(bounced.notified, {supported: true, done: true}, '되돌림이 기획자에게 가지 않았다')
+    assert.equal(posted.length, 1)
+    assert.match(posted[0].text, /개발 착수가 되돌아갔습니다/)
+    assert.match(posted[0].text, /FEAT-001/)
+
+    // **기획자가 할 일이 없는 되돌림에는 코멘트하지 않는다** — 티켓이 소음으로 차면
+    // 아무도 읽지 않게 되고, 그러면 이 경로 자체가 죽는다.
+    const taken = []
+    const stolen = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags,
+      io: {...cleanIo, resolveIssue: async () => ({number: 7, title: 't', body: issueBody, assignees: ['other']}),
+        comment: async (key, text) => { taken.push({key, text}) }}})
+    assert.equal(stolen.bounce.reason, 'assigned-to-other')
+    assert.equal(taken.length, 0, '배정 경합까지 기획자에게 알렸다')
+    assert.equal(stolen.notified, undefined)
+
+    // **능력이 없으면 안 한 것과 못 한 것을 구분해 표시한다** — transition에 쓴 규율 그대로다.
+    // 능력 없는 provider는 `runPickup`으로 구성할 수 없어(실행부가 실 provider를 만든다)
+    // 판정 함수를 직접 부른다 — 실 `gh` 호출로 새는 것도 여기서 막는다.
+    assert.deepEqual(await notifyPlanner({provider: {}, ticketKey: '7', featureId: 'FEAT-001',
+      bounce: {reason: 'unknown-feature'}}), {notified: {supported: false, done: false}})
+    // 실패를 감추지 않는다 — 알림이 실패해도 되돌림은 그대로다(게이트가 알림에 종속되지 않는다).
+    const failed = await notifyPlanner({provider: {comment: async () => { throw new Error('403') }},
+      ticketKey: '7', featureId: 'FEAT-001', bounce: {reason: 'unknown-feature'}})
+    assert.equal(failed.notified.supported, true)
+    assert.equal(failed.notified.done, false)
+    assert.match(String(failed.notified.error), /403/)
+    // 기획자가 할 일 없는 되돌림은 아예 필드를 만들지 않는다.
+    assert.deepEqual(await notifyPlanner({provider: {comment: async () => {}}, ticketKey: '7',
+      bounce: {reason: 'injection-suspect'}}), {})
+    // **미리보기는 트래커에 쓰지 않는다.** 코멘트는 지울 수 없는 부작용이다.
+    let wrote = false
+    const preview = await notifyPlanner({provider: {comment: async () => { wrote = true }}, ticketKey: '7',
+      featureId: 'FEAT-001', bounce: {reason: 'unknown-feature'}, dryRun: true})
+    assert.equal(wrote, false, 'dry-run이 티켓에 코멘트를 남겼다')
+    assert.equal(preview.notified.reason, 'dry-run')
+    // **범위 되돌림도 기획자가 고칠 일이다** — guidance가 "계획에 선언하세요"라고 말한다.
+    const scoped = []
+    assert.deepEqual(await notifyPlanner({provider: {comment: async (k, t) => scoped.push(t)},
+      ticketKey: '7', featureId: 'FEAT-001', bounce: {reason: 'deps-undeclared'}}),
+      {notified: {supported: true, done: true}})
+    assert.match(scoped[0], /선행 의존이 계획에 선언돼 있지 않다/)
+    // 중복을 나중에 걷어낼 근거 — 지금은 아무도 읽지 않지만 마커는 남긴다.
+    assert.match(scoped[0], /<!-- web-harness:bounce reason=deps-undeclared feat=FEAT-001 -->/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('발행 본문이 기획자가 채울 자리를 남긴다 — 티켓이 곧 질문지다', () => {
+  const empty = buildIssueFields(buildTicketDraft({featureId: 'FEAT-002', title: '빈 단위'}), {})
+  assert.match(empty.body, /## 기획자가 채울 것/)
+  assert.match(empty.body, /- \[ \] \*\*behavior\*\*/, '빈 자리가 체크박스로 서지 않았다')
+  // 채워진 단위에는 그 절이 없다 — 항상 붙이면 아무도 안 읽는다.
+  assert.doesNotMatch(buildIssueFields(buildTicketDraft(unit), {}).body, /기획자가 채울 것/)
+})
+
+test('Jira 본문에도 같은 절이 들어간다 — 트래커에 따라 물어보는 것이 달라지지 않는다', async () => {
+  const {buildDescriptionText} = await import('./ticket/provider-jira.mjs')
+  const text = buildDescriptionText(buildTicketDraft({featureId: 'FEAT-002', title: '빈 단위'}), {})
+  assert.match(text, /기획자가 채울 것/)
+  // **다만 Jira에서는 체크박스가 리터럴 텍스트다** — 설명이 평문/ADF 문단이라 마크다운
+  // 체크박스가 렌더되지 않는다. 물어보는 내용은 같고 조작 감각만 다르다(§4 등록).
+  assert.match(text, /- \[ \] \*\*behavior\*\*/)
 })

@@ -126,6 +126,12 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       await run(args)
       return {number: Number(ticketKey), ticketKey: String(ticketKey)}
     },
+    // 되돌림을 기획자에게 알리는 경로. `reopenIssue`가 이미 `--comment`를 쓰고 있었지만
+    // **되살리기에 묶여 있어** 되돌림 알림에는 쓸 수 없었다 — 같은 능력을 이름으로 뗀다.
+    async comment(ticketKey, text) {
+      await run(['issue', 'comment', String(ticketKey), '--repo', repo, '--body', String(text)])
+      return {ticketKey: String(ticketKey), commented: true}
+    },
     async createIssue(fields) {
       for (const label of fields.labels) await run(labelEnsureArgs(repo, label))
       const out = await run(createArgs(repo, fields))

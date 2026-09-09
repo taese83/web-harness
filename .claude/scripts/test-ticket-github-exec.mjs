@@ -62,7 +62,8 @@ test('createGithubProvider는 TicketProvider 필수부를 만족한다', () => {
 
 test('GitHub은 transition을 제공하지 않는다 — 상태가 open/closed뿐이라 "진행중"이 없다', () => {
   const caps = providerCapabilities(createGithubProvider({repo: 'o/r', exec: async () => '[]'}))
-  assert.deepEqual(caps, {reopen: true, transition: false, autoClose: true},
+  // `comment`는 되돌림을 기획자에게 알리는 경로다 — 전이와 달리 GitHub도 갖는다.
+  assert.deepEqual(caps, {reopen: true, transition: false, autoClose: true, comment: true},
     '없는 능력을 흉내 내면 pickup이 전이했다고 보고하게 된다')
 })
 

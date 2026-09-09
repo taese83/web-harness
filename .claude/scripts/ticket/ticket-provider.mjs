@@ -38,6 +38,10 @@
  *   — null이면 머지 후 `transition`으로 능동 전이해야 한다. **소비자는 아직 간접이다**:
  *   `cli.mjs`의 `renderCloseLineFor`가 provider **이름**으로 갈라 서식을 고른다(서식 정본은
  *   `renderCloseReference`). 이 메서드를 직접 부르도록 잇는 것은 남은 정리다.
+ * @property {(key: string, text: string) => Promise<any>} [comment]
+ *   티켓에 코멘트를 남긴다. **되돌림을 기획자에게 알리는 유일한 경로**다 — 없으면 개발자
+ *   터미널에서 끝나고 기획자는 막힌 사실을 모른다. 없는 provider도 있을 수 있으므로 선택이며,
+ *   호출자는 `notified: {supported, done}`으로 **안 한 것과 못 한 것을 구분해** 표시한다.
  * @property {(message: string) => {kind: string, hint: string}} [classifyError]
  */
 
@@ -79,13 +83,14 @@ export function isClosedIssue(provider, issue) {
 
 /**
  * provider가 가진 선택 능력을 이름으로 돌려준다 — 호출자가 "없어서 안 한 것"을 표시할 수 있게.
- * @returns {{reopen: boolean, transition: boolean, autoClose: boolean}}
+ * @returns {{reopen: boolean, transition: boolean, autoClose: boolean, comment: boolean}}
  */
 export function providerCapabilities(provider) {
   return {
     reopen: typeof provider?.reopenIssue === 'function',
     transition: typeof provider?.transition === 'function',
     autoClose: typeof provider?.closeReference === 'function',
+    comment: typeof provider?.comment === 'function',
   }
 }
 

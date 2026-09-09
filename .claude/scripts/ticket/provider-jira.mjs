@@ -15,6 +15,7 @@
 // 본문에서는 HTML 주석이 숨겨지지 않아 **평문으로 보인다** — 보기 좋지는 않지만 마커 형식을
 // 트래커별로 가르지 않는 쪽을 택했다(가르면 왕복 파서가 둘이 된다).
 
+import {plannerChecklist} from './readiness.mjs'
 import {buildRefsMarker} from './refs.mjs'
 
 /** FEAT 고유 라벨. Jira 라벨은 공백을 못 넣고 콜론이 버전에 따라 불안정해 하이픈을 쓴다. */
@@ -79,6 +80,9 @@ export function buildDescriptionText(draft, {branch = null, designRefs = []} = {
   if (designRefs.length > 0) {
     lines.push('', '참고 정본 (게이트가 아니라 포인터다)', ...designRefs.map(ref => `- ${ref}`))
   }
+  // 기획자가 채울 자리 — GitHub 본문과 **같은 절**이다(`readiness.mjs`가 정본).
+  const checklist = plannerChecklist(draft.specCompleteness?.missing)
+  if (checklist) lines.push(...checklist)
   const refs = draft.harnessRefs ?? {}
   lines.push('', buildRefsMarker(refs.featureIds, refs.testCaseIds, {branch}))
   return lines.join('\n')
