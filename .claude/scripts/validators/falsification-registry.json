@@ -569,6 +569,22 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "같은 원문을 다시 받을 때마다 인벤토리가 늘어나면 「무엇을 받았는가」가 흐려진다 — 계약이 「이미 같은 해시가 있으면 다시 받지 않는다」고 적어둔 자리다"
+    },
+    {
+      "id": "intake-does-not-classify",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "export const UNCLASSIFIED = '미분류'",
+      "replace": "export const UNCLASSIFIED = '기획 입력'",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "티켓이 기획인지 버그인지 운영 요청인지는 본문을 읽어야 알고 그것은 LLM의 일이다 — 스크립트가 「기획 입력」으로 박으면 버그 티켓도 기획으로 세어져 요구사항이 지어내진다(초안이 정확히 그랬다)"
+    },
+    {
+      "id": "bind-requires-intake-evidence",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "  if (!String(sourceIndex).includes(`티켓 ${ticketKey}`)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "받지 않은 티켓에 FEAT를 묶으면 원장이 「이 티켓에서 이 기능이 나왔다」는 거짓을 기록하고, 그 거짓 위에서 픽업·stale 판정이 전부 돈다"
     }
   ]
 }

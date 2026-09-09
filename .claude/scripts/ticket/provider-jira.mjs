@@ -153,6 +153,9 @@ export function parseIssueResponse(payload) {
     title: payload.fields?.summary ?? '',
     body: fromAdf(payload.fields?.description ?? ''),
     labels: payload.fields?.labels ?? [],
+    // 트래커가 **선언한** 타입. 분류의 근거이지 분류 자체가 아니다 — 팀마다 어휘가 달라
+    // `Story`가 기획이고 `Task`가 아니라고 단정할 수 없다. GitHub Issues에는 동등물이 없다.
+    declaredType: payload.fields?.issuetype?.name ?? null,
     // Jira의 assignee는 **단수다** — GitHub의 다중 배정 경합이 구조적으로 없다.
     assignees: assignee ? [assignee.accountId ?? assignee.name ?? assignee.displayName] : [],
   }

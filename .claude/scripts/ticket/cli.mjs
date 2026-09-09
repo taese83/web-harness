@@ -8,9 +8,10 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
-import {appendInventory, planIntake} from './intake.mjs'
+import {appendInventory, bindLedgerRecord, checkBind, planIntake} from './intake.mjs'
 import {scanUntrustedBody} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
+import {buildRefsMarker, stampRefsInto} from './refs.mjs'
 import {hasUserInterface} from '../spec.mjs'
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, join, resolve} from 'node:path'
@@ -719,9 +720,13 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   const issue = await fetchIssue(ticketKey)
   if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 트래커에서 찾지 못했습니다`}
   const injection = scanUntrustedBody(issue.body)
+  // **분류는 명시할 때만 받는다.** 없으면 `미분류`이고 ingestor가 정한다 — 스크립트가
+  // 추측하면 버그 티켓이 기획 입력으로 세어져 요구사항이 지어내진다.
   const plan = planIntake({
     ticketKey, title: issue.title, body: issue.body, url: issue.url ?? null,
     provider: provider.name, fetchedAt: new Date().toISOString(), injection,
+    declaredType: issue.declaredType ?? null, labels: issue.labels ?? [],
+    ...(flags?.as ? {classification: flags.as} : {}),
   })
   const indexPath = join(root, '_workspace/00_source/source-index.md')
   const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
@@ -736,9 +741,65 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   writeFileSync(join(root, '_workspace', plan.snapshotPath), plan.snapshot)
   if (merged.added) writeFileSync(indexPath, merged.text)
   return {
-    ok: true, snapshotPath: plan.snapshotPath, digest: plan.digest,
+    ok: true, snapshotPath: plan.snapshotPath, digest: plan.digest, classification: plan.classification,
     inventory: merged.added ? 'appended' : merged.reason, injection, nextStep: plan.nextStep,
   }
+}
+
+/**
+ * bind: **인테이크한 티켓과 그 티켓에서 나온 FEAT를 묶는다.** 폐곡선을 닫는 마지막 배선이다 —
+ * 원장에 청구를 기록하고 티켓 본문에 왕복 마커를 스탬프하면, 그때부터 픽업이 그 티켓을 알아본다.
+ *
+ * **아무 FEAT나 아무 티켓에 묶지 않는다**(`checkBind`) — 인벤토리에 그 티켓이 있고, FEAT가
+ * 로컬 계획에 실재하고, 양쪽 다 다른 곳에 묶여 있지 않아야 한다.
+ *
+ * **본문을 덮어쓰지 않는다** — `stampRefsInto`가 기존 본문을 두고 마커만 덧붙인다.
+ */
+export async function runBind({root, repo, featureId, ticketKey, flags, io = {}}) {
+  if (!featureId || !ticketKey) {
+    return {ok: false, bounce: {reason: 'missing-args'}, guidance: 'bind <FEAT-NNN> <티켓키> 형태로 부르세요'}
+  }
+  const resolved = resolveTicketProvider({root, repo, flags, io})
+  if (resolved.choice.needsChoice) {
+    return {ok: false, bounce: {reason: 'ticket-provider-unset'}, guidance: '티켓 provider 설정이 없습니다 — `configure`로 먼저 정하세요'}
+  }
+  const provider = resolved.provider
+  const unit = loadUnits(root, flags ?? {}).find(item => item.featureId === featureId) ?? null
+  const ledgerFile = join(root, LEDGER_RELATIVE)
+  const record = (io.readState ?? readLedgerState)(ledgerFile).get(featureId) ?? null
+  const indexPath = join(root, '_workspace/00_source/source-index.md')
+  const sourceIndex = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
+  const issue = await (io.resolveIssue ? io.resolveIssue({repo, number: ticketKey}) : provider.resolveIssue(ticketKey))
+  if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 찾지 못했습니다`}
+
+  const verdict = checkBind({ticketKey, featureId, unit, ledgerRecord: record, sourceIndex, body: issue.body})
+  if (!verdict.ok) return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
+
+  const marker = buildRefsMarker([featureId], unit.testCaseIds ?? [], {branch: flags?.branch ?? null})
+  const stamped = stampRefsInto(issue.body ?? '', marker)
+  const ledgerRecord = bindLedgerRecord({
+    featureId, ticketKey, provider: provider.name,
+    contentHash: (await import('./emit.mjs')).unitContentHash(unit), now: new Date().toISOString(),
+  })
+  if (flags?.['dry-run']) {
+    return {ok: true, dryRun: true, record: ledgerRecord,
+      stamp: stamped === null ? 'already-stamped' : 'would-append',
+      capabilities: {updateBody: typeof provider.updateBody === 'function'}}
+  }
+  // **본문 스탬프가 먼저다.** 원장을 먼저 쓰고 스탬프가 실패하면 「청구됐는데 티켓은 모르는」
+  // 상태가 남고, 픽업이 그 티켓을 알아보지 못한 채 원장만 부풀어 있다.
+  let stamp = 'already-stamped'
+  if (stamped !== null) {
+    if (typeof provider.updateBody !== 'function') {
+      return {ok: false, bounce: {reason: 'update-body-unsupported'},
+        guidance: `${provider.name} provider가 본문 쓰기를 제공하지 않습니다 — 마커를 손으로 붙이거나 provider를 확장하세요`}
+    }
+    await (io.updateBody ?? provider.updateBody.bind(provider))(ticketKey, stamped)
+    stamp = 'appended'
+  }
+  ;(io.appendLedger ?? appendClaimRecord)(ledgerFile, ledgerRecord)
+  return {ok: true, record: ledgerRecord, stamp,
+    nextStep: `pickup ${featureId} --developer <login> 으로 착수할 수 있습니다`}
 }
 
 /**
@@ -898,8 +959,9 @@ if (invokedDirectly) {
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
+      case 'bind': requireRepo(); return runBind({root, repo, featureId: positional[0], ticketKey: positional[1], flags})
       case 'configure': return runConfigure({root, flags})
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure`)
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|bind|configure`)
     }
   }
   run().then(result => {

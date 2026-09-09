@@ -770,6 +770,9 @@ test('runIntake: 티켓을 격리 스냅샷 + 인벤토리 한 행으로 받는�
     const index = readFileSync(join(dir, '_workspace/00_source/source-index.md'), 'utf8')
     assert.match(index, /\| 출처 \| 형태 \| 스냅샷 경로 \| 가져온 시각 \| 가져온 주체·수단 \| SHA-256 \| 분류 \| 소비 지점 \|/)
     assert.match(index, /티켓 PF-1/)
+    // **분류를 지어내지 않는다** — 티켓이 기획인지 버그인지는 본문을 읽어야 알고 그것은 LLM의 일이다.
+    assert.match(index, /미분류/, '인테이크가 분류를 단정했다')
+    assert.match(snapshot, /분류: \*\*미정\*\*/)
     // 표에 적힌 경로에 파일이 실제로 있어야 한다(기준이 어긋나면 표가 거짓이 된다).
     assert.ok(existsSync(join(dir, '_workspace', result.snapshotPath)))
 
@@ -810,5 +813,57 @@ test('runIntake: --dry-run은 아무것도 쓰지 않는다', async () => {
     assert.equal(result.dryRun, true)
     assert.equal(result.wouldAppend, true)
     assert.ok(!existsSync(join(dir, '_workspace/00_source/source-index.md')), '미리보기가 파일을 만들었다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runIntake: 분류를 지어내지 않는다 — 근거만 싣고 판정은 ingestor가 한다', async () => {
+  const {runIntake} = await import('./ticket/cli.mjs')
+  const {CLASSIFICATIONS} = await import('./ticket/intake.mjs')
+  const dir = tmpRoot()
+  try {
+    // 버그 티켓. 초안은 이것도 「기획 입력」으로 박아 요구사항이 지어내질 자리였다.
+    const io = {provider: {name: 'jira'},
+      resolveIssue: async () => ({title: '로그인 안 됨', body: '버그입니다', declaredType: 'Bug', labels: ['ops']})}
+    const result = await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-9', flags: {}, io})
+    assert.equal(result.classification, '미분류')
+    const snapshot = readFileSync(join(dir, '_workspace', result.snapshotPath), 'utf8')
+    // 트래커가 준 것은 **근거**로 싣는다 — 타입 어휘는 팀마다 달라 판정 근거가 되지 못한다.
+    assert.match(snapshot, /선언한 타입: Bug/)
+    assert.match(snapshot, /라벨: ops/)
+    assert.match(readFileSync(join(dir, '_workspace/00_source/source-index.md'), 'utf8'), /미분류/)
+
+    // 명시하면 그대로 쓴다 — 어휘는 계약이 정한 셋뿐이다.
+    const io2 = {provider: {name: 'jira'}, resolveIssue: async () => ({title: 'x', body: '운영 가이드'})}
+    const typed = await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-10', flags: {as: '참고'}, io: io2})
+    assert.equal(typed.classification, '참고')
+    assert.ok(CLASSIFICATIONS.includes('기획 입력'))
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runBind: 근거 없이 묶지 않는다 — 폐곡선을 닫는 마지막 배선', async () => {
+  const {runBind, runIntake} = await import('./ticket/cli.mjs')
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    let body = '## 요구사항\n- 신청 버튼을 누르면 신청된다'
+    const io = {
+      provider: {name: 'jira', updateBody: async (key, next) => { body = next; return {} }},
+      resolveIssue: async () => ({title: '세미나 신청', body}),
+    }
+    // 인테이크하지 않은 티켓에는 묶을 수 없다 — 출처를 지어내는 것이다.
+    const early = await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-1', flags: {units}, io})
+    assert.equal(early.bounce.reason, 'not-intaken')
+
+    await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-1', flags: {}, io})
+    const bound = await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-1', flags: {units}, io})
+    assert.equal(bound.ok, true)
+    assert.equal(bound.stamp, 'appended')
+    // **사람이 쓴 본문이 남아야 한다.**
+    assert.ok(body.includes('- 신청 버튼을 누르면 신청된다'), '스탬프가 본문을 덮어썼다')
+    assert.match(body, /web-harness:refs feat=FEAT-001/)
+
+    // 계획에 없는 FEAT는 묶을 수 없다.
+    const unknown = await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-404', ticketKey: 'PF-1', flags: {units}, io})
+    assert.equal(unknown.bounce.reason, 'unknown-feature')
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
