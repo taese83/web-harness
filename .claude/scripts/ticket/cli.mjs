@@ -8,6 +8,8 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
+import {appendInventory, planIntake} from './intake.mjs'
+import {scanUntrustedBody} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
 import {hasUserInterface} from '../spec.mjs'
 import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
@@ -696,6 +698,50 @@ export async function notifyPlanner({provider, ticketKey, featureId, bounce, io 
 }
 
 /**
+ * intake: **사람이 쓴 티켓을 공급 원문으로 받는다.** 새 파이프라인이 아니라 입구 하나를 더 여는 것이다 —
+ * 티켓 본문은 PRD·슬라이드와 같은 공급 원문이고, `00_source/` 인벤토리에 들어가면 그다음은
+ * 이미 있는 경로(`source-artifact-ingestor` → `feature-planner`)가 처리한다.
+ *
+ * **요구사항을 뽑지 않는다.** 산문에서 FEAT·TC를 만드는 것은 LLM의 일이고, 스크립트가 흉내
+ * 내면 그것이 곧 지어내기다. 여기서는 스냅샷과 인벤토리 한 행까지만 한다.
+ *
+ * **본문은 비신뢰 데이터다** — 격리 펜스로 감싸고 인젝션 의심을 인벤토리에 표시한다.
+ */
+export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
+  if (!ticketKey) return {ok: false, bounce: {reason: 'no-ticket'}, guidance: 'intake <티켓키> 형태로 부르세요'}
+  const resolved = resolveTicketProvider({root, repo, flags, io})
+  if (resolved.choice.needsChoice) {
+    return {ok: false, bounce: {reason: 'ticket-provider-unset'},
+      guidance: '티켓 provider 설정이 없습니다 — `configure`로 먼저 정하세요'}
+  }
+  const provider = resolved.provider
+  const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({repo, number: key}) : provider.resolveIssue(key))
+  const issue = await fetchIssue(ticketKey)
+  if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 트래커에서 찾지 못했습니다`}
+  const injection = scanUntrustedBody(issue.body)
+  const plan = planIntake({
+    ticketKey, title: issue.title, body: issue.body, url: issue.url ?? null,
+    provider: provider.name, fetchedAt: new Date().toISOString(), injection,
+  })
+  const indexPath = join(root, '_workspace/00_source/source-index.md')
+  const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
+  const merged = appendInventory(existing, plan.row, plan.digest)
+  if (flags?.['dry-run']) {
+    return {ok: true, dryRun: true, snapshotPath: plan.snapshotPath, digest: plan.digest,
+      wouldAppend: merged.added, injection, nextStep: plan.nextStep}
+  }
+  // 인벤토리 표기는 **`_workspace` 기준 상대 경로**다(`source-artifacts.md` 예시 그대로) —
+  // 실제 쓰기는 그 접두를 붙인다. 둘을 섞으면 표에 적힌 경로에 파일이 없다.
+  mkdirSync(join(root, '_workspace/00_source/fetched'), {recursive: true})
+  writeFileSync(join(root, '_workspace', plan.snapshotPath), plan.snapshot)
+  if (merged.added) writeFileSync(indexPath, merged.text)
+  return {
+    ok: true, snapshotPath: plan.snapshotPath, digest: plan.digest,
+    inventory: merged.added ? 'appended' : merged.reason, injection, nextStep: plan.nextStep,
+  }
+}
+
+/**
  * link: PR↔원장 연결. 게이트 — change-scope STALE이면 완료 차단(C 계약) → 원장 대조 close
  * 참조(verified만 Closes) → 멱등(computePrLinkPlan) → --confirm일 때만 원장 append.
  */
@@ -851,8 +897,9 @@ if (invokedDirectly) {
       case 'pickup': requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
+      case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'configure': return runConfigure({root, flags})
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|configure`)
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure`)
     }
   }
   run().then(result => {

@@ -553,6 +553,22 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-mutation-sample.mjs",
       "why": "기준 실행 없이 재면 원래 빨간 스위트도 러너가 못 뜨는 경우도 모든 변이가 「잡혔다」로 세어져 점수가 항상 100%가 된다 — 적대 리뷰가 실행으로 재현한 BLOCK이며, 반증 seed가 막으려던 결과가 다른 문으로 열려 있었다"
+    },
+    {
+      "id": "intake-quarantines-ticket-body",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "    '```text untrusted-ticket-body',",
+      "replace": "    '```text ticket-body',",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "티켓 본문은 외부 입력이다 — 격리 펜스 없이 들이면 산문 속 지시문이 기획 입력으로 파이프라인에 들어간다. 인테이크는 받는 자리라 막지 않으므로 격리가 유일한 방어다"
+    },
+    {
+      "id": "intake-inventory-dedupes-by-digest",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "  if (current.includes(digest.slice(0, 12))) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "같은 원문을 다시 받을 때마다 인벤토리가 늘어나면 「무엇을 받았는가」가 흐려진다 — 계약이 「이미 같은 해시가 있으면 다시 받지 않는다」고 적어둔 자리다"
     }
   ]
 }
