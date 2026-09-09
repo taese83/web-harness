@@ -135,12 +135,14 @@ export function planIntake({ticketKey, title, body, url = null, provider, fetche
 }
 
 /**
- * 인테이크한 티켓과 그 티켓에서 나온 FEAT를 **묶어도 되는지** 판정한다(순수).
+ * 기획 티켓과 그 티켓에서 나온 FEAT를 **출처로 이어도 되는지** 판정한다(순수).
  *
- * **아무 FEAT나 아무 티켓에 묶을 수 없다.** 근거는 인벤토리다 — 그 티켓의 스냅샷이 실제로
+ * **청구가 아니다.** 개발자가 픽업하는 것은 `claim`이 발행한 개발 티켓이고, 이것은
+ * 「이 FEAT가 어디서 나왔는가」를 남기는 일이다. 그래서 원장을 쓰지 않는다.
+ *
+ * **아무 FEAT나 아무 티켓에 이을 수 없다.** 근거는 인벤토리다 — 그 티켓의 스냅샷이 실제로
  * 받아졌고(`source-index.md`에 행이 있고), 그 FEAT가 로컬 계획에 실재해야 한다. 근거 없이
- * 묶으면 원장이 「이 티켓에서 이 기능이 나왔다」는 거짓을 기록하게 되고, 그 거짓 위에서
- * 픽업·stale 판정이 전부 돈다.
+ * 이으면 「이 티켓에서 이 기능이 나왔다」는 거짓이 기록되고, 그 위에서 이력 추적이 돈다.
  *
  * @param {{ticketKey, featureId, unit, ledgerRecord, sourceIndex, body}} args
  * @returns {{ok: boolean, reason?: string, guidance?: string}}
@@ -158,25 +160,16 @@ export function checkBind({ticketKey, featureId, unit, ledgerRecord = null, sour
     return {ok: false, reason: 'not-intaken',
       guidance: `${ticketKey}가 인벤토리에 없다 — 먼저 \`intake ${ticketKey}\`로 받는다`}
   }
-  // 이미 다른 티켓에 청구된 FEAT는 조용히 바꾸지 않는다 — 원장이 갈라진다.
-  if (ledgerRecord && !ledgerRecord.closed && String(ledgerRecord.ticketKey) !== String(ticketKey)) {
-    return {ok: false, reason: 'already-claimed-elsewhere',
-      guidance: `${featureId}는 이미 ${ledgerRecord.ticketKey}에 청구돼 있다 — 사람이 정한다`}
-  }
-  // 본문에 이미 **다른** FEAT 마커가 있으면 손대지 않는다(같은 FEAT면 멱등 재실행이다).
-  const stamped = String(body).match(/web-harness:refs\s+feat=([\w,-]+)/)
-  if (stamped && !stamped[1].split(',').includes(featureId)) {
-    return {ok: false, reason: 'ticket-bound-elsewhere',
-      guidance: `이 티켓은 이미 ${stamped[1]}에 묶여 있다 — 원장과 본문이 갈라지지 않게 사람이 정한다`}
+  // **기획 티켓에 왕복 마커가 있으면 안 된다.** 그것은 개발 티켓의 표식이고, 기획 티켓에
+  // 찍히면 `findByFeature`·`parseIssueRefs`가 픽업 대상으로 착각한다.
+  if (/web-harness:refs\s+feat=/.test(String(body))) {
+    return {ok: false, reason: 'not-a-source-ticket',
+      guidance: `${ticketKey}에는 개발 티켓의 왕복 마커가 있다 — 기획 티켓이 아니다. 출처로 쓸 티켓을 지정하세요`}
   }
   return {ok: true}
 }
 
-/** 원장에 남길 청구 기록(순수). 형태는 `claimFeature`가 쓰는 것과 같아야 한다. */
-export function bindLedgerRecord({featureId, ticketKey, provider, contentHash, now}) {
-  return {featureId, ticketKey: String(ticketKey), provider, contentHash, createdAt: now,
-    origin: 'intake'}
-}
+
 
 /**
  * 티켓의 컴포넌트로 분류를 정한다(순수) — **팀이 매핑을 선언했을 때만.**
@@ -207,4 +200,90 @@ export function classifyByComponent(components, axis) {
     }
   }
   return null
+}
+
+// ── 출처 링크 ────────────────────────────────────────────────────────────────
+// **기획 티켓은 출처지 개발 티켓이 아니다.** 개발자가 픽업하는 것은 `claim`이 발행한 개발
+// 티켓이고(팀의 `DEVELOP` 컴포넌트), 기획 티켓은 「이 FEAT가 어디서 나왔는가」를 가리킨다.
+//
+// 그래서 마커가 **왕복 마커와 다르다.** `web-harness:refs`를 기획 티켓에 찍으면
+// `parseIssueRefs`·`findByFeature`가 그것을 개발 티켓으로 착각한다 — 픽업 대상이 갈라진다.
+export const SOURCE_MARKER_BEGIN = '<!-- web-harness:source'
+
+export const buildSourceMarker = featureIds =>
+  `${SOURCE_MARKER_BEGIN} feat=${(featureIds ?? []).join(',')} -->`
+
+/** 기획 티켓에 출처 마커를 **덧붙인다**(순수). 멱등이며 덮어쓰지 않는다. */
+export function stampSourceInto(body, marker) {
+  const current = String(body ?? '')
+  if (!marker.startsWith(SOURCE_MARKER_BEGIN)) {
+    throw new Error(`INVALID_SOURCE_MARKER: buildSourceMarker 산출이 아니다: ${String(marker).slice(0, 40)}`)
+  }
+  if (current.includes(marker)) return null
+  // 같은 티켓이 여러 FEAT의 출처인 것은 **정상이다** — 기획 하나가 기능 여럿을 낳는다.
+  // 그래서 다른 출처 마커가 있어도 거부하지 않고 덧붙인다(왕복 마커와 다른 점이다).
+  return `${current.replace(/\s+$/, '')}\n\n${marker}\n`
+}
+
+/** 인벤토리 행의 「소비 지점」을 그 FEAT로 갱신한다(순수). 받은 것과 쓴 것을 맞추는 자리다. */
+export function recordConsumption(sourceIndex, ticketKey, featureId) {
+  const lines = String(sourceIndex ?? '').split('\n')
+  const at = lines.findIndex(line => line.startsWith(`| 티켓 ${ticketKey} |`))
+  if (at < 0) return {text: sourceIndex, updated: false, reason: 'row-not-found'}
+  const cells = lines[at].split('|')
+  // 마지막 데이터 칸이 「소비 지점」이다(열 여덟 + 양끝 빈칸).
+  const last = cells.length - 2
+  const current = cells[last].trim()
+  if (current.includes(featureId)) return {text: sourceIndex, updated: false, reason: 'already-recorded'}
+  const known = current.startsWith('미정') || current === '' ? [] : [current]
+  cells[last] = ` ${[...known, `\`${featureId}\``].join(', ')} `
+  lines[at] = cells.join('|')
+  return {text: lines.join('\n'), updated: true}
+}
+
+// ── 개발 티켓 인수(adopt) ────────────────────────────────────────────────────
+// **개발자가 트래커에 직접 쓴 개발 티켓**을 하네스가 아는 것으로 만든다. 이것은 `bind`와
+// 다르다: `bind`는 기획 티켓을 **출처**로 잇고 원장을 쓰지 않는다. `adopt`는 개발 티켓을
+// **청구**로 원장에 올리고 왕복 마커를 찍는다 — 그때부터 픽업이 그 티켓을 집는다.
+//
+// 이 경로가 없으면 개발자가 직접 쓴 티켓은 어느 문으로도 못 들어온다(자체 실측:
+// intake는 `dev-ticket-not-source`, bind는 `not-intaken`, pickup은 `not-claimed`로 전부 닫혔다).
+
+/**
+ * 개발 티켓을 인수해도 되는지 판정한다(순수).
+ * @returns {{ok: boolean, reason?: string, guidance?: string}}
+ */
+export function checkAdopt({ticketKey, featureId, unit, ledgerRecord = null, body = '', components = [], axis = null}) {
+  if (!/^FEAT-\d{3,}$/.test(String(featureId ?? ''))) {
+    return {ok: false, reason: 'invalid-feature-id', guidance: `FEAT-NNN 형식이어야 한다: ${featureId}`}
+  }
+  if (!unit) {
+    return {ok: false, reason: 'unknown-feature',
+      guidance: `${featureId}가 로컬 계획에 없다 — 이 티켓의 내용으로 FEAT를 먼저 만든다`}
+  }
+  // **기획 티켓을 개발 티켓으로 인수하지 않는다.** 팀이 축을 선언했으면 그것을 지킨다 —
+  // 기획 티켓을 청구로 올리면 개발자가 기획 티켓을 픽업하게 된다.
+  const role = classifyByComponent(components, axis)
+  if (role && role.role !== DEV_TICKET) {
+    return {ok: false, reason: 'not-a-dev-ticket',
+      guidance: `${ticketKey}는 ${role.classification}입니다(${role.by}) — 개발 티켓이 아닙니다. `
+        + '출처로 이으려면 `bind`를 쓰세요'}
+  }
+  // 이미 다른 티켓에 청구된 FEAT는 조용히 바꾸지 않는다 — 원장이 갈라진다.
+  if (ledgerRecord && !ledgerRecord.closed && String(ledgerRecord.ticketKey) !== String(ticketKey)) {
+    return {ok: false, reason: 'already-claimed-elsewhere',
+      guidance: `${featureId}는 이미 ${ledgerRecord.ticketKey}에 청구돼 있다 — 사람이 정한다`}
+  }
+  // 본문에 이미 **다른** FEAT의 왕복 마커가 있으면 손대지 않는다.
+  const stamped = String(body).match(/web-harness:refs\s+feat=([\w,-]+)/)
+  if (stamped && !stamped[1].split(',').includes(featureId)) {
+    return {ok: false, reason: 'ticket-claimed-elsewhere',
+      guidance: `이 티켓은 이미 ${stamped[1]}에 묶여 있다 — 원장과 본문이 갈라지지 않게 사람이 정한다`}
+  }
+  return {ok: true}
+}
+
+/** 원장에 남길 청구 기록(순수). 형태는 `claimFeature`가 쓰는 것과 같아야 한다. */
+export function adoptLedgerRecord({featureId, ticketKey, provider, contentHash, now}) {
+  return {featureId, ticketKey: String(ticketKey), provider, contentHash, createdAt: now, origin: 'adopt'}
 }

@@ -584,7 +584,7 @@
       "find": "  if (!String(sourceIndex).includes(`티켓 ${ticketKey}`)) {",
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "받지 않은 티켓에 FEAT를 묶으면 원장이 「이 티켓에서 이 기능이 나왔다」는 거짓을 기록하고, 그 거짓 위에서 픽업·stale 판정이 전부 돈다"
+      "why": "받지 않은 티켓을 FEAT의 출처로 이으면 「이 티켓에서 이 기능이 나왔다」는 거짓이 인벤토리와 티켓 본문에 남고, 그 위에서 이력 추적이 돈다"
     },
     {
       "id": "component-axis-is-declared",
@@ -601,6 +601,22 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "개발 티켓은 파이프라인의 출력이다 — 공급 원문으로 다시 들이면 하네스가 만든 요구사항을 기획 입력으로 재수집하는 순환이 되고, 그 위에서 FEAT가 또 생긴다"
+    },
+    {
+      "id": "bind-uses-source-marker-not-refs",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  const marker = buildSourceMarker([featureId])",
+      "replace": "  const marker = buildRefsMarker([featureId], [])",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "기획 티켓에 왕복 마커를 찍으면 `findByFeature`·`parseIssueRefs`가 그것을 개발 티켓으로 착각해 픽업 대상이 갈라진다 — 기획 티켓은 출처지 청구가 아니다"
+    },
+    {
+      "id": "adopt-refuses-non-dev-ticket",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "  if (role && role.role !== DEV_TICKET) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "기획 티켓을 청구로 올리면 개발자가 기획 티켓을 픽업하게 되고, 팀이 선언한 컴포넌트 축이 무의미해진다"
     }
   ]
 }

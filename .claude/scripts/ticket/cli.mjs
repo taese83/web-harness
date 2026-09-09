@@ -8,7 +8,7 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
-import {DEV_TICKET, appendInventory, bindLedgerRecord, checkBind, classifyByComponent, planIntake} from './intake.mjs'
+import {DEV_TICKET, adoptLedgerRecord, appendInventory, buildSourceMarker, checkAdopt, checkBind, classifyByComponent, planIntake, recordConsumption, stampSourceInto} from './intake.mjs'
 import {scanUntrustedBody} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
 import {buildRefsMarker, stampRefsInto} from './refs.mjs'
@@ -764,17 +764,71 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
 }
 
 /**
- * bind: **인테이크한 티켓과 그 티켓에서 나온 FEAT를 묶는다.** 폐곡선을 닫는 마지막 배선이다 —
- * 원장에 청구를 기록하고 티켓 본문에 왕복 마커를 스탬프하면, 그때부터 픽업이 그 티켓을 알아본다.
+ * bind: **기획 티켓과 그 티켓에서 나온 FEAT를 출처로 잇는다.**
  *
- * **아무 FEAT나 아무 티켓에 묶지 않는다**(`checkBind`) — 인벤토리에 그 티켓이 있고, FEAT가
- * 로컬 계획에 실재하고, 양쪽 다 다른 곳에 묶여 있지 않아야 한다.
+ * **청구가 아니다.** 개발자가 픽업하는 것은 `claim`이 발행한 개발 티켓이고(팀의 `DEVELOP`
+ * 컴포넌트), 기획 티켓은 출처로 남는다. 원장을 쓰지 않는 이유가 그것이다 — 원장에 기획
+ * 티켓을 청구로 적으면 픽업이 기획 티켓을 개발 티켓으로 착각한다.
  *
- * **본문을 덮어쓰지 않는다** — `stampRefsInto`가 기존 본문을 두고 마커만 덧붙인다.
+ * 남기는 것 둘: 기획 티켓 본문의 **출처 마커**(왕복 마커와 다른 이름이다)와, 인벤토리
+ * 「소비 지점」 열의 FEAT — 「받은 것과 쓴 것을 맞춘다」는 그 계약의 존재 이유 그대로다.
  */
 export async function runBind({root, repo, featureId, ticketKey, flags, io = {}}) {
   if (!featureId || !ticketKey) {
-    return {ok: false, bounce: {reason: 'missing-args'}, guidance: 'bind <FEAT-NNN> <티켓키> 형태로 부르세요'}
+    return {ok: false, bounce: {reason: 'missing-args'}, guidance: 'bind <FEAT-NNN> <기획 티켓키> 형태로 부르세요'}
+  }
+  const resolved = resolveTicketProvider({root, repo, flags, io})
+  if (resolved.choice.needsChoice) {
+    return {ok: false, bounce: {reason: 'ticket-provider-unset'}, guidance: '티켓 provider 설정이 없습니다 — `configure`로 먼저 정하세요'}
+  }
+  const provider = resolved.provider
+  const unit = loadUnits(root, flags ?? {}).find(item => item.featureId === featureId) ?? null
+  const indexPath = join(root, '_workspace/00_source/source-index.md')
+  const sourceIndex = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
+  const issue = await (io.resolveIssue ? io.resolveIssue({repo, number: ticketKey}) : provider.resolveIssue(ticketKey))
+  if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 찾지 못했습니다`}
+
+  const verdict = checkBind({ticketKey, featureId, unit, sourceIndex, body: issue.body})
+  if (!verdict.ok) return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
+
+  const marker = buildSourceMarker([featureId])
+  const stamped = stampSourceInto(issue.body ?? '', marker)
+  const consumption = recordConsumption(sourceIndex, ticketKey, featureId)
+  if (flags?.['dry-run']) {
+    return {ok: true, dryRun: true, featureId, ticketKey,
+      stamp: stamped === null ? 'already-stamped' : 'would-append',
+      inventory: consumption.updated ? 'would-record' : consumption.reason,
+      capabilities: {updateBody: typeof provider.updateBody === 'function'}}
+  }
+  let stamp = 'already-stamped'
+  if (stamped !== null) {
+    if (typeof provider.updateBody !== 'function') {
+      return {ok: false, bounce: {reason: 'update-body-unsupported'},
+        guidance: `${provider.name} provider가 본문 쓰기를 제공하지 않습니다 — 출처 마커를 손으로 붙이거나 provider를 확장하세요`}
+    }
+    await (io.updateBody ?? provider.updateBody.bind(provider))(ticketKey, stamped)
+    stamp = 'appended'
+  }
+  if (consumption.updated) writeFileSync(indexPath, consumption.text)
+  return {
+    ok: true, featureId, ticketKey, stamp,
+    inventory: consumption.updated ? 'recorded' : consumption.reason,
+    nextStep: `claim으로 ${featureId}의 개발 티켓을 발행한 뒤 pickup ${featureId} 합니다`
+      + ' — 기획 티켓은 출처로 남고 개발자가 픽업하는 것은 개발 티켓입니다',
+  }
+}
+
+/**
+ * adopt: **개발자가 직접 쓴 개발 티켓을 하네스가 아는 것으로 만든다.**
+ *
+ * `bind`와 다르다 — `bind`는 기획 티켓을 **출처**로 잇고 원장을 쓰지 않는다. `adopt`는 개발
+ * 티켓을 **청구**로 올리고 왕복 마커를 찍어 픽업 대상으로 만든다.
+ *
+ * 이 경로가 없으면 개발자가 직접 쓴 티켓은 어느 문으로도 못 들어온다(자체 실측으로 확인).
+ */
+export async function runAdopt({root, repo, featureId, ticketKey, flags, io = {}}) {
+  if (!featureId || !ticketKey) {
+    return {ok: false, bounce: {reason: 'missing-args'}, guidance: 'adopt <FEAT-NNN> <개발 티켓키> 형태로 부르세요'}
   }
   const resolved = resolveTicketProvider({root, repo, flags, io})
   if (resolved.choice.needsChoice) {
@@ -784,17 +838,16 @@ export async function runBind({root, repo, featureId, ticketKey, flags, io = {}}
   const unit = loadUnits(root, flags ?? {}).find(item => item.featureId === featureId) ?? null
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const record = (io.readState ?? readLedgerState)(ledgerFile).get(featureId) ?? null
-  const indexPath = join(root, '_workspace/00_source/source-index.md')
-  const sourceIndex = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
   const issue = await (io.resolveIssue ? io.resolveIssue({repo, number: ticketKey}) : provider.resolveIssue(ticketKey))
   if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 찾지 못했습니다`}
 
-  const verdict = checkBind({ticketKey, featureId, unit, ledgerRecord: record, sourceIndex, body: issue.body})
+  const verdict = checkAdopt({ticketKey, featureId, unit, ledgerRecord: record, body: issue.body,
+    components: issue.components ?? [], axis: resolved.config?.jira?.componentAxis ?? null})
   if (!verdict.ok) return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
 
   const marker = buildRefsMarker([featureId], unit.testCaseIds ?? [], {branch: flags?.branch ?? null})
   const stamped = stampRefsInto(issue.body ?? '', marker)
-  const ledgerRecord = bindLedgerRecord({
+  const ledgerRecord = adoptLedgerRecord({
     featureId, ticketKey, provider: provider.name,
     contentHash: (await import('./emit.mjs')).unitContentHash(unit), now: new Date().toISOString(),
   })
@@ -803,8 +856,8 @@ export async function runBind({root, repo, featureId, ticketKey, flags, io = {}}
       stamp: stamped === null ? 'already-stamped' : 'would-append',
       capabilities: {updateBody: typeof provider.updateBody === 'function'}}
   }
-  // **본문 스탬프가 먼저다.** 원장을 먼저 쓰고 스탬프가 실패하면 「청구됐는데 티켓은 모르는」
-  // 상태가 남고, 픽업이 그 티켓을 알아보지 못한 채 원장만 부풀어 있다.
+  // **스탬프가 원장보다 먼저다.** 원장을 먼저 쓰고 스탬프가 실패하면 「청구됐는데 티켓은
+  // 모르는」 상태가 남고, 픽업이 그 티켓을 알아보지 못한 채 원장만 부풀어 있다.
   let stamp = 'already-stamped'
   if (stamped !== null) {
     if (typeof provider.updateBody !== 'function') {
@@ -977,8 +1030,9 @@ if (invokedDirectly) {
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'bind': requireRepo(); return runBind({root, repo, featureId: positional[0], ticketKey: positional[1], flags})
+      case 'adopt': requireRepo(); return runAdopt({root, repo, featureId: positional[0], ticketKey: positional[1], flags})
       case 'configure': return runConfigure({root, flags})
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|bind|configure`)
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|bind|adopt|configure`)
     }
   }
   run().then(result => {

@@ -840,7 +840,7 @@ test('runIntake: 분류를 지어내지 않는다 — 근거만 싣고 판정은
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
 
-test('runBind: 근거 없이 묶지 않는다 — 폐곡선을 닫는 마지막 배선', async () => {
+test('runBind: 기획 티켓을 출처로 잇는다 — 청구가 아니다', async () => {
   const {runBind, runIntake} = await import('./ticket/cli.mjs')
   const dir = tmpRoot()
   try {
@@ -858,9 +858,18 @@ test('runBind: 근거 없이 묶지 않는다 — 폐곡선을 닫는 마지막 
     const bound = await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-1', flags: {units}, io})
     assert.equal(bound.ok, true)
     assert.equal(bound.stamp, 'appended')
+    assert.equal(bound.inventory, 'recorded')
     // **사람이 쓴 본문이 남아야 한다.**
     assert.ok(body.includes('- 신청 버튼을 누르면 신청된다'), '스탬프가 본문을 덮어썼다')
-    assert.match(body, /web-harness:refs feat=FEAT-001/)
+    // **왕복 마커가 아니라 출처 마커다.** 기획 티켓에 왕복 마커를 찍으면 `findByFeature`가
+    // 그것을 개발 티켓으로 착각해 픽업 대상이 갈라진다.
+    assert.match(body, /web-harness:source feat=FEAT-001/)
+    assert.doesNotMatch(body, /web-harness:refs/, '기획 티켓에 왕복 마커가 찍혔다')
+    // 인벤토리의 「소비 지점」이 그 FEAT를 가리킨다 — 받은 것과 쓴 것을 맞추는 자리다.
+    assert.match(readFileSync(join(dir, '_workspace/00_source/source-index.md'), 'utf8'), /FEAT-001/)
+    // **원장을 쓰지 않는다** — 개발자가 픽업하는 것은 `claim`이 발행한 개발 티켓이다.
+    assert.ok(!existsSync(join(dir, LEDGER_RELATIVE)) ||
+      !readFileSync(join(dir, LEDGER_RELATIVE), 'utf8').includes('PF-1'), '기획 티켓이 청구로 올라갔다')
 
     // 계획에 없는 FEAT는 묶을 수 없다.
     const unknown = await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-404', ticketKey: 'PF-1', flags: {units}, io})
@@ -927,4 +936,63 @@ test('runIntake: 개발 티켓은 공급 원문으로 받지 않는다 — 출�
     // 거부했으면 아무것도 남기지 않는다.
     assert.ok(!existsSync(join(dir, '_workspace/00_source/source-index.md')))
   } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runAdopt: 개발자가 직접 쓴 개발 티켓을 인수한다 — 없으면 어느 문으로도 못 들어온다', async () => {
+  const {runAdopt, runIntake, runBind} = await import('./ticket/cli.mjs')
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    mkdirSync(join(dir, '_workspace/00_source'), {recursive: true})
+    let body = '## 배경\n세션 저장 방식을 바꾼다'
+    const axis = {PLAN: '기획 입력', DEVELOP: '개발 티켓'}
+    const io = {
+      provider: {name: 'jira', updateBody: async (key, next) => { body = next }},
+      ticketConfig: {provider: 'jira', jira: {componentAxis: axis}},
+      resolveIssue: async () => ({title: '로그인 리팩터', body, components: ['DEVELOP'], labels: []}),
+    }
+    // **다른 두 문은 닫혀 있다** — 이것이 `adopt`가 필요한 이유다(자체 실측으로 확인한 구멍).
+    assert.equal((await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-5', flags: {}, io})).bounce.reason,
+      'dev-ticket-not-source')
+    assert.equal((await runBind({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-5', flags: {units}, io})).bounce.reason,
+      'not-intaken')
+
+    const adopted = await runAdopt({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-5', flags: {units}, io})
+    assert.equal(adopted.ok, true)
+    assert.equal(adopted.stamp, 'appended')
+    assert.equal(adopted.record.origin, 'adopt')
+    assert.ok(body.includes('세션 저장 방식을 바꾼다'), '개발자가 쓴 본문이 사라졌다')
+    // 개발 티켓에는 **왕복 마커**가 찍힌다 — 그때부터 픽업이 집는다.
+    assert.match(body, /web-harness:refs feat=FEAT-001/)
+    const {pickupTicket} = await import('./ticket/pickup.mjs')
+    assert.equal(pickupTicket({issue: {number: 'PF-5', title: 't', body}, planUnits: [unit]}).ok, true)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runAdopt: 기획 티켓을 개발 티켓으로 인수하지 않는다 — 축을 지킨다', async () => {
+  const {runAdopt} = await import('./ticket/cli.mjs')
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    const io = {
+      provider: {name: 'jira', updateBody: async () => {}},
+      ticketConfig: {provider: 'jira', jira: {componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}},
+      resolveIssue: async () => ({title: 't', body: '기획 내용', components: ['PLAN'], labels: []}),
+    }
+    const result = await runAdopt({root: dir, repo: 'o/r', featureId: 'FEAT-001', ticketKey: 'PF-1', flags: {units}, io})
+    assert.equal(result.bounce.reason, 'not-a-dev-ticket')
+    assert.match(result.guidance, /bind/, '대신 무엇을 하라는지 말하지 않는다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('발행하는 개발 티켓에 팀 라벨·컴포넌트가 실린다 — 설정이 든다', async () => {
+  const {buildIssueFieldsFor} = await import('./ticket/provider-jira.mjs')
+  // `frontend` 같은 팀 라벨은 **설정**이다 — 코드가 아는 이름이 아니다(I3).
+  const config = {baseUrl: 'https://j', projectKey: 'PFFE', issueType: 'Task', apiVersion: '2',
+    components: ['DEVELOP'], labels: ['frontend']}
+  const fields = buildIssueFieldsFor(config, buildTicketDraft(unit), {branch: 'feature/dash'})
+  assert.deepEqual(fields.fields.components, [{name: 'DEVELOP'}])
+  assert.ok(fields.fields.labels.includes('frontend'), '팀 라벨이 실리지 않았다')
+  // 하네스 라벨(조회 키)이 먼저고 팀 라벨이 뒤다 — `feat-…`이 사라지면 왕복이 끊긴다.
+  assert.equal(fields.fields.labels[0], 'feat-FEAT-001')
 })
