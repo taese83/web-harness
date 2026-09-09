@@ -585,6 +585,22 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "받지 않은 티켓에 FEAT를 묶으면 원장이 「이 티켓에서 이 기능이 나왔다」는 거짓을 기록하고, 그 거짓 위에서 픽업·stale 판정이 전부 돈다"
+    },
+    {
+      "id": "component-axis-is-declared",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "  if (!axis || typeof axis !== 'object') return null",
+      "replace": "  axis = axis ?? {PLAN: '기획 입력', DESIGN: '디자인 입력'}",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "`PLAN`이 기획이라는 것은 이 팀의 어휘다 — 코드에 박으면 특정 조직의 사고모델을 인코딩하는 것이고(I3), 다른 이름을 쓰는 팀에서는 조용히 틀린 분류를 만든다"
+    },
+    {
+      "id": "intake-refuses-dev-ticket",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  if (byComponent?.role === DEV_TICKET) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "개발 티켓은 파이프라인의 출력이다 — 공급 원문으로 다시 들이면 하네스가 만든 요구사항을 기획 입력으로 재수집하는 순환이 되고, 그 위에서 FEAT가 또 생긴다"
     }
   ]
 }

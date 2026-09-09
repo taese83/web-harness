@@ -8,7 +8,7 @@
 //
 // side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
 // `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
-import {appendInventory, bindLedgerRecord, checkBind, planIntake} from './intake.mjs'
+import {DEV_TICKET, appendInventory, bindLedgerRecord, checkBind, classifyByComponent, planIntake} from './intake.mjs'
 import {scanUntrustedBody} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
 import {buildRefsMarker, stampRefsInto} from './refs.mjs'
@@ -284,7 +284,9 @@ async function ensureRemoteFreshness({root, flags, io}) {
  * @returns {{provider?: Object, choice: Object, questions?: Array}}
  */
 export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedgerRecords = false}) {
-  if (io.provider) return {provider: io.provider, choice: {provider: io.provider.name ?? 'test', needsChoice: false}}
+  // 주입 경로도 **설정을 함께 돌려준다** — 실제 경로와 다르면 회귀가 실물을 시험하지 못한다.
+  if (io.provider) return {provider: io.provider, choice: {provider: io.provider.name ?? 'test', needsChoice: false},
+    config: io.ticketConfig ?? null}
   const stored = io.ticketConfig ?? readTicketConfig(root)
   // 설정은 없는데 원장이 있다 = 이 프로젝트는 GitHub으로 이미 돈다(추론이 아니라 실측이다).
   const effective = stored ?? (hasLedgerRecords ? {provider: 'github'} : null)
@@ -294,7 +296,8 @@ export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedge
     if (!effective?.jira) {
       return {choice: {...choice, needsChoice: true}, questions: JIRA_QUESTIONS}
     }
-    return {provider: createJiraProvider({config: effective.jira, env: io.env ?? process.env}), choice}
+    // 설정을 함께 돌려준다 — 인테이크가 `componentAxis` 선언을 읽는다(팀 어휘는 설정이 든다).
+    return {provider: createJiraProvider({config: effective.jira, env: io.env ?? process.env}), choice, config: effective}
   }
   // host를 넘기지 않으면 createGithubProvider의 기본값(github.com)이 늘 이긴다 — GitHub
   // Enterprise 저장소에서 owner/name은 맞게 뽑히고 host만 유실돼 gh가 없는 저장소를 찾았다
@@ -722,11 +725,24 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   const injection = scanUntrustedBody(issue.body)
   // **분류는 명시할 때만 받는다.** 없으면 `미분류`이고 ingestor가 정한다 — 스크립트가
   // 추측하면 버그 티켓이 기획 입력으로 세어져 요구사항이 지어내진다.
+  // 분류의 우선순위: **운영자 명시 > 팀이 선언한 컴포넌트 매핑 > 미분류.**
+  // 셋 다 없으면 추측하지 않고 ingestor가 본문을 읽어 정한다.
+  const axis = resolved.config?.jira?.componentAxis ?? null
+  const byComponent = classifyByComponent(issue.components ?? [], axis)
+  // **개발 티켓은 공급 원문이 아니다.** 파이프라인의 출력을 다시 입력으로 들이면 자기가 만든
+  // 요구사항을 기획으로 재수집하는 순환이 된다.
+  if (byComponent?.role === DEV_TICKET) {
+    return {ok: false, bounce: {reason: 'dev-ticket-not-source', by: byComponent.by},
+      guidance: `${ticketKey}는 개발 티켓입니다(${byComponent.by}) — 공급 원문이 아닙니다. `
+        + '기획 티켓을 인테이크하거나, 이 티켓을 착수하려면 `pickup`을 쓰세요.'}
+  }
   const plan = planIntake({
     ticketKey, title: issue.title, body: issue.body, url: issue.url ?? null,
     provider: provider.name, fetchedAt: new Date().toISOString(), injection,
     declaredType: issue.declaredType ?? null, labels: issue.labels ?? [],
-    ...(flags?.as ? {classification: flags.as} : {}),
+    components: issue.components ?? [],
+    ...(flags?.as ? {classification: flags.as, classifiedBy: 'operator'}
+      : byComponent ? {classification: byComponent.classification, classifiedBy: byComponent.by} : {}),
   })
   const indexPath = join(root, '_workspace/00_source/source-index.md')
   const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
@@ -741,7 +757,8 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   writeFileSync(join(root, '_workspace', plan.snapshotPath), plan.snapshot)
   if (merged.added) writeFileSync(indexPath, merged.text)
   return {
-    ok: true, snapshotPath: plan.snapshotPath, digest: plan.digest, classification: plan.classification,
+    ok: true, snapshotPath: plan.snapshotPath, digest: plan.digest,
+    classification: plan.classification, classifiedBy: plan.classifiedBy,
     inventory: merged.added ? 'appended' : merged.reason, injection, nextStep: plan.nextStep,
   }
 }

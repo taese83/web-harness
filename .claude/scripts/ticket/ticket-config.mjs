@@ -31,6 +31,10 @@ export const JIRA_QUESTIONS = [
   {key: 'assigneeField', required: false, ask: 'assignee 표기 — Cloud는 accountId, 자체 호스팅은 name', default: 'accountId'},
   {key: 'components', required: false, ask: '이슈에 붙일 컴포넌트 (쉼표 구분, 그 프로젝트에 실재하는 이름). 비우면 안 붙입니다'},
   {key: 'labels', required: false, ask: '모든 티켓에 공통으로 붙일 라벨 (쉼표 구분). 하네스 라벨(feat-·branch-)에 더해집니다'},
+  // **컴포넌트 어휘는 팀이 정한다.** `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스가
+  // 알 방법이 없다 — 팀마다 이름도 뜻도 다르다. 그래서 **매핑을 선언으로 받는다**(I3).
+  // 예: `componentAxis.PLAN` = `기획 입력` · `componentAxis.DESIGN` = `디자인 입력`.
+  {key: 'componentAxis', required: false, ask: '컴포넌트 → 공급 원문 분류 매핑. 인테이크가 티켓의 컴포넌트를 보고 분류를 정합니다(예: PLAN=기획 입력, DESIGN=디자인 입력). 하네스가 발행하는 개발 티켓의 컴포넌트는 `개발 티켓`으로 선언하면 인테이크가 그것을 공급 원문으로 받지 않습니다. 비우면 인테이크가 분류하지 않고 ingestor가 본문을 읽어 정합니다'},
 ]
 
 /**
@@ -177,6 +181,9 @@ const SECRET_LIKE = /(token|secret|password|passwd|apikey|api_key|credential|aut
 
 /** 설정에 들어갈 수 있는 키 — `*_QUESTIONS`가 정본이다(그 목록이 곧 스키마다). */
 export const ALLOWED_JIRA_KEYS = new Set(JIRA_QUESTIONS.map(q => q.key))
+// 값이 **팀이 정하는 이름**인 키는 하위 경로를 열어둔다 — `componentAxis.PLAN`처럼 컴포넌트
+// 이름이 키가 되므로 열거할 수 없다. 접두는 여전히 허용 목록 안이어야 한다.
+const OPEN_PREFIXES = ['componentAxis']
 export const ALLOWED_GITHUB_KEYS = new Set(GITHUB_QUESTIONS.map(q => q.key))
 const ALLOWED_KEYS_BY_PROVIDER = {github: ALLOWED_GITHUB_KEYS, jira: ALLOWED_JIRA_KEYS}
 
@@ -190,7 +197,8 @@ const ALLOWED_KEYS_BY_PROVIDER = {github: ALLOWED_GITHUB_KEYS, jira: ALLOWED_JIR
  */
 export function assertAllowedKeys(answers = {}, provider = 'jira') {
   const allowed = ALLOWED_KEYS_BY_PROVIDER[provider] ?? ALLOWED_JIRA_KEYS
-  const unknown = Object.keys(answers).filter(key => !allowed.has(key))
+  const unknown = Object.keys(answers).filter(key =>
+    !allowed.has(key) && !OPEN_PREFIXES.some(prefix => key.startsWith(`${prefix}.`) && key.length > prefix.length + 1))
   if (unknown.length === 0) return answers
   const secretish = unknown.filter(key => SECRET_LIKE.test(key))
   const hint = secretish.length > 0

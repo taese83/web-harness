@@ -867,3 +867,64 @@ test('runBind: 근거 없이 묶지 않는다 — 폐곡선을 닫는 마지막 
     assert.equal(unknown.bounce.reason, 'unknown-feature')
   } finally { rmSync(dir, {recursive: true, force: true}) }
 })
+
+test('runIntake: 팀이 선언한 컴포넌트 매핑으로 분류한다 — 어휘는 하네스가 정하지 않는다', async () => {
+  const {runIntake} = await import('./ticket/cli.mjs')
+  const {classifyByComponent} = await import('./ticket/intake.mjs')
+  // `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스는 알 수 없다 — 팀마다 이름도 뜻도
+  // 다르다. 매핑은 **설정**이 들고 코드는 조회만 한다(I3).
+  const axis = {PLAN: '기획 입력', DESIGN: '디자인 입력'}
+  const io = components => ({
+    provider: {name: 'jira'},
+    ticketConfig: {provider: 'jira', jira: {componentAxis: axis}},
+    resolveIssue: async () => ({title: 't', body: '요구사항', components, declaredType: 'Story', labels: []}),
+  })
+  const run = async components => {
+    const dir = tmpRoot()
+    try {
+      mkdirSync(join(dir, '_workspace/00_source'), {recursive: true})
+      const result = await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-1', flags: {}, io: io(components)})
+      return {...result, snapshot: readFileSync(join(dir, '_workspace', result.snapshotPath), 'utf8')}
+    } finally { rmSync(dir, {recursive: true, force: true}) }
+  }
+  const planned = await run(['PLAN'])
+  assert.equal(planned.classification, '기획 입력')
+  assert.equal(planned.classifiedBy, 'component:PLAN', '근거를 남기지 않으면 왜 그렇게 분류됐는지 모른다')
+  assert.match(planned.snapshot, /컴포넌트: PLAN/)
+
+  assert.equal((await run(['DESIGN'])).classification, '디자인 입력')
+  // **매핑에 없는 컴포넌트는 추측하지 않는다.**
+  assert.equal((await run(['DEVELOP'])).classification, '미분류')
+  assert.equal((await run([])).classification, '미분류')
+
+  // 매핑 값이 계약 어휘 밖이면 조용히 넘기지 않는다 — 설정 오타가 침묵하면 분류되는 줄 안다.
+  assert.throws(() => classifyByComponent(['PLAN'], {PLAN: '기획'}), /INVALID_COMPONENT_AXIS/)
+  // 매핑 자체가 없으면 컴포넌트가 있어도 분류하지 않는다.
+  assert.equal(classifyByComponent(['PLAN'], null), null)
+})
+
+test('runIntake: 개발 티켓은 공급 원문으로 받지 않는다 — 출력을 입력으로 들이면 순환이다', async () => {
+  const {runIntake} = await import('./ticket/cli.mjs')
+  const {classifyByComponent, DEV_TICKET} = await import('./ticket/intake.mjs')
+  // 팀이 「이 컴포넌트는 개발 티켓이다」라고 선언하면 인테이크는 그것을 거부한다 —
+  // 하네스가 발행한 티켓을 다시 기획 입력으로 들이면 자기 산출물을 요구사항으로 재수집한다.
+  const axis = {PLAN: '기획 입력', DESIGN: '디자인 입력', DEVELOP: DEV_TICKET}
+  assert.deepEqual(classifyByComponent(['DEVELOP'], axis),
+    {classification: null, role: DEV_TICKET, by: 'component:DEVELOP'})
+
+  const dir = tmpRoot()
+  try {
+    mkdirSync(join(dir, '_workspace/00_source'), {recursive: true})
+    const io = {
+      provider: {name: 'jira'},
+      ticketConfig: {provider: 'jira', jira: {componentAxis: axis}},
+      resolveIssue: async () => ({title: 't', body: 'x', components: ['DEVELOP'], labels: []}),
+    }
+    const result = await runIntake({root: dir, repo: 'o/r', ticketKey: 'PF-9', flags: {}, io})
+    assert.equal(result.ok, false)
+    assert.equal(result.bounce.reason, 'dev-ticket-not-source')
+    assert.match(result.guidance, /pickup/, '무엇을 대신 하라는지 말하지 않는다')
+    // 거부했으면 아무것도 남기지 않는다.
+    assert.ok(!existsSync(join(dir, '_workspace/00_source/source-index.md')))
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
