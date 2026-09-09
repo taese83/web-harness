@@ -996,3 +996,37 @@ test('발행하는 개발 티켓에 팀 라벨·컴포넌트가 실린다 — �
   // 하네스 라벨(조회 키)이 먼저고 팀 라벨이 뒤다 — `feat-…`이 사라지면 왕복이 끊긴다.
   assert.equal(fields.fields.labels[0], 'feat-FEAT-001')
 })
+
+test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 끄는 플래그는 열지 않는다', async () => {
+  // 2026-08-30 감사가 "인자 계약 설계가 필요해" 유보한 마지막 하나다. 그 사이 `team-flow`가
+  // 이 CLI를 플러그인 런타임 실행부로 삼았고 역방향 흐름 셋이 더해져, 유보의 대가가
+  // 「그 흐름 전체가 에이전트 경로에서 막힘」이 됐다.
+  const {evaluateGlobalBashPolicy} = await import('./global-bash-policy-lib.mjs')
+  const decide = command => evaluateGlobalBashPolicy({
+    agent_type: 'claude', tool_name: 'Bash', tool_input: {command},
+  })
+  const base = 'node .claude/scripts/ticket/cli.mjs'
+  // 계약이 부르는 정상 흐름은 전부 통과해야 한다 — 하나라도 막히면 그 모드가 죽는다.
+  for (const command of [
+    `${base} board --repo o/r --developer me`,
+    `${base} claim --repo o/r --confirm`,
+    `${base} pickup FEAT-001 --repo o/r --developer me`,
+    `${base} link FEAT-001 https://x/pull/1 --repo o/r`,
+    `${base} intake PF-1 --repo o/r`,
+    `${base} bind FEAT-001 PF-1 --repo o/r`,
+    `${base} adopt FEAT-001 PF-5 --repo o/r --dry-run`,
+    `${base} configure --provider jira --set projectKey=PFFE --set issueType=Task`,
+  ]) assert.equal(decide(command).allowed, true, `계약이 부르는 명령이 막힌다: ${command}`)
+
+  // **게이트를 끄는 탈출 플래그는 열지 않는다** — 에이전트가 스스로 켜면 그 게이트는 없는 것과 같다.
+  for (const escape of ['--accept-unverified-scope', '--replace-scope', '--replace', '--accept-incomplete']) {
+    assert.equal(decide(`${base} pickup FEAT-001 --repo o/r ${escape}`).allowed, false,
+      `탈출 플래그가 열렸다: ${escape}`)
+  }
+  // 모르는 모드·형태 틀린 repo·프로젝트 밖 파일은 거부한다.
+  assert.equal(decide(`${base} unknown-mode --repo o/r`).allowed, false)
+  assert.equal(decide(`${base} claim --repo not-a-repo`).allowed, false)
+  assert.equal(decide(`${base} claim --repo o/r --units /etc/passwd`).code, 'DENY_PATH_OUTSIDE')
+  // 값을 받는 플래그에 값이 없으면 거부한다 — 다음 플래그를 값으로 삼키면 계약이 흐려진다.
+  assert.equal(decide(`${base} pickup FEAT-001 --repo --developer me`).allowed, false)
+})

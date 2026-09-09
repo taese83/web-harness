@@ -748,6 +748,49 @@ const validationScriptContract = (script, args, context) => {
   // 유보의 대가가 「파이프라인 시작 자체가 에이전트 경로에서 막힘」이 됐으므로 계약을 좁게
   // 설계해 열었다(아래). 나머지 둘(`run-golden-profile` · `ticket/cli`)은 그대로 유보한다 —
   // 전자는 호스트 실행·evidence 기록이라 I6 판단이 따로 필요하고, 후자는 티켓 상태를 바꾼다.
+  if (script === '.claude/scripts/ticket/cli.mjs') {
+    // **2026-09-09 등록.** 2026-08-30 배선 감사가 "인자 계약 설계가 필요해 등록하지 않는다"로
+    // 유보한 마지막 하나다. 그 사이 `team-flow`가 이 CLI를 **플러그인 런타임 전용 실행부**로
+    // 삼았고, `intake`·`bind`·`adopt`가 더해져 유보의 대가가 「역방향 흐름 전체가 에이전트
+    // 경로에서 막힘」이 됐다.
+    //
+    // 계약을 **명령별로** 좁힌다. 이 스크립트는 티켓을 만들고 원장을 쓰고 이슈 본문을 고치므로
+    // 「어떤 인자든 통과」는 위험하다.
+    //
+    // **게이트를 끄는 탈출 플래그는 열지 않는다** — `--accept-unverified-scope`,
+    // `--replace-scope`, `--replace`, `--accept-incomplete`, `--foundation-complete`는
+    // 전부 「사람이 판단해 우회한다」는 뜻이고, 에이전트가 스스로 켜면 그 게이트는 없는 것과 같다.
+    const [mode, ...rest] = args
+    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'bind', 'adopt', 'configure'])
+    if (!COMMANDS.has(mode)) return false
+    // 값을 받는 플래그(그 다음 토큰이 값이다)와 스위치를 가른다.
+    const VALUED = new Set(['--repo', '--root', '--units', '--developer', '--branch', '--assignee',
+      '--ticket-provider', '--as', '--allowed-paths', '--set'])
+    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch'])
+    // `--provider`는 configure에서만 받는다 — 다른 명령에서는 `--ticket-provider`가 정본이다.
+    if (mode === 'configure') VALUED.add('--provider')
+    let commandArgs = withoutDirectoryOption(rest, '--root', context)
+    // `--units`는 파일이다. 프로젝트 루트 안이어야 하고 실재해야 한다.
+    const unitsAt = commandArgs.indexOf('--units')
+    if (unitsAt >= 0) {
+      const value = commandArgs[unitsAt + 1]
+      if (!value || value.startsWith('--')) return false
+      readablePath(value, context, 'file')
+      commandArgs = [...commandArgs.slice(0, unitsAt), ...commandArgs.slice(unitsAt + 2)]
+    }
+    for (let index = 0; index < commandArgs.length; index++) {
+      const arg = commandArgs[index]
+      if (!arg.startsWith('--')) continue // 위치 인자(FEAT-ID·티켓키·PR URL)는 스크립트가 검증한다
+      if (SWITCHES.has(arg)) continue
+      if (!VALUED.has(arg)) return false
+      const value = commandArgs[index + 1]
+      if (value === undefined || value.startsWith('--')) return false
+      // `--repo`는 형태를 여기서 고정한다 — 임의 문자열이 gh 인자로 흘러가지 않게.
+      if (arg === '--repo' && !/^[\w.-]+\/[\w.-]+$/.test(value)) return false
+      index += 1
+    }
+    return true
+  }
   if (script === '.claude/scripts/validate-mutation-sample.mjs') {
     // `test-executor`가 부르는 명령이다. 등록하지 않으면 에이전트 경로에서 막히고 저자는
     // 메인 스레드라 그것을 못 본다 — 이 저장소가 네 번 물린 클래스다.

@@ -14,7 +14,6 @@
     ".claude/scripts/validators/validate-marker-integrity.mjs"
   ],
   "unregistered": [
-    "run-golden-profile.mjs",
-    "ticket/cli.mjs"
+    "run-golden-profile.mjs"
   ]
 }
