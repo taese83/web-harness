@@ -729,6 +729,30 @@
       "replace": "  const declaredDeps = true; void (planWrite === null || Boolean(flags?.['depends-on']))",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "dependsOn 미선언은 claimScopeReadiness가 deps-undeclared로 막는다 — 착수 가능 주장은 거짓이고 계단이 한 칸 모자란 채 끝난다(I1)"
+    },
+    {
+      "id": "golden-drift-uses-recorded-inputs",
+      "file": ".claude/scripts/golden-spec-drift-lib.mjs",
+      "find": "  const recorded = spec?.sourceDigest?.inputs",
+      "replace": "  const recorded = spec?.sourceDigest?.inputsMissing",
+      "test": ".claude/scripts/test-golden-spec-drift.mjs",
+      "why": "분모가 스팩이 기록한 입력이 아니면 골든 드리프트를 잴 수 없다 — 현재 LOCK_INPUTS로 재면 목록이 넓어질 때마다 전건이 뜬다"
+    },
+    {
+      "id": "golden-drift-counts-vanished-inputs",
+      "file": ".claude/scripts/golden-spec-drift-lib.mjs",
+      "find": "    if (now === null) { if (record.present) drifted.push(`${record.path}(사라짐)`); continue }",
+      "replace": "    if (now === null) { continue }",
+      "test": ".claude/scripts/test-golden-spec-drift.mjs",
+      "why": "사라진 입력을 침묵으로 두면 골든 입력 삭제가 통과한다"
+    },
+    {
+      "id": "golden-drift-is-wired-into-validate",
+      "file": ".claude/scripts/validate-harness.mjs",
+      "find": "pass(renderGoldenSpecDrift(inspectGoldenSpecs(repositoryRoot)))",
+      "replace": "pass('golden spec drift checked')",
+      "test": ".claude/scripts/test-golden-spec-drift.mjs",
+      "why": "보고 문구만 남기고 실제 검사를 부르지 않으면 골든 드리프트가 다시 침묵한다 — 부르지 않는 검사는 없는 것과 같다"
     }
   ]
 }
