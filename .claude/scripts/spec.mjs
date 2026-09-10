@@ -54,7 +54,14 @@ export const SPEC_LEDGER = '_workspace/03_dev/spec-ledger.jsonl'
 // 스팩 확정 내용 자체의 해시. 원장 기록과 대조해 사후 수정을 잡는다.
 export const specDigest = spec => sha256(JSON.stringify(spec))
 
+// 경계는 **"개발이 읽는 계약"이 아니라 "스팩이 근거로 삼은 것"**이다. 2026-09-09까지 이
+// 목록은 앞의 선으로 그어져 있었고, 그래서 기획→디자인 **매칭 계층 전체가 밖에 있었다** —
+// 시안 v2가 와서 `design-binding.json`의 (PAGE, 조건) → 근거를 다시 붙여도, 디자이너가
+// `layout-spec.md`와 토큰을 갈아도 스팩은 stale이 되지 않았다. 조건 커버리지는 행이 있으니
+// 100%로 서고, 개발자는 옛 근거를 보고 계속 만든다. 매칭 기록은 이 흐름의 경첩이므로
+// `layerMap`·`libraries`가 원장으로 막은 사후 수정과 같은 클래스다.
 export const LOCK_INPUTS = [
+  '_workspace/00_source/design-binding.json',
   '_workspace/01_plan/feature-plan.md',
   '_workspace/01_plan/tech-stack.md',
   '_workspace/01_plan/project-profile.json',
@@ -62,6 +69,8 @@ export const LOCK_INPUTS = [
   '_workspace/02_design/component-spec.md',
   '_workspace/02_design/state-contract.md',
   '_workspace/02_design/integration-overlay.json',
+  '_workspace/02_design/layout-spec.md',
+  '_workspace/02_design/design-system.md',
   '_workspace/02_design/solution-design.md',
 ]
 

@@ -633,6 +633,102 @@
       "replace": "        + '?fields=summary,description,labels,assignee,status', options)",
       "test": ".claude/scripts/test-ticket-jira.mjs",
       "why": "`?fields=`에서 빠진 필드는 undefined로 와서 「없다」와 구별되지 않는다 — 실 Jira 실측(AOA-3)에서 PLAN 컴포넌트가 있는데 인테이크가 미분류를 냈다. 주입 stub 회귀는 이 경로를 타지 않는다"
+    },
+    {
+      "id": "lock-inputs-carry-design-binding",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "  '_workspace/00_source/design-binding.json',",
+      "replace": "  '_workspace/00_source/design-binding.absent.json',",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "매칭 기록이 잠금 입력에서 빠지면 시안 v2로 (PAGE, 조건) → 근거를 다시 붙여도 스팩이 stale이 되지 않는다 — 조건 커버리지는 행이 있으니 100%로 서고 개발자는 옛 근거를 계속 본다"
+    },
+    {
+      "id": "lock-inputs-carry-layout-spec",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "  '_workspace/02_design/layout-spec.md',",
+      "replace": "  '_workspace/02_design/layout-spec.absent.md',",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "화면 배치 정본이 잠금 밖이면 레이아웃을 갈아도 개발 착수 검사가 침묵한다"
+    },
+    {
+      "id": "lock-inputs-carry-design-system",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "  '_workspace/02_design/design-system.md',",
+      "replace": "  '_workspace/02_design/design-system.absent.md',",
+      "test": ".claude/scripts/test-spec.mjs",
+      "why": "디자인 토큰 정본이 잠금 밖이면 토큰이 바뀌어도 스팩이 근거로 삼은 것과 지금이 다르다는 사실을 아무도 말하지 않는다"
+    },
+    {
+      "id": "adopt-normalize-keeps-origin-gate",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    const gate = checkAdopt({ticketKey, featureId, unit: {featureId}, ledgerRecord: record,",
+      "replace": "    const gate = {ok: true}; void checkAdopt({ticketKey, featureId, unit: {featureId}, ledgerRecord: record,",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "정규화가 출처 판정을 건너뛰면 기획 티켓이 개발 단위로 계획에 섞인다 — `bind`가 막던 문을 뒷문으로 여는 것이다"
+    },
+    {
+      "id": "adopt-normalize-is-idempotent",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    const already = findFeatureForTicket(units, ticketKey)",
+      "replace": "    const already = null; void findFeatureForTicket(units, ticketKey)",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "트래커에서 본문이 편집돼 왕복 마커가 사라지면 같은 티켓이 두 FEAT로 갈라지고 원장은 하나만 안다"
+    },
+    {
+      "id": "adopt-normalize-declares-cost",
+      "file": ".claude/scripts/ticket/plan-units.mjs",
+      "find": "    `> 출처: 개발 티켓 ${ticketKey} — **기획 문서를 거치지 않은 단위다.** 아래 수용 기준은 개발자가 쓴 것이며 기획 검토를 받지 않았다.`,",
+      "replace": "    `> ${ticketKey}`,",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "출처와 「기획 검토를 받지 않았다」가 사람 눈에 보이지 않으면 계획을 읽는 다음 사람이 이 수용 기준을 기획자가 쓴 것으로 읽는다(I1)"
+    },
+    {
+      "id": "adopt-missing-plan-gives-remedy",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "          + `FEAT를 만들려면 \\`adopt ${featureId} ${ticketKey} --normalize\\`로 부르세요. `",
+      "replace": "          + `FEAT를 만들려면 부르세요. `",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "처방 없는 멈춤은 개발자를 티켓 흐름 밖(`/wh change` 직행)으로 보내고 그러면 원장·마커·PR 연결이 전부 빠진다"
+    },
+    {
+      "id": "normalize-counts-one-unit",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    if (parsed.length !== 1 || parsed[0].featureId !== featureId) {",
+      "replace": "    if (false && parsed.length !== 1 || parsed[0].featureId !== featureId) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "본문의 `## FEAT-NNN` 줄이 계획에 유령 단위를 만들고 이 FEAT의 본문은 절단된다 — claim이 그 유령을 티켓으로 발행한다(실측)"
+    },
+    {
+      "id": "normalize-requires-dev-ticket",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    if (role?.role !== DEV_TICKET) {",
+      "replace": "    if (false && role?.role !== DEV_TICKET) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "componentAxis 미설정이면 기획 티켓이 공유 계획에 개발 단위로 들어간다(실측: component PLAN이 통과했다)"
+    },
+    {
+      "id": "normalize-scans-untrusted-body",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    if (suspect.injectionSuspect) {",
+      "replace": "    if (false && suspect.injectionSuspect) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "intake는 같은 외부 입력을 격리 펜스로 감싸는데 이 입구만 맨몸이면 격리 하한이 입구마다 다르다(I6)"
+    },
+    {
+      "id": "normalize-refuses-intaken-source",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    if (String(issue.body ?? '').includes('web-harness:source')) {",
+      "replace": "    if (false && String(issue.body ?? '').includes('web-harness:source')) {",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "이미 출처로 인테이크된 티켓에 왕복 마커가 찍히면 bind에서 영구 거부되고 기획 입력이 개발 단위로 둔갑한다"
+    },
+    {
+      "id": "normalize-does-not-claim-pickup",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  const declaredDeps = planWrite === null || Boolean(flags?.['depends-on'])",
+      "replace": "  const declaredDeps = true; void (planWrite === null || Boolean(flags?.['depends-on']))",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "dependsOn 미선언은 claimScopeReadiness가 deps-undeclared로 막는다 — 착수 가능 주장은 거짓이고 계단이 한 칸 모자란 채 끝난다(I1)"
     }
   ]
 }

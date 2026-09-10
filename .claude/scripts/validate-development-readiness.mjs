@@ -48,7 +48,12 @@ export function diffSpecInputs(spec, root, {digest = null} = {}) {
   const delta = []
   for (const record of now.inputs) {
     const prior = before.get(record.path)
-    if (!prior) continue
+    // 스팩 확정 당시 **목록에 없던** 경로다(하네스 업그레이드). 종전에는 건너뛰어 delta가
+    // 비었고, 호출부가 그것을 "문서가 바뀐 게 아니다 — 결정을 다시 볼 필요 없다"로 냈다.
+    // 그런데 그 파일이 **이미 있고 그동안 해시된 적이 없으면** 확정 이후 바뀌었는지를
+    // 아무도 모른다 — 침묵을 "볼 필요 없음"으로 포장하는 것이다(적대 리뷰 2026-09-09).
+    // 이름을 대서 처방이 그 사실을 말하게 한다. 부재였던 것은 잴 것이 없으므로 뺀다.
+    if (!prior) { if (record.present) delta.push({path: record.path, kind: 'untracked'}); continue }
     if (!prior.present && record.present) delta.push({path: record.path, kind: 'appeared'})
     else if (prior.present && !record.present) delta.push({path: record.path, kind: 'vanished'})
     else if (prior.present && record.present && prior.sha256 !== record.sha256) delta.push({path: record.path, kind: 'changed'})
@@ -81,7 +86,12 @@ export function checkSpec(root) {
         'spec.mjs로 재확정한다. 문서가 바뀐 것이 아니라 하네스 쪽 변경이므로 결정을 다시 볼 필요는 없다')
     }
     const appeared = delta.filter(item => item.kind === 'appeared').map(item => item.path)
-    const detail = delta.map(item => `${item.path}(${{appeared: '새로 생김', vanished: '사라짐', changed: '내용 바뀜'}[item.kind]})`).join(' · ')
+    const detail = delta.map(item => `${item.path}(${{appeared: '새로 생김', vanished: '사라짐', changed: '내용 바뀜', untracked: '확정 당시 잠금 목록에 없었다 — 이번에 처음 해시된다'}[item.kind]})`).join(' · ')
+    const untracked = delta.filter(item => item.kind === 'untracked')
+    if (untracked.length === delta.length) {
+      return fail('spec', `잠금 목록이 넓어졌고 그 입력이 이미 있다: ${detail}`,
+        'spec.mjs로 재확정한다. 하네스 쪽 변경이라 결정을 다시 볼 필요는 없지만, **이 경로들은 확정 이후 바뀌었는지 아무도 재지 않았다** — 재확정 전에 한 번 훑어라')
+    }
     return fail('spec', `스팩 확정 뒤 입력이 바뀌었다: ${detail}`,
       appeared.length === delta.length
         ? '전부 "없다가 생긴" 경우다 — 결정이 달라진 것이 아니라 순서 문제이므로 spec.mjs 재확정으로 닫힌다'

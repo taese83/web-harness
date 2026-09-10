@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
-import {join} from 'node:path'
+import {dirname, join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   buildSpec, digestInputs, extractAcceptanceIds, extractDecisionBlock, hasUserInterface, isSpecStale,
@@ -205,6 +205,27 @@ test('입력이 바뀌면 스팩은 stale이다', () => {
   })
 })
 
+// 매칭 계층이 잠금 안에 있는가. 이 셋은 **개발이 직접 읽는 계약이 아니라서** 2026-09-09까지
+// 밖에 있었다 — 그래서 시안 v2가 와서 근거를 다시 붙여도 스팩이 stale이 되지 않았다.
+// 목록에서 하나만 빠져도 그 층의 변경이 조용히 통과하므로 경로마다 따로 못박는다.
+for (const path of [
+  '_workspace/00_source/design-binding.json',
+  '_workspace/02_design/layout-spec.md',
+  '_workspace/02_design/design-system.md',
+]) {
+  test(`매칭 근거가 바뀌면 스팩은 stale이다 — ${path}`, () => {
+    withProject(baseDecision(), root => {
+      const target = join(root, path)
+      mkdirSync(dirname(target), {recursive: true})
+      writeFileSync(target, path.endsWith('.json') ? '{"bindings":[]}\n' : '# v1\n')
+      const lock = lockSpec(root)
+      assert.equal(isSpecStale(lock, root), false, '확정 직후는 stale이 아니다')
+      writeFileSync(target, path.endsWith('.json') ? '{"bindings":[{"pageGroup":"PAGE-003"}]}\n' : '# v2\n')
+      assert.equal(isSpecStale(lock, root), true, `${path}가 잠금 입력이 아니면 매칭을 갈아도 아무도 모른다`)
+    })
+  })
+}
+
 test('digest는 부재를 present:false로 기록한다', () => {
   withProject(baseDecision(), root => {
     const digest = digestInputs(root)
@@ -314,6 +335,11 @@ test('sharded 레코드는 스키마가 허용하는 키만 담는다', () => {
 // stale로 뒤집히는데, 분석적 논증만으로는 그 회귀가 잡히지 않는다(적대 리뷰 2026-08-30).
 // 이 값은 sharded 해소 **이전** 구현으로도 같게 나오는 것을 실행으로 확인했다
 // (eval-runs/complete-harness-packaging/2026-08-27.../fixture의 spec.mjs 스냅샷 대조).
+//
+// 갱신 이력 — 값이 바뀌는 것은 **의식적 행위**이며 사유 없이 갱신하지 않는다:
+//   2026-09-09  `3938a410…` → `04ca098e…`. 산식은 그대로이고 LOCK_INPUTS에 매칭 계층 3개
+//   (design-binding.json · layout-spec.md · design-system.md)를 넣었다. 기존 스팩은
+//   「입력 목록이 바뀌었다」 분기로 떨어져 재확정 한 번으로 닫힌다(결정 재검토 불요).
 test('flat 입력의 combined는 알려진 값에 고정된다', () => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-spec-lock-pin-'))
   try {
@@ -321,7 +347,7 @@ test('flat 입력의 combined는 알려진 값에 고정된다', () => {
     writeFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'FEAT-001\n')
     assert.equal(
       digestInputs(root).combined,
-      '3938a4100b1b7bf664ada56df4e2afff5c4692519047890ac4d73bed27630692',
+      '04ca098e140fa651c79731f956f01da18eabe5362d9d502bf487ffa9b7694cd0',
       'flat 다이제스트 산식이 바뀌었다 — 커밋된 스팩이 전부 stale이 된다. 의도한 변경이면 이 값을 갱신하라',
     )
   } finally {

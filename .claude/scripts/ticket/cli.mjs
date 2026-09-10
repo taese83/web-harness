@@ -31,7 +31,7 @@ import {createJiraProvider} from './provider-jira-exec.mjs'
 import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, PROVIDER_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
-import {parseFeaturePlanUnits} from './plan-units.mjs'
+import {findFeatureForTicket, nextFeatureId, parseFeaturePlanUnits, renderTicketUnit} from './plan-units.mjs'
 
 export const LEDGER_RELATIVE = '_workspace/03_dev/identity-ledger.jsonl'
 export const CHANGE_SCOPE_RELATIVE = '_workspace/03_dev/change-scope.md'
@@ -782,7 +782,19 @@ export async function runBind({root, repo, featureId, ticketKey, flags, io = {}}
     return {ok: false, bounce: {reason: 'ticket-provider-unset'}, guidance: '티켓 provider 설정이 없습니다 — `configure`로 먼저 정하세요'}
   }
   const provider = resolved.provider
-  const unit = loadUnits(root, flags ?? {}).find(item => item.featureId === featureId) ?? null
+  // **계획 부재를 예외로 흘리지 않는다.** `bind`는 기획 티켓을 **출처**로 잇는 문이므로
+  // 정규화 경로가 없다 — 계획이 없으면 `intake`로 기획을 받는 것이 유일한 길이고, 그 말을
+  // 한다. 종전에는 `MISSING_PLAN`이 그대로 stderr로 나가 「파일 없음 + 기계용 우회 플래그」가
+  // 개발자가 받는 전부였다(실측 2026-09-09).
+  let units
+  try { units = loadUnits(root, flags ?? {}) }
+  catch (error) {
+    if (!String(error?.message ?? '').startsWith('MISSING_PLAN')) throw error
+    return {ok: false, bounce: {reason: 'missing-plan'},
+      guidance: `${PLAN_RELATIVE}가 없어 ${featureId}를 걸 단위가 없습니다 — `
+        + '기획 티켓을 `intake`로 받아 계획을 먼저 세우세요'}
+  }
+  const unit = units.find(item => item.featureId === featureId) ?? null
   const indexPath = join(root, '_workspace/00_source/source-index.md')
   const sourceIndex = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
   const issue = await (io.resolveIssue ? io.resolveIssue({repo, number: ticketKey}) : provider.resolveIssue(ticketKey))
@@ -835,26 +847,135 @@ export async function runAdopt({root, repo, featureId, ticketKey, flags, io = {}
     return {ok: false, bounce: {reason: 'ticket-provider-unset'}, guidance: '티켓 provider 설정이 없습니다 — `configure`로 먼저 정하세요'}
   }
   const provider = resolved.provider
-  const unit = loadUnits(root, flags ?? {}).find(item => item.featureId === featureId) ?? null
+  // **계획 부재를 예외로 흘리지 않는다.** 처방 없는 멈춤은 개발자를 티켓 흐름 밖으로 보낸다.
+  let units
+  try { units = loadUnits(root, flags ?? {}) }
+  catch (error) {
+    if (!String(error?.message ?? '').startsWith('MISSING_PLAN')) throw error
+    if (!flags?.normalize) {
+      return {ok: false, bounce: {reason: 'missing-plan'},
+        guidance: `${PLAN_RELATIVE}가 없어 이 티켓을 걸 단위가 없습니다 — 이 개발 티켓의 내용으로 `
+          + `FEAT를 만들려면 \`adopt ${featureId} ${ticketKey} --normalize\`로 부르세요. `
+          + '기획을 먼저 세우려면 기획 티켓을 `intake`로 받으세요'}
+    }
+    units = []
+  }
+  const unit = units.find(item => item.featureId === featureId) ?? null
   const ledgerFile = join(root, LEDGER_RELATIVE)
   const record = (io.readState ?? readLedgerState)(ledgerFile).get(featureId) ?? null
   const issue = await (io.resolveIssue ? io.resolveIssue({repo, number: ticketKey}) : provider.resolveIssue(ticketKey))
   if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 찾지 못했습니다`}
 
-  const verdict = checkAdopt({ticketKey, featureId, unit, ledgerRecord: record, body: issue.body,
-    components: issue.components ?? [], axis: resolved.config?.jira?.componentAxis ?? null})
-  if (!verdict.ok) return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
+  // ── 정규화 ───────────────────────────────────────────────────────────────
+  // 단위가 없고 `--normalize`면 **티켓 본문으로 FEAT 단위를 만든다.** 출처 판정은
+  // `checkAdopt`가 그대로 하므로 기획 티켓은 여기까지 오지 못한다 — 정규화가 그 문을 열지
+  // 않는다는 뜻이며, 순서를 바꾸면(정규화를 먼저 하면) 기획 티켓이 계획에 섞인다.
+  let normalized = null
+  if (!unit && flags?.normalize) {
+    // **`--units`와 함께 쓰지 않는다.** 멱등 판정은 JSON을 보고 쓰기는 디스크 계획에 하므로,
+    // JSON이 디스크보다 낡으면 같은 티켓이 두 번 정규화된다(적대 리뷰 2026-09-09).
+    if (flags?.units) {
+      return {ok: false, bounce: {reason: 'normalize-with-units-unsupported'},
+        guidance: '`--units`와 `--normalize`는 함께 쓸 수 없습니다 — 멱등 판정과 쓰기 대상이 갈라집니다'}
+    }
+    const axis = resolved.config?.jira?.componentAxis ?? null
+    const gate = checkAdopt({ticketKey, featureId, unit: {featureId}, ledgerRecord: record,
+      body: issue.body, components: issue.components ?? [], axis})
+    if (!gate.ok) return {ok: false, bounce: {reason: gate.reason}, guidance: gate.guidance}
+    // **정규화는 「개발 티켓이 아닌 것」이 아니라 「개발 티켓인 것」을 요구한다.** 일반 `adopt`는
+    // 미분류를 통과시키지만(축을 안 쓰는 팀도 인수는 해야 한다), 정규화는 **공유 계획 파일에
+    // 쓴다** — 축이 없으면 기획 티켓과 구별할 수단이 없고, 실측에서 componentAxis 미설정 시
+    // component:PLAN 티켓이 그대로 통과했다(적대 리뷰 2026-09-09).
+    const role = classifyByComponent(issue.components ?? [], axis)
+    if (role?.role !== DEV_TICKET) {
+      return {ok: false, bounce: {reason: 'normalize-needs-dev-ticket'},
+        guidance: `${ticketKey}가 개발 티켓이라는 근거가 없습니다(${role ? role.classification : '컴포넌트 축 미설정'}) — `
+          + '`configure`로 `componentAxis`를 선언하세요. 정규화는 공유 계획에 쓰므로 추측하지 않습니다'}
+    }
+    // 이미 **출처로** 인테이크된 티켓은 개발 단위로 만들지 않는다 — 그러면 왕복 마커가 찍혀
+    // `bind`에서 영구 거부되고, 기획 입력이 개발 단위로 둔갑한다.
+    if (String(issue.body ?? '').includes('web-harness:source')) {
+      return {ok: false, bounce: {reason: 'already-intaken-as-source'},
+        guidance: `${ticketKey}는 이미 공급 원문으로 인테이크돼 있습니다 — 개발 단위로 만들지 않습니다`}
+    }
+    // **비신뢰 본문이다.** 트래커 본문은 외부 입력이고, 정규화는 그것을 `plan-reviewer`·
+    // `system-architect`·`spec.mjs`가 신뢰 텍스트로 읽는 파일에 넣는다. `intake`는 같은 입력을
+    // 격리 펜스로 감싸는데 이 입구만 맨몸이면 격리 하한이 입구마다 다른 것이다(I6).
+    const suspect = scanUntrustedBody(`${issue.title ?? ''}\n${issue.body ?? ''}`)
+    if (suspect.injectionSuspect) {
+      return {ok: false, bounce: {reason: 'normalize-untrusted-body', markers: suspect.markers},
+        guidance: `${ticketKey} 본문에 지시문으로 읽힐 수 있는 내용이 있습니다(${suspect.markers.join(' · ')}) — `
+          + '계획에 그대로 넣지 않습니다. 본문을 다듬거나 `intake`로 격리 스냅샷을 만드세요'}
+    }
+    // **멱등성.** 같은 티켓을 두 번 정규화하면 FEAT가 갈라지고 원장은 하나만 안다.
+    const already = findFeatureForTicket(units, ticketKey)
+    if (already) {
+      return {ok: false, bounce: {reason: 'ticket-already-normalized'},
+        guidance: `${ticketKey}는 이미 ${already.featureId}로 정규화돼 있습니다 — `
+          + `\`adopt ${already.featureId} ${ticketKey}\`로 부르세요(--normalize 없이)`}
+    }
+    const section = renderTicketUnit({featureId, title: issue.title ?? ticketKey, ticketKey,
+      body: issue.body ?? '', dependsOn: flags['depends-on'] ?? null})
+    // **한 단위인지 센다.** 본문에 `## FEAT-009 관련 작업` 같은 줄이 있으면(개발자가 다른
+    // FEAT를 참조하는 흔한 서술) 파서가 섹션을 끊어 **유령 단위**가 계획에 생기고 이 FEAT의
+    // 본문은 절단된다 — 실측에서 단위가 2개가 됐고 `claim`이 그 유령을 티켓으로 발행한다.
+    // `find`로 이 FEAT만 확인하면 그 변형을 통과시킨다(적대 리뷰 2026-09-09).
+    const parsed = parseFeaturePlanUnits(section)
+    if (parsed.length !== 1 || parsed[0].featureId !== featureId) {
+      return {ok: false, bounce: {reason: 'normalize-ambiguous'},
+        guidance: `티켓 본문이 FEAT 섹션 ${parsed.length}개로 읽힙니다(${parsed.map(item => item.featureId).join(', ') || '없음'}) — `
+          + '본문의 `## FEAT-NNN` 줄을 지우거나 목록으로 바꾼 뒤 다시 부르세요. '
+          + '그대로 두면 계획에 없는 FEAT가 생기고 `claim`이 그것을 티켓으로 발행합니다'}
+    }
+    normalized = {section, unit: parsed[0], suggestedNext: nextFeatureId(units)}
+  }
+  if (!unit && normalized === null) {
+    // 처방에 **계단을 붙인다.** 종전에는 "FEAT를 먼저 만든다"까지만 말하고 만드는 길이 없었다.
+    const verdict = checkAdopt({ticketKey, featureId, unit, ledgerRecord: record, body: issue.body,
+      components: issue.components ?? [], axis: resolved.config?.jira?.componentAxis ?? null})
+    if (verdict.reason === 'unknown-feature') {
+      return {ok: false, bounce: {reason: verdict.reason},
+        guidance: `${verdict.guidance} — 티켓 본문으로 만들려면 `
+          + `\`adopt ${nextFeatureId(units)} ${ticketKey} --normalize\``}
+    }
+    return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
+  }
+  if (unit) {
+    const verdict = checkAdopt({ticketKey, featureId, unit, ledgerRecord: record, body: issue.body,
+      components: issue.components ?? [], axis: resolved.config?.jira?.componentAxis ?? null})
+    if (!verdict.ok) return {ok: false, bounce: {reason: verdict.reason}, guidance: verdict.guidance}
+  }
 
-  const marker = buildRefsMarker([featureId], unit.testCaseIds ?? [], {branch: flags?.branch ?? null})
+  // 정규화한 경우 이후 경로가 읽는 단위는 **방금 만든 섹션을 파싱한 것**이다 — 렌더한 것과
+  // 파서가 읽는 것이 갈라지면 contentHash가 계획 파일과 어긋난다.
+  const adopted = unit ?? parseFeaturePlanUnits(normalized.section).find(item => item.featureId === featureId) ?? null
+  if (!adopted) {
+    return {ok: false, bounce: {reason: 'normalize-unparsable'},
+      guidance: `만든 FEAT 섹션을 파서가 되읽지 못했습니다(${featureId}) — 티켓 제목·본문에 FEAT 헤딩 형식을 깨는 것이 있는지 보세요`}
+  }
+  const marker = buildRefsMarker([featureId], adopted.testCaseIds ?? [], {branch: flags?.branch ?? null})
   const stamped = stampRefsInto(issue.body ?? '', marker)
   const ledgerRecord = adoptLedgerRecord({
     featureId, ticketKey, provider: provider.name,
-    contentHash: (await import('./emit.mjs')).unitContentHash(unit), now: new Date().toISOString(),
+    contentHash: (await import('./emit.mjs')).unitContentHash(adopted), now: new Date().toISOString(),
   })
   if (flags?.['dry-run']) {
     return {ok: true, dryRun: true, record: ledgerRecord,
       stamp: stamped === null ? 'already-stamped' : 'would-append',
+      normalize: normalized === null ? null : {featureId, target: planAppendTarget(root), section: normalized.section},
       capabilities: {updateBody: typeof provider.updateBody === 'function'}}
+  }
+  // **계획 파일이 원장·스탬프보다 먼저다.** 정규화가 실패했는데 원장에 청구가 남으면
+  // 「계획에 없는 FEAT가 청구된」 상태가 되고, 다음 `pickup`은 그 FEAT를 못 찾는다.
+  // 능력 검사는 **첫 쓰기 앞이다** — 정보가 처음부터 있는데 계획을 쓴 뒤 반려하면 불필요한
+  // 부분 쓰기가 남는다(적대 리뷰 2026-09-09).
+  if (stamped !== null && typeof provider.updateBody !== 'function' && !io.updateBody) {
+    return {ok: false, bounce: {reason: 'update-body-unsupported'},
+      guidance: `${provider.name} provider가 본문 쓰기를 제공하지 않습니다 — 마커를 손으로 붙이거나 provider를 확장하세요`}
+  }
+  let planWrite = null
+  if (normalized !== null) {
+    planWrite = appendPlanSection(root, normalized.section)
   }
   // **스탬프가 원장보다 먼저다.** 원장을 먼저 쓰고 스탬프가 실패하면 「청구됐는데 티켓은
   // 모르는」 상태가 남고, 픽업이 그 티켓을 알아보지 못한 채 원장만 부풀어 있다.
@@ -868,8 +989,39 @@ export async function runAdopt({root, repo, featureId, ticketKey, flags, io = {}
     stamp = 'appended'
   }
   ;(io.appendLedger ?? appendClaimRecord)(ledgerFile, ledgerRecord)
-  return {ok: true, record: ledgerRecord, stamp,
-    nextStep: `pickup ${featureId} --developer <login> 으로 착수할 수 있습니다`}
+  // **착수 가능을 함부로 주장하지 않는다.** `claimScopeReadiness`는 `dependsOn` 미선언을
+  // `deps-undeclared`로 막는다 — 운영자가 `--depends-on`을 주지 않았으면 픽업은 아직 막혀
+  // 있고, 「착수할 수 있습니다」는 거짓이다(적대 리뷰 2026-09-09: 실측으로 미선언 확인).
+  const declaredDeps = planWrite === null || Boolean(flags?.['depends-on'])
+  return {ok: true, record: ledgerRecord, stamp, normalize: planWrite,
+    nextStep: planWrite === null
+      ? `pickup ${featureId} --developer <login> 으로 착수할 수 있습니다`
+      : `${planWrite.target}에 ${featureId}를 만들었습니다 — 기획을 거치지 않은 단위입니다. `
+        + (declaredDeps
+          ? `pickup ${featureId} --developer <login> 으로 착수할 수 있습니다`
+          : `착수하려면 **선행 의존을 선언해야 합니다** — 계획의 unit 마커에 \`dependsOn=none\`(또는 FEAT 목록)을 `
+            + `적거나 \`--depends-on none\`으로 다시 부르세요. 미선언은 \`deps-undeclared\`로 픽업이 막힙니다`)}
+}
+
+/**
+ * 정규화한 FEAT 섹션을 붙일 파일(순수 판정 + 디스크 조회). flat이면 그 파일, sharded면
+ * **정렬 마지막 샤드**다(`decision-log`가 "최신 ID 구간 절에 append"라고 정한 것과 같은 관용구).
+ * 계획이 아예 없으면 flat을 새로 만든다 — 이 경로는 `--normalize`에서만 온다.
+ */
+export function planAppendTarget(root) {
+  const location = resolvePlanLocation(root)
+  if (!location) return PLAN_RELATIVE
+  return location.shards[location.shards.length - 1]
+}
+
+/** 섹션을 계획에 덧붙인다. 덧붙이기만 한다 — 기존 내용을 고쳐 쓰지 않는다. */
+export function appendPlanSection(root, section) {
+  const target = planAppendTarget(root)
+  const absolute = join(root, target)
+  mkdirSync(dirname(absolute), {recursive: true})
+  const before = existsSync(absolute) ? readFileSync(absolute, 'utf8') : '# Feature Plan\n'
+  writeFileSync(absolute, `${before.replace(/\s+$/, '')}\n${section}`)
+  return {target, featureIdCreated: true}
 }
 
 /**
