@@ -42,20 +42,22 @@ Install once, use from any directory:
 Then, in an empty project directory:
 
 ```
-/web-harness:web-orchestrator A kanban board for a small team — boards, cards,
+/web-harness:wh A kanban board for a small team — boards, cards,
 drag-and-drop between columns, local persistence
 ```
 
 What happens next:
 
-1. **Intake** — the orchestrator asks up to 3 product-focused questions (target screens,
+1. **Lane + Intake** — `/web-harness:wh` judges the lane (here `new`), shows it, then asks up to 3
+   product-focused questions (target screens,
    who finishes what task, what "success" looks like). Answer in Korean or English.
 2. **Phase 1 Planning → Phase 2 Design** — parallel agent waves produce requirements, UX
    brief, layout/component/API specs under `_workspace/`. You get **approval checkpoints**;
    the design preview is an interactive prototype you validate before implementation.
 3. **Phase 3 Implementation → Phase 4 QA** — builders write the app (React 19 + Vite + TS
    strict, FSD structure); read-only verifiers produce QA reports with machine receipts.
-4. Verify or iterate with `/web-harness:web-verify`.
+4. Verify or iterate with `/web-harness:wh verify` (or `/web-harness:wh change ...` to add behaviour).
+   Want planning only, stopping at the plan-reviewer readiness gate? `/web-harness:wh plan ...`.
 
 Plugin-mode caveats (honest deltas from repo mode):
 
@@ -78,7 +80,7 @@ pnpm run ci        # green = toolchain, console, 45 test suites, falsification g
 New apps live **inside the checkout** under `workspace/` (gitignored):
 
 ```
-/web-orchestrator 서비스 설명... 위치는 workspace/my-service
+/wh 서비스 설명... 위치는 workspace/my-service
 ```
 
 > **Important constraint:** the control-plane deployer (`deploy-harness.mjs`) refuses targets

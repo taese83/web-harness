@@ -1,14 +1,14 @@
 ---
 name: web-plan
-description: [내부] new 레인(Phase 1 체크포인트에서 멈춘다)에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 1 (Planning) of the web-harness independently with product-first intake, UX risk review, data strategy, effort trade-offs, and readiness validation before design or implementation.
+description: [내부] `/wh plan` 레인에서 /wh가 호출한다(Phase 1만 돌고 plan-reviewer readiness에서 멈춘다 — Phase 1 → 2 승인 체크포인트는 `/wh new`가 돈다). 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 1 (Planning) of the web-harness independently with product-first intake, UX risk review, data strategy, effort trade-offs, and readiness validation before design or implementation.
 argument-hint: "[service description]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   maturity: eval-covered
-  updated: 2026-08-06
-  changelog: ASSUMPTION 관용구를 시안 확정(발산 조사가 커밋한 단일 시안 승인)으로 교체 — design-readiness-contract.
+  updated: 2026-09-10
+  changelog: description을 참으로 — `/wh plan` 레인이 이 스킬을 실제로 호출한다(종전엔 호출 경로 0건). 계속 경로를 내부 스킬에서 `/wh new`로 — 감사 FINDING-001. 이전 — ASSUMPTION 관용구를 시안 확정(발산 조사가 커밋한 단일 시안 승인)으로 교체 — design-readiness-contract.
 ---
 
 # Web Plan
@@ -35,5 +35,6 @@ external ingestion이면 requirements, tech-stack, project-brief 세 파일 모�
 
 Claude Code의 Task 도구가 있으면 각 이름을 `subagent_type`으로 호출한다. Task 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 작성한다.
 
-산출물 검토 후 `/web-orchestrator`의 Phase 2부터 이어서 실행 가능하다.
-이미 `_workspace/01_plan/` 산출물이 존재하면 `/web-orchestrator`는 같은 진입점에서 이를 감지해 Phase 2 또는 Phase 3으로 이어서 실행한다.
+산출물 검토 후 **`/wh new`**(플러그인 설치면 `/web-harness:wh new`)로 이어서 실행한다 — 이미 `_workspace/01_plan/` 산출물이 있으면
+그것을 감지해 Phase 2 또는 Phase 3부터 잇는다. 그때 기획 공급원은 **`generated`**(하네스가 만든 것)이며
+Phase 1을 다시 돌지 않는다.

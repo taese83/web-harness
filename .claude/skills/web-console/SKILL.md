@@ -5,10 +5,10 @@ argument-hint: "[start|status|restart|stop]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   maturity: contract-only
-  updated: 2026-08-07
-  changelog: Web Harness Console의 중복 실행 방지, 소유 세션 재시작, 상태 검증과 안전한 종료 절차를 추가.
+  updated: 2026-09-10
+  changelog: 빈 인덱스 안내를 `/wh plan`·`/wh new`로 — 단일 진입점. 이전 — Web Harness Console의 중복 실행 방지, 소유 세션 재시작, 상태 검증과 안전한 종료 절차를 추가.
 ---
 
 # Web Console
@@ -69,7 +69,7 @@ Web Harness Console과 isolated preview origin을 로컬에서 안전하게 운�
 
 - action과 결과: `RUNNING|ALREADY_RUNNING|STOPPED|PORT_CONFLICT|FAILED`
 - Console/preview URL
-- indexed project count — 0이면 서버 오류가 아니라 이 루트에 `_workspace` 프로젝트가 없다는 뜻이다. `/web-plan`(기획만) 또는 `/web-orchestrator`(전체 파이프라인, 기존 기획·디자인 문서는 `_workspace/00_source`로 정규화)로 시작하면 나타난다고 안내한다
+- indexed project count — 0이면 서버 오류가 아니라 이 루트에 `_workspace` 프로젝트가 없다는 뜻이다. `/wh plan`(기획만) 또는 `/wh new`(전체 파이프라인 — 플러그인 설치면 `/web-harness:wh plan`·`/web-harness:wh new`, 기존 기획·디자인 문서는 `_workspace/00_source`로 정규화)로 시작하면 나타난다고 안내한다
 - Codex connection/version 또는 reason
 - 현재 작업이 소유한 실행 session ID가 있으면 해당 ID
 

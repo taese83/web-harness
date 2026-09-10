@@ -39,13 +39,43 @@ test('변형 지점이 여럿이면 STALE이다 — 어느 것을 끄는지 모�
 })
 
 test('원본을 반드시 복원한다 — 실패 경로에서도', async () => {
-  const {readFileSync} = await import('node:fs')
-  const target = '.claude/scripts/validate-falsification.mjs'
-  const before = readFileSync(target, 'utf8')
-  falsifyOne({
-    id: 'probe', file: target,
-    find: 'export const readRegistry', replace: 'export const readRegistry_BROKEN',
-    test: '.claude/scripts/test-falsification.mjs', why: 'probe',
-  })
-  assert.equal(readFileSync(target, 'utf8'), before, '변형이 남으면 저장소가 오염된다')
+  const {mkdtempSync, readFileSync, rmSync, writeFileSync} = await import('node:fs')
+  const {join} = await import('node:path')
+  // **추적되는 실파일을 변이하지 않는다.** 러너의 락은 CLI 진입점에만 걸리고 이 테스트는
+  // `falsifyOne`을 직접 부르므로, 실파일을 쓰면 `pnpm run ci` 두 개가 겹칠 때 락이 막으려던
+  // 바로 그 경쟁이 난다(교차 모델 커밋 리뷰 2026-09-10). 저장소 안 임시 경로를 쓴다 —
+  // `falsifyOne`이 repositoryRoot 기준 상대 경로를 받기 때문이다.
+  //
+  // **짝 테스트도 임시 파일이다.** 종전에는 `test`로 이 파일 자신을 줬는데, 그러면 `falsifyOne`이
+  // `node --test` 로 자기 자신을 스폰해 **재귀**가 된다(교차 모델 커밋 리뷰 2026-09-10).
+  const root = new URL('../..', import.meta.url).pathname
+  // **실행별 고유 디렉터리.** 고정 이름이면 CI 둘이 겹칠 때 서로의 probe를 지우고, 같은 이름의
+  // untracked 파일도 날린다(교차 모델 커밋 리뷰 2026-09-10). 이름이 `.`으로 시작하면
+  // `node --test`가 건너뛰므로(실측) 점 없이 짓는다 — CI 글롭(`test-*.mjs`)과도 겹치지 않는다.
+  const scratch = mkdtempSync(join(root, '.claude/scripts/tmp-falsify-'))
+  const scratchRelative = scratch.slice(root.replace(/\/$/, '').length + 1)
+  const relative = `${scratchRelative}/probe.mjs`
+  const probeTest = `${scratchRelative}/probe.check.mjs`
+  const absolute = join(root, relative)
+  const probeTestPath = join(root, probeTest)
+  const before = 'export const readRegistry = () => null\n'
+  writeFileSync(absolute, before)
+  // 변형이 적용된 동안 **반드시 실패**하는 짝 테스트 — 그래야 falsifyOne이 OK를 내고,
+  // 이 회귀가 「복원했는가」만 재는 것이 아니라 실제 반증 경로를 지나간다.
+  writeFileSync(probeTestPath, [
+    "import assert from 'node:assert/strict'",
+    "import test from 'node:test'",
+    "import {readFileSync} from 'node:fs'",
+    `test('probe', () => assert.match(readFileSync(${JSON.stringify(absolute)}, 'utf8'), /readRegistry = /))`,
+    '',
+  ].join('\n'))
+  try {
+    const result = falsifyOne({
+      id: 'probe', file: relative,
+      find: 'export const readRegistry', replace: 'export const readRegistry_BROKEN',
+      test: probeTest, why: 'probe',
+    })
+    assert.equal(result.status, 'OK', `짝 테스트가 변형을 잡지 못했다: ${result.reason}`)
+    assert.equal(readFileSync(absolute, 'utf8'), before, '변형이 남으면 저장소가 오염된다')
+  } finally { rmSync(scratch, {recursive: true, force: true}) }
 })

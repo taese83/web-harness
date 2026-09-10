@@ -1,14 +1,14 @@
 ---
 name: wh
-description: Web Harness 단일 진입점. 요청을 new/change/fix/verify 레인으로 판정해 해당 흐름을 실행한다. 새 서비스 생성, 기능 추가·UI 변경, 버그 수정·리팩터, 검증 전부 여기서 시작한다. 레인을 강제하려면 "/wh change ..."처럼 첫 단어로 지정한다. new 레인은 착수 전 기획·디자인·설계의 공급원(문서·링크·Figma가 있다 | 글로 설명 | 하네스가 만든다 | 없이 진행)을 묻는다.
-argument-hint: "[new|change|fix|verify] <요청>"
+description: Web Harness 단일 진입점. 요청을 plan/new/change/fix/verify 레인으로 판정해(plan은 명시 지정 전용) 해당 흐름을 실행한다. 새 서비스 생성, 기능 추가·UI 변경, 버그 수정·리팩터, 검증 전부 여기서 시작한다. 레인을 강제하려면 "/wh change ..."처럼 첫 단어로 지정한다. new 레인은 착수 전 기획·디자인·설계의 공급원(문서·링크·Figma가 있다 | 글로 설명 | 하네스가 만든다 | 없이 진행)을 묻는다.
+argument-hint: "[plan|new|change|fix|verify] <요청>"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   maturity: contract-only
-  updated: 2026-09-04
-  changelog: 디자인 ④의 대가를 성질로 말하고 목록은 조건 표가 서는 즉시(Phase 1 → 2) 보여준다고 약속한다 — 이 시점에는 조건을 셀 수 없다. 이전 — new 레인 착수 전 공급원 3문항(§1-B) — 기획·디자인·설계를 문서/링크·글로 설명·하네스가 만든다·없이 진행 중에서 고른다. 이전 — 신설: 진입점을 하나로 모으고 레인별 게이트를 명시한다.
+  updated: 2026-09-10
+  changelog: `plan` 레인 신설(명시 지정 전용, 게이트는 plan-reviewer readiness) · verify 게이트를 「검증자 read-only, 준비 단계는 착수 전 승인」으로 정정 — 감사 FINDING-001·002. 이전 — 디자인 ④의 대가를 성질로 말하고 목록은 조건 표가 서는 즉시(Phase 1 → 2) 보여준다고 약속한다 — 이 시점에는 조건을 셀 수 없다. 이전 — new 레인 착수 전 공급원 3문항(§1-B) — 기획·디자인·설계를 문서/링크·글로 설명·하네스가 만든다·없이 진행 중에서 고른다. 이전 — 신설: 진입점을 하나로 모으고 레인별 게이트를 명시한다.
 ---
 
 # wh — Web Harness 진입점
@@ -29,13 +29,17 @@ metadata:
 
 ### 1. 레인 판정
 
-첫 단어가 `new`·`change`·`fix`·`verify` 중 하나면 그 레인으로 **강제**한다.
+첫 단어가 `plan`·`new`·`change`·`fix`·`verify` 중 하나면 그 레인으로 **강제**한다.
 아니면 `request-type-contract.md`의 레인 표로 판정한다:
 
 - 대상이 비어 있거나 새 서비스 → `new`
 - **동작이 새로 정의된다**(기능 추가·UI 변경·API 연결) → `change`
 - **동작을 보존한다**(버그 수정·리팩터) → `fix`
-- source를 바꾸지 않는다 → `verify`
+- source를 바꾸지 않는다 → `verify` (요청의 성격이다. 준비 단계는 예외이며 승인을 받는다)
+
+`plan`은 **자동 판정하지 않는다 — 강제 지정으로만 들어온다.** "기획해줘"를 `plan`으로
+자동 분류하면 `new`로 와야 할 요청이 Phase 1에서 멈추고, 사용자는 왜 구현이 없는지 모른다.
+기획만 원하는 것은 **명시적 선택**이므로 명시적 지정을 요구한다.
 
 `fix`로 판정했거나 강제됐으면 **자기검사를 먼저 통과해야 한다** — 항목은
 `request-type-contract.md`가 정본이다(여기에 옮겨 적지 않는다. 갈라진다).
@@ -109,11 +113,12 @@ Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent`
 
 | 레인 | 실행 | 게이트 |
 |---|---|---|
+| `plan` | `../web-plan/SKILL.md` — Phase 1만 돌고 멈춘다 | `plan-reviewer` readiness(`PASS`\|`NEEDS_DECISION`\|`BLOCKED`). **Phase 1 → 2 승인 체크포인트는 여기서 돌지 않는다** — `/wh new`(플러그인: `/web-harness:wh new`)로 이어질 때 돈다 |
 | `new` (기획·디자인 `generated`\|`supplied`) | `../web-orchestrator/SKILL.md`의 Phase 1~4 | Phase 1·2 체크포인트 |
 | `new` (기획 또는 디자인 `absent`) | 같은 SKILL의 공급원 조합 실행 — `absent` 단계의 wave만 건너뛰고 Phase 3·4는 동일 | `approval-checkpoints.md`의 「기획·디자인 `absent` 진입 → 개발」 |
 | `change` | `../web-orchestrator/references/execution-contract.md`의 Iterate 루프 | **1-A ✋스팩 승인**(`approval-checkpoints.md`) |
 | `fix` | 같은 Iterate 루프, 1-A 건너뜀 | 유형별 보존 증거 |
-| `verify` | `../web-verify/SKILL.md` | read-only 경계 |
+| `verify` | `../web-verify/SKILL.md` | 검증자는 read-only. **준비 단계는 source를 쓴다**(`environment-scaffolder`·`developer`) — 착수 전 ✋승인, 거절하면 준비가 필요한 검사는 `BLOCKED` |
 
 레인이 정해진 뒤에는 해당 문서가 정본이다. 이 스킬은 판정·표시·위임만 한다 —
 **게이트를 여기서 다시 정의하지 않는다**(두 곳에 적으면 갈라진다).
@@ -121,8 +126,10 @@ Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent`
 ## 하지 않는 것
 
 - 레인 표시 생략
+- `plan`을 자동 판정(강제 지정 없이 `plan`으로 보내면 구현을 기대한 사용자가 Phase 1에서 멈춘다)
 - `fix` 자기검사 없이 `fix` 진행
 - `change` 레인에서 승인 없이 source edit
+- `verify` 레인에서 테스트 기반 준비가 source를 만드는데 승인 없이 진행
 - `new` 레인에서 공급원을 묻지 않고 착수
 - 사용자가 고르지 않았는데 기획·디자인을 `absent`로 처리
 - 설계·스팩 단계에 `absent` 선택지를 제시

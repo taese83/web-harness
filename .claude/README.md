@@ -26,15 +26,15 @@ refused — align them first.
 ## After deployment
 
 1. `node .claude/scripts/validate-harness.mjs`
-2. Start with `/web-plan` (product-focused intake, UX risk, data strategy, relative effort,
-   readiness) or `/web-orchestrator` for the full lifecycle
+2. Start with `/wh` — the single entry point. It judges the lane and shows it:
+   `/wh plan` (Phase 1 only, stops at the plan-reviewer readiness gate — not an approval checkpoint) · `/wh new` (full lifecycle) ·
+   `/wh change` · `/wh fix` · `/wh verify`
 3. For existing services, check the detected `CHANGE_MODE: existing-change` and the
    integration overlay
-4. If an API exists, `/api-connect` preserves existing clients/generators and adopts only
-   the selected endpoints
-5. `/web-verify` runs machine receipts and read-only QA
+4. Skills below are invoked **by `/wh`**, not directly — calling one skips the lane banner
+   and its gates
 6. For Figma/reference images, visual regression, and theme/viewport checks,
-   `/visual-design-verify` adds contracts and approved baselines
+   `VISUAL_QA_MODE` (via `/wh verify`) adds contracts and approved baselines
 
 ## Path rules
 

@@ -25,7 +25,7 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
   경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 47,849 bytes <!-- inventory:entry-cost --> 의
+- **오케스트레이터 실행당 고정 계약 로드**: 48,228 bytes <!-- inventory:entry-cost --> 의
   always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 9k 토큰,
   토큰 카운트가 아니라 근사치다. skill 파일 자체(~9k 토큰), 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이
@@ -80,8 +80,11 @@ green 실행은 다음을 검증한다:
 /plugin install web-harness@web-harness-marketplace
 ```
 
-그런 다음 아무 프로젝트 디렉터리에서 `/web-harness:web-orchestrator`,
-`/web-harness:web-plan`, `/web-harness:web-console`를 실행하라.
+그런 다음 아무 프로젝트 디렉터리에서 **`/web-harness:wh`** 를 실행하라 — 진입점은 이것 하나다.
+레인(`plan`·`new`·`change`·`fix`·`verify`)은 이 진입점이 판정하며, `/web-harness:wh plan ...`처럼
+첫 단어로 강제할 수 있다(플러그인 스킬은 항상 `web-harness:` 네임스페이스가 붙는다). 다른 스킬은
+이 진입점이 호출한다 — 직접 부르면 레인 표시와 게이트 안내를 받지 못한다.
+승인 콘솔은 `/web-harness:web-console`로 따로 연다.
 
 비용 참고: 플러그인은 세션당 약 10k 토큰의 always-on 컨텍스트를 더한다. 쓰지 않을 때는 비활성화하라.
 

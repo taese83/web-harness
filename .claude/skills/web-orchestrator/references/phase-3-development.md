@@ -193,7 +193,19 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    라우팅**에 대한 문장이지 소유권 면제가 아니다. 스팩의 `moduleBoundaries` 각각이 한 스폰의
    범위(`change-scope.md`의 `ALLOWED_PATHS`)가 되고, 소유권은 `layerMap`이 공급한다. **무엇을
    어느 순서로 만들지 지시하지 않는다** — 스팩이 정한 `architecture`·`layerMap`·`libraries` 안에서
-   모델이 정한다. 경계가 겹치지 않으므로 병렬이 안전하다.
+   모델이 정한다.
+
+   **병렬 안전의 조건(2026-09-10 정정)**: 경계가 겹치지 않는 것은 필요조건일 뿐이다. 범위를
+   집행하는 훅은 모든 스폰이 공유하는 `change-scope.md` **하나**를 읽는다 — 같은 체크아웃에서
+   병렬로 쓰면 **마지막에 기록된 범위가 다른 스폰에도 적용**된다(감사 FINDING-003).
+   스폰마다 다른 범위를 넣는 채널이 이 하네스에 없으므로 실효 있는 안전 조건은 하나뿐이다:
+
+   **같은 체크아웃에서 write 스폰을 병렬로 돌리지 않는다** — 직렬화하거나 **체크아웃(worktree)을
+   나눈다.** 세션만 나누는 것은 격리가 아니다 — 훅은 세션과 무관하게 같은 프로젝트 루트의
+   `change-scope.md`를 읽는다(worktree 분리는 훅의 root 판정과 함께 검증되지 않았다). **이 규칙은 산문이며 훅이
+   강제하지 않는다.** 스폰별 범위 주입은 한 번 시도했다가 걷어냈다 — 넣는 생산자가 0건인
+   채로 보안 민감 경로만 늘었고, 교차 모델 리뷰가 그 경로에서 경로 탈출·fail-open·symlink
+   우회를 연달아 잡았다. 스폰별 env 채널(예: `SubagentStart` 훅)이 실제로 생기면 그때 설계한다.
    - 구조 지시 빌더 6종(`app-shell`·`route`·`component`·`entity-query`·`feature-mutation`·
      `data-ui-binder`)은 2026-08-26에 제거됐다. 실측으로 그 소유권이 이미 성립하지 않았고
      (`src/pages/**` 3중 겹침, 비-FSD 어휘 무소유) 공급한 것은 격리가 아니라 FSD 경로 처방이었다.

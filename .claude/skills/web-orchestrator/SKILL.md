@@ -5,10 +5,10 @@ argument-hint: "[service description or artifact paths]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.7.0
+  version: 1.8.0
   maturity: eval-covered
-  updated: 2026-09-02
-  changelog: 공급원(provenance) 축 신설 — 기획·디자인·설계가 generated|supplied|absent 중 하나로 서고 Fresh Mode가 그 조합을 조립한다. 이전 — 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
+  updated: 2026-09-10
+  changelog: verify 표기 정정(감사 F-002). 이전 — 공급원(provenance) 축 신설 — 기획·디자인·설계가 generated|supplied|absent 중 하나로 서고 Fresh Mode가 그 조합을 조립한다. 이전 — 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
 ---
 
 # Web Orchestrator
@@ -96,7 +96,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 0-A. **공급 감지 — 모드보다 먼저.** 요청에 새 문서·링크·시안·Figma가 붙어 있으면 레인·모드와 무관하게 `source-artifact-ingestor`를 먼저 실행한 뒤 아래 판별로 돌아간다 — **기존 산출물이 있으면 `00_source/` 기록까지만**(record-only), 없으면 full 정규화(정본 `references/provenance-contract.md` §6). 없으면 Iterate가 먼저 걸려 사용자가 준 문서가 영영 읽히지 않는다.
 
-0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `change`·`fix` 레인 요청이 오면(`verify`는 read-only 경로로 간다)(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
+0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `change`·`fix` 레인 요청이 오면(`verify`는 검증자가 read-only인 경로로 간다 — 테스트 기반 준비는 승인 후 source를 만들 수 있다)(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
 1. **Resume Mode** — `_workspace/01_plan`과 `_workspace/02_design`의 필수 파일이 모두 존재하면 Phase 3부터 시작한다.
 2. **Source Artifact Mode**(`supplied`) — 사용자가 기존 기획/디자인/API 문서·폴더·링크·시안 이미지·Figma 참조를 제공했으면 `source-artifact-ingestor`를 실행한다. 받는 형태와 URL·이미지·Figma MCP의 처리 절차는 `references/source-artifacts.md`가 정본이다.
    - `planning-context.md`를 포함해 정규화하고 read-only `plan-reviewer` readiness gate를 통과한 뒤 다음 Phase로 간다.

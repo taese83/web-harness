@@ -769,6 +769,70 @@
       "replace": "    if (false && fresh.sha256 !== record.sha256) drifted.push(`${record.path}(내용 바뀜)`)",
       "test": ".claude/scripts/test-golden-spec-drift.mjs",
       "why": "해시 대조를 끄면 골든 입력을 고쳐도 통과한다 — ddc3314가 254 커밋 동안 들키지 않은 바로 그 경로다"
+    },
+    {
+      "id": "falsification-runner-refuses-concurrent",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "    writeFileSync(lockPath, String(process.pid), {flag: 'wx'})",
+      "replace": "    writeFileSync(lockPath, String(process.pid))",
+      "test": ".claude/scripts/test-falsification-lock.mjs",
+      "why": "`wx` 없이 쓰면 이미 있는 락을 덮어써 두 러너가 동시에 취득한다 — 앞 러너의 변이가 뒤 러너의 「원본」이 되고 복원이 그것을 정본으로 굳힌다(2026-09-10 실측)"
+    },
+    {
+      "id": "wh-plan-lane-reaches-web-plan",
+      "file": ".claude/skills/wh/SKILL.md",
+      "find": "| `plan` | `../web-plan/SKILL.md` — Phase 1만 돌고 멈춘다 |",
+      "replace": "| `plan` | `../web-orchestrator/SKILL.md` — Phase 1만 돌고 멈춘다 |",
+      "test": ".claude/scripts/test-wh-lanes.mjs",
+      "why": "plan 레인이 사라지면 web-plan이 단일 진입점에서 다시 도달 불가가 되고 그 description은 거짓이 된다(2026-09-10 감사가 잡은 상태로 복귀)"
+    },
+    {
+      "id": "wh-lane-set-matches-contract",
+      "file": ".claude/skills/web-orchestrator/references/request-type-contract.md",
+      "find": "| `plan` | **기획만**(명시 지정 전용) | plan-reviewer readiness(승인 체크포인트 아님) |",
+      "replace": "| `planned` | **기획만**(명시 지정 전용) | plan-reviewer readiness(승인 체크포인트 아님) |",
+      "test": ".claude/scripts/test-wh-lanes.mjs",
+      "why": "레인 정본과 /wh가 갈라지면 게이트가 두 곳에 적히고 어느 쪽이 정본인지 모른다"
+    },
+    {
+      "id": "entry-points-is-wired-into-validate",
+      "file": ".claude/scripts/validate-harness.mjs",
+      "find": "validateEntryPoints({repositoryRoot, pass, fail})",
+      "replace": "pass('entry point advertising checked')",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "부르지 않는 검사는 없는 것과 같다 — 사용자 문서가 다시 내부 스킬을 진입점으로 안내해도 아무도 모른다"
+    },
+    {
+      "id": "entry-points-denominator-is-declaration",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "    if (description && description[1].trimStart().startsWith('[내부]')) found.push(name)",
+      "replace": "    if (false && description) found.push(name)",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "`[내부]` 선언이 분모다 — 분모가 비면 위반이 0으로 세어져 검사가 공허하게 통과한다"
+    },
+    {
+      "id": "wh-verify-lane-declares-writes",
+      "file": ".claude/skills/wh/SKILL.md",
+      "find": "| `verify` | `../web-verify/SKILL.md` | 검증자는 read-only. **준비 단계는 source를 쓴다**(`environment-scaffolder`·`developer`) — 착수 전 ✋승인, 거절하면 준비가 필요한 검사는 `BLOCKED` |",
+      "replace": "| `verify` | `../web-verify/SKILL.md` | read-only 경계 |",
+      "test": ".claude/scripts/test-wh-lanes.mjs",
+      "why": "검증자가 read-only인 것과 레인 전체가 불변인 것은 다르다 — 「검증만」이라 믿고 들어온 사용자의 소스가 승인 없이 바뀐다(2026-09-10 감사 FINDING-002)"
+    },
+    {
+      "id": "falsification-runner-drops-test-context",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  delete env.NODE_TEST_CONTEXT",
+      "replace": "  env.NODE_TEST_CONTEXT = env.NODE_TEST_CONTEXT",
+      "test": ".claude/scripts/test-falsification.mjs",
+      "why": "부모가 node --test면 NODE_TEST_CONTEXT가 상속돼 자식 러너가 실패해도 exit 0을 낸다 — 반증기 자신이 vacuous가 된다(실측: 같은 실패 테스트가 상속 시 0, 제거 시 1)"
+    },
+    {
+      "id": "entry-points-reads-plugin-template-prefix",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "(?:web-harness:|\\$\\{PLUGIN_NAME\\}:)?",
+      "replace": "(?:web-harness:)?",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "배포 README 생성기는 `${PLUGIN_NAME}:` 접두로 쓴다 — 그 접두를 못 읽으면 사용자가 실제로 설치하는 README가 검사에서 통째로 빠진다"
     }
   ]
 }

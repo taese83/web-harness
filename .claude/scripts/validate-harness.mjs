@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {spawnSync} from 'node:child_process'
 import {validateGoldenSpecDrift} from './golden-spec-drift-lib.mjs'
+import {validateEntryPoints} from './validators/validate-entry-points.mjs'
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -383,7 +384,7 @@ validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); valida
   if (shapeCatalogErrors.length === 0) pass('shape catalog entry keys checked (unknown keys and typed fields)');
 } validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail}); validateMarkerIntegrity({repositoryRoot, pass, fail}); validateCertifiedEvidence({repositoryRoot, pass, fail})
 
-validateGoldenSpecDrift({repositoryRoot, pass, fail})
+validateGoldenSpecDrift({repositoryRoot, pass, fail}); validateEntryPoints({repositoryRoot, pass, fail})
 
 if (errors.length) {
   console.error(`Harness validation failed with ${errors.length} error(s):`)

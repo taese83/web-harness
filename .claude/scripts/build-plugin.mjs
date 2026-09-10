@@ -299,13 +299,11 @@ The local Console (port 4310) and isolated preview (4311) are started against th
 
 ## Entry-point commands
 
-These are the commands you invoke directly. Everything else this plugin ships is an **internal building block** that the orchestrators call for you (Phase steps, companion setups, AI submodes) — they appear in the \`/${PLUGIN_NAME}:\` list but are not meant to be run standalone.
+These are the commands you invoke directly. Everything else this plugin ships is an **internal building block** that \`/${PLUGIN_NAME}:wh\` calls for you (orchestrators, Phase steps, companion setups, AI submodes) — they appear in the \`/${PLUGIN_NAME}:\` list but calling one directly skips the lane banner and its gates.
 
 | Command | Use it to |
 |---|---|
-| \`/${PLUGIN_NAME}:web-orchestrator\` | Build a complete web app from a description (plan → design → dev → QA). The master entry. |
-| \`/${PLUGIN_NAME}:web-plan\` | Produce or refine the plan only (planning facilitation + readiness review). |
-| \`/${PLUGIN_NAME}:feature-add\` | Add one feature to a finished project (scoped plan → design → dev → QA loop). |
+| \`/${PLUGIN_NAME}:wh\` | **The single entry point.** Judges the lane and shows it: \`/${PLUGIN_NAME}:wh plan\` (planning only, stops at the plan-reviewer readiness gate) · \`/${PLUGIN_NAME}:wh new\` (plan → design → dev → QA) · \`/${PLUGIN_NAME}:wh change\` (add behaviour) · \`/${PLUGIN_NAME}:wh fix\` · \`/${PLUGIN_NAME}:wh verify\`. Force a lane by leading with it; plugin skills are always namespaced. |
 | \`/${PLUGIN_NAME}:team-flow\` | Ticket-based team development — batch-claim a plan into GitHub Issues on a feature branch, pick up tickets into evidence PRs. |
 | \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff. |
 | \`/${PLUGIN_NAME}:web-console\` | Open the approval-gated local Console for the current project. |

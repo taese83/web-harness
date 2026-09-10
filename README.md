@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 47,849 bytes <!-- inventory:entry-cost --> of
+- **Fixed contract load per orchestrator run**: 48,228 bytes <!-- inventory:entry-cost --> of
   always-read contract files. That is a *byte* measurement of exactly those files — roughly 9k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the skill
   file itself (~9k tokens), the per-spawn agent definitions, runtime hook injection, and everything
@@ -86,8 +86,11 @@ compares against the real directories, so this README cannot silently go stale.
 /plugin install web-harness@web-harness-marketplace
 ```
 
-Then run `/web-harness:web-orchestrator`, `/web-harness:web-plan`, or
-`/web-harness:web-console` from any project directory.
+Then run **`/web-harness:wh`** from any project directory — it is the single entry point.
+It decides the lane (`plan`, `new`, `change`, `fix`, `verify`); force one by leading with it,
+as in `/web-harness:wh plan ...` (plugin skills are always namespaced). Every other skill is invoked by
+this entry point — calling one directly skips the
+lane banner and its gates. Open the approval console separately with `/web-harness:web-console`.
 
 Cost note: the plugin adds roughly 10k tokens of always-on context per session. Disable
 it when you aren't using it.

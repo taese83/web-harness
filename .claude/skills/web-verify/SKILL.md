@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 argument-hint: "[검증 대상 프로젝트 경로 (선택)]"
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   maturity: eval-covered
-  updated: 2026-09-02
-  changelog: 전제(점 0) 신설 — `_workspace` 없는 브라운필드 첫 진입에서 preflight BLOCKED로 끝나던 것을, 대조 전용 경로와 해소 경로로 받는다. 대조 전용은 Phase 4가 아니며 tier를 붙이지 않는다. 이전 — 최초 버저닝(adapter 재생성·검증 체계 도입과 함께 일괄 부여).
+  updated: 2026-09-10
+  changelog: 준비 단계가 source를 만든다는 사실을 표시하고 착수 전 승인을 요구한다 — 감사 FINDING-002. 이전 — 전제(점 0) 신설 — `_workspace` 없는 브라운필드 첫 진입에서 preflight BLOCKED로 끝나던 것을, 대조 전용 경로와 해소 경로로 받는다. 대조 전용은 Phase 4가 아니며 tier를 붙이지 않는다. 이전 — 최초 버저닝(adapter 재생성·검증 체계 도입과 함께 일괄 부여).
 ---
 
 # Web Verify
@@ -76,7 +76,10 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 경로가 확인되면:
 
 1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 확정되지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
-2. 테스트 기반을 준비한다:
+2. 테스트 기반을 준비한다. **이 단계는 source를 만든다** — `verify` 레인은 검증자가
+   read-only일 뿐 레인 전체가 불변인 것이 아니다(2026-09-10 감사가 잡은 거짓 표시).
+   **무엇을 만들 것인지 보여주고 착수 전 승인을 받는다.** 사용자가 거절하면 그 사실을 적고
+   준비 없이 진행하며, 준비가 필요했던 검사는 `BLOCKED`로 보고한다 — 조용히 만들지 않는다.
    - environment-scaffolder
    - developer
    - `VISUAL_QA_MODE`이면 `developer`를 시각 test/story 범위로 실행한다. baseline은 갱신하지 않는다.
