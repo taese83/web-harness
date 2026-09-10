@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {spawnSync} from 'node:child_process'
-import {inspectGoldenSpecs, renderGoldenSpecDrift} from './golden-spec-drift-lib.mjs'
+import {validateGoldenSpecDrift} from './golden-spec-drift-lib.mjs'
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -383,11 +383,7 @@ validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); valida
   if (shapeCatalogErrors.length === 0) pass('shape catalog entry keys checked (unknown keys and typed fields)');
 } validateSchemaParity({repositoryRoot, pass, fail}); validateContractHygiene({repositoryRoot, pass, fail}); validateMarkerIntegrity({repositoryRoot, pass, fail}); validateCertifiedEvidence({repositoryRoot, pass, fail})
 
-// 골든 스팩 드리프트 — **보고다, 막지 않는다.** 골든은 schemaVersion 1 읽기 전용 이력이고
-// 재-잠금이 기계적으로 불가하므로(v2가 요구하는 testLayers.unit 부재) 지금 막으면 남는 길이
-// 「의도된 리팩터 되돌리기」뿐이다. 이 검사가 닫는 것은 staleness가 아니라 **침묵**이다 —
-// ddc3314의 JUDGMENT가 "재-잠금했다"고 적었는데 트리에 없었고 2주간 아무도 몰랐다.
-pass(renderGoldenSpecDrift(inspectGoldenSpecs(repositoryRoot)))
+validateGoldenSpecDrift({repositoryRoot, pass, fail})
 
 if (errors.length) {
   console.error(`Harness validation failed with ${errors.length} error(s):`)

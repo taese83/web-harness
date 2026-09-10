@@ -218,6 +218,10 @@ substrate에 없다. → 미지정(기본값이 `default`로 채워짐). **subst
     "unit-tests": "tests",
     "e2e-tests": "e2e"
   },
+  "testLayers": {
+    "unit": "tests",
+    "e2e": "e2e"
+  },
   "libraries": {
     "ui-runtime": {"choice": "react", "alternatives": ["vue", "svelte", "solid"], "source": "measured"},
     "dom-renderer": {"choice": "react-dom", "alternatives": [], "source": "measured"},

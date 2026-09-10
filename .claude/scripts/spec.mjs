@@ -531,8 +531,15 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
   const testLayers = validateTestLayers({...decision, targetShapes})
 
   return {
-    // 2 = testLayers를 담는 세대(2026-08-28). 1은 그 이전에 확정된 스팩이며 읽기 전용 이력이다 —
-    // 이미 커밋된 증거(golden T1 receipt에 결박된 spec)를 새 규칙에 맞춰 고쳐 쓰지 않는다.
+    // 2 = testLayers를 담는 세대(2026-08-28). 1은 그 이전에 확정된 스팩이다 — 원칙은 **읽기 전용
+    // 이력**이며, 이미 커밋된 증거에 결박된 spec을 새 규칙에 맞춰 고쳐 쓰지 않는다.
+    //
+    // **예외(2026-09-10 개정)**: 그 결박이 **이미 끊겨 있으면** 보호할 대상이 없다. 실측 —
+    // `vite-serverless-hybrid`의 T1 receipt는 8/23에 났고 v1 잠금은 8/26이다. `spec.json`이
+    // `computeSourceFingerprint` 범위 안이므로 **잠금 자체가 그 receipt를 stale로 만들었다**.
+    // 결박이 없는 v1은 이관할 수 있고, 이관하지 않으면 재-잠금이 불가해 골든 드리프트를
+    // 게이트로 세울 수 없다(v1에는 v2가 요구하는 `testLayers`가 없어 `lockSpec`이 거부한다).
+    // 이관은 T1 재dispatch를 **빚으로 남긴다** — 그 사실을 JUDGMENT에 적는다.
     schemaVersion: 2,
     specTier: acceptanceSource === 'feature-plan' ? 'verifiable' : 'unverifiable',
     acceptanceSource,

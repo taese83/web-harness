@@ -741,18 +741,34 @@
     {
       "id": "golden-drift-counts-vanished-inputs",
       "file": ".claude/scripts/golden-spec-drift-lib.mjs",
-      "find": "    if (now === null) { if (record.present) drifted.push(`${record.path}(사라짐)`); continue }",
-      "replace": "    if (now === null) { continue }",
+      "find": "    if (!fresh?.present) { if (record.present) drifted.push(`${record.path}(사라짐)`); continue }",
+      "replace": "    if (!fresh?.present) { continue }",
       "test": ".claude/scripts/test-golden-spec-drift.mjs",
       "why": "사라진 입력을 침묵으로 두면 골든 입력 삭제가 통과한다"
     },
     {
-      "id": "golden-drift-is-wired-into-validate",
-      "file": ".claude/scripts/validate-harness.mjs",
-      "find": "pass(renderGoldenSpecDrift(inspectGoldenSpecs(repositoryRoot)))",
-      "replace": "pass('golden spec drift checked')",
+      "id": "golden-drift-blocks-not-reports",
+      "file": ".claude/scripts/golden-spec-drift-lib.mjs",
+      "find": "  if (results.some(item => item.state !== 'FRESH')) fail(message)",
+      "replace": "  if (false && results.some(item => item.state !== 'FRESH')) fail(message)",
       "test": ".claude/scripts/test-golden-spec-drift.mjs",
-      "why": "보고 문구만 남기고 실제 검사를 부르지 않으면 골든 드리프트가 다시 침묵한다 — 부르지 않는 검사는 없는 것과 같다"
+      "why": "판정을 pass로 접으면 골든 드리프트가 다시 침묵한다 — ddc3314가 254 커밋 동안 들키지 않은 경로다"
+    },
+    {
+      "id": "golden-drift-shares-lockspec-digest",
+      "file": ".claude/scripts/golden-spec-drift-lib.mjs",
+      "find": "  const digest = io.digestInputs ?? digestInputs",
+      "replace": "  const digest = io.digestInputs ?? ((p, paths) => ({inputs: paths.map(path => ({path, present: true, sha256: 'raw'}))}))",
+      "test": ".claude/scripts/test-golden-spec-drift.mjs",
+      "why": "산식을 lockSpec과 분리하면 두 판정이 갈라진다 — 마커 있는 입력은 잠근 직후 막히고 샤드 입력은 ENOENT로 「사라짐」이 된다(적대 리뷰 2026-09-10이 실측으로 잡은 두 오탐)"
+    },
+    {
+      "id": "golden-drift-compares-hashes",
+      "file": ".claude/scripts/golden-spec-drift-lib.mjs",
+      "find": "    if (fresh.sha256 !== record.sha256) drifted.push(`${record.path}(내용 바뀜)`)",
+      "replace": "    if (false && fresh.sha256 !== record.sha256) drifted.push(`${record.path}(내용 바뀜)`)",
+      "test": ".claude/scripts/test-golden-spec-drift.mjs",
+      "why": "해시 대조를 끄면 골든 입력을 고쳐도 통과한다 — ddc3314가 254 커밋 동안 들키지 않은 바로 그 경로다"
     }
   ]
 }

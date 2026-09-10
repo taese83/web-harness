@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "specTier": "unverifiable",
   "acceptanceSource": "absent",
   "acceptanceRefs": [],
@@ -53,6 +53,10 @@
     "runtime-adapter": "dev",
     "unit-tests": "tests",
     "e2e-tests": "e2e"
+  },
+  "testLayers": {
+    "unit": "tests",
+    "e2e": "e2e"
   },
   "libraries": {
     "ui-runtime": {
@@ -230,6 +234,10 @@
   "sourceDigest": {
     "inputs": [
       {
+        "path": "_workspace/00_source/design-binding.json",
+        "present": false
+      },
+      {
         "path": "_workspace/01_plan/feature-plan.md",
         "present": false
       },
@@ -240,7 +248,7 @@
       {
         "path": "_workspace/01_plan/project-profile.json",
         "present": true,
-        "sha256": "990dcf64305e7803ae5ec4767f344df669cb5ce76ff3dd9a2a28df27e6b4f32b"
+        "sha256": "3d374f96b86191e6a7c21ed5c6f3bc1fc51e10492cb9c09aa5859cd7d8ed1aeb"
       },
       {
         "path": "_workspace/02_design/api-schema.md",
@@ -259,11 +267,19 @@
         "present": false
       },
       {
+        "path": "_workspace/02_design/layout-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/design-system.md",
+        "present": false
+      },
+      {
         "path": "_workspace/02_design/solution-design.md",
         "present": true,
-        "sha256": "229cc32150d1aaabede35e34c619d9d2326bb59bcf9d8ac4eb8c076987c2b78a"
+        "sha256": "e41e4779ae91153fff4a2d656c9bd4b655436b92764e2609e80f40be874c1aeb"
       }
     ],
-    "combined": "01e1929dcee461d640ff2d0c1667089ad4e50d0bb87f69e7a0c0d27ea3a43082"
+    "combined": "e92fa434cc762f96689513384812d21b30568dcb1416b434fad67a150ff63584"
   }
 }
