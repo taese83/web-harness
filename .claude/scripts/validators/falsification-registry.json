@@ -773,10 +773,10 @@
     {
       "id": "falsification-runner-refuses-concurrent",
       "file": ".claude/scripts/validate-falsification.mjs",
-      "find": "    writeFileSync(lockPath, String(process.pid), {flag: 'wx'})",
-      "replace": "    writeFileSync(lockPath, String(process.pid))",
+      "find": "      writeFileSync(path, String(process.pid), {flag: 'wx'})",
+      "replace": "      writeFileSync(path, String(process.pid))",
       "test": ".claude/scripts/test-falsification-lock.mjs",
-      "why": "`wx` 없이 쓰면 이미 있는 락을 덮어써 두 러너가 동시에 취득한다 — 앞 러너의 변이가 뒤 러너의 「원본」이 되고 복원이 그것을 정본으로 굳힌다(2026-09-10 실측)"
+      "why": "원자적(wx) 취득이 깨지면 동시에 시작한 두 러너가 모두 돌아 같은 일을 두 번 한다 — 사본 격리 뒤로 락은 안전 장치가 아니라 중복 실행 방지다(2026-09-11)"
     },
     {
       "id": "wh-plan-lane-reaches-web-plan",
@@ -881,6 +881,86 @@
       "replace": "      if (false && (maturity === 'eval-covered' || maturity === 'golden-backed') && !coveredSkills.has(skill)) {",
       "test": ".claude/scripts/test-eval-covers.mjs",
       "why": "판정 줄이 꺼지면 eval 근거 없는 eval-covered 선언이 통과한다(I1)"
+    },
+    {
+      "id": "falsification-mutates-only-sandbox",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "      const result = falsifyOne(entry, {root: sandbox, run: testPath => run(testPath, sandbox)})",
+      "replace": "      const result = falsifyOne(entry, {root: sourceRoot, run: testPath => run(testPath, sourceRoot)})",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "정본을 제자리에서 변형하면 겹친 러너·SIGKILL·앱 종료가 변이를 정본으로 굳힌다 — 2026-09-10 cli.mjs 오염과 감사의 CI 오판정이 그 경로였다"
+    },
+    {
+      "id": "falsification-blocks-on-tree-change",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  if (afterDigest !== beforeDigest || added.length > 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "정본이 실행 중 바뀌었는데 통과를 내면 그 트리의 다음 판정이 전부 거짓이 된다"
+    },
+    {
+      "id": "falsification-verifies-restore",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  if (!restored) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "되쓰기 실패를 판정하지 않으면 한 항목의 잔재가 다음 항목의 반증을 오염시킨다"
+    },
+    {
+      "id": "falsification-lock-classifies-errors",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "      if (error?.code === 'EEXIST') {",
+      "replace": "      if (true) {",
+      "test": ".claude/scripts/test-falsification-lock.mjs",
+      "why": "권한 오류를 보유 중으로 읽으면 없는 락을 pid NaN으로 보고하고 read-only 체크아웃에서 반증이 영영 돌지 않는다(감사 환경 실측)"
+    },
+    {
+      "id": "falsification-walk-skips-deps",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "      if (entry.isDirectory()) { if (!SKIP_DIRECTORIES.has(entry.name)) walk(join(directory, entry.name)) }",
+      "replace": "      if (entry.isDirectory()) { walk(join(directory, entry.name)) }",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "의존성·.git까지 복사하면 사본이 무거워지고 .git 복사본이 정본 저장소처럼 행세한다"
+    },
+    {
+      "id": "falsification-baseline-before-mutation",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "      if (red.has(entry.test)) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "기준 실행 없이 변형만 보면 사본에서 원래 빨간 짝 테스트가 모든 결박 항목을 「반증됨」으로 만든다 — mutation-sample이 빨간 스위트 100%로 물린 클래스"
+    },
+    {
+      "id": "falsification-detects-added-files",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  if (afterDigest !== beforeDigest || added.length > 0) {",
+      "replace": "  if (afterDigest !== beforeDigest) {",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "미리 나열한 파일만 digest하면 정본에 새로 생긴 파일(tmp-falsify-* 같은)을 못 잡는다"
+    },
+    {
+      "id": "falsification-hides-project-dir",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  delete env.CLAUDE_PROJECT_DIR",
+      "replace": "  void env.CLAUDE_PROJECT_DIR",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "정책 lib이 CLAUDE_PROJECT_DIR를 루트로 쓴다 — 상속하면 사본의 짝 테스트가 정본을 루트로 잡는다"
+    },
+    {
+      "id": "falsification-requires-root",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  if (typeof root !== 'string' || root === '') throw new Error(",
+      "replace": "  if (false) throw new Error(",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "root 기본값이 정본이면 호출자가 빠뜨리는 순간 제자리 변형으로 되돌아간다"
+    },
+    {
+      "id": "falsification-refuses-nested-recursion",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "export const refusesNestedRun = depth => depth >= MAX_NESTED_DEPTH",
+      "replace": "export const refusesNestedRun = depth => false && depth >= MAX_NESTED_DEPTH",
+      "test": ".claude/scripts/test-falsification-depth.mjs",
+      "why": "깊이 제한이 꺼지면 락 seed가 변형한 사본의 러너가 자기 사본(변형 포함)을 계속 복사해 끝나지 않는다 — 실측 53분·약 130층"
     }
   ]
 }
