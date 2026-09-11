@@ -31,7 +31,7 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
 
 // --- 순수 argv 빌더 (회귀 테스트 대상 — 실 gh 없이 인자 구조를 고정) ---
 export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url,state', '--limit', '1']
-export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees']
+export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees,comments,updatedAt']
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 export const permissionArgs = repo => ['repo', 'view', repo, '--json', 'viewerPermission']
@@ -156,7 +156,7 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
  * 이슈를 조회해 pickup 입력 형태로 반환한다(read-only, side-effect). 순수 파싱은 caller가
  * pickup.mjs로 처리 — 여기서는 gh json을 그대로 넘긴다.
  * @param {{repo: string, number: number|string, host?: string, exec?: (args: string[]) => Promise<string>}} config
- * @returns {Promise<{number: number, title: string, body: string, labels: string[], assignees: string[]}>}
+ * @returns {Promise<{number: number, title: string, body: string, labels: string[], assignees: string[], revision: string|null, links: null, comments: Array|null, commentsOmitted: number|null}>}
  */
 export async function resolveIssue({repo, number, host = 'github.com', exec = null}) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
@@ -168,6 +168,13 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
     body: parsed.body ?? '',
     labels: (parsed.labels ?? []).map(l => l.name),
     assignees: (parsed.assignees ?? []).map(a => a.login),
+    // 티켓 맥락 — Jira `parseIssueResponse`와 **같은 키**다(런타임 중립 계약). `null`은 「가져오지 않았다」.
+    revision: parsed.updatedAt ?? null,
+    links: null, // GitHub 이슈에는 유형 있는 링크가 없다 — 「없다」가 아니라 「이 트래커가 주지 않는다」
+    comments: Array.isArray(parsed.comments)
+      ? parsed.comments.map(item => ({author: item?.author?.login ?? null, created: item?.createdAt ?? null, body: item?.body ?? ''}))
+      : null,
+    commentsOmitted: null, // gh는 총수를 주지 않는다 — 덜 받았는지 모른다(0이라고 적지 않는다)
   }
 }
 

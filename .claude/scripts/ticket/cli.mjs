@@ -10,7 +10,7 @@
 // `adopt`·`bind`·`intake`는 **사용자의 요청이 곧 승인**이며 `--dry-run`으로 미리본다(2026-09-11 정정 —
 // 종전 헤더는 「쓰기 전부 --confirm」이라 적었으나 코드가 --confirm을 보는 곳은 claim·configure뿐이다).
 import {DEV_TICKET, adoptLedgerRecord, appendInventory, buildSourceMarker, checkAdopt, checkBind, classifyByComponent, planIntake, recordConsumption, stampSourceInto} from './intake.mjs'
-import {scanUntrustedBody} from './pickup.mjs'
+import {scanUntrustedBody, scanUntrustedIssue, ticketContextLines} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
 import {buildRefsMarker, stampRefsInto} from './refs.mjs'
 import {hasUserInterface} from '../spec.mjs'
@@ -725,7 +725,7 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({repo, number: key}) : provider.resolveIssue(key))
   const issue = await fetchIssue(ticketKey)
   if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 트래커에서 찾지 못했습니다`}
-  const injection = scanUntrustedBody(issue.body)
+  const injection = scanUntrustedIssue(issue) // 코멘트도 스냅샷에 실리므로 같이 스캔한다
   // **분류는 명시할 때만 받는다.** 없으면 `미분류`이고 ingestor가 정한다 — 스크립트가
   // 추측하면 버그 티켓이 기획 입력으로 세어져 요구사항이 지어내진다.
   // 분류의 우선순위: **운영자 명시 > 팀이 선언한 컴포넌트 매핑 > 미분류.**
@@ -743,7 +743,7 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
     ticketKey, title: issue.title, body: issue.body, url: issue.url ?? null,
     provider: provider.name, fetchedAt: new Date().toISOString(), injection,
     declaredType: issue.declaredType ?? null, labels: issue.labels ?? [],
-    components: issue.components ?? [],
+    components: issue.components ?? [], contextLines: ticketContextLines(issue),
     ...(flags?.as ? {classification: flags.as, classifiedBy: 'operator'}
       : byComponent ? {classification: byComponent.classification, classifiedBy: byComponent.by} : {}),
   })

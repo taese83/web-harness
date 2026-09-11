@@ -160,7 +160,36 @@ export function parseIssueResponse(payload) {
     components: (payload.fields?.components ?? []).map(item => item?.name).filter(Boolean),
     // Jira의 assignee는 **단수다** — GitHub의 다중 배정 경합이 구조적으로 없다.
     assignees: assignee ? [assignee.accountId ?? assignee.name ?? assignee.displayName] : [],
+    // ── 티켓 맥락(2026-09-11) ── 본문 밖에 사는 결정이 개발 에이전트에 닿지 않았다: 기획자의
+    // 답은 코멘트에, 선행·관련 티켓은 링크에 있다. **`null`은 「가져오지 않았다」, `[]`는
+    // 「없다」** — 빠진 필드를 없음으로 읽으면 AOA-3의 `미분류`와 같은 침묵이 된다.
+    revision: payload.fields?.updated ?? null, // 개정 시점 — 픽업 뒤 티켓이 바뀌었는지의 앵커
+    links: Array.isArray(payload.fields?.issuelinks) ? payload.fields.issuelinks.map(parseIssueLink).filter(Boolean) : null,
+    ...parseComments(payload.fields?.comment),
   }
+}
+
+/** Jira issuelink → `{relation, key}`(순수). 방향은 관계 문구가 들고 있다(`blocks` / `is blocked by`). */
+function parseIssueLink(link) {
+  const other = link?.outwardIssue ?? link?.inwardIssue
+  if (!other?.key) return null
+  const relation = link.outwardIssue ? link.type?.outward : link.type?.inward
+  return {relation: relation ?? link.type?.name ?? null, key: other.key}
+}
+
+/**
+ * Jira `comment` 필드 → `{comments, commentsOmitted}`(순수). v3 본문은 ADF다.
+ * **자르지 않는다** — 트래커가 준 것은 전부 싣고, 트래커가 덜 준 수(`total` - 받은 수)를 적는다.
+ */
+function parseComments(field) {
+  if (!Array.isArray(field?.comments)) return {comments: null, commentsOmitted: null}
+  const comments = field.comments.map(item => ({
+    author: item?.author?.displayName ?? item?.author?.name ?? item?.author?.accountId ?? null,
+    created: item?.created ?? null,
+    body: fromAdf(item?.body ?? ''),
+  }))
+  const total = Number.isInteger(field.total) ? field.total : comments.length
+  return {comments, commentsOmitted: Math.max(0, total - comments.length)}
 }
 
 /**

@@ -14,6 +14,13 @@ import {
   supportedTransitions,
 } from './provider-jira.mjs'
 
+/** `resolveIssue`가 가져오는 필드. 빠진 필드는 응답에서 `undefined`로 와 「없다」와 구별되지 않는다. */
+export const ISSUE_FIELDS = Object.freeze([
+  'summary', 'description', 'labels', 'assignee', 'status',
+  'components', 'issuetype', // 분류 근거 — 빠지면 인테이크가 축을 못 본다(AOA-3)
+  'comment', 'issuelinks', 'updated', // 티켓 맥락 — 기획자의 답·선행 티켓·개정 시점(2026-09-11)
+])
+
 /** 인증 헤더. Cloud는 email:token basic, Data Center는 bearer가 일반적이다. */
 export function authHeader(env = process.env) {
   const token = env.JIRA_TOKEN
@@ -89,8 +96,10 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       // 것은 응답 크기 때문인데, 목록에서 빠진 필드는 `undefined`로 와서 「없다」와
       // 구별되지 않는다 — 실측(2026-09-09 AOA-3): 티켓에 `PLAN` 컴포넌트가 있는데
       // 인테이크가 `미분류`를 냈다. 주입 stub을 쓰는 회귀는 이 경로를 타지 않는다.
+      // `comment`·`issuelinks`·`updated`는 티켓 맥락이다(2026-09-11) — 기획자의 답과 선행 티켓이
+      // 본문 밖에 있어 개발 에이전트에 닿지 않았다.
       const payload = await call(config, `/issue/${encodeURIComponent(key)}`
-        + '?fields=summary,description,labels,assignee,status,components,issuetype', options)
+        + `?fields=${ISSUE_FIELDS.join(',')}`, options)
       const issue = parseIssueResponse(payload)
       if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
       return issue

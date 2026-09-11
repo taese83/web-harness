@@ -557,8 +557,8 @@
     {
       "id": "intake-quarantines-ticket-body",
       "file": ".claude/scripts/ticket/intake.mjs",
-      "find": "    '```text untrusted-ticket-body',",
-      "replace": "    '```text ticket-body',",
+      "find": "    `${fenceFor(body ?? '')}text untrusted-ticket-body`,",
+      "replace": "    `${fenceFor(body ?? '')}text ticket-body`,",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "티켓 본문은 외부 입력이다 — 격리 펜스 없이 들이면 산문 속 지시문이 기획 입력으로 파이프라인에 들어간다. 인테이크는 받는 자리라 막지 않으므로 격리가 유일한 방어다"
     },
@@ -629,8 +629,8 @@
     {
       "id": "jira-resolve-issue-fetches-axis-fields",
       "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
-      "find": "        + '?fields=summary,description,labels,assignee,status,components,issuetype', options)",
-      "replace": "        + '?fields=summary,description,labels,assignee,status', options)",
+      "find": "  'components', 'issuetype', // 분류 근거 — 빠지면 인테이크가 축을 못 본다(AOA-3)",
+      "replace": "  // 분류 근거 제거",
       "test": ".claude/scripts/test-ticket-jira.mjs",
       "why": "`?fields=`에서 빠진 필드는 undefined로 와서 「없다」와 구별되지 않는다 — 실 Jira 실측(AOA-3)에서 PLAN 컴포넌트가 있는데 인테이크가 미분류를 냈다. 주입 stub 회귀는 이 경로를 타지 않는다"
     },
@@ -1017,6 +1017,70 @@
       "replace": "   사용자가 거절하면",
       "test": ".claude/scripts/test-wh-lanes.mjs",
       "why": "본문의 승인 문장이 사라져도 frontmatter changelog의 같은 문구가 단언을 통과시켰다 — 승인 없이 준비 단계가 source를 만든다"
+    },
+    {
+      "id": "jira-resolve-fetches-context-fields",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "  'comment', 'issuelinks', 'updated', // 티켓 맥락 — 기획자의 답·선행 티켓·개정 시점(2026-09-11)",
+      "replace": "  // 맥락 제거",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "조회 필드에서 맥락이 빠지면 기획자의 답(코멘트)과 선행 티켓(링크)이 응답에 없고, 없는 필드는 「없음」과 구별되지 않는다 — AOA-3의 미분류와 같은 침묵"
+    },
+    {
+      "id": "comment-injection-excluded-from-context",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "const commentIsSuspect = item => scanUntrustedBody(item?.body).injectionSuspect",
+      "replace": "const commentIsSuspect = item => false",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "의심 코멘트를 빼지 않으면 지시문이 코멘트로 우회해 change-scope·기획 입력 스냅샷에 들어온다"
+    },
+    {
+      "id": "comment-fence-outgrows-content",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "const fenceFor = text => '`'.repeat(Math.max(3, ...[...String(text).matchAll(/`+/g)].map(m => m[0].length + 1)))",
+      "replace": "const fenceFor = text => '```'",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "코멘트 속 ```가 격리 펜스를 닫으면 그 뒤가 펜스 밖, 지시로 읽힐 수 있는 자리에 놓인다"
+    },
+    {
+      "id": "ticket-links-null-is-not-empty",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "find": "    links: Array.isArray(payload.fields?.issuelinks) ? payload.fields.issuelinks.map(parseIssueLink).filter(Boolean) : null,",
+      "replace": "    links: (payload.fields?.issuelinks ?? []).map(parseIssueLink).filter(Boolean),",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "가져오지 않은 링크를 「없음」으로 읽으면 선행 티켓이 있는데 없다고 개발 에이전트에 말한다"
+    },
+    {
+      "id": "jira-comments-omitted-counted",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "find": "  return {comments, commentsOmitted: Math.max(0, total - comments.length)}",
+      "replace": "  return {comments, commentsOmitted: 0}",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "트래커가 덜 준 코멘트를 전부로 세면 잘린 맥락 위에서 개발한다 — 완결성 공백(절단)과 같은 클래스"
+    },
+    {
+      "id": "intake-snapshot-carries-context",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    components: issue.components ?? [], contextLines: ticketContextLines(issue),",
+      "replace": "    components: issue.components ?? [],",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "인테이크가 코멘트를 스냅샷에 넘기지 않으면 기획자의 답이 기획 입력에서 빠진다 — 순수 렌더 회귀는 이 배선을 안 탄다"
+    },
+    {
+      "id": "issue-scan-covers-title",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "  for (const [source, text] of [['title', issue?.title], ['body', issue?.body]]) {",
+      "replace": "  for (const [source, text] of [['body', issue?.body]]) {",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "제목도 격리 발췌에 실린다 — 스캔하지 않으면 지시문이 제목으로 우회한다(종전에 그랬다)"
+    },
+    {
+      "id": "ticket-body-fence-outgrows-content",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "  const fence = fenceFor(raw)",
+      "replace": "  const fence = '```'",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "본문 속 ```가 고정 펜스를 닫으면 그 뒤가 격리 밖에 놓이고, 키워드 없는 산문 지시는 정규식 스캔도 못 잡는다"
     }
   ]
 }
