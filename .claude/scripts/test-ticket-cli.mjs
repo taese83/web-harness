@@ -1166,3 +1166,55 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
   // 값을 받는 플래그에 값이 없으면 거부한다 — 다음 플래그를 값으로 삼키면 계약이 흐려진다.
   assert.equal(decide(`${base} pickup FEAT-001 --repo --developer me`).allowed, false)
 })
+
+// ── 티켓 → change-scope → PR 사슬(2026-09-11) ─────────────────────────────────
+test('runPickup: 개정은 픽업 끝(배정 뒤)에 다시 잰다 — 우리 배정이 「티켓이 바뀌었다」로 읽히지 않게', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    seedClaim(dir)
+    const cleanIo = {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false})}
+    // 조회 순서: 판정 → 배정 직전 재판정 → 배정 직후 확인 → **쓰기 뒤 개정 재조회**.
+    const seq = [
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: [], revision: 'r-before'},
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: [], revision: 'r-before'},
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: ['me'], revision: 'r-assigned'},
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: ['me'], revision: 'r-settled'},
+    ]
+    const done = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units},
+      io: {...cleanIo, resolveIssue: async () => seq.shift(), gh: async () => ''}})
+    assert.equal(done.ok, true)
+    const scope = readChangeScopeFile(dir)
+    assert.equal(scope.ticket.revision, 'r-settled', '픽업 전 개정을 적었다 — 우리 배정이 나중에 변경으로 읽힌다')
+    assert.equal(scope.ticket.revisionStage, 'settled-at-pickup')
+    assert.equal(scope.ticket.provider, 'github')
+
+    // link는 그 개정을 원장에 옮긴다 — 이 PR이 어느 티켓 개정을 보고 개발됐는지.
+    const linked = await runLink({root: dir, featureId: 'FEAT-001', prUrl: 'https://x/pull/9', flags: {units}})
+    assert.equal(linked.ok, true)
+    const record = readLedger(join(dir, LEDGER_RELATIVE)).find(entry => entry.prUrl === 'https://x/pull/9')
+    assert.deepEqual(record?.ticket, scope.ticket, '원장 링크 기록에 개발 기준 티켓 개정이 없다 — 티켓→PR 사슬이 끊긴다')
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})
+
+test('runPickup: 끝의 재조회가 빈 값이면 「정착했다」로 적지 않는다 — 픽업 전 값을 두고 이유를 적는다', async () => {
+  const dir = tmpRoot()
+  try {
+    const units = withUnits(dir)
+    seedClaim(dir)
+    const cleanIo = {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false})}
+    const seq = [
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: [], revision: 'r-before'},
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: [], revision: 'r-before'},
+      {number: 7, provider: 'github', title: 't', body: issueBody, assignees: ['me'], revision: 'r-assigned'},
+      null, // 끝의 재조회가 아무것도 주지 않았다
+    ]
+    const done = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units},
+      io: {...cleanIo, resolveIssue: async () => seq.shift(), gh: async () => ''}})
+    assert.equal(done.ok, true, '재조회 실패로 이미 끝난 배정을 되돌렸다')
+    const scope = readChangeScopeFile(dir)
+    assert.equal(scope.ticket.revision, 'r-before', '빈 재조회로 개정을 지웠다')
+    assert.equal(scope.ticket.revisionStage, 'pre-pickup', '아무것도 못 가져왔는데 정착했다고 적었다')
+    assert.match(scope.ticket.revisionError, /settle-fetch-empty/)
+  } finally { rmSync(dir, {recursive: true, force: true}) }
+})

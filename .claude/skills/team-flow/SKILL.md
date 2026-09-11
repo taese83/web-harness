@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.7.0
+  version: 0.8.0
   maturity: contract-only
   updated: 2026-09-11
-  changelog: 사용자의 픽업 요청이 승인하는 외부 쓰기 셋(배정·in-progress·되돌림 코멘트)을 명시하고 「side-effect는 전부 --confirm」이라던 잔존 서술을 코드(claim·configure만 --confirm)에 맞춤. 이전 — configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  changelog: 픽업이 발급하는 change-scope의 키 집합을 정본으로 적고(ticket-kinds.md) 티켓·개정 블록을 더했다 — 모든 문이 같은 키로 끝난다. 실행 조건은 키로 두지 않고 강제의 실체(규약·서브에이전트 bash 정책·write 임대)를 적었다. 인젝션 스캔 서술을 제목·본문 차단 + 코멘트 제외로 현재화. 이전 — 사용자의 픽업 요청이 승인하는 외부 쓰기 셋(배정·in-progress·되돌림 코멘트)을 명시하고 「side-effect는 전부 --confirm」이라던 잔존 서술을 코드(claim·configure만 --confirm)에 맞춤. 이전 — configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -218,9 +218,10 @@ GitHub Issues는 상태가 open/closed뿐이라 `supported: false`이고, 그것
    - 컨플릭 감지(`resolveWorkingState`) — 미해결이면 **차단**(해결은 개발자 git 작업, 하네스는 자동 X).
    - 형상 대조 — 청구 형상≠로컬이면 청구 형상으로 pull 안내(`reconcileClaimVersion`).
 2. **소유권 + 비신뢰 격리**: `assign.pickupWithOwnership`(ledgerRecord 전달) — 남이 배정했으면 차단,
-   미배정이면 self-assign 필요(`assignArgs`, confirm 뒤). 이슈 본문 인젝션은 `pickup.scanUntrustedBody`가
-   플래그, 스펙 미완/미지 FEAT는 feature-planner 되돌림(TC 발명 금지).
-3. **change-scope 발급**: `pickup.buildChangeScope` → `_workspace/03_dev/change-scope.md`.
+   미배정이면 self-assign 필요(`assignArgs`, confirm 뒤). 제목·본문 인젝션은 `pickup.scanUntrustedIssue`가
+   막고(의심 코멘트는 맥락에서 뺀다), 스펙 미완/미지 FEAT는 feature-planner 되돌림(TC 발명 금지).
+3. **change-scope 발급**: `pickup.buildChangeScope` → `_workspace/03_dev/change-scope.md`. 키 집합은
+   `references/ticket-kinds.md`「모든 문이 같은 change-scope로 끝난다」가 정본이다.
    ALLOWED_PATHS는 FEAT 소유 seed + 개발자 확인. 이후 개발은 표준 web-orchestrator Iterate 흐름.
 
 ### 개발 — 픽업 이후 (dev 브랜치)

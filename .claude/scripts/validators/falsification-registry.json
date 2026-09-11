@@ -1081,6 +1081,46 @@
       "replace": "  const fence = '```'",
       "test": ".claude/scripts/test-ticket-context.mjs",
       "why": "본문 속 ```가 고정 펜스를 닫으면 그 뒤가 격리 밖에 놓이고, 키워드 없는 산문 지시는 정규식 스캔도 못 잡는다"
+    },
+    {
+      "id": "change-scope-ticket-carries-provider",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "      provider: issue.provider ?? null,",
+      "replace": "      provider: null,",
+      "test": ".claude/scripts/test-change-scope-contract.mjs",
+      "why": "change-scope가 어느 트래커의 티켓인지 잃으면 두 경로가 같은 계약으로 닿는지 가를 수 없다"
+    },
+    {
+      "id": "pickup-settles-revision-after-writes",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    pick.changeScope.ticket = {...pick.changeScope.ticket, revision: settled.revision, revisionStage: 'settled-at-pickup'}",
+      "replace": "    void settled",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "픽업 전 개정을 적으면 우리 자신의 배정·전이가 나중에 「티켓이 바뀌었다」로 읽힌다"
+    },
+    {
+      "id": "link-records-ticket-revision",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    ...(staleCheck === 'verified' && changeScope?.ticket ? {ticket: changeScope.ticket} : {}),",
+      "replace": "    ...({}),",
+      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "why": "원장 링크 기록에 티켓 개정이 없으면 이 PR이 어느 티켓 개정을 보고 개발됐는지 사슬이 끊긴다"
+    },
+    {
+      "id": "change-scope-keys-documented",
+      "file": ".claude/skills/team-flow/references/ticket-kinds.md",
+      "find": "| `sourceDigest` | STALE 앵커",
+      "replace": "| sourceDigest | STALE 앵커",
+      "test": ".claude/scripts/test-change-scope-contract.mjs",
+      "why": "코드가 내는 키가 문서에서 빠지면 개발 에이전트가 모르는 필드가 생긴다 — 키 집합의 정본이 코드와 갈라진다"
+    },
+    {
+      "id": "change-scope-runtime-keys-documented",
+      "file": ".claude/skills/team-flow/references/ticket-kinds.md",
+      "find": "| `ticket.revisionError` (선택) |",
+      "replace": "| ticket.revisionError (선택) |",
+      "test": ".claude/scripts/test-change-scope-contract.mjs",
+      "why": "런타임에 덧붙는 키가 문서에서 빠지면 발급 파일에만 있는 필드가 생긴다 — buildChangeScope 반환값만 보는 검사는 그것을 못 본다"
     }
   ]
 }

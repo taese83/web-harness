@@ -150,6 +150,7 @@ export function parseIssueResponse(payload) {
   return {
     number: payload.key,       // pickup·overview가 `number`를 본다 — 트래커 키를 그대로 넣는다
     ticketKey: payload.key,
+    provider: 'jira',
     title: payload.fields?.summary ?? '',
     body: fromAdf(payload.fields?.description ?? ''),
     labels: payload.fields?.labels ?? [],

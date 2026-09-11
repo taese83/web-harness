@@ -10,6 +10,41 @@
 | 개발 티켓(개발자가 직접 씀) | `adopt` → `pickup` | **왕복 마커** | 청구 기록(`origin: adopt`) |
 | 개발 티켓 · 기획 문서 없음 | `adopt --normalize` → `pickup` | **왕복 마커** | 청구 기록 + 계획에 FEAT 섹션 |
 
+## 모든 문이 같은 change-scope로 끝난다
+
+네 경로 모두 마지막 문은 `pickup`이고, 픽업이 **티켓 경로의 유일한 발급자**다 — 그래서 기획 경로로 온
+티켓과 개발자가 직접 쓴 티켓이 개발 에이전트에게 **같은 키**로 닿는다. 아래는 **티켓 경로가 발급하는**
+change-scope의 키이며 `test-change-scope-contract.mjs`가 코드(`buildChangeScope`와 실제 발급 파일)와
+양방향으로 대조한다. 같은 경로(`_workspace/03_dev/change-scope.md`)에 오케스트레이터도 **다른 형식**
+(`minimal-change-contract.md`의 마크다운 brief — `REQUEST`·`DOCS_TO_UPDATE` 등)을 쓴다. 두 형식은
+생산자가 다르고 키가 다르다 — 이 표는 그 brief를 대체하지 않는다(통합은 별건).
+
+<!-- web-harness:change-scope-keys -->
+| 키 | 뜻 |
+|---|---|
+| `ticketKey` | 트래커 키(종전 호환) |
+| `ticket.key` · `ticket.provider` | 어느 트래커의 어느 티켓인가 |
+| `ticket.revision` · `ticket.revisionStage` | 개발 기준 개정 — 픽업 끝에 다시 잰다(`settled-at-pickup`). 못 재면 `pre-pickup` 그대로 |
+| `ticket.revisionError` (선택) | 픽업 끝의 재조회가 실패했거나 빈 값을 줬을 때 그 이유 |
+| `featureId` | 계획 단위 |
+| `TARGET_BEHAVIOR` | 제목·본문 + 티켓 맥락(개정·링크·코멘트) — 전부 격리 블록, 지시 아님 |
+| `requestType` | 요청 유형 |
+| `testCaseIds` | **수용 기준** — 계획의 TC(티켓이 지어내지 않는다). `link`의 완료 판정이 이것을 본다 |
+| `ALLOWED_PATHS` · `needsConfirmation` | 쓰기 범위 seed와 확인 필요 표시 |
+| `PUBLIC_CONTRACTS_TO_PRESERVE` · `NON_GOALS` · `CHANGE_BUDGET` | `minimal-change-contract.md`의 같은 필드 |
+| `sourceDigest` | STALE 앵커 — 픽업 뒤 계획이 바뀌면 `link`가 막는다 |
+<!-- /web-harness:change-scope-keys -->
+
+`link`는 대조한 change-scope의 `ticket`을 원장 링크 기록에 옮긴다 — **이 PR이 어느 티켓 개정을
+보고 개발됐는지**가 원장에 남는다(티켓 → change-scope → PR). 지금 티켓과의 비교는 하지 않는다 —
+`link`는 로컬 기록이고 트래커를 부르지 않는다.
+
+**실행 조건은 change-scope 키가 아니다.** 선언해도 읽는 쪽이 없고, 강제의 실체는 다른 곳에 있다:
+외부 쓰기는 이 스킬의 규약(픽업 요청이 승인하는 셋 — 배정·in-progress 전이·되돌림 코멘트, 머지·완료
+전이는 하지 않는다)이 정하고, 기계 차단은 **하네스 저장소 세션의 서브에이전트에 한한다**(bash 정책은
+플러그인에 실리지 않고 메인 스레드는 대상이 아니다). 같은 체크아웃의 developer 쓰기 직렬화는 write
+임대 훅이 한다(플러그인에도 실린다).
+
 ## 왜 마커가 둘인가
 
 기획 티켓에 왕복 마커를 찍으면 `findByFeature`·`parseIssueRefs`가 그것을 **개발 티켓으로

@@ -198,7 +198,7 @@ export function writeChangeScopeFile(root, changeScope) {
     `# change-scope — ${changeScope.featureId}`,
     '',
     `티켓 ${changeScope.ticketKey ?? '(미상)'} 픽업으로 발급. ALLOWED_PATHS는 확인 후 확정(needsConfirmation).`,
-    '스키마 정본: minimal-change-contract.md · 아래 JSON이 기계 정본(STALE 대조 입력).',
+    '필드 뜻: minimal-change-contract.md · 키 집합: team-flow/references/ticket-kinds.md · 아래 JSON이 기계 정본(STALE 대조 입력).',
     '',
     '```json change-scope',
     JSON.stringify(changeScope, null, 2),
@@ -672,6 +672,16 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
       transition = {supported: true, done: false, error: String(error?.message ?? error).slice(0, 200)}
     }
   }
+  // **개정은 픽업 끝에 다시 잰다**(배정·전이가 있었다면 그 뒤) — 그 전 값을 적으면 우리가 한 배정이
+  // 나중에 「픽업 뒤 티켓이 바뀌었다」로 읽힌다. 재조회가 실패하거나 **빈 값을 주면** 픽업 전 값을 두고
+  // 단계도 그대로 두며 이유를 적는다 — 아무것도 못 가져온 것을 「정착했다」로 적지 않는다.
+  try {
+    const settled = await fetchIssue(record.ticketKey)
+    if (!settled?.revision) throw new Error('settle-fetch-empty')
+    pick.changeScope.ticket = {...pick.changeScope.ticket, revision: settled.revision, revisionStage: 'settled-at-pickup'}
+  } catch (error) {
+    pick.changeScope.ticket = {...pick.changeScope.ticket, revisionError: String(error?.message ?? error).slice(0, 200)}
+  }
   const written = writeChangeScopeFile(root, pick.changeScope)
   return {ok: true, dryRun: false, assignment: pick.assignment, changeScope: pick.changeScope, changeScopePath: written, freshness, transition}
 }
@@ -1109,6 +1119,9 @@ export async function runLink({root, featureId, prUrl, flags, io = {}}) {
     // 링크를 구별하지 못하면 "의식적 인수"는 여기서도 휘발성 주장이다(리뷰 MEDIUM).
     staleCheck,
     ...(flags['accept-unverified-scope'] ? {acceptedUnverifiedScope: true} : {}),
+    // **이 PR이 어느 티켓 개정을 보고 개발됐는가** — 티켓 → change-scope → PR 사슬의 마지막 고리.
+    // 대조한 change-scope일 때만 싣는다(다른 FEAT의 것이면 이 PR의 근거가 아니다).
+    ...(staleCheck === 'verified' && changeScope?.ticket ? {ticket: changeScope.ticket} : {}),
   }
   // link는 "이 PR이 이 티켓의 것"이라는 **사실 기록**이다 — 판단할 것이 없다. 기본 실행.
   if (flags['dry-run']) return {ok: true, dryRun: true, closeLine, record: linkRecord, staleCheck, completion}

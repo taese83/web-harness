@@ -164,6 +164,7 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
   const parsed = JSON.parse(await run(viewArgs(repo, number)))
   return {
     number: parsed.number,
+    provider: 'github',
     title: parsed.title ?? '',
     body: parsed.body ?? '',
     labels: (parsed.labels ?? []).map(l => l.name),

@@ -146,6 +146,15 @@ export function reconcileWithPlan(refs, planUnits) {
 export function buildChangeScope({issue, unit, testCaseIds, allowedPathsSeed = [], preserve = [], requestType = 'feature'}) {
   return {
     ticketKey: issue.ticketKey ?? issue.number ?? null,
+    // **어느 티켓의 어느 개정을 보고 개발하는가**(2026-09-11). 티켓 경로(기획 intake→bind→claim ·
+    // 개발 adopt)는 전부 픽업으로 끝나고 픽업이 이 형식의 유일한 발급자라 같은 키를 받는다. 개정은 픽업 끝에
+    // 다시 잰다(`runPickup`, 배정·전이가 있었다면 그 뒤) — 그 전 값이면 우리 쓰기가 「티켓이 바뀌었다」로 읽힌다.
+    ticket: {
+      key: issue.ticketKey ?? issue.number ?? null,
+      provider: issue.provider ?? null,
+      revision: issue.revision ?? null,
+      revisionStage: 'pre-pickup',
+    },
     featureId: unit.featureId,
     TARGET_BEHAVIOR: quarantineExcerpt(issue), // 격리 발췌(fence+라벨), raw 아님
     requestType,
