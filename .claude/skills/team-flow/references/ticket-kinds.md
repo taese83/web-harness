@@ -39,6 +39,8 @@ change-scope의 키이며 `test-change-scope-contract.mjs`가 코드(`buildChang
 보고 개발됐는지**가 원장에 남는다(티켓 → change-scope → PR). 지금 티켓과의 비교는 하지 않는다 —
 `link`는 로컬 기록이고 트래커를 부르지 않는다.
 
+두 경로를 **실제 Jira provider 코드**로 처음부터 끝까지 도는 회귀가 `test-ticket-routes-e2e.mjs`다(메모리 Jira · feature-planner 단계는 계획 파일로 대신 · git 주입) — 같은 키 집합, 기획자 코멘트의 도달, 트래커 쓰기가 스탬프·발행·배정·in-progress 전이뿐임(`done`이 매핑돼 있어도 부르지 않는다), 원장 링크의 개정 일치를 잰다. 실행 요약: `docs/audits/receipts/2026-09-11-ticket-routes-e2e.json`. **누가 했는가는 트래커 배정자까지다** — 원장은 Claude 세션·에이전트 id를 잇지 않는다(소비자가 생기면 그때 잇는다).
+
 **실행 조건은 change-scope 키가 아니다.** 선언해도 읽는 쪽이 없고, 강제의 실체는 다른 곳에 있다:
 외부 쓰기는 이 스킬의 규약(픽업 요청이 승인하는 셋 — 배정·in-progress 전이·되돌림 코멘트, 머지·완료
 전이는 하지 않는다)이 정하고, 기계 차단은 **하네스 저장소 세션의 서브에이전트에 한한다**(bash 정책은
@@ -87,7 +89,7 @@ change-scope의 키이며 `test-change-scope-contract.mjs`가 코드(`buildChang
 
 **진실 검증 수준: 명명 수준.** 세 문의 판정 경계는 회귀와 반증으로 고정했으나(`bind`가 왕복
 마커를 쓰지 않는가 · `adopt`가 기획 티켓을 거부하는가 · 인테이크가 개발 티켓을 거부하는가),
-**실제 팀의 Jira에서 이 흐름이 끝까지 돈 기록은 아직 없다.** `workspace/*`는 하네스 자기
+**실제 팀의 Jira에서는 픽업까지 1회 돌았고(2026-09-09 AOA — intake·bind·adopt·pickup), link·PR까지 돈 기록은 아직 없다.** `workspace/*`는 하네스 자기
 산출물이라 그 증거가 되지 못한다(`docs/protected-core.md` §4).
 
 ## `--normalize` — 기획 문서가 없는 개발 티켓

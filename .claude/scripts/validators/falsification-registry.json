@@ -1121,6 +1121,38 @@
       "replace": "| ticket.revisionError (선택) |",
       "test": ".claude/scripts/test-change-scope-contract.mjs",
       "why": "런타임에 덧붙는 키가 문서에서 빠지면 발급 파일에만 있는 필드가 생긴다 — buildChangeScope 반환값만 보는 검사는 그것을 못 본다"
+    },
+    {
+      "id": "pickup-transitions-only-in-progress",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "      const result = await provider.transition(record.ticketKey, 'in-progress')",
+      "replace": "      const result = await provider.transition(record.ticketKey, 'done')",
+      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "why": "픽업이 완료 전이를 부르면 사람 승인 없이 티켓이 done으로 간다 — 매핑이 있어도 개발 흐름은 in-progress만 부른다"
+    },
+    {
+      "id": "jira-assign-honors-assignee-field",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "      const body = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}",
+      "replace": "      const body = {accountId: assignee}",
+      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "why": "Data Center(name)에 accountId로 배정하면 배정이 조용히 비어 픽업이 성공했다고 보고한다 — 주입 stub 회귀는 이 경로를 안 탄다"
+    },
+    {
+      "id": "jira-issue-declares-provider",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "find": "    provider: 'jira',",
+      "replace": "    provider: null,",
+      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "why": "Jira 이슈가 트래커를 밝히지 않으면 change-scope가 어느 트래커의 티켓인지 잃는다 — 계약 테스트는 이슈를 직접 만들어 이 경로를 안 탄다"
+    },
+    {
+      "id": "e2e-sees-missing-context-fields",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "  'comment', 'issuelinks', 'updated', // 티켓 맥락 — 기획자의 답·선행 티켓·개정 시점(2026-09-11)",
+      "replace": "  // 맥락 제거",
+      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "why": "조회 필드에서 맥락이 빠지면 실 Jira는 코멘트를 주지 않는다 — stub이 fields=를 존중해야 종단 회귀가 AOA-3 기제를 본다"
     }
   ]
 }

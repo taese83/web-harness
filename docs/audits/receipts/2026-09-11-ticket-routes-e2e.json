@@ -1,0 +1,143 @@
+{
+  "kind": "ticket-routes-inprocess",
+  "evidenceClass": "프로세스 내 실행 — 트래커는 stub, LLM 단계는 대역, git은 주입. 실제 Claude Code 종단 실행이 아니다",
+  "measuredAt": "2026-09-11T05:26:10.098Z",
+  "harness": {
+    "baseCommit": "4fc5202",
+    "note": "baseCommit 위의 작업 트리에서 생성 — 커밋 전이면 이 파일이 들어가는 커밋의 트리다"
+  },
+  "tracker": "jira (메모리 stub, REST v2) — 실제 createJiraProvider 경유",
+  "runtime": {
+    "node": "v22.22.3"
+  },
+  "routes": {
+    "plan": {
+      "devTicket": "PF-101",
+      "trackerWrites": [
+        "update body PF-1",
+        "create issue",
+        "assign PF-101 → dev1",
+        "transition PF-101 → 31"
+      ],
+      "changeScopeKeys": [
+        "ALLOWED_PATHS",
+        "CHANGE_BUDGET",
+        "NON_GOALS",
+        "PUBLIC_CONTRACTS_TO_PRESERVE",
+        "TARGET_BEHAVIOR",
+        "featureId",
+        "needsConfirmation",
+        "requestType",
+        "sourceDigest",
+        "testCaseIds",
+        "ticket.key",
+        "ticket.provider",
+        "ticket.revision",
+        "ticket.revisionStage",
+        "ticketKey"
+      ],
+      "ticket": {
+        "key": "PF-101",
+        "provider": "jira",
+        "revision": "2026-09-11T00:00:07.000+0000",
+        "revisionStage": "settled-at-pickup"
+      },
+      "ledger": [
+        {
+          "featureId": "FEAT-001",
+          "ticketKey": "PF-101",
+          "origin": null,
+          "prUrl": null,
+          "ticket": null,
+          "completion": null
+        },
+        {
+          "featureId": "FEAT-001",
+          "ticketKey": "PF-101",
+          "origin": null,
+          "prUrl": "https://git.test/o/r/pull/11",
+          "ticket": {
+            "key": "PF-101",
+            "provider": "jira",
+            "revision": "2026-09-11T00:00:07.000+0000",
+            "revisionStage": "settled-at-pickup"
+          },
+          "completion": {
+            "total": 2,
+            "cited": 2,
+            "deferred": [],
+            "missing": []
+          }
+        }
+      ]
+    },
+    "develop": {
+      "devTicket": "PF-5",
+      "trackerWrites": [
+        "update body PF-5",
+        "assign PF-5 → dev2",
+        "transition PF-5 → 31"
+      ],
+      "changeScopeKeys": [
+        "ALLOWED_PATHS",
+        "CHANGE_BUDGET",
+        "NON_GOALS",
+        "PUBLIC_CONTRACTS_TO_PRESERVE",
+        "TARGET_BEHAVIOR",
+        "featureId",
+        "needsConfirmation",
+        "requestType",
+        "sourceDigest",
+        "testCaseIds",
+        "ticket.key",
+        "ticket.provider",
+        "ticket.revision",
+        "ticket.revisionStage",
+        "ticketKey"
+      ],
+      "ticket": {
+        "key": "PF-5",
+        "provider": "jira",
+        "revision": "2026-09-11T00:00:05.000+0000",
+        "revisionStage": "settled-at-pickup"
+      },
+      "ledger": [
+        {
+          "featureId": "FEAT-002",
+          "ticketKey": "PF-5",
+          "origin": "adopt",
+          "prUrl": null,
+          "ticket": null,
+          "completion": null
+        },
+        {
+          "featureId": "FEAT-002",
+          "ticketKey": "PF-5",
+          "origin": null,
+          "prUrl": "https://git.test/o/r/pull/12",
+          "ticket": {
+            "key": "PF-5",
+            "provider": "jira",
+            "revision": "2026-09-11T00:00:05.000+0000",
+            "revisionStage": "settled-at-pickup"
+          },
+          "completion": {
+            "total": 1,
+            "cited": 1,
+            "deferred": [],
+            "missing": []
+          }
+        }
+      ]
+    }
+  },
+  "limits": [
+    "트래커는 메모리 stub이다 — 실 Jira의 권한·워크플로우·필드 제약은 재지 않는다(실 Jira 실측은 2026-09-09 AOA 프로젝트 1회)",
+    "feature-planner(LLM) 단계는 계획 파일을 직접 써서 대신했다 — 스냅샷에서 FEAT·TC를 뽑는 품질은 재지 않는다",
+    "git 상태(브랜치·origin 동기·머지)는 주입했다 — 청구 브랜치와 픽업 브랜치가 같은 상수라 브랜치 대조는 자명 통과다",
+    "stub이 실 Jira보다 관대한 곳: 전이 목록이 상태와 무관하게 늘 같고 어떤 전이 id도 받는다 · 권한·필수 필드 검사가 없다",
+    "사람의 본문 편집은 문자열 변환이다 — Jira 편집기에서 준비 항목·마커가 살아남는지는 재지 않는다",
+    "준비 항목을 채우기 전의 content-incomplete 되돌림은 이 실행이 보여주지 않는다(다른 회귀의 몫)",
+    "누가 했는가는 트래커 배정자까지다 — 원장은 Claude 세션·에이전트 id를 잇지 않는다"
+  ]
+}
