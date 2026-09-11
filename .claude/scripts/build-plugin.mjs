@@ -70,6 +70,11 @@ const PLUGIN_HOOKS = [
 // 아니면 침묵한다. matcher 없음 = startup/resume/clear/compact 전부(압축 후 재진입 포함).
 const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
 
+// SubagentStop — 끝난 developer 스폰의 write 임대를 놓는다(`write-lease-lib.mjs`). 짝인 취득은
+// `enforce-agent-ownership.mjs`(PreToolUse)에 있다. 이것이 빠지면 첫 developer 스폰이 끝난 뒤에도
+// 임대가 남아 **두 번째 스폰이 영원히 막힌다** — 취득과 해제는 반드시 함께 배포한다.
+const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs']
+
 const SCRIPT_INVOCATION = /node (?:"\$CLAUDE_PROJECT_DIR"\/|\{[a-zA-Z]+\}\/)?\.claude\/scripts\/([a-z0-9/-]+\.mjs)/g
 const DOCUMENT_REFERENCE = /\.claude\/((?:skills|agents|adapters|schemas)\/[A-Za-z0-9._/-]*[A-Za-z0-9])/g
 const RESIDUAL_REFERENCE = /\.claude\/(?:scripts|skills|agents|adapters|schemas|evals)\//g
@@ -269,6 +274,9 @@ writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
     })),
     PreToolUse: PLUGIN_HOOKS.map(([matcher, script]) => ({
       matcher,
+      hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
+    })),
+    SubagentStop: PLUGIN_SUBAGENT_STOP_HOOKS.map(script => ({
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
     })),
   },

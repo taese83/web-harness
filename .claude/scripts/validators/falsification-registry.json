@@ -961,6 +961,46 @@
       "replace": "export const refusesNestedRun = depth => false && depth >= MAX_NESTED_DEPTH",
       "test": ".claude/scripts/test-falsification-depth.mjs",
       "why": "깊이 제한이 꺼지면 락 seed가 변형한 사본의 러너가 자기 사본(변형 포함)을 계속 복사해 끝나지 않는다 — 실측 53분·약 130층"
+    },
+    {
+      "id": "write-lease-blocks-other-developer",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "    if (lease.held) block(leaseBlockMessage(",
+      "replace": "    if (false) block(leaseBlockMessage(",
+      "test": ".claude/scripts/test-write-lease.mjs",
+      "why": "임대가 있어도 막지 않으면 같은 체크아웃의 두 developer가 change-scope.md 하나를 공유한 채 동시에 쓴다(FINDING-003)"
+    },
+    {
+      "id": "write-lease-developer-only",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  if (agentType === DEVELOPER_AGENT && typeof input.agent_id === 'string' && input.agent_id) {",
+      "replace": "  if (typeof input.agent_id === 'string' && input.agent_id) {",
+      "test": ".claude/scripts/test-write-lease.mjs",
+      "why": "developer가 아닌 writer까지 직렬화하면 서로소 산출물을 병렬로 쓰도록 설계된 디자인 wave가 막힌다"
+    },
+    {
+      "id": "write-lease-releases-only-own",
+      "file": ".claude/scripts/write-lease-lib.mjs",
+      "find": "    if (holder?.agentId && holder.agentId === agentId) {",
+      "replace": "    if (holder?.agentId) {",
+      "test": ".claude/scripts/test-write-lease.mjs",
+      "why": "남의 SubagentStop이 임대를 지우면 쓰는 도중인 스폰 옆으로 다른 스폰이 들어온다"
+    },
+    {
+      "id": "write-lease-classifies-errors",
+      "file": ".claude/scripts/write-lease-lib.mjs",
+      "find": "      if (error?.code === 'EEXIST') {",
+      "replace": "      if (true) {",
+      "test": ".claude/scripts/test-write-lease.mjs",
+      "why": "권한 오류를 보유 중으로 읽으면 없는 홀더를 지어낸다 — 반증 러너의 pid NaN과 같은 클래스"
+    },
+    {
+      "id": "write-lease-release-hook-ships",
+      "file": ".claude/scripts/build-plugin.mjs",
+      "find": "    SubagentStop: PLUGIN_SUBAGENT_STOP_HOOKS.map(script => ({",
+      "replace": "    SubagentStopDisabled: PLUGIN_SUBAGENT_STOP_HOOKS.map(script => ({",
+      "test": ".claude/scripts/test-write-lease.mjs",
+      "why": "해제 훅이 배포에서 빠지면 첫 developer 스폰 뒤 임대가 남아 두 번째 스폰부터 영원히 막힌다"
     }
   ]
 }

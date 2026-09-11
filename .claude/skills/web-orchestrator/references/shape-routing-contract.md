@@ -32,6 +32,7 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 **병렬로 돌리지 않는다.** 둘 다 `developer`이고 갈리는 것은 스폰 범위뿐인데, 범위를 스폰별로
 넣는 채널이 없어 두 스폰이 같은 범위를 본다(`phase-3-development.md` 「병렬 안전의 조건」).
 직렬화하거나 **체크아웃을 나눈다** — 세션만 나누면 같은 `change-scope.md`를 읽으므로 격리가 아니다.
+같은 체크아웃에서 병렬로 띄우면 write 임대가 두 번째 developer의 쓰기를 막는다(`phase-3-development.md`).
 
 **공통(형태 무관)**: `environment-scaffolder`가 항상 먼저 돈다.
 `code-reviewer` · `security-reviewer` · `test-executor`는 항상 돈다.

@@ -3,6 +3,7 @@
 import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
+import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -150,6 +151,21 @@ try {
         + `Confirm the spec before Phase 3 implementation spawns.`)
     }
     block(`Blocked: no write ownership is defined for ${input.agent_type}.`)
+  }
+  // **같은 체크아웃의 developer 스폰은 한 번에 하나만 쓴다(감사 FINDING-003).** 범위 파일
+  // (`change-scope.md`)을 모든 스폰이 공유하므로 병렬로 쓰면 마지막 범위가 다른 스폰에도 적용된다.
+  // 스폰 신원은 런타임이 `agent_id`로 넣는다(2026-09-11 실측: 병렬 서브에이전트 둘 → 서로 다른 id,
+  // 메인 스레드 → 없음). 저널 쓰기보다 **앞에** 둔다 — 저널도 `developer.md` 하나를 공유한다.
+  // 소유권 **정의**가 있는 developer만 잡는다(스팩이 없는 스폰은 위에서 막혀 임대를 잡지 않는다).
+  // layerMap 밖 경로 쓰기는 임대를 잡은 뒤 아래에서 막힌다 — 이미 쓰려는 같은 스폰이므로 그 스폰의
+  // `SubagentStop`이 놓는다.
+  if (agentType === DEVELOPER_AGENT && typeof input.agent_id === 'string' && input.agent_id) {
+    const lease = acquireLease({projectRoot, agentId: input.agent_id, agentType, sessionId: input.session_id ?? null})
+    if (lease.held) block(leaseBlockMessage({held: lease.held, path: lease.path, agentType: input.agent_type}))
+    if (lease.unavailable) {
+      block(`Blocked: ${input.agent_type} — write 임대를 만들 수 없어 같은 체크아웃의 직렬화를 보장할 수 없다 `
+        + `(${lease.unavailable.join(' · ')}). 보장할 수 없으면 쓰지 않는다.`)
+    }
   }
   const ownJournalPath = `_workspace/03_dev/change-journal/${agentType}.md`
   if (ownershipPath === ownJournalPath) process.exit(0)

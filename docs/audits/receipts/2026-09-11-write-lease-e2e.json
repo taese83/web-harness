@@ -1,0 +1,56 @@
+{
+  "kind": "write-lease-e2e",
+  "finding": "FINDING-003",
+  "measuredAt": "2026-09-11",
+  "runtime": {
+    "claudeCode": "2.1.268",
+    "node": "v22.22.3"
+  },
+  "harness": {
+    "baseCommit": "341a0f7",
+    "note": "HEAD 341a0f7 위의 미커밋 작업 트리(P0-2 변경 적용)에서 저장소의 실제 훅 스크립트를 임시 프로젝트에 절대 경로로 배선 — 이 receipt는 P0-2 커밋과 함께 들어간다"
+  },
+  "setup": "임시 프로젝트 · spec.json layerMap(src/entities, src/widgets) · developer 서브에이전트 둘을 한 메시지에서 병렬 스폰 · 각자 쓰기 → sleep 8 → 쓰기",
+  "events": [
+    {
+      "atSeconds": 0,
+      "event": "PreToolUse",
+      "agentId": "ac5d6632ee215c23e",
+      "file": "entities/a1.ts"
+    },
+    {
+      "atSeconds": 1.7,
+      "event": "PreToolUse",
+      "agentId": "a68441d9a828af345",
+      "file": "widgets/b1.ts"
+    },
+    {
+      "atSeconds": 13.8,
+      "event": "SubagentStop",
+      "agentId": "a68441d9a828af345"
+    },
+    {
+      "atSeconds": 14.6,
+      "event": "PreToolUse",
+      "agentId": "ac5d6632ee215c23e",
+      "file": "entities/a2.ts"
+    },
+    {
+      "atSeconds": 19.3,
+      "event": "SubagentStop",
+      "agentId": "ac5d6632ee215c23e"
+    }
+  ],
+  "filesCreated": [
+    "src/entities/a1.ts",
+    "src/entities/a2.ts"
+  ],
+  "blockMessage": "Blocked: developer — 같은 체크아웃에서 다른 developer 스폰(developer ac5d6632ee215c23e)이 쓰는 중이다(2s 전 시작). 범위 파일(change-scope.md)을 공유하므로 병렬 쓰기는 직렬화한다 — 그 스폰이 끝나면 풀린다. 병렬이 필요하면 체크아웃(worktree)을 나눠라. 홀더가 이미 죽었는데 풀리지 않으면(세션 강제 종료) 다른 스폰이 없는지 확인한 뒤 /var/folders/wz/591h4msd699d9_7g_1_q5xsr0000gn/T/web-harness-write-lease-8aa6b45041935fa0.json를 지워라 — 자동 회수는 원자로 만들 수 없어 하지 않는다.",
+  "leaseLeftAfterRun": false,
+  "verdict": "두 번째 developer의 쓰기가 첫 스폰이 쓰는 동안 막혔고, 첫 스폰의 두 번째 쓰기는 허용됐으며, 홀더의 SubagentStop 뒤 임대가 남지 않았다",
+  "limits": [
+    "13.8s의 남의 SubagentStop 뒤 첫 스폰의 쓰기가 허용된 것은 「남의 SubagentStop이 임대를 풀지 않는다」의 증거가 아니다 — 풀렸어도 첫 스폰이 새로 잡아 통과한다. 그 성질은 단위 테스트(test-write-lease.mjs 3번)와 seed write-lease-releases-only-own이 근거다",
+    "막힌 스폰은 재시도하지 않고 멈췄다 — 오케스트레이터가 developer 쓰기 스폰을 직렬로 띄워야 한다(계약에 명시)",
+    "1회 실행이며 타이밍 의존 — 겹침은 sleep 8로 강제했다"
+  ]
+}
