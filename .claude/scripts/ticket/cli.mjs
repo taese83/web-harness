@@ -6,8 +6,9 @@
 // policy가 gh/git·미등재 스크립트를 차단하며, **등재하지 않기로 결정**했다(repo 안전 정책
 // 비약화 — 2026-08-24, da6e375 공시의 재검토 결론). repo-내에서는 순수 미리보기까지만.
 //
-// side-effect 규율: 쓰기(이슈 생성·self-assign·원장 append·change-scope 작성)는 전부
-// `--confirm` 없이는 실행하지 않는다(미리보기만) — 스킬의 사람 확인 게이트가 --confirm을 단다.
+// side-effect 규율: `claim`(이슈 무더기 발행)·`configure`만 `--confirm` 없이 미리보기다. `pickup`·`link`·
+// `adopt`·`bind`·`intake`는 **사용자의 요청이 곧 승인**이며 `--dry-run`으로 미리본다(2026-09-11 정정 —
+// 종전 헤더는 「쓰기 전부 --confirm」이라 적었으나 코드가 --confirm을 보는 곳은 claim·configure뿐이다).
 import {DEV_TICKET, adoptLedgerRecord, appendInventory, buildSourceMarker, checkAdopt, checkBind, classifyByComponent, planIntake, recordConsumption, stampSourceInto} from './intake.mjs'
 import {scanUntrustedBody} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
@@ -539,8 +540,10 @@ export async function runClaim({root, repo, flags, io = {}}) {
 
 /**
  * pickup: 착수. 게이트 순서 — 준비(브랜치·컨플릭·형상, 점 2·3·4) → 소유권+비신뢰(코어) →
- * --confirm일 때만 self-assign(TOCTOU 완화: **assign 직전 재조회·재판정 + 사후 다중배정 감지**,
- * §4 조건 이행) → change-scope.md 발급.
+ * self-assign(TOCTOU 완화: **assign 직전 재조회·재판정 + 사후 다중배정 감지**, §4 조건 이행) →
+ * change-scope.md 발급. **`--confirm`을 보지 않는다** — 픽업 요청 자체가 승인이다(`team-flow`
+ * 「묻지 않고 실행한다」, 2026-09-11 사용자 결정). 미리보기는 `--dry-run`. 종전 주석은
+ * 「--confirm일 때만 self-assign」이라 적었으나 코드는 그런 적이 없었다.
  */
 export async function runPickup({root, repo, featureId, developer, flags, io = {}}) {
   // 브랜치·형상 대조도 origin 스냅샷을 본다 — 판정 전에 갱신한다.
@@ -1026,7 +1029,7 @@ export function appendPlanSection(root, section) {
 
 /**
  * link: PR↔원장 연결. 게이트 — change-scope STALE이면 완료 차단(C 계약) → 원장 대조 close
- * 참조(verified만 Closes) → 멱등(computePrLinkPlan) → --confirm일 때만 원장 append.
+ * 참조(verified만 Closes) → 멱등(computePrLinkPlan) → 원장 append(`--dry-run`이면 생략).
  */
 export async function runLink({root, featureId, prUrl, flags, io = {}}) {
   const ledgerFile = join(root, LEDGER_RELATIVE)

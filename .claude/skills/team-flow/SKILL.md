@@ -5,17 +5,17 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.6.0
+  version: 0.7.0
   maturity: contract-only
-  updated: 2026-09-02
-  changelog: configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  updated: 2026-09-11
+  changelog: 사용자의 픽업 요청이 승인하는 외부 쓰기 셋(배정·in-progress·되돌림 코멘트)을 명시하고 「side-effect는 전부 --confirm」이라던 잔존 서술을 코드(claim·configure만 --confirm)에 맞춤. 이전 — configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
 
 기획→디자인이 끝난 계획을 **팀이 나눠 개발**하는 티켓 흐름의 진입점. 순수 코어(`.claude/scripts/ticket/*.mjs`)와
-gh/git 실행부를 **confirm 게이트**로 엮는다. 이 스킬은 pr-drafter처럼 사람 확인을 요구하는 side-effect
-(이슈 생성·self-assign·PR·원장 기록)를 절대 침묵 자동발사하지 않는다.
+gh/git 실행부를 **사람 승인**으로 엮는다. `claim`(이슈 무더기 발행)·`configure`는 `--confirm`, `pickup`·`link`는
+**사용자의 요청 자체가 승인**이다(`--dry-run`으로 미리보기). 요청 없이 스스로 발사하지 않는다.
 
 설계 정본은 `docs/team-workflow-integration-design.md`, 불변식은 `docs/protected-core.md`. 시작 전 설계 doc의
 "형상 규율 4점(VCS 게이트)"과 "청구≠픽업" 절을 읽는다.
@@ -23,20 +23,20 @@ gh/git 실행부를 **confirm 게이트**로 엮는다. 이 스킬은 pr-drafter
 > **실행 환경 한계(정직 공시)**: gh/git 실행부는 **플러그인 배포판에서만** 동작한다. 하네스 저장소
 > 자체 세션은 global Bash policy가 `git`/`gh`를 `DENY_NETWORK`로 차단하고 ticket 스크립트를
 > allowlist하지 않으므로, repo-내에서는 미리보기(순수 코어)까지만 가능하다.
-> **allowlist 재검토 결론(2026-08-24)**: 등재하지 않는다 — repo 안전 정책을 약화하지 않고
-> executor CLI(`.claude/scripts/ticket/cli.mjs`)는 플러그인 런타임 전용으로 둔다.
+> **allowlist(2026-09-09 갱신)**: `ticket/cli.mjs`는 명령별 인자 계약으로 등재됐다(`global-bash-policy-lib`) —
+> 게이트를 끄는 탈출 플래그는 열지 않는다. gh/git 네트워크 호출은 여전히 플러그인 런타임에서만 된다.
 
 ## 실행부 executor CLI
 
 각 모드의 실행은 `node .claude/scripts/ticket/cli.mjs <cmd>`가 담당한다(결과 JSON, 게이트 차단
-= exit 2). **side-effect는 `--confirm` 없이는 절대 실행되지 않는다** — 스킬이 미리보기를 사람에게
-보여주고 확인받은 뒤에만 `--confirm`을 단다.
+= exit 2). `claim`·`configure`는 `--confirm` 없이 미리보기만 한다. `pickup`·`link`는 **사용자가 요청했을 때만**
+부르고 요청이 곧 승인이다 — 미리보기가 필요하면 `--dry-run`.
 
 ```
 cli.mjs claim  --repo <o/r> [--units u.json] [--assignee me] [--confirm]   # origin 게이트→미리보기→발행
 cli.mjs board  --repo <o/r> [--developer me]                               # 배정·merged(gh pr state) 실측 보드
-cli.mjs pickup <FEAT> --repo <o/r> --developer me [--confirm]              # 게이트→TOCTOU 재판정→self-assign→change-scope 발급
-cli.mjs link   <FEAT> <pr-url> [--confirm]                                 # STALE 차단→verified Closes→원장 링크(멱등)
+cli.mjs pickup <FEAT> --repo <o/r> --developer me [--dry-run]              # 게이트→TOCTOU 재판정→self-assign→change-scope 발급
+cli.mjs link   <FEAT> <pr-url> [--dry-run]                                 # STALE 차단→verified Closes→원장 링크(멱등)
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
 ```
 
@@ -197,8 +197,8 @@ GitHub Issues는 상태가 open/closed뿐이라 `supported: false`이고, 그것
 차이다. 안 한 것과 못 한 것을 구분하지 않으면 사용자는 티켓이 진행중으로 바뀐 줄 안다.
 전이가 실패해도 배정은 되돌리지 않되 `error`를 감추지 않는다.
 
-**묻지 않고 실행한다.** 게이트가 전부 통과했고, 배정 대상은 요청자 자신이며, 되돌릴 수 있다 —
-여기서 한 번 더 확인을 받는 것은 판단을 요구하는 게 아니라 의식이다. 개발 단계의 확인 지점은
+**묻지 않고 실행한다 — 사용자의 픽업 요청이 곧 승인이다.** 승인 범위는 셋이다: 본인 배정 · `in-progress`
+전이 · 준비 미달 시 기획자 티켓의 되돌림 코멘트(되돌릴 수 있고 요청자 본인의 착수다). 개발 단계의 확인 지점은
 **PR 직전 하나뿐**이다(`phase-3-development.md` 형상 규율). 미리보기가 필요하면 `--dry-run`.
 `link`도 같다 — "이 PR이 이 티켓의 것"이라는 사실 기록이라 판단할 것이 없다.
 **`claim`은 예외다**: 기획자가 트래커에 이슈를 무더기로 내는 아웃바운드 행위이므로 `--confirm`을

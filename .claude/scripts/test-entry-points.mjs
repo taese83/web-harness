@@ -6,13 +6,14 @@
 //   (2) 경로 조각을 슬래시 명령으로 오인하지 않는다 — 실측 오탐 3건을 낸 자리다
 //   (3) 분모가 0이면 통과가 아니다
 //   (4) 실제 저장소가 통과한다 — 픽스처만으로는 배선을 증명하지 못한다
+//   (5) eval 진입점: 내부 직행은 `internal-unit` 선언이 있을 때만 · 레인은 wh 선언에서 · covers 필수
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {spawnSync} from 'node:child_process'
-import {findAdvertisedInternals, internalSkills, validateEntryPoints}
+import {declaredLanes, findAdvertisedInternals, findEvalEntryViolations, internalSkills, validateEntryPoints}
   from './validators/validate-entry-points.mjs'
 
 const scaffold = ({description, readme}) => {
@@ -84,4 +85,79 @@ test('실제 저장소가 통과하고 validate-harness가 이 검사를 부른�
   assert.equal(run.status, 0, run.stderr)
   assert.match(run.stdout, /entry point advertising checked \(\d+ internal skills/,
     '보고에 측정값이 없다 — 호출부가 끊겼거나 고정 문구다')
+})
+
+// ── eval 진입점 (2026-09-11) ──────────────────────────────────────────────────
+// 48개 중 43개가 `[내부]` 스킬로 곧장 들어가 레인 판정을 한 번도 시험하지 않았고, 문서만 보던
+// 이 검사는 그것을 잡지 못했다. 이관 전 파일에 대면 internal-entry 43 · no-covers 48이 나왔다.
+const evalScaffold = () => {
+  const root = scaffold({description: '[내부] /wh plan이 호출한다.', readme: 'x\n'})
+  mkdirSync(join(root, '.claude/skills/wh'), {recursive: true})
+  writeFileSync(join(root, '.claude/skills/wh/SKILL.md'),
+    '---\nname: wh\ndescription: 진입점\n---\n첫 단어가 `plan`·`new`·`verify` 중 하나면 그 레인으로 **강제**한다.\n')
+  mkdirSync(join(root, '.claude/skills/project-init'), {recursive: true})
+  writeFileSync(join(root, '.claude/skills/project-init/SKILL.md'), '---\nname: project-init\ndescription: 공개\n---\n')
+  return root
+}
+const scenario = over => ({id: 's', entrySkill: '/wh plan', prompt: 'p', assertions: ['a'], covers: ['web-plan'], ...over})
+
+test('eval이 내부 스킬로 곧장 들어가면 잡는다 — 표시 없이는 사용자 경로가 아니다', () => {
+  const root = evalScaffold()
+  try {
+    const found = findEvalEntryViolations(root, {scenarios: [scenario({entrySkill: '/web-plan'})]})
+    assert.deepEqual(found.map(item => item.kind), ['internal-entry'])
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('컴패니언 단위 시험은 internal-unit으로 선언하면 허용한다 — 실패 원인을 가르려고 직접 시험한다', () => {
+  const root = evalScaffold()
+  try {
+    assert.deepEqual(findEvalEntryViolations(root,
+      {scenarios: [scenario({entrySkill: '/web-plan', entryKind: 'internal-unit'})]}), [])
+    // 공개 스킬에 붙인 internal-unit은 거짓 표시다.
+    assert.deepEqual(findEvalEntryViolations(root,
+      {scenarios: [scenario({entrySkill: '/project-init', entryKind: 'internal-unit', covers: ['project-init']})]})
+      .map(item => item.kind), ['label-misuse'])
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('레인은 wh/SKILL.md 선언에서 읽는다 — 선언되지 않은 레인을 잡는다', () => {
+  const root = evalScaffold()
+  try {
+    // 픽스처의 wh는 plan·new·verify만 선언한다 — change는 이 저장소에선 없는 레인이다.
+    assert.deepEqual(findEvalEntryViolations(root, {scenarios: [scenario({entrySkill: '/wh change'})]})
+      .map(item => item.kind), ['unknown-lane'])
+    assert.deepEqual(findEvalEntryViolations(root, {scenarios: [scenario({entrySkill: '/wh'})]}), [],
+      '레인 없는 /wh는 자동 판정이라 허용한다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('covers가 없거나 없는 스킬을 가리키면 잡는다 — eval-covered의 근거다', () => {
+  const root = evalScaffold()
+  try {
+    assert.deepEqual(findEvalEntryViolations(root, {scenarios: [scenario({covers: []})]})
+      .map(item => item.kind), ['no-covers'])
+    assert.deepEqual(findEvalEntryViolations(root, {scenarios: [scenario({covers: ['ghost-skill']})]})
+      .map(item => item.kind), ['unknown-covers'])
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('실제 저장소의 eval이 사용자 경로와 맞는다', () => {
+  const repositoryRoot = new URL('../..', import.meta.url).pathname
+  assert.deepEqual(findEvalEntryViolations(repositoryRoot), [])
+  assert.ok(declaredLanes(repositoryRoot).includes('plan'), 'wh의 레인 선언을 못 읽었다')
+})
+
+test('validateEntryPoints가 eval 검사를 실제로 부른다 — 배선', () => {
+  const root = evalScaffold()
+  try {
+    mkdirSync(join(root, '.claude/evals'), {recursive: true})
+    writeFileSync(join(root, '.claude/evals/scenarios.json'),
+      JSON.stringify([scenario({id: 'bypass', entrySkill: '/web-plan'})]))
+    const calls = {pass: [], fail: []}
+    validateEntryPoints({repositoryRoot: root,
+      pass: message => calls.pass.push(message), fail: message => calls.fail.push(message)})
+    assert.ok(calls.fail.some(message => message.includes("'bypass'")),
+      `내부 직행 eval이 있는데 막지 않았다 — 순수 함수만 살아 있고 호출부가 끊겼다\n${calls.fail.join('\n')}`)
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })

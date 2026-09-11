@@ -57,6 +57,64 @@ export function findAdvertisedInternals(repositoryRoot, {docs = USER_DOCS} = {})
   return violations
 }
 
+/** `/wh`가 받는 레인. **`wh/SKILL.md`의 선언을 읽는다** — 여기 목록을 적으면 두 곳이 갈라진다. */
+export function declaredLanes(repositoryRoot) {
+  const path = join(repositoryRoot, '.claude/skills/wh/SKILL.md')
+  if (!existsSync(path)) return []
+  const line = /^첫 단어가 (.+?) 중 하나면/m.exec(readFileSync(path, 'utf8'))
+  return line ? [...line[1].matchAll(/`([a-z]+)`/g)].map(match => match[1]) : []
+}
+
+/**
+ * eval 시나리오의 진입점을 사용자 경로와 대조한다(2026-09-11).
+ *
+ * 계기: 48개 중 43개가 `[내부]` 스킬로 곧장 들어갔다 — 사용자에게 "직접 부르지 말라"고 한
+ * 경로다. 그래서 레인 판정·배너·게이트를 시험하는 시나리오가 2건뿐이었고, 문서만 보는 이
+ * 검사는 그것을 한 번도 잡지 못했다.
+ *
+ * **내부 직행을 금지하지 않는다.** 컴패니언(모드로 골라 쓰는 부품)은 직접 시험해야 실패 원인이
+ * 갈린다 — `/wh`로 넣으면 「라우팅이 그 모드를 골랐는가」와 「컴패니언이 계약을 지켰는가」가 한
+ * 시험에 섞인다. 대신 **`entryKind: "internal-unit"`으로 의도를 드러내야** 한다.
+ */
+export function findEvalEntryViolations(repositoryRoot, {scenarios = null} = {}) {
+  const internals = new Set(internalSkills(repositoryRoot))
+  const lanes = new Set(declaredLanes(repositoryRoot))
+  const skillsDir = join(repositoryRoot, '.claude/skills')
+  const exists = name => existsSync(join(skillsDir, name, 'SKILL.md'))
+  let list = scenarios
+  if (list === null) {
+    const path = join(repositoryRoot, '.claude/evals/scenarios.json')
+    if (!existsSync(path)) return []
+    list = JSON.parse(readFileSync(path, 'utf8'))
+  }
+  const violations = []
+  for (const scenario of list) {
+    const [command, lane] = String(scenario?.entrySkill ?? '').trim().split(/\s+/)
+    const skill = command.replace(/^\//, '')
+    if (skill === 'wh') {
+      // `/wh` 단독은 자동 판정이라 허용한다. 레인을 적었으면 **선언된 레인**이어야 한다.
+      if (lane !== undefined && !lanes.has(lane)) violations.push({id: scenario.id, kind: 'unknown-lane', detail: lane})
+    } else if (internals.has(skill) && scenario.entryKind !== 'internal-unit') {
+      violations.push({id: scenario.id, kind: 'internal-entry', detail: skill})
+    } else if (!internals.has(skill) && scenario.entryKind === 'internal-unit') {
+      // 표시가 거짓이면 표시의 의미가 사라진다.
+      violations.push({id: scenario.id, kind: 'label-misuse', detail: skill})
+    }
+    const covers = Array.isArray(scenario?.covers) ? scenario.covers : []
+    if (covers.length === 0) violations.push({id: scenario.id, kind: 'no-covers', detail: ''})
+    for (const covered of covers) if (!exists(covered)) violations.push({id: scenario.id, kind: 'unknown-covers', detail: covered})
+  }
+  return violations
+}
+
+const EVAL_REASONS = {
+  'unknown-lane': '`/wh`가 선언하지 않은 레인',
+  'internal-entry': '내부 스킬 직행 — `/wh <lane>`으로 들어가거나 컴패니언 단위 시험이면 `entryKind: "internal-unit"`을 선언하라',
+  'label-misuse': '공개 스킬에 `internal-unit` 표시 — 표시가 거짓이면 의미가 사라진다',
+  'no-covers': '`covers`가 없다 — 이 시나리오가 무엇을 증명하려는지 선언하라(`eval-covered`의 근거다)',
+  'unknown-covers': '존재하지 않는 스킬을 covers에 적었다',
+}
+
 export function validateEntryPoints({repositoryRoot, pass, fail}) {
   const internals = internalSkills(repositoryRoot)
   if (internals.length === 0) {
@@ -72,5 +130,20 @@ export function validateEntryPoints({repositoryRoot, pass, fail}) {
     }
     return
   }
-  pass(`entry point advertising checked (${internals.length} internal skills, ${USER_DOCS.length} user docs)`)
+  if (declaredLanes(repositoryRoot).length === 0) {
+    fail('entry-points: `wh/SKILL.md`에서 레인 선언을 읽지 못했다 — 분모가 없어 eval 진입점을 잴 수 없다')
+    return
+  }
+  let evalViolations
+  try { evalViolations = findEvalEntryViolations(repositoryRoot) } catch (error) {
+    fail(`entry-points: eval 시나리오를 읽지 못했다 — ${error.message}`)
+    return
+  }
+  if (evalViolations.length > 0) {
+    for (const item of evalViolations) {
+      fail(`entry-points: eval '${item.id}' — ${EVAL_REASONS[item.kind]}${item.detail ? ` (${item.detail})` : ''}`)
+    }
+    return
+  }
+  pass(`entry point advertising checked (${internals.length} internal skills, ${USER_DOCS.length} user docs, eval entries aligned)`)
 }

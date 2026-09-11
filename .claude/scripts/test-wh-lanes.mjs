@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {existsSync, readFileSync} from 'node:fs'
 import {join} from 'node:path'
+import {declaredLanes} from './validators/validate-entry-points.mjs'
 
 const root = new URL('../..', import.meta.url).pathname
 const wh = readFileSync(join(root, '.claude/skills/wh/SKILL.md'), 'utf8')
@@ -33,9 +34,9 @@ const laneRows = text => [...text.matchAll(LANE_ROW)]
   .map(match => ({lane: match[1], target: match[3], gate: match[4]}))
 
 test('강제 지정 목록과 레인 표가 같은 집합이다', () => {
-  const forced = wh.match(/첫 단어가 ([^중]+)중 하나면/)
-  assert.ok(forced, '강제 지정 문장을 찾지 못했다')
-  const declared = new Set([...forced[1].matchAll(/`([a-z]+)`/g)].map(m => m[1]))
+  // validator와 **같은 파서**를 쓴다 — 한 문장을 두 정규식이 따로 읽으면 문장이 바뀔 때 하나만 깨진다.
+  const declared = new Set(declaredLanes(root))
+  assert.ok(declared.size > 0, '강제 지정 문장을 찾지 못했다')
   const tabled = new Set(laneRows(wh).map(row => row.lane))
   for (const lane of tabled) {
     assert.ok(declared.has(lane), `레인 표에 '${lane}'이 있는데 강제 지정으로 부를 수 없다`)

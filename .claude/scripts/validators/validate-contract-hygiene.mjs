@@ -141,7 +141,20 @@ export const inspectProfileNarrativeConsistency = ({profiles, skillSources, scen
   return errors;
 };
 
-export function validateContractHygiene({repositoryRoot, pass, fail}) {
+/**
+ * eval 시나리오가 **명시적으로 선언한** 커버 스킬(순수). 자유 텍스트 언급은 세지 않는다 —
+ * 부정 단언("X로 라우팅하지 않는다")이나 우연한 서술까지 커버로 세면 프록시를 필드로 옮겨 적는
+ * 것에 불과하다.
+ */
+export function coveredSkillsFrom(scenarios) {
+  const covered = new Set();
+  for (const scenario of Array.isArray(scenarios) ? scenarios : []) {
+    for (const skill of Array.isArray(scenario?.covers) ? scenario.covers : []) covered.add(skill);
+  }
+  return covered;
+}
+
+export function validateContractHygiene({repositoryRoot, pass, fail, evalScenarios: injectedScenarios = null}) {
   const skillsDir = join(repositoryRoot, '.claude', 'skills');
   const agentsDir = join(repositoryRoot, '.claude', 'agents');
   if (!existsSync(skillsDir)) return;
@@ -190,12 +203,19 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
     }
   }
 
-  // maturity 정직성 검사용 — eval 파일에서의 언급은 커버리지의 **필요조건**일 뿐이다(§4 프록시 등록).
-  const evalSource = ['evals/scenarios.json']
-    .map(rel => join(repositoryRoot, '.claude', rel))
-    .filter(existsSync)
-    .map(path => readFileSync(path, 'utf8'))
-    .join('\n');
+  // maturity 정직성 검사용 — 시나리오가 **명시적으로 선언한** `covers`만 센다(§4 프록시 등록 —
+  // 선언은 여전히 필요조건일 뿐 실행 증거가 아니다). 종전에는 파일 전체에서 스킬 이름을 문자열로
+  // 찾았고, 그래서 13개 중 10개의 `eval-covered`가 `entrySkill` 한 칸에만 기대고 있었다 —
+  // 진입점을 `/wh`로 옮기는 순간 근거가 사라지는 구조였다(2026-09-11 실측). 이름이 부정 단언이나
+  // 우연한 서술에 적혀 있기만 해도 커버로 세던 것도 함께 닫는다.
+  // `scenarios`는 **주입**이다 — 회귀가 실제 저장소 위에서 이 판정 줄을 직접 구동하려고 둔다.
+  let evalScenarios = injectedScenarios;
+  const evalPath = join(repositoryRoot, '.claude', 'evals/scenarios.json');
+  if (evalScenarios === null && existsSync(evalPath)) {
+    try { evalScenarios = JSON.parse(readFileSync(evalPath, 'utf8')); }
+    catch { /* 파싱 실패는 validate-workflows-and-evals가 fail한다 — 여기서는 커버 0으로 둔다 */ }
+  }
+  const coveredSkills = coveredSkillsFrom(evalScenarios ?? []);
   const goldenSource = listMarkdown(join(repositoryRoot, 'golden'))
     .map(path => readFileSync(path, 'utf8'))
     .join('\n');
@@ -242,8 +262,8 @@ export function validateContractHygiene({repositoryRoot, pass, fail}) {
     } else if (!MATURITY_VALUES.has(maturity)) {
       fail(`contract-hygiene: '${skill}' maturity '${maturity}'는 유효값이 아니다(contract-only | eval-covered | golden-backed)`);
     } else {
-      if ((maturity === 'eval-covered' || maturity === 'golden-backed') && !evalSource.includes(skill)) {
-        fail(`contract-hygiene: '${skill}'이 ${maturity}를 주장하지만 eval 시나리오 어디에도 언급이 없다 — contract-only로 정직하게 내리거나 시나리오를 추가하라(I1)`);
+      if ((maturity === 'eval-covered' || maturity === 'golden-backed') && !coveredSkills.has(skill)) {
+        fail(`contract-hygiene: '${skill}'이 ${maturity}를 주장하지만 어느 eval 시나리오의 \`covers\`에도 없다 — contract-only로 정직하게 내리거나 시나리오의 covers에 선언하라(I1)`);
       }
       // golden/ 증거는 source repo에만 존재한다(deploy-harness는 .claude 하위만 복사) — 배포
       // target에서 이 검사를 돌리면 golden-backed 스킬이 생기는 순간 구조적으로 fail한다

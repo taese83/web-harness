@@ -833,6 +833,54 @@
       "replace": "(?:web-harness:)?",
       "test": ".claude/scripts/test-entry-points.mjs",
       "why": "배포 README 생성기는 `${PLUGIN_NAME}:` 접두로 쓴다 — 그 접두를 못 읽으면 사용자가 실제로 설치하는 README가 검사에서 통째로 빠진다"
+    },
+    {
+      "id": "eval-entry-flags-internal-direct",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "    } else if (internals.has(skill) && scenario.entryKind !== 'internal-unit') {",
+      "replace": "    } else if (false && internals.has(skill) && scenario.entryKind !== 'internal-unit') {",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "내부 스킬 직행을 허용하면 eval이 레인 판정·게이트를 한 번도 시험하지 않는 상태로 되돌아간다 — 이관 전 43건이 그랬다"
+    },
+    {
+      "id": "eval-entry-checks-declared-lanes",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "      if (lane !== undefined && !lanes.has(lane)) violations.push",
+      "replace": "      if (false && lane !== undefined && !lanes.has(lane)) violations.push",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "선언되지 않은 레인으로 들어가는 eval은 /wh가 거부하는 입력을 시험한다"
+    },
+    {
+      "id": "eval-entry-requires-covers",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "    if (covers.length === 0) violations.push({id: scenario.id, kind: 'no-covers', detail: ''})",
+      "replace": "    if (false) violations.push({id: scenario.id, kind: 'no-covers', detail: ''})",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "covers가 없으면 eval-covered의 근거가 다시 자유 텍스트 언급으로 돌아간다"
+    },
+    {
+      "id": "eval-entry-is-wired-into-validator",
+      "file": ".claude/scripts/validators/validate-entry-points.mjs",
+      "find": "  try { evalViolations = findEvalEntryViolations(repositoryRoot) } catch (error) {",
+      "replace": "  try { evalViolations = [] } catch (error) {",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "순수 함수만 살아 있고 validateEntryPoints가 부르지 않으면 eval 진입점이 다시 아무도 재지 않는 자리가 된다"
+    },
+    {
+      "id": "maturity-uses-declared-covers",
+      "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
+      "find": "    for (const skill of Array.isArray(scenario?.covers) ? scenario.covers : []) covered.add(skill);",
+      "replace": "    for (const skill of [...(Array.isArray(scenario?.covers) ? scenario.covers : []), ...(JSON.stringify(scenario).match(/[a-z]+(?:-[a-z]+)+/g) ?? [])]) covered.add(skill);",
+      "test": ".claude/scripts/test-eval-covers.mjs",
+      "why": "텍스트 언급을 커버로 세면 부정 단언이나 우연한 서술이 eval-covered 근거가 된다 — 13개 중 10개가 entrySkill 한 칸에 기대던 구조다"
+    },
+    {
+      "id": "maturity-check-fires-on-missing-covers",
+      "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
+      "find": "      if ((maturity === 'eval-covered' || maturity === 'golden-backed') && !coveredSkills.has(skill)) {",
+      "replace": "      if (false && (maturity === 'eval-covered' || maturity === 'golden-backed') && !coveredSkills.has(skill)) {",
+      "test": ".claude/scripts/test-eval-covers.mjs",
+      "why": "판정 줄이 꺼지면 eval 근거 없는 eval-covered 선언이 통과한다(I1)"
     }
   ]
 }

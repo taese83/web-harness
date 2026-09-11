@@ -1,14 +1,14 @@
 ---
 name: feature-add
-description: [내부] change 레인에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Adds a new feature to a completed web-harness project following FSD architecture. Runs the planning → design → development → QA mini-cycle for the new feature only. Use after /web-orchestrator completes.
+description: [내부] change 레인의 구현 세부 참조다 — `/wh change`는 execution-contract의 Iterate 루프로 위임하며 이 스킬을 호출하지 않는다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Adds a new feature to a completed web-harness project following FSD architecture. Runs the planning → design → development → QA mini-cycle for the new feature only. Use after /web-orchestrator completes.
 argument-hint: "[feature request]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
-  version: 1.5.0
-  maturity: eval-covered
-  updated: 2026-08-03
-  changelog: 수정 라운드 게이트 3종 도입 — 04_qa receipt 재발급 의무, capabilities 승격 감지 시 security-reviewer/api-contract-verifier 재투입, canonical 문서(02_design) 동기화를 라운드 종료 조건으로 강제 (회귀 평가 회고 반영).
+  version: 1.6.0
+  maturity: contract-only
+  updated: 2026-09-11
+  changelog: `/wh change`가 이 스킬을 부르지 않는다는 사실로 description을 정정하고 maturity를 contract-only로 — eval 2건은 web-orchestrator를 시험한다. 이전 — 수정 라운드 게이트 3종 도입 — 04_qa receipt 재발급 의무, capabilities 승격 감지 시 security-reviewer/api-contract-verifier 재투입, canonical 문서(02_design) 동기화를 라운드 종료 조건으로 강제 (회귀 평가 회고 반영).
 ---
 
 # Feature Add
