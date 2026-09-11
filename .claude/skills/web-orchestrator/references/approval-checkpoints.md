@@ -273,7 +273,8 @@ component-spec, api-schema, design-system, state-contract)`처럼 **무엇을 �
 수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다.
 
 `fix`·`verify` 레인은 이 체크포인트를 거치지 않는다 — 동작을 새로 정의하지 않으므로 승인받을
-대상이 없다. 대신 유형별 보존 증거(`request-type-contract.md`)가 의무다.
+대상이 없다. 대신 유형별 보존 증거(`request-type-contract.md`)가 의무다. (`verify`의 준비 단계가
+source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 — `web-verify`·`visual-design-verify`가 소유한다.)
 
 ## 질문 규칙
 

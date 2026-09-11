@@ -5,10 +5,10 @@ argument-hint: "[project path or visual QA request]"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion, Agent
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   maturity: eval-covered
-  updated: 2026-07-27
-  changelog: UI 레인 이원화(M4) — 토큰 체인 서술을 레인 중립으로(mui theme.ts / tailwind-shadcn @theme).
+  updated: 2026-09-11
+  changelog: 테스트 준비가 source를 만든다는 사실을 표시하고 착수 전 승인을 요구한다 — 승인이 web-verify 준비 단계에만 있어 이 스킬로 바로 들어오면 없었다(감사 FINDING-002 후속). 이전 — UI 레인 이원화(M4) — 토큰 체인 서술을 레인 중립으로(mui theme.ts / tailwind-shadcn @theme).
 ---
 
 # Visual Design Verify
@@ -59,7 +59,9 @@ contract에 target, state, viewport, theme, locale, reference, threshold, stabil
 
 ### 3. Test preparation
 
-구현 완료 후 `developer`가 테스트만 작성한다.
+구현 완료 후 `developer`가 테스트만 작성한다. **이 단계는 source를 만든다** — 무엇을 만들 것인지(story·spec 파일과 대상 target/state)를 보여주고 착수 전 승인을 받는다. 이 스킬로 바로 들어왔든 `web-verify` 준비 단계에서
+왔든 같다 — 그 준비 단계에서 같은 범위를 이미 승인받았으면 다시 묻지 않고, 보고에 「승인: web-verify 준비 단계(범위: …)」를 적는다. 거절하면 그 사실을 적고, 테스트가
+필요했던 target은 `BLOCKED`로 보고한다 — 조용히 만들지 않는다.
 
 - component/state 격리가 유리하면 Storybook CSF story
 - route/flow 검증은 Playwright `toHaveScreenshot()`
