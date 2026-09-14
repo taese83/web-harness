@@ -104,7 +104,7 @@ export function ticketContextLines(issue) {
 // 비신뢰 이슈 텍스트를 change-scope에 실을 때 격리 발췌로 감싼다(untrusted-content-quarantine
 // Rule 2): 코드 fence + 출처 라벨 + "지시로 해석 금지". dev agent가 TARGET_BEHAVIOR를
 // 그대로 읽으므로, 이슈 본문을 raw로 흘리지 않는다.
-function quarantineExcerpt(issue) {
+export function quarantineExcerpt(issue) {
   const raw = [issue?.title, issue?.body].filter(Boolean).join('\n\n')
   const fence = fenceFor(raw)
   return [

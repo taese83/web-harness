@@ -1737,6 +1737,134 @@
       "replace": "export function workIssueFields({work, plan, featureIds, body, labels = [], components = []}) {\n  const featLabel = id => `feat-${id}`",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "FEAT 축 라벨 어휘를 중립 코어가 박으면 같은 GitHub 저장소에서 FEAT 축이 둘로 갈린다"
+    },
+    {
+      "id": "work-pickup-injection-fail-closed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (injection.injectionSuspect) {",
+      "replace": "  if (injection.injectionSuspect && false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "인젝션 의심 본문이 그대로 개발 지시가 된다 — legacy 픽업이 fail-closed로 막던 자리다"
+    },
+    {
+      "id": "work-pickup-kind-first",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (kind.kind !== 'work') {",
+      "replace": "  if (kind.kind === 'never') {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "종류를 먼저 판정하지 않으면 FEAT·출처 티켓이 WORK 개발 지시로 읽힌다"
+    },
+    {
+      "id": "work-pickup-registered-only",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (registered?.status !== 'published') {",
+      "replace": "  if (registered?.status === 'never') {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "원장이 모르는 티켓을 집으면 남이 손으로 만든 티켓이 개발 지시가 된다"
+    },
+    {
+      "id": "work-pickup-ticket-key-match",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (registered.ticketKey && registered.ticketKey !== ticketKey) {",
+      "replace": "  if (registered.ticketKey && false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "등록된 키와 다른 티켓을 집으면 계획이 낸 티켓이 아닌 것을 개발한다"
+    },
+    {
+      "id": "work-pickup-stale-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (!readiness.ready) {",
+      "replace": "  if (!readiness.ready && false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "발행 뒤 바뀐 계획으로 개발하면 옛 판본의 경계·계약 위에서 작업한다(legacy STALE과 같은 자리)"
+    },
+    {
+      "id": "work-pickup-decision-unresolved",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (row?.status === 'blocked-decision') {",
+      "replace": "  if (row?.status === 'never') {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "미해결 결정이 남은 작업을 집으면 결정되지 않은 것을 개발자가 임의로 정한다"
+    },
+    {
+      "id": "work-pickup-dependency-registered",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  const missingDeps = list(work.dependsOn).filter(dep => (state?.works?.get(dep)?.status ?? 'unpublished') !== 'published')",
+      "replace": "  const missingDeps = []",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "미등록 선행 위에서 착수하면 없는 기반 위에 개발한다 — 등록까지만 재는 것이 지금의 하한이다"
+    },
+    {
+      "id": "work-pickup-acceptance-required",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (owned.length === 0 && list(work.checks).length === 0) {",
+      "replace": "  if (owned.length === 0 && false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "TC도 checks도 없는 작업을 넘기면 무엇으로 끝났다고 할지가 없다(legacy의 TC 없는 완료 거부와 같은 자리)"
+    },
+    {
+      "id": "work-pickup-scope-from-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "    ALLOWED_PATHS: list(work.writePaths),",
+      "replace": "    ALLOWED_PATHS: [],",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "쓰기 경계가 비면 개발 에이전트가 어디든 쓸 수 있다 — 경계는 검토받은 계획이 정한다"
+    },
+    {
+      "id": "work-pickup-tracker-writes-limited",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "      const result = await provider.transition(ticketKey, 'in-progress')",
+      "replace": "      const result = await provider.transition(ticketKey, 'done')",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "픽업이 완료 전이를 부르면 개발이 시작도 전에 티켓이 끝난 것이 된다"
+    },
+    {
+      "id": "work-pickup-active-scope-guard",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  if (existing && existingId !== pick.changeScope.workId && !flags['replace-scope']) {",
+      "replace": "  if (existing && false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "진행 중인 범위를 조용히 덮으면 그 작업의 STALE 앵커가 사라진다"
+    },
+    {
+      "id": "cli-pickup-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "          const key = positional[0] ?? (typeof flags.work === 'string' ? flags.work : null)",
+      "replace": "          const key = positional[0] ?? null",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "`pickup --work PF-1` 표기가 조용히 「키 없음」이 된다 — 배선이 자연스러운 표기를 받지 못한다"
+    },
+    {
+      "id": "work-pickup-no-extra-tracker-writes",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    await provider.assign(ticketKey, developer)",
+      "replace": "    await provider.assign(ticketKey, developer)\n    await provider.comment(ticketKey, '픽업했습니다')",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "픽업이 승인된 셋(배정·in-progress 전이·되돌림 알림) 밖으로 쓰면 사람이 승인하지 않은 흔적이 티켓에 남는다"
+    },
+    {
+      "id": "work-pickup-multi-assign-detected",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    if (assignees.length > 1) {",
+      "replace": "    if (assignees.length > 99) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "GitHub 배정은 덧붙임이라 동시에 집으면 둘 다 통과한다 — 두 개발자가 같은 작업의 범위를 받는다"
+    },
+    {
+      "id": "work-pickup-worktree-is-real",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  const working = await (io.worktree ?? resolveWorktreeStatus)({repoRoot: root})",
+      "replace": "  const working = io.worktree ? await io.worktree({repoRoot: root}) : {}",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "주입이 없을 때 빈 값을 쓰면 컨플릭 게이트가 실사용에서 영원히 발화하지 않는다(같은 함수를 써도 입력이 비면 게이트가 없다)"
+    },
+    {
+      "id": "work-pickup-bounce-reaches-tracker",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "find": "    'work-not-registered': 'this ticket is not a WORK registered in the ledger — check it came from the plan',",
+      "replace": "    'work-not-registered-unused': 'this ticket is not a WORK registered in the ledger — check it came from the plan',",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "되돌림 사유 어휘가 없으면 코멘트가 나가지 않아 계획을 고칠 사람이 막힌 사실을 모른다"
     }
   ]
 }

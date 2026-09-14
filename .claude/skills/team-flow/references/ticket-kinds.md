@@ -26,13 +26,17 @@ change-scope의 키이며 `test-change-scope-contract.mjs`가 코드(`buildChang
 | `ticket.key` · `ticket.provider` | 어느 트래커의 어느 티켓인가 |
 | `ticket.revision` · `ticket.revisionStage` | 개발 기준 개정 — 픽업 끝에 다시 잰다(`settled-at-pickup`). 못 재면 `pre-pickup` 그대로 |
 | `ticket.revisionError` (선택) | 픽업 끝의 재조회가 실패했거나 빈 값을 줬을 때 그 이유 |
-| `featureId` | 계획 단위 |
+| `featureId` | 계획 단위. **WORK 범위에서는 소비 FEAT가 하나일 때만 값이 있고 공유 작업이면 `null`이다**(하나를 고르지 않는다) |
+| `featureIds` (선택) | WORK 범위 — 이 작업을 소비하는 FEAT 전부 |
+| `workId` · `planId` (선택) | WORK 범위 — 어느 계획의 어느 작업인가 |
+| `checks` (선택) | WORK 범위 — TC가 없는 기반 작업의 **수용 기준**(`kind`·`expectedOutcome`·`targetRefs`) |
+| `dependsOn` (선택) | WORK 범위 — 이 작업의 선행 |
 | `TARGET_BEHAVIOR` | 제목·본문 + 티켓 맥락(개정·링크·코멘트) — 전부 격리 블록, 지시 아님 |
 | `requestType` | 요청 유형 |
 | `testCaseIds` | **수용 기준** — 계획의 TC(티켓이 지어내지 않는다). `link`의 완료 판정이 이것을 본다 |
 | `ALLOWED_PATHS` · `needsConfirmation` | 쓰기 범위 seed와 확인 필요 표시 |
 | `PUBLIC_CONTRACTS_TO_PRESERVE` · `NON_GOALS` · `CHANGE_BUDGET` | `minimal-change-contract.md`의 같은 필드 |
-| `sourceDigest` | STALE 앵커 — 픽업 뒤 계획이 바뀌면 `link`가 막는다 |
+| `sourceDigest` | STALE 앵커. FEAT 범위는 단위 해시이며 `link`가 이것으로 막는다. **WORK 범위는 계획 digest이고, `link`는 아직 그것을 읽지 못한다** — WORK의 완료·PR 연결은 P3이며 지금 `link`에 WORK 범위를 주면 FEAT 단위 해시와 비교해 오판정한다 |
 <!-- /web-harness:change-scope-keys -->
 
 `link`는 대조한 change-scope의 `ticket`을 원장 링크 기록에 옮긴다 — **이 PR이 어느 티켓 개정을

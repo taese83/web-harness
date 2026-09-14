@@ -221,6 +221,14 @@ const REASONS = {
     'path-collision': '다른 기능과 쓰기 경로가 겹친다 — 계획에서 경계를 나눠야 한다',
     'foundation-incomplete': '토대 단위가 아직 끝나지 않았다',
     'content-incomplete': '티켓에 채워지지 않은 항목이 있어 무엇을 만들지 알 수 없다',
+    // WORK 되돌림 — 계획을 고칠 사람이 봐야 하는 것만 넣는다(배정 경합·인젝션처럼 기획 쪽에
+    // 할 일이 없는 사유는 여전히 null이라 티켓이 소음으로 차지 않는다).
+    'stale-plan': '발행 뒤 WORK 계획이 바뀌었다 — 바뀐 안을 다시 검토·발행해야 착수할 수 있다',
+    'decision-unresolved': '이 작업에 아직 닫히지 않은 결정이 있다(디자인 조건·계약 선택)',
+    'dependency-not-registered': '선행 작업이 아직 트래커에 등록되지 않았다 — 선행부터 발행해야 한다',
+    'no-acceptance': '이 작업에 수용 기준(TC 또는 checks)이 하나도 없다 — 무엇으로 끝났다고 할지가 없다',
+    'work-not-registered': '이 티켓이 원장에 등록된 WORK가 아니다 — 계획에서 발행된 티켓인지 확인해야 한다',
+    'feature-decomposed-pick-work': '이 FEAT는 WORK로 분해됐다 — FEAT 티켓이 아니라 해당 WORK 티켓을 집어야 한다',
   },
   en: {
     'spec-incomplete': 'the FEAT/TC this ticket references does not match the plan',
@@ -230,6 +238,12 @@ const REASONS = {
     'path-collision': 'write paths overlap another feature — the plan must split the boundary',
     'foundation-incomplete': 'a foundation unit is not finished',
     'content-incomplete': 'the ticket has unfilled items, so what to build is unknown',
+    'stale-plan': 'the WORK plan changed after publishing — review and publish the new plan before starting',
+    'decision-unresolved': 'this work still has an open decision (design condition or contract choice)',
+    'dependency-not-registered': 'a prerequisite work is not registered in the tracker yet — publish it first',
+    'no-acceptance': 'this work has no acceptance criteria at all (no TC, no checks)',
+    'work-not-registered': 'this ticket is not a WORK registered in the ledger — check it came from the plan',
+    'feature-decomposed-pick-work': 'this FEAT is decomposed into WORK — pick the WORK ticket, not the FEAT ticket',
   },
 }
 const COMMENT = {

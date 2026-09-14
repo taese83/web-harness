@@ -1,0 +1,101 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T04:14:35.000Z",
+  "scope": "WORK 분해 P2-d(픽업: legacy 게이트 이관·work-bound change-scope)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-pickup-injection-fail-closed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-kind-first",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-registered-only",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-ticket-key-match",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-stale-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-decision-unresolved",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-dependency-registered",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-acceptance-required",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-scope-from-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-tracker-writes-limited",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-active-scope-guard",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "cli-pickup-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-no-extra-tracker-writes",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-multi-assign-detected",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-worktree-is-real",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-bounce-reaches-tracker",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    }
+  ],
+  "result": {
+    "ok": 16,
+    "total": 16,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 16건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 Jira·GitHub 왕복은 NOT_RUN — provider stub으로 계약까지만 돈다(배정 경합·전이 실패는 주입이다)",
+    "선행 판정은 **등록까지**다 — 선행 작업의 완료는 원장에 아직 없다(P3). 없는 것을 있다고 하지 않는다",
+    "seed는 각 가드 한 줄의 최소 변형이다 — 의미적 타당성은 사람 검토의 몫"
+  ]
+}

@@ -267,7 +267,7 @@ export function resolveReadinessContext(root) {
 /** origin 판정 전 remote-tracking을 갱신한다. 실패해도 막지 않고 **스냅샷 기준임을 표기**한다
  * — git-origin의 "선행하거나 표기하거나" 경고 중 둘 다 하는 쪽이다. `--no-fetch`로 끌 수 있다
  * (네트워크 없는 환경·테스트). 결과는 각 모드 응답의 `freshness`로 나간다. */
-async function ensureRemoteFreshness({root, flags, io}) {
+export async function ensureRemoteFreshness({root, flags, io}) {
   if (flags?.['no-fetch']) return {fetched: false, basis: 'local-snapshot', reason: 'disabled by --no-fetch'}
   const result = await (io.refresh ?? refreshRemoteRefs)({repoRoot: root})
   return result.ok
@@ -633,8 +633,10 @@ export async function runPickup({root, repo, featureId, developer, flags, io = {
   // 활성 change-scope 덮어쓰기 가드(리뷰): 다른 FEAT의 change-scope가 살아 있으면 침묵 덮어쓰기
   // 금지 — 진행 중 FEAT의 STALE 앵커가 소실된다. --replace-scope 명시 시에만 교체.
   const existingScope = readChangeScopeFile(root)
-  if (existingScope && existingScope.featureId !== featureId && !flags['replace-scope']) {
-    return {ok: false, bounce: {reason: 'active-change-scope', activeFeatureId: existingScope.featureId}, guidance: `${existingScope.featureId} 픽업이 진행 중입니다 — 완료(link)하거나 --replace-scope로 명시 교체하세요(그 FEAT의 STALE 앵커가 소실됨)`}
+  // WORK 범위가 살아 있으면 FEAT가 같아도 덮지 않는다 — 그 작업의 STALE 앵커는 계획 digest라
+  // FEAT 단위 해시로 덮어쓰면 되돌릴 수 없다(적대 리뷰 2026-09-14).
+  if (existingScope && (existingScope.workId || existingScope.featureId !== featureId) && !flags['replace-scope']) {
+    return {ok: false, bounce: {reason: 'active-change-scope', activeFeatureId: existingScope.workId ?? existingScope.featureId}, guidance: `${existingScope.workId ?? existingScope.featureId} 픽업이 진행 중입니다 — 완료(link)하거나 --replace-scope로 명시 교체하세요(그 FEAT의 STALE 앵커가 소실됨)`}
   }
   if (pick.assignment.action === 'self-assign') {
     // TOCTOU 완화(§4 self-assign 행 조건): assign **직전 재조회·재판정** — 판정 후 남이 먼저
@@ -1222,7 +1224,26 @@ if (invokedDirectly) {
         }
         if (flags.work) return (await import('./work-claim.mjs')).runClaimWork({root, flags})
         requireRepo(); return runClaim({root, repo, flags})
-      case 'pickup': requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
+      // `--work`: WORK 티켓 픽업(P2-d). 트래커는 원장이 아는 provider이며 --repo는 GitHub일 때만 필요하다.
+      case 'pickup':
+        if (flags.work) {
+          // 발행 분기와 **같은 사전 판정**이다 — 여기만 다르면 GitHub 팀이 원시 INVALID_REPO를 본다.
+          const ledgerHasRecords = readLedgerState(join(root, LEDGER_RELATIVE)).size > 0
+          const resolved = resolveTicketProvider({root, repo, flags, io: {}, hasLedgerRecords: ledgerHasRecords})
+          if (resolved.choice?.needsChoice) {
+            return {ok: false, mode: 'work', bounce: {reason: 'ticket-provider-unset'}, questions: resolved.questions,
+              guidance: '티켓 provider 설정이 없다 — `configure`로 먼저 정한다'}
+          }
+          if (resolved.choice?.provider === 'github' && (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo))) {
+            return {ok: false, mode: 'work', bounce: {reason: 'repo-required'}, guidance: 'GitHub 티켓을 집으려면 `--repo <owner/name>`가 필요하다'}
+          }
+          // `--work PF-1`은 값처럼 파싱된다(플래그 뒤의 비-플래그를 값으로 읽는 규칙) — 두 표기를
+          // 모두 받는다. 한쪽만 받으면 자연스러운 쪽이 조용히 「키 없음」이 된다.
+          const key = positional[0] ?? (typeof flags.work === 'string' ? flags.work : null)
+          return (await import('./work-pickup-run.mjs')).runWorkPickup({root, ticketKey: key,
+            developer: flags.developer, flags, io: {provider: resolved.provider}})
+        }
+        requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})

@@ -8,6 +8,7 @@
 // 여기서 고정하는 사실:
 //   (1) 문서(ticket-kinds.md 표)의 키 집합과 `buildChangeScope`의 키 집합이 **양방향으로** 같다
 //   (2) **실제 발급 파일**(runPickup이 런타임에 덧붙인 키 포함)도 문서 밖 키를 내지 않는다
+//   (3) WORK 픽업이 내는 범위도 **같은 표**를 지킨다 — 모델이 둘이어도 개발 에이전트가 받는 계약은 하나다
 //
 // 실행 조건(외부 쓰기 승인·쓰기 직렬화)은 키로 두지 않았다 — 읽는 쪽이 없고, bash 정책은 플러그인에
 // 실리지 않아 발급 환경에서 강제되지 않는다(적대 리뷰 2026-09-11 HIGH). 문서가 강제의 실체를 적는다.
@@ -17,6 +18,7 @@ import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {buildChangeScope} from './ticket/pickup.mjs'
+import {buildWorkChangeScope} from './ticket/work-pickup.mjs'
 import {CHANGE_SCOPE_RELATIVE, LEDGER_RELATIVE, readChangeScopeFile, runPickup} from './ticket/cli.mjs'
 import {appendLedgerRecord} from './ticket/ledger-writer.mjs'
 import {buildIssueFields} from './ticket/provider-github.mjs'
@@ -93,4 +95,22 @@ test('실제 발급 파일도 문서 밖 키를 내지 않는다 — 런타임�
   } finally {
     rmSync(dir, {recursive: true, force: true})
   }
+})
+
+test('WORK 픽업이 내는 change-scope도 같은 표를 지킨다 — 모델이 둘이어도 계약은 하나다', () => {
+  const plan = {planId: '22222222-2222-4222-8222-222222222222'}
+  const work = {workId: 'WORK-00000001-0000-4000-8000-000000000001', writePaths: ['src/shared/'],
+    checks: [{kind: 'type-check', expectedOutcome: '통과', targetRefs: []}], dependsOn: [], nonGoals: [],
+    contractRefs: [{path: 'src/shared/types.ts', anchor: 'Member'}]}
+  const scope = buildWorkChangeScope({issue: {ticketKey: 'PF-1', provider: 'jira', title: 't', body: 'b', revision: 'r1',
+    links: [], comments: [], commentsOmitted: 0}, plan, planDigest: 'a'.repeat(64), work,
+    featureIds: ['FEAT-001', 'FEAT-002'], testCaseIds: []})
+  const {required, optional} = documentedKeys()
+  const produced = producedKeys(scope)
+  const undocumented = [...produced].filter(key => !required.has(key) && !optional.has(key))
+  assert.deepEqual(undocumented, [], `WORK 범위가 문서 밖 키를 낸다: ${undocumented.join(', ')}`)
+  const phantom = [...required].filter(key => !produced.has(key))
+  assert.deepEqual(phantom, [], `WORK 범위가 약속한 키를 빠뜨린다: ${phantom.join(', ')}`)
+  assert.equal(scope.featureId, null, '공유 작업인데 FEAT 하나를 골랐다')
+  assert.equal(scope.sourceDigest, 'a'.repeat(64))
 })

@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -20,7 +20,7 @@
 | T06 | foundation 순환·미충족 의존 | PASS | U「T06·T07」 |
 | T07 | 미선언 의존과 명시적 [] | PASS | U「T06·T07」 |
 | T08 | 같은 파일 동시 수정 | PASS | U「T08」 — 순서 있는 쌍은 허용 |
-| T09 | 범위 밖 수정·symlink 탈출 | P2 | WORK change-scope와 훅 소유권 연결은 픽업(P2) |
+| T09 | 범위 밖 수정·symlink 탈출 | 부분 | `K`「T09」 — change-scope의 쓰기 경계가 계획의 `writePaths`이고 확인 대기가 아니다. **남은 몫**: 그 경계를 훅 소유권과 잇는 배선은 없다(실제 쓰기 대조는 legacy와 같은 등급) |
 | T10 | WORK 본문의 부모 FEAT를 legacy로 오인 | PASS | `E`「T10·T11」 — 종류 선판정 후 픽업·인수가 거부, 인테이크도 공급 원문으로 받지 않음 |
 | T11 | 마커 삭제·파손·중복 | 부분 | `E`「T10·T11」 — 파손·중복·두 모델 동시 소속은 명시적 오류. **남은 몫**: 마커를 지운 티켓은 여전히 legacy로 읽힌다 — 원장의 `publish-confirmed` 티켓 키로 대조할 재료는 생겼으나 판독 입구가 아직 쓰지 않는다(P2-d) |
 | T12 | 생성 응답 유실·원장 실패 | PASS | `P`「T12·T13」·「조회가 불완전하면」·「원장에 시도를」·「확정을 원장에」·「키가 없으면」 — 쓰기 전 시도(요청 지문·시도 id) 기록(외부 쓰기 **시점에** 원장 대조), 유실·키 없음은 `unknown`, 원장 실패는 쓰기 전이면 정지·쓰기 뒤면 티켓 키를 실어 보류. 한계: 실 트래커 왕복은 NOT_RUN |
@@ -57,7 +57,7 @@
 | T43 | FEAT 여러 개가 새 공통 계약 | PASS | U + `P`「T43·T48」 — 공유 작업의 생성 호출 1건, 소비 FEAT 라벨 전부. `V`가 두 트래커의 **실 필드 빌더**가 그 라벨을 보존하는지 잰다(발행 경로는 그 빌더를 쓴다) |
 | T44 | FEAT 누락·Jira 목록 일부 | 부분 | U「T44」 — 범위 누락 거부, 불완전 목록은 확정만 막음. Jira 페이지 조회 실패 기록은 P2 |
 | T45 | 선행 미완료 후속 WORK 등록 | PASS | `P`「T45」·「미해결 결정」·「결정이 안 난 작업은」·「후손은 손자까지」 — 이름 대고 고른 것은 **거절**, 전체 발행에서는 뿌리와 후손 모두 사유와 함께 목록에 남기고 나머지를 낸다. 이번 회차 결과를 모르는 작업의 후손은 손자까지 내지 않는다 |
-| T46 | WORK pickup·부모 FEAT pickup | P2 | |
+| T46 | WORK pickup·부모 FEAT pickup | 부분 | `K` 14건(순수 8 · 실행부 5 · CLI 배선 1) — 분해된 FEAT를 집으면 어느 WORK로 가야 하는지 알려주고, legacy 게이트(인젝션·종류·STALE·등록·준비도·TC 없는 완료 거부·트래커 쓰기 제한·동시 배정·컨플릭·되돌림 코멘트)가 옮겨졌다. **해당 없음**: 기획자 체크리스트·브랜치 대조(WORK에 브랜치 청구가 없다). **남은 몫**: 완료·PR 연결(`link`)이 아직 WORK를 모른다(P3) |
 | T47 | 분해 후 FEAT 추가·부분 발행 | 부분 | U「T44」 + `P`「T12·T13」 — FEAT 추가는 범위 누락으로 재검토 강제, 부분 발행은 성공분 유지·재개. **남은 몫**: 이미 발행된 공유 WORK의 라벨·마커 동기화(`reuse`)가 없다 — 발행 뒤 새 FEAT가 그 작업을 소비하면 「소비 FEAT 전부」가 깨진다(§4 ⑦ 등록) |
 | T48 | 공유 WORK의 관계 표현 부족 | PASS | `V` + `P`「T43·T48」 — 발행 경로에서 FEAT별 복제 없음(생성 1건·라벨 다중), 관계는 부모를 준 경우에만 걸고 적용 여부를 원장에 그대로 남긴다 |
 | T49 | UI·state·API·통합 WORK로 분해 | 부분 | 작업별 designContext 선택·검증(U「T50·T52·T54」). 픽업 전달은 P2 |
@@ -73,7 +73,7 @@
 | T59 | 검토 중 종료·일부 발행 후 재요청 | 부분 | 저장된 분석·계획·판본으로 검토 재개. 발행 재개는 P2 |
 | T60 | 기획 문서+Jira 기획 출처 흐름 | 부분 | L — `/wh plan`이 기존 intake로 취합, 기획 티켓 청구 금지 문구. 전체 흐름·실 Jira는 NOT_RUN |
 | T61 | legacy claim과 WORK 준비 요청 | 부분 | C「T61」 — WORK 요청이 FEAT 발행으로 폴백하지 않음. legacy 의미 보존은 N/A |
-| T62 | plan→claim→WORK pickup 전체 | P2 | 픽업이 없다 |
+| T62 | plan→claim→WORK pickup 전체 | 부분 | `C`·`P`·`K`가 구간별로(준비·검토 / 발행 / 픽업) 실제 CLI 프로세스와 stub 트래커로 돈다. **남은 몫**: 한 번에 끝까지 도는 회귀와 실 트래커 왕복은 없다 |
 
 ## §4.5 운영 보완 대조
 
@@ -94,5 +94,7 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P2-d에서 16곳(인젝션·종류 2 · 등록·키 2 · STALE·워크트리 2 · 결정·선행 2 · 수용 기준 1 · 쓰기 경계 1 · 트래커 쓰기 제한 2 · 동시 배정 1 · 되돌림 어휘 1 · 범위 보호 1 · CLI 배선 1) — 16/16 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p2d-seeds.json`).
 P2-c에서 20곳(검토 판본 결박 1 · 확인 전 쓰기 0 1 · 선행 닫힘·후손 전이 2 · 미해결 결정 2 · 재발행 금지 2 · 중복 보류 1 · 라벨 어휘·공유 라벨 2 · 시도 지문·순서 2 · 원장 실패 2 · 부모 참조 1 · WORK 필드 빌더 3 · CLI 배선 1) — 20/20 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2c-seeds.json`).
