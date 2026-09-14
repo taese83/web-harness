@@ -28,7 +28,7 @@ export const payloadDigest = fields => createHash('sha256').update(JSON.stringif
 export function planPublish({plan, planDigest, state, selection = null, blockedWorkIds = new Set(), reviewed = null}) {
   const errors = []
   // 1) **검토한 판본인가.** 계획이 검토 뒤 바뀌었으면 그 안은 아직 확인받지 않았다.
-  if (!reviewed) errors.push('이 계획을 검토한 기록이 없다 — `claim --work`로 검토표를 먼저 만든다')
+  if (!reviewed) errors.push('이 계획을 검토한 기록이 없다 — `claim`로 검토표를 먼저 만든다')
   else if (reviewed.planId !== plan.planId) errors.push(`검토 기록이 다른 계획이다(${reviewed.planId})`)
   else if (reviewed.planDigest !== planDigest) errors.push('검토 뒤 계획이 바뀌었다 — 바뀐 안을 다시 검토한 뒤 발행한다(사전 승인은 새 안의 승인이 아니다)')
 

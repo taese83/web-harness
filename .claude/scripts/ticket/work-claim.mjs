@@ -1,4 +1,4 @@
-// work-claim.mjs — `claim --work`: WORK 분해의 준비(P0)·검토(P1) 진입점.
+// work-claim.mjs — `claim`: WORK 분해의 준비(P0)·검토(P1) 진입점.
 //
 // 사용자 진입점은 `/wh plan → team-flow claim → team-flow pickup` 그대로다. 이 CLI는 **의미를 이해하지
 // 않는다** — 분석·계획은 `system-architect`가 쓰고(스킬이 조정), CLI는 준비도·참조·그래프를 검증하고
@@ -105,9 +105,9 @@ export async function runClaimWork({root, flags = {}}) {
   }
   // 이 흐름은 발행하지 않는다 — 확인 플래그가 와도 FEAT 발행으로 되돌아가지 않는다(T61).
   // 발행은 별도 입구(`--work --publish`)이고, 그 입구의 미리보기가 `--confirm`의 대상이다.
-  const publishNote = {available: false, reason: 'WORK 발행은 `claim --work --publish`다 — 이 흐름은 준비·검토까지다'}
+  const publishNote = {available: false, reason: 'WORK 발행은 `claim --publish`다 — 이 흐름은 준비·검토까지다'}
   if (flags.confirm) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote,
-    guidance: '검토한 계획을 발행하려면 `claim --work --publish`로 미리보기를 보고, 같은 요청에 --confirm을 붙인다'}
+    guidance: '검토한 계획을 발행하려면 `claim --publish`로 미리보기를 보고, 같은 요청에 --confirm을 붙인다'}
 
   const analysisFile = readJson(root, WORK_ANALYSIS_PATH)
   if (analysisFile.error) return {...base, ok: false, phase: 'P0_ANALYSIS_INVALID', errors: [analysisFile.error]}
@@ -115,7 +115,7 @@ export async function runClaimWork({root, flags = {}}) {
     return {...base, ok: true, phase: 'P0_ANALYSIS_REQUIRED', publish: publishNote,
       next: {author: 'system-architect', writes: WORK_ANALYSIS_PATH, contract: CONTRACT,
         reads: ['_workspace/01_plan/feature-plan.md', SOURCE_INDEX, DESIGN_BINDING_PATH, '_workspace/02_design/']},
-      guidance: '선행 분석이 없다 — system-architect가 범위 FEAT 전체·개발 설계 원문·현재 코드·디자인 연결을 대조해 분석을 쓴다. 쓴 뒤 다시 claim --work를 부른다'}
+      guidance: '선행 분석이 없다 — system-architect가 범위 FEAT 전체·개발 설계 원문·현재 코드·디자인 연결을 대조해 분석을 쓴다. 쓴 뒤 다시 `claim`을 부른다'}
   }
   const io = fileIo(root)
   const analysis = analysisFile.value

@@ -30,7 +30,7 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const analysis = readJson(root, WORK_ANALYSIS_PATH)
   if (!plan || !analysis) {
     return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
-      guidance: 'WORK 계획이 없다 — `claim --work`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다'}
+      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다'}
   }
   // **판정 전에 origin 스냅샷을 갱신한다** — 로컬 계획·로컬 원장만 보면 남이 고친 계획을 못 보고
   // 「최신」이라 판정한다. 못 가져오면 막지 않고 `basis: local-snapshot`으로 **적는다**(legacy와 같다).

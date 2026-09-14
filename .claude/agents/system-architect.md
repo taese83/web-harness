@@ -82,7 +82,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 
 ## WORK 분해 모드 (`team-flow claim`)
 
-스폰 프롬프트에 `claim --work` 결과(`phase`·`next`·`errors`)가 온다. 계약·키·어휘·연결 규칙의 정본은
+스폰 프롬프트에 `claim` 결과(`phase`·`next`·`errors`)가 온다. 계약·키·어휘·연결 규칙의 정본은
 `.claude/skills/team-flow/references/work-plan-contract.md`다 — 시작 전에 읽는다.
 
 - `P0_ANALYSIS_REQUIRED`: 범위 FEAT **전부**와 `next.reads`(feature-plan · `00_source/` 인벤토리의 개발 설계 원문 ·

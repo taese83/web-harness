@@ -1,0 +1,106 @@
+{
+  "kind": "work-dist-smoke",
+  "measuredAt": "2026-09-14T10:08:22+00:00",
+  "harness": {
+    "baseCommit": "2ae6943",
+    "pluginVersion": "0.27.0",
+    "note": "baseCommit 위 작업 트리(버전 0.27.0·안내 문구 정리)에서 pnpm run ci의 build-plugin이 만든 dist/web-harness-plugin의 CLI를 실행 — 이 receipt가 들어가는 릴리스 커밋의 트리"
+  },
+  "command": "node dist/web-harness-plugin/.claude/scripts/ticket/cli.mjs <args> --root <fixture 사본>",
+  "runs": [
+    {
+      "fixture": "crud",
+      "steps": [
+        {
+          "args": "claim",
+          "exit": 0,
+          "phase": "P1_REVIEW",
+          "ready": 2,
+          "externalWrites": 0
+        },
+        {
+          "args": "claim --publish",
+          "exit": 2,
+          "phase": "PROVIDER_NOT_READY",
+          "externalWrites": 0
+        },
+        {
+          "args": "board --no-tracker",
+          "exit": 0,
+          "rows": 6,
+          "ready": 0,
+          "why": "발행 전이라 전부 not-registered"
+        },
+        {
+          "args": "board --by-feature",
+          "exit": 0,
+          "features": 5
+        },
+        {
+          "args": "claim --publish --resolve <WORK-1> --ticket 1",
+          "exit": 2,
+          "phase": "PROVIDER_NOT_READY",
+          "externalWrites": 0
+        }
+      ]
+    },
+    {
+      "fixture": "editor",
+      "steps": [
+        {
+          "args": "claim",
+          "exit": 0,
+          "phase": "P1_REVIEW",
+          "ready": 1,
+          "externalWrites": 0
+        },
+        {
+          "args": "claim --publish",
+          "exit": 2,
+          "phase": "PROVIDER_NOT_READY",
+          "externalWrites": 0
+        },
+        {
+          "args": "board --no-tracker",
+          "exit": 0,
+          "rows": 5,
+          "ready": 0,
+          "why": "발행 전이라 전부 not-registered"
+        },
+        {
+          "args": "board --by-feature",
+          "exit": 0,
+          "features": 3
+        },
+        {
+          "args": "claim --publish --resolve <WORK-1> --ticket 1",
+          "exit": 2,
+          "phase": "PROVIDER_NOT_READY",
+          "externalWrites": 0
+        }
+      ]
+    }
+  ],
+  "ci": {
+    "command": "pnpm run ci",
+    "exit": 0,
+    "tests": "1038 + 99 pass",
+    "falsification": "292/292",
+    "seconds": 513
+  },
+  "distDiff": {
+    "modified": 42,
+    "deleted": 8,
+    "added": 22,
+    "deletedFiles": "옛 FEAT 경로 ticket/batch-claim·claim-guard·claim-scope·ledger-writer·normalize·overview·pr·runner",
+    "addedFiles": "ticket/work-*.mjs 16 · team-flow references 3종(두 사본)"
+  },
+  "runtime": {
+    "node": "v22.22.3"
+  },
+  "limits": [
+    "수동 1회 실행 — CI는 배포본을 빌드만 하고 실행하지 않는다",
+    "트래커가 설정되지 않은 사본이라 발행·확정은 PROVIDER_NOT_READY에서 멈춘다 — 실제 발행·pickup·link --sync·자동 닫기는 배포본으로 돌리지 않았다(repo 회귀와 메모리 트래커가 잰다)",
+    "실 Jira·GitHub 왕복 NOT_RUN"
+  ]
+}

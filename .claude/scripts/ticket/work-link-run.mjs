@@ -26,7 +26,7 @@ export function workCloseLine(providerName, ticketKey) {
 export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}}) {
   const plan = readJson(root, WORK_PLAN_PATH)
   if (!plan || !readJson(root, WORK_ANALYSIS_PATH)) {
-    return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없다 — `claim --work`부터 한다'}
+    return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없다 — `claim`부터 한다'}
   }
   const planDigest = canonicalDigest(plan)
   const eventsPath = join(root, WORK_EVENTS_PATH)

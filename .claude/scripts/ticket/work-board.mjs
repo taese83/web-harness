@@ -79,7 +79,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     notes.push(`원장은 발행됐다는데 트래커 목록에 없는 작업 ${lost.length}건 — 지워졌거나 권한 밖이다(사람이 확인한다)`)
   }
   const unpublished = rows.filter(row => row.registration !== 'published').length
-  if (unpublished > 0) notes.push(`발행되지 않은 작업 ${unpublished}건 — \`claim --work --publish\`로 등록해야 집을 수 있다`)
+  if (unpublished > 0) notes.push(`발행되지 않은 작업 ${unpublished}건 — \`claim --publish\`로 등록해야 집을 수 있다`)
   return {rows, notes}
 }
 
@@ -100,7 +100,7 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const plan = readJson(WORK_PLAN_PATH)
   const analysis = readJson(WORK_ANALYSIS_PATH)
   if (!plan || !analysis) {
-    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim --work`로 먼저 만든다'}
+    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim`로 먼저 만든다'}
   }
   const state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
   const view = computeWorkView(plan, analysis)

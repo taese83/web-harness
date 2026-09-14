@@ -1,4 +1,4 @@
-// work-publish-run.mjs — `claim --work --publish`: 검토한 판본을 트래커에 발행하는 **실행부**.
+// work-publish-run.mjs — `claim --publish`: 검토한 판본을 트래커에 발행하는 **실행부**.
 //
 // 외부 쓰기의 규율(설계 §8): 쓰기 **전에** 시도를 원장에 남기고(operationId + 요청 지문), 성공하면 확정을
 // 남긴다. 응답 유실·원장 실패는 `publish-unknown`으로 남겨 다음 실행이 **조회로 확인**한다 — 부재를
@@ -30,7 +30,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
   const analysis = readJson(root, WORK_ANALYSIS_PATH)
   if (!plan || !analysis) {
     return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', externalWrites: 0,
-      guidance: '발행할 계획이 없다 — `claim --work`로 분석·계획을 만들고 검토한 뒤 발행한다'}
+      guidance: '발행할 계획이 없다 — `claim`로 분석·계획을 만들고 검토한 뒤 발행한다'}
   }
   const planDigest = canonicalDigest(plan)
   const eventsPath = join(root, WORK_EVENTS_PATH)
