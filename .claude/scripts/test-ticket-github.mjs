@@ -36,6 +36,12 @@ test('배선: 두 provider가 본문을 교체할 수 있고 능력으로 표시
   assert.deepEqual(calls[0].args, ['issue', 'edit', '42', '--repo', 'o/r', '--body-file', '-'])
   assert.equal(calls[0].stdin, '본문 + 마커', '본문이 argv로 새어나갔다')
   assert.equal(providerCapabilities(gh).updateBody, true)
+  // 라벨 증감(T47): 붙일 라벨을 먼저 보장하고, 준 것만 붙이고 뗀다(전체 교체가 아니다).
+  calls.length = 0
+  await gh.updateLabels(42, {add: ['feat-FEAT-004'], remove: ['team-a']})
+  assert.deepEqual(calls.map(call => call.args), [
+    ['label', 'create', 'feat-FEAT-004', '--repo', 'o/r', '--color', 'ededed', '--force'],
+    ['issue', 'edit', '42', '--repo', 'o/r', '--add-label', 'feat-FEAT-004', '--remove-label', 'team-a']])
 
   // Jira: description은 코멘트와 같은 버전 분기를 탄다(Cloud v3는 ADF, DC v2는 평문).
   const seen = []
@@ -53,6 +59,8 @@ test('배선: 두 provider가 본문을 교체할 수 있고 능력으로 표시
   const dc = createJiraProvider({config: {...base, apiVersion: '2'}, fetchImpl: capture, env: {JIRA_TOKEN: 't'}})
   await dc.updateBody('PF-1', '본문')
   assert.equal(seen[1].body.fields.description, '본문')
+  await dc.updateLabels('PF-1', {add: ['feat-FEAT-004'], remove: ['team-a']})
+  assert.deepEqual(seen[2].body, {update: {labels: [{add: 'feat-FEAT-004'}, {remove: 'team-a'}]}}, '`fields.labels` 교체는 사람이 단 라벨까지 지운다')
 })
 
 test('parseIssueRefs: 옛 왕복 마커에서 FEAT/TC를 되읽는다 — 분해된 FEAT 티켓을 WORK로 안내하는 입력', () => {

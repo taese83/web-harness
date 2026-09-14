@@ -172,6 +172,13 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
   }
 
   // 본문 교체 — 역방향 인테이크의 스탬프 경로. description은 코멘트와 같은 버전 분기를 탄다.
+  // 라벨 증감 — `update.labels`의 add/remove만 보낸다(`fields.labels` 교체는 사람이 단 라벨까지 지운다).
+  provider.updateLabels = async (key, {add = [], remove = []}) => {
+    const ops = [...add.map(label => ({add: label})), ...remove.map(label => ({remove: label}))]
+    if (ops.length > 0) await call(config, `/issue/${encodeURIComponent(key)}`, {...options, method: 'PUT', body: {update: {labels: ops}}})
+    return {ticketKey: String(key), added: add, removed: remove}
+  }
+
   provider.updateBody = async (key, body) => {
     await call(config, `/issue/${encodeURIComponent(key)}`, {...options, method: 'PUT',
       body: {fields: {description: commentBody(body)}}})

@@ -14,7 +14,9 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {runWorkPublish} from './ticket/work-publish-run.mjs'
 import {runClaimWork} from './ticket/work-claim.mjs'
-import {foldWorkState, readWorkEvents} from './ticket/work-events.mjs'
+import {canonicalDigest} from './ticket/work-analysis.mjs'
+import {appendWorkEvent, foldWorkState, readWorkEvents} from './ticket/work-events.mjs'
+import {randomUUID} from 'node:crypto'
 import {payloadDigest, planPublish, reconcileAttempt, workIssueFields} from './ticket/work-publish.mjs'
 import {featLabel as githubFeatLabel} from './ticket/provider-github.mjs'
 import {parseWorkMarker} from './ticket/work-refs.mjs'
@@ -67,7 +69,18 @@ function tracker({failOn = new Set(), noKeyOn = new Set(), lockLedgerAfter = new
         return {applied: true, mode: 'issue-link'}
       },
       async listWorkIssues() { return {items: [], complete: true} },
-      async updateBody() { return {updated: true} },
+      async updateBody(key, body) {
+        calls.push({kind: 'update-body', key, body})
+        if (failOn.has(`body:${key}`)) throw new Error('JIRA_HTTP_502: 본문 갱신 실패')
+        if (created.has(key)) created.set(key, {...created.get(key), description: body})
+        return {updated: true}
+      },
+      async comment(key, text) { calls.push({kind: 'comment', key, text}); return {commented: true} },
+      async updateLabels(key, {add, remove}) {
+        calls.push({kind: 'update-labels', key, add, remove})
+        if (created.has(key)) { const fields = created.get(key); created.set(key, {...fields, labels: [...fields.labels.filter(label => !remove.includes(label)), ...add]}) }
+        return {added: add, removed: remove}
+      },
     },
   }
 }
@@ -204,6 +217,103 @@ test('T43·T48: 공유 작업은 티켓 하나이고 소비 FEAT 라벨을 모�
     assert.equal(calls.filter(call => call.kind === 'link').length, 2)
     assert.equal(foldWorkState(events(root)).works.get(W(1)).relation.applied, true)
   })
+})
+
+test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터만 맞춘다 — 우리 라벨만, 둘 다 된 뒤에만 원장을 옮기고 코멘트로 알린다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const ledger = join(root, EVENTS)
+    const {provider, created, calls} = tracker({ledger})
+    const team = labels => ({jira: {...ticketConfig.jira, labels}})
+    const ids = {'work-ids': `${W(1)},${W(3)}`}
+    const first = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-a'])}})
+    assert.equal(first.ok, true, JSON.stringify(first.results))
+    const keyOf = workId => foldWorkState(events(root)).works.get(workId).ticketKey
+    const [sharedKey, otherKey] = [keyOf(W(1)), keyOf(W(3))]
+    created.set(sharedKey, {...created.get(sharedKey), labels: [...created.get(sharedKey).labels, 'human-label']})
+
+    // 계획 개정(발행하지 않은 다른 작업을 고쳤다) → 재검토. 원장은 옛 판본이라 픽업·보드가 `stale-plan`이다.
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const revise = mutate => {
+      const plan = JSON.parse(readFileSync(planPath, 'utf8'))
+      mutate(plan)
+      writeFileSync(planPath, JSON.stringify(plan))
+      return canonicalDigest(plan)
+    }
+    const revised = revise(plan => { plan.workItems.find(work => work.workId === W(4)).title = '개정된 제목' })
+    await review(root)
+    assert.notEqual(foldWorkState(events(root)).works.get(W(1)).planDigest, revised)
+
+    // 미리보기: 무엇을 맞출지 보이고 쓰기는 없다.
+    calls.length = 0
+    const preview = await runWorkPublish({root, flags: ids, io: {provider, ticketConfig: team(['team-b'])}})
+    assert.deepEqual(preview.sync.map(item => item.workId).sort(), [W(1), W(3)].sort())
+    assert.deepEqual(preview.sync.find(item => item.workId === W(1)).remove, ['team-a'])
+    assert.match(preview.guidance, /sync/)
+    assert.equal(calls.length, 0, '미리보기가 트래커를 불렀다')
+
+    // 본문 갱신이 실패하면 그 작업의 원장은 옛 판본 그대로이고 라벨도 쓰지 않는다.
+    const broken = tracker({ledger, failOn: new Set([`body:${sharedKey}`])})
+    const partial = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider: broken.provider, ticketConfig: team(['team-b'])}})
+    assert.equal(partial.ok, false)
+    assert.equal(partial.results.find(item => item.workId === W(1)).outcome, 'hold')
+    assert.notEqual(foldWorkState(events(root)).works.get(W(1)).planDigest, revised, '쓰지 못한 동기화를 원장에 옮겼다')
+    assert.equal(broken.calls.some(call => call.kind === 'update-labels' && call.key === sharedKey), false, '본문 실패 뒤에도 라벨을 썼다')
+
+    calls.length = 0
+    const synced = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-b'])}})
+    assert.equal(synced.ok, true, JSON.stringify(synced.results))
+    assert.equal(synced.results.find(item => item.workId === W(1)).outcome, 'synced')
+    assert.equal(calls.some(call => call.kind === 'create'), false, '동기화가 새 티켓을 만들었다')
+    assert.equal(calls.filter(call => call.kind === 'comment' && call.key === sharedKey).length, 1, '본문을 바꾸고 알리지 않았다')
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).planDigest, revised)
+    const fields = created.get(sharedKey)
+    assert.equal(parseWorkMarker(fields.description).planDigest, revised, '본문 마커가 새 판본이 아니다')
+    assert.ok(fields.labels.includes('team-b') && !fields.labels.includes('team-a'), JSON.stringify(fields.labels))
+    assert.ok(fields.labels.includes('human-label'), '사람이 단 라벨을 뗐다')
+    assert.deepEqual(fields.labels.filter(label => label.startsWith('feat-')).sort(), ['feat-FEAT-001', 'feat-FEAT-002', 'feat-FEAT-003'])
+
+    // 맞춘 뒤 다시 부르면 쓰지 않는다.
+    assert.deepEqual((await runWorkPublish({root, flags: ids, io: {provider, ticketConfig: team(['team-b'])}})).sync, [])
+    calls.length = 0
+    await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-b'])}})
+    assert.equal(calls.filter(call => call.kind.startsWith('update-') || call.kind === 'comment').length, 0, '같은 판본을 다시 썼다')
+
+    // 머지로 끝난 작업은 라벨만 맞춘다 — 닫힌 티켓의 본문을 구현하지 않은 판본으로 바꾸지 않는다.
+    const planId = JSON.parse(readFileSync(planPath, 'utf8')).planId
+    appendWorkEvent(ledger, {schemaVersion: 1, eventId: randomUUID(), planId, workId: W(3), eventType: 'work-completed', at: new Date().toISOString(),
+      payload: {prUrl: 'https://github.com/o/r/pull/9', via: 'pr-merged'}})
+    revise(plan => { plan.workItems.find(work => work.workId === W(4)).title = '두 번째 개정' })
+    await review(root)
+    calls.length = 0
+    const labelsOnly = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-c'])}})
+    assert.equal(labelsOnly.results.find(item => item.workId === W(3)).scope, 'labels-only')
+    assert.equal(calls.some(call => call.kind === 'update-body' && call.key === otherKey), false, '끝난 작업의 본문을 바꿨다')
+    assert.ok(calls.some(call => call.kind === 'update-labels' && call.key === otherKey))
+
+    // 작업 **내용**이 바뀌었으면 제자리로 고치지 않는다 — 대체로 간다(원장·트래커 불변).
+    revise(plan => { plan.workItems.find(work => work.workId === W(1)).objective = '개정된 목표 — 회원 타입에 상태 필드를 더한다' })
+    await review(root)
+    calls.length = 0
+    const refused = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-c'])}})
+    const shared = refused.results.find(item => item.workId === W(1))
+    assert.equal(shared.refused, 'supersede-required', JSON.stringify(shared))
+    assert.equal(calls.some(call => call.key === sharedKey), false, '내용이 바뀐 작업의 티켓을 제자리로 고쳤다')
+
+    // 원장이 기록한 트래커가 아니면 같은 키로 쓰지 않는다.
+    calls.length = 0
+    const other = await runWorkPublish({root, flags: {...ids, confirm: true},
+      io: {provider: {...provider, name: 'github'}, ticketConfig: {github: {workLink: {mode: 'link-only'}}}}})
+    const mismatched = other.results.filter(item => item.outcome === 'hold')
+    assert.equal(mismatched.length, 2, JSON.stringify(other.results))
+    assert.ok(mismatched.every(item => item.refused === 'provider-mismatch'), JSON.stringify(other.results))
+    assert.equal(calls.filter(call => call.kind.startsWith('update-') || call.kind === 'comment').length, 0, '다른 트래커의 같은 키에 썼다')
+  })
+  // 확정되지 않은 작업의 동기화 줄은 원장 파손이다 — 조용히 상태를 만들지 않는다.
+  const planId = '22222222-2222-4222-8222-222222222222'
+  assert.throws(() => foldWorkState([{eventType: 'publish-synced', workId: W(1), planId, planDigest: 'a'.repeat(64),
+    payload: {ticketKey: 'PF-1', payloadDigest: 'b'.repeat(64), labels: []}}]), /WORK_EVENTS_CORRUPT/)
 })
 
 test('계획 없이 발행을 부르면 계획부터 요구한다 · 이미 발행된 것은 다시 내지 않는다', async () => {

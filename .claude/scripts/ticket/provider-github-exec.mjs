@@ -27,8 +27,13 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   })
 }
 
+export const workViewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,labels,state,body,assignees']
+// gh가 「그 번호의 이슈가 없다」고 답한 경우만 부재다 — 권한·네트워크 실패를 부재로 접지 않는다.
+const isIssueNotFound = error => /Could not resolve to an? (issue|Issue)/.test(String(error?.message ?? error))
 export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees,comments,updatedAt']
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
+export const labelEditArgs = (repo, number, {add = [], remove = []}) => ['issue', 'edit', String(number), '--repo', repo,
+  ...add.flatMap(label => ['--add-label', label]), ...remove.flatMap(label => ['--remove-label', label])]
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
@@ -63,17 +68,38 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       const parsed = parseGithubWorkList(json, {limit: 100, indexLag: true})
       return {matches: parsed.matches, complete: false, indexLag: true, total: null, nextCursor: null}
     },
-    /** 목록. gh는 커서를 주지 않으므로 상한에 닿으면 잘렸을 수 있다고 표시한다. */
+    /**
+     * 목록. gh는 커서를 주지 않으므로 상한에 닿으면 잘렸을 수 있다고 표시한다. **키를 주면** 잘린 목록에서 못 본
+     * 키를 하나씩 직접 조회한다 — 이슈가 많은 저장소에서 보드가 오래된 WORK를 늘 「미상」으로 두지 않게.
+     */
     async listWorkIssues({keys = null, pageSize = 100}) {
       const json = JSON.parse(await run(workListArgs(repo, pageSize)))
       const parsed = parseGithubWorkList(json, {limit: pageSize})
       const wanted = keys ? new Set(keys.map(key => String(key))) : null
       const items = wanted ? parsed.matches.filter(item => wanted.has(item.ticketKey)) : parsed.matches
       const observed = new Set(items.map(item => item.ticketKey))
+      if (keys && parsed.truncated) {
+        const notFound = []
+        for (const key of [...wanted].filter(key => !observed.has(key))) {
+          if (!/^\d+$/.test(key)) throw new Error(`INVALID_WORK_KEY: GitHub 이슈 번호가 아니다 — ${key}`)
+          try {
+            const [item] = parseGithubWorkList([JSON.parse(await run(workViewArgs(repo, key)))], {limit: Infinity}).matches
+            items.push(item)
+            observed.add(item.ticketKey)
+          } catch (error) {
+            if (!isIssueNotFound(error)) throw error
+            notFound.push(key)
+          }
+        }
+        // 요청한 키를 **전부 직접 확인했다** — 목록의 절단과 무관하게 이 키들에 대해서는 완결이다.
+        return {items, nextCursor: null, complete: true, truncated: false, keyLookup: true, total: null,
+          requested: keys.map(String), missing: notFound}
+      }
       return {items, nextCursor: null, complete: parsed.complete, truncated: parsed.truncated, total: null,
         requested: keys ? keys.map(String) : null,
-        // 잘린 목록에서 안 보이는 키는 **없는 것이 아니라 못 본 것**이다.
-        missing: keys && parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null}
+        // 키를 주고 여기 왔으면 목록이 잘리지 않았다 — 잘렸으면 위에서 키마다 직접 조회했다(못 본 키를 부재로 단정하는
+        // 경로가 없다. 그 판정은 `isIssueNotFound`가 맡는다).
+        missing: keys ? keys.map(String).filter(key => !observed.has(key)) : null}
     },
     /** 관계. 확인한 native 계층이 없다 — 본문 참조뿐이며 계층이라 부르지 않는다. */
     async linkRelated() {
@@ -106,6 +132,12 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     async updateBody(ticketKey, body) {
       await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: String(body)})
       return {ticketKey: String(ticketKey), updated: true}
+    },
+    // 라벨 증감. 붙일 라벨은 생성과 같은 이유로 **먼저 보장**한다. 호출자가 준 것만 떼고 나머지 라벨은 건드리지 않는다.
+    async updateLabels(ticketKey, {add = [], remove = []}) {
+      for (const label of add) await run(labelEnsureArgs(repo, label))
+      if (add.length > 0 || remove.length > 0) await run(labelEditArgs(repo, ticketKey, {add, remove}))
+      return {ticketKey: String(ticketKey), added: add, removed: remove}
     },
     // 이슈 생성 — GitHub은 --label로 붙이려면 라벨이 먼저 존재해야 하므로(라이브 실측:
     // "could not add label: not found"), 각 라벨을 발행 *전에* 보장한다(--force=멱등).

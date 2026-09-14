@@ -1403,14 +1403,6 @@
       "why": "못 본 키를 빈 목록으로 적으면 「전부 조회했고 다 있다」로 읽힌다"
     },
     {
-      "id": "github-list-missing-only-when-complete",
-      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
-      "find": "        missing: keys && parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null}",
-      "replace": "        missing: keys ? keys.map(String).filter(key => !observed.has(key)) : null}",
-      "test": ".claude/scripts/test-work-provider.mjs",
-      "why": "잘린 목록에서 안 보이는 키를 부재로 단정하면 이미 있는 티켓을 다시 발행한다"
-    },
-    {
       "id": "work-relation-parent-side-configurable",
       "file": ".claude/scripts/ticket/work-provider.mjs",
       "find": "  return parentSide === 'outward'",
@@ -1477,8 +1469,8 @@
     {
       "id": "work-publish-attempt-digest-recorded",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels}})",
-      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels}})",
+      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
+      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "시도에 실제 요청 지문이 없으면 같은 시도 id로 다른 본문을 보냈는지 가릴 수 없고, 외부 쓰기 시점의 시도 대조도 공허해진다"
     },
@@ -1517,7 +1509,7 @@
     {
       "id": "work-publish-attempt-before-write",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels}})",
+      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
       "replace": "    const attemptFailed = null",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "외부 쓰기 전에 시도가 원장에 없으면 응답이 유실됐을 때 흔적 없이 사라진다 — 재개할 근거가 없다"
@@ -2249,6 +2241,102 @@
       "replace": "  while (!existsSync(currentPath)) {",
       "test": ".claude/scripts/test-ownership-hook.mjs",
       "why": "링크를 따라가는 존재 검사는 대상 없는 링크를 없는 경로로 읽어, 링크를 풀지 않은 채 범위 안으로 판정하고 Write가 범위 밖에 새 파일을 만든다"
+    },
+    {
+      "id": "work-sync-detects-revision",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (registered.planDigest === planDigest && registered.payloadDigest === digest) return null",
+      "replace": "    if (true) return null",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "판본이 달라도 동기화하지 않으면 계획 개정 뒤 발행한 티켓이 픽업·보드에서 영영 stale-plan이다"
+    },
+    {
+      "id": "work-sync-hold-on-write-failure",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "(픽업은 계속 막힌다): ${String(error?.message ?? error).slice(0, 120)}`})\n      continue",
+      "replace": "(픽업은 계속 막힌다): ${String(error?.message ?? error).slice(0, 120)}`})",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "쓰기에 실패한 동기화를 원장에 옮기면 티켓은 옛 본문인데 픽업이 새 판본으로 착수시킨다"
+    },
+    {
+      "id": "work-sync-removes-stale-labels",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "      remove: previous ? previous.filter(label => !draft.labels.includes(label)) : [],",
+      "replace": "      remove: [],",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "빠진 우리 라벨을 떼지 않으면 더 이상 소비하지 않는 FEAT·팀으로 티켓이 계속 검색된다"
+    },
+    {
+      "id": "work-sync-event-moves-digest",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "      works.set(event.workId, {...state, planDigest: event.planDigest, payloadDigest: event.payload.payloadDigest, labels: event.payload.labels,",
+      "replace": "      works.set(event.workId, {...state, payloadDigest: event.payload.payloadDigest, labels: event.payload.labels,",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "동기화 기록이 판본을 옮기지 않으면 맞춘 티켓도 픽업이 계속 막는다"
+    },
+    {
+      "id": "work-sync-event-requires-published",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "      if (state.status !== 'published' || String(state.ticketKey) !== String(event.payload.ticketKey)) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "확정되지 않은 작업의 동기화 줄을 받으면 원장 파손이 발행된 판본처럼 접힌다"
+    },
+    {
+      "id": "github-board-key-lookup",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "      if (keys && parsed.truncated) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "잘린 목록에서 못 본 키를 조회하지 않으면 이슈가 많은 저장소에서 오래된 WORK의 배정이 늘 미상이다"
+    },
+    {
+      "id": "github-key-lookup-not-found-only",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "            if (!isIssueNotFound(error)) throw error",
+      "replace": "            if (false) throw error",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "권한·네트워크 실패를 부재로 접으면 보드가 멀쩡한 티켓을 사라졌다고 말한다"
+    },
+    {
+      "id": "work-readiness-requires-update-labels",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    updateLabels: typeof provider?.updateLabels === 'function',",
+      "replace": "    updateLabels: true,",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "라벨을 못 바꾸는 provider로 발행을 열면 계획 개정 뒤 동기화가 막혀 티켓이 낡는다"
+    },
+    {
+      "id": "work-sync-refuses-content-change",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (registered.workDigest !== contentDigest) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "작업 내용이 바뀐 티켓을 제자리로 고치면 읽고 작업 중인 개발자 밑에서 계약이 조용히 바뀐다(2026-08-30 사용자 결정)"
+    },
+    {
+      "id": "work-sync-refuses-provider-mismatch",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (registered.provider !== provider.name) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "원장이 기록한 트래커가 아닌 곳에 같은 키로 쓰면 무관한 이슈의 본문·라벨을 덮어쓴다"
+    },
+    {
+      "id": "work-sync-completed-labels-only",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    const labelsOnly = Boolean(registered.completed)",
+      "replace": "    const labelsOnly = false",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "머지로 끝난 티켓의 본문을 구현하지 않은 판본으로 바꾸면 그 티켓이 무엇을 했는지가 사후에 어긋난다"
+    },
+    {
+      "id": "work-sync-notifies-ticket",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (!failed && item.body !== null) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "본문을 바꾸고 알리지 않으면 이미 픽업한 개발자가 모른 채 옛 계약으로 작업한다"
     }
   ]
 }

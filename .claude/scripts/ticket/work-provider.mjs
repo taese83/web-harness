@@ -152,6 +152,8 @@ export function workProviderReadiness(provider, config) {
     listWorkIssues: typeof provider?.listWorkIssues === 'function',
     linkRelated: typeof provider?.linkRelated === 'function',
     updateBody: typeof provider?.updateBody === 'function',
+    // 이미 발행한 작업의 **소비 FEAT·판본 동기화**(T47)에 쓴다 — 없으면 계획 개정 뒤 티켓이 영영 낡는다.
+    updateLabels: typeof provider?.updateLabels === 'function',
   }
   const relation = workRelationMode(name, config)
   const missing = Object.entries(capabilities).filter(([, present]) => !present).map(([key]) => `provider.${key}`)

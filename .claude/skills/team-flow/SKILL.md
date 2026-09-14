@@ -31,7 +31,7 @@ FEAT/TC는 요구사항(무엇이 되어야 하는가)이고, WORK는 실행 단
 
 ```
 cli.mjs claim [--features FEAT-001,…]                                   # 준비(P0)·검토(P1) — 외부 쓰기 없음
-cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--repo o/r] [--confirm]  # 확인한 판본만 발행
+cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--repo o/r] [--confirm]  # 확인한 판본만 발행 · 옛 판본 티켓은 동기화
 cli.mjs board [--developer me] [--repo o/r]                             # 지금 집을 수 있는 WORK
 cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
 cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신

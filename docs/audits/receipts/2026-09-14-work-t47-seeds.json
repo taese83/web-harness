@@ -1,0 +1,90 @@
+{
+  "kind": "falsification-receipt",
+  "measuredAt": "2026-09-14T09:34:16+00:00",
+  "scope": "WORK 분해 T47(이미 발행한 티켓의 소비 메타데이터 동기화 — 내용 변경·트래커 불일치 거부) · GitHub 보드 키 단위 조회",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-sync-detects-revision",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-hold-on-write-failure",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-removes-stale-labels",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-event-moves-digest",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-event-requires-published",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "github-board-key-lookup",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "github-key-lookup-not-found-only",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-readiness-requires-update-labels",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-sync-refuses-content-change",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-refuses-provider-mismatch",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-completed-labels-only",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-notifies-ticket",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    }
+  ],
+  "result": {
+    "ok": 12,
+    "total": 12,
+    "treeChanged": null,
+    "note": "같은 실행에 링크 동기화 seed(work-sync-requires-base-match, P3-a)가 접두어로 함께 돌아 13/13이었다 — 여기에는 이번 신규 12건만 적는다"
+  },
+  "summary": [
+    "falsification: 13건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 Jira·GitHub 왕복은 NOT_RUN — 메모리 트래커와 argv·요청 본문 conformance까지만 잰다",
+    "동기화 판정은 원장의 판본·요청 지문·작업 내용 지문 비교다 — 트래커 본문을 사람이 고친 것은 모르고, 동기화하면 덮어쓴다",
+    "GitHub 부재 판정은 gh 오류 문구(Could not resolve to an issue) 매칭이다 — 문구가 바뀌면 부재도 조회 실패로 던져진다(안전 쪽)"
+  ],
+  "retired": [
+    {
+      "id": "github-list-missing-only-when-complete",
+      "receipt": "docs/audits/receipts/2026-09-14-work-p2b-seeds.json",
+      "why": "GitHub listWorkIssues가 키를 받고 목록이 잘리면 키마다 직접 조회하도록 바뀌어, 잘린 목록에서 부재를 단정하는 분기에 도달하는 입력이 없다(truncated ↔ !complete). 결박할 수 없는 seed를 남기면 CI가 막히고, 조건을 억지로 남기면 죽은 가드다",
+      "successor": "github-key-lookup-not-found-only"
+    }
+  ]
+}

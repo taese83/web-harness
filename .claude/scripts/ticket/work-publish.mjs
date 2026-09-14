@@ -10,6 +10,7 @@
 //     재발행하지 않고 사람에게 조정을 맡긴다(§8-5).
 import {createHash} from 'node:crypto'
 import {WORK_ID} from './work-refs.mjs'
+import {canonicalDigest} from './work-analysis.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 const canonical = input => Array.isArray(input) ? input.map(canonical)
@@ -85,6 +86,12 @@ export function planPublish({plan, planDigest, state, selection = null, blockedW
   }
   return {ok: errors.length === 0, publish, resume, reuse, skipped, errors}
 }
+
+// 작업의 **내용**(무엇을 어디까지 만드는가) — 소비 FEAT·근거·우선순위처럼 계획의 다른 곳에서 파생되는 것은 뺀다.
+export const WORK_CONTENT_KEYS = ['title', 'kind', 'objective', 'nonGoals', 'dependsOn', 'readPaths', 'writePaths',
+  'contractRefs', 'provides', 'consumes', 'designContext', 'checks']
+/** 작업 내용 지문(순수). 발행 뒤 이것이 바뀐 작업은 제자리로 고치지 않고 대체(`superseded`)로 간다. */
+export const workContentDigest = work => canonicalDigest(Object.fromEntries(WORK_CONTENT_KEYS.filter(key => key in work).map(key => [key, work[key]])))
 
 /**
  * 재개 판정(순수) — 시도했는데 결과를 모르는 작업을 조회 결과와 대조한다.

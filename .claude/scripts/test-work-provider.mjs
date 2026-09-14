@@ -111,14 +111,27 @@ test('GitHub: 본문 검색은 색인 지연이라 부재를 단정하지 않고
   assert.equal(relation.mode, 'link-only')
   assert.equal(relation.applied, false, 'link-only를 적용된 관계로 셌다')
   // 상한에 닿으면 잘렸을 수 있다고 말한다.
-  const many = createGithubProvider({repo: 'o/r', exec: async () => JSON.stringify(Array.from({length: 5}, (unused, index) => ({number: index + 1, title: 't', labels: [], state: 'OPEN'})))})
+  const views = []
+  const many = createGithubProvider({repo: 'o/r', exec: async args => {
+    if (args[1] !== 'view') return JSON.stringify(Array.from({length: 5}, (unused, index) => ({number: index + 1, title: 't', labels: [], state: 'OPEN'})))
+    views.push(args[2])
+    if (args[2] === '99') throw new Error('gh exit 1: GraphQL: Could not resolve to an issue or pull request with the number of 99.')
+    if (args[2] === '77') throw new Error('gh exit 1: HTTP 403: Resource not accessible by integration')
+    return JSON.stringify({number: Number(args[2]), title: '오래된 WORK', labels: [{name: 'work-x'}], state: 'OPEN', body: 'b', assignees: [{login: 'dev'}]})
+  }})
   const listed = await many.listWorkIssues({pageSize: 5})
   assert.equal(listed.complete, false)
   assert.equal(listed.truncated, true)
-  // 키 필터는 잘린 목록 위에서 돈다 — 못 본 키를 「없다」로 단정하지 않는다.
-  const filtered = await many.listWorkIssues({keys: ['1', '99'], pageSize: 5})
-  assert.deepEqual(filtered.items.map(item => item.ticketKey), ['1'])
-  assert.equal(filtered.missing, null, '잘린 목록에서 부재를 단정했다')
+  // 잘린 목록에서 못 본 키는 **직접 조회한다** — 목록에 있는 키는 다시 부르지 않고, 「없다」는 gh가 그렇게 답한 것만이다.
+  const filtered = await many.listWorkIssues({keys: ['1', '150', '99'], pageSize: 5})
+  assert.deepEqual(filtered.items.map(item => item.ticketKey), ['1', '150'])
+  assert.deepEqual(filtered.items[1].assignees, ['dev'])
+  assert.deepEqual(views, ['150', '99'], '목록에서 이미 본 키를 다시 조회했다')
+  assert.equal(filtered.complete, true)
+  assert.deepEqual(filtered.missing, ['99'])
+  // 권한 실패는 부재가 아니다 — 던져서 보드가 「조회 실패」로 적게 한다.
+  await assert.rejects(() => many.listWorkIssues({keys: ['77'], pageSize: 5}), /403/, '권한 실패를 부재로 접었다')
+  await assert.rejects(() => many.listWorkIssues({keys: ['PF-1'], pageSize: 5}), /INVALID_WORK_KEY/)
   const small = createGithubProvider({repo: 'o/r', exec: async () => JSON.stringify([{number: 1, title: 't', labels: [], state: 'OPEN'}])})
   assert.deepEqual((await small.listWorkIssues({keys: ['1', '2'], pageSize: 5})).missing, ['2'], '완결 목록에서 못 본 키를 보고하지 않는다')
 })
@@ -134,6 +147,7 @@ test('발행 전 능력 판정: 없는 것을 있다고 말하지 않고 무엇�
   // 능력이 아예 없는 provider는 그 사실이 그대로 나온다.
   const poor = workProviderReadiness({name: 'jira'}, jiraConfig)
   assert.ok(poor.missing.includes('provider.findByWorkId'))
+  assert.ok(poor.missing.includes('provider.updateLabels'), '동기화할 수 없는 provider로 발행을 열었다 — 계획 개정 뒤 티켓이 영영 낡는다')
   // GitHub도 선언 전에는 막힌다 — 선언하면 통과한다(면제가 아니라 opt-in).
   const github = createGithubProvider({repo: 'o/r', exec: async () => '[]'})
   assert.equal(workProviderReadiness(github, {}).ok, false, 'GitHub이 선언 없이 발행 가능으로 통과했다')

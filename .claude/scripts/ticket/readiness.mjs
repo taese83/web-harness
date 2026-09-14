@@ -13,7 +13,7 @@ const REASONS = {
   ko: {
     // 계획을 고칠 사람이 봐야 하는 것만 넣는다 — 배정 경합·인젝션처럼 기획 쪽에 할 일이 없는
     // 사유는 null이라 티켓이 소음으로 차지 않는다.
-    'stale-plan': '발행 뒤 WORK 계획이 바뀌었다 — 바뀐 안을 다시 검토·발행해야 착수할 수 있다',
+    'stale-plan': '발행 뒤 WORK 계획이 바뀌었다 — 바뀐 안을 다시 검토하고 `claim --publish --confirm`으로 티켓을 새 판본에 맞춰야 착수할 수 있다',
     'decision-unresolved': '이 작업에 아직 닫히지 않은 결정이 있다(디자인 조건·계약 선택)',
     'dependency-incomplete': '선행 작업이 아직 머지로 끝나지 않았다 — 그 위에서 개발하면 재작업이 된다',
     'no-acceptance': '이 작업에 수용 기준(TC 또는 checks)이 하나도 없다 — 무엇으로 끝났다고 할지가 없다',
@@ -22,7 +22,7 @@ const REASONS = {
     'work-marker-missing': '이 티켓은 원장에 WORK로 발행됐는데 본문의 WORK 마커가 지워졌다 — 본문을 복구해야 착수할 수 있다',
   },
   en: {
-    'stale-plan': 'the WORK plan changed after publishing — review and publish the new plan before starting',
+    'stale-plan': 'the WORK plan changed after publishing — review it again and run `claim --publish --confirm` to sync the ticket before starting',
     'decision-unresolved': 'this work still has an open decision (design condition or contract choice)',
     'dependency-incomplete': 'a prerequisite work is not merged yet — building on it now means rework',
     'no-acceptance': 'this work has no acceptance criteria at all (no TC, no checks)',
