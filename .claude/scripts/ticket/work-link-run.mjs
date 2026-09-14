@@ -46,8 +46,16 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const completion = work ? evaluateWorkCompletion({work, ownedTestCaseIds: owned,
     citedIds: io.citedIds ?? collectCitedTestCaseIds(root), pathExists: io.pathExists ?? projectPathExists(root),
     baseline: baseline && Object.keys(baseline).length > 0 ? baseline : null, currentDigest: io.refDigest ?? projectRefDigest(root)}) : null
-  const decision = planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, flags})
-  if (!decision.ok) return {mode: 'work', ...decision}
+  // 기대 base: 운영자가 준 `--base`가 이긴다. 없으면 PR을 읽는다(쓰기 없음). 못 읽으면 판정이 막는다.
+  let baseRef = typeof flags.base === 'string' ? flags.base : null
+  let baseNote = baseRef ? 'operator' : null
+  if (!baseRef && found.workId && typeof prUrl === 'string' && /^https?:\/\//.test(prUrl)) {
+    const info = io.prInfo ? await io.prInfo(prUrl) : (await resolvePrStates([prUrl])).get(prUrl)
+    baseRef = info?.baseRefName ?? null
+    baseNote = baseRef ? 'pr' : `unreadable: ${info?.error ?? 'no base'}`
+  }
+  const decision = planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, baseRef, flags})
+  if (!decision.ok) return {mode: 'work', ...decision, ...(baseNote ? {baseSource: baseNote} : {})}
   if (decision.idempotent) {
     return {ok: true, mode: 'work', idempotent: true, workId: decision.workId, existing: decision.existing,
       staleCheck: decision.staleCheck, closeLine: workCloseLine(decision.provider, ticketKey)}
@@ -69,7 +77,7 @@ export async function resolvePrStates(prUrls, {exec = null} = {}) {
       const host = new URL(url).host
       const out = exec ? await exec(prStateArgs(url), {host}) : await runGh(prStateArgs(url), {host})
       const parsed = JSON.parse(typeof out === 'string' ? out : out?.out ?? '')
-      states.set(url, {state: parsed?.state ?? null})
+      states.set(url, {state: parsed?.state ?? null, baseRefName: parsed?.baseRefName ?? null})
     } catch (error) {
       states.set(url, {error: String(error?.message ?? error).slice(0, 160)})
     }
@@ -86,7 +94,8 @@ export async function runWorkMergeSync({root, flags = {}, io = {}}) {
   const prStates = io.prStates ? await io.prStates(pending) : await resolvePrStates(pending)
   const sync = planMergeSync({plan, state, prStates})
   if (!flags['dry-run']) for (const event of sync.events) appendWorkEvent(eventsPath, event)
-  return {ok: sync.unknown.length === 0, mode: 'work', dryRun: Boolean(flags['dry-run']),
-    completed: sync.events.map(event => event.workId), open: sync.open, unknown: sync.unknown,
+  return {ok: sync.unknown.length === 0 && sync.baseMismatch.length === 0, mode: 'work', dryRun: Boolean(flags['dry-run']),
+    completed: sync.events.map(event => event.workId), open: sync.open, unknown: sync.unknown, baseMismatch: sync.baseMismatch,
+    ...(sync.baseMismatch.length > 0 ? {baseGuidance: '기대한 base와 다른 브랜치에 머지됐다 — 완료로 쓰지 않는다. 기대 base로 다시 머지하거나 계획·링크를 확인한다'} : {}),
     ...(sync.unknown.length > 0 ? {guidance: 'PR 상태를 확인하지 못한 작업은 완료로 치지 않는다 — gh 인증·네트워크를 확인하고 다시 돌린다'} : {})}
 }

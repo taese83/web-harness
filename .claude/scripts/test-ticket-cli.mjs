@@ -281,7 +281,7 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
   assert.equal(decide(`${base} pickup PF-101 --repo --developer me`).allowed, false)
 })
 
-// 자동 닫기 자산은 WORK 원장 기반으로 교체될 때까지(4번) 개발 준비 검사가 설치한다 — 설치는 덮어쓰지 않는다.
+// 자동 닫기 자산(v2 — WORK 원장 기반)은 개발 준비 검사가 설치한다 — 설치는 덮어쓰지 않는다(판본 판정은 test-work-close).
 test('자동 닫기 자산을 설치하되 프로젝트가 손본 사본은 덮지 않는다', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wh-close-assets-'))
   try {

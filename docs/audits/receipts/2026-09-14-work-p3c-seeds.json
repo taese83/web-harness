@@ -1,0 +1,184 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T07:57:05.000Z",
+  "scope": "WORK 분해 P3-c(자동 닫기 교체 — WORK 원장·기대 base)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "link-records-ticket-revision",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-stale-plan",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-stale-unavailable-loud",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-completion-required",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-tc-citation",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-check-targets",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-no-acceptance",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-accept-recorded",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-idempotent",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-merge-observed-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-merge-unknown-not-complete",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-completed-requires-merge",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-registered-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "cli-link-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-merge-resolver-failure-not-merged",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-baseline-unchanged",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-pickup-baseline-recorded",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-close-provider-from-ledger",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-scope-ticket-match",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "close-requires-expected-base",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-only-github",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-stops-on-corrupt-ledger",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-skips-closed",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-install-detects-outdated",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-readiness-fails-outdated",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "work-link-requires-base",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-sync-requires-base-match",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "close-requires-reviewed-work",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-requires-issue-number",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "close-collects-failures",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "test": ".claude/scripts/test-work-close.mjs"
+    },
+    {
+      "id": "work-link-relink-for-base",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-pr-url-canonical",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    }
+  ],
+  "result": {
+    "ok": 32,
+    "total": 32,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 32건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 GitHub Actions·gh 호출은 NOT_RUN — 가짜 gh로 프로세스를 돈다",
+    "자동 닫기의 근거(원장 줄)는 PR이 가져오는 것이다 — 신뢰 경계는 머지 승인이며, 검토 계보 대조는 위조 비용을 올릴 뿐이다",
+    "옛 사본 판정은 판본 표지 문자열 포함 프록시다(주석 삽입으로 우회 가능 — 실질 해소는 자산 digest 대조)",
+    "저장소(repo) 대조·머지 뒤 revert는 보지 않는다",
+    "Jira 등 비-GitHub 트래커는 닫지 않고 PENDING으로 남긴다(능동 전이 미구현)",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 차이가 없었다는 뜻이다"
+  ]
+}

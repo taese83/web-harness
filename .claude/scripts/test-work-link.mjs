@@ -54,25 +54,25 @@ test('완료: 소유 TC가 인용되지 않았거나 check 대상이 없으면 �
 
 test('STALE: 픽업 뒤 계획이 바뀌었으면 막고, 대조할 수 없으면 명시 인수 없이 막는다', () => {
   const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
-  const base = {plan, planDigest, state: published(W(4)), ticketKey: 'PF-104', prUrl: PR, completion}
-  assert.equal(planWorkLink({...base, changeScope: {...scopeFor(W(4)), sourceDigest: 'b'.repeat(64)}}).blocked, 'stale-change-scope')
-  const none = planWorkLink({...base, changeScope: null})
+  const base = {baseRef: 'develop', plan, planDigest, state: published(W(4)), ticketKey: 'PF-104', prUrl: PR, completion}
+  assert.equal(planWorkLink({baseRef: 'develop', ...base, changeScope: {...scopeFor(W(4)), sourceDigest: 'b'.repeat(64)}}).blocked, 'stale-change-scope')
+  const none = planWorkLink({baseRef: 'develop', ...base, changeScope: null})
   assert.equal(none.blocked, 'stale-check-unavailable')
   assert.equal(none.staleCheck, 'not-performed:no-change-scope')
-  assert.equal(planWorkLink({...base, changeScope: scopeFor(W(1))}).staleCheck, 'not-performed:different-work')
-  const accepted = planWorkLink({...base, changeScope: null, flags: {'accept-unverified-scope': true}})
+  assert.equal(planWorkLink({baseRef: 'develop', ...base, changeScope: scopeFor(W(1))}).staleCheck, 'not-performed:different-work')
+  const accepted = planWorkLink({baseRef: 'develop', ...base, changeScope: null, flags: {'accept-unverified-scope': true}})
   assert.equal(accepted.ok, true)
   assert.equal(accepted.event.payload.acceptedUnverifiedScope, true, '대조 없이 넘긴 사실이 원장에서 사라졌다')
-  const verified = planWorkLink({...base, changeScope: scopeFor(W(4))})
+  const verified = planWorkLink({baseRef: 'develop', ...base, changeScope: scopeFor(W(4))})
   assert.equal(verified.event.payload.staleCheck, 'verified')
   assert.deepEqual(verified.event.payload.ticket, scopeFor(W(4)).ticket, '어느 티켓 개정으로 개발했는지 원장에 남지 않았다')
 })
 
 test('완료 조건 미충족은 막고, 명시 인수로 넘기면 그 사실이 원장에 남는다', () => {
   const partial = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: [], pathExists: everything})
-  const base = {plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion: partial}
+  const base = {baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion: partial}
   assert.equal(planWorkLink(base).blocked, 'completion:uncited-test-cases')
-  const accepted = planWorkLink({...base, flags: {'accept-incomplete': true}})
+  const accepted = planWorkLink({baseRef: 'develop', ...base, flags: {'accept-incomplete': true}})
   assert.equal(accepted.event.payload.acceptedIncomplete, true)
   assert.equal(accepted.event.payload.completion.ok, false)
   assert.deepEqual(accepted.event.payload.completion.testCases.missing, owned(W(4)))
@@ -80,25 +80,25 @@ test('완료 조건 미충족은 막고, 명시 인수로 넘기면 그 사실�
 
 test('등록·멱등: 원장이 모르는 키는 막고, 이미 연결된 작업은 다시 심판하지 않는다', () => {
   const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: [], pathExists: everything})
-  assert.equal(planWorkLink({plan, planDigest, state: {works: new Map()}, changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion}).blocked, 'work-not-registered')
+  assert.equal(planWorkLink({baseRef: 'develop', plan, planDigest, state: {works: new Map()}, changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion}).blocked, 'work-not-registered')
   const twice = {works: new Map([[W(4), {status: 'published', ticketKey: 'PF-104'}], [W(5), {status: 'published', ticketKey: 'PF-104'}]])}
-  assert.equal(planWorkLink({plan, planDigest, state: twice, changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion}).blocked, 'ticket-registered-twice')
+  assert.equal(planWorkLink({baseRef: 'develop', plan, planDigest, state: twice, changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion}).blocked, 'ticket-registered-twice')
   const linked = published(W(4), {link: {prUrl: 'https://github.com/acme/web/pull/7'}})
-  const again = planWorkLink({plan, planDigest, state: linked, changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
+  const again = planWorkLink({baseRef: 'develop', plan, planDigest, state: linked, changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
   assert.equal(again.idempotent, true, '미충족인데 재실행이 막혔다 — 지나간 판정을 다시 심판했다')
   assert.equal(again.existing, 'https://github.com/acme/web/pull/7')
-  assert.equal(planWorkLink({plan, planDigest, state: published(W(4)), changeScope: null, ticketKey: 'PF-104', prUrl: 'not-a-url', completion}).blocked, 'pr-url-required')
+  assert.equal(planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: null, ticketKey: 'PF-104', prUrl: 'not-a-url', completion}).blocked, 'pr-url-required')
 })
 
 test('머지: 머지를 관측한 것만 완료다 — 열린 PR·조회 실패는 완료가 아니다', () => {
   const state = {works: new Map([
-    [W(1), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/1'}}],
-    [W(3), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/3'}}],
-    [W(4), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/4'}}],
+    [W(1), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/1', baseRef: 'develop'}}],
+    [W(3), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/3', baseRef: 'develop'}}],
+    [W(4), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/4', baseRef: 'develop'}}],
     [W(5), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/5'}, completed: {prUrl: 'x', at: 't'}}],
   ])}
   const prStates = new Map([
-    ['https://github.com/o/r/pull/1', {state: 'MERGED'}],
+    ['https://github.com/o/r/pull/1', {state: 'MERGED', baseRefName: 'develop'}],
     ['https://github.com/o/r/pull/3', {state: 'OPEN'}],
     ['https://github.com/o/r/pull/4', {error: 'gh: not logged in'}],
   ])
@@ -139,12 +139,12 @@ test('실행부: 기반 작업을 연결하면 원장에 판정과 함께 남고
     writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
       plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
     // check 대상이 아직 없다 — 막힌다.
-    const blocked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}})
+    const blocked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
     assert.equal(blocked.blocked, 'completion:check-targets-missing', JSON.stringify(blocked))
     // 대상을 만든다(작업 산출물).
     mkdirSync(join(root, 'src/entities/member'), {recursive: true})
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string}\n')
-    const linked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}})
+    const linked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     assert.equal(linked.staleCheck, 'verified')
     let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
@@ -158,7 +158,7 @@ test('실행부: 기반 작업을 연결하면 원장에 판정과 함께 남고
     // 머지 관측: 열린 PR은 완료가 아니다.
     const open = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'OPEN'}]))}})
     assert.deepEqual(open.completed, [])
-    const merged = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED'}]))}})
+    const merged = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'develop'}]))}})
     assert.deepEqual(merged.completed, [W(1)])
     state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
     assert.equal(state.works.get(W(1)).completed.prUrl, PR)
@@ -196,12 +196,12 @@ test('기반 작업: 이미 있던 대상을 적어 두고 아무것도 안 하�
       plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []})
     scope.checks = scope.checks.map(check => ({...check, baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digest(ref)]))}))
     writeChangeScopeFile(root, scope)
-    const untouched = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}})
+    const untouched = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
     assert.equal(untouched.blocked, 'completion:check-targets-unchanged', JSON.stringify(untouched))
     assert.match(untouched.guidance, /바뀌지 않았다/)
     // 작업이 대상을 바꾸면 통과한다.
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string; name: string}\n')
-    const changed = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}})
+    const changed = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
     assert.equal(changed.ok, true, JSON.stringify(changed))
     assert.equal(changed.completion.checks.baselineCheck, 'verified')
   } finally {
@@ -234,20 +234,20 @@ test('실행부: 픽업이 change-scope에 대상 지문 기준선을 남긴다'
 
 test('닫는 줄의 트래커는 발행 원장이 정한다 — 지금 설정이 바뀌어도 따르지 않는다', () => {
   const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
-  const decision = planWorkLink({plan, planDigest, state: published(W(4), {provider: 'jira'}),
+  const decision = planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4), {provider: 'jira'}),
     changeScope: {...scopeFor(W(4)), ticket: {...scopeFor(W(4)).ticket, provider: 'github'}}, ticketKey: 'PF-104', prUrl: PR, completion})
   assert.equal(decision.provider, 'jira')
   // 원장이 모르면 대조한 범위의 트래커, 그것도 없으면 모른다(닫는 줄을 만들지 않는다).
-  const fromScope = planWorkLink({plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
+  const fromScope = planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
   assert.equal(fromScope.provider, 'jira')
-  const unknown = planWorkLink({plan, planDigest, state: published(W(4)), changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion,
+  const unknown = planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: null, ticketKey: 'PF-104', prUrl: PR, completion,
     flags: {'accept-unverified-scope': true}})
   assert.equal(unknown.provider, null)
 })
 
 test('STALE: 같은 작업이라도 다른 티켓의 범위면 대조한 것으로 치지 않는다', () => {
   const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
-  const other = planWorkLink({plan, planDigest, state: published(W(4)), changeScope: {...scopeFor(W(4)), ticketKey: 'PF-9'},
+  const other = planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: {...scopeFor(W(4)), ticketKey: 'PF-9'},
     ticketKey: 'PF-104', prUrl: PR, completion})
   assert.equal(other.blocked, 'stale-check-unavailable')
   assert.equal(other.staleCheck, 'not-performed:different-ticket')
@@ -259,4 +259,58 @@ test('PR 상태 조회 실패는 머지가 아니다 — 조회기가 던지면 
   assert.equal(states.get('https://github.com/o/r/pull/9').state, undefined)
   assert.match(states.get('https://github.com/o/r/pull/9').error, /auth/)
   assert.equal(states.get('https://github.com/o/r/pull/10').state, 'MERGED')
+})
+
+test('기대 base: 모르면 링크하지 않고, 다른 브랜치에 머지된 PR은 완료로 쓰지 않는다(T18)', async () => {
+  const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
+  const unknown = planWorkLink({plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
+  assert.equal(unknown.blocked, 'pr-base-unknown')
+  const linked = planWorkLink({baseRef: 'feature/members', plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
+  assert.equal(linked.event.payload.baseRef, 'feature/members')
+  // 머지 관측: 다른 브랜치에 머지됐다 — 완료가 아니다.
+  const state = {works: new Map([[W(4), {status: 'published', link: {prUrl: PR, baseRef: 'feature/members'}}]])}
+  const wrong = planMergeSync({plan, state, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'main'}]])})
+  assert.deepEqual(wrong.events, [])
+  assert.deepEqual(wrong.baseMismatch.map(item => [item.expected, item.observed]), [['feature/members', 'main']])
+  const right = planMergeSync({plan, state, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'feature/members'}]])})
+  assert.equal(right.events[0].payload.baseRef, 'feature/members')
+  // 기대 base가 없는 옛 링크도 완료로 쓰지 않는다.
+  const legacy = planMergeSync({plan, state: {works: new Map([[W(4), {status: 'published', link: {prUrl: PR}}]])}, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'main'}]])})
+  assert.equal(legacy.events.length, 0)
+})
+
+test('실행부: `--base`가 없으면 PR을 읽어 기대 base를 정하고, 못 읽으면 막는다', async () => {
+  const root = workspace()
+  try {
+    writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
+      plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
+    mkdirSync(join(root, 'src/entities/member'), {recursive: true})
+    writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string}\n')
+    const unreadable = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: {prInfo: async () => ({error: 'gh: auth'})}})
+    assert.equal(unreadable.blocked, 'pr-base-unknown')
+    const fromPr = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
+    assert.equal(fromPr.ok, true, JSON.stringify(fromPr))
+    assert.equal(foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))).works.get(W(1)).link.baseRef, 'feature/members')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('기대 base 없이 남은 옛 링크는 같은 PR에 한해 `--base`로 다시 기록한다 — 다른 PR은 여전히 멱등', () => {
+  const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
+  const oldLink = published(W(4), {link: {prUrl: PR}})
+  const relinked = planWorkLink({baseRef: 'feature/members', plan, planDigest, state: oldLink, changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
+  assert.equal(relinked.ok, true)
+  assert.equal(relinked.idempotent, undefined, '옛 링크를 멱등으로 돌려 기대 base를 영원히 못 남긴다')
+  assert.equal(relinked.event.payload.baseRef, 'feature/members')
+  const otherPr = planWorkLink({baseRef: 'feature/members', plan, planDigest, state: oldLink, changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: 'https://github.com/acme/web/pull/77', completion})
+  assert.equal(otherPr.idempotent, true)
+})
+
+test('PR URL은 정규형만 받고, base의 refs/heads·origin 접두는 떼어 기록한다', () => {
+  const completion = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: owned(W(4)), pathExists: everything})
+  const base = {plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', completion}
+  assert.equal(planWorkLink({...base, baseRef: 'develop', prUrl: `${PR}/files`}).blocked, 'pr-url-required')
+  assert.equal(planWorkLink({...base, baseRef: 'origin/feature/members', prUrl: PR}).event.payload.baseRef, 'feature/members')
+  assert.equal(planWorkLink({...base, baseRef: 'refs/heads/main', prUrl: PR}).event.payload.baseRef, 'main')
 })

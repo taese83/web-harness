@@ -272,11 +272,16 @@ export function checkDecisionsApplied(root, spec) {
 // ── 6. 티켓 자산 ────────────────────────────────────────────────────────────
 // 팀 흐름을 쓰는 프로젝트에서만 본다. 청구 원장이 있으면 팀 흐름이다.
 export function checkTicketAssets(root, {install = false} = {}) {
-  if (!existsSync(join(root, '_workspace/03_dev/identity-ledger.jsonl'))) {
-    return skip('ticket-assets', '옛 청구 원장(identity-ledger)이 없다 — WORK 원장 기반 자동 닫기는 아직 없다(설치 대상 아님)')
+  if (!existsSync(join(root, '_workspace/03_dev/work-item-events.jsonl'))) {
+    return skip('ticket-assets', '팀 흐름(WORK 원장)을 쓰지 않는 프로젝트다')
   }
   const plan = planTicketCloseInstall(root)
   if (plan.missingAssets.length > 0) return skip('ticket-assets', `배포본에 자산이 없다: ${plan.missingAssets.join(', ')}`)
+  // 옛 사본은 **자동으로 덮지 않는다** — 프로젝트가 손봤을 수 있다. 설치됨으로 세지도 않는다(WORK 티켓을 닫지 않는다).
+  if (plan.outdated.length > 0) {
+    return fail('ticket-assets', `옛 자동 닫기 사본(청구 원장 기반): ${plan.outdated.join(', ')} — WORK 티켓을 닫지 않는다`,
+      '손본 곳이 있는지 확인한 뒤 파일을 지우고 --fix로 새 판본을 설치한다')
+  }
   if (plan.install.length === 0) return pass('ticket-assets', `자동 닫기 자산 ${plan.present.length}개 설치됨`)
   if (install) {
     const written = installTicketCloseAssets(root, plan)

@@ -36,7 +36,7 @@ cli.mjs board [--developer me] [--repo o/r]                             # 지금
 cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
 cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신
 cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run]            # 게이트 → 배정 → change-scope 발급
-cli.mjs link <티켓키> <pr-url> [--dry-run]                                # 완료 주장(STALE·수용 기준 판정)
+cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base)
 cli.mjs link --sync                                                     # 머지 관측 → 완료 기록
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
@@ -135,14 +135,15 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 ### `link <티켓키> <pr-url>` · `link --sync` — 완료
 
 `link`는 **완료를 주장**한다: STALE 대조(대조 못 하면 `--accept-unverified-scope` 없이 막고, 넘기면 원장에
-남긴다) · 소유 TC 인용 · `checks` 대상 실재와 **픽업 뒤 변화** · 멱등. 미충족은 막고 `--accept-incomplete`로
+남긴다) · 소유 TC 인용 · `checks` 대상 실재와 **픽업 뒤 변화** · **기대 base**(PR에서 읽거나 `--base`, 모르면 막는다) · 멱등. 미충족은 막고 `--accept-incomplete`로
 넘기면 그 사실이 원장에 남는다. 닫는 줄은 발행 원장의 트래커가 정한다(GitHub만 머지로 닫힌다 — Jira 키에
-`Closes`를 적지 않는다). `link --sync`는 PR 상태를 읽어 **머지로 확인된 것만** 완료로 기록한다 — 후속 작업은
-이것이 있어야 열린다. 조회 실패는 완료로도 침묵으로도 접지 않는다.
+`Closes`를 적지 않는다). `link --sync`는 PR 상태를 읽어 **기대 base에 머지로 확인된 것만** 완료로 기록한다 — 다른 브랜치 머지는
+`baseMismatch`로 남는다. 후속 작업은 완료가 있어야 열린다. 조회 실패는 완료로도 침묵으로도 접지 않는다.
 
-**머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서 닫는다. 청구 브랜치 머지·Jira 전이를
-원장 기반으로 닫던 자동화(`assets/ticket-close.yml`·`close-merged-tickets.mjs`)는 옛 청구 원장을 읽으므로
-**WORK 티켓을 닫지 않는다** — WORK 원장 기반 교체는 후속 작업이다.
+**머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해
+개발 준비 검사가 `assets/ticket-close.yml`·`close-merged-tickets.mjs`(v2)를 설치한다 — **WORK 원장**에서 이
+PR이 결속되고 기대 base가 머지 base와 같은 GitHub WORK 티켓만 닫는다. Jira 등은 PENDING으로 남기고(능동 전이
+필요), 부모 FEAT·집계 티켓은 닫지 않는다. 옛 청구 원장 기반 사본이 남아 있으면 준비 검사가 알린다(덮지 않는다).
 
 ### `board --by-feature` — 부모 FEAT 집계
 

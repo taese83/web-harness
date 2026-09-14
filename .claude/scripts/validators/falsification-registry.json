@@ -1821,7 +1821,7 @@
     {
       "id": "work-link-idempotent",
       "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "  if (registered.link?.prUrl) return {ok: true, idempotent: true, workId, existing: registered.link.prUrl, staleCheck, provider: registered.provider ?? null}",
+      "find": "  if (registered.link?.prUrl && !relinkForBase) return {ok: true, idempotent: true, workId, existing: registered.link.prUrl, staleCheck, provider: registered.provider ?? null}",
       "replace": "  if (false) return null",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "재실행이 지나간 완료 주장을 다시 심판하면 결과가 소스 상태에 따라 달라진다(멱등 계약 위반)"
@@ -2065,6 +2065,110 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-work-aggregate.mjs",
       "why": "feature-plan을 못 읽은 채 집계 티켓을 내면 트래커에 대조하지 않은 머지 요약이 남는다"
+    },
+    {
+      "id": "close-requires-expected-base",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey && reviewed.has(workId))",
+      "replace": "const bound = linked.filter(([workId, work]) => work.ticketKey && reviewed.has(workId))",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "기대 base를 대조하지 않으면 아무 브랜치에 머지된 PR로 작업 티켓이 닫힌다"
+    },
+    {
+      "id": "close-only-github",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "for (const [workId, work] of bound.filter(([, item]) => item.provider === 'github' && isIssueNumber(item.ticketKey))) {",
+      "replace": "for (const [workId, work] of bound.filter(([, item]) => item.provider !== 'jira' && isIssueNumber(item.ticketKey))) {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "트래커를 모르는 발행을 GitHub으로 추측하면 없는 이슈 번호를 닫으려 하거나 남의 이슈를 닫는다"
+    },
+    {
+      "id": "close-stops-on-corrupt-ledger",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "    log(`stop: ${LEDGER} ${index + 1}번째 줄을 읽지 못했다 — 원장 파손 위에서 티켓을 닫지 않는다`)\n    process.exit(1)",
+      "replace": "    log(`stop: ${LEDGER} ${index + 1}번째 줄을 읽지 못했다 — 원장 파손 위에서 티켓을 닫지 않는다`)\n    continue",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "원장 파손 줄을 버리고 진행하면 지나간 상태로 티켓을 닫는다"
+    },
+    {
+      "id": "close-skips-closed",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  if (state !== 'OPEN') {",
+      "replace": "  if (state === 'NEVER') {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "이미 닫힌 이슈를 다시 닫으면 근거 코멘트가 중복으로 쌓인다(멱등 위반)"
+    },
+    {
+      "id": "close-install-detects-outdated",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    if (readFileSync(target, 'utf8').includes(TICKET_CLOSE_VERSION_MARKER)) present.push(entry.target)",
+      "replace": "    if (true) present.push(entry.target)",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "옛 청구 원장 기반 사본을 설치됨으로 세면 WORK 티켓이 닫히지 않는데 준비됐다고 보인다(T25)"
+    },
+    {
+      "id": "close-readiness-fails-outdated",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "  if (plan.outdated.length > 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "옛 사본을 준비 검사가 통과시키면 자동 닫기가 조용히 끊긴다"
+    },
+    {
+      "id": "work-link-requires-base",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (typeof baseRef !== 'string' || !/^[\\w./-]+$/.test(baseRef)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "기대 base 없이 링크하면 아무 브랜치에 머지돼도 완료가 된다"
+    },
+    {
+      "id": "work-sync-requires-base-match",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    if (!item.link.baseRef || observed.baseRefName !== item.link.baseRef) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "다른 브랜치에 머지된 PR을 완료로 쓰면 후속 작업이 통합되지 않은 선행 위에서 열린다(T18)"
+    },
+    {
+      "id": "close-requires-reviewed-work",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey && reviewed.has(workId))",
+      "replace": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey)",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "검토 계보에 없는 작업을 닫으면 원장 줄 두 개만 끼워 넣은 PR이 아무 이슈나 닫는다"
+    },
+    {
+      "id": "close-requires-issue-number",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "const isIssueNumber = key => /^\\d+$/.test(String(key))",
+      "replace": "const isIssueNumber = key => String(key).length > 0",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "이슈 번호가 아닌 키(URL·다른 트래커 키)를 gh에 넘기면 엉뚱한 이슈를 닫을 수 있다"
+    },
+    {
+      "id": "close-collects-failures",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "    failures.push(`${workId} #${number}: ${String(error.message).split('\\n')[0]}`)\n    continue",
+      "replace": "    throw error",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "한 건 닫기 실패로 나머지를 버리면 한 PR에 묶인 다른 작업이 조용히 열린 채 남는다"
+    },
+    {
+      "id": "work-link-relink-for-base",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const relinkForBase = registered.link?.prUrl === prUrl && !registered.link.baseRef && typeof baseRef === 'string'",
+      "replace": "  const relinkForBase = false",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "기대 base 없는 옛 링크를 멱등으로만 돌려주면 그 작업은 영원히 완료·자동 닫기가 되지 않는다"
+    },
+    {
+      "id": "work-link-pr-url-canonical",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (typeof prUrl !== 'string' || !/^https?:\\/\\/[^/\\s]+\\/[^/\\s]+\\/[^/\\s]+\\/pull\\/\\d+$/.test(prUrl)) return {ok: false, blocked: 'pr-url-required'}",
+      "replace": "  if (typeof prUrl !== 'string' || !/^https?:\\/\\/\\S+$/.test(prUrl)) return {ok: false, blocked: 'pr-url-required'}",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "PR URL 변형으로 기록하면 자동 닫기·머지 관측이 영원히 불일치한다"
     }
   ]
 }

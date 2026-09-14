@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `A` = `.claude/scripts/test-work-aggregate.mjs`(부모 집계·집계 티켓) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `A` = `.claude/scripts/test-work-aggregate.mjs`(부모 집계·집계 티켓) · `X` = `.claude/scripts/test-work-close.mjs`(자동 닫기 — 실제 프로세스·가짜 gh) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -29,14 +29,14 @@
 | T15 | Jira 하위 작업 미지원 | 부분 | `V`「T15」 — 설정 없으면 필요한 설정을 돌려주고 트래커를 부르지 않는다. subtask는 미구현으로 표기(성공 위장 없음). **실 Jira 왕복 NOT_RUN** — 링크 방향(부모=outward)은 가정이며 `workLink.parentSide`로 뒤집을 수 있다 |
 | T16 | provider 조회 실패·페이지 절단 | 부분 | `V`「T16」 — total 미만이면 `complete:false`+커서, 0건 페이지는 `stalled`(전진 불가), 손상 커서는 loud, 형식 아닌 요청 키는 loud, 완결일 때만 못 본 키를 보고. gh 검색은 색인 지연이라 항상 불완전, 상한 도달은 `truncated`. **실 트래커 왕복 NOT_RUN**(없는 키 조회·검색 토큰화는 가정) |
 | T17 | Closed지만 테스트 실패 | 부분 | `A`「T17·T19」 — 트래커 상태는 집계 입력이 아니고, 작업이 머지돼도 부모는 `closeEligible: false`(증거 미연결)다. **남은 몫**: 실제 테스트 실행 결과를 작업·부모 증거로 연결하는 runner·receipt 결합 |
-| T18 | PR 링크만·다른 repo/base 머지 | 부분 | `N`「머지」·`K`「T45」 — PR 연결만으로는 완료가 아니고 선행으로도 세지 않는다(머지 관측만 센다). **남은 몫**: 머지된 PR의 base 브랜치·저장소가 맞는지는 보지 않는다(`state: MERGED`까지) |
+| T18 | PR 링크만·다른 repo/base 머지 | 부분 | `N`「머지」·「기대 base」·`K`「T45」·`X`(1)(2) — PR 연결은 완료가 아니고, 링크 때 기록한 **기대 base에 머지된 것만** 완료·자동 닫기 대상이다(기대 base를 모르면 링크하지 않는다). **남은 몫**: 저장소(repo) 대조와 머지 뒤 revert(T23) |
 | T19 | 다른 revision의 TC 통과 모음 | 부분 | `A`「T17·T19」 — 통합 revision 증거가 없으므로 부모를 닫을 수 있다고 하지 않는다(모을 증거 자체가 아직 없다). **남은 몫**: 같은 통합 snapshot 기준 집계 |
 | T20 | TC 문자열만 주석에 존재 | 부분 | `N`「완료」 — 인용이 **아예 없는** 것은 막는다. **프록시 한계**: 주석에만 ID가 있어도 통과한다(legacy와 같은 등급, §4 등록) — 테스트가 기준을 실제로 검증하는지는 코드 리뷰의 몫 |
 | T21 | 정책·시안·공유 상태 계약 변경 | 부분 | U「T21」 — FEAT 명세 변경 시 분해를 낡음으로 거부. 증거 stale은 P3 |
 | T22 | 담당자만 변경 | P3 | 증거가 생긴 뒤에야 의미가 있다 |
 | T23 | 머지 후 revert·base 변경 | P3 | |
 | T24 | 인수 요구 누락·유예 TC | 부분 | `N`「완료 조건 미충족」 — 미충족을 `--accept-incomplete`로 넘기면 판정 요약과 함께 원장에 남는다. 유예 TC는 계획에서 책임 작업이 없다(P1). `A`「T24」 — 인수로 넘긴 완료는 `works-merged-with-exceptions`, 계획의 TC 유예는 `works-merged-with-deferrals`로 따로 표시되고 둘 다 닫을 수 없다. **남은 몫**: 사람 인수(`ACCEPTED`) 기록 |
-| T25 | 구 자동 닫기 설치본 | P3 | legacy 전환이 아니라 자동 닫기의 **교체**로 다룬다 |
+| T25 | 구 자동 닫기 설치본 | PASS | `X`(4) — 판본 표지 없는 옛 사본은 설치됨으로 세지 않고 준비 검사가 FAIL로 알리며, 손봤을 수 있어 덮지 않는다 |
 | T26 | 전환 중 실패 후 재시도 | N/A | legacy 전환 없음(사용자 결정) |
 | T27 | 분해하지 않은 v1 FEAT 유지 | N/A | P2에서 「WORK 경로만 존재」 확인으로 대체 |
 | T28 | help·skill·배포 플러그인에서 도달 | 부분 | C「배선」(bash 정책) · CLI 분기 seed · 배포본 CLI 스모크 receipt `docs/audits/receipts/2026-09-11-work-claim-dist-smoke.json`(수동 1회). help 전체는 P5 |
@@ -93,7 +93,7 @@ WORK로 **이관**된 것은 위 표(T45·T46·완료 절)가, **해당 없음**
 적는다. 코드와 함께 **지운** 반증 seed 20건과 재앵커 15건은 receipt `docs/audits/receipts/2026-09-14-legacy-removal.json`에 있다.
 핵심 검증기 두 검사는 WORK 기준으로 이관했다 — `tickets-cover-plan`(FEAT마다 필수 WORK가 발행됐는가) ·
 `active-pickup`(진행 중 WORK가 지금 계획에서도 같은 판본인가). **남긴 것**: Console이 읽는 `ledger.mjs`·`route.mjs`
-(Console은 범위 밖 — 판독 전용 표시), 자동 닫기 자산(4번에서 WORK 원장 기반으로 교체).
+(Console은 범위 밖 — 판독 전용 표시). 자동 닫기 자산은 P3-c에서 WORK 원장 기반(v2)으로 교체했다.
 
 ## 반증
 
@@ -103,6 +103,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P3-c에서 13곳(기대 base 링크·머지·재링크 3 · PR URL 정규형 1 · 닫기 근거·트래커·검토 계보·이슈 번호 4 · 파손 정지 1 · 멱등 1 · 실패 수집 1 · 옛 사본 판정 2) — 링크 seed와 함께 32/32 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p3c-seeds.json`).
 P3-b에서 15곳(유예 분모 2 · 닫기 불가 1 · 링크≠머지 1 · 예외·유예·TC 미대조 표시 3 · 책임 없는 TC 1 · 집계 티켓 발행 규율 5 · CLI 배선 1 · 핸드오프 보고 1) — 15/15 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p3b-seeds.json`).
 P3-a에서 21곳(STALE 3 · 완료 조건 4 · 대상 기준선 2 · 인수 기록 1 · 멱등 1 · 등록 1 · 머지 관측 4 · 닫는 줄 트래커 1 · 선행=머지 완료 3 · CLI 배선 1) — 21/21 발화

@@ -157,7 +157,13 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 **완료 판정은 프록시다** — TC는 ID가 인용됐는가, check는 대상 경로가 있는가까지이며 그 테스트가
 기준을 실제로 검증하는지는 보지 않는다(제거된 FEAT 경로의 TC 인용 판정과 같은 등급, 의미 판정은 코드 리뷰의 몫).
 
-`--sync`는 연결됐고 아직 완료가 아닌 작업의 PR 상태를 PR URL의 호스트에서 읽는다(쓰기 없음).
+**기대 base**: `link`는 이 작업이 어느 브랜치에 머지돼야 끝나는지 원장에 남긴다 — PR에서 읽거나(`gh pr view`)
+운영자가 `--base`로 준다(`refs/heads/`·`origin/` 접두는 떼어 기록한다). 모르면 링크하지 않는다(기대 base 없는 링크는
+아무 브랜치 머지로 완료가 된다). 기대 base 없이 남은 **옛 링크는 같은 PR에 한해** `link <키> <PR> --base <브랜치>`로
+다시 기록한다 — 판정은 전부 다시 지난다. PR URL은 정규형(`…/pull/<번호>`)만 받는다.
+
+`--sync`는 연결됐고 아직 완료가 아닌 작업의 PR 상태를 PR URL의 호스트에서 읽는다(쓰기 없음). **기대 base에
+머지된 것만** 완료로 쓰고, 다른 브랜치 머지·기대 base 없는 옛 링크는 `baseMismatch`로 올린다.
 **머지로 확인된 것만** 완료로 쓰고, 열린 PR은 그대로, 조회 실패는 `ok:false`로 올린다 — 완료로도
 침묵으로도 접지 않는다.
 
@@ -192,6 +198,24 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 - **`unknown`을 푸는 법**: 사람이 트래커에서 그 FEAT의 집계 티켓을 찾는다. 있으면 원장에
   `{"schemaVersion":1,"eventId":<새 UUID>,"operationId":<원장의 그 시도 operationId>,"planId":…,"featureId":"FEAT-…","eventType":"aggregate-confirmed","at":<시각>,"planDigest":…,"payload":{"ticketKey":"<키>"}}`
   한 줄을 append한다. 없으면 아무것도 쓰지 않는다 — 그 FEAT는 계속 보류로 보이고, 푸는 CLI는 아직 없다(후속).
+
+## 자동 닫기 (P3-c)
+
+`validate-development-readiness`의 `ticket-assets`가 WORK 원장이 있는 프로젝트에 `ticket-close.yml`·
+`close-merged-tickets.mjs`(v2)를 설치한다(`--fix`, 덮어쓰지 않는다). 머지된 PR마다:
+
+- **근거는 WORK 원장뿐** — `work-linked`가 이 PR을 결속했고, 기대 base가 머지 base와 같고, 그 작업이 **검토 계보에
+  있을 때만**. PR 본문의 `#N`은 보지 않는다. 원장 줄도 PR이 가져오지만 PR diff로 리뷰를 거친다 — 신뢰 경계는 머지 승인이다.
+- **전제**: `link`가 남긴 `work-linked` 줄이 **그 PR에 커밋돼 base에 도달**해야 한다. 커밋하지 않으면 워크플로우는
+  「결속된 WORK 없음」으로 아무것도 닫지 않는다.
+- 이슈 번호가 아닌 키는 provider가 github여도 닫지 않는다(gh는 URL도 받는다). 한 건 실패는 모아서 exit 1로 알린다.
+  fork PR은 토큰이 읽기 전용이라 닫지 못한다.
+- **GitHub WORK 티켓만 닫는다**(근거 코멘트, 이미 닫혔으면 건너뜀). 발행 트래커가 GitHub이 아니거나 기록이
+  없으면 PENDING으로 남긴다 — 추측해 닫지 않는다.
+- **부모 FEAT·집계 티켓은 닫지 않는다**(부모 자동 닫기는 기본 비활성).
+- 원장 파손 줄이 있으면 **멈춘다**.
+- 판본 표지(`web-harness:ticket-close v2`)가 없는 옛 사본은 설치됨으로 세지 않고 FAIL로 알린다 — 손봤을 수
+  있어 자동으로 덮지 않는다.
 
 ## 원칙
 

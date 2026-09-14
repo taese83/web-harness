@@ -98,9 +98,11 @@ export function workForTicket(state, ticketKey) {
  * @param {{plan: object, planDigest: string, state: object, changeScope: object|null, ticketKey: string,
  *          prUrl: string, completion: object|null, flags?: object, now?: string}} args
  */
-export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, flags = {}, now = new Date().toISOString()}) {
+export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, baseRef = null, flags = {}, now = new Date().toISOString()}) {
   if (!ticketKey) return {ok: false, blocked: 'ticket-key-required'}
-  if (typeof prUrl !== 'string' || !/^https?:\/\/\S+$/.test(prUrl)) return {ok: false, blocked: 'pr-url-required'}
+  // PR URL은 **정규형**만 받는다 — `/pull/42/files` 같은 변형으로 기록하면 자동 닫기·머지 관측이 영원히 불일치한다.
+  if (typeof prUrl !== 'string' || !/^https?:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/\d+$/.test(prUrl)) return {ok: false, blocked: 'pr-url-required'}
+  if (typeof baseRef === 'string') baseRef = baseRef.replace(/^refs\/heads\//, '').replace(/^origin\//, '')
   const found = workForTicket(state, ticketKey)
   if (found.error) return {ok: false, blocked: found.error, ...(found.workIds ? {workIds: found.workIds} : {})}
   const {workId, registered} = found
@@ -131,8 +133,17 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
     }
   }
   // 멱등 — 지나간 완료 주장을 다시 심판하지 않는다(재실행 결과가 소스 상태에 따라 달라지면 안 된다).
-  if (registered.link?.prUrl) return {ok: true, idempotent: true, workId, existing: registered.link.prUrl, staleCheck, provider: registered.provider ?? null}
+  // 기대 base 없이 남은 옛 링크는 **같은 PR에 한해** 다시 기록한다 — 그렇지 않으면 영원히 완료·닫기가 되지 않는다.
+  // 다시 기록할 때도 아래 판정을 전부 다시 지난다(지나간 판정을 물려받지 않는다).
+  const relinkForBase = registered.link?.prUrl === prUrl && !registered.link.baseRef && typeof baseRef === 'string'
+  if (registered.link?.prUrl && !relinkForBase) return {ok: true, idempotent: true, workId, existing: registered.link.prUrl, staleCheck, provider: registered.provider ?? null}
 
+  // **어느 브랜치에 머지돼야 끝나는가**를 링크 때 정한다 — 머지 관측·자동 닫기가 그것과 대조한다(설계 §10.2).
+  // 모르면 링크하지 않는다: 기대 base 없이 남긴 링크는 아무 브랜치에 머지돼도 완료가 된다.
+  if (typeof baseRef !== 'string' || !/^[\w./-]+$/.test(baseRef)) {
+    return {ok: false, blocked: 'pr-base-unknown', workId, staleCheck,
+      guidance: 'PR의 base 브랜치를 알 수 없다 — PR을 읽지 못했으면 `--base <브랜치>`로 기대 base를 준다'}
+  }
   if (!completion?.ok && !flags['accept-incomplete']) {
     const guidance = {
       'no-acceptance': '이 작업에 수용 기준(TC·checks)이 없다 — 완료를 주장할 근거가 없다. 계획에 적는다',
@@ -147,7 +158,7 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
   const event = {
     schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-linked', at: now, planDigest,
     payload: {
-      prUrl, ticketKey: String(ticketKey), staleCheck,
+      prUrl, ticketKey: String(ticketKey), staleCheck, baseRef,
       completion: {ok: completion.ok, ...(completion.reason ? {reason: completion.reason} : {}),
         testCases: {total: completion.testCases.total, cited: completion.testCases.cited.length, missing: completion.testCases.missing},
         checks: {total: completion.checks.total, satisfied: completion.checks.satisfied.length,
@@ -172,15 +183,20 @@ export function planMergeSync({plan, state, prStates, now = new Date().toISOStri
   const events = []
   const unknown = []
   const open = []
+  const baseMismatch = []
   for (const [workId, item] of state?.works?.entries() ?? []) {
     if (!item.link?.prUrl || item.completed) continue
     const observed = prStates.get(item.link.prUrl) ?? null
     if (!observed || observed.error) { unknown.push({workId, prUrl: item.link.prUrl, error: observed?.error ?? 'not-queried'}); continue }
     if (observed.state !== 'MERGED') { open.push({workId, prUrl: item.link.prUrl, state: observed.state ?? null}); continue }
+    // **기대한 base에 머지됐을 때만** 끝난 것이다. 다른 브랜치에 머지된 PR·base를 모르는 링크는 완료로 쓰지 않는다.
+    if (!item.link.baseRef || observed.baseRefName !== item.link.baseRef) {
+      baseMismatch.push({workId, prUrl: item.link.prUrl, expected: item.link.baseRef ?? null, observed: observed.baseRefName ?? null}); continue
+    }
     events.push({schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-completed', at: now,
-      payload: {prUrl: item.link.prUrl, via: 'pr-merged'}})
+      payload: {prUrl: item.link.prUrl, via: 'pr-merged', baseRef: observed.baseRefName}})
   }
-  return {events, unknown, open}
+  return {events, unknown, open, baseMismatch}
 }
 
 /**

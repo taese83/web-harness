@@ -172,7 +172,7 @@ export function foldWorkState(events) {
     } else if (event.eventType === 'work-linked') {
       // 완료 **주장**이다 — 머지를 본 것이 아니다. 선행 조건은 이것이 아니라 `completed`를 본다.
       works.set(event.workId, {...state, link: {prUrl: event.payload.prUrl, planDigest: event.planDigest,
-        completion: event.payload.completion, staleCheck: event.payload.staleCheck,
+        completion: event.payload.completion, staleCheck: event.payload.staleCheck, baseRef: event.payload.baseRef ?? null,
         acceptedIncomplete: event.payload.acceptedIncomplete === true, acceptedUnverifiedScope: event.payload.acceptedUnverifiedScope === true}})
     } else if (event.eventType === 'work-completed') {
       works.set(event.workId, {...state, completed: {prUrl: event.payload.prUrl, at: event.at}})

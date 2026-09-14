@@ -58,8 +58,9 @@ export function parseArgs(argv) {
   return {command: command ?? null, positional, flags}
 }
 
-// 티켓 이슈 자동 닫기 자산 — 옛 청구 원장(identity-ledger)을 읽는다. **WORK 티켓을 닫지 않는다** —
-// WORK 원장 기반으로 교체될 때까지(후속) 개발 준비 검사(`validate-development-readiness`)가 설치만 한다.
+// 티켓 이슈 자동 닫기 자산 — WORK 원장 기반(v2). 개발 준비 검사(`validate-development-readiness`)가 설치한다.
+// 설치본에는 판본 표지가 있다 — 옛 청구 원장을 읽는 v1 사본이 남아 있으면 **덮지 않고 알린다**(손본 사본일 수 있다).
+export const TICKET_CLOSE_VERSION_MARKER = 'web-harness:ticket-close v2'
 const ASSETS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills', 'team-flow', 'assets')
 export const TICKET_CLOSE_ASSETS = [
   {asset: 'ticket-close.yml', target: '.github/workflows/ticket-close.yml'},
@@ -71,14 +72,18 @@ export const TICKET_CLOSE_ASSETS = [
 export function planTicketCloseInstall(root, {assetsRoot = ASSETS_ROOT} = {}) {
   const install = []
   const present = []
+  const outdated = []
   const missingAssets = []
   for (const entry of TICKET_CLOSE_ASSETS) {
     const source = join(assetsRoot, entry.asset)
     if (!existsSync(source)) { missingAssets.push(entry.asset); continue }
-    if (existsSync(join(root, entry.target))) present.push(entry.target)
-    else install.push({...entry, source})
+    const target = join(root, entry.target)
+    if (!existsSync(target)) { install.push({...entry, source}); continue }
+    // 판본 표지가 없는 사본은 옛 원장을 읽는다 — WORK 티켓을 닫지 않으면서 설치됨으로 보인다.
+    if (readFileSync(target, 'utf8').includes(TICKET_CLOSE_VERSION_MARKER)) present.push(entry.target)
+    else outdated.push(entry.target)
   }
-  return {install, present, missingAssets}
+  return {install, present, outdated, missingAssets}
 }
 
 /** 계획대로 쓴다(멱등 — install 목록에만 쓴다). */

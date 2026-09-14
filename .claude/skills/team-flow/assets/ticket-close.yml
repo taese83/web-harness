@@ -1,13 +1,13 @@
-# 티켓 이슈 자동 닫기 — PR이 **청구 브랜치**에 머지되면 그 티켓의 이슈를 닫는다.
+# web-harness:ticket-close v2 — PR이 기대 base에 머지되면 그 PR에 결속된 **WORK 티켓**을 닫는다.
 #
-# 왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은
-# 여러 티켓을 청구 브랜치 하나에 모아 통합하므로 그 머지에서는 발동하지 않는다. 그런데 하네스의
-# 완료 판정(claim-scope의 의존 해제·board의 merged)은 이미 "청구 브랜치 머지 = 완료"다 —
-# 이 워크플로우가 없으면 보드는 완료라고 하는데 이슈는 열린 채로 남아 두 채널이 어긋난다.
+# 왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은 작업을 통합
+# 브랜치에 모으므로 그 머지에서는 발동하지 않는다.
 #
-# 무엇을 근거로 닫는가: **원장(identity-ledger.jsonl)만** 본다. PR 본문의 `#N`은 작성자가
-# 아무 숫자나 적을 수 있어 남의 티켓을 닫는 경로가 된다. 원장에 `prUrl`이 기록된 티켓만,
-# 그것도 base 브랜치가 청구 브랜치와 같을 때만 닫는다(= `link`를 거친 PR만).
+# 무엇을 근거로 닫는가: **WORK 원장(work-item-events.jsonl)만** 본다. PR 본문의 `#N`은 작성자가 아무 숫자나
+# 적을 수 있어 남의 티켓을 닫는 경로가 된다. `link`가 이 PR을 결속했고 그때 기록한 기대 base가 이 머지의
+# base와 같을 때만 닫는다. 부모 FEAT·집계 티켓은 닫지 않는다(사람이 판단한다).
+#
+# 한계: fork에서 온 PR은 `github.token`이 읽기 전용이라 닫지 못한다(실패로 드러난다 — 사람이 닫는다).
 #
 # action pin은 이 저장소 harness-ci.yml과 같은 확인본이다.
 name: ticket-close
@@ -29,12 +29,12 @@ jobs:
       contents: read
       issues: write
     steps:
-      - name: Checkout claim branch
+      - name: Checkout merge base
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
-      - name: Close ticket issues bound to this merged PR
+      - name: Close WORK tickets bound to this merged PR
         env:
           GH_TOKEN: ${{ github.token }}
           TICKET_REPO: ${{ github.repository }}

@@ -158,7 +158,8 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     // ⑤ 작업 산출물 → 완료 주장
     mkdirSync(join(root, 'src/entities/member'), {recursive: true})
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string; status: "active" | "suspended"}\n')
-    const linked = await runWorkLink({root, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/11', flags: {}})
+    const linked = await runWorkLink({root, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/11', flags: {},
+      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     assert.match(linked.closeLine, /Relates to PF-/, 'Jira 키에 닫는 줄을 적었다')
     let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
@@ -167,7 +168,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     assert.deepEqual(linkEvent.payload.ticket, scope.ticket)
     assert.equal(state.works.get(W(1)).completed, null)
     // ⑥ 머지 관측
-    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED'}]))}})
+    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'feature/members'}]))}})
     assert.deepEqual(sync.completed, [W(1)])
     // ⑦ 후속 픽업: W3이 아직 머지되지 않았다 — 막히고 되돌림이 트래커로 간다
     await import('node:fs').then(fs => fs.rmSync(join(root, '_workspace/03_dev/change-scope.md')))
