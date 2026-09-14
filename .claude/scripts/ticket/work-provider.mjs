@@ -136,6 +136,11 @@ export function parseGithubWorkList(json, {limit = GITHUB_PAGE_LIMIT, indexLag =
 export function workProviderReadiness(provider, config) {
   const name = provider?.name ?? 'unknown'
   const capabilities = {
+    // **WORK 전용 필드 빌더가 있어야 한다.** FEAT 빌더는 `sourceKey`를 FEAT로 보고 `feat-<키>` 라벨과
+    // `web-harness:refs` 마커를 덧붙인다 — WORK에 쓰면 조회 축(`work-…` 라벨)이 통째로 사라져
+    // 재개 조회가 「완전·0건」을 돌려주고, 부재로 읽혀 중복 발행이 된다. 존재만 보는 검사라는
+    // 한계는 그대로다(§4 프록시) — 의미는 provider별 conformance 회귀가 잰다.
+    buildWorkFields: typeof provider?.buildWorkFields === 'function',
     createIssue: typeof provider?.createIssue === 'function',
     findByWorkId: typeof provider?.findByWorkId === 'function',
     listWorkIssues: typeof provider?.listWorkIssues === 'function',

@@ -1,0 +1,342 @@
+#!/usr/bin/env node
+// test-work-publish.mjs — WORK 발행: 확인한 판본만, 재개 가능하게, 불확실을 부재로 읽지 않게.
+//
+// 고정하는 사실(설계 §8·§4.5):
+//   T58  확인 전에는 외부 쓰기 0 · 검토 뒤 계획이 바뀌면 사전 승인으로 발행하지 않는다
+//   T45  선행이 이번 발행에도 없고 등록되지도 않았으면 막는다 — 미등록 선행을 완료로 치지 않는다
+//   T12  생성 실패·응답 유실은 `unknown`으로 남고 다음 실행이 **조회로 확인**한다(재발행 금지)
+//   T13  일부만 발행된 배치는 성공분을 유지하고 나머지만 재개한다
+//   T43·T48 공유 작업은 티켓 하나이고 소비 FEAT 라벨을 모두 단다
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {chmodSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {join} from 'node:path'
+import {tmpdir} from 'node:os'
+import {runWorkPublish} from './ticket/work-publish-run.mjs'
+import {runClaimWork} from './ticket/work-claim.mjs'
+import {foldWorkState, readWorkEvents} from './ticket/work-events.mjs'
+import {payloadDigest, planPublish, reconcileAttempt, workIssueFields} from './ticket/work-publish.mjs'
+import {featLabel as githubFeatLabel} from './ticket/provider-github.mjs'
+import {parseWorkMarker} from './ticket/work-refs.mjs'
+import {buildWorkIssueFieldsFor} from './ticket/provider-jira.mjs'
+
+const repo = new URL('../..', import.meta.url).pathname
+const EVENTS = '_workspace/03_dev/work-item-events.jsonl'
+const ticketConfig = {jira: {projectKey: 'PF', workLink: {mode: 'issue-link', linkType: 'Relates'}}}
+const W = n => `WORK-0000000${n}-0000-4000-8000-00000000000${n}`
+
+// 필드는 **실제 Jira 순수 빌더**로 만든다 — stub이 자기만의 빌더를 쓰면 실 provider가 라벨을 버리는
+// 것을 못 본다(리뷰 실측: FEAT 빌더는 `draft.labels`를 무시하고 refs 마커를 덧붙인다).
+const JIRA = {projectKey: 'PF', issueType: 'Task', apiVersion: '2'}
+
+/** 메모리 트래커 — provider 계약만 만족한다. 실패를 주입해 재개 경로를 돈다. */
+function tracker({failOn = new Set(), noKeyOn = new Set(), lockLedgerAfter = new Set(), lookup = null, ledger = null} = {}) {
+  const created = new Map()
+  const calls = []
+  let sequence = 100
+  // 「쓰기 전에 시도를 남긴다」를 **호출 시점에** 잰다 — 원장 안의 앞뒤 순서만 보면 성공 경로에서
+  // 생성 뒤에 시도를 적는 구현도 통과한다(프록시).
+  const attemptSeenAtCall = fields => {
+    if (!ledger) return null
+    const digest = payloadDigest(fields)
+    return readWorkEvents(ledger).some(event => event.eventType === 'publish-attempted' && event.payload?.payloadDigest === digest)
+  }
+  return {
+    created, calls,
+    provider: {
+      name: 'jira',
+      buildWorkFields: draft => buildWorkIssueFieldsFor(JIRA, draft),
+      async createIssue(fields) {
+        const title = fields.fields.summary
+        calls.push({kind: 'create', title, labels: fields.fields.labels, attemptRecorded: attemptSeenAtCall(fields)})
+        if (failOn.has(title)) throw new Error('JIRA_HTTP_502: 게이트웨이 오류')
+        const key = `PF-${++sequence}`
+        created.set(key, fields.fields)
+        // 생성은 됐는데 **확정을 원장에 못 남기는** 순간을 만든다 — 티켓은 이미 트래커에 있다.
+        if (lockLedgerAfter.has(title)) chmodSync(ledger, 0o444)
+        return noKeyOn.has(title) ? {} : {ticketKey: key, key, url: `https://jira.test/${key}`}
+      },
+      async findByWorkId({workId}) {
+        calls.push({kind: 'find', workId})
+        if (lookup) return lookup(workId, created)
+        const hit = [...created.entries()].filter(([, fields]) => fields.description.includes(workId))
+        return {matches: hit.map(([key]) => ({ticketKey: key})), complete: true}
+      },
+      async linkRelated({parentKey, childKey}) {
+        calls.push({kind: 'link', parentKey, childKey})
+        return {applied: true, mode: 'issue-link'}
+      },
+      async listWorkIssues() { return {items: [], complete: true} },
+      async updateBody() { return {updated: true} },
+    },
+  }
+}
+
+const fixture = name => {
+  const root = mkdtempSync(join(tmpdir(), `wh-pub-${name}-`))
+  cpSync(join(repo, '.claude/evals/fixtures/work-plan', name), root, {recursive: true})
+  return root
+}
+const within = async (root, fn) => { try { return await fn(root) } finally { rmSync(root, {recursive: true, force: true}) } }
+const review = async root => {
+  const result = await runClaimWork({root, flags: {}})
+  assert.equal(result.phase, 'P1_REVIEW', JSON.stringify(result.errors ?? result))
+  return result
+}
+const events = root => readWorkEvents(join(root, EVENTS))
+
+test('T58: 확인 전에는 외부 쓰기 0이고, 무엇을 어디에 낼지 보여준다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const {provider, calls} = tracker()
+    const preview = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)}`}, io: {provider, ticketConfig}})
+    assert.equal(preview.ok, true)
+    assert.equal(preview.phase, 'PUBLISH_PREVIEW')
+    assert.equal(preview.externalWrites, 0)
+    assert.deepEqual(preview.publish.map(item => item.workId), [W(1), W(3)])
+    assert.equal(calls.length, 0, '미리보기가 트래커를 불렀다')
+    assert.equal(events(root).filter(event => event.eventType.startsWith('publish-')).length, 0, '미리보기가 발행 이벤트를 남겼다')
+  })
+})
+
+test('T58: 검토 뒤 계획이 바뀌면 사전 승인으로 발행하지 않는다', async () => {
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'))
+    plan.workItems[0].title = '검토 뒤 바뀐 제목'
+    writeFileSync(planPath, JSON.stringify(plan))
+    const {provider, calls} = tracker()
+    const blocked = await runWorkPublish({root, flags: {confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(blocked.ok, false)
+    assert.equal(blocked.phase, 'PUBLISH_BLOCKED')
+    assert.ok(blocked.errors.some(error => /검토 뒤 계획이 바뀌었다/.test(error)), JSON.stringify(blocked.errors))
+    assert.equal(calls.length, 0, '확인받지 않은 안을 트래커에 냈다')
+  })
+})
+
+test('T45: 선행이 이번 발행에도 없고 등록되지도 않았으면 막는다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const {provider} = tracker()
+    // 목록 조회 연결(W4)은 회원 타입(W1)·페이지 틀(W3)을 기다린다 — 혼자 발행할 수 없다.
+    const blocked = await runWorkPublish({root, flags: {'work-ids': W(4), confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(blocked.ok, false)
+    assert.ok(blocked.errors.some(error => /선행이 이번 발행에도 없고/.test(error)), JSON.stringify(blocked.errors))
+  })
+})
+
+test('T12·T13: 일부 실패는 성공분을 유지하고 불확실로 남으며, 재개는 조회로 확인한다(재발행 없음)', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    // 페이지 틀 발행만 실패시킨다.
+    const first = tracker({failOn: new Set(['회원 페이지 틀'])})
+    const partial = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)}`, confirm: true},
+      io: {provider: first.provider, ticketConfig}})
+    assert.equal(partial.phase, 'PUBLISHED_WITH_PENDING')
+    assert.deepEqual(partial.published.map(item => item.workId), [W(1)])
+    assert.deepEqual(partial.pending.map(item => item.workId), [W(3)])
+    const state = foldWorkState(events(root))
+    assert.equal(state.works.get(W(1)).status, 'published')
+    assert.equal(state.works.get(W(3)).status, 'unknown')
+    // 쓰기 **전에** 시도를 남겼는가 — 요청 지문과 시도 id로 결박한다(§8-3).
+    const ledger = events(root)
+    const attempted = ledger.filter(event => event.eventType === 'publish-attempted' && event.workId === W(3))
+    const unknown = ledger.filter(event => event.eventType === 'publish-unknown' && event.workId === W(3))
+    assert.equal(attempted.length, 1)
+    assert.match(attempted[0].payload.payloadDigest, /^[0-9a-f]{64}$/, '요청 지문 없이 시도를 남겼다')
+    assert.ok(ledger.indexOf(attempted[0]) < ledger.indexOf(unknown[0]), '쓰기 전에 시도를 남기지 않았다')
+    assert.equal(attempted[0].operationId, unknown[0].operationId, '같은 시도가 다른 id로 갈렸다')
+
+    // 재개: 트래커에 실제로 없다(조회 완전) → 다시 낸다. 성공한 W1은 재발행하지 않는다.
+    const second = tracker()
+    for (const [key, fields] of first.created) second.created.set(key, fields)
+    const resumed = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)}`, confirm: true},
+      io: {provider: second.provider, ticketConfig}})
+    assert.equal(resumed.ok, true)
+    assert.deepEqual(resumed.reuse.map(item => item.workId), [W(1)], '이미 발행된 작업을 재사용하지 않았다')
+    assert.equal(second.calls.filter(call => call.kind === 'create').length, 1, '성공했던 티켓을 다시 냈다')
+    assert.equal(foldWorkState(events(root)).works.get(W(3)).status, 'published')
+  })
+})
+
+test('T12: 조회가 불완전하면 재발행하지 않고 사람 조정으로 남긴다', async () => {
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    const first = tracker({failOn: new Set(['문서 모델·명령·실행 취소'])})
+    await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider: first.provider, ticketConfig}})
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).status, 'unknown')
+    // 색인 지연: 조회가 불완전하다 — 없다고 단정하면 중복이 생긴다.
+    const second = tracker({lookup: () => ({matches: [], complete: false})})
+    const held = await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider: second.provider, ticketConfig}})
+    assert.equal(held.ok, false)
+    assert.equal(held.phase, 'PUBLISHED_WITH_PENDING')
+    assert.match(held.pending[0].reason, /UNKNOWN_REMOTE_RESULT/)
+    assert.equal(second.calls.filter(call => call.kind === 'create').length, 0, '불확실한 상태에서 재발행했다')
+    // 같은 작업의 티켓이 둘이면 사람이 정리한다 — 자동으로 하나를 고르지 않는다.
+    assert.match(reconcileAttempt({lookup: {matches: [{ticketKey: 'PF-1'}, {ticketKey: 'PF-2'}], complete: true}}).reason, /DUPLICATE_REMOTE/)
+  })
+})
+
+test('T43·T48: 공유 작업은 티켓 하나이고 소비 FEAT 라벨을 모두 단다 · 본문에 WORK 마커가 있다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const {provider, created, calls} = tracker({ledger: join(root, EVENTS)})
+    const published = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)}`, confirm: true, parent: 'PF-1'},
+      io: {provider, ticketConfig}})
+    assert.equal(published.ok, true)
+    const shared = [...created.values()].find(fields => fields.summary === '회원 타입·API 계약')
+    assert.deepEqual([...shared.labels].filter(label => label.startsWith('feat-')).sort(),
+      ['feat-FEAT-001', 'feat-FEAT-002', 'feat-FEAT-003'], '공유 작업이 소비 FEAT 전부와 연결되지 않았다')
+    assert.equal(calls.filter(call => call.kind === 'create' && call.title === '회원 타입·API 계약').length, 1, '공유 작업을 FEAT마다 복제했다')
+    assert.ok(calls.filter(call => call.kind === 'create').every(call => call.attemptRecorded === true),
+      '외부 쓰기 시점에 그 요청의 시도가 원장에 없었다 — 응답이 유실되면 흔적 없이 사라진다')
+    const marker = parseWorkMarker(shared.description)
+    assert.equal(marker.workId, W(1))
+    assert.deepEqual(marker.featureIds, ['FEAT-001', 'FEAT-002', 'FEAT-003'])
+    // 부모를 주면 관계를 걸고 그 사실을 원장에 남긴다.
+    assert.equal(calls.filter(call => call.kind === 'link').length, 2)
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).relation.applied, true)
+  })
+})
+
+test('계획 없이 발행을 부르면 계획부터 요구한다 · 이미 발행된 것은 다시 내지 않는다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-pub-empty-'))
+  await within(root, async () => {
+    const {provider} = tracker()
+    const result = await runWorkPublish({root, flags: {confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(result.ok, false)
+    assert.equal(result.phase, 'PLAN_REQUIRED')
+    assert.equal(result.externalWrites, 0)
+  })
+  // 순수 판정: 이미 발행된 작업은 publish가 아니라 reuse다.
+  const plan = {planId: '22222222-2222-4222-8222-222222222222', workItems: [{workId: W(1), dependsOn: [], lifecycle: 'active'}]}
+  const state = {works: new Map([[W(1), {status: 'published', ticketKey: 'PF-101'}]])}
+  const decision = planPublish({plan, planDigest: 'a'.repeat(64), state,
+    reviewed: {planId: plan.planId, planDigest: 'a'.repeat(64)}})
+  assert.deepEqual(decision.publish, [])
+  assert.deepEqual(decision.reuse, [{workId: W(1), ticketKey: 'PF-101'}])
+})
+
+test('생성 응답에 키가 없으면 `unknown`이다 — 성공으로도 실패로도 읽지 않는다', async () => {
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    const {provider} = tracker({noKeyOn: new Set(['문서 모델·명령·실행 취소'])})
+    const result = await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(result.ok, false)
+    assert.equal(result.phase, 'PUBLISHED_WITH_PENDING')
+    assert.match(result.pending[0].reason, /키가 없다/)
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).status, 'unknown')
+  })
+})
+
+test('원장에 시도를 남기지 못하면 외부 쓰기를 하지 않는다', async () => {
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    chmodSync(join(root, EVENTS), 0o444) // 원장에 더 쓸 수 없다
+    const {provider, calls} = tracker()
+    const result = await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider, ticketConfig}})
+    chmodSync(join(root, EVENTS), 0o644)
+    assert.equal(result.ok, false)
+    assert.equal(result.externalWrites, 0, '원장을 못 쓰는데 트래커에 썼다')
+    assert.equal(calls.length, 0)
+    assert.match(result.pending[0].reason, /원장에 시도를 남기지 못해/)
+  })
+})
+
+test('미해결 결정이 남은 작업을 이름 대고 고르면 거절한다 — 조용히 빼지 않는다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const {provider, calls} = tracker()
+    // W6(상세·수정)은 디자인 조건이 미정이라 blocked-decision이다.
+    const blocked = await runWorkPublish({root, flags: {'work-ids': W(6), confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(blocked.ok, false)
+    assert.equal(blocked.phase, 'PUBLISH_BLOCKED')
+    assert.ok(blocked.errors.some(error => /미해결 결정이 남아 있다/.test(error)), JSON.stringify(blocked.errors))
+    assert.equal(calls.length, 0)
+  })
+})
+
+test('발행 뒤 확정을 원장에 남기지 못하면 티켓 키를 결과에 실어 보류한다 — 만든 것을 잊지 않는다', async () => {
+  if (typeof process.getuid === 'function' && process.getuid() === 0) return // root는 읽기전용을 무시한다
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    const ledger = join(root, EVENTS)
+    const {provider, created} = tracker({ledger, lockLedgerAfter: new Set(['문서 모델·명령·실행 취소'])})
+    const result = await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider, ticketConfig}})
+    chmodSync(ledger, 0o644)
+    assert.equal(result.ok, false)
+    assert.equal(created.size, 1, '티켓은 만들어졌어야 한다')
+    assert.match(result.pending[0].reason, /원장에 확정을 남기지 못했다/)
+    assert.ok(result.results.some(item => typeof item.ticketKey === 'string'), '만든 티켓 키를 결과에서 잃었다')
+    // 원장은 시도까지만 안다 — 다음 실행이 조회로 잇는다(재발행하지 않는다).
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).status, 'attempted')
+  })
+})
+
+test('결과를 모르는 작업의 후손은 손자까지 이번에 내지 않는다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    // ① 회원 타입(W1) 발행이 실패해 불확실로 남는다.
+    const first = tracker({failOn: new Set(['회원 타입·API 계약'])})
+    await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true}, io: {provider: first.provider, ticketConfig}})
+    assert.equal(foldWorkState(events(root)).works.get(W(1)).status, 'unknown')
+    // ② 재개 조회가 불완전해 보류된다 — 그 후손(W4)도, 손자(W5·W6·W7)도 나가면 안 된다.
+    const second = tracker({lookup: () => ({matches: [], complete: false})})
+    const result = await runWorkPublish({root, flags: {confirm: true}, io: {provider: second.provider, ticketConfig}})
+    const publishedTitles = second.calls.filter(call => call.kind === 'create').map(call => call.title)
+    assert.deepEqual(publishedTitles, ['회원 페이지 틀'], '선행의 결과를 모르는데 후손을 냈다')
+    const heldIds = new Set(result.pending.map(item => item.workId))
+    for (const [id, label] of [[W(4), '목록 조회 연결'], [W(5), '검색·필터']]) {
+      assert.ok(heldIds.has(id), `${label}이 보류 목록에 없다`)
+    }
+    // W6는 미해결 결정으로 애초에 빠지고, W7은 그 후손이라 함께 빠진다 — 둘 다 사유가 남는다.
+    const skippedIds = new Set(result.skipped.map(item => item.workId))
+    assert.ok(skippedIds.has(W(6)) && skippedIds.has(W(7)), JSON.stringify(result.skipped))
+    assert.equal(result.phase, 'PUBLISHED_WITH_PENDING')
+  })
+})
+
+test('결정이 안 난 작업은 전체 발행에서도 목록에 남는다 — 뺀 사실이 사라지지 않는다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    await review(root)
+    const {provider} = tracker()
+    const preview = await runWorkPublish({root, flags: {}, io: {provider, ticketConfig}})
+    const skipped = new Map(preview.skipped.map(item => [item.workId, item.reason]))
+    assert.equal(skipped.get(W(6)), 'blocked-unresolved', JSON.stringify(preview.skipped))
+    assert.match(skipped.get(W(7)) ?? '', /blocked-predecessor/)
+    assert.equal(preview.publish.some(item => item.workId === W(6)), false)
+  })
+})
+
+test('부모를 주면 본문에 부모 티켓이 남는다 — `link-only`는 그 참조가 관계의 전부다', async () => {
+  const root = fixture('editor')
+  await within(root, async () => {
+    await review(root)
+    const {provider, created} = tracker()
+    await runWorkPublish({root, flags: {'work-ids': W(1), confirm: true, parent: 'PF-9'},
+      io: {provider, ticketConfig: {jira: {projectKey: 'PF', workLink: {mode: 'link-only'}}}}})
+    const body = [...created.values()][0].description
+    assert.match(body, /부모 티켓: PF-9 \(본문 참조 — 트래커 관계 아님\)/)
+  })
+})
+
+test('FEAT 축 라벨의 어휘는 트래커가 정한다 — 중립 코어가 한쪽을 박지 않는다', () => {
+  const work = {workId: W(1), title: '공통 타입'}
+  const asGithub = workIssueFields({work, plan: {}, featureIds: ['FEAT-001'], body: '', featLabel: githubFeatLabel})
+  const asJira = workIssueFields({work, plan: {}, featureIds: ['FEAT-001'], body: ''})
+  assert.ok(asGithub.labels.includes('feat:FEAT-001'), JSON.stringify(asGithub.labels))
+  assert.ok(asJira.labels.includes('feat-FEAT-001'), JSON.stringify(asJira.labels))
+})

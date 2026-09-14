@@ -57,6 +57,14 @@ export const GITHUB_QUESTIONS = [
     ask: 'GitHub 호스트 — github.com 또는 사내 GitHub Enterprise 주소(예: github.example.com). 저장소 원격에서 뽑아 제안할 수 있다(git-origin.hostFromRemoteUrl)',
     default: 'github.com',
   },
+  // GitHub에도 관계 선언이 필요하다. 확인된 유형 관계가 없으므로 값은 `link-only`뿐이고,
+  // 그것이 **관계가 아니라 본문 참조**라는 사실을 사람이 명시로 받아들여야 발행이 열린다
+  // (트래커 이름으로 면제하지 않는다 — `workRelationMode`).
+  {
+    key: 'workLink.mode',
+    required: false,
+    ask: 'WORK 티켓과 부모의 관계 표현 — GitHub은 `link-only`(본문 참조뿐, 관계 아님)만 가능합니다. 비우면 WORK 발행이 막힙니다',
+  },
 ]
 
 /** provider별 질문. 선택이 정해지기 전에는 무엇을 물을지 모른다. */
@@ -155,8 +163,12 @@ export function buildTicketConfig(provider, answers = {}) {
   }
   if (provider === 'github') {
     const host = typeof answers.host === 'string' ? answers.host.trim() : ''
+    const github = {}
     // 기본값과 같으면 적지 않는다 — 설정 파일은 **다른 것만** 담아야 읽을 때 의미가 있다.
-    return host && host !== 'github.com' ? {provider, github: {host}} : {provider}
+    if (host && host !== 'github.com') github.host = host
+    const mode = typeof answers['workLink.mode'] === 'string' ? answers['workLink.mode'].trim() : ''
+    if (mode) github.workLink = {mode}
+    return Object.keys(github).length > 0 ? {provider, github} : {provider}
   }
   const jira = {}
   for (const [key, value] of Object.entries(answers)) {

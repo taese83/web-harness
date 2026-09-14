@@ -6,9 +6,12 @@
 //   (2) T16 절단: 받은 수 < total이면 `complete:false`와 다음 커서 — 「없음」이나 「전부」로 읽지 않는다
 //   (3) T15 미지원: 관계 설정이 없으면 무엇을 설정해야 하는지 돌려주고 성공을 위장하지 않는다
 //   (4) GitHub 본문 검색은 색인 지연이 있다 — 결과가 비어도 부재를 단정하지 않는다(link-only 표기)
+//   (5) 두 트래커의 **WORK 필드 빌더**가 같은 계약을 지킨다 — 호출자 라벨 보존·FEAT 마커 미부착
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
+import {buildWorkIssueFieldsFor} from './ticket/provider-jira.mjs'
+import {buildWorkIssueFields} from './ticket/provider-github.mjs'
 import {createGithubProvider} from './ticket/provider-github-exec.mjs'
 import {issueLinkBody, parseCursor, parseWorkSearch, workJql, workKeysJql, workLabel, workProviderReadiness, workRelationMode, workSearchArgs} from './ticket/work-provider.mjs'
 
@@ -137,4 +140,38 @@ test('발행 전 능력 판정: 없는 것을 있다고 말하지 않고 무엇�
   const optedIn = workProviderReadiness(github, {workLink: {mode: 'link-only'}})
   assert.equal(optedIn.ok, true)
   assert.equal(optedIn.relation.mode, 'link-only')
+})
+
+// ── WORK 필드 빌더 conformance ──────────────────────────────────────────────────
+// FEAT 빌더는 `sourceKey`를 FEAT로 보고 `feat-<키>` 라벨과 `web-harness:refs` 마커를 덧붙인다.
+// WORK를 그 빌더로 내면 ① 조회 축(`work-…` 라벨)이 사라져 재개 조회가 「완전·0건」을 돌려주고(부재로
+// 읽혀 중복 발행) ② 본문에 두 모델의 마커가 함께 실려 판독 입구가 conflict로 거부한다.
+// 그래서 **두 형태 모두** 같은 케이스로 잰다 — 한쪽만 고치면 다른 트래커에서 같은 사고가 난다.
+const workDraft = {
+  title: '회원 타입·API 계약',
+  body: `요약\n\n<!-- web-harness:work plan=${PLAN} work=${WORK} feat=FEAT-001,FEAT-002 tc= rev=${'a'.repeat(64)} -->`,
+  labels: [workLabel(WORK), `plan-${PLAN}`, 'feat-FEAT-001', 'feat-FEAT-002'],
+}
+for (const [name, build, read] of [
+  ['jira', draft => buildWorkIssueFieldsFor(jiraConfig, draft), built => ({labels: built.fields.labels, body: built.fields.description, title: built.fields.summary})],
+  ['github', draft => buildWorkIssueFields(draft), built => ({labels: built.labels, body: built.body, title: built.title})],
+]) {
+  test(`${name}: WORK 필드 빌더가 호출자 라벨을 보존하고 FEAT 마커를 붙이지 않는다`, () => {
+    const built = read(build(workDraft))
+    assert.equal(built.title, workDraft.title)
+    for (const label of workDraft.labels) {
+      assert.ok(built.labels.includes(label), `${label} 라벨이 사라졌다 — 이 축으로 재개 조회를 한다`)
+    }
+    assert.equal(built.labels.some(label => /^feat-WORK-/.test(label)), false, '없는 축의 라벨을 만들었다')
+    assert.equal(built.body.includes('web-harness:refs'), false, 'WORK 본문에 FEAT 왕복 마커를 덧붙였다 — 판독 입구가 conflict로 거부한다')
+    assert.ok(built.body.includes('web-harness:work'), 'WORK 마커가 본문에서 사라졌다')
+  })
+}
+
+test('발행 전 판정은 WORK 전용 빌더가 있는지도 본다', () => {
+  const {provider} = jira(jiraConfig, () => ({json: {}}))
+  assert.equal(workProviderReadiness(provider, {workLink: {mode: 'issue-link', linkType: 'Relates'}}).ok, true)
+  const {buildWorkFields, ...withoutBuilder} = provider
+  assert.deepEqual(workProviderReadiness(withoutBuilder, {workLink: {mode: 'issue-link', linkType: 'Relates'}}).missing,
+    ['provider.buildWorkFields'])
 })

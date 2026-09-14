@@ -1,0 +1,121 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T03:30:44.000Z",
+  "scope": "WORK 분해 P2-c(발행: 확인한 판본·재개·부분 실패 복구)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-publish-only-reviewed-plan",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-preview-before-confirm",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-dependency-closure",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-no-republish-of-published",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-incomplete-lookup-holds",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-duplicate-remote-held",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-shared-feat-labels",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-attempt-digest-recorded",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "cli-claim-work-publish-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-claim-process.mjs"
+    },
+    {
+      "id": "jira-work-fields-keep-caller-labels",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "github-work-fields-keep-caller-labels",
+      "file": ".claude/scripts/ticket/provider-github.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-readiness-requires-work-builder",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-publish-attempt-before-write",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-blocked-selection-refused",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-ledger-failure-stops-write",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-unresolved-descendants-held",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-confirm-ledger-failure-held",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-blocked-root-listed",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-parent-in-body",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-feat-label-vocabulary",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    }
+  ],
+  "result": {
+    "ok": 20,
+    "total": 20,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 20건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 Jira·GitHub 왕복은 NOT_RUN — 메모리 트래커와 **실 provider의 순수 필드 빌더**로 계약까지만 돈다. 생성 응답 유실·색인 지연은 재현이 아니라 주입이다",
+    "seed는 각 가드 한 줄의 최소 변형이다 — 의미적 타당성은 사람 검토의 몫",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 **차이가 없었다**는 뜻이다(차이가 있으면 바뀐 파일 목록이 들어온다)"
+  ]
+}

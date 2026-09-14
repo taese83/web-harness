@@ -72,6 +72,15 @@ export function designSection(refs) {
   ]
 }
 
+/**
+ * WORK 이슈 필드(순수). FEAT 빌더와 나누는 이유는 Jira 쪽 주석과 같다 — `feat-<sourceKey>` 라벨과
+ * `web-harness:refs` 마커를 WORK 본문에 붙이면 라벨 축이 어긋나고 마커가 충돌한다.
+ * @param {{title: string, body: string, labels?: string[]}} draft
+ */
+export function buildWorkIssueFields(draft) {
+  return {title: draft.title, body: String(draft.body ?? ''), labels: unique([...(draft.labels ?? [])].filter(Boolean)), assignee: null}
+}
+
 export function buildIssueFields(draft, options = {}) {
   const featureIds = draft.harnessRefs?.featureIds ?? (draft.sourceKey ? [draft.sourceKey] : [])
   const testCaseIds = draft.harnessRefs?.testCaseIds ?? []

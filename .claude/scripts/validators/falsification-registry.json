@@ -1277,8 +1277,8 @@
     {
       "id": "work-claim-confirm-no-publish",
       "file": ".claude/scripts/ticket/work-claim.mjs",
-      "find": "  if (flags.confirm) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote}",
-      "replace": "  if (false) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote}",
+      "find": "  if (flags.confirm) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote,",
+      "replace": "  if (flags.confirm && flags.enabled) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote,",
       "test": ".claude/scripts/test-work-claim-process.mjs",
       "why": "확인 플래그가 준비 흐름을 발행으로 오인시킨다 — 검토하지 않은 판본이 나간다(T61·T58)"
     },
@@ -1577,6 +1577,166 @@
       "replace": "  return true",
       "test": ".claude/scripts/test-work-provider.mjs",
       "why": "부모 방향을 설정으로 뒤집을 수 없으면 링크 타입 설명문이 반대인 프로젝트에서 관계가 거꾸로 기록된다"
+    },
+    {
+      "id": "work-publish-only-reviewed-plan",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "  else if (reviewed.planDigest !== planDigest) errors.push('검토 뒤 계획이 바뀌었다 — 바뀐 안을 다시 검토한 뒤 발행한다(사전 승인은 새 안의 승인이 아니다)')",
+      "replace": "  else if (reviewed.planDigest === undefined) errors.push('검토 뒤 계획이 바뀌었다')",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "검토 뒤 바뀐 안을 발행하면 --confirm 하나가 아직 보지 않은 분해안의 승인이 된다"
+    },
+    {
+      "id": "work-publish-preview-before-confirm",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "  if (!flags.confirm) {\n    return {...preview, ok: true,",
+      "replace": "  if (flags.preview === 'only') {\n    return {...preview, ok: true,",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "확인 전에 외부 쓰기가 나가면 사람이 승인한 적 없는 티켓이 트래커에 남는다"
+    },
+    {
+      "id": "work-publish-dependency-closure",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "  const missingDeps = (work, exists) => list(work.dependsOn).filter(dep => !exists.has(dep) && stateOf(dep).status !== 'published')",
+      "replace": "  const missingDeps = () => []",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "등록되지 않은 선행을 완료로 치면 착수할 수 없는 작업이 준비된 것처럼 배포된다"
+    },
+    {
+      "id": "work-publish-no-republish-of-published",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "    if (current.status === 'published') { reuse.push({workId: work.workId, ticketKey: current.ticketKey}); continue }",
+      "replace": "    if (current.status === 'published-never') { reuse.push({workId: work.workId, ticketKey: current.ticketKey}); continue }",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "이미 발행된 공유 작업을 배치마다 다시 내면 같은 기반이 티켓 여러 건으로 복제된다"
+    },
+    {
+      "id": "work-publish-incomplete-lookup-holds",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "  if (lookup?.complete !== true) return {action: 'hold', reason: 'UNKNOWN_REMOTE_RESULT: 조회가 불완전해 부재를 확인하지 못했다 — 재발행하지 않는다'}",
+      "replace": "  if (lookup?.complete === 'never') return {action: 'hold', reason: 'UNKNOWN_REMOTE_RESULT: 조회가 불완전해 부재를 확인하지 못했다'}",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "불완전한 조회를 부재로 읽으면 색인 지연에서 중복 티켓을 만든다"
+    },
+    {
+      "id": "work-publish-duplicate-remote-held",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "  if (matches.length > 1) {",
+      "replace": "  if (matches.length > 99) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "같은 작업의 티켓이 여러 건일 때 자동으로 하나를 고르면 사람이 모르는 채 한쪽이 방치된다"
+    },
+    {
+      "id": "work-publish-shared-feat-labels",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "    labels: [...new Set([...labels, ...featureIds.map(featureId => featLabel(featureId))])],",
+      "replace": "    labels: [...new Set(labels)],",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "공유 작업이 소비 FEAT 라벨을 잃으면 FEAT 축 조회에서 사라져 FEAT마다 복제 발행된다"
+    },
+    {
+      "id": "work-publish-attempt-digest-recorded",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels}})",
+      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels}})",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "시도에 실제 요청 지문이 없으면 같은 시도 id로 다른 본문을 보냈는지 가릴 수 없고, 외부 쓰기 시점의 시도 대조도 공허해진다"
+    },
+    {
+      "id": "cli-claim-work-publish-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "        if (flags.work && flags.publish) {",
+      "replace": "        if (flags.work && flags.publish && flags.enabled) {",
+      "test": ".claude/scripts/test-work-claim-process.mjs",
+      "why": "발행 입구가 CLI에 배선되지 않으면 --publish가 조용히 준비 흐름으로 떨어져 아무것도 발행되지 않는다"
+    },
+    {
+      "id": "jira-work-fields-keep-caller-labels",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "find": "    labels: [...new Set([...(draft.labels ?? [])].filter(Boolean))],",
+      "replace": "    labels: [],",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "WORK 라벨이 실리지 않으면 재개 조회가 「완전·0건」을 돌려주고 부재로 읽혀 중복 발행이 된다"
+    },
+    {
+      "id": "github-work-fields-keep-caller-labels",
+      "file": ".claude/scripts/ticket/provider-github.mjs",
+      "find": "  return {title: draft.title, body: String(draft.body ?? ''), labels: unique([...(draft.labels ?? [])].filter(Boolean)), assignee: null}",
+      "replace": "  return {title: draft.title, body: String(draft.body ?? ''), labels: [], assignee: null}",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "트래커 한쪽만 고치면 다른 형태에서 같은 사고가 난다 — 두 빌더를 같은 계약으로 결박한다"
+    },
+    {
+      "id": "work-readiness-requires-work-builder",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    buildWorkFields: typeof provider?.buildWorkFields === 'function',",
+      "replace": "    buildWorkFields: true,",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "WORK 전용 빌더 없는 provider로 발행하면 FEAT 빌더가 라벨을 버리고 마커를 충돌시킨다"
+    },
+    {
+      "id": "work-publish-attempt-before-write",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels}})",
+      "replace": "    const attemptFailed = null",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "외부 쓰기 전에 시도가 원장에 없으면 응답이 유실됐을 때 흔적 없이 사라진다 — 재개할 근거가 없다"
+    },
+    {
+      "id": "work-publish-blocked-selection-refused",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "      if (selection) errors.push(`${work.title ?? work.workId}: 미해결 결정이 남아 있다 — 결정을 먼저 닫는다(발행하지 않는다)`)",
+      "replace": "      if (selection && false) errors.push('미해결 결정이 남아 있다')",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "이름 대고 고른 작업을 조용히 빼면 사람은 등록됐다고 오해한다"
+    },
+    {
+      "id": "work-publish-ledger-failure-stops-write",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (attemptFailed) {\n      unresolved.add(work.workId)",
+      "replace": "    if (attemptFailed && false) {\n      unresolved.add(work.workId)",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "원장을 못 쓰는데 발행하면 만든 티켓을 아무도 모른다 — 다음 실행이 같은 것을 또 만든다"
+    },
+    {
+      "id": "work-publish-unresolved-descendants-held",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    const blockedBy = list(work.dependsOn).filter(dep => unresolved.has(dep))",
+      "replace": "    const blockedBy = []",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "선행의 발행 결과를 모르는데 후손을 내면 없는 선행을 있는 것처럼 만든다 — 손자까지 새어 나간다"
+    },
+    {
+      "id": "work-publish-confirm-ledger-failure-held",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    if (confirmFailed) {",
+      "replace": "    if (confirmFailed && false) {",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "확정을 원장에 못 남겼는데 성공으로 보고하면 만든 티켓을 아무도 모르고 다음 실행이 또 만든다"
+    },
+    {
+      "id": "work-publish-blocked-root-listed",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "  const chosen = selection ? active.filter(work => selection.includes(work.workId)) : active",
+      "replace": "  const chosen = selection ? active.filter(work => selection.includes(work.workId)) : active.filter(work => !blockedWorkIds.has(work.workId))",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "미해결 결정으로 뺀 작업이 목록에서 사라지면 사람은 그 작업이 어디 갔는지 알 수 없다"
+    },
+    {
+      "id": "work-publish-parent-in-body",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "    ...bullets('부모 티켓', parentKey ? [`${parentKey}${relationMode === 'link-only' ? ' (본문 참조 — 트래커 관계 아님)' : ''}`] : []),",
+      "replace": "    ...bullets('부모 티켓', []),",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "link-only는 본문 참조가 관계의 전부다 — 본문에 없으면 선언만 있고 표현이 없다"
+    },
+    {
+      "id": "work-publish-feat-label-vocabulary",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "export function workIssueFields({work, plan, featureIds, body, labels = [], components = [], featLabel = id => `feat-${id}`}) {",
+      "replace": "export function workIssueFields({work, plan, featureIds, body, labels = [], components = []}) {\n  const featLabel = id => `feat-${id}`",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "FEAT 축 라벨 어휘를 중립 코어가 박으면 같은 GitHub 저장소에서 FEAT 축이 둘로 갈린다"
     }
   ]
 }

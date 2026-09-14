@@ -303,7 +303,9 @@ export function resolveTicketProvider({root, repo, flags = {}, io = {}, hasLedge
   // host를 넘기지 않으면 createGithubProvider의 기본값(github.com)이 늘 이긴다 — GitHub
   // Enterprise 저장소에서 owner/name은 맞게 뽑히고 host만 유실돼 gh가 없는 저장소를 찾았다
   // (2026-09-02 실측). 실행부는 이미 host를 GH_HOST로 넘기게 돼 있었고 배선만 없었다.
-  return {provider: createGithubProvider({repo, host: effective?.github?.host}), choice}
+  // **설정을 함께 돌려준다** — 종전에는 GitHub 분기만 빠져 있어서, 발행이 `workLink` 선언을 읽지
+  // 못하고 어느 저장소에서도 영구 `PROVIDER_NOT_READY`였다(설정으로 풀 길이 없었다).
+  return {provider: createGithubProvider({repo, host: effective?.github?.host}), choice, config: effective}
 }
 
 /**
@@ -1201,6 +1203,23 @@ if (invokedDirectly) {
     switch (command) {
       // `--work`: WORK 분해의 준비(P0)·검토(P1). 트래커를 부르지 않으므로 --repo가 필요 없다.
       case 'claim':
+        // `--publish`는 검토한 판본을 트래커에 낸다(P2-c). 확인 없이는 미리보기만 돌려준다.
+        if (flags.work && flags.publish) {
+          // 트래커 판정은 **발행 전에** 끝낸다. 원장 유무로 「이미 GitHub이다」를 추론하는 것은
+          // 기존 FEAT 청구의 하위호환 규칙이고, WORK 발행에는 그 원장이 없을 수 있다 — 설정이
+          // 없으면 묻는다. GitHub인데 `--repo`가 없으면 **여기서 멈춘다**: 그대로 두면 provider
+          // 생성이 INVALID_REPO로 던져 「무엇을 설정해야 하는가」가 사람에게 닿지 않는다.
+          const ledgerHasRecords = readLedgerState(join(root, LEDGER_RELATIVE)).size > 0
+          const resolved = resolveTicketProvider({root, repo, flags, io: {}, hasLedgerRecords: ledgerHasRecords})
+          const notReady = message => ({ok: false, mode: 'work', phase: 'PROVIDER_NOT_READY', externalWrites: 0,
+            questions: resolved.questions ?? null, guidance: message})
+          if (resolved.choice?.needsChoice) return notReady('어느 트래커에 발행할지 정한다 — `configure`로 기록한다(설정은 팀에 공유된다)')
+          if (resolved.choice?.provider === 'github' && (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo))) {
+            return notReady('GitHub에 발행하려면 `--repo <owner/name>`가 필요하다')
+          }
+          return (await import('./work-publish-run.mjs')).runWorkPublish({root, flags,
+            io: {provider: resolved.provider, ticketConfig: resolved.config}})
+        }
         if (flags.work) return (await import('./work-claim.mjs')).runClaimWork({root, flags})
         requireRepo(); return runClaim({root, repo, flags})
       case 'pickup': requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})

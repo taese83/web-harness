@@ -80,7 +80,9 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 검토한 plan의 FEAT **전체**를 개발 설계·현재 코드·디자인 연결과 대조해 공통 WORK·FEAT별 WORK·통합 WORK로
 나누고 검토받는다. 별도 분해 명령도 미리 만든 work-plan 파일도 요구하지 않는다 — `cli.mjs claim --work`의
 `phase`가 다음 할 일(설계 자료 보존 → `system-architect`의 분석·계획 작성 → 검토표)을 말한다. 외부 쓰기가
-없고, 발행은 아직 연결되지 않았다(P2 — `--confirm`은 `PUBLISH_NOT_AVAILABLE`, FEAT 발행으로 되돌아가지 않는다).
+없다. 검토가 끝나면 `cli.mjs claim --work --publish`가 **무엇을 어디에 낼지** 외부 쓰기 0으로 보여주고,
+같은 요청에 `--confirm`을 붙였을 때만 발행한다 — 미리보기가 승인의 대상이다(`--work-ids`로 일부만,
+`--parent <KEY>`로 부모 관계까지). 검토 뒤 계획이 바뀌면 발행하지 않고 재검토를 요구한다.
 단계별 절차·계약·키의 정본은 `references/work-plan-contract.md`.
 
 ### `claim` — 기획자 일괄 청구

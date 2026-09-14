@@ -89,6 +89,29 @@ export function buildDescriptionText(draft, {branch = null, designRefs = [], rea
 }
 
 /**
+ * WORK 티켓 필드(순수). FEAT 티켓 빌더를 재사용하지 **않는다** — 그쪽은 `sourceKey`를 FEAT로 보고
+ * `feat-<키>` 라벨과 `web-harness:refs` 마커를 붙인다. WORK에 그걸 쓰면 ① `feat-WORK-…`라는 없는
+ * 축의 라벨이 생기고 ② 본문에 두 모델의 마커가 함께 실려 판독 입구가 `conflict`로 거부하며
+ * ③ 호출자가 만든 `work-…`·`plan-…`·`feat-<FEAT>` 라벨이 통째로 버려져 재개 조회가 **완전·0건**을
+ * 돌려준다(부재로 읽혀 재발행 = 중복). 그래서 본문도 라벨도 **호출자가 준 그대로** 싣는다.
+ * @param {Object} config  requireJiraConfig 통과분
+ * @param {{title: string, body: string, labels?: string[], components?: string[]}} draft
+ */
+export function buildWorkIssueFieldsFor(config, draft) {
+  const text = String(draft.body ?? '')
+  const fields = {
+    project: {key: config.projectKey},
+    issuetype: {name: config.issueType},
+    summary: draft.title,
+    description: String(config.apiVersion ?? '3') === '2' ? text : toAdf(text),
+    labels: [...new Set([...(draft.labels ?? [])].filter(Boolean))],
+  }
+  const components = [...(draft.components ?? []), ...(config.components ?? [])].filter(Boolean)
+  if (components.length > 0) fields.components = [...new Set(components)].map(name => ({name}))
+  return {fields}
+}
+
+/**
  * 평문 → ADF(Atlassian Document Format). Cloud REST v3가 description을 문서 객체로 받는다.
  * Data Center(v2)는 평문이라 이 변환이 필요 없다 — `apiVersion`이 그것을 가른다.
  */

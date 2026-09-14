@@ -104,8 +104,10 @@ export async function runClaimWork({root, flags = {}}) {
       designBinding: design.present ? {path: DESIGN_BINDING_PATH, errors: design.errors} : null},
   }
   // 이 흐름은 발행하지 않는다 — 확인 플래그가 와도 FEAT 발행으로 되돌아가지 않는다(T61).
-  const publishNote = {available: false, reason: 'WORK 발행은 P2에서 연결된다 — 이 단계는 준비·검토까지다'}
-  if (flags.confirm) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote}
+  // 발행은 별도 입구(`--work --publish`)이고, 그 입구의 미리보기가 `--confirm`의 대상이다.
+  const publishNote = {available: false, reason: 'WORK 발행은 `claim --work --publish`다 — 이 흐름은 준비·검토까지다'}
+  if (flags.confirm) return {...base, ok: false, phase: 'PUBLISH_NOT_AVAILABLE', publish: publishNote,
+    guidance: '검토한 계획을 발행하려면 `claim --work --publish`로 미리보기를 보고, 같은 요청에 --confirm을 붙인다'}
 
   const analysisFile = readJson(root, WORK_ANALYSIS_PATH)
   if (analysisFile.error) return {...base, ok: false, phase: 'P0_ANALYSIS_INVALID', errors: [analysisFile.error]}

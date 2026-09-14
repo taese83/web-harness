@@ -3,7 +3,7 @@
 // provider-github.mjs에 있고, 여기서는 그 결과로 gh를 호출할 뿐이다. confirm(=개발자의
 // 선택 행위) 뒤 runner.claimFeature가 이 provider를 주입받아 쓴다.
 import {spawn} from 'node:child_process'
-import {buildIssueFields, featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
+import {buildIssueFields, buildWorkIssueFields, featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
 import {classifyGhError} from './permissions.mjs'
 import {parseViewerPermission} from './permissions.mjs'
 import {parseGithubWorkList, workListArgs, workSearchArgs} from './work-provider.mjs'
@@ -95,6 +95,11 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     // ── TicketProvider 필수부(`ticket-provider.mjs`) ──
     name: 'github',
     buildFields: buildIssueFields,
+    // WORK는 별도 빌더다 — FEAT 빌더는 `feat-<sourceKey>` 라벨과 refs 마커를 덧붙인다.
+    buildWorkFields: buildWorkIssueFields,
+    // FEAT 축 라벨의 **어휘는 트래커가 정한다**(GitHub `feat:`·Jira `feat-`) — 중립 코어가 한쪽을
+    // 박으면 같은 저장소에서 FEAT 축이 둘로 갈린다.
+    featLabel,
     // **조회 키가 라벨인 것은 GitHub의 사정이다.** 호출자는 FEAT만 준다.
     async findByFeature(featureId) {
       return this.findByLabel(featLabel(featureId))

@@ -8,6 +8,7 @@
 //   T05  한 번 검토한 판본의 작업을 지우면 다음 호출이 exit 2로 막는다
 //   T39  검토 뒤 입력 파일이 바뀌면 알린다(CLI가 계산한 실제 지문)
 //   T42  분석이 바뀌었는데 계획이 옛 판본을 가리키면 막는다
+//   T58  `--publish`가 실제로 발행 입구로 배선돼 있고, 검토·설정 없이는 외부 쓰기 0으로 멈춘다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
@@ -211,5 +212,70 @@ test('같은 판본을 다시 검토해도 이벤트는 한 줄이다 — 원장
     for (let round = 0; round < 3; round += 1) assert.equal(claim(root).result.phase, 'P1_REVIEW')
     const lines = readFileSync(join(root, '_workspace/03_dev/work-item-events.jsonl'), 'utf8').split('\n').filter(Boolean)
     assert.equal(lines.length, 1, `같은 판본 재검토가 이벤트를 ${lines.length}줄 남겼다 — 상한까지 자라면 claim이 막힌다`)
+  })
+})
+
+test('T58: `--publish`는 발행 입구로 배선돼 있고, 검토·설정 없이는 외부 쓰기 0으로 멈춘다', () => {
+  // 배선 회귀다 — 함수 단위로 발행을 돌려도 CLI가 그 문을 부르지 않으면 아무 일도 일어나지 않는다.
+  within(copyFixture('crud'), root => {
+    const events = join(root, '_workspace/03_dev/work-item-events.jsonl')
+    // ① 트래커 설정이 없으면 발행하지 않는다 — 무엇을 정해야 하는지 돌려준다(원장 없는 프로젝트를
+    //    「이미 GitHub이다」로 추론하지 않는다).
+    const unconfigured = claim(root, '--publish', '--confirm')
+    assert.notEqual(unconfigured.result?.phase, 'PUBLISH_NOT_AVAILABLE', '--publish가 발행 입구로 가지 않았다')
+    assert.equal(unconfigured.result?.phase, 'PROVIDER_NOT_READY', JSON.stringify(unconfigured.result ?? unconfigured.stderr))
+    assert.equal(unconfigured.result.externalWrites, 0)
+    // 설정을 기록한다 — 실제 경로로(손으로 JSON을 만들지 않는다).
+    const configured = spawnSync(process.execPath, [CLI, 'configure', '--provider', 'jira', '--root', root, '--confirm',
+      '--set', 'baseUrl=https://jira.invalid', '--set', 'projectKey=PF', '--set', 'issueType=Task',
+      '--set', 'workLink.mode=issue-link', '--set', 'workLink.linkType=Relates'],
+    {encoding: 'utf8', env: {PATH: process.env.PATH, HOME: process.env.HOME}, timeout: 30000})
+    assert.equal(configured.status, 0, configured.stderr)
+    // ② 설정이 있어도 **검토 기록이 없으면** --confirm이 있어도 막힌다.
+    const unreviewed = claim(root, '--publish', '--confirm')
+    assert.equal(unreviewed.result?.phase, 'PUBLISH_BLOCKED', JSON.stringify(unreviewed.result ?? unreviewed.stderr))
+    assert.equal(unreviewed.result.externalWrites, 0)
+    assert.ok(unreviewed.result.errors.some(error => /검토한 기록이 없다/.test(error)), JSON.stringify(unreviewed.result.errors))
+    // ③ 검토 뒤 확인 없이 부르면 미리보기다 — 트래커를 부르지 않는다(이 환경엔 토큰도 없다).
+    assert.equal(claim(root).result.phase, 'P1_REVIEW')
+    const preview = claim(root, '--publish')
+    assert.equal(preview.result?.phase, 'PUBLISH_PREVIEW', JSON.stringify(preview.result ?? preview.stderr))
+    assert.equal(preview.result.externalWrites, 0)
+    assert.ok(preview.result.publish.length > 0, '무엇을 낼지 보여주지 않았다')
+    // 결정이 안 난 작업과 **그 후손**은 이유와 함께 빠진다 — 배치 전체가 서지도, 조용히 빠지지도 않는다.
+    const skippedIds = preview.result.skipped.map(item => item.workId)
+    assert.ok(preview.result.skipped.some(item => item.reason === 'blocked-unresolved'),
+      '미해결 결정으로 뺀 작업이 목록에서 사라졌다')
+    assert.ok(skippedIds.length > 0 && preview.result.skipped.every(item => typeof item.reason === 'string' && item.reason.length > 0),
+      '뺀 작업을 이유 없이 뺐다')
+    assert.equal(preview.result.publish.some(item => skippedIds.includes(item.workId)), false)
+    const ledger = existsSync(events) ? readFileSync(events, 'utf8') : ''
+    assert.ok(!ledger.includes('publish-'), '발행하지 않았는데 발행 이벤트를 남겼다')
+  })
+})
+
+test('I3: GitHub 형태도 설정으로 열린다 — `link-only`를 선언하면 미리보기까지 간다', () => {
+  // 트래커 하나에만 배선된 계약은 「두 형태에 성립한다」고 말할 수 없다. GitHub은 확인된 유형
+  // 관계가 없어 `link-only`뿐이고, 그 사실을 사람이 선언해야 열린다 — 이름으로 면제되지 않는다.
+  within(copyFixture('editor'), root => {
+    const configured = spawnSync(process.execPath, [CLI, 'configure', '--provider', 'github', '--root', root, '--confirm',
+      '--set', 'workLink.mode=link-only'], {encoding: 'utf8', env: {PATH: process.env.PATH, HOME: process.env.HOME}, timeout: 30000})
+    assert.equal(configured.status, 0, configured.stderr)
+    assert.equal(claim(root).result.phase, 'P1_REVIEW')
+    const preview = claim(root, '--publish', '--repo', 'acme/web')
+    assert.equal(preview.result?.phase, 'PUBLISH_PREVIEW', JSON.stringify(preview.result ?? preview.stderr))
+    assert.equal(preview.result.provider.name, 'github')
+    assert.equal(preview.result.provider.relation.mode, 'link-only')
+    assert.equal(preview.result.externalWrites, 0)
+    // 선언이 없으면 막힌다 — GitHub이라는 이름이 「관계 없음」을 면제하지 않는다.
+    const bare = within(copyFixture('editor'), other => {
+      const onlyHost = spawnSync(process.execPath, [CLI, 'configure', '--provider', 'github', '--root', other, '--confirm',
+        '--set', 'host=github.example.com'], {encoding: 'utf8', env: {PATH: process.env.PATH, HOME: process.env.HOME}, timeout: 30000})
+      assert.equal(onlyHost.status, 0, onlyHost.stderr)
+      assert.equal(claim(other).result.phase, 'P1_REVIEW')
+      return claim(other, '--publish', '--repo', 'acme/web').result
+    })
+    assert.equal(bare.phase, 'PROVIDER_NOT_READY')
+    assert.ok(bare.provider.missing.some(item => item.startsWith('config.workLink.mode')), JSON.stringify(bare.provider))
   })
 })

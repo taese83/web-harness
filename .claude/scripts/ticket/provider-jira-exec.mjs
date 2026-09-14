@@ -9,7 +9,7 @@
 
 import {
   toAdf,
-  buildIssueFieldsFor, classifyJiraError, closeReference, featureJql,
+  buildIssueFieldsFor, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
   isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
   supportedTransitions,
 } from './provider-jira.mjs'
@@ -69,6 +69,9 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     // ── TicketProvider 필수부 ──
     name: 'jira',
     buildFields: (draft, opts = {}) => buildIssueFieldsFor(config, draft, opts),
+    // WORK는 별도 빌더다 — FEAT 빌더는 `sourceKey`를 FEAT로 보고 라벨·마커를 덧쓴다(provider-jira.mjs 주석).
+    buildWorkFields: draft => buildWorkIssueFieldsFor(config, draft),
+    featLabel,
     async findByFeature(featureId) {
       const jql = featureJql(config, featureId)
       const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&maxResults=1&fields=summary,labels,status`, options)

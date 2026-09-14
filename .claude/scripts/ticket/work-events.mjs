@@ -19,9 +19,9 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
-export const EVENT_TYPES = ['plan-reviewed']
-// 소비자가 있는 키만 둔다 — 외부 쓰기 단위(`operationId`)는 발행이 생기는 P2-c에서 생산자와 함께 들인다.
-const KEYS = ['schemaVersion', 'eventId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
+export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'relation-linked']
+// 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
+const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
 
 /** 한 이벤트의 형식 검증(순수). 오류 메시지 배열을 돌려준다. */
 export function validateWorkEvent(event) {
@@ -39,6 +39,19 @@ export function validateWorkEvent(event) {
   if (event.planDigest !== undefined && !DIGEST.test(String(event.planDigest))) errors.push('planDigest 형식 오류')
   if (event.payload !== undefined && (typeof event.payload !== 'object' || event.payload === null || Array.isArray(event.payload))) {
     errors.push('payload는 객체여야 한다')
+  }
+  if (event.operationId !== undefined && !UUID.test(String(event.operationId))) errors.push('operationId는 UUID여야 한다')
+  // 발행 이벤트는 **어느 작업을 어느 시도로** 썼는지가 요체다 — 그것이 없으면 재개가 무엇을 이어야 할지 모른다.
+  if (event.eventType.startsWith('publish-') || event.eventType === 'relation-linked') {
+    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push(`${event.eventType}에는 workId가 필요하다`)
+    if (!UUID.test(String(event.operationId ?? ''))) errors.push(`${event.eventType}에는 operationId(외부 쓰기 시도 단위)가 필요하다`)
+    if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push(`${event.eventType}에는 planDigest가 필요하다 — 어느 판본을 발행했는지`)
+  }
+  if (event.eventType === 'publish-attempted' && !DIGEST.test(String(event.payload?.payloadDigest ?? ''))) {
+    errors.push('publish-attempted에는 payload.payloadDigest가 필요하다 — 같은 시도 id로 다른 요청을 보내지 않기 위해서다')
+  }
+  if (event.eventType === 'publish-confirmed' && !event.payload?.ticketKey) {
+    errors.push('publish-confirmed에는 payload.ticketKey가 필요하다')
   }
   // 종류별 필수: 계보 이벤트의 요체는 어느 판본의 어느 작업들인가다 — 손상되면 조용히 건너뛰지 않고 막는다.
   if (event.eventType === 'plan-reviewed') {
@@ -87,14 +100,36 @@ export function readWorkEvents(path) {
  */
 export function foldWorkState(events) {
   const knownWorkIds = new Set()
+  const works = new Map()
   let lastReviewed = null
+  const workState = workId => works.get(workId) ?? {workId, status: 'unpublished', ticketKey: null, operationId: null,
+    payloadDigest: null, planDigest: null, relation: null}
   for (const event of events) {
-    if (event.eventType !== 'plan-reviewed') continue
     // 형식은 파서가 이미 막았다 — 여기서 건너뛰는 값은 없다(조용한 스킵은 이 모듈의 원칙과 반대다).
-    for (const workId of event.payload.workIds) knownWorkIds.add(workId)
-    lastReviewed = {planId: event.planId, planDigest: event.planDigest, analysisDigest: event.payload.analysisDigest ?? null, at: event.at}
+    if (event.eventType === 'plan-reviewed') {
+      for (const workId of event.payload.workIds) knownWorkIds.add(workId)
+      lastReviewed = {planId: event.planId, planDigest: event.planDigest, analysisDigest: event.payload.analysisDigest ?? null, at: event.at}
+      continue
+    }
+    const state = workState(event.workId)
+    knownWorkIds.add(event.workId)
+    if (event.eventType === 'publish-attempted') {
+      // 시도는 **확정이 아니다.** 다음 실행이 이 자리를 이어야 한다 — 응답이 유실됐을 수 있다.
+      works.set(event.workId, {...state, status: 'attempted', operationId: event.operationId,
+        payloadDigest: event.payload.payloadDigest, planDigest: event.planDigest})
+    } else if (event.eventType === 'publish-confirmed') {
+      works.set(event.workId, {...state, status: 'published', ticketKey: String(event.payload.ticketKey),
+        operationId: event.operationId, planDigest: event.planDigest})
+    } else if (event.eventType === 'publish-unknown') {
+      // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
+      works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
+        planDigest: event.planDigest, reason: event.payload?.reason ?? null})
+    } else if (event.eventType === 'relation-linked') {
+      works.set(event.workId, {...state, relation: {mode: event.payload?.mode ?? null, applied: event.payload?.applied === true,
+        parentKey: event.payload?.parentKey ?? null}})
+    }
   }
-  return {knownWorkIds, lastReviewed}
+  return {knownWorkIds, lastReviewed, works}
 }
 
 /** append. 형식 검증을 통과한 이벤트만 파일에 닿는다(파서가 되읽을 수 있는 줄만 쓴다). */
