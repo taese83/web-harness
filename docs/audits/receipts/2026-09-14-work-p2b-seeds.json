@@ -1,0 +1,90 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T02:11:28.033Z",
+  "scope": "WORK 분해 P2-b(provider 조회·관계·목록)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-search-truncation-honest",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-search-cursor-advances",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-relation-needs-config",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-relation-subtask-not-claimed",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-link-failure-not-swallowed",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "github-search-index-lag-honest",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "github-relation-link-only",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-readiness-blocks-publish",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-search-cursor-not-stalled",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-cursor-loud-on-corrupt",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-keys-loud-on-invalid",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-list-reports-missing-keys",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "github-list-missing-only-when-complete",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    },
+    {
+      "id": "work-relation-parent-side-configurable",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "test": ".claude/scripts/test-work-provider.mjs"
+    }
+  ],
+  "result": {
+    "fired": 14,
+    "total": 14,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 14건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 Jira·GitHub 왕복은 NOT_RUN — 링크 방향(부모=outward)·없는 키 조회 동작·GitHub 본문 검색 토큰화는 가정이다",
+    "seed는 각 가드 한 줄의 최소 변형이다 — 의미적 타당성은 사람 검토의 몫"
+  ]
+}

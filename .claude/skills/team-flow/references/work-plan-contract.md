@@ -43,6 +43,21 @@ WORK 티켓 본문에는 마커 하나를 둔다: `<!-- web-harness:work plan=<p
 기존 경로로 흘려보낸다 — 왕복 마커가 없어 픽업의 기존 게이트가 막는다(동작 유지). `aggregate`는 아직
 **생산자가 없다**(P2-c) — 판독 입구만 먼저 닫아 둔다.
 
+## provider 능력 (P2-b)
+
+WORK 축은 FEAT 조회를 재사용하지 않는다 — 계획·작업 **라벨**(`plan-<planId>`·`work-<uuid>`)로 찾는다.
+
+| 능력 | Jira | GitHub |
+|---|---|---|
+| `findByWorkId` | 라벨 JQL. `total`보다 적게 받으면 `complete:false` | 본문 검색 — **색인 지연**이라 항상 `complete:false`(부재를 단정하지 않는다) |
+| `listWorkIssues` | `key in (...)` + `startAt` 커서 | `--limit` 상한에 닿으면 `truncated:true` |
+| `linkRelated` | 설정 `workLink.mode: issue-link` + `linkType`일 때만. 실패는 분류해 올린다 | `link-only` — 확인된 유형 관계가 없다(계층이라 부르지 않는다) |
+
+**발행 전에 능력을 확인한다**(`workProviderReadiness`) — 관계 설정이 없으면 무엇을 설정해야 하는지
+돌려주고 발행을 막는다. 공유 WORK를 FEAT마다 복제하지 않으려면 관계가 필요하고, 없는 채 발행하면
+연결 없는 티켓만 남는다. 하위 작업(subtask)은 발행 시점의 부모 필드라 연결 시점에 붙일 수 없다 —
+지원한다고 말하지 않는다(미구현으로 표기).
+
 ## 원칙
 
 - **FEAT·TC는 그대로 둔다.** 기술 작업은 `WORK-<UUID>`로 따로 둔다. 기반 작업에 사용자 TC를 만들지

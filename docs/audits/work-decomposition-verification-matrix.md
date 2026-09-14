@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs` · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -26,8 +26,8 @@
 | T12 | 생성 응답 유실·원장 실패 | P2 | 이벤트 원장 기반은 준비됨(`E`「파손·순서·원자성」) — 발행 경로는 P2-c |
 | T13 | 배치 일부 실패·재실행 | P2 | |
 | T14 | 동시 발행·계획 변경 | P2 | |
-| T15 | Jira 하위 작업 미지원 | P2 | provider 관계 능력 |
-| T16 | provider 조회 실패·페이지 절단 | P2 | |
+| T15 | Jira 하위 작업 미지원 | 부분 | `V`「T15」 — 설정 없으면 필요한 설정을 돌려주고 트래커를 부르지 않는다. subtask는 미구현으로 표기(성공 위장 없음). **실 Jira 왕복 NOT_RUN** — 링크 방향(부모=outward)은 가정이며 `workLink.parentSide`로 뒤집을 수 있다 |
+| T16 | provider 조회 실패·페이지 절단 | 부분 | `V`「T16」 — total 미만이면 `complete:false`+커서, 0건 페이지는 `stalled`(전진 불가), 손상 커서는 loud, 형식 아닌 요청 키는 loud, 완결일 때만 못 본 키를 보고. gh 검색은 색인 지연이라 항상 불완전, 상한 도달은 `truncated`. **실 트래커 왕복 NOT_RUN**(없는 키 조회·검색 토큰화는 가정) |
 | T17 | Closed지만 테스트 실패 | P3 | |
 | T18 | PR 링크만·다른 repo/base 머지 | P3 | |
 | T19 | 다른 revision의 TC 통과 모음 | P3 | |
@@ -59,7 +59,7 @@
 | T45 | 선행 미완료 후속 WORK 등록 | P2 | |
 | T46 | WORK pickup·부모 FEAT pickup | P2 | |
 | T47 | 분해 후 FEAT 추가·부분 발행 | 부분 | FEAT 추가 시 범위 누락으로 재검토 강제(U「T44」). 부분 발행은 P2 |
-| T48 | 공유 WORK의 관계 표현 부족 | P2 | |
+| T48 | 공유 WORK의 관계 표현 부족 | 부분 | `V`「발행 전 능력 판정」 — 관계 능력·설정이 없으면 발행을 막는다. FEAT별 child 복제 금지의 실제 발행 경로는 P2-c |
 | T49 | UI·state·API·통합 WORK로 분해 | 부분 | 작업별 designContext 선택·검증(U「T50·T52·T54」). 픽업 전달은 P2 |
 | T50 | 여러 화면·이름만 유사 | PASS | U「T50·T52·T54」 — 없는 조건·다른 조건의 근거 거부 |
 | T51 | 공통 컴포넌트 여러 FEAT/Epic | 부분 | 공통 WORK·디자인 근거 공유(계획). Epic 그룹 없음 |
@@ -90,5 +90,7 @@
 
 핵심 가드를 반증 seed로 결박했다(`falsification-registry.json`의 `work-*`·`cli-claim-work-dispatch`·`web-plan-intake-before-planning`) —
 리뷰 반영 뒤 27곳(분석 7 · 계획 11 · CLI 7 · 스킬 1 · 계약 1) — 격리 사본 러너로 27/27 발화(2026-09-11).
-P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 2 · 검토 이벤트 2)을 더했다 — 12/12 발화
+P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 2 · 검토 이벤트 2) — 12/12 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
+P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).

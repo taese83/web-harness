@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process'
 import {buildIssueFields, featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
 import {classifyGhError} from './permissions.mjs'
 import {parseViewerPermission} from './permissions.mjs'
+import {parseGithubWorkList, workListArgs, workSearchArgs} from './work-provider.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
 // `stdin`은 **본문처럼 긴 값**을 넘기는 통로다 — argv로 넘기면 인자 길이 한계와 셸 인용에
@@ -97,6 +98,29 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     // **조회 키가 라벨인 것은 GitHub의 사정이다.** 호출자는 FEAT만 준다.
     async findByFeature(featureId) {
       return this.findByLabel(featLabel(featureId))
+    },
+    // ── WORK 축(P2-b) ── 본문 검색은 **색인 지연**이 있다 — 결과가 비어도 부재를 단정하지 않는다.
+    async findByWorkId({workId}) {
+      const json = JSON.parse(await run(workSearchArgs(repo, workId)))
+      const parsed = parseGithubWorkList(json, {limit: 100, indexLag: true})
+      return {matches: parsed.matches, complete: false, indexLag: true, total: null, nextCursor: null}
+    },
+    /** 목록. gh는 커서를 주지 않으므로 상한에 닿으면 잘렸을 수 있다고 표시한다. */
+    async listWorkIssues({keys = null, pageSize = 100}) {
+      const json = JSON.parse(await run(workListArgs(repo, pageSize)))
+      const parsed = parseGithubWorkList(json, {limit: pageSize})
+      const wanted = keys ? new Set(keys.map(key => String(key))) : null
+      const items = wanted ? parsed.matches.filter(item => wanted.has(item.ticketKey)) : parsed.matches
+      const observed = new Set(items.map(item => item.ticketKey))
+      return {items, nextCursor: null, complete: parsed.complete, truncated: parsed.truncated, total: null,
+        requested: keys ? keys.map(String) : null,
+        // 잘린 목록에서 안 보이는 키는 **없는 것이 아니라 못 본 것**이다.
+        missing: keys && parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null}
+    },
+    /** 관계. 확인한 native 계층이 없다 — 본문 참조뿐이며 계층이라 부르지 않는다. */
+    async linkRelated() {
+      return {applied: false, mode: 'link-only',
+        note: 'GitHub에는 확인된 유형 관계가 없다 — 발행 시 본문 참조로 남긴다(계층이 아니다)'}
     },
     // ── 선택부 — 있는 능력만 노출한다 ──
     // `transition`은 **주지 않는다**: GitHub Issues의 상태는 open/closed뿐이라 "진행중"이 없다.

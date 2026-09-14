@@ -34,6 +34,11 @@ export const JIRA_QUESTIONS = [
   // **컴포넌트 어휘는 팀이 정한다.** `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스가
   // 알 방법이 없다 — 팀마다 이름도 뜻도 다르다. 그래서 **매핑을 선언으로 받는다**(I3).
   // 예: `componentAxis.PLAN` = `기획 입력` · `componentAxis.DESIGN` = `디자인 입력`.
+  // WORK 분해(P2)의 관계 표현 — **선언이 없으면 발행을 막는다.** 여기 없으면 `configure`가 allowlist로
+  // 거부해 사람이 JSON을 손편집해야 한다(적대 리뷰 2026-09-14: 지시한 설정을 지원 경로가 막던 자리).
+  {key: 'workLink.mode', required: false, ask: 'WORK 티켓과 부모의 관계 표현 — `issue-link`(프로젝트의 링크 타입 사용) 또는 `link-only`(본문 참조뿐, 관계 아님). 비우면 WORK 발행이 막힙니다'},
+  {key: 'workLink.linkType', required: false, ask: 'issue-link일 때 쓸 링크 타입 이름 (그 프로젝트에 실재하는 것 — 예: Relates)'},
+  {key: 'workLink.parentSide', required: false, ask: '링크에서 부모가 어느 쪽인가 — outward(기본) 또는 inward. 링크 타입 설명문이 정합니다', default: 'outward'},
   {key: 'componentAxis', required: false, ask: '컴포넌트 → 공급 원문 분류 매핑. 인테이크가 티켓의 컴포넌트를 보고 분류를 정합니다(예: PLAN=기획 입력, DESIGN=디자인 입력). 하네스가 발행하는 개발 티켓의 컴포넌트는 `개발 티켓`으로 선언하면 인테이크가 그것을 공급 원문으로 받지 않습니다. 비우면 인테이크가 분류하지 않고 ingestor가 본문을 읽어 정합니다'},
 ]
 

@@ -1465,6 +1465,118 @@
       "replace": "  const unchanged = false",
       "test": ".claude/scripts/test-work-claim-process.mjs",
       "why": "같은 판본을 다시 검토할 때마다 이벤트가 쌓이면 원장이 상한에 닿아 claim이 영원히 막힌다"
+    },
+    {
+      "id": "work-search-truncation-honest",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    complete: total === null ? false : seen >= total,",
+      "replace": "    complete: true,",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "절단된 조회를 완전으로 세면 「없음」으로 읽고 재발행해 중복 티켓이 생긴다(T16·설계 §8-5)"
+    },
+    {
+      "id": "work-search-cursor-advances",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    nextCursor: total !== null && seen < total && !stalled ? String(seen) : null,",
+      "replace": "    nextCursor: null,",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "다음 커서가 없으면 남은 페이지를 영영 못 읽고 목록이 조용히 잘린다"
+    },
+    {
+      "id": "work-relation-needs-config",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  if (!declared?.mode) {\n    return {mode: 'unsupported', needsConfig: [`workLink.mode(${available.join('|')})`,",
+      "replace": "  if (!declared?.mode) {\n    return {mode: 'link-only', needsConfig: [`workLink.mode(${available.join('|')})`,",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "설정 없는 관계를 지원한다고 말하면 실재하지 않는 링크 타입으로 발행이 실패하거나 관계 없는 티켓만 남는다(T15)"
+    },
+    {
+      "id": "work-relation-subtask-not-claimed",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  if (!available.includes(declared.mode)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "연결 시점에 붙일 수 없는 하위 작업을 지원한다고 말하면 성공 위장이다(T15)"
+    },
+    {
+      "id": "work-link-failure-not-swallowed",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "        return {applied: false, mode: 'unknown', error: String(error?.message ?? error).slice(0, 200), classified: classifyJiraError(String(error?.message ?? error))}",
+      "replace": "        return {applied: true, mode: 'issue-link'}",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "권한·설정 실패를 적용됨으로 보고하면 연결되지 않은 관계를 연결됐다고 기록한다"
+    },
+    {
+      "id": "github-search-index-lag-honest",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "      return {matches: parsed.matches, complete: false, indexLag: true, total: null, nextCursor: null}",
+      "replace": "      return {matches: parsed.matches, complete: true, indexLag: false, total: null, nextCursor: null}",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "색인 지연이 있는 검색의 빈 결과를 부재로 확정하면 이미 있는 티켓을 다시 발행한다"
+    },
+    {
+      "id": "github-relation-link-only",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "      return {applied: false, mode: 'link-only',",
+      "replace": "      return {applied: true, mode: 'parent-work',",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "본문 참조를 native 계층 관계라고 부르면 없는 능력을 있다고 보고하는 것이다"
+    },
+    {
+      "id": "work-readiness-blocks-publish",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  if (relation.mode === 'unsupported') missing.push(...relation.needsConfig.map(item => `config.${item}`))",
+      "replace": "  if (false) missing.push()",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "관계 능력 없이 발행하면 공유 WORK가 어느 FEAT에도 연결되지 않은 티켓으로 남는다(T48)"
+    },
+    {
+      "id": "work-search-cursor-not-stalled",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  const stalled = total !== null && seen < total && issues.length === 0",
+      "replace": "  const stalled = false",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "0건 페이지에 같은 커서를 되돌려주면 호출자가 같은 페이지를 무한히 읽는다"
+    },
+    {
+      "id": "work-cursor-loud-on-corrupt",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  if (!/^\\d+$/.test(String(cursor))) throw new Error(`INVALID_CURSOR: 정수가 아닌 커서 — ${cursor}`)",
+      "replace": "  if (false) throw new Error('unused')",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "손상된 커서를 0으로 접으면 1페이지를 다시 읽고 그 위에서 완결을 계산한다(fail-open)"
+    },
+    {
+      "id": "work-keys-loud-on-invalid",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  if (bad.length > 0) throw new Error(`INVALID_WORK_KEY: 트래커 키 형식이 아니다 — ${bad.join(', ')}`)",
+      "replace": "  if (false) throw new Error('unused')",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "형식이 아닌 요청 키를 조용히 버리면 그 키를 「조회했는데 없다」로 읽어 재발행한다"
+    },
+    {
+      "id": "work-list-reports-missing-keys",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "        requested: keys.map(String), missing: parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null,",
+      "replace": "        requested: keys.map(String), missing: [],",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "못 본 키를 빈 목록으로 적으면 「전부 조회했고 다 있다」로 읽힌다"
+    },
+    {
+      "id": "github-list-missing-only-when-complete",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "        missing: keys && parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null}",
+      "replace": "        missing: keys ? keys.map(String).filter(key => !observed.has(key)) : null}",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "잘린 목록에서 안 보이는 키를 부재로 단정하면 이미 있는 티켓을 다시 발행한다"
+    },
+    {
+      "id": "work-relation-parent-side-configurable",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  return parentSide === 'outward'",
+      "replace": "  return true",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "부모 방향을 설정으로 뒤집을 수 없으면 링크 타입 설명문이 반대인 프로젝트에서 관계가 거꾸로 기록된다"
     }
   ]
 }

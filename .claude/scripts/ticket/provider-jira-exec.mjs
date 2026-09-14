@@ -13,6 +13,7 @@ import {
   isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
   supportedTransitions,
 } from './provider-jira.mjs'
+import {issueLinkBody, parseCursor, parseWorkSearch, workJql, workKeysJql, workRelationMode} from './work-provider.mjs'
 
 /** `resolveIssue`가 가져오는 필드. 빠진 필드는 응답에서 `undefined`로 와 「없다」와 구별되지 않는다. */
 export const ISSUE_FIELDS = Object.freeze([
@@ -103,6 +104,39 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       const issue = parseIssueResponse(payload)
       if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
       return issue
+    },
+    // ── WORK 축(P2-b) ── FEAT 조회를 재사용하지 않는다. 절단·미지원을 성공으로 세지 않는다.
+    /** 계획·작업 라벨로 WORK 티켓을 찾는다. `complete:false`면 더 있을 수 있다 — 부재를 단정하지 않는다. */
+    async findByWorkId({planId, workId}) {
+      const jql = workJql(config, {planId, workId})
+      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&maxResults=50&fields=summary,labels,status`, options)
+      return parseWorkSearch(payload)
+    },
+    /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
+    async listWorkIssues({keys, cursor = null, pageSize = 50}) {
+      const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
+      const jql = workKeysJql(keys)
+      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status`, options)
+      const parsed = parseWorkSearch(payload, {fetched: startAt})
+      // 요청한 키 중 **못 본 것**을 함께 돌려준다 — 「조회했는데 없다」와 「이 페이지에 없다」는 다르다.
+      const observed = new Set(parsed.matches.map(item => item.ticketKey))
+      return {items: parsed.matches, nextCursor: parsed.nextCursor, complete: parsed.complete, total: parsed.total,
+        requested: keys.map(String), missing: parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null,
+        ...(parsed.stalled ? {stalled: true} : {})}
+    },
+    /** 부모-자식 관계. **설정이 정한다** — 능력이 없으면 무엇을 설정해야 하는지 돌려주고 성공을 위장하지 않는다. */
+    async linkRelated({parentKey, childKey}) {
+      const relation = workRelationMode('jira', config)
+      // `link-only`도 여기서 적용되지 않는다 — 본문 참조는 발행(P2-c)이 본문에 남기는 것이지 관계 API가 아니다.
+      if (relation.mode !== 'issue-link') return {applied: false, mode: relation.mode, needsConfig: relation.needsConfig}
+      try {
+        await call(config, '/issueLink', {...options, method: 'POST',
+          body: issueLinkBody({parentKey, childKey, linkType: relation.linkType, parentSide: relation.parentSide})})
+        return {applied: true, mode: 'issue-link', linkType: relation.linkType, parentSide: relation.parentSide}
+      } catch (error) {
+        // 실패를 삼키지 않는다 — 무엇이 막혔는지 분류해 올린다(권한·설정·링크 타입 부재).
+        return {applied: false, mode: 'unknown', error: String(error?.message ?? error).slice(0, 200), classified: classifyJiraError(String(error?.message ?? error))}
+      }
     },
     async assign(key, assignee) {
       const body = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}
