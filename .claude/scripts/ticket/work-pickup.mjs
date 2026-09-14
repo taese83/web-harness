@@ -72,6 +72,12 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   }
   const kind = classifyTicketKind(issue?.body ?? '')
   if (kind.kind === 'conflict' || kind.error) return {ok: false, injection, bounce: {reason: 'ticket-kind-conflict', detail: kind.error}}
+  // **마커가 지워진 WORK 티켓**(T11): 본문으로는 종류를 모르지만 원장은 이 키를 발행했다고 안다. 옛 FEAT·출처로
+  // 흘려보내지 않고, 마커 없이 착수시키지도 않는다(STALE·작업 대조의 근거가 본문에서 사라졌다).
+  if (kind.kind !== 'work' && keyOf(issue)) {
+    const orphan = [...(state?.works?.entries() ?? [])].find(([, item]) => item.status === 'published' && String(item.ticketKey) === String(keyOf(issue)))
+    if (orphan) return {ok: false, injection, bounce: {reason: 'work-marker-missing', workId: orphan[0], ticketKey: keyOf(issue)}}
+  }
   if (kind.kind !== 'work') {
     // 분해된 FEAT면 **어느 WORK로 가야 하는지** 함께 준다. 그렇지 않으면 legacy 경로의 몫이다.
     const featureId = kind.kind === 'legacy' ? (list(parseIssueRefs(issue?.body ?? '').featureIds)[0] ?? null) : null

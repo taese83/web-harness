@@ -276,3 +276,39 @@ test('실행부: 판정 전에 origin을 갱신하고, 못 하면 로컬 스냅�
     assert.equal(refreshed.length, 1)
   })
 })
+
+// ── T09: WORK 범위가 실제 쓰기를 좁힌다 — 소유권 훅을 프로세스로 돌린다 ─────────────────
+// change-scope의 `ALLOWED_PATHS`는 표시가 아니라 **훅이 읽는 쓰기 경계**다. WORK 픽업이 쓰는 바로 그 파일
+// (`writeChangeScopeFile(buildWorkChangeScope(...))`)로 developer 쓰기를 판정해, 계획의 writePaths 밖은 막히는지 본다.
+test('T09: WORK 픽업이 발급한 범위가 developer 쓰기를 계획의 writePaths로 좁힌다(소유권 훅 프로세스)', async () => {
+  const {execFileSync} = await import('node:child_process')
+  const {mkdirSync, realpathSync} = await import('node:fs')
+  const {writeChangeScopeFile} = await import('./ticket/cli.mjs')
+  const hook = join(repo, '.claude/scripts/enforce-agent-ownership.mjs')
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-work-scope-hook-')))
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    // 스팩은 src 전체를 개발 계층으로 준다 — 좁히는 것은 WORK 범위여야 한다.
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({schemaVersion: 2,
+      layerMap: {domainModel: 'src/entities', pages: 'src/pages'}, testLayers: {unit: 'src'}}))
+    const work = plan.workItems.find(entry => entry.workId === W(4))
+    writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-104', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
+      plan, planDigest, work, featureIds: ['FEAT-001'], testCaseIds: []}))
+    const write = file => {
+      try {
+        execFileSync(process.execPath, [hook], {cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env: {PATH: process.env.PATH, HOME: process.env.HOME},
+          input: JSON.stringify({tool_name: 'Write', agent_type: 'developer', cwd: root, tool_input: {file_path: join(root, file)}})})
+        return true
+      } catch { return false }
+    }
+    assert.equal(write('src/pages/members/list/MemberList.tsx'), true, '계획이 준 경계 안의 쓰기가 막혔다')
+    assert.equal(write('src/entities/member/api.ts'), false, '다른 작업의 경계(공유 기반)에 썼다 — 범위가 좁히지 않았다')
+    assert.equal(write('src/pages/members/detail/Detail.tsx'), false, '형제 작업의 경계에 썼다')
+    // 경계 안에 둔 symlink로 공유 기반에 쓰려 해도 막힌다.
+    const {symlinkSync} = await import('node:fs')
+    mkdirSync(join(root, 'src/pages/members/list'), {recursive: true})
+    mkdirSync(join(root, 'src/entities/member'), {recursive: true})
+    symlinkSync(join(root, 'src/entities/member'), join(root, 'src/pages/members/list/shared'))
+    assert.equal(write('src/pages/members/list/shared/api.ts'), false, 'symlink를 거쳐 경계 밖에 썼다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})

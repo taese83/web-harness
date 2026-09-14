@@ -35,6 +35,7 @@ cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--repo o/r] [--confir
 cli.mjs board [--developer me] [--repo o/r]                             # 지금 집을 수 있는 WORK
 cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
 cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신
+cli.mjs claim --publish --resolve <WORK-ID|FEAT-ID> --ticket <키> [--confirm]  # 결과를 모르는 발행을 확정(본문 마커 확인)
 cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run]            # 게이트 → 배정 → change-scope 발급
 cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base)
 cli.mjs link --sync                                                     # 머지 관측 → 완료 기록

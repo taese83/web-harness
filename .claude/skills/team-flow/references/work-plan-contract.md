@@ -195,9 +195,24 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
   못하면 TC 대조를 못 하므로 발행을 막는다.
 - **집계가 나가지 않는 FEAT**: 필수 작업이 없는 것 — 후속 상세화·blocked·unbound·제품 유예. 트래커에는 보이지
   않고 `board --by-feature`에만 보인다.
-- **`unknown`을 푸는 법**: 사람이 트래커에서 그 FEAT의 집계 티켓을 찾는다. 있으면 원장에
-  `{"schemaVersion":1,"eventId":<새 UUID>,"operationId":<원장의 그 시도 operationId>,"planId":…,"featureId":"FEAT-…","eventType":"aggregate-confirmed","at":<시각>,"planDigest":…,"payload":{"ticketKey":"<키>"}}`
-  한 줄을 append한다. 없으면 아무것도 쓰지 않는다 — 그 FEAT는 계속 보류로 보이고, 푸는 CLI는 아직 없다(후속).
+- **`unknown`을 푸는 법**: 사람이 트래커에서 그 티켓을 찾아 `claim --publish --resolve <FEAT-ID> --ticket <키>`로
+  확정한다(아래 「결과를 모르는 발행 확정」).
+
+## 결과를 모르는 발행 확정
+
+`claim --publish --resolve <WORK-ID|FEAT-ID> --ticket <키> [--confirm]`. 발행 응답이 유실돼 `unknown`·`attempted`로 남았고
+자동 재개로 풀리지 않을 때(GitHub 색인 지연·집계 조회 능력 없음), **사람이 찾은 티켓을 원장에 잇는다**.
+
+- 사람의 말만 믿지 않는다 — 준 키로 티켓을 조회해 **본문에 그 작업(또는 FEAT 집계)의 마커**가 있을 때만 확정한다.
+  WORK 마커는 발행 판본까지 같아야 한다(집계 마커에는 판본이 없다). 트래커는 설정된 것만 쓴다(`--ticket-provider` 거부).
+- 결과를 모르는 발행만 받는다 — 이미 확정됐거나 시도한 적 없는 것은 막는다(새 발행의 뒷문이 되지 않게).
+- 원래 시도의 `operationId`로 잇고, 확인 없이는 미리보기다.
+
+## 마커가 지워진 티켓 (T11)
+
+사람이 본문을 고쳐 WORK 마커가 사라져도 **원장은 그 키를 안다**. 픽업은 `work-marker-missing`으로 막고(STALE·작업
+대조의 근거가 본문에서 사라졌다 — 본문을 복구한다), 인테이크는 원장이 발행한 키를 공급 원문으로 받지 않는다(원장이 깨졌으면 멈춘다).
+**전제: 발행 원장(`work-item-events.jsonl`)이 커밋·공유돼 있어야 한다** — 원장이 없는 체크아웃에서는 `unknown`으로 떨어진다.
 
 ## 자동 닫기 (P3-c)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
+import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
@@ -26,9 +26,13 @@ const readInput = async () => {
   return JSON.parse(source)
 }
 
+// 링크 **자체**가 있으면 있는 것으로 본다(`lstat`) — `existsSync`는 링크를 따라가서 대상 없는 링크를 「없는 경로」로
+// 읽고, 조상까지만 풀린 판정이 링크를 건너뛰었다(Write는 링크를 따라 대상을 새로 만든다).
+const presentAsEntry = path => { try { lstatSync(path); return true } catch { return false } }
+
 const nearestExistingPath = targetPath => {
   let currentPath = targetPath
-  while (!existsSync(currentPath)) {
+  while (!presentAsEntry(currentPath)) {
     const parentPath = dirname(currentPath)
     if (parentPath === currentPath) return currentPath
     currentPath = parentPath
@@ -51,12 +55,19 @@ try {
   const projectRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
   const requestedPath = resolve(filePath)
   const existingPath = nearestExistingPath(requestedPath)
-  const realExistingPath = realpathSync(existingPath)
+  let realExistingPath
+  try { realExistingPath = realpathSync(existingPath) } catch {
+    block(`Blocked: ${input.agent_type} cannot write through a symlink whose target does not exist.`)
+  }
   const realRelativePath = relative(projectRoot, realExistingPath)
   const outsideThroughSymlink = realRelativePath === '..' || realRelativePath.startsWith(`..${sep}`)
   if (outsideThroughSymlink) block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
 
-  const relativePath = relative(projectRoot, requestedPath).split(sep).join('/')
+  // **판정은 실제로 쓰일 자리로 한다.** 종전에는 루트 밖으로 나가는 symlink만 막고 소유·범위는 요청 경로로
+  // 판정해서, 프로젝트 **안**의 symlink(`src/pages/list/link → ../../entities`)를 거치면 범위 밖 파일이 범위
+  // 안 경로로 통과했다(적대 리뷰 2026-09-14). 존재하는 가장 가까운 조상을 realpath로 풀고 나머지를 붙인다.
+  const effectivePath = join(realExistingPath, relative(existingPath, requestedPath))
+  const relativePath = relative(projectRoot, effectivePath).split(sep).join('/')
   if (relativePath.startsWith('../') || relativePath === '..') block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
 
   // change-scope.md의 ALLOWED_PATHS — 스폰별 범위. 없으면 범위 제한이 없다(소유권만 적용).

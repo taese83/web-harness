@@ -13,10 +13,11 @@
 //   (4) change-scope의 ALLOWED_PATHS가 중첩에서도 실제로 좁힌다 — 마크다운 줄·JSON 배열 양쪽
 //   (5) 범위를 **판정할 수 없으면** 넓히지 않는다 — 깨진 JSON은 block이지 무제한이 아니다
 //   (6) 오케스트레이터 산출물은 스팩·범위보다 앞서 막힌다 — 스팩 자기수정으로 소유권을 못 넓힌다
+//   (7) 프로젝트 **안**의 symlink를 거쳐도 범위·소유를 우회하지 못한다 — 판정은 실제로 쓰일 자리로 한다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {execFileSync} from 'node:child_process'
-import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
@@ -239,4 +240,28 @@ test('등록부 소유권도 중첩에서 프로젝트 root 기준으로 판정�
     })
     assert.equal(notOwned.allowed, false)
   })
+})
+
+// ── (7) 프로젝트 안 symlink 우회 ─────────────────────────────────────────────────
+// 루트 밖으로 나가는 symlink만 막고 소유·범위를 요청 경로로 판정하면, 범위 안 디렉터리에 둔 링크를 거쳐
+// 범위 밖 파일에 쓸 수 있었다(적대 리뷰 2026-09-14).
+test('범위 안 경로에 둔 symlink를 거쳐 범위 밖 파일에 쓰지 못한다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    mkdirSync(join(projectRoot, 'src/widgets/list'), {recursive: true})
+    mkdirSync(join(projectRoot, 'src/entities/member'), {recursive: true})
+    symlinkSync(join(projectRoot, 'src/entities/member'), join(projectRoot, 'src/widgets/list/member-link'))
+    const direct = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/List.tsx')})
+    assert.equal(direct.allowed, true, direct.message)
+    const viaLink = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/member-link/api.ts')})
+    assert.equal(viaLink.allowed, false, 'symlink를 거쳐 범위 밖(src/entities)에 썼다')
+    // 링크된 **파일** 자체에 쓰는 것도 같다.
+    writeFileSync(join(projectRoot, 'src/entities/member/api.ts'), 'export {}\n')
+    symlinkSync(join(projectRoot, 'src/entities/member/api.ts'), join(projectRoot, 'src/widgets/list/api-link.ts'))
+    assert.equal(runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/api-link.ts')}).allowed, false)
+    // 대상이 **없는** 링크도 같다 — Write는 링크를 따라 범위 밖에 새 파일을 만든다.
+    symlinkSync(join(projectRoot, 'src/entities/member/new.ts'), join(projectRoot, 'src/widgets/list/new-link.ts'))
+    assert.equal(runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/new-link.ts')}).allowed, false, '대상 없는 링크를 거쳐 범위 밖에 만들었다')
+    symlinkSync(join(projectRoot, 'src/entities/absent-dir'), join(projectRoot, 'src/widgets/list/absent-link'))
+    assert.equal(runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/absent-link/x.ts')}).allowed, false)
+  }, {scope: ['src/widgets/list']})
 })

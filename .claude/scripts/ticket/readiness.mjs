@@ -19,6 +19,7 @@ const REASONS = {
     'no-acceptance': '이 작업에 수용 기준(TC 또는 checks)이 하나도 없다 — 무엇으로 끝났다고 할지가 없다',
     'work-not-registered': '이 티켓이 원장에 등록된 WORK가 아니다 — 계획에서 발행된 티켓인지 확인해야 한다',
     'feature-decomposed-pick-work': '이 FEAT는 WORK로 분해됐다 — FEAT 티켓이 아니라 해당 WORK 티켓을 집어야 한다',
+    'work-marker-missing': '이 티켓은 원장에 WORK로 발행됐는데 본문의 WORK 마커가 지워졌다 — 본문을 복구해야 착수할 수 있다',
   },
   en: {
     'stale-plan': 'the WORK plan changed after publishing — review and publish the new plan before starting',
@@ -27,6 +28,7 @@ const REASONS = {
     'no-acceptance': 'this work has no acceptance criteria at all (no TC, no checks)',
     'work-not-registered': 'this ticket is not a WORK registered in the ledger — check it came from the plan',
     'feature-decomposed-pick-work': 'this FEAT is decomposed into WORK — pick the WORK ticket, not the FEAT ticket',
+    'work-marker-missing': 'the ledger published this ticket as WORK but its WORK marker was removed — restore the body before starting',
   },
 }
 const COMMENT = {

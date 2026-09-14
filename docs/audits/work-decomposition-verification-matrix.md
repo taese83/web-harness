@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `A` = `.claude/scripts/test-work-aggregate.mjs`(부모 집계·집계 티켓) · `X` = `.claude/scripts/test-work-close.mjs`(자동 닫기 — 실제 프로세스·가짜 gh) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `A` = `.claude/scripts/test-work-aggregate.mjs`(부모 집계·집계 티켓) · `X` = `.claude/scripts/test-work-close.mjs`(자동 닫기 — 실제 프로세스·가짜 gh) · `R` = `.claude/scripts/test-work-resolve.mjs`(원장 키 인식·발행 확정 입구) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -20,9 +20,9 @@
 | T06 | foundation 순환·미충족 의존 | PASS | U「T06·T07」 |
 | T07 | 미선언 의존과 명시적 [] | PASS | U「T06·T07」 |
 | T08 | 같은 파일 동시 수정 | PASS | U「T08」 — 순서 있는 쌍은 허용 |
-| T09 | 범위 밖 수정·symlink 탈출 | 부분 | `K`「T09」 — change-scope의 쓰기 경계가 계획의 `writePaths`이고 확인 대기가 아니다. **남은 몫**: 그 경계를 훅 소유권과 잇는 배선은 없다(실제 쓰기 대조는 legacy와 같은 등급) |
+| T09 | 범위 밖 수정·symlink 탈출 | PASS | `K`「T09」 — WORK 픽업이 발급한 change-scope로 **소유권 훅을 실제 프로세스로** 돌려, 계획의 `writePaths` 안 쓰기는 허용되고 공유 기반·형제 작업 경계는 막힘을 확인했다. **훅은 실경로로 판정한다**(2026-09-14 적대 리뷰가 프로젝트 안 symlink로 범위를 넘는 우회를 잡아 고쳤다) — 같은 T09 회귀의 symlink 사례와 `test-ownership-hook`(7)이 결박하고(대상 없는 링크도 막는다), 루트 이탈은 기존 회귀가 잰다. 동시 쓰기 직렬화(임대)는 별도 훅 회귀다 |
 | T10 | WORK 본문의 부모 FEAT를 legacy로 오인 | PASS | `E`「T10·T11」·`K`「G」 — 종류 선판정이 먼저 선다. FEAT 픽업 입구는 제거됐고(2026-09-14) WORK 픽업은 WORK만 받으며, 인테이크도 WORK·집계 티켓을 공급 원문으로 받지 않는다 |
-| T11 | 마커 삭제·파손·중복 | 부분 | `E`「T10·T11」 — 파손·중복·두 모델 동시 소속은 명시적 오류. **남은 몫**: 마커를 지운 티켓은 `unknown`으로 거부될 뿐 원장 키로 WORK를 되찾지 않는다 — 원장의 `publish-confirmed` 티켓 키로 대조할 재료는 생겼으나 판독 입구가 아직 쓰지 않는다(P2-d) |
+| T11 | 마커 삭제·파손·중복 | PASS | `E`「T10·T11」·`R`「T11」 — 파손·중복·두 모델 동시 소속은 명시적 오류이고, 마커가 지워진 WORK 티켓은 원장 키로 알아봐 픽업은 `work-marker-missing`으로 막고 인테이크는 공급 원문으로 받지 않는다(원장이 깨졌으면 멈춘다). **전제: 발행 원장이 커밋·공유돼 있어야 한다** — 원장 없는 체크아웃에서는 `unknown`으로 떨어진다. 키가 확정되기 전(`attempted`·`unknown`) 발행의 마커 삭제는 알아보지 못한다 |
 | T12 | 생성 응답 유실·원장 실패 | PASS | `P`「T12·T13」·「조회가 불완전하면」·「원장에 시도를」·「확정을 원장에」·「키가 없으면」 — 쓰기 전 시도(요청 지문·시도 id) 기록(외부 쓰기 **시점에** 원장 대조), 유실·키 없음은 `unknown`, 원장 실패는 쓰기 전이면 정지·쓰기 뒤면 티켓 키를 실어 보류. 한계: 실 트래커 왕복은 NOT_RUN |
 | T13 | 배치 일부 실패·재실행 | PASS | `P`「T12·T13」 — 성공분은 `reuse`로 남고 재생성 0, 나머지만 재개 |
 | T14 | 동시 발행·계획 변경 | P2 | |
@@ -103,6 +103,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P2 틈(T09·T11·확정 입구)에서 10곳(마커 삭제 인식 2 · 확정: 마커 확인·대상 제한·확인 필요·판본 일치 4 · CLI 배선 1 · 인테이크 원장 파손 정지 1 · 소유권 훅 실경로 판정·대상 없는 링크 2) — 픽업 seed와 함께 28/28 발화
+(receipt `docs/audits/receipts/2026-09-14-work-gaps-seeds.json`).
 P3-c에서 13곳(기대 base 링크·머지·재링크 3 · PR URL 정규형 1 · 닫기 근거·트래커·검토 계보·이슈 번호 4 · 파손 정지 1 · 멱등 1 · 실패 수집 1 · 옛 사본 판정 2) — 링크 seed와 함께 32/32 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p3c-seeds.json`).
 P3-b에서 15곳(유예 분모 2 · 닫기 불가 1 · 링크≠머지 1 · 예외·유예·TC 미대조 표시 3 · 책임 없는 TC 1 · 집계 티켓 발행 규율 5 · CLI 배선 1 · 핸드오프 보고 1) — 15/15 발화

@@ -351,6 +351,14 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
     return {ok: false, bounce: {reason: `${ticketKind.kind}-ticket-not-source`},
       guidance: ticketKind.error ?? `${ticketKey}는 WORK 분해 모델의 티켓입니다 — 공급 원문이 아닙니다`}
   }
+  // 마커가 지워져도 **원장은 안다**(T11) — 하네스가 발행한 WORK·집계 티켓을 공급 원문으로 되들이지 않는다.
+  const {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} = await import('./work-events.mjs')
+  const ledger = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  const published = [...ledger.works.values(), ...ledger.aggregates.values()].some(item => item.ticketKey && String(item.ticketKey) === String(ticketKey))
+  if (published) {
+    return {ok: false, bounce: {reason: 'published-ticket-not-source'},
+      guidance: `${ticketKey}는 원장에 이 계획이 발행한 티켓으로 기록돼 있습니다(본문 마커가 지워졌어도) — 공급 원문이 아닙니다`}
+  }
   // **분류는 명시할 때만 받는다.** 없으면 `미분류`이고 ingestor가 정한다 — 스크립트가
   // 추측하면 버그 티켓이 기획 입력으로 세어져 요구사항이 지어내진다.
   // 분류의 우선순위: **운영자 명시 > 팀이 선언한 컴포넌트 매핑 > 미분류.**
@@ -429,6 +437,8 @@ if (invokedDirectly) {
             guidance: missing === 'provider' ? '어느 트래커에 발행할지 정한다 — `configure`로 기록한다(설정은 팀에 공유된다)'
               : 'GitHub에 발행하려면 `--repo <owner/name>`가 필요하다'}
         }
+        // `--resolve`: 결과를 모르는 발행을 사람이 찾은 티켓으로 확정한다(본문 마커를 조회로 확인한다).
+        if (flags.resolve) return (await import('./work-resolve-run.mjs')).runPublishResolve({root, flags, io: {provider: resolved.provider}})
         // `--aggregate`: FEAT 단위 집계 티켓(개발 대상이 아니다). 발행 규율은 WORK와 같다.
         if (flags.aggregate) return (await import('./work-aggregate-run.mjs')).runAggregatePublish({root, flags, io: {provider: resolved.provider}})
         return (await import('./work-publish-run.mjs')).runWorkPublish({root, flags,

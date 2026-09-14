@@ -2169,6 +2169,86 @@
       "replace": "  if (typeof prUrl !== 'string' || !/^https?:\\/\\/\\S+$/.test(prUrl)) return {ok: false, blocked: 'pr-url-required'}",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "PR URL 변형으로 기록하면 자동 닫기·머지 관측이 영원히 불일치한다"
+    },
+    {
+      "id": "work-pickup-orphan-marker-detected",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "    if (orphan) return {ok: false, injection, bounce: {reason: 'work-marker-missing', workId: orphan[0], ticketKey: keyOf(issue)}}",
+      "replace": "    if (false) return null",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "마커가 지워진 WORK 티켓을 원장 키로 알아보지 못하면 종류 미상으로 흘러 무엇이 사라졌는지 모른다(T11)"
+    },
+    {
+      "id": "intake-refuses-published-key",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  if (published) {\n    return {ok: false, bounce: {reason: 'published-ticket-not-source'},",
+      "replace": "  if (false) {\n    return {ok: false, bounce: {reason: 'published-ticket-not-source'},",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "마커가 지워진 WORK 티켓을 인테이크하면 파이프라인 출력이 기획 입력으로 되돌아온다"
+    },
+    {
+      "id": "resolve-requires-marker",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "find": "  if (!matches) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "사람이 준 키만 믿고 확정하면 다른 티켓이 그 작업으로 원장에 묶인다"
+    },
+    {
+      "id": "resolve-only-unknown",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "find": "  if (!current || !['attempted', 'unknown'].includes(current.status)) {",
+      "replace": "  if (!current) {",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "확정 입구가 이미 발행된 작업도 받으면 발행 규율(시도·확정)을 우회하는 뒷문이 된다"
+    },
+    {
+      "id": "resolve-requires-confirm",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "find": "  if (!flags.confirm) return {ok: true, mode: 'work', phase: 'RESOLVE_PREVIEW', target, ticketKey, verified: 'marker-present',",
+      "replace": "  if (false) return {ok: true, mode: 'work', phase: 'RESOLVE_PREVIEW', target, ticketKey, verified: 'marker-present',",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "원장 쓰기도 쓰기다 — 확인 없이 확정하면 미리보기를 볼 틈이 없다"
+    },
+    {
+      "id": "cli-resolve-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "        if (flags.resolve) return (await import('./work-resolve-run.mjs')).runPublishResolve({root, flags, io: {provider: resolved.provider}})",
+      "replace": "        if (false) return null",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "확정 입구가 배선되지 않으면 unknown 발행을 풀 방법이 원장 수기 편집뿐이다"
+    },
+    {
+      "id": "ownership-hook-judges-real-path",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  const effectivePath = join(realExistingPath, relative(existingPath, requestedPath))",
+      "replace": "  const effectivePath = requestedPath",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "요청 경로로 판정하면 프로젝트 안 symlink를 거쳐 범위·소유 밖 파일에 쓸 수 있다"
+    },
+    {
+      "id": "resolve-marker-revision-matches",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "find": "    ? (() => { const marker = parseWorkMarker(body); return marker.workId === target && marker.planId === plan.planId && marker.planDigest === current.planDigest })()",
+      "replace": "    ? (() => { const marker = parseWorkMarker(body); return marker.workId === target && marker.planId === plan.planId })()",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "옛 시도의 티켓을 최신 판본으로 확정하면 원장이 발행하지 않은 판본을 발행했다고 적고 픽업 STALE이 속는다"
+    },
+    {
+      "id": "intake-ledger-corruption-stops",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "  const ledger = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))",
+      "replace": "  const ledger = (() => { try { return foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))) } catch { return foldWorkState([]) } })()",
+      "test": ".claude/scripts/test-work-resolve.mjs",
+      "why": "원장 파손을 빈 원장으로 접으면 발행한 티켓을 공급 원문으로 되들인다"
+    },
+    {
+      "id": "ownership-hook-dangling-symlink",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  while (!presentAsEntry(currentPath)) {",
+      "replace": "  while (!existsSync(currentPath)) {",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "링크를 따라가는 존재 검사는 대상 없는 링크를 없는 경로로 읽어, 링크를 풀지 않은 채 범위 안으로 판정하고 Write가 범위 밖에 새 파일을 만든다"
     }
   ]
 }

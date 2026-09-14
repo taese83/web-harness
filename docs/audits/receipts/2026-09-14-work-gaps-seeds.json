@@ -1,0 +1,161 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T08:48:29+00:00",
+  "scope": "WORK 분해 P2 틈 — T09(쓰기 경계 훅 결박) · T11(마커 삭제 인식) · 결과를 모르는 발행 확정 입구 · 적대 리뷰 반영(소유권 훅 실경로 판정·대상 없는 링크 · 확정 판본 일치 · 인테이크 원장 파손 정지)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-pickup-injection-fail-closed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-kind-first",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-registered-only",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-ticket-key-match",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-stale-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-decision-unresolved",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-dependency-completed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-acceptance-required",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-scope-from-plan",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-tracker-writes-limited",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-active-scope-guard",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "cli-pickup-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-no-extra-tracker-writes",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-multi-assign-detected",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-worktree-is-real",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-bounce-reaches-tracker",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-link-is-not-completion",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-bounce-notifies",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-pickup-orphan-marker-detected",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "intake-refuses-published-key",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "resolve-requires-marker",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "resolve-only-unknown",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "resolve-requires-confirm",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "cli-resolve-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "ownership-hook-judges-real-path",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "test": ".claude/scripts/test-ownership-hook.mjs"
+    },
+    {
+      "id": "resolve-marker-revision-matches",
+      "file": ".claude/scripts/ticket/work-resolve-run.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "intake-ledger-corruption-stops",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-resolve.mjs"
+    },
+    {
+      "id": "ownership-hook-dangling-symlink",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "test": ".claude/scripts/test-ownership-hook.mjs"
+    }
+  ],
+  "result": {
+    "ok": 28,
+    "total": 28,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 28건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 트래커 조회는 NOT_RUN — provider stub",
+    "확정 입구의 마커 확인은 본문 문자열이다 — 사람이 마커를 복사해 다른 티켓에 붙이면 통과한다(위조는 사람의 의도적 행위)",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 차이가 없었다는 뜻이다"
+  ]
+}
