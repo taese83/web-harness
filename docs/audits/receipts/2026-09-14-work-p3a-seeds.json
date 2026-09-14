@@ -1,0 +1,126 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T05:30:44.000Z",
+  "scope": "WORK 분해 P3-a(완료 경로: link --work · 머지 관측 · 선행 조건을 머지 완료로)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-pickup-dependency-completed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-board-matches-pickup",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-link-stale-plan",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-stale-unavailable-loud",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-completion-required",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-tc-citation",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-check-targets",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-no-acceptance",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-accept-recorded",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-idempotent",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-merge-observed-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-merge-unknown-not-complete",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-completed-requires-merge",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-registered-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "cli-link-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-pickup-link-is-not-completion",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "work-merge-resolver-failure-not-merged",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-baseline-unchanged",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-pickup-baseline-recorded",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-close-provider-from-ledger",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    },
+    {
+      "id": "work-link-scope-ticket-match",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "test": ".claude/scripts/test-work-link.mjs"
+    }
+  ],
+  "result": {
+    "ok": 21,
+    "total": 21,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 21건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "PR 머지 상태 조회(`gh pr view`)의 실 호출은 NOT_RUN — 조회기는 주입으로 돈다",
+    "완료 판정은 프록시다: TC는 소스에 ID가 인용되는가, check는 대상 경로가 실재하고 픽업 때 찍은 지문에서 바뀌었는가 — 의미 검증이 아니다(주석 인용·의미 없는 수정도 통과)",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 차이가 없었다는 뜻이다"
+  ]
+}

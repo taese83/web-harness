@@ -1787,12 +1787,12 @@
       "why": "미해결 결정이 남은 작업을 집으면 결정되지 않은 것을 개발자가 임의로 정한다"
     },
     {
-      "id": "work-pickup-dependency-registered",
+      "id": "work-pickup-dependency-completed",
       "file": ".claude/scripts/ticket/work-pickup.mjs",
-      "find": "  const missingDeps = list(work.dependsOn).filter(dep => (state?.works?.get(dep)?.status ?? 'unpublished') !== 'published')",
+      "find": "  const missingDeps = list(work.dependsOn).filter(dep => !state?.works?.get(dep)?.completed)",
       "replace": "  const missingDeps = []",
       "test": ".claude/scripts/test-work-pickup.mjs",
-      "why": "미등록 선행 위에서 착수하면 없는 기반 위에 개발한다 — 등록까지만 재는 것이 지금의 하한이다"
+      "why": "머지되지 않은 선행 위에서 착수하면 재작업이 된다(legacy deps-incomplete의 자리) — 링크는 완료가 아니다"
     },
     {
       "id": "work-pickup-acceptance-required",
@@ -1869,8 +1869,8 @@
     {
       "id": "work-board-matches-pickup",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "    const unregisteredDeps = list(work.dependsOn).filter(dep => (registrationOf(dep)?.status ?? 'unpublished') !== 'published')",
-      "replace": "    const unregisteredDeps = []",
+      "find": "    const incompleteDeps = list(work.dependsOn).filter(dep => !registrationOf(dep)?.completed)",
+      "replace": "    const incompleteDeps = []",
       "test": ".claude/scripts/test-work-board.mjs",
       "why": "보드가 픽업과 다른 축으로 판정하면 표시가 장식이 된다 — 집을 수 없는 것을 집을 수 있다고 보여준다"
     },
@@ -1921,6 +1921,158 @@
       "replace": "              : false ? 'no-developer'",
       "test": ".claude/scripts/test-work-board.mjs",
       "why": "누구인지 모른 채 「집을 수 있다」고 하면 남이 잡고 있는 작업이 가용으로 보인다(픽업은 같은 이유로 막는다)"
+    },
+    {
+      "id": "work-link-stale-plan",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    if (changeScope.sourceDigest !== planDigest) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "픽업 뒤 바뀐 계획으로 완료를 주장하면 옛 판본의 경계·계약으로 끝났다고 기록된다(legacy stale-change-scope의 자리)"
+    },
+    {
+      "id": "work-link-stale-unavailable-loud",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    staleCheck = changeScope == null ? 'not-performed:no-change-scope' : 'not-performed:different-work'\n    if (!flags['dry-run'] && !flags['accept-unverified-scope']) {",
+      "replace": "    staleCheck = changeScope == null ? 'not-performed:no-change-scope' : 'not-performed:different-work'\n    if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "대조하지 못한 STALE을 침묵 스킵하면 미검증 완료가 검증된 완료처럼 남는다"
+    },
+    {
+      "id": "work-link-completion-required",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (!completion?.ok && !flags['accept-incomplete']) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "수용 기준이 충족되지 않은 작업이 완료로 연결되면 게이트가 지킨 것이 아니라 개발자가 잘한 것이 된다"
+    },
+    {
+      "id": "work-link-tc-citation",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const missingTcs = tcs.filter(id => !cited.has(id))",
+      "replace": "  const missingTcs = []",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "소유 TC가 소스 어디에도 없는데 완료로 치면 기준이 없는 것과 같다"
+    },
+    {
+      "id": "work-link-check-targets",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    const missingRefs = refs.length === 0 ? ['(대상 경로 없음)'] : refs.filter(ref => !pathExists(ref))",
+      "replace": "    const missingRefs = []",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "TC 없는 기반 작업의 check 대상이 없는데 완료로 치면 기반 작업은 무엇이든 끝난 것이 된다"
+    },
+    {
+      "id": "work-link-no-acceptance",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (tcs.length === 0 && checks.length === 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "기준이 하나도 없는 작업을 판정 불가가 아니라 통과로 접는다"
+    },
+    {
+      "id": "work-link-accept-recorded",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "      ...(completion.ok ? {} : {acceptedIncomplete: true}),",
+      "replace": "      ...{},",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "명시 인수로 넘긴 미충족이 원장에 없으면 의식적 인수와 충족이 사후에 구별되지 않는다"
+    },
+    {
+      "id": "work-link-idempotent",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (registered.link?.prUrl) return {ok: true, idempotent: true, workId, existing: registered.link.prUrl, staleCheck, provider: registered.provider ?? null}",
+      "replace": "  if (false) return null",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "재실행이 지나간 완료 주장을 다시 심판하면 결과가 소스 상태에 따라 달라진다(멱등 계약 위반)"
+    },
+    {
+      "id": "work-merge-observed-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    if (observed.state !== 'MERGED') { open.push({workId, prUrl: item.link.prUrl, state: observed.state ?? null}); continue }",
+      "replace": "    if (false) { continue }",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "열린 PR을 완료로 기록하면 후속 작업이 끝나지 않은 선행 위에서 착수된다"
+    },
+    {
+      "id": "work-merge-unknown-not-complete",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    if (!observed || observed.error) { unknown.push({workId, prUrl: item.link.prUrl, error: observed?.error ?? 'not-queried'}); continue }",
+      "replace": "    if (!observed) { unknown.push({workId, prUrl: item.link.prUrl, error: 'not-queried'}); continue }",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "조회 실패를 미상으로 따로 올리지 않으면 머지를 못 본 작업이 열린 PR과 섞여 사람이 확인해야 할 실패가 보이지 않는다"
+    },
+    {
+      "id": "work-completed-requires-merge",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "  if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "머지 관측이 아닌 경로로 완료를 쓸 수 있으면 원장의 완료가 주장이 된다"
+    },
+    {
+      "id": "work-link-registered-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (found.error) return {ok: false, blocked: found.error, ...(found.workIds ? {workIds: found.workIds} : {})}",
+      "replace": "  if (false) return null",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "원장이 모르는 티켓 키로 완료를 주장하면 계획이 낸 작업이 아닌 것이 완료로 기록된다"
+    },
+    {
+      "id": "cli-link-work-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "          const args = typeof flags.work === 'string' ? [flags.work, ...positional] : positional",
+      "replace": "          const args = positional",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "`link --work PF-1 <PR>` 표기가 조용히 키 없음이 된다"
+    },
+    {
+      "id": "work-pickup-link-is-not-completion",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  const missingDeps = list(work.dependsOn).filter(dep => !state?.works?.get(dep)?.completed)",
+      "replace": "  const missingDeps = list(work.dependsOn).filter(dep => !state?.works?.get(dep)?.completed && !state?.works?.get(dep)?.link)",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "PR만 연결된 선행을 끝난 것으로 치면 머지되지 않은 코드 위에서 착수한다"
+    },
+    {
+      "id": "work-merge-resolver-failure-not-merged",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "      states.set(url, {error: String(error?.message ?? error).slice(0, 160)})",
+      "replace": "      states.set(url, {state: 'MERGED'})",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "PR 상태 조회가 실패했는데 머지로 접으면 머지를 보지 않은 완료가 원장에 남는다"
+    },
+    {
+      "id": "work-link-baseline-unchanged",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "      : unchangedChecks.length > 0 ? 'check-targets-unchanged' : null",
+      "replace": "      : null",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "이미 있던 경로를 대상으로 적은 기반 작업이 아무것도 하지 않고 완료로 통과한다"
+    },
+    {
+      "id": "work-pickup-baseline-recorded",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))",
+      "replace": "    baseline: null}))",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "픽업이 대상 지문을 남기지 않으면 링크가 「바뀌었는가」를 잴 기준이 없다"
+    },
+    {
+      "id": "work-link-close-provider-from-ledger",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const provider = registered.provider ?? (staleCheck === 'verified' ? changeScope?.ticket?.provider ?? null : null)",
+      "replace": "  const provider = changeScope?.ticket?.provider ?? registered.provider ?? null",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "닫는 줄의 트래커를 발행 원장이 아닌 곳에서 고르면 설정이 바뀐 뒤 닫는 시늉이 나간다"
+    },
+    {
+      "id": "work-link-scope-ticket-match",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  if (changeScope?.workId === workId && changeScope.ticketKey != null && String(changeScope.ticketKey) !== String(ticketKey)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "같은 작업의 다른 티켓 범위를 대조한 것으로 치면 원장에 남는 개정 정보가 이 티켓의 것이 아니다"
     }
   ]
 }

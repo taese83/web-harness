@@ -85,7 +85,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     const verdict = reconcileAttempt({lookup})
     if (verdict.action === 'confirm') {
       const failed = record({operationId: item.state.operationId ?? randomUUID(), workId: item.workId, eventType: 'publish-confirmed',
-        payload: {ticketKey: verdict.ticketKey, via: 'reconcile'}})
+        payload: {ticketKey: verdict.ticketKey, via: 'reconcile', provider: provider.name}})
       if (failed) { results.push({workId: item.workId, outcome: 'hold', ticketKey: verdict.ticketKey, reason: `원장에 확정을 남기지 못했다(${verdict.ticketKey}) — ${failed}`}); continue }
       results.push({workId: item.workId, outcome: 'confirmed', ticketKey: verdict.ticketKey, reason: verdict.reason})
     } else if (verdict.action === 'republish') {
@@ -160,7 +160,8 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
       continue
     }
     const confirmFailed = record({operationId, workId: work.workId, eventType: 'publish-confirmed',
-      payload: {ticketKey, url: created.url ?? null}})
+      // 어느 트래커에 냈는가 — 닫는 줄·재조회가 지금 설정이 아니라 이것을 따른다.
+      payload: {ticketKey, url: created.url ?? null, provider: provider.name}})
     if (confirmFailed) {
       // 티켓은 **이미 만들어졌다.** 키를 결과에 실어 사람에게 보인다 — 원장이 모른다고 없는 일이 아니다.
       unresolved.add(work.workId)

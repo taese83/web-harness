@@ -31,6 +31,7 @@ import {createGithubProvider, resolveIssue, resolveViewerPermission, resolveMerg
 import {createJiraProvider} from './provider-jira-exec.mjs'
 import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, PROVIDER_QUESTIONS, readTicketConfig, recordProvider, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
+import {collectCitedTestCaseIds as collectCitedIds} from './work-link.mjs'
 import {readLedger, readLedgerState, appendLedgerRecord, appendClaimRecord, appendSupersedeRecord} from './ledger-writer.mjs'
 import {findFeatureForTicket, nextFeatureId, parseFeaturePlanUnits, renderTicketUnit} from './plan-units.mjs'
 
@@ -171,24 +172,9 @@ export function loadPlanText(root, flags) {
     .map(name => readFileSync(join(dir, name), 'utf8')).join('\n')
 }
 
-// 소스 트리에서 인용된 TC ID. `_workspace`는 계획 문서라 제외한다 — 계획이 자기를 인용하는
-// 것을 "검증됐다"로 세면 판정이 공허해진다.
-function collectCitedTestCaseIds(root, dir = root, found = new Set(), depth = 0) {
-  if (depth > 8) return [...found]
-  let entries
-  try { entries = readdirSync(dir, {withFileTypes: true}) } catch { return [...found] }
-  for (const entry of entries) {
-    if (['node_modules', '.git', 'dist', '_workspace', 'coverage', 'playwright-report'].includes(entry.name)) continue
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) collectCitedTestCaseIds(root, path, found, depth + 1)
-    else if (/\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|svelte|vue|astro)$/.test(entry.name)) {
-      try {
-        for (const id of readFileSync(path, 'utf8').match(/\bTC-\d+-\d+\b/g) ?? []) found.add(id)
-      } catch { /* 읽기 실패는 미인용으로 둔다 — 지어내지 않는다 */ }
-    }
-  }
-  return [...found]
-}
+// 소스 트리에서 인용된 TC ID — **정의는 한 곳**(`work-link.mjs`)이다. 두 벌이면 한쪽만 고쳐져
+// legacy와 WORK의 「인용」이 갈린다.
+const collectCitedTestCaseIds = root => [...collectCitedIds(root)]
 
 // change-scope.md — 사람용 헤더 + 기계용 fenced JSON(재읽기·STALE 대조의 정본).
 export function writeChangeScopeFile(root, changeScope) {
@@ -1244,7 +1230,16 @@ if (invokedDirectly) {
             developer: flags.developer, flags, io: {provider: resolved.provider}})
         }
         requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
-      case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
+      // `--work`: WORK의 PR 연결(완료 주장)·머지 관측(P3-a). 트래커를 부르지 않는다.
+      case 'link':
+        if (flags.work) {
+          const linkRun = await import('./work-link-run.mjs')
+          if (flags.sync) return linkRun.runWorkMergeSync({root, flags})
+          // `--work PF-1 <PR>`은 키가 값으로 파싱된다 — 두 표기를 모두 받는다(pickup과 같다).
+          const args = typeof flags.work === 'string' ? [flags.work, ...positional] : positional
+          return linkRun.runWorkLink({root, ticketKey: args[0], prUrl: args[1], flags})
+        }
+        return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       // `--work`: WORK 보드(P2-d). 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.
       case 'board':
         if (flags.work) {

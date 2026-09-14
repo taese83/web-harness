@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -29,13 +29,13 @@
 | T15 | Jira 하위 작업 미지원 | 부분 | `V`「T15」 — 설정 없으면 필요한 설정을 돌려주고 트래커를 부르지 않는다. subtask는 미구현으로 표기(성공 위장 없음). **실 Jira 왕복 NOT_RUN** — 링크 방향(부모=outward)은 가정이며 `workLink.parentSide`로 뒤집을 수 있다 |
 | T16 | provider 조회 실패·페이지 절단 | 부분 | `V`「T16」 — total 미만이면 `complete:false`+커서, 0건 페이지는 `stalled`(전진 불가), 손상 커서는 loud, 형식 아닌 요청 키는 loud, 완결일 때만 못 본 키를 보고. gh 검색은 색인 지연이라 항상 불완전, 상한 도달은 `truncated`. **실 트래커 왕복 NOT_RUN**(없는 키 조회·검색 토큰화는 가정) |
 | T17 | Closed지만 테스트 실패 | P3 | |
-| T18 | PR 링크만·다른 repo/base 머지 | P3 | |
+| T18 | PR 링크만·다른 repo/base 머지 | 부분 | `N`「머지」·`K`「T45」 — PR 연결만으로는 완료가 아니고 선행으로도 세지 않는다(머지 관측만 센다). **남은 몫**: 머지된 PR의 base 브랜치·저장소가 맞는지는 보지 않는다(`state: MERGED`까지) |
 | T19 | 다른 revision의 TC 통과 모음 | P3 | |
-| T20 | TC 문자열만 주석에 존재 | P3 | |
+| T20 | TC 문자열만 주석에 존재 | 부분 | `N`「완료」 — 인용이 **아예 없는** 것은 막는다. **프록시 한계**: 주석에만 ID가 있어도 통과한다(legacy와 같은 등급, §4 등록) — 테스트가 기준을 실제로 검증하는지는 코드 리뷰의 몫 |
 | T21 | 정책·시안·공유 상태 계약 변경 | 부분 | U「T21」 — FEAT 명세 변경 시 분해를 낡음으로 거부. 증거 stale은 P3 |
 | T22 | 담당자만 변경 | P3 | 증거가 생긴 뒤에야 의미가 있다 |
 | T23 | 머지 후 revert·base 변경 | P3 | |
-| T24 | 인수 요구 누락·유예 TC | P3 | |
+| T24 | 인수 요구 누락·유예 TC | 부분 | `N`「완료 조건 미충족」 — 미충족을 `--accept-incomplete`로 넘기면 판정 요약과 함께 원장에 남는다. 유예 TC는 계획에서 책임 작업이 없다(P1). **남은 몫**: 부모 FEAT 집계에서 유예 두 종류의 분모 처리, 그리고 인수로 넘긴 뒤 머지된 작업을 집계에서 보통 완료와 구별해 드러내기(보드는 아직 `completed`만 보인다, P3-b) |
 | T25 | 구 자동 닫기 설치본 | P3 | legacy 전환이 아니라 자동 닫기의 **교체**로 다룬다 |
 | T26 | 전환 중 실패 후 재시도 | N/A | legacy 전환 없음(사용자 결정) |
 | T27 | 분해하지 않은 v1 FEAT 유지 | N/A | P2에서 「WORK 경로만 존재」 확인으로 대체 |
@@ -57,7 +57,7 @@
 | T43 | FEAT 여러 개가 새 공통 계약 | PASS | U + `P`「T43·T48」 — 공유 작업의 생성 호출 1건, 소비 FEAT 라벨 전부. `V`가 두 트래커의 **실 필드 빌더**가 그 라벨을 보존하는지 잰다(발행 경로는 그 빌더를 쓴다) |
 | T44 | FEAT 누락·Jira 목록 일부 | 부분 | U「T44」 — 범위 누락 거부, 불완전 목록은 확정만 막음. Jira 페이지 조회 실패 기록은 P2 |
 | T45 | 선행 미완료 후속 WORK 등록 | PASS | `P`「T45」·「미해결 결정」·「결정이 안 난 작업은」·「후손은 손자까지」 — 이름 대고 고른 것은 **거절**, 전체 발행에서는 뿌리와 후손 모두 사유와 함께 목록에 남기고 나머지를 낸다. 이번 회차 결과를 모르는 작업의 후손은 손자까지 내지 않는다 |
-| T46 | WORK pickup·부모 FEAT pickup | 부분 | `K` 14건(순수 8 · 실행부 5 · CLI 배선 1) — 분해된 FEAT를 집으면 어느 WORK로 가야 하는지 알려주고, legacy 게이트(인젝션·종류·STALE·등록·준비도·TC 없는 완료 거부·트래커 쓰기 제한·동시 배정·컨플릭·되돌림 코멘트)가 옮겨졌다. **해당 없음**: 기획자 체크리스트·브랜치 대조(WORK에 브랜치 청구가 없다). **남은 몫**: 완료·PR 연결(`link`)이 아직 WORK를 모른다(P3) |
+| T46 | WORK pickup·부모 FEAT pickup | 부분 | `K` 14건(순수 8 · 실행부 5 · CLI 배선 1) — 분해된 FEAT를 집으면 어느 WORK로 가야 하는지 알려주고, legacy 게이트(인젝션·종류·STALE·등록·준비도·TC 없는 완료 거부·트래커 쓰기 제한·동시 배정·컨플릭·되돌림 코멘트)가 옮겨졌다. **해당 없음**: 기획자 체크리스트·브랜치 대조(WORK에 브랜치 청구가 없다). 완료·PR 연결은 `N`(P3-a) |
 | T47 | 분해 후 FEAT 추가·부분 발행 | 부분 | U「T44」 + `P`「T12·T13」 — FEAT 추가는 범위 누락으로 재검토 강제, 부분 발행은 성공분 유지·재개. **남은 몫**: 이미 발행된 공유 WORK의 라벨·마커 동기화(`reuse`)가 없다 — 발행 뒤 새 FEAT가 그 작업을 소비하면 「소비 FEAT 전부」가 깨진다(§4 ⑦ 등록) |
 | T48 | 공유 WORK의 관계 표현 부족 | PASS | `V` + `P`「T43·T48」 — 발행 경로에서 FEAT별 복제 없음(생성 1건·라벨 다중), 관계는 부모를 준 경우에만 걸고 적용 여부를 원장에 그대로 남긴다 |
 | T49 | UI·state·API·통합 WORK로 분해 | 부분 | 작업별 designContext 선택·검증(U「T50·T52·T54」). 픽업 전달은 P2 |
@@ -94,6 +94,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P3-a에서 21곳(STALE 3 · 완료 조건 4 · 대상 기준선 2 · 인수 기록 1 · 멱등 1 · 등록 1 · 머지 관측 4 · 닫는 줄 트래커 1 · 선행=머지 완료 3 · CLI 배선 1) — 21/21 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p3a-seeds.json`).
 P2-d 보드에서 7곳(픽업과 같은 축 1 · 발행 판본 1 · 소유 판정 1 · 미상≠미배정 1 · 등록 필수 1 · 사라진 티켓 1 · 조회 실패를 완결로 접기 1) — 7/7 발화
 (receipt `docs/audits/receipts/2026-09-14-work-board-seeds.json`).
 P2-d에서 16곳(인젝션·종류 2 · 등록·키 2 · STALE·워크트리 2 · 결정·선행 2 · 수용 기준 1 · 쓰기 경계 1 · 트래커 쓰기 제한 2 · 동시 배정 1 · 되돌림 어휘 1 · 범위 보호 1 · CLI 배선 1) — 16/16 발화

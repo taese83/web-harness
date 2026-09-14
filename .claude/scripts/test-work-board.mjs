@@ -45,10 +45,14 @@ test('보드의 착수 가능 판정이 픽업의 실제 차단과 같은 축이
     {name: '남이 잡고 있음', published: ALL, assignees: workId => (workId === W(1) ? ['someone-else'] : [])},
     {name: '내가 잡고 있음', published: ALL, assignees: workId => (workId === W(1) ? ['me'] : [])},
     {name: '발행 뒤 계획이 바뀜', published: ALL, assignees: () => [], publishedWith: 'b'.repeat(64)},
+    {name: '기반 둘이 머지됨', published: ALL, assignees: () => [], completed: [W(1), W(3)]},
+    {name: 'PR만 연결됨', published: ALL, assignees: () => [], linked: [W(1), W(3)]},
   ]
   for (const scenario of cases) {
     const works = new Map(scenario.published.map((workId, index) => [workId,
-      {status: 'published', ticketKey: `PF-20${index}`, planDigest: scenario.publishedWith ?? planDigest}]))
+      {status: 'published', ticketKey: `PF-20${index}`, planDigest: scenario.publishedWith ?? planDigest,
+        ...((scenario.completed ?? []).includes(workId) ? {completed: {prUrl: `https://github.com/o/r/pull/${index}`, at: 't'}} : {}),
+        ...((scenario.linked ?? []).includes(workId) ? {link: {prUrl: `https://github.com/o/r/pull/${index}`}} : {})}]))
     const published = {works}
     const issuesByWork = new Map([...works.entries()].map(([workId, item]) =>
       [workId, {ticketKey: item.ticketKey, assignees: scenario.assignees(workId)}]))
@@ -95,13 +99,14 @@ test('미등록·미해결 결정·미등록 선행은 사유와 함께 막힌�
   assert.equal(by.get(W(3)).blockedReason, 'not-registered:unpublished')
   assert.equal(by.get(W(4)).blockedReason, 'not-registered:unpublished')
   assert.equal(by.get(W(1)).pickupable, true)
-  // W1만 등록된 상태에서 W4를 등록하면 이유가 「선행 미등록」으로 바뀐다.
-  const partial = {works: new Map([...state([W(1)]).works, [W(4), {status: 'published', ticketKey: 'PF-104', planDigest}]])}
+  // W1이 머지로 끝났고 W4가 등록되면, W4의 이유는 「선행 미완료」(W3)가 된다.
+  const partial = {works: new Map([[W(1), {...state([W(1)]).works.get(W(1)), completed: {prUrl: 'u', at: 't'}}],
+    [W(4), {status: 'published', ticketKey: 'PF-104', planDigest}]])}
   const second = buildWorkBoard({plan, view, state: partial, planDigest, developer: 'me', lookupComplete: true,
     issuesByWork: new Map([...seen, [W(4), {ticketKey: 'PF-104', assignees: []}]])})
   const row = second.rows.find(entry => entry.workId === W(4))
-  assert.equal(row.blockedReason, 'dependency-not-registered')
-  assert.deepEqual(row.unregisteredDeps, [W(3)])
+  assert.equal(row.blockedReason, 'dependency-incomplete')
+  assert.deepEqual(row.incompleteDeps, [W(3)])
 })
 
 test('트래커를 못 보면 「미배정」이라 말하지 않는다 — 배정 미상으로 두고 그 사실을 적는다', () => {

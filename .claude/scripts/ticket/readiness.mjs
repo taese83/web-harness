@@ -225,7 +225,7 @@ const REASONS = {
     // 할 일이 없는 사유는 여전히 null이라 티켓이 소음으로 차지 않는다).
     'stale-plan': '발행 뒤 WORK 계획이 바뀌었다 — 바뀐 안을 다시 검토·발행해야 착수할 수 있다',
     'decision-unresolved': '이 작업에 아직 닫히지 않은 결정이 있다(디자인 조건·계약 선택)',
-    'dependency-not-registered': '선행 작업이 아직 트래커에 등록되지 않았다 — 선행부터 발행해야 한다',
+    'dependency-incomplete': '선행 작업이 아직 머지로 끝나지 않았다 — 그 위에서 개발하면 재작업이 된다',
     'no-acceptance': '이 작업에 수용 기준(TC 또는 checks)이 하나도 없다 — 무엇으로 끝났다고 할지가 없다',
     'work-not-registered': '이 티켓이 원장에 등록된 WORK가 아니다 — 계획에서 발행된 티켓인지 확인해야 한다',
     'feature-decomposed-pick-work': '이 FEAT는 WORK로 분해됐다 — FEAT 티켓이 아니라 해당 WORK 티켓을 집어야 한다',
@@ -240,7 +240,7 @@ const REASONS = {
     'content-incomplete': 'the ticket has unfilled items, so what to build is unknown',
     'stale-plan': 'the WORK plan changed after publishing — review and publish the new plan before starting',
     'decision-unresolved': 'this work still has an open decision (design condition or contract choice)',
-    'dependency-not-registered': 'a prerequisite work is not registered in the tracker yet — publish it first',
+    'dependency-incomplete': 'a prerequisite work is not merged yet — building on it now means rework',
     'no-acceptance': 'this work has no acceptance criteria at all (no TC, no checks)',
     'work-not-registered': 'this ticket is not a WORK registered in the ledger — check it came from the plan',
     'feature-decomposed-pick-work': 'this FEAT is decomposed into WORK — pick the WORK ticket, not the FEAT ticket',

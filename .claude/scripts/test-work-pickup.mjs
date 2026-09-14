@@ -94,11 +94,19 @@ test('G: 발행 뒤 계획이 바뀌면 STALE로 막는다 — 옛 판본으로 
   assert.equal(pick(ticket(W(1)), {working: {conflicted: true}}).bounce.reason, 'conflicts-unresolved')
 })
 
-test('T45: 미등록 선행·미해결 결정이면 착수하지 않는다', () => {
-  // 목록 조회 연결(W4)은 W1·W3을 기다린다 — W3이 등록되지 않았으면 막는다.
-  const deps = pick(ticket(W(4)), {state: published([[W(1)], [W(4)]])})
-  assert.equal(deps.bounce.reason, 'dependency-not-registered')
-  assert.deepEqual(deps.bounce.missing, ['WORK-00000003-0000-4000-8000-000000000003'])
+test('T45: 머지되지 않은 선행·미해결 결정이면 착수하지 않는다 — 링크는 완료가 아니다', () => {
+  // 목록 조회 연결(W4)은 W1·W3을 기다린다. W1은 머지로 끝났고, W3은 **PR만 연결됐다**.
+  const done = {completed: {prUrl: 'https://github.com/o/r/pull/1', at: 't'}}
+  const linkedOnly = {link: {prUrl: 'https://github.com/o/r/pull/3'}}
+  const deps = pick(ticket(W(4)), {state: published([[W(1), done], [W(3), linkedOnly], [W(4)]])})
+  assert.equal(deps.bounce.reason, 'dependency-incomplete')
+  assert.deepEqual(deps.bounce.missing, [W(3)], '링크만 된 선행을 끝난 것으로 셌다')
+  assert.deepEqual(deps.bounce.unmerged, [W(3)])
+  // 등록조차 안 된 선행은 따로 적는다.
+  const unregistered = pick(ticket(W(4)), {state: published([[W(1), done], [W(4)]])})
+  assert.deepEqual(unregistered.bounce.unregistered, [W(3)])
+  // 둘 다 머지로 끝나면 열린다.
+  assert.equal(pick(ticket(W(4)), {state: published([[W(1), done], [W(3), done], [W(4)]])}).ok, true)
   // 상세·수정(W6)은 디자인 조건이 미정이다.
   const blocked = pick(ticket(W(6)), {state: published([[W(1)], [W(3)], [W(4)], [W(6)]])})
   assert.equal(blocked.bounce.reason, 'decision-unresolved')

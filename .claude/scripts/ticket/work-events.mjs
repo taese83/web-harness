@@ -19,7 +19,8 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
-export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'relation-linked']
+export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'relation-linked',
+  'work-linked', 'work-completed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
 
@@ -52,6 +53,26 @@ export function validateWorkEvent(event) {
   }
   if (event.eventType === 'publish-confirmed' && !event.payload?.ticketKey) {
     errors.push('publish-confirmed에는 payload.ticketKey가 필요하다')
+  }
+  if (event.eventType === 'publish-confirmed' && event.payload?.provider !== undefined && !/^[a-z][a-z0-9-]*$/.test(String(event.payload.provider))) {
+    errors.push('publish-confirmed의 payload.provider 형식 오류')
+  }
+  // PR 연결·완료는 **어느 작업의 어느 PR**인가가 요체다. 완료 판정 요약이 없으면 「의식적 인수」로
+  // 넘긴 링크와 전부 충족한 링크가 사후에 구별되지 않는다(legacy 원장이 같은 이유로 남기던 것).
+  if (event.eventType === 'work-linked' || event.eventType === 'work-completed') {
+    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push(`${event.eventType}에는 workId가 필요하다`)
+    if (typeof event.payload?.prUrl !== 'string' || event.payload.prUrl.length === 0) errors.push(`${event.eventType}에는 payload.prUrl이 필요하다`)
+  }
+  if (event.eventType === 'work-linked') {
+    if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push('work-linked에는 planDigest가 필요하다 — 어느 판본으로 완료를 주장했는지')
+    const completion = event.payload?.completion
+    if (!completion || typeof completion !== 'object' || typeof completion.ok !== 'boolean') {
+      errors.push('work-linked에는 payload.completion(판정 요약)이 필요하다')
+    }
+    if (typeof event.payload?.staleCheck !== 'string') errors.push('work-linked에는 payload.staleCheck가 필요하다')
+  }
+  if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {
+    errors.push('work-completed의 payload.via는 pr-merged여야 한다 — 머지를 관측하지 않은 완료를 기록하지 않는다')
   }
   // 종류별 필수: 계보 이벤트의 요체는 어느 판본의 어느 작업들인가다 — 손상되면 조용히 건너뛰지 않고 막는다.
   if (event.eventType === 'plan-reviewed') {
@@ -103,7 +124,7 @@ export function foldWorkState(events) {
   const works = new Map()
   let lastReviewed = null
   const workState = workId => works.get(workId) ?? {workId, status: 'unpublished', ticketKey: null, operationId: null,
-    payloadDigest: null, planDigest: null, relation: null}
+    payloadDigest: null, planDigest: null, relation: null, link: null, completed: null}
   for (const event of events) {
     // 형식은 파서가 이미 막았다 — 여기서 건너뛰는 값은 없다(조용한 스킵은 이 모듈의 원칙과 반대다).
     if (event.eventType === 'plan-reviewed') {
@@ -119,11 +140,18 @@ export function foldWorkState(events) {
         payloadDigest: event.payload.payloadDigest, planDigest: event.planDigest})
     } else if (event.eventType === 'publish-confirmed') {
       works.set(event.workId, {...state, status: 'published', ticketKey: String(event.payload.ticketKey),
-        operationId: event.operationId, planDigest: event.planDigest})
+        operationId: event.operationId, planDigest: event.planDigest, provider: event.payload.provider ?? null})
     } else if (event.eventType === 'publish-unknown') {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
         planDigest: event.planDigest, reason: event.payload?.reason ?? null})
+    } else if (event.eventType === 'work-linked') {
+      // 완료 **주장**이다 — 머지를 본 것이 아니다. 선행 조건은 이것이 아니라 `completed`를 본다.
+      works.set(event.workId, {...state, link: {prUrl: event.payload.prUrl, planDigest: event.planDigest,
+        completion: event.payload.completion, staleCheck: event.payload.staleCheck,
+        acceptedIncomplete: event.payload.acceptedIncomplete === true, acceptedUnverifiedScope: event.payload.acceptedUnverifiedScope === true}})
+    } else if (event.eventType === 'work-completed') {
+      works.set(event.workId, {...state, completed: {prUrl: event.payload.prUrl, at: event.at}})
     } else if (event.eventType === 'relation-linked') {
       works.set(event.workId, {...state, relation: {mode: event.payload?.mode ?? null, applied: event.payload?.applied === true,
         parentKey: event.payload?.parentKey ?? null}})

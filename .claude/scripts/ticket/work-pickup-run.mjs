@@ -107,6 +107,12 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   } catch (error) {
     pick.changeScope.ticket = {...pick.changeScope.ticket, revisionError: String(error?.message ?? error).slice(0, 200)}
   }
+  // **대상 지문을 찍어 둔다.** 완료를 주장할 때 check 대상이 그대로면 이 작업의 결과가 아니다 —
+  // 이미 있던 경로를 대상으로 적은 기반 작업이 아무것도 하지 않고 통과하는 것을 막는 앵커다.
+  const {projectRefDigest} = await import('./work-link.mjs')
+  const digestOf = io.refDigest ?? projectRefDigest(root)
+  pick.changeScope.checks = pick.changeScope.checks.map(check => ({...check,
+    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
   return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, worktree: working}

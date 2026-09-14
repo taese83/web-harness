@@ -4,8 +4,7 @@
 // 그대로 집히던 시기가 있었다(2026-08-30) — 표시와 게이트가 갈라지면 표시는 장식이 된다.
 // 그래서 `pickupable`은 픽업이 실제로 막는 것(등록·미해결 결정·선행 등록·소유)과 같은 축이다.
 //
-// 완료는 아직 원장에 없다(P3). 그래서 「선행이 끝났나」가 아니라 **「선행이 등록됐나」**까지만
-// 착수 조건으로 쓰고, 통합 대기는 정보로만 싣는다 — 없는 것을 있다고 하지 않는다.
+// 선행은 **머지로 끝났을 때만** 끝난 것이다(원장 `work-completed`) — 링크는 완료의 주장이라 세지 않는다.
 const list = value => (Array.isArray(value) ? value : [])
 
 /**
@@ -29,7 +28,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     const assignees = issue?.assignees ?? null
     const mine = developer && assignees ? assignees.includes(developer) : null
     const takenByOther = assignees ? assignees.length > 0 && !assignees.includes(developer) : null
-    const unregisteredDeps = list(work.dependsOn).filter(dep => (registrationOf(dep)?.status ?? 'unpublished') !== 'published')
+    const incompleteDeps = list(work.dependsOn).filter(dep => !registrationOf(dep)?.completed)
     // 조회를 **완전히** 했는데 등록된 티켓이 목록에 없다 = 트래커에서 사라졌거나 권한 밖이다.
     // 「배정을 모른다」와 다르므로 다른 이름으로 말한다.
     const missingFromTracker = issuesByWork !== null && lookupComplete && registration === 'published' && !issue
@@ -42,7 +41,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     const blockedReason = registration !== 'published' ? `not-registered:${registration}`
       : staleness ? staleness
         : row.status === 'blocked-decision' ? 'decision-unresolved'
-          : unregisteredDeps.length > 0 ? 'dependency-not-registered'
+          : incompleteDeps.length > 0 ? 'dependency-incomplete'
             : missingFromTracker ? 'ticket-not-found'
               : !developer ? 'no-developer'
                 : takenByOther === true ? 'assigned-to-other'
@@ -55,8 +54,9 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
       // `assignment-unknown`은 **막는 이유가 아니라 재지 못한 표시**다 — 집을 수 있는지 사람이 판단한다.
       pickupable: blockedReason === null,
       blockedReason,
-      unregisteredDeps,
-      waitingIntegration: list(row.waiting),
+      incompleteDeps,
+      linked: registered?.link?.prUrl ?? null,
+      completed: Boolean(registered?.completed),
       unlocks: row.unlocks ?? 0,
     }
   })
@@ -65,8 +65,9 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
   } else if (!lookupComplete) {
     notes.push('트래커 목록이 완결이 아니다(절단·색인 지연) — 못 본 작업의 배정은 `null`이며 「미배정」으로 읽지 않는다')
   }
-  if (rows.some(row => list(row.waitingIntegration).length > 0)) {
-    notes.push('통합 대기는 **정보**다 — 선행의 완료는 아직 기록되지 않는다(P3). 착수 조건은 선행의 **등록**까지다')
+  const linkedNotMerged = rows.filter(row => row.linked && !row.completed).length
+  if (linkedNotMerged > 0) {
+    notes.push(`PR이 연결됐지만 머지가 관측되지 않은 작업 ${linkedNotMerged}건 — \`link --work --sync\`로 머지를 확인해야 후속이 열린다`)
   }
   const stale = rows.filter(row => row.blockedReason === 'stale-plan').map(row => row.workId)
   if (stale.length > 0) {

@@ -47,7 +47,7 @@ export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds,
     requestType: 'work',
     testCaseIds: [...testCaseIds],
     // TC가 없는 기반 작업은 `checks`가 수용 기준이다 — 비어 있을 수 없다(계획 검증이 보장한다).
-    checks: list(work.checks).map(check => ({kind: check.kind, expectedOutcome: check.expectedOutcome, targetRefs: list(check.targetRefs)})),
+    checks: list(work.checks).map(check => ({checkId: check.checkId ?? null, kind: check.kind, expectedOutcome: check.expectedOutcome, targetRefs: list(check.targetRefs)})),
     dependsOn: list(work.dependsOn),
     ALLOWED_PATHS: list(work.writePaths),
     needsConfirmation: false,
@@ -112,11 +112,13 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   if (row?.status === 'blocked-decision') {
     return {ok: false, injection, bounce: {reason: 'decision-unresolved', workId: work.workId}}
   }
-  // **선행이 등록돼 있어야 착수한다.** 완료 여부는 아직 원장에 없다(P3) — 없는 것을 있다고 하지 않고,
-  // 지금 잴 수 있는 것(등록)까지만 막는다. 그 사실을 되돌림 메시지가 그대로 적는다.
-  const missingDeps = list(work.dependsOn).filter(dep => (state?.works?.get(dep)?.status ?? 'unpublished') !== 'published')
+  // **선행이 머지로 끝나야 착수한다**(legacy `deps-incomplete`의 이관). 링크는 완료의 주장일 뿐이라
+  // 세지 않는다 — 원장의 `work-completed`(머지 관측)만 센다. 미완료 선행은 **등록 여부까지** 나눠 적는다.
+  const missingDeps = list(work.dependsOn).filter(dep => !state?.works?.get(dep)?.completed)
   if (missingDeps.length > 0) {
-    return {ok: false, injection, bounce: {reason: 'dependency-not-registered', workId: work.workId, missing: missingDeps}}
+    const unregistered = missingDeps.filter(dep => (state?.works?.get(dep)?.status ?? 'unpublished') !== 'published')
+    return {ok: false, injection, bounce: {reason: 'dependency-incomplete', workId: work.workId, missing: missingDeps,
+      unregistered, unmerged: missingDeps.filter(dep => !unregistered.includes(dep))}}
   }
   const featureIds = list(plan.featureBindings).filter(binding => list(binding.requiredWorkIds).includes(work.workId))
     .map(binding => binding.featureId)
