@@ -475,60 +475,12 @@
       "why": "등록이 빠지면 Phase 0의 첫 명령이 에이전트 경로에서 DENY로 막힌다 — 저자는 메인 스레드라 못 보는 클래스이며 이 저장소가 세 번 물렸다"
     },
     {
-      "id": "pickup-bounce-notifies-planner",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "  if (!pick.ok) return {...await notifyPlanner({provider, ticketKey: record.ticketKey, featureId, bounce: pick.bounce, io, dryRun: flags['dry-run'], readinessLanguage: readiness.outputLanguage}),",
-      "replace": "  if (!pick.ok) return {...({}),",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "알림을 끄면 되돌림이 개발자 터미널에서 끝나고 기획자는 막힌 사실을 모른다 — 되돌아가는 길이 없으면 게이트는 개발만 세운다"
-    },
-    {
-      "id": "emit-leaves-planner-checklist",
-      "file": ".claude/scripts/ticket/provider-github.mjs",
-      "find": "    ...(readinessSection({...options.readiness, provided: providedByPlan(draft)}) ?? []),",
-      "replace": "    ...([]),",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "발행 본문에 채울 자리가 없으면 기획자는 무엇을 적어야 하는지 티켓만 보고는 알 수 없다 — 티켓이 질문지 역할을 못 한다"
-    },
-    {
       "id": "jira-comment-format-by-version",
       "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
       "find": "  const commentBody = text => (String(config.apiVersion ?? '3') === '2' ? String(text) : toAdf(String(text)))",
       "replace": "  const commentBody = text => String(text)",
       "test": ".claude/scripts/test-ticket-jira.mjs",
       "why": "Cloud(v3)는 코멘트 본문이 ADF여야 하고 평문은 400이다 — 기본 설정이 v3라 형식을 안 가르면 「되돌아가는 길」이 기본값에서 매번 실패한다"
-    },
-    {
-      "id": "readiness-marker-detects-removal",
-      "file": ".claude/scripts/ticket/readiness.mjs",
-      "find": "      missing.push({key: field.key, label: field.label, reason: 'removed'})",
-      "replace": "      filled.push(field.key)",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "요구 항목의 줄을 지우는 것이 통과가 되면 분모를 마음대로 줄일 수 있다 — 2026-09-08 조건 분모 실측에서 정확히 그 구멍을 봤고, 마커에 요구 목록을 박아 닫은 자리다"
-    },
-    {
-      "id": "pickup-blocks-unfilled-ticket",
-      "file": ".claude/scripts/ticket/pickup.mjs",
-      "find": "  if (readiness.state === 'INCOMPLETE') {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-ticket-pickup.mjs",
-      "why": "채워지지 않은 티켓이 픽업되면 개발이 무엇을 만들지 모르는 채 시작한다 — `normalize.mjs`가 「pickup이 이 판정으로 결정한다」고 적어두고도 하지 않던 그 판정이다"
-    },
-    {
-      "id": "readiness-stops-at-comment",
-      "file": ".claude/scripts/ticket/readiness.mjs",
-      "find": "      if (ANY_COMMENT.test(line) || ITEM_ANY.test(line)) break",
-      "replace": "      if (ITEM_ANY.test(line)) break",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "주석에서 끊지 않으면 마지막 요구 항목이 왕복 마커 줄을 내용으로 삼켜 **모든 실제 티켓에서 채워짐으로 읽힌다** — 적대 리뷰가 실행으로 재현한 자리이며, 절만 떼어 재던 회귀는 이것을 못 잡았다"
-    },
-    {
-      "id": "readiness-anchors-item-line",
-      "file": ".claude/scripts/ticket/readiness.mjs",
-      "find": "    const at = lines.findIndex(line => anchor.test(line))",
-      "replace": "    const at = lines.findIndex(line => line.includes(field.label))",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "항목 줄 형태로 앵커하지 않으면 기획 산문에 같은 문구가 있을 때 그 줄을 답으로 읽는다 — 빈 항목이 채워진 것으로 통과한다"
     },
     {
       "id": "mutation-sample-survivor-classification",
@@ -579,14 +531,6 @@
       "why": "티켓이 기획인지 버그인지 운영 요청인지는 본문을 읽어야 알고 그것은 LLM의 일이다 — 스크립트가 「기획 입력」으로 박으면 버그 티켓도 기획으로 세어져 요구사항이 지어내진다(초안이 정확히 그랬다)"
     },
     {
-      "id": "bind-requires-intake-evidence",
-      "file": ".claude/scripts/ticket/intake.mjs",
-      "find": "  if (!String(sourceIndex).includes(`티켓 ${ticketKey}`)) {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "받지 않은 티켓을 FEAT의 출처로 이으면 「이 티켓에서 이 기능이 나왔다」는 거짓이 인벤토리와 티켓 본문에 남고, 그 위에서 이력 추적이 돈다"
-    },
-    {
       "id": "component-axis-is-declared",
       "file": ".claude/scripts/ticket/intake.mjs",
       "find": "  if (!axis || typeof axis !== 'object') return null",
@@ -601,22 +545,6 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ticket-cli.mjs",
       "why": "개발 티켓은 파이프라인의 출력이다 — 공급 원문으로 다시 들이면 하네스가 만든 요구사항을 기획 입력으로 재수집하는 순환이 되고, 그 위에서 FEAT가 또 생긴다"
-    },
-    {
-      "id": "bind-uses-source-marker-not-refs",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "  const marker = buildSourceMarker([featureId])",
-      "replace": "  const marker = buildRefsMarker([featureId], [])",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "기획 티켓에 왕복 마커를 찍으면 `findByFeature`·`parseIssueRefs`가 그것을 개발 티켓으로 착각해 픽업 대상이 갈라진다 — 기획 티켓은 출처지 청구가 아니다"
-    },
-    {
-      "id": "adopt-refuses-non-dev-ticket",
-      "file": ".claude/scripts/ticket/intake.mjs",
-      "find": "  if (role && role.role !== DEV_TICKET) {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "기획 티켓을 청구로 올리면 개발자가 기획 티켓을 픽업하게 되고, 팀이 선언한 컴포넌트 축이 무의미해진다"
     },
     {
       "id": "ticket-cli-policy-blocks-escapes",
@@ -657,78 +585,6 @@
       "replace": "  '_workspace/02_design/design-system.absent.md',",
       "test": ".claude/scripts/test-spec.mjs",
       "why": "디자인 토큰 정본이 잠금 밖이면 토큰이 바뀌어도 스팩이 근거로 삼은 것과 지금이 다르다는 사실을 아무도 말하지 않는다"
-    },
-    {
-      "id": "adopt-normalize-keeps-origin-gate",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    const gate = checkAdopt({ticketKey, featureId, unit: {featureId}, ledgerRecord: record,",
-      "replace": "    const gate = {ok: true}; void checkAdopt({ticketKey, featureId, unit: {featureId}, ledgerRecord: record,",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "정규화가 출처 판정을 건너뛰면 기획 티켓이 개발 단위로 계획에 섞인다 — `bind`가 막던 문을 뒷문으로 여는 것이다"
-    },
-    {
-      "id": "adopt-normalize-is-idempotent",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    const already = findFeatureForTicket(units, ticketKey)",
-      "replace": "    const already = null; void findFeatureForTicket(units, ticketKey)",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "트래커에서 본문이 편집돼 왕복 마커가 사라지면 같은 티켓이 두 FEAT로 갈라지고 원장은 하나만 안다"
-    },
-    {
-      "id": "adopt-normalize-declares-cost",
-      "file": ".claude/scripts/ticket/plan-units.mjs",
-      "find": "    `> 출처: 개발 티켓 ${ticketKey} — **기획 문서를 거치지 않은 단위다.** 아래 수용 기준은 개발자가 쓴 것이며 기획 검토를 받지 않았다.`,",
-      "replace": "    `> ${ticketKey}`,",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "출처와 「기획 검토를 받지 않았다」가 사람 눈에 보이지 않으면 계획을 읽는 다음 사람이 이 수용 기준을 기획자가 쓴 것으로 읽는다(I1)"
-    },
-    {
-      "id": "adopt-missing-plan-gives-remedy",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "          + `FEAT를 만들려면 \\`adopt ${featureId} ${ticketKey} --normalize\\`로 부르세요. `",
-      "replace": "          + `FEAT를 만들려면 부르세요. `",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "처방 없는 멈춤은 개발자를 티켓 흐름 밖(`/wh change` 직행)으로 보내고 그러면 원장·마커·PR 연결이 전부 빠진다"
-    },
-    {
-      "id": "normalize-counts-one-unit",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    if (parsed.length !== 1 || parsed[0].featureId !== featureId) {",
-      "replace": "    if (false && parsed.length !== 1 || parsed[0].featureId !== featureId) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "본문의 `## FEAT-NNN` 줄이 계획에 유령 단위를 만들고 이 FEAT의 본문은 절단된다 — claim이 그 유령을 티켓으로 발행한다(실측)"
-    },
-    {
-      "id": "normalize-requires-dev-ticket",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    if (role?.role !== DEV_TICKET) {",
-      "replace": "    if (false && role?.role !== DEV_TICKET) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "componentAxis 미설정이면 기획 티켓이 공유 계획에 개발 단위로 들어간다(실측: component PLAN이 통과했다)"
-    },
-    {
-      "id": "normalize-scans-untrusted-body",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    if (suspect.injectionSuspect) {",
-      "replace": "    if (false && suspect.injectionSuspect) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "intake는 같은 외부 입력을 격리 펜스로 감싸는데 이 입구만 맨몸이면 격리 하한이 입구마다 다르다(I6)"
-    },
-    {
-      "id": "normalize-refuses-intaken-source",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    if (String(issue.body ?? '').includes('web-harness:source')) {",
-      "replace": "    if (false && String(issue.body ?? '').includes('web-harness:source')) {",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "이미 출처로 인테이크된 티켓에 왕복 마커가 찍히면 bind에서 영구 거부되고 기획 입력이 개발 단위로 둔갑한다"
-    },
-    {
-      "id": "normalize-does-not-claim-pickup",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "  const declaredDeps = planWrite === null || Boolean(flags?.['depends-on'])",
-      "replace": "  const declaredDeps = true; void (planWrite === null || Boolean(flags?.['depends-on']))",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
-      "why": "dependsOn 미선언은 claimScopeReadiness가 deps-undeclared로 막는다 — 착수 가능 주장은 거짓이고 계단이 한 칸 모자란 채 끝난다(I1)"
     },
     {
       "id": "golden-drift-uses-recorded-inputs",
@@ -1039,7 +895,7 @@
       "file": ".claude/scripts/ticket/pickup.mjs",
       "find": "const fenceFor = text => '`'.repeat(Math.max(3, ...[...String(text).matchAll(/`+/g)].map(m => m[0].length + 1)))",
       "replace": "const fenceFor = text => '```'",
-      "test": ".claude/scripts/test-ticket-context.mjs",
+      "test": ".claude/scripts/test-ticket-untrusted.mjs",
       "why": "코멘트 속 ```가 격리 펜스를 닫으면 그 뒤가 펜스 밖, 지시로 읽힐 수 있는 자리에 놓인다"
     },
     {
@@ -1071,7 +927,7 @@
       "file": ".claude/scripts/ticket/pickup.mjs",
       "find": "  for (const [source, text] of [['title', issue?.title], ['body', issue?.body]]) {",
       "replace": "  for (const [source, text] of [['body', issue?.body]]) {",
-      "test": ".claude/scripts/test-ticket-context.mjs",
+      "test": ".claude/scripts/test-ticket-untrusted.mjs",
       "why": "제목도 격리 발췌에 실린다 — 스캔하지 않으면 지시문이 제목으로 우회한다(종전에 그랬다)"
     },
     {
@@ -1079,31 +935,31 @@
       "file": ".claude/scripts/ticket/pickup.mjs",
       "find": "  const fence = fenceFor(raw)",
       "replace": "  const fence = '```'",
-      "test": ".claude/scripts/test-ticket-context.mjs",
+      "test": ".claude/scripts/test-ticket-untrusted.mjs",
       "why": "본문 속 ```가 고정 펜스를 닫으면 그 뒤가 격리 밖에 놓이고, 키워드 없는 산문 지시는 정규식 스캔도 못 잡는다"
     },
     {
       "id": "change-scope-ticket-carries-provider",
-      "file": ".claude/scripts/ticket/pickup.mjs",
-      "find": "      provider: issue.provider ?? null,",
-      "replace": "      provider: null,",
-      "test": ".claude/scripts/test-change-scope-contract.mjs",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "    ticket: {key: keyOf(issue), provider: issue?.provider ?? null, revision: issue?.revision ?? null, revisionStage: 'pre-pickup'},",
+      "replace": "    ticket: {key: keyOf(issue), provider: null, revision: issue?.revision ?? null, revisionStage: 'pre-pickup'},",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "change-scope가 어느 트래커의 티켓인지 잃으면 두 경로가 같은 계약으로 닿는지 가를 수 없다"
     },
     {
       "id": "pickup-settles-revision-after-writes",
-      "file": ".claude/scripts/ticket/cli.mjs",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
       "find": "    pick.changeScope.ticket = {...pick.changeScope.ticket, revision: settled.revision, revisionStage: 'settled-at-pickup'}",
-      "replace": "    void settled",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "replace": "    pick.changeScope.ticket = {...pick.changeScope.ticket}",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "픽업 전 개정을 적으면 우리 자신의 배정·전이가 나중에 「티켓이 바뀌었다」로 읽힌다"
     },
     {
       "id": "link-records-ticket-revision",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "    ...(staleCheck === 'verified' && changeScope?.ticket ? {ticket: changeScope.ticket} : {}),",
-      "replace": "    ...({}),",
-      "test": ".claude/scripts/test-ticket-cli.mjs",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "      ...(staleCheck === 'verified' && changeScope?.ticket ? {ticket: changeScope.ticket} : {}),",
+      "replace": "      ...{},",
+      "test": ".claude/scripts/test-work-link.mjs",
       "why": "원장 링크 기록에 티켓 개정이 없으면 이 PR이 어느 티켓 개정을 보고 개발됐는지 사슬이 끊긴다"
     },
     {
@@ -1124,10 +980,10 @@
     },
     {
       "id": "pickup-transitions-only-in-progress",
-      "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "      const result = await provider.transition(record.ticketKey, 'in-progress')",
-      "replace": "      const result = await provider.transition(record.ticketKey, 'done')",
-      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "      const result = await provider.transition(ticketKey, 'in-progress')",
+      "replace": "      const result = await provider.transition(ticketKey, 'done')",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "픽업이 완료 전이를 부르면 사람 승인 없이 티켓이 done으로 간다 — 매핑이 있어도 개발 흐름은 in-progress만 부른다"
     },
     {
@@ -1135,7 +991,7 @@
       "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
       "find": "      const body = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}",
       "replace": "      const body = {accountId: assignee}",
-      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "Data Center(name)에 accountId로 배정하면 배정이 조용히 비어 픽업이 성공했다고 보고한다 — 주입 stub 회귀는 이 경로를 안 탄다"
     },
     {
@@ -1143,7 +999,7 @@
       "file": ".claude/scripts/ticket/provider-jira.mjs",
       "find": "    provider: 'jira',",
       "replace": "    provider: null,",
-      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "Jira 이슈가 트래커를 밝히지 않으면 change-scope가 어느 트래커의 티켓인지 잃는다 — 계약 테스트는 이슈를 직접 만들어 이 경로를 안 탄다"
     },
     {
@@ -1151,7 +1007,7 @@
       "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
       "find": "  'comment', 'issuelinks', 'updated', // 티켓 맥락 — 기획자의 답·선행 티켓·개정 시점(2026-09-11)",
       "replace": "  // 맥락 제거",
-      "test": ".claude/scripts/test-ticket-routes-e2e.mjs",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "조회 필드에서 맥락이 빠지면 실 Jira는 코멘트를 주지 않는다 — stub이 fields=를 존중해야 종단 회귀가 AOA-3 기제를 본다"
     },
     {
@@ -1301,8 +1157,8 @@
     {
       "id": "cli-claim-work-dispatch",
       "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "        if (flags.work) return (await import('./work-claim.mjs')).runClaimWork({root, flags})",
-      "replace": "        if (false) return (await import('./work-claim.mjs')).runClaimWork({root, flags})",
+      "find": "        if (!flags.publish) return (await import('./work-claim.mjs')).runClaimWork({root, flags})",
+      "replace": "        if (!flags.publish) return {ok: true, mode: 'work', phase: 'NOT_WIRED'}",
       "test": ".claude/scripts/test-work-claim-process.mjs",
       "why": "WORK 준비 요청이 FEAT 청구 경로로 떨어진다(T61) — 실제 진입점에서 도달하지 않는다"
     },
@@ -1417,22 +1273,6 @@
       "replace": "  if (false) return {kind: 'conflict', error: 'unused'}",
       "test": ".claude/scripts/test-work-events.mjs",
       "why": "한 티켓이 legacy와 WORK 두 모델에 동시에 속한 채 통과한다"
-    },
-    {
-      "id": "pickup-refuses-work-ticket",
-      "file": ".claude/scripts/ticket/pickup.mjs",
-      "find": "  if (kind.kind === 'work' || kind.kind === 'aggregate') {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-work-events.mjs",
-      "why": "WORK 티켓이 legacy FEAT 폴백으로 읽혀 개발 티켓으로 픽업된다(T10)"
-    },
-    {
-      "id": "adopt-refuses-work-ticket",
-      "file": ".claude/scripts/ticket/intake.mjs",
-      "find": "  if (kind.kind === 'work' || kind.kind === 'aggregate') {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-work-events.mjs",
-      "why": "이미 분해 모델에 있는 티켓을 개발 단위로 다시 인수해 이중 소유가 된다"
     },
     {
       "id": "work-claim-records-review-event",
@@ -1645,8 +1485,8 @@
     {
       "id": "cli-claim-work-publish-dispatch",
       "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "        if (flags.work && flags.publish) {",
-      "replace": "        if (flags.work && flags.publish && flags.enabled) {",
+      "find": "        return (await import('./work-publish-run.mjs')).runWorkPublish({root, flags,",
+      "replace": "        return (await import('./work-claim.mjs')).runClaimWork({root, flags,",
       "test": ".claude/scripts/test-work-claim-process.mjs",
       "why": "발행 입구가 CLI에 배선되지 않으면 --publish가 조용히 준비 흐름으로 떨어져 아무것도 발행되지 않는다"
     },
@@ -1829,8 +1669,8 @@
     {
       "id": "cli-pickup-work-dispatch",
       "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "          const key = positional[0] ?? (typeof flags.work === 'string' ? flags.work : null)",
-      "replace": "          const key = positional[0] ?? null",
+      "find": "  const args = typeof flags.work === 'string' ? [flags.work, ...positional] : positional",
+      "replace": "  const args = positional",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "`pickup --work PF-1` 표기가 조용히 「키 없음」이 된다 — 배선이 자연스러운 표기를 받지 못한다"
     },
@@ -2021,8 +1861,8 @@
     {
       "id": "cli-link-work-dispatch",
       "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "          const args = typeof flags.work === 'string' ? [flags.work, ...positional] : positional",
-      "replace": "          const args = positional",
+      "find": "  const args = typeof flags.work === 'string' ? [flags.work, ...positional] : positional",
+      "replace": "  const args = positional",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "`link --work PF-1 <PR>` 표기가 조용히 키 없음이 된다"
     },
@@ -2073,6 +1913,38 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "같은 작업의 다른 티켓 범위를 대조한 것으로 치면 원장에 남는 개정 정보가 이 티켓의 것이 아니다"
+    },
+    {
+      "id": "work-pickup-bounce-notifies",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    const notified = await notify({provider, ticketKey, featureId: pick.changeScope?.featureId ?? null,",
+      "replace": "    const notified = await (async () => ({}))({provider, ticketKey, featureId: pick.changeScope?.featureId ?? null,",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "되돌림을 트래커로 보내지 않으면 막힌 사실이 개발자 터미널에서 끝나고 계획을 고칠 사람이 모른다"
+    },
+    {
+      "id": "handoff-cover-plan-missing-plan-hole",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "    return hole('tickets-cover-plan', 'WORK가 발행됐는데(원장 있음) WORK 계획이 없다',",
+      "replace": "    return skip('tickets-cover-plan', 'WORK가 발행됐는데(원장 있음) WORK 계획이 없다',",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "발행 뒤 계획을 지우면 대조가 침묵하고 인계가 READY가 된다"
+    },
+    {
+      "id": "handoff-active-pickup-legacy-scope-hole",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "    return hole('active-pickup', `WORK가 아닌 옛 범위 파일이 남아 있다(${scope.featureId ?? '작업 ID 없음'})`,",
+      "replace": "    return skip('active-pickup', `WORK가 아닌 옛 범위 파일이 남아 있다(${scope.featureId ?? '작업 ID 없음'})`,",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "진행 중 파일이 있는데 판정하지 않으면 누구도 그 범위가 유효한지 모른다"
+    },
+    {
+      "id": "jira-http-error-carries-status",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "    throw new Error(`JIRA_HTTP_${response.status}: ${text.slice(0, 300)}`)",
+      "replace": "    throw new Error(`JIRA_HTTP: ${text.slice(0, 300)}`)",
+      "test": ".claude/scripts/test-ticket-jira.mjs",
+      "why": "상태코드가 오류에서 빠지면 권한·인증·부재가 한 가지 실패로 뭉쳐 무엇을 고칠지 알 수 없다"
     }
   ]
 }

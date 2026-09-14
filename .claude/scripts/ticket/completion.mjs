@@ -22,11 +22,6 @@
 // 완료 조건을 스스로 낮추는 경로가 된다).
 const DEFERRED = /\[유예:\s*[^\]\s][^\]]*\]/
 
-/** 계획 본문에서 이 FEAT의 TC ID를 모은다(자기 번호만 — 남의 TC를 끌어오지 않는다). */
-export function testCaseIdsOf(featureId, planText) {
-  const own = String(featureId).slice('FEAT-'.length)
-  return [...new Set(String(planText ?? '').match(new RegExp(`\\bTC-${own}-\\d+\\b`, 'g')) ?? [])].sort()
-}
 
 /**
  * 계획이 유예한 TC. 그 TC ID가 나오는 **줄**에 유예 표현이 함께 있어야 한다 —
@@ -41,39 +36,4 @@ export function deferredTestCases(planText) {
   return deferred
 }
 
-/**
- * 완료 조건 판정(순수). `citedIds`는 caller가 소스·테스트에서 긁어 넘긴다.
- * @returns {{ok: boolean, total: number, cited: string[], deferred: string[], missing: string[], reason?: string}}
- */
-export function evaluateTicketCompletion({featureId, planText, testCaseIds, citedIds = []}) {
-  // 단위(units.json)는 `testCaseIds`를 **구조 필드**로 갖는다 — 있으면 산문 파싱보다 그것이
-  // 정확하다(다른 FEAT의 TC를 끌어올 여지도 없다). 없으면 계획 산문에서 자기 번호만 모은다.
-  const all = Array.isArray(testCaseIds) && testCaseIds.length > 0
-    ? [...new Set(testCaseIds)].sort()
-    : testCaseIdsOf(featureId, planText)
-  if (all.length === 0) {
-    // TC가 하나도 없는 FEAT는 **통과가 아니라 판정 불가**다. 검증 기준이 없으면 완료를
-    // 주장할 근거도 없다(축이 없으면 통과가 아니다).
-    return {ok: false, total: 0, cited: [], deferred: [], missing: [], reason: 'no-test-cases'}
-  }
-  const cited = new Set(citedIds)
-  const deferred = deferredTestCases(planText)
-  const missing = all.filter(id => !cited.has(id) && !deferred.has(id))
-  return {
-    ok: missing.length === 0,
-    total: all.length,
-    cited: all.filter(id => cited.has(id)),
-    deferred: all.filter(id => deferred.has(id) && !cited.has(id)),
-    missing,
-    ...(missing.length > 0 ? {reason: 'uncited-test-cases'} : {}),
-  }
-}
 
-/** 사람이 읽을 한 줄. 유예는 숨기지 않고 함께 센다 — "통과"와 "유예"는 다르다. */
-export function formatCompletion(result) {
-  if (result.reason === 'no-test-cases') return '수용 기준(TC)이 하나도 없다 — 완료를 주장할 근거가 없다'
-  const parts = [`TC ${result.cited.length}/${result.total} 인용`]
-  if (result.deferred.length > 0) parts.push(`계획이 유예 ${result.deferred.length}건(${result.deferred.join(', ')})`)
-  if (result.missing.length > 0) parts.push(`미인용 ${result.missing.length}건(${result.missing.join(', ')})`)
-  return parts.join(' · ')
-}

@@ -1,5 +1,8 @@
 # 티켓 주도 팀 워크플로우 통합 — 설계
 
+> **대체됨(2026-09-14)**: 이 문서가 설계한 FEAT 개발 티켓 경로(claim·pickup·board·link·bind·adopt)는 WORK 모델로 대체되며 코드에서 제거됐다. 현재 계약은 `.claude/skills/team-flow/references/work-plan-contract.md`이며, 이 문서는 설계 이력으로 남긴다.
+
+
 *설계 + 구현 상태(2026-08-24 갱신). **A/B/C 순수 코어·형상 규율 4점 게이트·원장 writer·
 team-flow 스킬·콘솔 Work flow 표면·선택 라우팅·executor CLI(claim/board/pickup/link)까지
 구현 완료.** 실행 환경: CLI는 플러그인 런타임 전용 — repo bash policy allowlist에는 **등재하지

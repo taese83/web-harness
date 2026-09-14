@@ -21,41 +21,9 @@ function git(args, {cwd, timeoutMs = 15000} = {}) {
   })
 }
 
-// --- 순수 argv 빌더(회귀 대상) ---
-export const upstreamArgs = () => ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']
 export const currentBranchArgs = () => ['rev-parse', '--abbrev-ref', 'HEAD']
-export const originExistsArgs = (base, planPath) => ['cat-file', '-e', `${base}:${planPath}`]
-export const originDiffArgs = (base, planPath) => ['diff', '--quiet', base, '--', planPath]
-/**
- * 원격 URL에서 호스트를 뽑는다(순수). `ticket-provider.json`의 `github.host` **기본값 제안**에
- * 쓴다 — 사용자가 사내 GitHub 주소를 외워 적게 하지 않는다.
- *
- * 뽑기만 하고 저장하지 않는다. 저장은 사람 확인을 거친 `configure`의 몫이다 — 원격이 fork나
- * 미러일 수 있어 자동 채택은 조용한 오설정이 된다.
- *
- *   https://github.example.com/owner/name.git  → github.example.com
- *   git@github.example.com:owner/name.git      → github.example.com
- *   ssh://git@github.example.com:22/owner/name → github.example.com
- *
- * @param {string} url `git remote get-url origin` 출력
- * @returns {string|null} 호스트. 형태를 못 알아보면 null(추측하지 않는다)
- */
-export function hostFromRemoteUrl(url) {
-  const raw = String(url ?? '').trim()
-  if (!raw) return null
-  const scp = raw.match(/^[\w.-]+@([^:/]+):/)      // git@host:owner/name
-  if (scp) return scp[1]
-  const uri = raw.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?([^:/]+)/i) // scheme://[user@]host[:port]/
-  if (uri) return uri[1]
-  return null
-}
 
-export const conflictArgs = () => ['diff', '--name-only', '--diff-filter=U']
-export const showFileArgs = (ref, path) => ['show', `${ref}:${path}`]
-export const remoteBranchExistsArgs = ref => ['rev-parse', '--verify', '--quiet', ref]
 export const worktreeStatusArgs = () => ['status', '--porcelain']
-// 라우팅(§4-3)의 유일한 쓰기 argv — 실행은 computeSwitchPlan 통과 + 사람 확인 뒤 caller 몫.
-export const checkoutArgs = branch => ['checkout', branch]
 // remote-tracking 갱신. `--prune`으로 서버에서 삭제된 브랜치의 유령 참조를 지운다.
 export const fetchArgs = (remote = 'origin') => ['fetch', '--prune', '--quiet', remote]
 
@@ -109,21 +77,6 @@ export async function refreshRemoteRefs({repoRoot, remote = 'origin', exec = nul
   }
 }
 
-export async function resolveOriginPlanSync({repoRoot, planPath, base = null, exec = null}) {
-  const run = exec ?? (args => git(args, {cwd: repoRoot}))
-  let resolvedBase = base
-  if (!resolvedBase) {
-    try { resolvedBase = (await run(upstreamArgs())).out.trim() }
-    catch { return {originExists: false, planMatchesOrigin: false, base: null, reason: 'no-upstream'} }
-  }
-  let originExists = true
-  try { await run(originExistsArgs(resolvedBase, planPath)) } catch { originExists = false }
-  if (!originExists) return {originExists: false, planMatchesOrigin: false, base: resolvedBase}
-  // git diff --quiet: exit 0=동일, 비0=차이(working-tree를 base와 비교 → 미커밋·미푸시 모두 포착).
-  let planMatchesOrigin = true
-  try { await run(originDiffArgs(resolvedBase, planPath)) } catch { planMatchesOrigin = false }
-  return {originExists, planMatchesOrigin, base: resolvedBase}
-}
 
 /** 현재 브랜치명(점 2). 실패 시 null(detached 등). */
 export async function resolveCurrentBranch({repoRoot, exec = null}) {
@@ -134,37 +87,6 @@ export async function resolveCurrentBranch({repoRoot, exec = null}) {
   } catch { return null }
 }
 
-/**
- * 다른 브랜치의 파일을 **체크아웃 없이** 읽는다(read-only, 설계 §4-2 크로스-브랜치 창).
- * 없으면(브랜치/파일 부재) null — 지어내지 않음. exec 주입 가능(테스트).
- *
- * **fetch 신선도 전제(정직 표기, 리뷰 2026-08-24)**: `origin/<br>` 참조는 실서버가 아니라
- * **마지막 fetch 시점의 로컬 remote-tracking 스냅샷**이다 — prune 없는 상태에선 서버에서
- * 삭제된 브랜치가 살아 보이고, 방금 생긴 브랜치는 없어 보인다(remoteBranchExists도 동일).
- * 소비자(콘솔/실행부)는 판정 전 fetch --prune(또는 ls-remote)을 선행하거나 스냅샷 기준임을
- * 표기해야 한다 — 배선 커밋에서 결정.
- * @param {{repoRoot: string, branch: string, path: string, remote?: string, exec?: (a:string[])=>Promise<{code:number,out:string}>}} config
- * @returns {Promise<string|null>}
- */
-export async function readBranchFile({repoRoot, branch, path, remote = 'origin', exec = null}) {
-  const run = exec ?? (args => git(args, {cwd: repoRoot}))
-  try {
-    return (await run(showFileArgs(`${remote}/${branch}`, path))).out
-  } catch {
-    return null
-  }
-}
-
-/** 원격 브랜치 존재 여부(설계 §4-1 "브랜치 소실" 경고 판정). 조회 실패는 false(보수). */
-export async function remoteBranchExists({repoRoot, branch, remote = 'origin', exec = null}) {
-  const run = exec ?? (args => git(args, {cwd: repoRoot}))
-  try {
-    await run(remoteBranchExistsArgs(`${remote}/${branch}`))
-    return true
-  } catch {
-    return false
-  }
-}
 
 /** 라우팅 판정용 worktree 상태(§4-3) — status --porcelain 실측을 parseWorktreeStatus로. */
 export async function resolveWorktreeStatus({repoRoot, exec = null}) {
@@ -178,34 +100,4 @@ export async function resolveWorktreeStatus({repoRoot, exec = null}) {
   }
 }
 
-/**
- * 브랜치 전환(**쓰기** side-effect, §4-3의 유일한 쓰기). computeSwitchPlan이 'switch'를
- * 반환하고 사람이 확인한 뒤에만 호출한다. 판정↔실행 간극(TOCTOU, 리뷰 지적)은 **기본 내장
- * 재검사**로 봉합한다: checkout 직전 worktree를 재조회해 dirty/컨플릭/미상이 새로 생겼으면
- * loud 거부 — git checkout은 비중첩 변경을 새 브랜치로 조용히 운반하므로, 재검사 없이는
- * dirty 차단 취지가 그 창에서 무력해진다. 재검사~checkout 사이의 미시적 창은 남는다(정직 —
- * 단일 프로세스 직렬 실행이라 실질 위험은 낮음). recheck=false는 테스트 전용.
- */
-export async function switchBranch({repoRoot, branch, exec = null, recheck = true}) {
-  const run = exec ?? (args => git(args, {cwd: repoRoot}))
-  if (recheck) {
-    const status = await resolveWorktreeStatus({repoRoot, exec: run})
-    if (status.statusUnknown || status.dirty || status.conflicted) {
-      const cause = status.statusUnknown ? '상태 미상' : status.conflicted ? '미해결 컨플릭' : '미커밋 변경'
-      throw new Error(`SWITCH_BLOCKED: 전환 직전 재검사에서 ${cause} 감지 — checkout 중단(판정 이후 상태가 변함)`)
-    }
-  }
-  await run(checkoutArgs(branch))
-  return {switched: true, branch}
-}
 
-/** working-tree에 미해결 컨플릭(점 4)이 있는지. --diff-filter=U 결과가 있으면 conflicted. */
-export async function resolveWorkingState({repoRoot, exec = null}) {
-  const run = exec ?? (args => git(args, {cwd: repoRoot}))
-  try {
-    const conflicts = (await run(conflictArgs())).out.split(/\r?\n/).filter(Boolean)
-    return {conflicted: conflicts.length > 0, conflicts}
-  } catch {
-    return {conflicted: false, conflicts: []} // 조회 실패는 컨플릭 없음으로(보수적 아님 — caller가 별도 판단)
-  }
-}

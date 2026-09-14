@@ -1,5 +1,8 @@
 # 티켓 준비도 게이트 — 설계안 (미적용)
 
+> **대체됨(2026-09-14)**: 이 문서가 설계한 FEAT 개발 티켓 경로(claim·pickup·board·link·bind·adopt)는 WORK 모델로 대체되며 코드에서 제거됐다. 현재 계약은 `.claude/skills/team-flow/references/work-plan-contract.md`이며, 이 문서는 설계 이력으로 남긴다.
+
+
 *2026-09-08 · 상태: **제안**. 코드·계약 미수정.*
 *개정 2 — 자리를 옮겼다: 「기획 단계 validator」가 아니라 **티켓 필드 준비도가 개발 착수를 막는
 게이트**다. 개정 1의 C1·C3은 §5에서 폐기한다.*

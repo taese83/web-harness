@@ -54,7 +54,7 @@ export const GITHUB_QUESTIONS = [
   {
     key: 'host',
     required: false,
-    ask: 'GitHub 호스트 — github.com 또는 사내 GitHub Enterprise 주소(예: github.example.com). 저장소 원격에서 뽑아 제안할 수 있다(git-origin.hostFromRemoteUrl)',
+    ask: 'GitHub 호스트 — github.com 또는 사내 GitHub Enterprise 주소(예: github.example.com). 저장소 원격 URL의 호스트를 기본값으로 제안한다',
     default: 'github.com',
   },
   // GitHub에도 관계 선언이 필요하다. 확인된 유형 관계가 없으므로 값은 `link-only`뿐이고,
@@ -143,14 +143,6 @@ export function resolveProviderChoice({stored = null, requested = null} = {}) {
   return {provider: storedProvider, needsChoice: false, switching: {from: storedProvider, to: requested}}
 }
 
-/**
- * 원장 레코드의 provider를 읽는다 — **없으면 'github'**.
- * 이 필드는 2026-09-02에 생겼고 그 전 레코드는 전부 GitHub이다. 기본값을 문서에만 적으면
- * 읽는 쪽마다 다르게 가정한다.
- */
-export function recordProvider(record) {
-  return record?.provider ?? 'github'
-}
 
 /**
  * 사용자 답을 설정 객체로 만든다(순수). 점 표기(`transitions.done`)를 중첩으로 펴고,
@@ -226,8 +218,6 @@ export function assertAllowedKeys(answers = {}, provider = 'jira') {
   )
 }
 
-/** 하위호환 별칭. 이름이 하던 주장(비밀을 막는다)보다 실제가 넓어졌다. */
-export const assertNoSecrets = assertAllowedKeys
 
 /**
  * 설정을 기록한다(side-effect). 호출자가 `--confirm` 게이트를 통과시킨 뒤에만 부른다.

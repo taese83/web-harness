@@ -7,8 +7,7 @@
 // 몫이며, 여기서는 실행하지 않는다(child_process import 없음). runner는 아래 buildIssueFields의
 // 결과로 `gh issue create`를 구성하고, listExistingIssues의 결과로 claim 경쟁을 검사한다.
 
-import {providedByPlan, readinessSection} from './readiness.mjs'
-import {buildRefsMarker, parseIssueRefs} from './refs.mjs'
+import {parseIssueRefs} from './refs.mjs'
 
 const unique = values => [...new Set(values)]
 
@@ -19,24 +18,6 @@ export {parseIssueRefs}
 // FEAT당 고유 라벨 — claim 경쟁 검사·중복 감지의 기계 키(gh issue list --label 로 조회).
 export const featLabel = featureId => `feat:${featureId}`
 
-// 브랜치 레지스트리 라벨(설계 §4-1) — `branch:*` 라벨 목록이 곧 공식 작업 브랜치 명단.
-// GitHub 라벨은 50자 제한이라 초과 브랜치명은 라벨 생략(null) — 마커의 branch= 필드가 정본이고
-// 라벨은 gh issue list 필터용 편의다(정직: 자르면 다른 브랜치와 충돌 가능하므로 안 자름).
-export const branchLabel = branch => {
-  if (!branch) return null
-  const label = `branch:${branch}`
-  return label.length <= 50 ? label : null
-}
-
-/**
- * 이슈 라벨 배열에서 브랜치 스탬프를 되읽는다(집계용, 순수). 없으면 null.
- * @param {string[]} labels
- * @returns {string|null}
- */
-export function parseBranchFromLabels(labels) {
-  const found = (labels ?? []).find(l => typeof l === 'string' && l.startsWith('branch:'))
-  return found ? (found.slice('branch:'.length) || null) : null // 빈 잔여('branch:')도 null(계약 준수)
-}
 
 /**
  * TicketDraft(emit.buildTicketDraft 산출) → gh issue create 필드. 순수.
@@ -48,29 +29,6 @@ export function parseBranchFromLabels(labels) {
  * @returns {{title: string, body: string, labels: string[], assignee: string|null}}
  */
 
-/**
- * 티켓 본문의 **참고 정본** 절. 게이트가 아니라 포인터다 — 티켓만 읽고 개발하면 디자인 정본이
- * 있다는 사실조차 모른다는 실측(2026-08-30)에서 나왔다. Phase 3은 이미 design-system·
- * layout-spec·component-spec을 빌더 입력으로 넘기는데, 티켓 경로에는 그것이 없었다.
- *
- * **기대는 "최대한 구현"이고 기계 강제는 두지 않는다.** 정본에 정해진 것은 그대로 따르되,
- * 없거나 맞지 않으면 개발이 판단해 정하고 **정본에 되쓴다** — 디자인은 확정 뒤에도 바꿀 수
- * 있는 산출물이다(사용자 방침 2026-08-30). 토큰 준수를 게이트로 만들면 그 판단의 자리가
- * 사라지고, 개발이 정본을 고치는 대신 우회하게 된다.
- */
-export function designSection(refs) {
-  const list = (refs ?? []).filter(ref => typeof ref === 'string' && ref.trim())
-  if (list.length === 0) return null
-  return [
-    '',
-    '## 참고 정본 (디자인)',
-    ...list.map(ref => `- \`${ref}\``),
-    '',
-    '위 정본에 정해진 것(색·간격·타이포·상태·접근성)은 **그대로 구현한다** — 임의 값으로 대체하지 않는다.',
-    '없거나 이 화면에 맞지 않으면 적정한 값을 판단해 정하고 **그 값을 정본에 추가·수정한다**.',
-    '디자인은 확정 뒤에도 바꿀 수 있는 산출물이다. 정본을 고쳤으면 무엇을 왜 바꿨는지 PR에 남긴다.',
-  ]
-}
 
 /**
  * WORK 이슈 필드(순수). FEAT 빌더와 나누는 이유는 Jira 쪽 주석과 같다 — `feat-<sourceKey>` 라벨과
@@ -81,31 +39,6 @@ export function buildWorkIssueFields(draft) {
   return {title: draft.title, body: String(draft.body ?? ''), labels: unique([...(draft.labels ?? [])].filter(Boolean)), assignee: null}
 }
 
-export function buildIssueFields(draft, options = {}) {
-  const featureIds = draft.harnessRefs?.featureIds ?? (draft.sourceKey ? [draft.sourceKey] : [])
-  const testCaseIds = draft.harnessRefs?.testCaseIds ?? []
-  const acLines = (draft.acceptanceCriteria ?? []).map(ac => `- [ ] ${ac}`).join('\n')
-  const refsMarker = buildRefsMarker(featureIds, testCaseIds, {branch: options.branch ?? null})
-  const body = [
-    draft.body ?? '',
-    '',
-    '## 수용 기준 (AC ↔ TC)',
-    acLines || '- (연결된 TC 없음 — 스펙 미완, pickup에서 되돌림 대상)',
-    ...(designSection(options.designRefs) ?? []),
-    // **기획자가 채울 자리를 티켓 안에 남긴다.** 라벨은 선언 언어를 따르고 키는 마커에만 있다.
-    ...(readinessSection({...options.readiness, provided: providedByPlan(draft)}) ?? []),
-    '',
-    refsMarker,
-  ].join('\n')
-  const branchTag = branchLabel(options.branch ?? null)
-  const labels = unique([...featureIds.map(featLabel), ...(branchTag ? [branchTag] : [])])
-  return {
-    title: draft.title ?? (featureIds[0] ?? 'untitled'),
-    body,
-    labels,
-    assignee: options.assignee ?? null,
-  }
-}
 
 /**
  * computeCloseLink 결과(트래커 무관)를 **GitHub 서식** PR 본문 줄로 렌더한다. 순수.
@@ -141,21 +74,6 @@ export function ghCreateArgs(fields) {
   return args
 }
 
-/**
- * `gh issue list --json number,title,url`의 stdout(JSON 배열)을 파싱한다. 순수.
- * 손상/비배열은 빈 배열로 안전 처리(지어내지 않음).
- * @param {string} stdout
- * @returns {Array<{number: number, title: string, url: string}>}
- */
-export function parseIssueListJson(stdout) {
-  try {
-    const parsed = JSON.parse(stdout)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(item => item && Number.isInteger(item.number))
-  } catch {
-    return []
-  }
-}
 
 /**
  * `gh issue create`가 마지막 줄에 출력하는 이슈 URL에서 번호를 뽑는다. 순수.

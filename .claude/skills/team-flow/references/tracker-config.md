@@ -21,7 +21,7 @@ cli.mjs configure --provider github --set host=github.example.com
 ```
 
 기본값(`github.com`)이면 적지 않는다 — 설정 파일은 **다른 것만** 담아야 읽을 때 의미가 있다.
-호스트는 저장소 원격에서 뽑아 **기본값으로 제안**할 수 있다(`git-origin.hostFromRemoteUrl`).
+호스트는 저장소 원격 URL(`git remote get-url origin`)의 호스트를 **기본값으로 제안**한다.
 다만 자동 채택하지 않는다 — 원격이 fork나 미러일 수 있어 조용한 오설정이 된다.
 
 `--confirm` 없이 먼저 돌려 기록될 내용을 보여주고 확인받는다(이 CLI의 공통 규율).

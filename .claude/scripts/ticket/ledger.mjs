@@ -1,3 +1,7 @@
+// ⚠ **Console 판독 전용으로 남겼다(2026-09-14).** FEAT 개발 티켓 경로(claim·pickup·board·link·bind·adopt)는
+// WORK 모델로 대체되며 제거됐고, 이 모듈을 쓰는 하네스 코드는 없다. `packages/web-harness-console`이 옛 원장·
+// 라우팅 표시를 위해 import하는데 Console은 이번 작업 범위에서 제외돼 손대지 않았다 — Console을 WORK 원장으로
+// 옮길 때 이 파일도 함께 지운다. **새 소비자를 붙이지 않는다.**
 // 팀 워크플로우 통합 — 식별자 원장 (traceability 백본, 통합 빌드 2단계).
 // docs/team-workflow-integration-design.md 공유 척추: FEAT-ID ↔ 티켓키 ↔ PR-URL을
 // 트래커 밖 append-only 원장(JSONL)에 둔다. 트래커가 아니라 이 원장이 왕복의 정본이다.

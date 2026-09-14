@@ -7,12 +7,7 @@
 // `fetch`는 주입 가능하다 — 테스트가 네트워크 없이 전 경로를 돌 수 있어야 한다(GitHub provider의
 // `exec` 주입과 같은 규율).
 
-import {
-  toAdf,
-  assigneeIdentity, buildIssueFieldsFor, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
-  isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
-  supportedTransitions,
-} from './provider-jira.mjs'
+import {toAdf, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions} from './provider-jira.mjs'
 import {issueLinkBody, parseCursor, parseWorkSearch, workJql, workKeysJql, workRelationMode} from './work-provider.mjs'
 
 /** `resolveIssue`가 가져오는 필드. 빠진 필드는 응답에서 `undefined`로 와 「없다」와 구별되지 않는다. */
@@ -68,15 +63,8 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
   const provider = {
     // ── TicketProvider 필수부 ──
     name: 'jira',
-    buildFields: (draft, opts = {}) => buildIssueFieldsFor(config, draft, opts),
-    // WORK는 별도 빌더다 — FEAT 빌더는 `sourceKey`를 FEAT로 보고 라벨·마커를 덧쓴다(provider-jira.mjs 주석).
     buildWorkFields: draft => buildWorkIssueFieldsFor(config, draft),
     featLabel,
-    async findByFeature(featureId) {
-      const jql = featureJql(config, featureId)
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&maxResults=1&fields=summary,labels,status`, options)
-      return parseSearchResponse(payload)
-    },
     async createIssue(fields) {
       const payload = await call(config, '/issue', {...options, method: 'POST', body: fields})
       const created = parseCreateResponse(payload)
@@ -188,15 +176,6 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     await call(config, `/issue/${encodeURIComponent(key)}`, {...options, method: 'PUT',
       body: {fields: {description: commentBody(body)}}})
     return {ticketKey: String(key), updated: true}
-  }
-
-  // 되살리기는 Jira에서 별도 API가 아니라 전이다 — 그 phase 매핑이 있을 때만 노출한다.
-  if (phases.includes('reopen')) {
-    provider.reopenIssue = async (key, comment = null) => {
-      // 같은 결함이 여기에도 있었다 — 위 `commentBody`로 통일한다.
-      if (comment) await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: commentBody(comment)}})
-      return provider.transition(key, 'reopen')
-    }
   }
 
   return provider

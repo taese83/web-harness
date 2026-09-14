@@ -157,62 +157,8 @@ export function parseFeaturePlanUnits(markdown) {
 //   - 사람이 읽는 줄로 출처를 **보이게** 적는다. 주석에만 있으면 계획을 읽는 다음 사람이
 //     이 FEAT가 기획을 거치지 않았다는 것을 모른다(I1).
 
-/** 이 계획에서 아직 안 쓰인 다음 FEAT ID(순수). 최대값+1 — 빈 번호를 재사용하지 않는다. */
-export function nextFeatureId(units) {
-  const highest = (units ?? []).reduce((top, unit) => {
-    const found = /^FEAT-(\d{3,})$/.exec(String(unit?.featureId ?? ''))
-    return found ? Math.max(top, Number(found[1])) : top
-  }, 0)
-  return `FEAT-${String(highest + 1).padStart(3, '0')}`
-}
-
-/**
- * 이 티켓이 이미 어느 FEAT로 정규화됐는가(순수). **멱등성의 근거다** — 없으면 같은 티켓을
- * 두 번 정규화해 FEAT가 갈라지고, 원장은 둘 중 하나만 안다.
- * 마커의 `ticket=`을 읽는다. `stripUnitMarker`가 해시 전에 걷어내므로 청구 형상에 영향이 없다.
- */
-export function findFeatureForTicket(units, ticketKey) {
-  const wanted = String(ticketKey ?? '').trim()
-  if (!wanted) return null
-  for (const unit of units ?? []) {
-    const markers = [...String(unit?.body ?? '').matchAll(UNIT_MARKER)]
-    for (const marker of markers) {
-      for (const [, key, value] of marker[1].matchAll(ATTRIBUTE)) {
-        if (key === 'ticket' && value.trim() === wanted) return unit
-      }
-    }
-  }
-  return null
-}
 
 // 하네스 제어 주석은 **계획 본문이 아니다.** 티켓 본문의 readiness·refs 마커를 그대로 옮기면
 // 계획에 기계 색인이 두 벌 생기고, 어긋나는 순간 어느 쪽이 정본인지 아무도 모른다.
 const HARNESS_COMMENT = /<!--\s*web-harness:[^>]*?-->\s*/g
 
-/**
- * 개발 티켓 하나를 FEAT 섹션 마크다운으로 낸다(순수). 앞뒤 개행 포함.
- * @param {{featureId: string, title: string, ticketKey: string, body?: string}} input
- */
-export function renderTicketUnit({featureId, title, ticketKey, body = '', dependsOn = null}) {
-  const clean = String(body).replace(HARNESS_COMMENT, '').replace(/\n{3,}/g, '\n\n').trim()
-  // 제목은 **한 줄로 접는다.** 트래커 제목에 개행이 들어가면(붙여넣기로 흔하다) 둘째 줄이
-  // 계획의 새 줄이 되고, 거기 `## FEAT-050`이 있으면 유령 단위가 생긴다(실측 2026-09-09:
-  // 제목 개행 하나로 단위가 2개가 됐다). 앞머리 `#`도 벗긴다 — 헤딩 속 헤딩이 된다.
-  const heading = String(title ?? '').split(/\r?\n/)[0].replace(/^#+\s*/, '').trim() || ticketKey
-  return [
-    '',
-    `## ${featureId} ${heading}`,
-    '',
-    // 사람이 읽는 출처 줄. 이 FEAT는 기획을 거치지 않았고, 그 사실이 보여야 한다.
-    `> 출처: 개발 티켓 ${ticketKey} — **기획 문서를 거치지 않은 단위다.** 아래 수용 기준은 개발자가 쓴 것이며 기획 검토를 받지 않았다.`,
-    '',
-    // `dependsOn`은 **운영자가 준 것만** 적는다. 자동으로 `none`을 쓰면 「미선언 ≠ 없음」
-    // 규율을 깨고, 산문에만 있는 순서가 pickupable로 둔갑한다. 안 주면 미선언으로 남고
-    // `claimScopeReadiness`가 `deps-undeclared`로 막는다 — 그 사실을 호출부가 말한다.
-    `<!-- web-harness:unit feat=${featureId} ticket=${ticketKey}`
-      + `${dependsOn ? ` dependsOn=${dependsOn}` : ''} -->`,
-    '',
-    clean,
-    '',
-  ].join('\n')
-}

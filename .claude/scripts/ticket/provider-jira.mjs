@@ -1,7 +1,7 @@
 // 티켓 provider — Jira (순수부). 실행(REST)은 `provider-jira-exec.mjs`가 담당한다.
 //
 // 교차 형태 전제: **티켓은 Jira, 코드는 GHE.** 그래서 이 파일에는 PR·머지·브랜치가 없다 —
-// 그것은 VCS 축이고 `git-origin.mjs`·`claim-guard.mjs`가 이미 트래커를 모른 채 담당한다.
+// 그것은 VCS 축이고 `git-origin.mjs`·`work-link-run.mjs`가 트래커를 모른 채 담당한다.
 //
 // GitHub과 다른 것 셋 — 이 셋이 `transition`이 필요한 이유다:
 //  1. **상태가 open/closed가 아니다.** 워크플로우 status는 팀마다 다르고 이름도 다르다.
@@ -15,24 +15,10 @@
 // 본문에서는 HTML 주석이 숨겨지지 않아 **평문으로 보인다** — 보기 좋지는 않지만 마커 형식을
 // 트래커별로 가르지 않는 쪽을 택했다(가르면 왕복 파서가 둘이 된다).
 
-import {providedByPlan, readinessSection} from './readiness.mjs'
-import {buildRefsMarker} from './refs.mjs'
 
 /** FEAT 고유 라벨. Jira 라벨은 공백을 못 넣고 콜론이 버전에 따라 불안정해 하이픈을 쓴다. */
 export const featLabel = featureId => `feat-${featureId}`
 
-/** 브랜치 스탬프 라벨(GitHub의 `branch:`와 같은 역할, 문자셋만 Jira 규칙). */
-export const branchLabel = branch => {
-  if (!branch) return null
-  const label = `branch-${String(branch).replace(/[^\w.-]/g, '-')}`
-  return label.length <= 255 ? label : null // Jira 라벨 상한
-}
-
-/** 라벨 배열에서 브랜치 스탬프를 되읽는다(순수). */
-export function parseBranchFromLabels(labels) {
-  const found = (labels ?? []).find(l => typeof l === 'string' && l.startsWith('branch-'))
-  return found ? (found.slice('branch-'.length) || null) : null
-}
 
 /**
  * 설정 검증(순수). **이름을 지어내지 않는다** — 없으면 loud하게 막고 무엇이 없는지 말한다.
@@ -59,34 +45,6 @@ export function supportedTransitions(config) {
   return Object.keys(map).filter(phase => map[phase] !== null && map[phase] !== undefined && map[phase] !== '')
 }
 
-/**
- * FEAT로 기존 티켓을 찾는 JQL(순수). 라벨이 기본이고, 팀이 커스텀 필드를 쓰면 그쪽을 쓴다.
- * @param {Object} config  {projectKey, featureField?}
- * @param {string} featureId
- */
-export function featureJql(config, featureId) {
-  const project = `project = "${config.projectKey}"`
-  if (config.featureField) return `${project} AND "${config.featureField}" ~ "${featureId}" ORDER BY created ASC`
-  return `${project} AND labels = "${featLabel(featureId)}" ORDER BY created ASC`
-}
-
-/** Jira 본문 텍스트 — 동작 명세 + AC + 왕복 마커. 트래커 무관 마커를 평문으로 싣는다. */
-export function buildDescriptionText(draft, {branch = null, designRefs = [], readiness = undefined} = {}) {
-  const lines = [draft.body ?? '']
-  const criteria = draft.acceptanceCriteria ?? []
-  if (criteria.length > 0) {
-    lines.push('', '수용 기준', ...criteria.map(item => `- ${item}`))
-  }
-  if (designRefs.length > 0) {
-    lines.push('', '참고 정본 (게이트가 아니라 포인터다)', ...designRefs.map(ref => `- ${ref}`))
-  }
-  // 기획자가 채울 자리 — GitHub 본문과 **같은 절**이다(`readiness.mjs`가 정본).
-  const checklist = readinessSection({...readiness, provided: providedByPlan(draft)})
-  if (checklist) lines.push(...checklist)
-  const refs = draft.harnessRefs ?? {}
-  lines.push('', buildRefsMarker(refs.featureIds, refs.testCaseIds, {branch}))
-  return lines.join('\n')
-}
 
 /**
  * WORK 티켓 필드(순수). FEAT 티켓 빌더를 재사용하지 **않는다** — 그쪽은 `sourceKey`를 FEAT로 보고
@@ -140,30 +98,6 @@ export function assigneeIdentity(user, assigneeField = null) {
     : user.accountId ?? user.name ?? user.displayName) ?? null
 }
 
-/**
- * TicketDraft → Jira 이슈 필드(순수). `TicketProvider.buildFields` 구현체.
- * @param {Object} config  requireJiraConfig 통과분
- */
-export function buildIssueFieldsFor(config, draft, {assignee = null, branch = null, designRefs = [], readiness = undefined} = {}) {
-  const text = buildDescriptionText(draft, {branch, designRefs, readiness})
-  // 하네스 라벨(왕복 키)이 먼저고 팀 공통 라벨이 뒤에 붙는다. **중복은 제거하되 하네스 것을
-  // 덮어쓰지 않는다** — `feat-…`은 조회 키라 사라지면 왕복이 끊긴다.
-  const labels = [...new Set([featLabel(draft.sourceKey), branchLabel(branch), ...(config.labels ?? [])].filter(Boolean))]
-  const fields = {
-    project: {key: config.projectKey},
-    issuetype: {name: config.issueType},
-    summary: draft.title,
-    description: String(config.apiVersion ?? '3') === '2' ? text : toAdf(text),
-    labels,
-  }
-  // 컴포넌트는 **그 프로젝트에 실재하는 이름**이어야 한다(없으면 Jira가 400). 비었으면 필드
-  // 자체를 넣지 않는다 — 빈 배열을 보내면 기존 값을 지우라는 뜻이 되는 설정이 있다.
-  const components = (config.components ?? []).filter(Boolean)
-  if (components.length > 0) fields.components = components.map(name => ({name}))
-  // assignee 표기는 배포마다 다르다(Cloud=accountId, DC=name) — 설정이 정하고 여기서 고르지 않는다.
-  if (assignee) fields.assignee = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}
-  return {fields}
-}
 
 /**
  * ADF → 평문. 왕복 마커를 되읽으려면 본문이 문자열이어야 한다(`refs.mjs`는 텍스트를 판다).
@@ -240,20 +174,6 @@ export function isClosed(issue) {
   return key === 'done'
 }
 
-/** Jira 검색 응답 → 호출자가 쓰는 이슈 형태(순수). 없으면 null. */
-export function parseSearchResponse(payload) {
-  const issues = payload?.issues ?? []
-  const first = issues[0]
-  if (!first) return null
-  return {
-    ticketKey: first.key,
-    key: first.key,
-    url: first.self ?? null,
-    summary: first.fields?.summary ?? null,
-    labels: first.fields?.labels ?? [],
-    statusCategory: first.fields?.status?.statusCategory ?? null,
-  }
-}
 
 /** 생성 응답 → 이슈 형태(순수). */
 export function parseCreateResponse(payload) {

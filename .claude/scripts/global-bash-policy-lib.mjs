@@ -751,8 +751,8 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/ticket/cli.mjs') {
     // **2026-09-09 등록.** 2026-08-30 배선 감사가 "인자 계약 설계가 필요해 등록하지 않는다"로
     // 유보한 마지막 하나다. 그 사이 `team-flow`가 이 CLI를 **플러그인 런타임 전용 실행부**로
-    // 삼았고, `intake`·`bind`·`adopt`가 더해져 유보의 대가가 「역방향 흐름 전체가 에이전트
-    // 경로에서 막힘」이 됐다.
+    // 삼아 유보의 대가가 「팀 흐름 전체가 에이전트 경로에서 막힘」이 됐다. (FEAT 개발 티켓의
+    // `bind`·`adopt`는 2026-09-14 WORK 모델로 대체되며 제거됐다.)
     //
     // 계약을 **명령별로** 좁힌다. 이 스크립트는 티켓을 만들고 원장을 쓰고 이슈 본문을 고치므로
     // 「어떤 인자든 통과」는 위험하다.
@@ -761,23 +761,17 @@ const validationScriptContract = (script, args, context) => {
     // `--replace-scope`, `--replace`, `--accept-incomplete`, `--foundation-complete`는
     // 전부 「사람이 판단해 우회한다」는 뜻이고, 에이전트가 스스로 켜면 그 게이트는 없는 것과 같다.
     const [mode, ...rest] = args
-    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'bind', 'adopt', 'configure'])
+    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'configure'])
     if (!COMMANDS.has(mode)) return false
     // 값을 받는 플래그(그 다음 토큰이 값이다)와 스위치를 가른다.
-    const VALUED = new Set(['--repo', '--root', '--units', '--developer', '--branch', '--assignee',
-      '--ticket-provider', '--as', '--allowed-paths', '--set',
-      // `--depends-on`은 **운영자 선언**이다 — 하네스가 `none`을 자동으로 쓰면 "미선언 ≠ 없음"
-      // 규율이 깨진다. 값을 받으므로 VALUED이며, 생략하면 미선언으로 남아 픽업이 막힌다.
-      '--depends-on',
+    const VALUED = new Set(['--repo', '--root', '--units', '--developer',
+      '--ticket-provider', '--as', '--set',
       // `--features`는 WORK 준비 범위(쉼표 FEAT 목록)다 — 스크립트가 계획의 FEAT와 대조한다.
       '--features', '--work-ids', '--parent'])
-    // `--normalize`는 **게이트를 끄는 탈출이 아니다** — 개발 티켓 본문으로 FEAT 단위를 만들고
-    // 그 대가(specTier: unverifiable · 인계 차단)를 그대로 진다. `checkAdopt`의 출처 판정을
-    // 우회하지 않으므로 기획 티켓은 이 경로로도 들어오지 못한다.
-    // `--work`는 claim의 WORK 준비·검토 모드다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
-    // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — FEAT `claim --confirm`과 **같은 등급**이고
-    // (새 약화가 아니다) 게이트를 끄지 않는다. 확인 없이는 미리보기라 여기서 막지 않는다.
-    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--normalize', '--work', '--publish', '--sync'])
+    // `--work`는 이제 기본 모델이라 붙여도 같다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
+    // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — 확인 없이는 미리보기라 여기서 막지 않는다.
+    // `--sync`는 머지 관측(읽기)이다.
+    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--sync'])
     // `--provider`는 configure에서만 받는다 — 다른 명령에서는 `--ticket-provider`가 정본이다.
     if (mode === 'configure') VALUED.add('--provider')
     let commandArgs = withoutDirectoryOption(rest, '--root', context)

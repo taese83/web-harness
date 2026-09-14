@@ -1,11 +1,8 @@
-// 팀 워크플로우 통합 — GitHub Issues provider 실행부 (gh spawn, 통합 빌드 4단계).
-// 이 파일이 **side-effect 경계**다 — gh를 실제로 spawn한다. 순수 부분(필드 빌드·파싱)은
-// provider-github.mjs에 있고, 여기서는 그 결과로 gh를 호출할 뿐이다. confirm(=개발자의
-// 선택 행위) 뒤 runner.claimFeature가 이 provider를 주입받아 쓴다.
+// 티켓 provider — GitHub Issues 실행부(gh spawn). 이 파일이 **side-effect 경계**다 — 순수 부분(필드 빌드·
+// 파싱)은 provider-github.mjs에 있고, 여기서는 그 결과로 gh를 호출할 뿐이다. 발행·픽업·보드가 주입받아 쓴다.
 import {spawn} from 'node:child_process'
-import {buildIssueFields, buildWorkIssueFields, featLabel, ghCreateArgs, parseIssueListJson, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
+import {buildWorkIssueFields, featLabel, ghCreateArgs, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
 import {classifyGhError} from './permissions.mjs'
-import {parseViewerPermission} from './permissions.mjs'
 import {parseGithubWorkList, workListArgs, workSearchArgs} from './work-provider.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
@@ -30,30 +27,11 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   })
 }
 
-// --- 순수 argv 빌더 (회귀 테스트 대상 — 실 gh 없이 인자 구조를 고정) ---
-export const listArgs = (repo, label) => ['issue', 'list', '--repo', repo, '--label', label, '--state', 'all', '--json', 'number,title,url,state', '--limit', '1']
 export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees,comments,updatedAt']
 export const labelEnsureArgs = (repo, label) => ['label', 'create', label, '--repo', repo, '--color', 'ededed', '--force']
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
-export const permissionArgs = repo => ['repo', 'view', repo, '--json', 'viewerPermission']
-// C(아웃바운드) 실행부 argv — 실제 실행은 confirm/권한 게이트 뒤 caller 몫.
-export const prCreateArgs = (repo, {title, body, base, head}) => {
-  const args = ['pr', 'create', '--repo', repo, '--title', title, '--body', body]
-  if (base) args.push('--base', base)
-  if (head) args.push('--head', head)
-  return args
-}
-export const issueCommentArgs = (repo, number, body) => ['issue', 'comment', String(number), '--repo', repo, '--body', body]
-// 대체 발행에서 옛 티켓을 닫는다. **완료가 아니라 대체**임이 코멘트로 남는다 — 닫힌 이슈를
-// 완료로 오독하면 보드와 실제가 갈린다.
-export const issueSupersedeCloseArgs = (repo, number, newNumber) => [
-  'issue', 'close', String(number), '--repo', repo,
-  '--comment', `계획 변경으로 대체됨 → #${newNumber} (완료가 아니라 superseded)`,
-]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
-// 보드 강화(배정 표시)·merged 출처 명세용 read-only argv.
-export const issueListAllArgs = repo => ['issue', 'list', '--repo', repo, '--state', 'all', '--json', 'number,title,body,labels,assignees', '--limit', '200']
 export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state']
 
 // 범용 gh 러너(실행부 경계 재노출) — executor CLI가 assign/comment 등 argv를 실제 스폰할 때
@@ -62,28 +40,9 @@ export function runGh(args, options = {}) {
   return gh(args, options)
 }
 
-/**
- * merged 출처 명세(§4-2 리뷰 조건): 원장의 prUrl 실린 레코드마다 `gh pr view --json state`로
- * **실제 머지 상태**를 조회해 merged FEAT 집합을 돌려준다(read-only). 조회 실패/미링크는
- * merged로 치지 않는다(낙관 위조 금지 — 미상은 제외).
- * @param {{records: Array<{featureId: string, prUrl?: string}>, exec?: (a: string[]) => Promise<string>, host?: string}} config
- * @returns {Promise<string[]>} merged featureIds
- */
-export async function resolveMergedFeatures({records, exec = null, host = 'github.com'}) {
-  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
-  const merged = []
-  for (const record of records ?? []) {
-    if (!record?.prUrl) continue
-    try {
-      const parsed = JSON.parse(await run(prStateArgs(record.prUrl)))
-      if (parsed?.state === 'MERGED') merged.push(record.featureId)
-    } catch { /* 조회 실패 = 미상 → merged 아님(보수) */ }
-  }
-  return merged
-}
 
 /**
- * runner에 주입할 GitHub provider(실행부). findByLabel/createIssue를 gh로 구현.
+ * GitHub provider(실행부). 발행·조회·배정·코멘트를 gh로 구현한다.
  * exec는 argv→stdout Promise — 기본은 실제 gh spawn, 테스트는 mock을 주입해 side-effect
  * 없이 argv·순서·오류 경로를 검증한다(회귀 커버리지, 리뷰 조건).
  * @param {{repo: string, host?: string, exec?: (args: string[]) => Promise<string>}} config
@@ -94,16 +53,10 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
   return {
     // ── TicketProvider 필수부(`ticket-provider.mjs`) ──
     name: 'github',
-    buildFields: buildIssueFields,
-    // WORK는 별도 빌더다 — FEAT 빌더는 `feat-<sourceKey>` 라벨과 refs 마커를 덧붙인다.
     buildWorkFields: buildWorkIssueFields,
     // FEAT 축 라벨의 **어휘는 트래커가 정한다**(GitHub `feat:`·Jira `feat-`) — 중립 코어가 한쪽을
     // 박으면 같은 저장소에서 FEAT 축이 둘로 갈린다.
     featLabel,
-    // **조회 키가 라벨인 것은 GitHub의 사정이다.** 호출자는 FEAT만 준다.
-    async findByFeature(featureId) {
-      return this.findByLabel(featLabel(featureId))
-    },
     // ── WORK 축(P2-b) ── 본문 검색은 **색인 지연**이 있다 — 결과가 비어도 부재를 단정하지 않는다.
     async findByWorkId({workId}) {
       const json = JSON.parse(await run(workSearchArgs(repo, workId)))
@@ -143,34 +96,19 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       await run(assignArgs(repo, key, login))
       return {ticketKey: String(key), assignee: login}
     },
-    // FEAT 고유 라벨로 기존 이슈 조회(청구 경쟁 검사) — 있으면 첫 이슈, 없으면 null.
-    // 하위호환으로 남긴다: 라벨을 직접 아는 호출자(exec 계층 내부)가 있다.
-    async findByLabel(label) {
-      return parseIssueListJson(await run(listArgs(repo, label)))[0] ?? null
-    },
-    // 이슈 생성 — GitHub은 --label로 붙이려면 라벨이 먼저 존재해야 하므로(라이브 실측:
-    // "could not add label: not found"), 각 라벨을 발행 *전에* 보장한다(--force=멱등).
-    // 그 뒤 이슈 생성, 출력 URL에서 번호 파싱해 반환.
-    // 닫힌 티켓을 되살린다. 재개(reopen) 흐름에서 **새 번호를 내지 않기 위해서**다 —
-    // 내용이 같은 티켓을 번호만 바꿔 다시 내면 히스토리가 끊긴다.
-    async reopenIssue(ticketKey, comment = null) {
-      const args = ['issue', 'reopen', String(ticketKey), '--repo', repo]
-      if (comment) args.push('--comment', comment)
-      await run(args)
-      return {number: Number(ticketKey), ticketKey: String(ticketKey)}
-    },
-    // 되돌림을 기획자에게 알리는 경로. `reopenIssue`가 이미 `--comment`를 쓰고 있었지만
-    // **되살리기에 묶여 있어** 되돌림 알림에는 쓸 수 없었다 — 같은 능력을 이름으로 뗀다.
+    // 되돌림을 기획자에게 알리는 경로.
     async comment(ticketKey, text) {
       await run(['issue', 'comment', String(ticketKey), '--repo', repo, '--body', String(text)])
       return {ticketKey: String(ticketKey), commented: true}
     },
-    // 본문 교체 — 역방향 인테이크의 스탬프 경로. **호출자가 덧붙인 본문을 넘긴다**(`stampRefsInto`).
+    // 본문 교체. **호출자가 만든 본문을 그대로 넘긴다** — 이 메서드가 본문을 지어내지 않는다.
     // `--body`는 인자 길이 한계와 셸 인용 문제가 있어 stdin으로 넘긴다.
     async updateBody(ticketKey, body) {
       await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: String(body)})
       return {ticketKey: String(ticketKey), updated: true}
     },
+    // 이슈 생성 — GitHub은 --label로 붙이려면 라벨이 먼저 존재해야 하므로(라이브 실측:
+    // "could not add label: not found"), 각 라벨을 발행 *전에* 보장한다(--force=멱등).
     async createIssue(fields) {
       for (const label of fields.labels) await run(labelEnsureArgs(repo, label))
       const out = await run(createArgs(repo, fields))
@@ -208,21 +146,4 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
   }
 }
 
-/**
- * 개발자의 repo 권한 등급을 gh로 조회한다(read-only, side-effect). runner의 permission
- * pre-check 입력. 404/403(미접근)이면 'read'로 보수 판정(least-privilege).
- * @param {{repo: string, host?: string}} config
- * @returns {Promise<'write'|'triage'|'read'>}
- */
-export async function resolveViewerPermission({repo, host = 'github.com', exec = null}) {
-  if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`INVALID_REPO: ${repo}`)
-  const run = exec ?? ((args, options = {}) => gh(args, {host, ...options}))
-  try {
-    return parseViewerPermission(await run(permissionArgs(repo)))
-  } catch {
-    return 'read' // 조회 실패(미접근·gh 환경 오류 등) → 보수적으로 최소 권한 가정
-  }
-}
-
-// 편의: FEAT 고유 라벨 재노출(runner가 이미 emit 쪽에서 씀 — 일관성).
 export {featLabel}

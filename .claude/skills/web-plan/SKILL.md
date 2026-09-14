@@ -34,10 +34,8 @@ metadata:
 5. `feature-planner` → `feature-plan.md`. UX 결정과 requirement를 모두 입력으로 사용한다.
 6. `tech-advisor` → `tech-stack.md`. 제품·기능·데이터 전략을 입력으로 사용한다.
 7. `planning-synthesizer` → `project-brief.md`
-8. 0에서 받은 기획 티켓이 있으면, 만들어진 FEAT와의 출처 연결(`bind <FEAT> <티켓키>`)을 **제안**한다 —
-   티켓 본문에 마커를 쓰는 외부 쓰기이므로 사용자가 확인한 것만 실행한다.
-9. read-only `plan-reviewer` 본문을 `plan-review.md`로 저장한다. L/XL·권한·destructive·realtime은 심화 검토하고, 모든 요청에 readiness gate를 적용한다.
-10. `PASS | NEEDS_DECISION | BLOCKED`와 최대 3개 우선 결정을 함께 출력한다. `BLOCKED`면 Phase 2로 넘기지 않는다.
+8. read-only `plan-reviewer` 본문을 `plan-review.md`로 저장한다. L/XL·권한·destructive·realtime은 심화 검토하고, 모든 요청에 readiness gate를 적용한다.
+9. `PASS | NEEDS_DECISION | BLOCKED`와 최대 3개 우선 결정을 함께 출력한다. `BLOCKED`면 Phase 2로 넘기지 않는다.
 
 external ingestion이면 requirements, tech-stack, project-brief 세 파일 모두 현재 mode와 `EXTERNAL_DATA_INGESTION_MODE: true`를 포함해야 한다. planning-only 단계에서는 crawler, runtime artifact, prototype source를 만들거나 commit/push/PR을 수행하지 않는다.
 

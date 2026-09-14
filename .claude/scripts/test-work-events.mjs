@@ -16,8 +16,7 @@ import {randomUUID} from 'node:crypto'
 import {spawn} from 'node:child_process'
 import {appendWorkEvent, foldWorkState, parseWorkEvents, readWorkEvents, validateWorkEvent} from './ticket/work-events.mjs'
 import {buildWorkMarker, classifyTicketKind, parseWorkMarker} from './ticket/work-refs.mjs'
-import {pickupTicket} from './ticket/pickup.mjs'
-import {checkAdopt} from './ticket/intake.mjs'
+import {pickupWorkTicket} from './ticket/work-pickup.mjs'
 
 const PLAN = '22222222-2222-4222-8222-222222222222'
 const WORK = 'WORK-00000001-0000-4000-8000-000000000001'
@@ -94,28 +93,21 @@ appendWorkEvent(process.argv[2], {schemaVersion: 1, eventId: randomUUID(),
   })
 })
 
-test('T10·T11: WORK 티켓은 legacy FEAT 폴백에서 제외되고, 마커 파손·중복·충돌은 명시적 오류다', () => {
+test('T10·T11: WORK 티켓은 FEAT 폴백에서 제외되고, 마커 파손·중복·충돌은 명시적 오류다', () => {
   const marker = buildWorkMarker({planId: PLAN, workId: WORK, featureIds: ['FEAT-001'], testCaseIds: ['TC-001-1'], planDigest: DIGEST})
   const body = `회원 타입·API 계약을 만든다. 부모 FEAT-001의 TC-001-1을 연다.\n\n${marker}`
   assert.equal(classifyTicketKind(body).kind, 'work')
   assert.deepEqual(parseWorkMarker(body).featureIds, ['FEAT-001'])
-  // 선판정이 없으면 이 본문은 FEAT-001의 legacy 티켓으로 읽힌다 — 픽업이 막아야 한다.
-  const picked = pickupTicket({issue: {body, title: 'WORK'}, planUnits: [{featureId: 'FEAT-001', testCaseIds: ['TC-001-1']}]})
-  assert.equal(picked.ok, false)
-  assert.equal(picked.bounce.reason, 'work-ticket-not-feature')
-  // 인수도 같다 — 이미 분해 모델의 티켓을 개발 단위로 다시 만들면 이중 소유다.
-  const adopted = checkAdopt({ticketKey: 'PF-9', featureId: 'FEAT-001', unit: {featureId: 'FEAT-001'}, body})
-  assert.equal(adopted.ok, false)
-  assert.equal(adopted.reason, 'work-ticket-not-adoptable')
   // 파손·중복·두 모델 동시 소속
   assert.match(parseWorkMarker('<!-- web-harness:work plan=x work=y rev=z -->').error, /plan이 UUID가 아니다/)
   assert.match(classifyTicketKind(`${marker}\n${marker}`).error, /둘 이상이다/)
   assert.equal(classifyTicketKind(`${marker}\n<!-- web-harness:refs feat=FEAT-001 tc= -->`).kind, 'conflict')
   assert.equal(classifyTicketKind('사람이 쓴 본문').kind, 'unknown')
-  // aggregate도 같은 입구에서 거부된다 — 생산자는 아직 없지만(P2-c) 판독 입구는 지금 닫아 둔다.
+  // aggregate는 판독 입구에서 WORK로도 FEAT로도 읽히지 않는다.
   const aggregate = '큰 개발 티켓\n<!-- web-harness:aggregate feat=FEAT-001 -->'
   assert.equal(classifyTicketKind(aggregate).kind, 'aggregate')
-  assert.equal(pickupTicket({issue: {body: aggregate}, planUnits: []}).bounce.reason, 'aggregate-ticket-not-feature')
-  assert.equal(checkAdopt({ticketKey: 'PF-9', featureId: 'FEAT-001', unit: {featureId: 'FEAT-001'}, body: aggregate}).reason, 'aggregate-ticket-not-adoptable')
+  const plan = {planId: PLAN, workItems: [], featureBindings: []}
+  assert.equal(pickupWorkTicket({issue: {ticketKey: 'PF-9', body: aggregate}, plan, planDigest: DIGEST, state: {works: new Map()}}).bounce.reason,
+    'aggregate-ticket-not-work')
   assert.throws(() => buildWorkMarker({planId: PLAN, workId: WORK, featureIds: ['FEAT --> 1'], planDigest: DIGEST}), /INVALID_MARKER_FIELD/)
 })

@@ -19,12 +19,13 @@
 // 사용법:
 //   node .claude/scripts/validate-handoff-readiness.mjs --project <root> --to design|development [--json]
 // 종료 코드: 0 = 인계 가능, 1 = 미해결, 2 = 사용법 오류.
-import {ledgerState, parseLedger} from './ticket/ledger.mjs'
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
-import {claimScopeReadiness, findPathCollisions} from './ticket/claim-scope.mjs'
+import {canonicalDigest, WORK_ANALYSIS_PATH} from './ticket/work-analysis.mjs'
+import {WORK_PLAN_PATH} from './ticket/work-plan.mjs'
+import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
 import {extractDecisionBlock} from './spec.mjs'
 import {checkDecisionsApplied} from './validate-development-readiness.mjs'
 import {readSpecAt} from './validate-spawn-plan.mjs'
@@ -1120,58 +1121,109 @@ export function checkRequirementsCovered(root) {
     + `어느 티켓이 그것을 닫는지 아무도 모른다. 의식적으로 범위 밖이면 ${COVERAGE_BASELINE}에 등록한다`)
 }
 
-/** 계획에 있는데 티켓이 발행되지 않은 FEAT. 원장이 있을 때만 잰다. */
+/**
+ * 계획의 FEAT가 **발행된 WORK로 전부 덮이는가**. WORK 원장이 있을 때만 잰다.
+ *
+ * FEAT 개발 티켓 원장(identity-ledger)으로 재던 검사를 WORK 모델로 옮겼다(2026-09-14) — 묻는 것은
+ * 같다: 계획에 있는데 아무도 집을 수 없는 일이 남았는가. 기준은 FEAT마다 **필수 WORK가 모두
+ * 발행(publish-confirmed)됐는가**이고, 분석이 유예한 FEAT는 분모에서 빼되 그 수를 적는다.
+ */
 export function checkTicketsCoverPlan(root, units) {
   if (!units || units.length === 0) return skip('tickets-cover-plan', '단위를 읽지 못해 대조할 수 없다')
-  const ledgerPath = join(root, '_workspace/03_dev/identity-ledger.jsonl')
-  if (!existsSync(ledgerPath)) return skip('tickets-cover-plan', '아직 티켓이 발행되지 않았다')
-  let issued
+  const eventsPath = join(root, WORK_EVENTS_PATH)
+  if (!existsSync(eventsPath)) return skip('tickets-cover-plan', '아직 WORK가 발행되지 않았다')
+  let plan
+  let analysis
   try {
-    issued = new Set(ledgerState(parseLedger(readFileSync(ledgerPath, 'utf8'))).keys())
-  } catch {
-    return skip('tickets-cover-plan', '원장을 읽지 못했다')
+    plan = readJsonIfPresent(join(root, WORK_PLAN_PATH))
+    analysis = readJsonIfPresent(join(root, WORK_ANALYSIS_PATH))
+  } catch (error) {
+    return hole('tickets-cover-plan', `WORK 계획·분석을 읽지 못했다: ${String(error?.message ?? error).slice(0, 160)}`, '`claim`으로 계획을 다시 검증한다')
   }
-  if (issued.size === 0) return skip('tickets-cover-plan', '원장에 유효한 티켓 기록이 없다')
-  const missing = units.map(unit => unit.featureId).filter(id => !issued.has(id)).sort()
-  if (missing.length === 0) return ok('tickets-cover-plan', `계획의 ${units.length}개 단위가 전부 티켓으로 발행됐다`)
-  return hole('tickets-cover-plan', `티켓이 없는 계획 단위 ${missing.length}건: ${missing.join(', ')}`,
-    'claim으로 발행한다 — 계획에 있는데 티켓이 없으면 보드에 안 보이고, 아무도 집지 않은 채 릴리스로 간다')
+  // 원장은 **발행이 있었다**는 사실이다 — 그런데 계획이 없으면 대조를 건너뛰는 것이 아니라 근거가 사라진 것이다.
+  if (!plan) {
+    return hole('tickets-cover-plan', 'WORK가 발행됐는데(원장 있음) WORK 계획이 없다',
+      '발행한 계획 파일을 되돌리거나 `claim`으로 다시 세운다 — 계획 없이는 무엇이 덮였는지 말할 수 없다')
+  }
+  let state
+  // 원장 파손은 **건너뛰지 않는다** — 읽지 못한 원장으로 「전부 발행됐다」도 「하나도 없다」도 말할 수 없다.
+  try { state = foldWorkState(readWorkEvents(eventsPath)) } catch (error) {
+    return hole('tickets-cover-plan', `WORK 원장을 읽지 못했다: ${String(error?.message ?? error).slice(0, 160)}`,
+      '원장은 append-only다 — 파손 줄을 사람이 확인한다(조용히 버리면 지나간 상태로 되돌아간다)')
+  }
+  const deferred = new Set((analysis?.scope?.featureDisposition ?? []).filter(entry => entry?.status === 'deferred').map(entry => entry.featureId))
+  const bindings = new Map((plan.featureBindings ?? []).map(binding => [binding.featureId, binding]))
+  const published = workId => state.works.get(workId)?.status === 'published'
+  const unbound = []
+  const unpublished = []
+  for (const unit of units) {
+    if (deferred.has(unit.featureId)) continue
+    const binding = bindings.get(unit.featureId)
+    if (!binding) { unbound.push(unit.featureId); continue }
+    const missing = (binding.requiredWorkIds ?? []).filter(workId => !published(workId))
+    if (missing.length > 0) unpublished.push(`${unit.featureId}(${missing.length})`)
+  }
+  const counted = units.length - deferred.size
+  const deferredNote = deferred.size > 0 ? ` · 분석이 유예한 FEAT ${deferred.size}건은 분모에서 뺐다` : ''
+  if (unbound.length === 0 && unpublished.length === 0) {
+    return ok('tickets-cover-plan', `계획의 FEAT ${counted}건이 전부 발행된 WORK로 덮인다${deferredNote}`)
+  }
+  const parts = [
+    ...(unbound.length > 0 ? [`WORK 계획에 없는 FEAT ${unbound.length}건: ${unbound.sort().join(', ')}`] : []),
+    ...(unpublished.length > 0 ? [`필수 WORK가 덜 발행된 FEAT ${unpublished.length}건: ${unpublished.sort().join(', ')}`] : []),
+  ]
+  return hole('tickets-cover-plan', `${parts.join(' · ')}${deferredNote}`,
+    '`claim`으로 분해를 갱신·검토하고 `claim --publish`로 발행한다 — 발행되지 않은 WORK는 보드에 안 보이고 아무도 집지 않은 채 릴리스로 간다')
 }
 
 
 // ── (3) 진행 중 픽업 보호 ───────────────────────────────────────────────────
-// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 순서가 바뀐다. 오늘 내가 그렇게 했다 —
-// FEAT-009를 픽업한 상태에서 그 FEAT의 dependsOn을 고쳐 진행 불가로 만들었다(코드 손실은
-// 없었지만 옳은 순서가 아니었다). 활성 change-scope가 있으면 그 FEAT가 **지금 계획으로도
-// 착수 가능한지** 확인한다.
-export function checkActivePickupIntact(root, units, {readiness = null} = {}) {
+// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 경계·계약이 바뀐다. 활성 change-scope가 WORK
+// 범위면 **그 작업이 지금 계획에도 살아 있고, 계획이 픽업한 판본 그대로인지** 확인한다.
+// (FEAT 범위의 착수 가능 재판정은 FEAT 픽업 경로와 함께 제거됐다 — 2026-09-14.)
+export function checkActivePickupIntact(root) {
   const scopePath = join(root, '_workspace/03_dev/change-scope.md')
   if (!existsSync(scopePath)) return skip('active-pickup', '진행 중인 픽업이 없다')
-  let featureId = null
+  let scope = null
   try {
     const fence = readFileSync(scopePath, 'utf8').match(/```json\s+change-scope\s*\n([\s\S]*?)\n```/)
-    featureId = fence ? JSON.parse(fence[1])?.featureId ?? null : null
-  } catch { return skip('active-pickup', 'change-scope를 읽지 못했다') }
-  if (!featureId) return skip('active-pickup', 'change-scope에 featureId가 없다')
-  const unit = (units ?? []).find(entry => entry.featureId === featureId)
-  if (!unit) {
-    return hole('active-pickup', `진행 중인 ${featureId}가 계획에서 사라졌다`,
-      '픽업 중인 FEAT를 계획에서 지우면 그 작업의 근거가 없어진다 — 되돌리거나 픽업을 정리한다')
+    scope = fence ? JSON.parse(fence[1]) : null
+  } catch { scope = null }
+  // **픽업 중이라는 파일은 있는데 판정을 포기하면** 그것이 fail-open이다 — 읽지 못한 것도, 옛 FEAT 범위가 남은 것도 구멍이다.
+  if (!scope) {
+    return hole('active-pickup', '진행 중 픽업 파일(change-scope)이 있는데 읽지 못했다',
+      '파일이 손상됐다 — 픽업을 다시 발급하거나(`pickup`) 정리한다')
   }
-  const verdict = (readiness ?? defaultReadiness)(unit, units)
-  if (verdict.pickupable) return ok('active-pickup', `진행 중인 ${featureId}가 현재 계획으로도 착수 가능하다`)
-  return hole('active-pickup', `진행 중인 ${featureId}가 현재 계획으로는 착수 불가다(${verdict.blockedReason})`,
-    '계획이 진행 중인 픽업 밑에서 바뀌었다 — 계획을 되돌리거나, 개발자에게 알리고 픽업을 정리한 뒤 바꾼다')
+  if (!scope.workId) {
+    return hole('active-pickup', `WORK가 아닌 옛 범위 파일이 남아 있다(${scope.featureId ?? '작업 ID 없음'})`,
+      'FEAT 픽업 경로는 제거됐다 — 그 범위를 정리하고 WORK 티켓으로 다시 픽업한다')
+  }
+  let plan
+  try { plan = readJsonIfPresent(join(root, WORK_PLAN_PATH)) } catch (error) {
+    return hole('active-pickup', `WORK 계획을 읽지 못했다: ${String(error?.message ?? error).slice(0, 160)}`, '`claim`으로 계획을 다시 검증한다')
+  }
+  if (!plan) {
+    return hole('active-pickup', `진행 중인 ${scope.workId}의 WORK 계획이 사라졌다`,
+      '픽업 중인 작업의 계획을 지우면 그 작업의 경계·계약 근거가 없어진다 — 되돌리거나 픽업을 정리한다')
+  }
+  const work = (plan.workItems ?? []).find(entry => entry.workId === scope.workId)
+  if (!work) {
+    return hole('active-pickup', `진행 중인 ${scope.workId}가 WORK 계획에서 사라졌다`,
+      '픽업 중인 작업을 계획에서 지우면 그 작업의 근거가 없어진다 — 되돌리거나 픽업을 정리한다')
+  }
+  if ((work.lifecycle ?? 'active') !== 'active') {
+    return hole('active-pickup', `진행 중인 ${scope.workId}가 계획에서 ${work.lifecycle}로 바뀌었다`,
+      '개발자에게 알리고 픽업을 정리한 뒤 바꾼다')
+  }
+  if (scope.sourceDigest && scope.sourceDigest !== canonicalDigest(plan)) {
+    return hole('active-pickup', `진행 중인 ${scope.workId}의 WORK 계획이 픽업 뒤 바뀌었다`,
+      '계획이 진행 중인 픽업 밑에서 바뀌었다 — 되돌리거나, 바뀐 안을 검토·발행하고 개발자가 다시 픽업한다')
+  }
+  return ok('active-pickup', `진행 중인 ${scope.workId}가 현재 WORK 계획 그대로다`)
 }
 
-const defaultReadiness = (unit, units) => claimScopeReadiness({
-  unit,
-  foundationComplete: true,
-  // 머지 목록을 모르므로 **의존을 보지 않는다** — 여기서 묻는 것은 "계획 변경으로 구조가
-  // 깨졌는가"이지 "지금 순서가 왔는가"가 아니다. 충돌·미선언만 본다.
-  mergedFeatureIds: (unit.dependsOn ?? []),
-  collisions: findPathCollisions(units),
-})
+// 없으면 null, **깨졌으면 던진다** — 깨진 계획을 「계획 없음」으로 읽으면 대조를 건너뛴 것이 통과처럼 보인다.
+const readJsonIfPresent = path => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null)
 
 // ── 산문이 말한 의존 간선이 선언에 있는가 ───────────────────────────────────
 // 오늘 세 번 같은 실수를 했다: 산문의 **웨이브 목록**을 간선으로 옮기면서 같은 문서가 네 줄
@@ -1439,7 +1491,7 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
   // 의존·경로는 **기획 산출물**이다. 디자인 인계에서 먼저 잡고, 개발 인계에서 다시 확인한다
   // (사이에 지워질 수 있다). 늦게 잡을수록 되돌리는 비용이 커진다.
   const planChecks = [checkPlanDeclarations(units), checkProseOnlyOrdering(root, units), checkProseEdgesDeclared(root, units),
-    checkAcceptanceCoverage(units), checkActivePickupIntact(root, units)]
+    checkAcceptanceCoverage(units), checkActivePickupIntact(root)]
   if (to === 'design') {
     const results = [...planChecks, checkSourceConsumption(root), checkDesignInputs(root), checkDesignBinding(root, {reportDenominator: false}), checkUpstreamDecisionsReachable(root)]
     const holes = results.filter(r => r.state === 'HOLE')

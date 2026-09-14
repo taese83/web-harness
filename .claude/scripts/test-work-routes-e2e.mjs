@@ -1,0 +1,195 @@
+#!/usr/bin/env node
+// test-work-routes-e2e.mjs — WORK 흐름을 **실제 Jira provider 코드**로 처음부터 끝까지 돈다(T62).
+//
+// 구간별 회귀는 provider stub을 주입해 **Jira provider 코드를 타지 않는다** — AOA-3(조회 필드 누락)이 정확히
+// 그 틈으로 지나갔다. 여기서는 메모리 Jira(HTTP 수준 stub)에 실제 `createJiraProvider`를 붙인다. stub은 실 Jira처럼
+// `fields=`로 응답을 거르고, 모르는 JQL·틀린 배정 형식에 400을 준다(관대하면 요청 쪽 결함이 안 보인다).
+//
+//   claim(분석·계획 검토) → claim --publish --confirm(발행) → 기획자가 트래커에 코멘트 → pickup → 작업 → link
+//   → link --sync(머지 관측) → 후속 작업 pickup: 선행 하나가 아직 머지되지 않아 되돌림이 트래커로 간다
+//
+// 여기서 고정하는 사실:
+//   (1) 발행한 티켓에 WORK 라벨이 **실제 Jira 필드로** 실린다 — 재개 조회의 축이 살아 있다
+//   (2) 기획자 코멘트가 change-scope에 실린다(격리 블록) — 본문 밖의 결정이 개발 에이전트에 닿는다
+//   (3) 트래커 쓰기는 **정해진 것뿐이다** — 발행·배정·in-progress 전이·되돌림 코멘트. `done`이 매핑돼 있어도
+//       부르지 않는다(머지·닫기는 사람·close 흐름의 몫)
+//   (4) 원장의 링크 기록이 change-scope의 개발 기준 개정을 싣고, 완료는 머지 관측 뒤에만 생긴다
+//
+// `WEB_HARNESS_E2E_RECEIPT=<경로>`를 주면 실행 요약을 JSON으로 쓴다(사람이 보는 receipt — 게이트가 아니다).
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {dirname, join} from 'node:path'
+import {tmpdir} from 'node:os'
+import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
+import {readChangeScopeFile} from './ticket/cli.mjs'
+import {runClaimWork} from './ticket/work-claim.mjs'
+import {runWorkPublish} from './ticket/work-publish-run.mjs'
+import {runWorkPickup} from './ticket/work-pickup-run.mjs'
+import {runWorkLink, runWorkMergeSync} from './ticket/work-link-run.mjs'
+import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
+
+const repoRoot = new URL('../..', import.meta.url).pathname
+const jiraConfig = {
+  baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
+  // `done`도 매핑돼 있다 — 매핑이 있어도 개발 흐름이 완료 전이를 부르지 않는지 보려는 것이다.
+  transitions: {'in-progress': '31', done: '41'},
+  workLink: {mode: 'issue-link', linkType: 'Relates'},
+}
+const ticketConfig = {provider: 'jira', jira: jiraConfig}
+const W = n => `WORK-0000000${n}-0000-4000-8000-00000000000${n}`
+
+/** 메모리 Jira — REST v2의 쓰는 부분만. 모르는 요청은 던진다(조용히 200을 주면 회귀가 거짓 green이다). */
+function createJiraStub() {
+  const issues = new Map()
+  const writes = []
+  let clock = 0
+  let sequence = 100
+  const touch = issue => { issue.fields.updated = `2026-09-14T00:00:${String(++clock).padStart(2, '0')}.000+0000` }
+  const respond = (status, json) => ({ok: status < 400, status, json: async () => json, text: async () => JSON.stringify(json ?? '')})
+  const humanComment = (key, author, body) => {
+    const issue = issues.get(key)
+    issue.fields.comment.comments.push({author: {displayName: author}, created: `c${clock}`, body})
+    issue.fields.comment.total += 1
+    touch(issue)
+  }
+  const select = (issue, wanted) => (wanted
+    ? {key: issue.key, fields: Object.fromEntries(wanted.split(',').filter(name => name in issue.fields).map(name => [name, structuredClone(issue.fields[name])]))}
+    : structuredClone(issue))
+  const fetchImpl = async (url, {method = 'GET', body = null} = {}) => {
+    const parsed = new URL(url)
+    const path = parsed.pathname.replace(/^\/rest\/api\/2/, '')
+    const data = body ? JSON.parse(body) : null
+    if (method !== 'GET') writes.push({method, path, body: data})
+    let match
+    if (method === 'GET' && path === '/search') {
+      const jql = parsed.searchParams.get('jql')
+      const wanted = parsed.searchParams.get('fields')
+      let hits
+      if ((match = jql.match(/^key in \(([^)]+)\)/))) {
+        const keys = new Set(match[1].split(',').map(key => key.trim()))
+        hits = [...issues.values()].filter(issue => keys.has(issue.key))
+      } else if ([...jql.matchAll(/labels = "([^"]+)"/g)].length > 0) {
+        const labels = [...jql.matchAll(/labels = "([^"]+)"/g)].map(item => item[1])
+        hits = [...issues.values()].filter(issue => labels.every(label => issue.fields.labels.includes(label)))
+      } else {
+        // 실 Jira는 깨진 JQL에 400을 준다 — 빈 결과로 답하면 「없음 → 재발행」으로 조용히 지나간다.
+        return respond(400, {errorMessages: [`stub이 모르는 JQL: ${jql}`]})
+      }
+      const startAt = Number(parsed.searchParams.get('startAt') ?? 0)
+      const max = Number(parsed.searchParams.get('maxResults') ?? 50)
+      return respond(200, {startAt, maxResults: max, total: hits.length, issues: hits.slice(startAt, startAt + max).map(issue => select(issue, wanted))})
+    }
+    if (method === 'POST' && path === '/issue') {
+      const key = `PF-${++sequence}`
+      const issue = {key, fields: {labels: [], components: [], issuelinks: [], comment: {total: 0, comments: []},
+        assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, ...data.fields}}
+      touch(issue)
+      issues.set(key, issue)
+      return respond(201, {key, self: `https://jira.test/rest/api/2/issue/${key}`})
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)$/)) && method === 'GET') {
+      const issue = issues.get(decodeURIComponent(match[1]))
+      if (!issue) return respond(404, {errorMessages: ['없는 이슈']})
+      return respond(200, select(issue, parsed.searchParams.get('fields')))
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)\/assignee$/)) && method === 'PUT') {
+      if (typeof data?.name !== 'string') return respond(400, {errorMessages: ['assignee에는 name이 필요하다(DC)']})
+      const issue = issues.get(match[1]); issue.fields.assignee = {name: data.name}; touch(issue); return respond(204, null)
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)\/transitions$/))) {
+      const issue = issues.get(match[1])
+      if (method === 'GET') return respond(200, {transitions: [{id: '31', name: '진행'}, {id: '41', name: '완료'}]})
+      issue.fields.status = {name: data.transition.id, statusCategory: {key: data.transition.id === '41' ? 'done' : 'indeterminate'}}
+      touch(issue)
+      return respond(204, null)
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)\/comment$/)) && method === 'POST') {
+      humanComment(match[1], 'web-harness', data.body)
+      return respond(201, {})
+    }
+    throw new Error(`jira stub: 모르는 요청 ${method} ${path}`)
+  }
+  return {issues, writes, humanComment, fetchImpl}
+}
+
+const describeWrites = writes => writes.map(write => {
+  if (write.path.endsWith('/transitions')) return `transition ${write.path.split('/')[2]} → ${write.body.transition.id}`
+  if (write.path.endsWith('/assignee')) return `assign ${write.path.split('/')[2]} → ${write.body.name}`
+  if (write.path.endsWith('/comment')) return `comment ${write.path.split('/')[2]}`
+  if (write.method === 'POST' && write.path === '/issue') return 'create issue'
+  return `${write.method} ${write.path}`
+})
+// git 쪽 사실은 주입한다 — 이 테스트가 재는 것은 트래커 계약이지 저장소 상태가 아니다.
+const gitIo = {currentBranch: async () => 'feature/members', worktree: async () => ({dirty: false, conflicted: false}), refresh: async () => ({ok: true})}
+
+test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관측 → 후속 선행 게이트가 실제 Jira provider로 닿는다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-work-e2e-'))
+  const jira = createJiraStub()
+  const provider = createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+  const summary = {}
+  try {
+    cpSync(join(repoRoot, '.claude/evals/fixtures/work-plan/crud'), root, {recursive: true})
+    // ① 분해 검토(외부 쓰기 0)
+    assert.equal((await runClaimWork({root, flags: {}})).phase, 'P1_REVIEW')
+    assert.equal(jira.writes.length, 0, '검토 단계가 트래커에 썼다')
+    // ② 기반 두 작업과 그 후속(목록 조회 연결)을 발행
+    const published = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)},${W(4)}`, confirm: true}, io: {provider, ticketConfig}})
+    assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published))
+    const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
+    // (1) 실제 Jira 필드에 WORK 라벨이 실렸다 — 재개 조회가 이것으로 찾는다.
+    const created = jira.issues.get(keyOf(W(1)))
+    assert.ok(created.fields.labels.includes('work-00000001-0000-4000-8000-000000000001'), JSON.stringify(created.fields.labels))
+    assert.equal(created.fields.description.includes('web-harness:refs'), false, 'WORK 본문에 FEAT 마커가 실렸다')
+    const lookup = await provider.findByWorkId({planId: '22222222-2222-4222-8222-222222222222', workId: W(1)})
+    assert.deepEqual(lookup.matches.map(item => item.ticketKey), [keyOf(W(1))])
+    // ③ 기획자가 트래커에서 결정을 코멘트로 남긴다(사람의 행동 — 하네스 쓰기가 아니다)
+    jira.humanComment(keyOf(W(1)), '기획자', '회원 상태 값은 active/suspended 두 가지로 확정합니다')
+    // ④ 픽업
+    const picked = await runWorkPickup({root, ticketKey: keyOf(W(1)), developer: 'dev1', flags: {}, io: {provider, ...gitIo}})
+    assert.equal(picked.ok, true, JSON.stringify(picked.bounce ?? picked))
+    const scope = readChangeScopeFile(root)
+    assert.equal(scope.workId, W(1))
+    // (2) 코멘트가 격리 블록 안에 실렸다
+    assert.match(scope.TARGET_BEHAVIOR, /untrusted-ticket-comments[\s\S]*active\/suspended/)
+    assert.equal(scope.ticket.revisionStage, 'settled-at-pickup')
+    assert.equal(scope.ticket.provider, 'jira', 'change-scope가 어느 트래커의 티켓인지 모른다')
+    assert.equal(jira.issues.get(keyOf(W(1))).fields.assignee?.name, 'dev1', '배정 어휘(DC name)가 실제 요청에 실리지 않았다')
+    // ⑤ 작업 산출물 → 완료 주장
+    mkdirSync(join(root, 'src/entities/member'), {recursive: true})
+    writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string; status: "active" | "suspended"}\n')
+    const linked = await runWorkLink({root, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/11', flags: {}})
+    assert.equal(linked.ok, true, JSON.stringify(linked))
+    assert.match(linked.closeLine, /Relates to PF-/, 'Jira 키에 닫는 줄을 적었다')
+    let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+    // (4) 링크 기록이 개발 기준 개정을 싣는다 — 완료는 아직 없다
+    const linkEvent = readWorkEvents(join(root, WORK_EVENTS_PATH)).find(event => event.eventType === 'work-linked')
+    assert.deepEqual(linkEvent.payload.ticket, scope.ticket)
+    assert.equal(state.works.get(W(1)).completed, null)
+    // ⑥ 머지 관측
+    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED'}]))}})
+    assert.deepEqual(sync.completed, [W(1)])
+    // ⑦ 후속 픽업: W3이 아직 머지되지 않았다 — 막히고 되돌림이 트래커로 간다
+    await import('node:fs').then(fs => fs.rmSync(join(root, '_workspace/03_dev/change-scope.md')))
+    const blocked = await runWorkPickup({root, ticketKey: keyOf(W(4)), developer: 'dev1', flags: {}, io: {provider, ...gitIo}})
+    assert.equal(blocked.bounce.reason, 'dependency-incomplete')
+    assert.deepEqual(blocked.bounce.missing, [W(3)])
+    assert.ok(jira.issues.get(keyOf(W(4))).fields.comment.comments.some(comment => /머지로 끝나지 않았다|not merged/.test(comment.body)),
+      '되돌림이 트래커에 남지 않았다')
+    // (3) 트래커 쓰기는 정해진 것뿐이다
+    const writes = describeWrites(jira.writes)
+    summary.writes = writes
+    const allowed = /^(create issue|assign PF-\d+ → dev1|transition PF-\d+ → 31|comment PF-\d+)$/
+    assert.deepEqual(writes.filter(write => !allowed.test(write)), [], `허용 밖 트래커 쓰기: ${writes.join(' | ')}`)
+    assert.equal(writes.some(write => /→ 41$/.test(write)), false, '완료 전이를 불렀다')
+    assert.equal(writes.filter(write => write === 'create issue').length, 3)
+    summary.result = {published: published.published.length, picked: scope.workId, linked: linkEvent.payload.prUrl, completed: sync.completed, downstream: blocked.bounce.reason}
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+    if (process.env.WEB_HARNESS_E2E_RECEIPT) {
+      mkdirSync(dirname(process.env.WEB_HARNESS_E2E_RECEIPT), {recursive: true})
+      writeFileSync(process.env.WEB_HARNESS_E2E_RECEIPT, `${JSON.stringify({kind: 'work-routes-e2e', measuredAt: new Date().toISOString(), ...summary,
+        limits: ['메모리 Jira(REST v2 일부) — 실 Jira NOT_RUN', 'PR 머지 상태는 주입(gh 미호출)', 'git 사실(브랜치·워크트리·fetch)은 주입', 'feature-planner·system-architect 단계는 fixture 계획 파일로 대신']}, null, 2)}\n`)
+    }
+  }
+})

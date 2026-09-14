@@ -259,3 +259,20 @@ test('배선: `pickup --work`가 WORK 입구로 가고, 계획이 없으면 트�
     rmSync(root, {recursive: true, force: true})
   }
 })
+
+test('실행부: 판정 전에 origin을 갱신하고, 못 하면 로컬 스냅샷 기준임을 적는다 — 막지는 않는다', async () => {
+  await within(workspace(), async root => {
+    const refreshed = []
+    const ok = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {'dry-run': true},
+      io: {provider: stubProvider().provider, refresh: async () => { refreshed.push(true); return {ok: true} }}})
+    assert.deepEqual(ok.freshness, {fetched: true, basis: 'origin'})
+    const failed = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {'dry-run': true},
+      io: {provider: stubProvider().provider, refresh: async () => ({ok: false, reason: 'offline'})}})
+    assert.equal(failed.ok, true, '갱신 실패로 픽업을 막았다')
+    assert.deepEqual(failed.freshness, {fetched: false, basis: 'local-snapshot', reason: 'offline'})
+    const skipped = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {'dry-run': true, 'no-fetch': true},
+      io: {provider: stubProvider().provider, refresh: async () => { throw new Error('부르면 안 된다') }}})
+    assert.equal(skipped.freshness.basis, 'local-snapshot')
+    assert.equal(refreshed.length, 1)
+  })
+})

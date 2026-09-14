@@ -1,0 +1,163 @@
+{
+  "kind": "legacy-removal",
+  "measuredAt": "2026-09-14T06:29:57.000Z",
+  "scope": "FEAT 개발 티켓 경로 제거(claim·pickup·board·link·bind·adopt·--normalize) — 사용자 결정 2026-09-14",
+  "removedSeeds": [
+    {
+      "id": "pickup-bounce-notifies-planner",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "FEAT 픽업 제거 — WORK 픽업의 되돌림 알림은 work-pickup-bounce-reaches-tracker가 결박"
+    },
+    {
+      "id": "emit-leaves-planner-checklist",
+      "file": ".claude/scripts/ticket/provider-github.mjs",
+      "reason": "FEAT 개발 티켓 본문(기획자 체크리스트) 제거 — WORK 본문에는 그 절이 없다(해당 없음)"
+    },
+    {
+      "id": "readiness-marker-detects-removal",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "reason": "FEAT 체크리스트 판정(parseReadiness) 제거 — 해당 없음"
+    },
+    {
+      "id": "pickup-blocks-unfilled-ticket",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "reason": "FEAT 체크리스트 판정(content-incomplete) 제거 — 해당 없음"
+    },
+    {
+      "id": "readiness-stops-at-comment",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "reason": "FEAT 체크리스트 판정 제거 — 해당 없음"
+    },
+    {
+      "id": "readiness-anchors-item-line",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "reason": "FEAT 체크리스트 판정 제거 — 해당 없음"
+    },
+    {
+      "id": "bind-requires-intake-evidence",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "reason": "bind 명령 제거(사용자 결정 2026-09-14)"
+    },
+    {
+      "id": "bind-uses-source-marker-not-refs",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "bind 명령 제거"
+    },
+    {
+      "id": "adopt-refuses-non-dev-ticket",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "reason": "adopt 명령 제거"
+    },
+    {
+      "id": "adopt-normalize-keeps-origin-gate",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "adopt-normalize-is-idempotent",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "adopt-normalize-declares-cost",
+      "file": ".claude/scripts/ticket/plan-units.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "adopt-missing-plan-gives-remedy",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "normalize-counts-one-unit",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "normalize-requires-dev-ticket",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "normalize-scans-untrusted-body",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거 — 인젝션 스캔 자체는 issue-scan-covers-title·work-pickup-injection-fail-closed가 결박"
+    },
+    {
+      "id": "normalize-refuses-intaken-source",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "normalize-does-not-claim-pickup",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "reason": "adopt --normalize 제거"
+    },
+    {
+      "id": "pickup-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "reason": "FEAT 픽업 입구 제거 — WORK 픽업의 종류 선판정은 work-pickup-kind-first가 결박"
+    },
+    {
+      "id": "adopt-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "reason": "adopt 입구 제거"
+    }
+  ],
+  "reanchoredSeeds": [
+    "change-scope-ticket-carries-provider",
+    "cli-claim-work-dispatch",
+    "cli-claim-work-publish-dispatch",
+    "cli-link-work-dispatch",
+    "cli-pickup-work-dispatch",
+    "comment-fence-outgrows-content",
+    "e2e-sees-missing-context-fields",
+    "issue-scan-covers-title",
+    "jira-assign-honors-assignee-field",
+    "jira-issue-declares-provider",
+    "link-records-ticket-revision",
+    "pickup-settles-revision-after-writes",
+    "pickup-transitions-only-in-progress",
+    "ticket-body-fence-outgrows-content"
+  ],
+  "reanchorVerification": {
+    "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본",
+    "scope": "바뀐 테스트 파일에 결박된 seed 전부",
+    "result": {
+      "ok": 98,
+      "total": 98,
+      "treeChanged": null
+    }
+  },
+  "migratedValidatorChecks": [
+    "validate-handoff-readiness: tickets-cover-plan → 필수 WORK 발행 대조",
+    "validate-handoff-readiness: active-pickup → WORK 범위의 계획 판본 대조"
+  ],
+  "keptForConsole": {
+    "onlyForConsole": [
+      ".claude/scripts/ticket/ledger.mjs",
+      ".claude/scripts/ticket/route.mjs"
+    ],
+    "alsoImportedByConsoleButUsedByHarness": [
+      ".claude/scripts/ticket/plan-units.mjs",
+      ".claude/scripts/ticket/emit.mjs",
+      ".claude/scripts/ticket/git-origin.mjs"
+    ]
+  },
+  "keptUntilCloseReplacement": [
+    ".claude/skills/team-flow/assets/ticket-close.yml",
+    ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+    "cli.mjs planTicketCloseInstall/installTicketCloseAssets",
+    "validate-development-readiness ticket-assets"
+  ],
+  "limits": [
+    "지운 seed의 게이트는 코드와 함께 사라졌다 — 게이트 약화가 아니라 경로 제거다. WORK 경로의 대응 게이트는 각 사유에 적었다",
+    "Console 표시는 옛 원장을 읽으므로 WORK 흐름을 보여주지 않는다(범위 밖)"
+  ],
+  "addedAfterReview": [
+    "공용부 회귀 보강: Jira HTTP 오류 경로·분류, ADF 변환, GitHub comment·updateBody argv, git fetch 갱신",
+    "핸드오프 fail-open 둘 → HOLE(원장 있고 계획 없음, 읽지 못하거나 옛 FEAT 범위의 change-scope)",
+    "쓰는 곳 없는 hostFromRemoteUrl·Jira reopenIssue 제거",
+    "seed 4건 추가(되돌림 호출·핸드오프 HOLE 둘·Jira 상태코드)"
+  ]
+}

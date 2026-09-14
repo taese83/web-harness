@@ -11,12 +11,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {requireTicketProvider, providerCapabilities} from './ticket/ticket-provider.mjs'
-import {
-  buildIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
-  isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId, toAdf,
-} from './ticket/provider-jira.mjs'
+import {classifyJiraError, closeReference, featLabel, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, toAdf} from './ticket/provider-jira.mjs'
 import {authHeader, createJiraProvider} from './ticket/provider-jira-exec.mjs'
-import {buildTicketConfig, recordProvider, resolveProviderChoice, validateTicketConfig} from './ticket/ticket-config.mjs'
+import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, resolveProviderChoice, validateTicketConfig, validateTicketConfig as _v, writeTicketConfig} from './ticket/ticket-config.mjs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync as readFile, rmSync, writeFileSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {parseArgs, runConfigure} from './ticket/cli.mjs'
 
 const baseConfig = {baseUrl: 'https://jira.example.com', projectKey: 'PROJ', issueType: 'Task'}
 const draft = {sourceKey: 'FEAT-042', title: '메뉴 추가', body: '동작 명세', acceptanceCriteria: ['TC-042-1'], harnessRefs: {featureIds: ['FEAT-042'], testCaseIds: ['TC-042-1']}}
@@ -43,7 +44,7 @@ test('전이 매핑이 없으면 transition 능력을 노출하지 않는다', (
   assert.equal(requireTicketProvider(provider), provider)
   // **코멘트는 전이 매핑과 무관하다** — Jira에서 코멘트는 별도 엔드포인트라, 전이 phase가
   // 하나도 설정되지 않아도 되돌림을 기획자에게 알릴 수는 있다.
-  assert.deepEqual(providerCapabilities(provider), {reopen: false, transition: false, autoClose: true, comment: true, updateBody: true})
+  assert.deepEqual(providerCapabilities(provider), {transition: false, autoClose: true, comment: true, updateBody: true})
   assert.equal(typeof provider.transition, 'undefined', '없는 능력을 노출하면 호출자가 전이했다고 보고한다')
 })
 
@@ -71,37 +72,6 @@ test('반증: 설정값이 현재 워크플로우에 없으면 조용히 건너�
   assert.throws(() => resolveTransitionId({transitions: {a: 'In Progress'}}, 'a', available),
     /JIRA_TRANSITION_NOT_AVAILABLE.*21:진행중/s,
     '조용히 넘기면 "전이했다"는 거짓 보고가 된다')
-})
-
-// ── 필드 빌드 ─────────────────────────────────────────────────────────────────
-test('FEAT 라벨과 왕복 마커가 실린다 — 마커는 트래커 무관 모듈 소유다', () => {
-  const {fields} = buildIssueFieldsFor(baseConfig, draft, {branch: 'feature/x'})
-  assert.ok(fields.labels.includes(featLabel('FEAT-042')))
-  const text = JSON.stringify(fields.description)
-  assert.ok(text.includes('web-harness:refs'), '왕복 마커가 없으면 pickup이 FEAT를 되읽지 못한다')
-})
-
-test('apiVersion이 본문 형식을 가른다 — Cloud(3)는 ADF, Data Center(2)는 평문', () => {
-  assert.equal(typeof buildIssueFieldsFor({...baseConfig, apiVersion: '2'}, draft).fields.description, 'string')
-  assert.equal(buildIssueFieldsFor(baseConfig, draft).fields.description.type, 'doc')
-  assert.equal(toAdf('a\nb').content.length, 2)
-})
-
-test('assignee 표기는 설정이 정한다 — Cloud accountId · Data Center name', () => {
-  assert.deepEqual(buildIssueFieldsFor(baseConfig, draft, {assignee: 'abc'}).fields.assignee, {accountId: 'abc'})
-  assert.deepEqual(buildIssueFieldsFor({...baseConfig, assigneeField: 'name'}, draft, {assignee: 'abc'}).fields.assignee, {name: 'abc'})
-})
-
-// ── 조회 ──────────────────────────────────────────────────────────────────────
-test('FEAT 조회는 라벨 JQL이 기본이고 커스텀 필드가 있으면 그쪽을 쓴다', () => {
-  assert.match(featureJql(baseConfig, 'FEAT-042'), /labels = "feat-FEAT-042"/)
-  assert.match(featureJql({...baseConfig, featureField: 'Feature ID'}, 'FEAT-042'), /"Feature ID" ~ "FEAT-042"/)
-})
-
-test('검색 응답 파싱 — 없으면 null', () => {
-  assert.equal(parseSearchResponse({issues: []}), null)
-  assert.equal(parseSearchResponse({issues: [{key: 'PROJ-7', fields: {summary: 's', labels: []}}]}).ticketKey, 'PROJ-7')
-  assert.equal(parseCreateResponse({key: 'PROJ-8'}).ticketKey, 'PROJ-8')
 })
 
 // ── 인증 ──────────────────────────────────────────────────────────────────────
@@ -141,12 +111,6 @@ test('매핑 없는 phase는 전이하지 않았다고 사실대로 돌려준다
   assert.deepEqual(await provider.transition('PROJ-9', 'done'), {ticketKey: 'PROJ-9', transitioned: false, reason: 'no-mapping:done'})
 })
 
-test('HTTP 오류는 상태코드를 담아 분류된다', async () => {
-  const fetchImpl = async () => ({ok: false, status: 403, text: async () => 'Forbidden', json: async () => ({})})
-  const provider = createJiraProvider({config: baseConfig, fetchImpl, env: {JIRA_TOKEN: 't'}})
-  await assert.rejects(() => provider.findByFeature('FEAT-1'), error => classifyJiraError(error.message).kind === 'forbidden')
-})
-
 // ── (6) 선택의 영속 ───────────────────────────────────────────────────────────
 test('저장된 선택이 없으면 묻는다', () => {
   assert.deepEqual(resolveProviderChoice({}), {provider: null, needsChoice: true})
@@ -160,11 +124,6 @@ test('다른 트래커를 요청해도 조용히 바꾸지 않는다 — 기존 
   const result = resolveProviderChoice({stored: {provider: 'github'}, requested: 'jira'})
   assert.equal(result.provider, 'github', '전환은 명시적 확인을 거친다')
   assert.deepEqual(result.switching, {from: 'github', to: 'jira'})
-})
-
-test('원장의 provider가 없으면 github다 — 이 필드 이전 레코드는 전부 GitHub이다', () => {
-  assert.equal(recordProvider({featureId: 'FEAT-1'}), 'github')
-  assert.equal(recordProvider({provider: 'jira'}), 'jira')
 })
 
 test('반증: 모르는 provider는 조용히 통과하지 않는다', () => {
@@ -182,14 +141,9 @@ test('사용자 답의 점 표기가 중첩 설정으로 펴진다', () => {
 // provider가 코드에 있어도 cli가 부르지 않으면 죽은 계약이다. 여기서 그 배선을 고정한다.
 import {resolveTicketProvider} from './ticket/cli.mjs'
 
-test('설정이 없어도 원장에 기록이 있으면 GitHub으로 본다 — 돌던 흐름을 멈추지 않는다', () => {
-  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', hasLedgerRecords: true})
-  assert.equal(resolved.choice.needsChoice, false)
-  assert.equal(resolved.provider.name, 'github')
-})
-
-test('설정도 기록도 없으면 묻는다 — 최초 청구에서만', () => {
-  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r', hasLedgerRecords: false})
+// FEAT 청구 원장으로 「이미 GitHub이다」를 추론하던 하위호환 규칙은 그 경로와 함께 제거됐다 — 설정이 정본이다.
+test('설정이 없으면 묻는다 — 원장 흔적으로 트래커를 추론하지 않는다', () => {
+  const resolved = resolveTicketProvider({root: '/tmp/nope', repo: 'o/r'})
   assert.equal(resolved.choice.needsChoice, true)
   assert.ok(resolved.questions.some(q => q.key === 'projectKey'), 'Jira를 고를 때 물을 것을 함께 준다')
 })
@@ -206,63 +160,12 @@ test('provider=jira인데 jira 설정이 비면 묻는다 — 반쯤 설정된 �
   assert.equal(resolved.choice.needsChoice, true)
 })
 
-test('ADF 본문에서 왕복 마커를 되읽는다 — pickup의 소유권 판정 입력', () => {
-  const {fields} = buildIssueFieldsFor(baseConfig, draft, {branch: 'feature/x'})
-  const issue = parseIssueResponse({key: 'PROJ-7', fields: {summary: 's', description: fields.description, labels: [], assignee: null}})
-  assert.match(issue.body, /web-harness:refs.*feat=FEAT-042.*branch=feature\/x/)
-  assert.deepEqual(issue.assignees, [], 'Jira assignee는 단수 — 없으면 빈 배열')
-})
-
-// ── 리뷰 BLOCKED 해소 회귀 (2026-09-02) ───────────────────────────────────────
-import {renderCloseLineFor} from './ticket/cli.mjs'
-
-test('반증: Jira 키에 Closes를 적지 않는다 — 닫지 못하는 것을 닫는다고 주장하지 않는다', () => {
-  const link = {ok: true, verified: true, closes: 'PROJ-7'}
-  assert.equal(renderCloseLineFor('github', link), 'Closes #PROJ-7')
-  const jira = renderCloseLineFor('jira', link)
-  assert.ok(!jira.includes('Closes'), 'Closes는 GitHub만 닫는다')
-  assert.match(jira, /Relates to PROJ-7[\s\S]*자동 닫히지 않습니다/)
-})
-
 test('반증: Jira의 assign은 교체라 "길이 > 1"로는 경합을 못 잡는다 — 소유 기준이어야 한다', () => {
   // A가 배정한 뒤 B가 PUT으로 덮으면 A의 사후 조회는 [B] — 길이 1이라 옛 조건은 통과했다.
   const finalAssignees = ['devB']
   assert.equal(finalAssignees.length > 1, false, '옛 조건: 침묵 통과')
   assert.equal(finalAssignees.includes('devA'), false, '새 조건: lost-update를 잡는다')
 })
-
-test('원장 provider가 해석된 provider와 다르면 pickup은 진행하지 않는다', () => {
-  // 설정 파일 없는 클론에서 Jira 원장을 만나는 경우 — github으로 추론되어 gh 오류로 죽는다.
-  assert.equal(recordProvider({provider: 'jira'}), 'jira')
-  assert.notEqual(recordProvider({provider: 'jira'}), 'github')
-})
-
-// ── components · labels (2026-09-02) ─────────────────────────────────────────
-test('컴포넌트는 지정했을 때만 필드로 나간다 — 빈 배열은 "지우라"는 뜻이 되는 설정이 있다', () => {
-  assert.equal(buildIssueFieldsFor(baseConfig, draft).fields.components, undefined)
-  assert.deepEqual(buildIssueFieldsFor({...baseConfig, components: ['웹', '공통']}, draft).fields.components,
-    [{name: '웹'}, {name: '공통'}])
-})
-
-test('팀 공통 라벨은 하네스 라벨에 더해지고, 하네스 것을 덮지 않는다', () => {
-  const {fields} = buildIssueFieldsFor({...baseConfig, labels: ['team-fe', 'feat-FEAT-042']}, draft, {branch: 'feature/x'})
-  assert.ok(fields.labels.includes('feat-FEAT-042'), 'feat- 라벨은 조회 키다 — 사라지면 왕복이 끊긴다')
-  assert.ok(fields.labels.includes('team-fe'))
-  assert.equal(fields.labels.filter(l => l === 'feat-FEAT-042').length, 1, '중복은 제거한다')
-})
-
-test('쉼표 구분 답이 배열로 펴진다 — 빈 답은 설정에 들어가지 않는다', () => {
-  const config = buildTicketConfig('jira', {projectKey: 'PROJ', components: '웹, 공통 , ', labels: ''})
-  assert.deepEqual(config.jira.components, ['웹', '공통'])
-  assert.equal('labels' in config.jira, false)
-})
-
-// ── 트래커 질문의 타이밍 (2026-09-02) ────────────────────────────────────────
-// 종전에는 판정이 `--confirm` 뒤에 있어서 "발행해"라고 한 다음에야 "어느 트래커?"를 물었다.
-import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs'
-import {tmpdir} from 'node:os'
-import {join} from 'node:path'
-import {runClaim} from './ticket/cli.mjs'
 
 const withPlan = fn => {
   const dir = mkdtempSync(join(tmpdir(), 'wh-claim-'))
@@ -276,31 +179,6 @@ const io = {
   originSync: async () => ({originExists: true, planMatchesOrigin: true, base: 'origin/main'}),
   currentBranch: async () => 'feature/x',
 }
-
-test('dry-run은 트래커 미정이어도 미리보기를 준다 — 보면서 고르는 게 자연스럽다', async () => {
-  const result = await withPlan(dir => runClaim({root: dir, repo: 'o/r', flags: {}, io}))
-  assert.equal(result.ok, true)
-  assert.equal(result.dryRun, true)
-  assert.ok(result.preview, '계획을 보는 것은 트래커 선택 전에도 유효하다')
-  assert.equal(result.needsChoice, true, '질문은 미리보기와 함께 온다')
-  assert.ok(result.questions.some(q => q.key === 'projectKey'))
-})
-
-test('반증: 확정되지 않은 채 발행되지 않는다 — --confirm은 차단된다', async () => {
-  const result = await withPlan(dir => runClaim({root: dir, repo: 'o/r', flags: {confirm: true}, io}))
-  assert.equal(result.ok, false)
-  assert.equal(result.blocked, 'ticket-provider-unset')
-  assert.ok(result.preview, '차단해도 무엇이 막혔는지는 보여준다')
-})
-
-// ── configure writer (2026-09-02) ────────────────────────────────────────────
-// 종전에는 claim이 질문만 돌려주고 답을 적을 곳이 없었다 — "설정은 팀에 공유된다"는 설계가
-// 실제로는 성립하지 않았다(사람이 JSON을 손으로 만들어야 했다).
-import {existsSync, readFileSync as readFile} from 'node:fs'
-import {runConfigure} from './ticket/cli.mjs'
-import {writeTicketConfig} from './ticket/ticket-config.mjs'
-import {assertAllowedKeys, evaluateConfigWrite, validateTicketConfig as _v} from './ticket/ticket-config.mjs'
-import {parseArgs} from './ticket/cli.mjs'
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'wh-cfg-'))
 const noShare = {checkShared: async () => ({shared: true})}
@@ -427,4 +305,23 @@ test('resolveIssue는 분류 근거 필드를 함께 가져온다 — 빠뜨리�
   for (const field of ['summary', 'description', 'labels', 'assignee', 'status', 'components', 'issuetype']) {
     assert.ok(seen[0].includes(field), `${field}를 가져오지 않는다 — 그 필드를 쓰는 소비자가 침묵한다`)
   }
+})
+
+// ── 오류 경로 — 실제 `call()`을 탄다(문자열 흉내가 아니라) ─────────────────────────
+test('HTTP 오류는 상태코드를 담아 던지고, 분류가 그것을 읽는다 — 권한·인증·부재를 섞지 않는다', async () => {
+  const config = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2'}
+  for (const [status, kind] of [[401, 'auth'], [403, 'forbidden'], [404, 'not-found'], [500, 'unknown']]) {
+    const provider = createJiraProvider({config, env: {JIRA_TOKEN: 't'},
+      fetchImpl: async () => ({ok: false, status, text: async () => `status ${status}`, json: async () => ({})})})
+    const error = await provider.resolveIssue('PF-1').catch(caught => caught)
+    assert.match(String(error?.message), new RegExp(`^JIRA_HTTP_${status}`), `상태코드가 오류에 없다: ${status}`)
+    assert.equal(classifyJiraError(error.message).kind, kind)
+  }
+})
+
+test('ADF 변환은 줄마다 문단이고 빈 줄은 빈 문단이다', () => {
+  const doc = toAdf('첫 줄\n\n셋째 줄')
+  assert.equal(doc.type, 'doc')
+  assert.equal(doc.content.length, 3)
+  assert.deepEqual(doc.content[1].content, [])
 })

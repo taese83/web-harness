@@ -312,7 +312,7 @@ These are the commands you invoke directly. Everything else this plugin ships is
 | Command | Use it to |
 |---|---|
 | \`/${PLUGIN_NAME}:wh\` | **The single entry point.** Judges the lane and shows it: \`/${PLUGIN_NAME}:wh plan\` (planning only, stops at the plan-reviewer readiness gate) · \`/${PLUGIN_NAME}:wh new\` (plan → design → dev → QA) · \`/${PLUGIN_NAME}:wh change\` (add behaviour) · \`/${PLUGIN_NAME}:wh fix\` · \`/${PLUGIN_NAME}:wh verify\`. Force a lane by leading with it; plugin skills are always namespaced. |
-| \`/${PLUGIN_NAME}:team-flow\` | Ticket-based team development — batch-claim a plan into GitHub Issues on a feature branch, pick up tickets into evidence PRs. |
+| \`/${PLUGIN_NAME}:team-flow\` | Ticket-based team development — decompose a reviewed plan into WORK items, publish them to GitHub Issues or Jira, pick them up and complete them with PRs. |
 | \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff. |
 | \`/${PLUGIN_NAME}:web-console\` | Open the approval-gated local Console for the current project. |
 | \`/${PLUGIN_NAME}:project-init\` | Scaffold an empty project skeleton only (no planning/QA gates). |

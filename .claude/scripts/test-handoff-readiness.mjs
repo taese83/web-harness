@@ -11,9 +11,11 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
   analyzeHandoffReadiness, checkDesignDecisionsClosed, checkPlanDeclarations, checkProseOnlyOrdering,
-  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached, checkPathsSufficient, checkSourceConsumption,
+  checkSpecReady, loadPlanUnits, checkPathsAgainstSpec, checkActivePickupIntact, checkTicketsCoverPlan, featureIdsIn, extractProseEdges, checkProseEdgesDeclared, measureParallelism, checkUpstreamDecisionsReachable, supersededDecisionIds, declaredDecisions, supersessionMap, planSources, supersededAndReached, checkPathsSufficient, checkSourceConsumption,
 } from './validate-handoff-readiness.mjs'
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
+import {canonicalDigest} from './ticket/work-analysis.mjs'
+import {randomUUID} from 'node:crypto'
 
 const SOLUTION_DESIGN = decisions => [
   '# Solution Design', '', '```json web-harness:solution-design',
@@ -180,49 +182,87 @@ test('스팩이 모르는 경계는 대조 대상이 아니다 — 없는 근거
   assert.equal(checkPathsAgainstSpec(units, SPEC_WITH_BOUNDARIES).state, 'PASS')
 })
 
-// ── (3) 진행 중 픽업 보호 (2026-08-30) ──────────────────────────────────────
-// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 순서가 바뀐다. 오늘 내가 그렇게 했다.
-const writeScope = (root, featureId) => writeFileSync(
+// ── (3) 진행 중 픽업 보호 — WORK 범위 (2026-09-14 이관) ────────────────────────
+// 계획을 고치면 그것을 읽고 작업 중인 개발자 밑에서 경계·계약이 바뀐다. FEAT 범위의 착수 가능
+// 재판정은 FEAT 픽업과 함께 제거됐고, 묻는 것은 같다: 진행 중 작업이 지금 계획에도 그대로인가.
+const WORK_FIXTURE = join(new URL('../..', import.meta.url).pathname, '.claude/evals/fixtures/work-plan/crud/_workspace/03_dev')
+const workPlan = () => JSON.parse(readFileSync(join(WORK_FIXTURE, 'work-plan.json'), 'utf8'))
+const W1 = 'WORK-00000001-0000-4000-8000-000000000001'
+const writeWorkScope = (root, scope) => writeFileSync(
   join(root, '_workspace/03_dev/change-scope.md'),
-  ['# s', '', '```json change-scope', JSON.stringify({featureId, ALLOWED_PATHS: []}), '```', ''].join('\n'),
+  ['# s', '', '```json change-scope', JSON.stringify(scope), '```', ''].join('\n'),
 )
+const writeWorkPlan = (root, plan) => writeFileSync(join(root, '_workspace/03_dev/work-plan.json'), JSON.stringify(plan))
 
-test('진행 중인 픽업이 계획 변경으로 착수 불가가 되면 지적한다', () => {
+test('진행 중인 WORK의 계획이 픽업 뒤 바뀌면 지적한다', () => {
   withProject(root => {
-    writeScope(root, 'FEAT-009')
-    const units = [
-      {featureId: 'FEAT-009', paths: ['src/widgets/canvas'], dependsOn: [], testCaseIds: ['TC-009-1']},
-      {featureId: 'FEAT-006', paths: ['src/widgets/canvas'], dependsOn: [], testCaseIds: ['TC-006-1']},
-    ]
-    const result = checkActivePickupIntact(root, units)
+    const plan = workPlan()
+    writeWorkPlan(root, plan)
+    writeWorkScope(root, {workId: W1, sourceDigest: canonicalDigest(plan)})
+    assert.equal(checkActivePickupIntact(root).state, 'PASS')
+    writeWorkPlan(root, {...plan, workItems: plan.workItems.map(work => work.workId === W1 ? {...work, title: '바뀐 제목'} : work)})
+    const result = checkActivePickupIntact(root)
     assert.equal(result.state, 'HOLE')
-    assert.match(result.detail, /FEAT-009가 현재 계획으로는 착수 불가/)
+    assert.match(result.detail, /픽업 뒤 바뀌었다/)
   }, {shards: {'a.md': DECLARED}})
 })
 
-test('진행 중인 픽업이 계획에서 사라지면 지적한다', () => {
+test('진행 중인 WORK가 계획에서 사라지거나 취소되면 지적한다', () => {
   withProject(root => {
-    writeScope(root, 'FEAT-999')
-    const result = checkActivePickupIntact(root, [{featureId: 'FEAT-001', dependsOn: [], paths: []}])
-    assert.equal(result.state, 'HOLE')
-    assert.match(result.detail, /계획에서 사라졌다/)
+    const plan = workPlan()
+    writeWorkScope(root, {workId: W1, sourceDigest: canonicalDigest(plan)})
+    writeWorkPlan(root, {...plan, workItems: plan.workItems.filter(work => work.workId !== W1)})
+    assert.match(checkActivePickupIntact(root).detail, /계획에서 사라졌다/)
+    writeWorkPlan(root, {...plan, workItems: plan.workItems.map(work => work.workId === W1 ? {...work, lifecycle: 'cancelled'} : work)})
+    assert.match(checkActivePickupIntact(root).detail, /cancelled/)
+    rmSync(join(root, '_workspace/03_dev/work-plan.json'))
+    assert.match(checkActivePickupIntact(root).detail, /계획이 사라졌다/)
   }, {shards: {'a.md': DECLARED}})
 })
 
-test('진행 중인 픽업이 멀쩡하면 통과한다', () => {
+test('진행 중인 픽업이 없으면 판정하지 않고, 파일이 있는데 읽지 못하거나 옛 FEAT 범위면 구멍이다', () => {
   withProject(root => {
-    writeScope(root, 'FEAT-002')
-    const units = [
-      {featureId: 'FEAT-001', paths: ['src/entities/a'], dependsOn: [], testCaseIds: ['TC-001-1']},
-      {featureId: 'FEAT-002', paths: ['src/entities/b'], dependsOn: ['FEAT-001'], testCaseIds: ['TC-002-1']},
-    ]
-    assert.equal(checkActivePickupIntact(root, units).state, 'PASS')
+    assert.equal(checkActivePickupIntact(root).state, 'SKIPPED')
+    writeWorkScope(root, {featureId: 'FEAT-002', ALLOWED_PATHS: []})
+    const legacy = checkActivePickupIntact(root)
+    assert.equal(legacy.state, 'HOLE', '옛 범위 파일이 남았는데 침묵했다')
+    assert.match(legacy.detail, /옛 범위 파일/)
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), '# s\n\n```json change-scope\n{깨짐\n```\n')
+    assert.equal(checkActivePickupIntact(root).state, 'HOLE', '읽지 못한 픽업 파일을 판정 없이 넘겼다')
   }, {shards: {'a.md': DECLARED}})
 })
 
-test('진행 중인 픽업이 없으면 검사하지 않는다 — 통과로 세지 않는다', () => {
+test('계획의 FEAT가 발행된 WORK로 전부 덮이는지 잰다 — 유예 FEAT는 분모에서 빼고 그 수를 적는다', () => {
   withProject(root => {
-    assert.equal(checkActivePickupIntact(root, []).state, 'SKIPPED')
+    const plan = workPlan()
+    const analysis = JSON.parse(readFileSync(join(WORK_FIXTURE, 'work-analysis.json'), 'utf8'))
+    writeWorkPlan(root, plan)
+    writeFileSync(join(root, '_workspace/03_dev/work-analysis.json'), JSON.stringify(analysis))
+    const units = [...new Set(plan.featureBindings.map(binding => binding.featureId)),
+      ...(analysis.scope.featureDisposition ?? []).filter(entry => entry.status === 'deferred').map(entry => entry.featureId)]
+      .map(featureId => ({featureId}))
+    assert.equal(checkTicketsCoverPlan(root, units).state, 'SKIPPED', '원장이 없는데 판정했다')
+    const events = join(root, '_workspace/03_dev/work-item-events.jsonl')
+    const confirm = workId => JSON.stringify({schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: plan.planId,
+      workId, eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest: canonicalDigest(plan), payload: {ticketKey: workId.slice(5, 13)}})
+    writeFileSync(events, `${confirm(W1)}\n`)
+    const partial = checkTicketsCoverPlan(root, units)
+    assert.equal(partial.state, 'HOLE')
+    assert.match(partial.detail, /필수 WORK가 덜 발행된 FEAT/)
+    const all = [...new Set(plan.featureBindings.flatMap(binding => binding.requiredWorkIds))]
+    writeFileSync(events, `${all.map(confirm).join('\n')}\n`)
+    const covered = checkTicketsCoverPlan(root, units)
+    assert.equal(covered.state, 'PASS', covered.detail)
+    if ((analysis.scope.featureDisposition ?? []).some(entry => entry.status === 'deferred')) assert.match(covered.detail, /유예한 FEAT/)
+    // WORK 계획에 없는 FEAT는 덮이지 않은 것이다.
+    assert.match(checkTicketsCoverPlan(root, [...units, {featureId: 'FEAT-999'}]).detail, /WORK 계획에 없는 FEAT 1건: FEAT-999/)
+    // 원장 파손은 건너뛰지 않는다.
+    writeFileSync(events, '{not json\n')
+    assert.equal(checkTicketsCoverPlan(root, units).state, 'HOLE')
+    // 발행은 있었는데 계획이 사라지면 구멍이다 — 대조를 건너뛰지 않는다.
+    writeFileSync(events, `${confirm(W1)}\n`)
+    rmSync(join(root, '_workspace/03_dev/work-plan.json'))
+    assert.equal(checkTicketsCoverPlan(root, units).state, 'HOLE', '계획이 사라졌는데 인계를 READY로 뒀다')
   }, {shards: {'a.md': DECLARED}})
 })
 

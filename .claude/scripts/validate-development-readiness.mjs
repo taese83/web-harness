@@ -273,7 +273,7 @@ export function checkDecisionsApplied(root, spec) {
 // 팀 흐름을 쓰는 프로젝트에서만 본다. 청구 원장이 있으면 팀 흐름이다.
 export function checkTicketAssets(root, {install = false} = {}) {
   if (!existsSync(join(root, '_workspace/03_dev/identity-ledger.jsonl'))) {
-    return skip('ticket-assets', '팀 흐름(청구 원장)을 쓰지 않는 프로젝트다')
+    return skip('ticket-assets', '옛 청구 원장(identity-ledger)이 없다 — WORK 원장 기반 자동 닫기는 아직 없다(설치 대상 아님)')
   }
   const plan = planTicketCloseInstall(root)
   if (plan.missingAssets.length > 0) return skip('ticket-assets', `배포본에 자산이 없다: ${plan.missingAssets.join(', ')}`)

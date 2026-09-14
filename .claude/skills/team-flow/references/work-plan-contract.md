@@ -1,7 +1,7 @@
 # WORK 분해 계약 — 선행 분석(P0)과 작업 계획(P1)
 
 `claim`(WORK 모드)이 개발 준비를 조정할 때 `system-architect`가 쓰는 두 파일의 계약이다. CLI
-(`ticket/cli.mjs claim --work`)는 의미를 이해하지 않고 **참조·상태·그래프**를 검증한 뒤 검토표를 만든다.
+(`ticket/cli.mjs claim`)는 의미를 이해하지 않고 **참조·상태·그래프**를 검증한 뒤 검토표를 만든다.
 판정의 의미 품질(재사용이 정말 맞는가, 경계가 적절한가)은 개발 검토의 몫이다.
 
 | 파일 | 소유 | 정본인 것 | 복제하지 않는 것 |
@@ -12,7 +12,7 @@
 
 ## claim 흐름 (스킬이 조정하고 CLI가 검증한다)
 
-1. `cli.mjs claim --work [--features FEAT-001,…]`(범위 생략 = 계획 전체). 외부 쓰기 0 — 결과의 `phase`가 다음 할 일이다.
+1. `cli.mjs claim [--features FEAT-001,…]`(범위 생략 = 계획 전체). 외부 쓰기 0 — 결과의 `phase`가 다음 할 일이다.
    분석의 `scope.featureIds`는 호출한 범위와 **정확히** 같아야 한다 — 범위를 바꾸면 분석도 그 범위로 다시 쓴다.
 2. 개발자가 준 설계 자료(Markdown·경로·링크 — 묶어 낼 때만 `developer-design-input.md` 템플릿)는 먼저
    `source-artifact-ingestor`로 `00_source/`에 원문 보존한다(구현 설계는 정규화하지 않는다). 받은 자료를 승인된
@@ -23,7 +23,7 @@
 4. `P1_REVIEW` → `_workspace/03_dev/work-plan-review.md`를 보여주고 검토·수정을 받는다. 개발 책임자가 공통 경계·
    의존을 조정하고 실제 구현 개발자도 참여한다 — 계약·경계 안의 세부 구현까지 매번 승인받지 않는다.
    수정은 에이전트가 JSON에 반영하고 1로 돌아간다. `confirmable: false`면 범위 목록이 불완전하다.
-5. `claim --work --publish`(P2-c) → 미리보기다. **외부 쓰기 0**으로 무엇을 어디에 낼지 돌려준다.
+5. `claim --publish` → 미리보기다. **외부 쓰기 0**으로 무엇을 어디에 낼지 돌려준다.
    같은 요청에 `--confirm`을 붙였을 때만 발행한다 — 미리보기가 승인의 대상이고, `--confirm`은 그 목록의 승인이다.
    `--work-ids a,b`로 일부만, `--parent <KEY>`로 부모 티켓과의 관계를 함께 건다.
 
@@ -35,15 +35,15 @@
 `at`은 정보다** — 겹쳐 append하면 시각이 역전되는 것이 정상이고, 시각 단조를 강제하면 정상 실행이 원장을
 읽을 수 없게 만든다. `plan-reviewed`에는 `planDigest`와 `payload.workIds`가 필수이며, 같은 판본을 다시
 검토하면 이벤트를 쓰지 않는다(재실행이 원장을 상한까지 키우지 않게).
-지금 있는 종류는 `plan-reviewed` 하나 — 소비자와 함께 늘린다. 검토 계보(한 번이라도 검토된 작업 ID)는
+종류는 `plan-reviewed` · `publish-attempted`·`publish-confirmed`·`publish-unknown` · `relation-linked` ·
+`work-linked`·`work-completed`다 — 생산자와 소비자가 함께 있는 것만 둔다. 검토 계보(한 번이라도 검토된 작업 ID)는
 이 원장에서 읽으므로 로컬 포인터를 지워도 작업 삭제 대조가 살아 있다.
 
 WORK 티켓 본문에는 마커 하나를 둔다: `<!-- web-harness:work plan=<planId> work=<WORK-…> feat=… tc=… rev=<계획 digest> -->`.
-**모든 판독 입구는 종류를 먼저 판정한다**(`classifyTicketKind`) — `work`·`aggregate`는 legacy FEAT 폴백에서
-제외되어 픽업·인수·인테이크가 거부한다. 마커가 둘이거나 필드가 깨졌거나 두 모델의 마커가 함께 있으면
-명시적 오류다 — 어느 쪽이 정본인지 추측하지 않는다. `source`(기획 출처) 티켓은 여기서 거부하지 않고
-기존 경로로 흘려보낸다 — 왕복 마커가 없어 픽업의 기존 게이트가 막는다(동작 유지). `aggregate`는 아직
-**생산자가 없다**(부모 집계는 P3) — 판독 입구만 먼저 닫아 둔다.
+**모든 판독 입구는 종류를 먼저 판정한다**(`classifyTicketKind`) — 픽업은 WORK만 받고, 인테이크는 WORK·집계
+티켓을 공급 원문으로 되들이지 않는다. 마커가 둘이거나 필드가 깨졌거나 두 모델의 마커가 함께 있으면 명시적
+오류다 — 어느 쪽이 정본인지 추측하지 않는다. 옛 FEAT 개발 티켓(`web-harness:refs`)을 픽업하면 분해된 FEAT면
+어느 WORK로 가야 하는지 돌려준다. `aggregate`는 아직 **생산자가 없다**(부모 집계는 P3-b) — 판독 입구만 닫아 둔다.
 
 ## provider 능력 (P2-b)
 
@@ -93,16 +93,16 @@ WORK 티켓은 **공유 작업도 하나**다. 소비 FEAT는 라벨(`feat-<FEAT
 
 ## 픽업 (P2-d)
 
-`pickup --work <티켓키> --developer <나>`. legacy FEAT 픽업의 게이트를 **버리지 않고 옮겼다**:
+`pickup <티켓키> --developer <나>`. 제거된 FEAT 픽업의 게이트를 **버리지 않고 옮겼다**(2026-09-14 제거):
 
-| legacy | WORK |
+| 제거된 FEAT 경로 | WORK |
 |---|---|
 | 인젝션 스캔(제목·본문 fail-closed, 의심 코멘트 제외) | 같은 함수 그대로 |
 | 종류 선판정 | WORK가 아니면 거부. **분해된 FEAT면 어느 WORK로 가야 하는지** 함께 준다 |
 | 스펙 대조(TC를 지어내지 않는다) | 마커의 작업·FEAT·TC가 계획에 실재하는가 |
 | STALE(픽업 뒤 기획 변경) | 발행 시점 계획 digest ↔ 지금 계획 digest(같은 `evaluatePickupReadiness`) |
 | 청구 버전 대조 | 원장의 `publish-confirmed`가 이 티켓 키를 아는가 — 모르면 집지 않는다 |
-| 준비도 되돌림 | 미해결 결정·**머지되지 않은 선행**이면 착수하지 않는다(legacy `deps-incomplete`) |
+| 준비도 되돌림 | 미해결 결정·**머지되지 않은 선행**이면 착수하지 않는다(제거된 FEAT 경로의 `deps-incomplete`) |
 | TC 없는 완료 거부 | WORK는 TC가 없을 수 있다(기반 작업) — 그때 `checks`가 수용 기준이며 **둘 다 없으면 거부**한다 |
 | 트래커 쓰기 제한 | 배정 · `in-progress` 전이 · 되돌림 알림 셋뿐. 머지·완료 전이는 하지 않는다 |
 | 동시 배정 감지 | 같다 — 배정 직전 재조회(양보)와 사후 소유 확인·다중 배정 감지 |
@@ -122,7 +122,7 @@ digest이며, 공유 작업이면 `featureId`가 `null`이고 `featureIds`가 �
 
 ## 보드 (P2-d)
 
-`board --work [--developer 나]`는 「지금 무엇을 집을 수 있나」를 보여준다. **착수 가능 판정은
+`board [--developer 나]`는 「지금 무엇을 집을 수 있나」를 보여준다. **착수 가능 판정은
 픽업과 같은 축**이다(등록 · 미해결 결정 · 선행 등록 · 소유) — 표시와 게이트가 갈라지면 표시는
 장식이 된다.
 
@@ -135,19 +135,19 @@ digest이며, 공유 작업이면 `featureId`가 `null`이고 `featureIds`가 �
 `assignment-unknown`이며 **미배정이 아니다**(`--no-tracker`로 조회를 아예 건너뛸 수 있고, 그때도
 같은 표기가 붙는다). 원장은 발행이라는데 목록에 없으면 `ticket-not-found`로 따로 말한다.
 발행 판본을 원장이 모르면 `plan-digest-unknown`이며 「같다」고 접지 않는다.
-PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — `link --work --sync`로 머지를 확인해야 후속이 열린다.
+PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — `link --sync`로 머지를 확인해야 후속이 열린다.
 
 **트래커 창의 한계**: Jira는 커서를 따라 돌지만, GitHub은 저장소 이슈 목록(생성 역순 상한 100건)
 안에서만 배정을 안다 — 그 창 밖의 WORK 티켓은 `assignment-unknown`이 된다(키 단위 조회는 미구현).
 
 ## 완료 (P3-a)
 
-`link --work <티켓키> <PR>`은 **완료를 주장**하고, `link --work --sync`는 **머지를 관측**한다.
+`link <티켓키> <PR>`은 **완료를 주장**하고, `link --sync`는 **머지를 관측**한다.
 둘은 다른 사실이다 — 원장에 `work-linked`와 `work-completed`로 따로 남고, 선행 조건은 뒤의 것만 센다.
 
-legacy `link`의 게이트를 옮겼다:
+제거된 FEAT `link`의 게이트를 옮겼다:
 
-| legacy | WORK |
+| 제거된 FEAT 경로 | WORK |
 |---|---|
 | STALE 대조(미수행은 loud) | change-scope가 이 작업의 것이면 계획 digest로 대조. 없거나 다른 작업의 것이면 `--accept-unverified-scope` 없이 막고, 넘기면 원장에 남긴다 |
 | 멱등 | 이미 연결된 작업의 재실행은 지나간 판정을 다시 심판하지 않는다 |
@@ -155,7 +155,7 @@ legacy `link`의 게이트를 옮겼다:
 | close 대상 정합 | 원장이 이 작업에 등록한 티켓 키로만 닫는 줄을 만든다. 트래커는 **발행 원장**이 정한다(지금 설정이 아니다). GitHub만 머지로 닫히고, 트래커를 모르면 닫는다고 적지 않는다 |
 
 **완료 판정은 프록시다** — TC는 ID가 인용됐는가, check는 대상 경로가 있는가까지이며 그 테스트가
-기준을 실제로 검증하는지는 보지 않는다(legacy와 같은 등급, 의미 판정은 코드 리뷰의 몫).
+기준을 실제로 검증하는지는 보지 않는다(제거된 FEAT 경로의 TC 인용 판정과 같은 등급, 의미 판정은 코드 리뷰의 몫).
 
 `--sync`는 연결됐고 아직 완료가 아닌 작업의 PR 상태를 PR URL의 호스트에서 읽는다(쓰기 없음).
 **머지로 확인된 것만** 완료로 쓰고, 열린 PR은 그대로, 조회 실패는 `ok:false`로 올린다 — 완료로도
@@ -222,7 +222,7 @@ direct-ui·behavior-context·not-applicable · `purpose` implementation·context
 
 ## 연결 규칙(검증기가 대조한다)
 
-- 계획의 `analysisRef.digest` = 현재 분석의 digest(`claim --work`가 알려 준다). 분석이 바뀌면 계획을 다시 쓴다.
+- 계획의 `analysisRef.digest` = 현재 분석의 digest(`claim`이 알려 준다). 분석이 바뀌면 계획을 다시 쓴다.
 - `featureBindings`: planned FEAT 전부. `sourceDigest`는 그 FEAT 명세의 digest — 명세가 바뀌면 낡은 분해다.
   `acceptanceOwners`는 현재 TC마다(기획이 명시 유예한 TC 제외) **정확히 하나**, 그 FEAT의 필수 작업이어야 한다.
 - 작업마다 `basisRefs`(분석의 판정·결정) ≥ 1, `checks` ≥ 1, `writePaths` ≥ 1. 어떤 FEAT의 필수 작업도 아니면 고아다.

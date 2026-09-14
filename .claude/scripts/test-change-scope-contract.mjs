@@ -1,28 +1,22 @@
 #!/usr/bin/env node
 // test-change-scope-contract.mjs — 픽업이 발급하는 change-scope가 **하나의 계약**인가.
 //
-// 계기(2026-09-11 운영 모델 점검): 기획 티켓 경로(intake→bind→claim)와 개발자가 직접 쓴 티켓 경로
-// (adopt · adopt --normalize)가 개발 에이전트에 같은 모양으로 닿는지 아무것도 재지 않았다. 둘 다 픽업이
-// 발급하므로 발급자는 하나지만, 키 집합이 문서에만 있으면 코드와 갈라진다.
+// 계기(2026-09-11 운영 모델 점검): change-scope 키 집합이 문서에만 있으면 코드와 갈라진다.
 //
 // 여기서 고정하는 사실:
-//   (1) 문서(ticket-kinds.md 표)의 키 집합과 `buildChangeScope`의 키 집합이 **양방향으로** 같다
-//   (2) **실제 발급 파일**(runPickup이 런타임에 덧붙인 키 포함)도 문서 밖 키를 내지 않는다
-//   (3) WORK 픽업이 내는 범위도 **같은 표**를 지킨다 — 모델이 둘이어도 개발 에이전트가 받는 계약은 하나다
+//   (1) 문서(ticket-kinds.md 표)의 키 집합과 `buildWorkChangeScope`의 키 집합이 **양방향으로** 같다
+//   (2) **실제 발급 파일**(runWorkPickup이 런타임에 덧붙인 키 포함)도 문서 밖 키를 내지 않는다
+// (FEAT 픽업의 `buildChangeScope`는 2026-09-14 제거 — 발급자는 WORK 픽업 하나다.)
 //
 // 실행 조건(외부 쓰기 승인·쓰기 직렬화)은 키로 두지 않았다 — 읽는 쪽이 없고, bash 정책은 플러그인에
 // 실리지 않아 발급 환경에서 강제되지 않는다(적대 리뷰 2026-09-11 HIGH). 문서가 강제의 실체를 적는다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdtempSync, readFileSync, rmSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {buildChangeScope} from './ticket/pickup.mjs'
 import {buildWorkChangeScope} from './ticket/work-pickup.mjs'
-import {CHANGE_SCOPE_RELATIVE, LEDGER_RELATIVE, readChangeScopeFile, runPickup} from './ticket/cli.mjs'
-import {appendLedgerRecord} from './ticket/ledger-writer.mjs'
-import {buildIssueFields} from './ticket/provider-github.mjs'
-import {buildTicketDraft, unitContentHash} from './ticket/emit.mjs'
+import {CHANGE_SCOPE_RELATIVE, readChangeScopeFile} from './ticket/cli.mjs'
 
 const root = new URL('../..', import.meta.url).pathname
 const doc = readFileSync(join(root, '.claude/skills/team-flow/references/ticket-kinds.md'), 'utf8')
@@ -54,50 +48,7 @@ const producedKeys = scope => {
   return keys
 }
 
-test('문서의 change-scope 키와 코드의 키가 양방향으로 같다', () => {
-  const scope = buildChangeScope({
-    issue: {ticketKey: 'PF-1', provider: 'jira', title: 't', body: 'b', revision: 'r1', links: [], comments: [], commentsOmitted: 0},
-    unit: {featureId: 'FEAT-1', testCaseIds: ['TC-1']}, testCaseIds: ['TC-1'],
-  })
-  const {required, optional} = documentedKeys()
-  const produced = producedKeys(scope)
-  const undocumented = [...produced].filter(key => !required.has(key) && !optional.has(key))
-  const phantom = [...required].filter(key => !produced.has(key))
-  assert.deepEqual(undocumented, [], `코드가 내는데 문서에 없는 키: ${undocumented.join(', ')} — 개발 에이전트가 모르는 필드다`)
-  assert.deepEqual(phantom, [], `문서에만 있는 키: ${phantom.join(', ')} — 약속했는데 발급하지 않는다`)
-  assert.equal(scope.ticket.provider, 'jira')
-  assert.equal(scope.ticket.revision, 'r1')
-})
-
-test('실제 발급 파일도 문서 밖 키를 내지 않는다 — 런타임에 덧붙는 키(재조회 실패)까지', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'wh-scope-file-'))
-  try {
-    const unit = {featureId: 'FEAT-001', title: '모터 상세', body: '상세 표시', testCaseIds: ['TC-001-1'], type: 'feature', dependsOn: [], paths: ['src/features/dash/']}
-    const units = join(dir, 'units.json')
-    writeFileSync(units, JSON.stringify([unit]))
-    mkdirSync(join(dir, '_workspace', '03_dev'), {recursive: true})
-    appendLedgerRecord(join(dir, LEDGER_RELATIVE), {featureId: 'FEAT-001', ticketKey: '7', contentHash: unitContentHash(unit), createdAt: 't', branch: 'feature/dash'})
-    const body = buildIssueFields(buildTicketDraft(unit), {branch: 'feature/dash'}).body.split('\n')
-      .flatMap(line => (/^- \[ \] /.test(line) ? [line, '      (기획자가 채운 값)'] : [line])).join('\n')
-    const issue = {number: 7, provider: 'github', title: 't', body, assignees: ['me'], revision: 'r1'}
-    // 이미 내 배정 → 배정 없이 진행, 끝의 재조회는 던진다 → `revisionError`가 덧붙는다.
-    const seq = [issue]
-    const result = await runPickup({root: dir, repo: 'o/r', featureId: 'FEAT-001', developer: 'me', flags: {units},
-      io: {currentBranch: async () => 'feature/dash', worktree: async () => ({dirty: false, conflicted: false}),
-        resolveIssue: async () => { if (seq.length === 0) throw new Error('tracker down'); return seq.shift() }}})
-    assert.equal(result.ok, true, JSON.stringify(result.bounce ?? result))
-    const file = readChangeScopeFile(dir)
-    assert.ok(file, `${CHANGE_SCOPE_RELATIVE}를 읽지 못했다`)
-    assert.ok('revisionError' in file.ticket, '실패 경로를 타지 않았다 — 이 검사는 런타임 키를 보지 못한다')
-    const {required, optional} = documentedKeys()
-    const undocumented = [...producedKeys(file)].filter(key => !required.has(key) && !optional.has(key))
-    assert.deepEqual(undocumented, [], `발급 파일에 문서 밖 키가 있다: ${undocumented.join(', ')}`)
-  } finally {
-    rmSync(dir, {recursive: true, force: true})
-  }
-})
-
-test('WORK 픽업이 내는 change-scope도 같은 표를 지킨다 — 모델이 둘이어도 계약은 하나다', () => {
+test('문서의 change-scope 키와 WORK 픽업이 내는 키가 양방향으로 같다', () => {
   const plan = {planId: '22222222-2222-4222-8222-222222222222'}
   const work = {workId: 'WORK-00000001-0000-4000-8000-000000000001', writePaths: ['src/shared/'],
     checks: [{kind: 'type-check', expectedOutcome: '통과', targetRefs: []}], dependsOn: [], nonGoals: [],
@@ -113,4 +64,38 @@ test('WORK 픽업이 내는 change-scope도 같은 표를 지킨다 — 모델�
   assert.deepEqual(phantom, [], `WORK 범위가 약속한 키를 빠뜨린다: ${phantom.join(', ')}`)
   assert.equal(scope.featureId, null, '공유 작업인데 FEAT 하나를 골랐다')
   assert.equal(scope.sourceDigest, 'a'.repeat(64))
+})
+
+test('실제 발급 파일도 문서 밖 키를 내지 않는다 — 런타임에 덧붙는 키(재조회 실패·대상 지문)까지', async () => {
+  const {runWorkPickup} = await import('./ticket/work-pickup-run.mjs')
+  const {buildWorkMarker} = await import('./ticket/work-refs.mjs')
+  const {appendWorkEvent, WORK_EVENTS_PATH} = await import('./ticket/work-events.mjs')
+  const {canonicalDigest} = await import('./ticket/work-analysis.mjs')
+  const {randomUUID} = await import('node:crypto')
+  const {cpSync} = await import('node:fs')
+  const dir = mkdtempSync(join(tmpdir(), 'wh-scope-file-'))
+  try {
+    cpSync(join(root, '.claude/evals/fixtures/work-plan/crud'), dir, {recursive: true})
+    const plan = JSON.parse(readFileSync(join(dir, '_workspace/03_dev/work-plan.json'), 'utf8'))
+    const planDigest = canonicalDigest(plan)
+    const workId = 'WORK-00000001-0000-4000-8000-000000000001'
+    appendWorkEvent(join(dir, WORK_EVENTS_PATH), {schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: plan.planId,
+      workId, eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest, payload: {ticketKey: 'PF-7', provider: 'jira'}})
+    const issue = {ticketKey: 'PF-7', provider: 'jira', title: 't', revision: 'r1', assignees: ['me'], links: [], comments: [], commentsOmitted: 0,
+      body: `요약\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds: ['FEAT-001'], testCaseIds: [], planDigest})}`}
+    // 이미 내 배정 → 배정 없이 진행, 끝의 재조회는 던진다 → `revisionError`가 덧붙는다.
+    const seq = [issue]
+    const provider = {name: 'jira', async resolveIssue() { if (seq.length === 0) throw new Error('tracker down'); return seq.shift() },
+      async transition() { return {transitioned: true} }, supportedPhases: ['in-progress']}
+    const result = await runWorkPickup({root: dir, ticketKey: 'PF-7', developer: 'me', flags: {}, io: {provider, worktree: async () => ({dirty: false, conflicted: false}), refresh: async () => ({ok: true})}})
+    assert.equal(result.ok, true, JSON.stringify(result.bounce ?? result))
+    const file = readChangeScopeFile(dir)
+    assert.ok(file, `${CHANGE_SCOPE_RELATIVE}를 읽지 못했다`)
+    assert.ok('revisionError' in file.ticket, '실패 경로를 타지 않았다 — 이 검사는 런타임 키를 보지 못한다')
+    const {required, optional} = documentedKeys()
+    const undocumented = [...producedKeys(file)].filter(key => !required.has(key) && !optional.has(key))
+    assert.deepEqual(undocumented, [], `발급 파일에 문서 밖 키가 있다: ${undocumented.join(', ')}`)
+  } finally {
+    rmSync(dir, {recursive: true, force: true})
+  }
 })

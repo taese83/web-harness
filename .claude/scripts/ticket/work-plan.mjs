@@ -10,8 +10,12 @@
 // 계획(T42) · 근거 없는 작업(분석→WORK 연결) · 제공 계약을 쓰는데 선행 의존이 없음 · 디자인 참조의
 // 부재·오대응(T50·T52·T54). **우선순위는 실행 가능 집합 안에서만** 순서를 정한다(T37).
 import {canonicalDigest, safeRelativePath, safeRelativeScope} from './work-analysis.mjs'
-import {pathsOverlap} from './claim-scope.mjs'
 import {conditionKey} from '../design-binding-lib.mjs'
+
+/** 경로 a가 경로/디렉터리 b를 포함하는가(경계 안전 — `src/feature` ≠ `src/features`). */
+const covers = (a, b) => a === b || b.startsWith(a.endsWith('/') ? a : `${a}/`)
+/** 두 경로 집합이 겹치는가(접두 경계 인식, 순수). */
+export const pathsOverlap = (pathsA = [], pathsB = []) => pathsA.some(a => pathsB.some(b => covers(a, b) || covers(b, a)))
 
 export const WORK_PLAN_PATH = '_workspace/03_dev/work-plan.json'
 export const WORK_KINDS = ['foundation', 'implementation', 'integration']
