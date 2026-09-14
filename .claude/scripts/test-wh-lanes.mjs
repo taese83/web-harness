@@ -140,3 +140,17 @@ test('검증 스킬이 source를 쓰는 agent를 부르면 착수 전 승인을 
       `${skill}이 source를 쓰는 agent(${writers.join(', ')})를 부르는데 착수 전 승인을 적지 않는다 — 조용히 source를 만든다`)
   }
 })
+
+// 계기(2026-09-11 WORK 설계 §1 2단계): `/wh plan`에는 `/wh new`의 0-A(공급 감지)가 없어, 요청에 붙인 기획
+// 문서·Jira 기획 티켓이 `00_source/`에 들어가지 못했고 계획이 그것을 읽지 못했다. 기존 입구(ingestor ·
+// ticket `intake`)를 재사용해 계획 **앞에** 둔다 — 순서가 뒤집히면 계획이 받은 자료 없이 만들어진다.
+test('plan 레인: 받은 문서·기획 티켓을 계획보다 먼저 00_source로 취합한다 — 기존 입구를 재사용한다', () => {
+  const plan = skillBody('web-plan')
+  const intakeAt = plan.search(/cli\.mjs intake/)
+  const ingestAt = plan.search(/source-artifact-ingestor/)
+  const planningAt = plan.search(/`planning-facilitator`가/)
+  assert.ok(intakeAt >= 0, 'web-plan이 기획 티켓을 기존 intake로 받지 않는다')
+  assert.ok(ingestAt >= 0, 'web-plan이 붙인 문서를 ingestor로 보존하지 않는다')
+  assert.ok(planningAt > Math.max(intakeAt, ingestAt), '취합이 계획 단계보다 뒤에 있다 — 계획이 받은 자료를 못 본다')
+  assert.match(plan, /개발 작업으로 청구하지\s*않/, '기획 티켓을 개발 작업으로 청구하지 않는다는 경계가 없다')
+})

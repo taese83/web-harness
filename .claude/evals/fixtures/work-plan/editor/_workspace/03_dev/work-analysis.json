@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "analysisId": "33333333-3333-4333-8333-333333333333",
+  "scope": {
+    "featureIds": [
+      "FEAT-011",
+      "FEAT-012",
+      "FEAT-013"
+    ],
+    "targetRoots": [
+      "src"
+    ],
+    "sourceRevision": "fixture-editor",
+    "dirty": false,
+    "inventoryRef": "_workspace/01_plan/feature-plan.md",
+    "inventoryComplete": true,
+    "incompleteReasons": [],
+    "featureDisposition": [
+      {
+        "featureId": "FEAT-011",
+        "status": "planned"
+      },
+      {
+        "featureId": "FEAT-012",
+        "status": "planned"
+      },
+      {
+        "featureId": "FEAT-013",
+        "status": "planned"
+      }
+    ]
+  },
+  "sourceRefs": [
+    {
+      "id": "S-state",
+      "snapshotRef": "_workspace/00_source/impl/editor-state.md",
+      "digest": "9900a34d8c47ee51f4f8dca0d3d234ad91f7c148e6755ae65b69e73a56098b40",
+      "intent": "target",
+      "decisionStatus": "approved",
+      "scopeRefs": [
+        "FEAT-011",
+        "FEAT-012",
+        "FEAT-013"
+      ],
+      "accessState": "read"
+    },
+    {
+      "id": "S-spec",
+      "snapshotRef": "_workspace/02_design/component-spec.md",
+      "digest": "b475b7c20bad5043f04a6c8e5ed10129ab1d1463678b78fa4e86f5fcafea68be",
+      "intent": "current",
+      "decisionStatus": "approved",
+      "scopeRefs": [
+        "FEAT-011",
+        "FEAT-012"
+      ],
+      "accessState": "read"
+    }
+  ],
+  "codeEvidence": [
+    {
+      "id": "E-panel",
+      "path": "src/shared/ui/Panel.tsx",
+      "symbol": "Panel",
+      "digest": "f226c4c0675fa0463ea8caf0066c6be6f4f0e520994b91a34d905ea70cc6a863",
+      "observation": "접을 수 있는 사이드 패널",
+      "method": "read",
+      "testState": "absent"
+    }
+  ],
+  "scanCoverage": {
+    "roots": [
+      "src"
+    ],
+    "methods": [
+      "read",
+      "grep"
+    ],
+    "exclusions": [],
+    "incompleteReasons": []
+  },
+  "decisions": [
+    {
+      "id": "D-doc-model",
+      "subjectRef": "문서 상태 소유",
+      "status": "confirmed",
+      "chosenValue": "공유 문서 + 명령 + 명령 단위 실행 취소",
+      "authorityRef": "S-state",
+      "evidenceRefs": [
+        "S-state"
+      ],
+      "scopeRefs": [
+        "FEAT-011",
+        "FEAT-012",
+        "FEAT-013"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-panel",
+      "capability": "사이드 패널",
+      "evidenceRefs": [
+        "E-panel"
+      ],
+      "disposition": "reuse",
+      "consumerRefs": [
+        "FEAT-012"
+      ]
+    },
+    {
+      "id": "F-doc-store",
+      "capability": "공유 문서 상태·명령·실행 취소",
+      "evidenceRefs": [
+        "S-state"
+      ],
+      "disposition": "create",
+      "gap": "문서 상태·명령 모델이 없다",
+      "consumerRefs": [
+        "FEAT-011",
+        "FEAT-012",
+        "FEAT-013"
+      ],
+      "decisionRefs": [
+        "D-doc-model"
+      ]
+    },
+    {
+      "id": "F-persist",
+      "capability": "로컬 스냅샷 저장·마이그레이션",
+      "evidenceRefs": [
+        "S-state"
+      ],
+      "disposition": "create",
+      "gap": "지속성 계층이 없다",
+      "consumerRefs": [
+        "FEAT-013"
+      ]
+    }
+  ],
+  "unresolved": [],
+  "priorityInputs": [
+    {
+      "id": "P-edit-first",
+      "scopeRefs": [
+        "FEAT-011"
+      ],
+      "preference": "블록 편집을 먼저 연결한다",
+      "rank": 1,
+      "sourceRef": "S-state"
+    }
+  ],
+  "resolutionLinks": [
+    {
+      "analysisItemId": "S-state",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "S-spec",
+      "targetRefs": [
+        "WORK-00000002-0000-4000-8000-000000000002",
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-panel",
+      "targetRefs": [
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-doc-store",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-persist",
+      "targetRefs": [
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "resolution": "consumed"
+    }
+  ]
+}

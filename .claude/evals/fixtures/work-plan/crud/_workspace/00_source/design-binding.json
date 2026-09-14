@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "references": [
+    {
+      "id": "list-default",
+      "kind": "image",
+      "locator": "_workspace/00_source/design/list-default.png",
+      "capturedAt": "2026-09-11T00:00:00Z"
+    },
+    {
+      "id": "list-empty",
+      "kind": "image",
+      "locator": "_workspace/00_source/design/list-empty.png",
+      "capturedAt": "2026-09-11T00:00:00Z"
+    },
+    {
+      "id": "detail-edit",
+      "kind": "image",
+      "locator": "_workspace/00_source/design/detail-edit.png",
+      "capturedAt": "2026-09-11T00:00:00Z"
+    }
+  ],
+  "bindings": [
+    {
+      "pageGroup": "PAGE-001",
+      "condition": {
+        "state": "default"
+      },
+      "referenceIds": [
+        "list-default"
+      ],
+      "declaredBy": "user",
+      "declaredAt": "2026-09-11T00:00:00Z"
+    },
+    {
+      "pageGroup": "PAGE-001",
+      "condition": {
+        "state": "empty"
+      },
+      "referenceIds": [
+        "list-empty"
+      ],
+      "declaredBy": "user",
+      "declaredAt": "2026-09-11T00:00:00Z"
+    },
+    {
+      "pageGroup": "PAGE-002",
+      "condition": {
+        "state": "editing"
+      },
+      "referenceIds": [
+        "detail-edit"
+      ],
+      "declaredBy": "user",
+      "declaredAt": "2026-09-11T00:00:00Z"
+    },
+    {
+      "pageGroup": "PAGE-002",
+      "condition": {
+        "state": "save-failed"
+      },
+      "referenceIds": [],
+      "resolution": "pending",
+      "declaredBy": "user",
+      "declaredAt": "2026-09-11T00:00:00Z"
+    }
+  ],
+  "unbound": {
+    "references": [],
+    "pageGroups": []
+  }
+}

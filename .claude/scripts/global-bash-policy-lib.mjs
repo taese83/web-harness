@@ -768,11 +768,14 @@ const validationScriptContract = (script, args, context) => {
       '--ticket-provider', '--as', '--allowed-paths', '--set',
       // `--depends-on`은 **운영자 선언**이다 — 하네스가 `none`을 자동으로 쓰면 "미선언 ≠ 없음"
       // 규율이 깨진다. 값을 받으므로 VALUED이며, 생략하면 미선언으로 남아 픽업이 막힌다.
-      '--depends-on'])
+      '--depends-on',
+      // `--features`는 WORK 준비 범위(쉼표 FEAT 목록)다 — 스크립트가 계획의 FEAT와 대조한다.
+      '--features'])
     // `--normalize`는 **게이트를 끄는 탈출이 아니다** — 개발 티켓 본문으로 FEAT 단위를 만들고
     // 그 대가(specTier: unverifiable · 인계 차단)를 그대로 진다. `checkAdopt`의 출처 판정을
     // 우회하지 않으므로 기획 티켓은 이 경로로도 들어오지 못한다.
-    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--normalize'])
+    // `--work`는 claim의 WORK 준비·검토 모드다 — 외부 쓰기가 없고 게이트를 끄지 않는다.
+    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--normalize', '--work'])
     // `--provider`는 configure에서만 받는다 — 다른 명령에서는 `--ticket-provider`가 정본이다.
     if (mode === 'configure') VALUED.add('--provider')
     let commandArgs = withoutDirectoryOption(rest, '--root', context)

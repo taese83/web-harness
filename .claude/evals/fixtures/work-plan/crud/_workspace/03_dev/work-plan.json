@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 1,
+  "planId": "22222222-2222-4222-8222-222222222222",
+  "sourceRevision": "fixture-crud",
+  "baseBranch": "feature/members",
+  "analysisRef": {
+    "path": "_workspace/03_dev/work-analysis.json",
+    "digest": "997208e349da88f4b3d196ddc04b5071119b2ae6ba11317ccc867cce215529ce"
+  },
+  "featureBindings": [
+    {
+      "featureId": "FEAT-001",
+      "sourceDigest": "22a5f52c8c38b2c178be79a306ed858c282263e909fcdc947e3c27f64ae7a611",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003",
+        "WORK-00000004-0000-4000-8000-000000000004",
+        "WORK-00000007-0000-4000-8000-000000000007"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-001-1",
+          "workId": "WORK-00000004-0000-4000-8000-000000000004"
+        },
+        {
+          "testCaseId": "TC-001-2",
+          "workId": "WORK-00000004-0000-4000-8000-000000000004"
+        },
+        {
+          "testCaseId": "TC-001-3",
+          "workId": "WORK-00000004-0000-4000-8000-000000000004"
+        }
+      ]
+    },
+    {
+      "featureId": "FEAT-002",
+      "sourceDigest": "af71bd0279c601812e044f58c91ca0633a3a8bec7d86ecf379c682341295ba2f",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003",
+        "WORK-00000004-0000-4000-8000-000000000004",
+        "WORK-00000005-0000-4000-8000-000000000005",
+        "WORK-00000007-0000-4000-8000-000000000007"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-002-1",
+          "workId": "WORK-00000005-0000-4000-8000-000000000005"
+        }
+      ]
+    },
+    {
+      "featureId": "FEAT-003",
+      "sourceDigest": "74e0afa875edd1087f598c7d10e27e268b7d4de27be4978bc55cafffec999f91",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003",
+        "WORK-00000004-0000-4000-8000-000000000004",
+        "WORK-00000006-0000-4000-8000-000000000006",
+        "WORK-00000007-0000-4000-8000-000000000007"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-003-1",
+          "workId": "WORK-00000007-0000-4000-8000-000000000007"
+        },
+        {
+          "testCaseId": "TC-003-2",
+          "workId": "WORK-00000006-0000-4000-8000-000000000006"
+        }
+      ]
+    }
+  ],
+  "workItems": [
+    {
+      "workId": "WORK-00000001-0000-4000-8000-000000000001",
+      "title": "회원 타입·API 계약",
+      "kind": "foundation",
+      "objective": "회원 타입과 조회·수정 API 래퍼를 명세대로 만든다",
+      "nonGoals": [
+        "캐시 정책 변경"
+      ],
+      "dependsOn": [],
+      "readPaths": [
+        "src/shared/api/"
+      ],
+      "writePaths": [
+        "src/entities/member/"
+      ],
+      "contractRefs": [
+        {
+          "path": "_workspace/00_source/impl/member-api.md"
+        }
+      ],
+      "provides": [
+        {
+          "path": "src/entities/member/api.ts",
+          "anchor": "MemberApi"
+        }
+      ],
+      "consumes": [],
+      "designContext": {
+        "applicability": "not-applicable",
+        "rationaleRef": "F-member-contract"
+      },
+      "basisRefs": [
+        "F-member-contract",
+        "F-client",
+        "D-api-shape"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [],
+      "checks": [
+        {
+          "checkId": "A-1",
+          "kind": "contract",
+          "targetRefs": [
+            "src/entities/member/api.ts"
+          ],
+          "expectedOutcome": "GET·PATCH 응답이 명세 타입과 맞는다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000003-0000-4000-8000-000000000003",
+      "title": "회원 페이지 틀",
+      "kind": "foundation",
+      "objective": "목록과 상세 패널 slot을 가진 페이지 틀",
+      "nonGoals": [
+        "목록 데이터 연결"
+      ],
+      "dependsOn": [],
+      "readPaths": [],
+      "writePaths": [
+        "src/pages/members/MembersPage.tsx"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [],
+      "designContext": {
+        "applicability": "direct-ui",
+        "selections": [
+          {
+            "featureIds": [
+              "FEAT-001"
+            ],
+            "testCaseIds": [],
+            "pageGroup": "PAGE-001",
+            "condition": {
+              "state": "default"
+            },
+            "referenceIds": [
+              "list-default"
+            ],
+            "purpose": "implementation"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-page-frame"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [],
+      "checks": [
+        {
+          "checkId": "C-1",
+          "kind": "render",
+          "targetRefs": [
+            "src/pages/members/MembersPage.tsx"
+          ],
+          "expectedOutcome": "샘플 데이터로 목록·빈 상태 영역이 렌더된다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000004-0000-4000-8000-000000000004",
+      "title": "목록 조회 연결",
+      "kind": "implementation",
+      "objective": "실제 조회 결과를 목록에 연결한다(최소 기능)",
+      "nonGoals": [
+        "검색"
+      ],
+      "dependsOn": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "readPaths": [
+        "src/shared/ui/"
+      ],
+      "writePaths": [
+        "src/pages/members/list/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [
+        {
+          "path": "src/entities/member/api.ts",
+          "anchor": "MemberApi"
+        }
+      ],
+      "designContext": {
+        "applicability": "direct-ui",
+        "selections": [
+          {
+            "featureIds": [
+              "FEAT-001"
+            ],
+            "testCaseIds": [
+              "TC-001-1"
+            ],
+            "pageGroup": "PAGE-001",
+            "condition": {
+              "state": "default"
+            },
+            "referenceIds": [
+              "list-default"
+            ],
+            "purpose": "implementation"
+          },
+          {
+            "featureIds": [
+              "FEAT-001"
+            ],
+            "testCaseIds": [
+              "TC-001-2"
+            ],
+            "pageGroup": "PAGE-001",
+            "condition": {
+              "state": "empty"
+            },
+            "referenceIds": [
+              "list-empty"
+            ],
+            "purpose": "verification"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-table",
+        "F-client"
+      ],
+      "priorityRefs": [
+        "P-list-first"
+      ],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-001-1",
+        "TC-001-2",
+        "TC-001-3"
+      ],
+      "checks": [
+        {
+          "checkId": "D-1",
+          "kind": "component",
+          "targetRefs": [
+            "src/pages/members/list/"
+          ],
+          "expectedOutcome": "로딩·빈·오류 상태가 데이터에 따라 바뀐다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000005-0000-4000-8000-000000000005",
+      "title": "검색·필터",
+      "kind": "implementation",
+      "objective": "이름으로 목록을 좁힌다(검색 조건은 URL 소유)",
+      "nonGoals": [
+        "서버 검색 API 변경"
+      ],
+      "dependsOn": [
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/pages/members/search/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [],
+      "designContext": {
+        "applicability": "behavior-context",
+        "contextRefs": [
+          {
+            "path": "_workspace/01_plan/feature-plan.md",
+            "anchor": "FEAT-002"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-table"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-002-1"
+      ],
+      "checks": [
+        {
+          "checkId": "E-1",
+          "kind": "component",
+          "targetRefs": [
+            "src/pages/members/search/"
+          ],
+          "expectedOutcome": "URL 검색 조건과 목록이 일치한다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000006-0000-4000-8000-000000000006",
+      "title": "상세·수정",
+      "kind": "implementation",
+      "objective": "상세를 열고 저장 성공·실패를 처리한다",
+      "nonGoals": [
+        "일괄 수정"
+      ],
+      "dependsOn": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/pages/members/detail/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [
+        {
+          "path": "src/entities/member/api.ts",
+          "anchor": "MemberApi"
+        }
+      ],
+      "designContext": {
+        "applicability": "direct-ui",
+        "selections": [
+          {
+            "featureIds": [
+              "FEAT-003"
+            ],
+            "testCaseIds": [
+              "TC-003-2"
+            ],
+            "pageGroup": "PAGE-002",
+            "condition": {
+              "state": "editing"
+            },
+            "referenceIds": [
+              "detail-edit"
+            ],
+            "purpose": "implementation"
+          },
+          {
+            "featureIds": [
+              "FEAT-003"
+            ],
+            "testCaseIds": [
+              "TC-003-2"
+            ],
+            "pageGroup": "PAGE-002",
+            "condition": {
+              "state": "save-failed"
+            },
+            "referenceIds": [],
+            "purpose": "implementation"
+          }
+        ],
+        "unresolvedRefs": [
+          "U-draft-conflict"
+        ]
+      },
+      "basisRefs": [
+        "F-draft",
+        "F-member-contract"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [
+        "U-draft-conflict"
+      ],
+      "contributesTo": [
+        "TC-003-2"
+      ],
+      "checks": [
+        {
+          "checkId": "F-1",
+          "kind": "component",
+          "targetRefs": [
+            "src/pages/members/detail/"
+          ],
+          "expectedOutcome": "저장 실패 시 입력이 유지된다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000007-0000-4000-8000-000000000007",
+      "title": "검색·선택·수정 통합",
+      "kind": "integration",
+      "objective": "검색→선택→수정→목록 갱신 흐름을 한 revision에서 확인한다",
+      "nonGoals": [],
+      "dependsOn": [
+        "WORK-00000005-0000-4000-8000-000000000005",
+        "WORK-00000006-0000-4000-8000-000000000006"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/pages/members/MembersPage.tsx"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [],
+      "designContext": {
+        "applicability": "direct-ui",
+        "selections": [
+          {
+            "featureIds": [
+              "FEAT-001",
+              "FEAT-003"
+            ],
+            "testCaseIds": [
+              "TC-003-1"
+            ],
+            "pageGroup": "PAGE-001",
+            "condition": {
+              "state": "default"
+            },
+            "referenceIds": [
+              "list-default"
+            ],
+            "purpose": "verification"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-page-frame"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-003-1"
+      ],
+      "checks": [
+        {
+          "checkId": "G-1",
+          "kind": "e2e",
+          "targetRefs": [
+            "src/pages/members/"
+          ],
+          "expectedOutcome": "저장 뒤 목록에 바뀐 값이 보인다"
+        }
+      ],
+      "lifecycle": "active"
+    }
+  ]
+}

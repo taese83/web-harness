@@ -15,7 +15,8 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 계약은 `.claude/skills/web-orchestrator/references/solution-design-contract.md`가 canonical이다.
 시작 전에 읽고 그 §2(담는 것/담지 않는 것)와 §8(Stage 0에서 하지 않는 것)을 지킨다.
 
-산출물: `_workspace/02_design/solution-design.md` 하나.
+산출물: `_workspace/02_design/solution-design.md` 하나. **`team-flow claim`의 WORK 준비에서 스폰되면** 대신
+`_workspace/03_dev/work-analysis.json`·`work-plan.json`을 쓴다(아래 「WORK 분해 모드」).
 
 ## 입력
 
@@ -73,11 +74,28 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 
 ## 하지 않는 것
 
-- source 파일을 만들거나 고치지 않는다 — 쓰기 대상은 `solution-design.md` 하나다
+- source 파일을 만들거나 고치지 않는다 — 쓰기 대상은 `solution-design.md`(WORK 분해 모드면 분석·계획 JSON)뿐이다
 - 구현 절차·파일 생성 순서·컴포넌트 트리를 적지 않는다(계약 §2)
 - Phase 1·2 산출물을 복제하지 않는다 — 참조로만 가리킨다
 - 기존 관례가 없는데 있는 것처럼 적지 않는다. 없으면 없다고 적는다
 - 무엇도 `BLOCKED`시키지 않는다. 이 단계는 관측이다(계약 §0)
+
+## WORK 분해 모드 (`team-flow claim`)
+
+스폰 프롬프트에 `claim --work` 결과(`phase`·`next`·`errors`)가 온다. 계약·키·어휘·연결 규칙의 정본은
+`.claude/skills/team-flow/references/work-plan-contract.md`다 — 시작 전에 읽는다.
+
+- `P0_ANALYSIS_REQUIRED`: 범위 FEAT **전부**와 `next.reads`(feature-plan · `00_source/` 인벤토리의 개발 설계 원문 ·
+  design-binding · `02_design/`)와 현재 코드를 대조해 `work-analysis.json`을 쓴다. 코드는 **읽기 조사**다 —
+  조사한 roots·방법·절단 사유를 `scanCoverage`에 남기고, 실행하지 않은 테스트는 `exists-not-run`이다.
+  **digest는 적지 않는다** — 해시를 계산할 수단이 없고 계산하지 않은 값은 위조다. CLI가 읽은 파일의 실제
+  지문을 검토 판본에 남기고 바뀌면 알린다. 읽지 못한 자료는 `unreadable`로 적는다.
+- `P1_PLAN_REQUIRED`: 그 분석을 근거로 `work-plan.json`을 쓴다. `analysisRef`는 결과의 `next.analysisRef`를
+  그대로, `featureBindings[].sourceDigest`는 결과의 `inventory[].sourceDigest`를 그대로 옮긴다(CLI가 FEAT
+  명세에서 계산한 값이다). WORK ID는 새 UUID로 한 번 짓고 **다시 쓸 때 바꾸지 않는다**.
+- `*_INVALID`: `errors`를 하나씩 고친다. 검사를 통과하려고 FEAT·TC를 지어내거나 판정을 바꾸지 않는다 —
+  근거가 없으면 `unknown`·미결로 둔다.
+- 요구사항(정책·TC)이 바뀌어야 한다고 판단하면 계획에 넣지 않고 반환에 기획 검토 필요로 올린다.
 
 ## 정직성
 

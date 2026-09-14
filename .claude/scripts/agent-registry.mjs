@@ -39,6 +39,10 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/spec.json', // spec.mjs stdout — 어떤 에이전트도 소유하지 않는다(구현 에이전트의 스팩 자기수정 차단)
   '_workspace/03_dev/build-manifest/', // 스폰 계획(fit 게이트 입력 = 재개 매니페스트)
   '_workspace/03_dev/build-manifest/.plan-locks.jsonl', // 계획 스팩 원장(append-only)
+  '_workspace/03_dev/work-analysis-revisions/', // `claim --work`가 검토한 분석 판본(내용 digest 이름)
+  '_workspace/03_dev/work-plan-revisions/', // `claim --work`가 검토한 계획 판본(내용 digest 이름)
+  '_workspace/03_dev/work-plan-review.md', // 검토표(생성물 — 되읽지 않는다)
+  '_workspace/03_dev/work-plan-reviewed.json', // 직전 검토 판본 포인터(작업 삭제 대조의 기준)
 ]
 
 export const AGENT_OWNERSHIP = {
@@ -110,7 +114,10 @@ export const AGENT_OWNERSHIP = {
   'release-manager': [/^_workspace\/RELEASE\//],
   'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
-  'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/],
+  // WORK 분해의 선행 분석과 계획도 이 에이전트 **하나**가 쓴다(2026-09-11) — 구현 설계 결정·모듈 경계를
+  // 이미 맡고 사용자 설계 원문을 우선 입력으로 읽는다. FEAT(feature-planner)와 WORK의 작성 책임을 가른다.
+  'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/,
+    /^_workspace\/03_dev\/work-analysis\.json$/, /^_workspace\/03_dev\/work-plan\.json$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],

@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "planId": "44444444-4444-4444-8444-444444444444",
+  "sourceRevision": "fixture-editor",
+  "baseBranch": "feature/editor",
+  "analysisRef": {
+    "path": "_workspace/03_dev/work-analysis.json",
+    "digest": "532c65b4e6b5c6fc8698ecbe936ad6e845373117f6cdffd9eebe2e7fabf34820"
+  },
+  "featureBindings": [
+    {
+      "featureId": "FEAT-011",
+      "sourceDigest": "4d58830382c2fcab8b3f2c0980f8d875cf67f300763f34293a1c9cf7b7d7d963",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000002-0000-4000-8000-000000000002",
+        "WORK-00000005-0000-4000-8000-000000000005"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-011-1",
+          "workId": "WORK-00000002-0000-4000-8000-000000000002"
+        },
+        {
+          "testCaseId": "TC-011-2",
+          "workId": "WORK-00000002-0000-4000-8000-000000000002"
+        }
+      ]
+    },
+    {
+      "featureId": "FEAT-012",
+      "sourceDigest": "fc8d3d09d6fbb4fcaac6ccdf1c1c04159a8f6493be7e909dfd9029bff52a846c",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003",
+        "WORK-00000005-0000-4000-8000-000000000005"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-012-1",
+          "workId": "WORK-00000005-0000-4000-8000-000000000005"
+        }
+      ]
+    },
+    {
+      "featureId": "FEAT-013",
+      "sourceDigest": "5e2c23e992aa66cf47f1d6f06a1a71268c3b0dfbb6b933306922bdf1c0ecfb51",
+      "requiredWorkIds": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "acceptanceOwners": [
+        {
+          "testCaseId": "TC-013-1",
+          "workId": "WORK-00000004-0000-4000-8000-000000000004"
+        }
+      ]
+    }
+  ],
+  "workItems": [
+    {
+      "workId": "WORK-00000001-0000-4000-8000-000000000001",
+      "title": "문서 모델·명령·실행 취소",
+      "kind": "foundation",
+      "objective": "공유 문서와 명령, 명령 단위 실행 취소와 불변식",
+      "nonGoals": [
+        "UI"
+      ],
+      "dependsOn": [],
+      "readPaths": [],
+      "writePaths": [
+        "src/entities/document/"
+      ],
+      "contractRefs": [
+        {
+          "path": "_workspace/00_source/impl/editor-state.md"
+        }
+      ],
+      "provides": [
+        {
+          "path": "src/entities/document/model.ts",
+          "anchor": "DocumentCommands"
+        }
+      ],
+      "consumes": [],
+      "designContext": {
+        "applicability": "not-applicable",
+        "rationaleRef": "F-doc-store"
+      },
+      "basisRefs": [
+        "F-doc-store",
+        "D-doc-model"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [],
+      "checks": [
+        {
+          "checkId": "S-1",
+          "kind": "invariant",
+          "targetRefs": [
+            "src/entities/document/"
+          ],
+          "expectedOutcome": "블록 id 유일 · 명령 뒤 실행 취소하면 직전 문서와 같다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000002-0000-4000-8000-000000000002",
+      "title": "블록 편집 영역",
+      "kind": "implementation",
+      "objective": "입력·삭제·실행 취소를 명령으로 연결",
+      "nonGoals": [
+        "개요"
+      ],
+      "dependsOn": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/widgets/editor/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [
+        {
+          "path": "src/entities/document/model.ts",
+          "anchor": "DocumentCommands"
+        }
+      ],
+      "designContext": {
+        "applicability": "direct-ui",
+        "contextRefs": [
+          {
+            "path": "_workspace/02_design/component-spec.md",
+            "anchor": "블록 편집 영역"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-doc-store"
+      ],
+      "priorityRefs": [
+        "P-edit-first"
+      ],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-011-1",
+        "TC-011-2"
+      ],
+      "checks": [
+        {
+          "checkId": "B-1",
+          "kind": "component",
+          "targetRefs": [
+            "src/widgets/editor/"
+          ],
+          "expectedOutcome": "입력이 문서 명령으로만 반영된다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000003-0000-4000-8000-000000000003",
+      "title": "개요 패널",
+      "kind": "implementation",
+      "objective": "개요 목록과 선택 이벤트",
+      "nonGoals": [],
+      "dependsOn": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "readPaths": [
+        "src/shared/ui/"
+      ],
+      "writePaths": [
+        "src/widgets/outline/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [
+        {
+          "path": "src/entities/document/model.ts",
+          "anchor": "DocumentCommands"
+        }
+      ],
+      "designContext": {
+        "applicability": "direct-ui",
+        "contextRefs": [
+          {
+            "path": "_workspace/02_design/component-spec.md",
+            "anchor": "개요 패널"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-panel",
+        "F-doc-store"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-012-1"
+      ],
+      "checks": [
+        {
+          "checkId": "O-1",
+          "kind": "component",
+          "targetRefs": [
+            "src/widgets/outline/"
+          ],
+          "expectedOutcome": "항목 클릭이 선택 이벤트를 낸다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000004-0000-4000-8000-000000000004",
+      "title": "로컬 저장·복구",
+      "kind": "implementation",
+      "objective": "문서 스냅샷 저장과 버전 마이그레이션",
+      "nonGoals": [
+        "서버 동기화"
+      ],
+      "dependsOn": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/entities/document/persist/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [
+        {
+          "path": "src/entities/document/model.ts",
+          "anchor": "DocumentCommands"
+        }
+      ],
+      "designContext": {
+        "applicability": "not-applicable",
+        "rationaleRef": "F-persist"
+      },
+      "basisRefs": [
+        "F-persist"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-013-1"
+      ],
+      "checks": [
+        {
+          "checkId": "P-1",
+          "kind": "integration",
+          "targetRefs": [
+            "src/entities/document/persist/"
+          ],
+          "expectedOutcome": "새로고침 뒤 마지막 문서가 복구된다"
+        }
+      ],
+      "lifecycle": "active"
+    },
+    {
+      "workId": "WORK-00000005-0000-4000-8000-000000000005",
+      "title": "편집·개요 선택 통합",
+      "kind": "integration",
+      "objective": "개요 선택과 편집 선택을 한 화면에서 확인",
+      "nonGoals": [],
+      "dependsOn": [
+        "WORK-00000002-0000-4000-8000-000000000002",
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "readPaths": [],
+      "writePaths": [
+        "src/pages/editor/"
+      ],
+      "contractRefs": [],
+      "provides": [],
+      "consumes": [],
+      "designContext": {
+        "applicability": "behavior-context",
+        "contextRefs": [
+          {
+            "path": "_workspace/02_design/component-spec.md",
+            "anchor": "개요 패널"
+          }
+        ]
+      },
+      "basisRefs": [
+        "F-doc-store"
+      ],
+      "priorityRefs": [],
+      "blockerRefs": [],
+      "contributesTo": [
+        "TC-012-1"
+      ],
+      "checks": [
+        {
+          "checkId": "I-1",
+          "kind": "e2e",
+          "targetRefs": [
+            "src/pages/editor/"
+          ],
+          "expectedOutcome": "개요에서 고른 블록이 편집 영역에서도 선택된다"
+        }
+      ],
+      "lifecycle": "active"
+    }
+  ]
+}

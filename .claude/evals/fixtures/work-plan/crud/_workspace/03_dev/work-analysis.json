@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 1,
+  "analysisId": "11111111-1111-4111-8111-111111111111",
+  "scope": {
+    "featureIds": [
+      "FEAT-001",
+      "FEAT-002",
+      "FEAT-003",
+      "FEAT-004",
+      "FEAT-005"
+    ],
+    "targetRoots": [
+      "src"
+    ],
+    "sourceRevision": "fixture-crud",
+    "dirty": false,
+    "inventoryRef": "_workspace/01_plan/feature-plan.md",
+    "inventoryComplete": true,
+    "incompleteReasons": [],
+    "featureDisposition": [
+      {
+        "featureId": "FEAT-001",
+        "status": "planned"
+      },
+      {
+        "featureId": "FEAT-002",
+        "status": "planned"
+      },
+      {
+        "featureId": "FEAT-003",
+        "status": "planned"
+      },
+      {
+        "featureId": "FEAT-004",
+        "status": "deferred",
+        "deferral": "product-deferral",
+        "reasonRef": "S-plan"
+      },
+      {
+        "featureId": "FEAT-005",
+        "status": "deferred",
+        "deferral": "follow-up-detail",
+        "reasonRef": "S-plan"
+      }
+    ]
+  },
+  "sourceRefs": [
+    {
+      "id": "S-plan",
+      "snapshotRef": "_workspace/00_source/plan/member-admin.md",
+      "digest": "eaacd95ed7661184b91c54637687064d2ba6d4427c49c351a3aca960be9019f6",
+      "intent": "target",
+      "decisionStatus": "approved",
+      "scopeRefs": [
+        "FEAT-001",
+        "FEAT-004"
+      ],
+      "accessState": "read"
+    },
+    {
+      "id": "S-design",
+      "snapshotRef": "_workspace/00_source/impl/member-admin-design.md",
+      "digest": "1b610b44baac8d99131d04967935ff2bfc23d00caaa21e3b285c971c6b356363",
+      "intent": "target",
+      "decisionStatus": "draft",
+      "scopeRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ],
+      "accessState": "read"
+    },
+    {
+      "id": "S-api",
+      "snapshotRef": "_workspace/00_source/impl/member-api.md",
+      "digest": "fd2754cd9412ac2263f3f14ccd6d54deef2ab0b75309e42ad7c60fcb66918fcb",
+      "intent": "current",
+      "decisionStatus": "approved",
+      "scopeRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ],
+      "accessState": "read"
+    },
+    {
+      "id": "S-figma",
+      "locator": "https://www.figma.com/file/member-admin",
+      "intent": "reference",
+      "decisionStatus": "undecided",
+      "scopeRefs": [
+        "FEAT-003"
+      ],
+      "accessState": "unreadable",
+      "note": "인증 필요 — 로컬 시안으로 대체"
+    }
+  ],
+  "codeEvidence": [
+    {
+      "id": "E-table",
+      "path": "src/shared/ui/DataTable.tsx",
+      "symbol": "DataTable",
+      "digest": "852b589f0b93948a0dc0368a4260b30b49aec9b82f4c25aa72a5924775489ca0",
+      "observation": "목록 표시·행 선택·빈/오류 표시 props가 있다",
+      "method": "read",
+      "testState": "absent"
+    },
+    {
+      "id": "E-client",
+      "path": "src/shared/api/client.ts",
+      "symbol": "request",
+      "digest": "9c0f90162a92e71ac3b0cbad9240d530a7fc0c3f6356c384989107a0638581e1",
+      "observation": "fetch 래퍼, 공통 오류 envelope",
+      "method": "read",
+      "testState": "absent"
+    }
+  ],
+  "scanCoverage": {
+    "roots": [
+      "src"
+    ],
+    "methods": [
+      "read",
+      "grep"
+    ],
+    "exclusions": [
+      "node_modules"
+    ],
+    "incompleteReasons": []
+  },
+  "decisions": [
+    {
+      "id": "D-api-shape",
+      "subjectRef": "회원 API 형식",
+      "status": "confirmed",
+      "chosenValue": "GET /members · PATCH /members/:id",
+      "authorityRef": "S-api",
+      "evidenceRefs": [
+        "S-api"
+      ],
+      "scopeRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ]
+    },
+    {
+      "id": "D-state-owner",
+      "subjectRef": "편집 draft 소유",
+      "status": "draft",
+      "authorityRef": "S-design",
+      "evidenceRefs": [
+        "S-design"
+      ],
+      "scopeRefs": [
+        "FEAT-003"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-table",
+      "capability": "목록 표·행 선택",
+      "evidenceRefs": [
+        "E-table"
+      ],
+      "disposition": "reuse",
+      "consumerRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ]
+    },
+    {
+      "id": "F-client",
+      "capability": "HTTP 요청·오류 envelope",
+      "evidenceRefs": [
+        "E-client"
+      ],
+      "disposition": "reuse",
+      "consumerRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ]
+    },
+    {
+      "id": "F-member-contract",
+      "capability": "회원 타입·조회/수정 API 래퍼",
+      "evidenceRefs": [
+        "S-api"
+      ],
+      "disposition": "create",
+      "gap": "회원 타입과 API 래퍼가 없다",
+      "consumerRefs": [
+        "FEAT-001",
+        "FEAT-002",
+        "FEAT-003"
+      ],
+      "decisionRefs": [
+        "D-api-shape"
+      ]
+    },
+    {
+      "id": "F-page-frame",
+      "capability": "목록+상세 slot 페이지 틀",
+      "evidenceRefs": [
+        "S-design"
+      ],
+      "disposition": "create",
+      "gap": "회원 페이지 틀이 없다",
+      "consumerRefs": [
+        "FEAT-001",
+        "FEAT-003"
+      ]
+    },
+    {
+      "id": "F-draft",
+      "capability": "편집 draft와 서버 원본의 충돌 처리",
+      "evidenceRefs": [
+        "S-design"
+      ],
+      "disposition": "unknown",
+      "consumerRefs": [
+        "FEAT-003"
+      ],
+      "decisionRefs": [
+        "D-state-owner"
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "id": "U-draft-conflict",
+      "topic": "편집 중 서버 원본이 바뀌면 어느 쪽을 남기나",
+      "ownerRole": "기획",
+      "scopeRefs": [
+        "FEAT-003"
+      ],
+      "blockingReason": "덮어쓰기 정책이 없으면 수정 흐름을 확정할 수 없다"
+    }
+  ],
+  "priorityInputs": [
+    {
+      "id": "P-list-first",
+      "scopeRefs": [
+        "FEAT-001"
+      ],
+      "preference": "기획: 목록을 가장 먼저 연다",
+      "rank": 1,
+      "sourceRef": "S-plan"
+    }
+  ],
+  "resolutionLinks": [
+    {
+      "analysisItemId": "S-plan",
+      "targetRefs": [
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "S-design",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001",
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "S-api",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "S-figma",
+      "resolution": "excluded",
+      "reason": "읽지 못함 — 로컬 시안으로 대체, 접근 권한이 생기면 재수집"
+    },
+    {
+      "analysisItemId": "F-table",
+      "targetRefs": [
+        "WORK-00000004-0000-4000-8000-000000000004"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-client",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-member-contract",
+      "targetRefs": [
+        "WORK-00000001-0000-4000-8000-000000000001"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-page-frame",
+      "targetRefs": [
+        "WORK-00000003-0000-4000-8000-000000000003"
+      ],
+      "resolution": "consumed"
+    },
+    {
+      "analysisItemId": "F-draft",
+      "targetRefs": [
+        "WORK-00000006-0000-4000-8000-000000000006"
+      ],
+      "resolution": "consumed"
+    }
+  ]
+}

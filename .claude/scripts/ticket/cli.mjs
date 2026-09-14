@@ -152,7 +152,7 @@ export function loadUnits(root, flags) {
 }
 
 // 계획 본문(flat·sharded)과 소스에서 인용된 TC ID — 완료 조건 판정의 입력.
-function loadPlanText(root, flags) {
+export function loadPlanText(root, flags) {
   // `--units`는 기계 입력이지만 **본문(body)을 담고 있다** — 유예 마커는 거기서 읽는다.
   // 이전 판은 여기서 `''`를 반환해 units 경로가 **구조적으로 항상 차단**됐고, 그러자 회귀
   // 테스트마다 `--accept-incomplete`가 뿌려졌다(2026-08-30 리뷰 HIGH). 게이트가 골든 경로를
@@ -1192,7 +1192,10 @@ if (invokedDirectly) {
   const requireRepo = () => { if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('MISSING_REPO: --repo <owner/name> 필요') }
   const run = async () => {
     switch (command) {
-      case 'claim': requireRepo(); return runClaim({root, repo, flags})
+      // `--work`: WORK 분해의 준비(P0)·검토(P1). 트래커를 부르지 않으므로 --repo가 필요 없다.
+      case 'claim':
+        if (flags.work) return (await import('./work-claim.mjs')).runClaimWork({root, flags})
+        requireRepo(); return runClaim({root, repo, flags})
       case 'pickup': requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
       case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})

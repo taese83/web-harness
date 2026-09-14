@@ -5,10 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[claim | board | pickup <FEAT> | link <FEAT> <pr-url>] (또는 자연어)"
 metadata:
-  version: 0.8.0
+  version: 0.9.0
   maturity: contract-only
   updated: 2026-09-11
-  changelog: 픽업이 발급하는 change-scope의 키 집합을 정본으로 적고(ticket-kinds.md) 티켓·개정 블록을 더했다 — 모든 문이 같은 키로 끝난다. 실행 조건은 키로 두지 않고 강제의 실체(규약·서브에이전트 bash 정책·write 임대)를 적었다. 인젝션 스캔 서술을 제목·본문 차단 + 코멘트 제외로 현재화. 이전 — 사용자의 픽업 요청이 승인하는 외부 쓰기 셋(배정·in-progress·되돌림 코멘트)을 명시하고 「side-effect는 전부 --confirm」이라던 잔존 서술을 코드(claim·configure만 --confirm)에 맞춤. 이전 — configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
+  changelog: claim에 WORK 준비·검토 모드(--work) — 계획 FEAT 전체를 분석(P0)·WORK 분해(P1)해 검토표를 만든다. 분석·계획은 system-architect가 쓰고 CLI는 검증만 한다. 발행은 P2. 이전 — 픽업이 발급하는 change-scope의 키 집합을 정본으로 적고(ticket-kinds.md) 티켓·개정 블록을 더했다 — 모든 문이 같은 키로 끝난다. 실행 조건은 키로 두지 않고 강제의 실체(규약·서브에이전트 bash 정책·write 임대)를 적었다. 인젝션 스캔 서술을 제목·본문 차단 + 코멘트 제외로 현재화. 이전 — 사용자의 픽업 요청이 승인하는 외부 쓰기 셋(배정·in-progress·되돌림 코멘트)을 명시하고 「side-effect는 전부 --confirm」이라던 잔존 서술을 코드(claim·configure만 --confirm)에 맞춤. 이전 — configure 명령으로 트래커 설정을 기록한다 — 종전에는 질문만 하고 답을 적을 곳이 없어 사람이 JSON을 손으로 만들어야 했다. 허용 키 밖(비밀 포함)은 거부하고, gitignore로 공유가 끊기면 알린다. 이전 — 티켓 트래커를 provider 인터페이스 뒤로 분리하고 Jira를 붙였다 — claim이 트래커를 한 번 묻고(점 0-A) 고정하며, pickup은 전이 능력이 있으면 in-progress로 전이하고 없으면 그 사실을 표시한다. 자동 닫기 워크플로우는 비-GitHub을 PENDING으로 남긴다. 이전 — claim이 이슈 자동 닫기 워크플로우를 청구 브랜치에 설치(원장 결속 근거, 멱등). 분기 전 최신화를 첫 규칙으로 명시(claim·pickup·board도 origin 판정 전 fetch 선행). 이전 — 개발 절이 파이프라인 개발 단계 공통 계약임을 명시(정본은 web-orchestrator Phase 3 §형상 규율). 이전 — 픽업 이후 개발 절 신설 — dev 브랜치 분기·자체 판단 개발·확인 없는 분할 커밋과 푸시, 확인 지점은 PR 직전 하나로. AI 공동저자 트레일러 금지. 이전 — executor CLI 배선(claim/board/pickup/link, --confirm 게이트·exit 2) + 라우팅 0단계 + allowlist 미등재 결정 공시 + 리뷰 반영(link STALE 미수행 loud·부분 차단 exit 정렬·change-scope 덮어쓰기 가드). 이전 — 실행 환경 한계 공시(0.1.1), 진입점 초판(0.1.0).
 ---
 
 # Team Flow
@@ -33,6 +33,7 @@ gh/git 실행부를 **사람 승인**으로 엮는다. `claim`(이슈 무더기 
 부르고 요청이 곧 승인이다 — 미리보기가 필요하면 `--dry-run`.
 
 ```
+cli.mjs claim  --work [--features FEAT-001,…]                              # WORK 준비(P0)·검토(P1) — 외부 쓰기 없음
 cli.mjs claim  --repo <o/r> [--units u.json] [--assignee me] [--confirm]   # origin 게이트→미리보기→발행
 cli.mjs board  --repo <o/r> [--developer me]                               # 배정·merged(gh pr state) 실측 보드
 cli.mjs pickup <FEAT> --repo <o/r> --developer me [--dry-run]              # 게이트→TOCTOU 재판정→self-assign→change-scope 발급
@@ -51,6 +52,7 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 | 사용자가 말하면 | 모드 |
 |---|---|
+| "개발 준비해줘", "WORK로 분해해줘", "공통 기반부터 나눠줘", "분해안 보여줘" | `claim` WORK 준비·검토(아래) |
 | "이슈/티켓 발행해줘", "일괄 청구", "티켓 나눠줘", "기능 티켓 만들어줘" | `claim`(기획자 일괄 청구) |
 | "뭐 개발할 수 있어", "티켓 목록/보드 보여줘", "남은 거 뭐야" | `board` |
 | "이 티켓 픽업할게", "FEAT-003 가져갈게", "이거 개발 착수" | `pickup <FEAT>` |
@@ -73,6 +75,14 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 
 ## 모드
 
+### `claim` — WORK 준비·검토 (개발 준비 담당자)
+
+검토한 plan의 FEAT **전체**를 개발 설계·현재 코드·디자인 연결과 대조해 공통 WORK·FEAT별 WORK·통합 WORK로
+나누고 검토받는다. 별도 분해 명령도 미리 만든 work-plan 파일도 요구하지 않는다 — `cli.mjs claim --work`의
+`phase`가 다음 할 일(설계 자료 보존 → `system-architect`의 분석·계획 작성 → 검토표)을 말한다. 외부 쓰기가
+없고, 발행은 아직 연결되지 않았다(P2 — `--confirm`은 `PUBLISH_NOT_AVAILABLE`, FEAT 발행으로 되돌아가지 않는다).
+단계별 절차·계약·키의 정본은 `references/work-plan-contract.md`.
+
 ### `claim` — 기획자 일괄 청구
 
 0-A. **전제(점 0-A): 어느 트래커에 청구하는가.** `_workspace/03_dev/ticket-provider.json`을 읽는다.
@@ -91,34 +101,8 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 supersede 옛 티켓 닫기(`priorTicketPending`으로 표기만), 머지 후 자동 닫기(아래 PENDING).
 **link의 PR 본문에는 Jira 키에 `Closes`를 적지 않는다** — 닫지 못하는 것을 닫는다고 쓰지 않는다.
 
-**답을 받으면 `configure`로 기록한다** — 사람이 JSON을 손으로 만들게 두지 않는다:
-
-```
-cli.mjs configure --provider jira \
-  --set baseUrl=… --set apiVersion=2 --set projectKey=… --set issueType=Task \
-  --set transitions.in-progress=<id> --set transitions.done=<id>
-```
-
-**GitHub이 사내 GitHub Enterprise면 `host`를 기록한다.** 이것을 빠뜨리면 `gh`가
-`GH_HOST=github.com`으로 돌아 **존재하지 않는 저장소를 찾는다** — owner/name은 맞게 뽑히고
-호스트만 유실되므로, 실패가 "권한 없음"이나 "저장소 없음"으로 보여 원인이 가려진다
-(2026-09-02 실측).
-
-```
-cli.mjs configure --provider github --set host=github.example.com
-```
-
-기본값(`github.com`)이면 적지 않는다 — 설정 파일은 **다른 것만** 담아야 읽을 때 의미가 있다.
-호스트는 저장소 원격에서 뽑아 **기본값으로 제안**할 수 있다(`git-origin.hostFromRemoteUrl`).
-다만 자동 채택하지 않는다 — 원격이 fork나 미러일 수 있어 조용한 오설정이 된다.
-
-`--confirm` 없이 먼저 돌려 기록될 내용을 보여주고 확인받는다(이 CLI의 공통 규율).
-**물을 항목은 결과의 `questions` 배열이 정본이다** — 여기에 옮겨 적지 않는다(갈라진다).
-결과의 `needsChoice`·`shared`·`ignored`를 그대로 사용자에게 보여준다: `shared.ignored`가 true면
-설정도 원장도 팀에 닿지 않는다(팀 흐름이 로컬 전용이 된다).
-
-기록되는 곳은 `_workspace/03_dev/ticket-provider.json`(원장 옆, **팀 공유**)이고 **토큰은 여기
-넣지 않는다** — 허용 키 밖은 거부된다. 인증은 환경변수다.
+**답을 받으면 `configure`로 기록한다** — 사람이 JSON을 손으로 만들게 두지 않는다. 명령 형태·GitHub Enterprise
+`host`·기록 위치·공유 여부 표시는 `references/tracker-config.md`가 정본이다.
 
 **한 번 고르면 고정이다.** 다른 트래커를 요청해도 조용히 바꾸지 않고 `ticket-provider-switch`로
    막는다 — 기존 티켓이 다른 트래커에 남아 있고 board가 두 소스를 읽어야 한다.
