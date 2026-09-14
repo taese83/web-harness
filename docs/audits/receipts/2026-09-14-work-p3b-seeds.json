@@ -1,0 +1,97 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T07:23:54.000Z",
+  "scope": "WORK 분해 P3-b(부모 FEAT 집계·유예 분모·집계 티켓)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "aggregate-product-deferral-excluded",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-follow-up-stays-counted",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-close-never-eligible",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-link-is-not-merge",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-exceptions-not-folded",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-deferrals-not-folded",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-unowned-tc-inconsistent",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-publish-reviewed-only",
+      "file": ".claude/scripts/ticket/work-aggregate-run.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-publish-attempt-before-write",
+      "file": ".claude/scripts/ticket/work-aggregate-run.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-publish-unknown-held",
+      "file": ".claude/scripts/ticket/work-aggregate-run.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-publish-unchanged-skip",
+      "file": ".claude/scripts/ticket/work-aggregate-run.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "cli-board-by-feature-dispatch",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "handoff-follow-up-reported",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "test": ".claude/scripts/test-handoff-readiness.mjs"
+    },
+    {
+      "id": "aggregate-tc-unchecked-not-merged",
+      "file": ".claude/scripts/ticket/work-aggregate.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    },
+    {
+      "id": "aggregate-publish-blocks-unchecked",
+      "file": ".claude/scripts/ticket/work-aggregate-run.mjs",
+      "test": ".claude/scripts/test-work-aggregate.mjs"
+    }
+  ],
+  "result": {
+    "ok": 15,
+    "total": 15,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 15건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "`works-merged`는 필수 작업의 머지까지다 — 통합 revision의 TC 증거·사람 인수는 연결되지 않았고 그래서 closeEligible은 늘 거짓이다",
+    "집계 티켓을 찾는 조회 능력이 없어 결과를 모르는(unknown) 집계는 사람이 트래커를 확인한다",
+    "실 트래커 왕복은 NOT_RUN — provider stub으로 계약까지만 돈다",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 차이가 없었다는 뜻이다"
+  ]
+}

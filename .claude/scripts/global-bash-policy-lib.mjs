@@ -771,7 +771,7 @@ const validationScriptContract = (script, args, context) => {
     // `--work`는 이제 기본 모델이라 붙여도 같다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
     // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — 확인 없이는 미리보기라 여기서 막지 않는다.
     // `--sync`는 머지 관측(읽기)이다.
-    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--sync'])
+    const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--sync', '--aggregate', '--by-feature'])
     // `--provider`는 configure에서만 받는다 — 다른 명령에서는 `--ticket-provider`가 정본이다.
     if (mode === 'configure') VALUED.add('--provider')
     let commandArgs = withoutDirectoryOption(rest, '--root', context)

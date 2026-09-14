@@ -20,7 +20,7 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
 export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'relation-linked',
-  'work-linked', 'work-completed']
+  'work-linked', 'work-completed', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
 
@@ -74,6 +74,19 @@ export function validateWorkEvent(event) {
   if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {
     errors.push('work-completed의 payload.via는 pr-merged여야 한다 — 머지를 관측하지 않은 완료를 기록하지 않는다')
   }
+  // 집계 티켓은 **FEAT 단위**다 — 어느 FEAT의 집계를 어느 시도로 썼는지가 요체다(발행 규율은 WORK와 같다).
+  if (event.eventType.startsWith('aggregate-')) {
+    if (!/^FEAT-\d{3,}$/.test(String(event.featureId ?? ''))) errors.push(`${event.eventType}에는 featureId가 필요하다`)
+    if (event.workId !== undefined) errors.push(`${event.eventType}에는 workId를 두지 않는다 — 집계는 작업이 아니다`)
+    if (!UUID.test(String(event.operationId ?? ''))) errors.push(`${event.eventType}에는 operationId가 필요하다`)
+    if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push(`${event.eventType}에는 planDigest가 필요하다`)
+    if (['aggregate-attempted', 'aggregate-refreshed'].includes(event.eventType) && !DIGEST.test(String(event.payload?.payloadDigest ?? ''))) {
+      errors.push(`${event.eventType}에는 payload.payloadDigest가 필요하다`)
+    }
+    if (['aggregate-confirmed', 'aggregate-refreshed'].includes(event.eventType) && !event.payload?.ticketKey) {
+      errors.push(`${event.eventType}에는 payload.ticketKey가 필요하다`)
+    }
+  }
   // 종류별 필수: 계보 이벤트의 요체는 어느 판본의 어느 작업들인가다 — 손상되면 조용히 건너뛰지 않고 막는다.
   if (event.eventType === 'plan-reviewed') {
     if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push('plan-reviewed에는 planDigest가 필요하다')
@@ -122,11 +135,22 @@ export function readWorkEvents(path) {
 export function foldWorkState(events) {
   const knownWorkIds = new Set()
   const works = new Map()
+  const aggregates = new Map()
   let lastReviewed = null
   const workState = workId => works.get(workId) ?? {workId, status: 'unpublished', ticketKey: null, operationId: null,
     payloadDigest: null, planDigest: null, relation: null, link: null, completed: null}
   for (const event of events) {
     // 형식은 파서가 이미 막았다 — 여기서 건너뛰는 값은 없다(조용한 스킵은 이 모듈의 원칙과 반대다).
+    if (event.eventType.startsWith('aggregate-')) {
+      const current = aggregates.get(event.featureId) ?? {featureId: event.featureId, status: 'unpublished', ticketKey: null}
+      const status = {'aggregate-attempted': current.status === 'published' ? 'published' : 'attempted',
+        'aggregate-confirmed': 'published', 'aggregate-unknown': current.status === 'published' ? 'published' : 'unknown',
+        'aggregate-refreshed': 'published'}[event.eventType]
+      aggregates.set(event.featureId, {...current, status, operationId: event.operationId, planDigest: event.planDigest,
+        ticketKey: event.payload?.ticketKey ? String(event.payload.ticketKey) : current.ticketKey,
+        ...(event.eventType === 'aggregate-refreshed' || event.eventType === 'aggregate-confirmed' ? {bodyDigest: event.payload?.payloadDigest ?? current.bodyDigest ?? null} : {})})
+      continue
+    }
     if (event.eventType === 'plan-reviewed') {
       for (const workId of event.payload.workIds) knownWorkIds.add(workId)
       lastReviewed = {planId: event.planId, planDigest: event.planDigest, analysisDigest: event.payload.analysisDigest ?? null, at: event.at}
@@ -157,7 +181,7 @@ export function foldWorkState(events) {
         parentKey: event.payload?.parentKey ?? null}})
     }
   }
-  return {knownWorkIds, lastReviewed, works}
+  return {knownWorkIds, lastReviewed, works, aggregates}
 }
 
 /** append. 형식 검증을 통과한 이벤트만 파일에 닿는다(파서가 되읽을 수 있는 줄만 쓴다). */

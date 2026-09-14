@@ -253,7 +253,9 @@ test('계획의 FEAT가 발행된 WORK로 전부 덮이는지 잰다 — 유예 
     writeFileSync(events, `${all.map(confirm).join('\n')}\n`)
     const covered = checkTicketsCoverPlan(root, units)
     assert.equal(covered.state, 'PASS', covered.detail)
-    if ((analysis.scope.featureDisposition ?? []).some(entry => entry.status === 'deferred')) assert.match(covered.detail, /유예한 FEAT/)
+    // 유예 두 종류를 다르게 적는다 — 후속 상세화를 제품 유예처럼 「뺐다」고 적지 않는다.
+    assert.match(covered.detail, /제품 유예 FEAT 1건은 분모에서 뺐다/)
+    assert.match(covered.detail, /후속 상세화 대기 FEAT 1건\(FEAT-005\)/)
     // WORK 계획에 없는 FEAT는 덮이지 않은 것이다.
     assert.match(checkTicketsCoverPlan(root, [...units, {featureId: 'FEAT-999'}]).detail, /WORK 계획에 없는 FEAT 1건: FEAT-999/)
     // 원장 파손은 건너뛰지 않는다.

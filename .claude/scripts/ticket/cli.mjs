@@ -424,6 +424,8 @@ if (invokedDirectly) {
             guidance: missing === 'provider' ? '어느 트래커에 발행할지 정한다 — `configure`로 기록한다(설정은 팀에 공유된다)'
               : 'GitHub에 발행하려면 `--repo <owner/name>`가 필요하다'}
         }
+        // `--aggregate`: FEAT 단위 집계 티켓(개발 대상이 아니다). 발행 규율은 WORK와 같다.
+        if (flags.aggregate) return (await import('./work-aggregate-run.mjs')).runAggregatePublish({root, flags, io: {provider: resolved.provider}})
         return (await import('./work-publish-run.mjs')).runWorkPublish({root, flags,
           io: {provider: resolved.provider, ticketConfig: resolved.config}})
       }
@@ -445,6 +447,8 @@ if (invokedDirectly) {
       }
       // 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.
       case 'board': {
+        // `--by-feature`: 부모 FEAT 집계(로컬 계획·원장만 — 트래커를 부르지 않는다).
+        if (flags['by-feature']) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags})
         const {resolved, missing} = tracker()
         return (await import('./work-board.mjs')).runWorkBoard({root, developer: flags.developer ?? null, flags,
           io: {provider: missing ? null : resolved.provider}})

@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `N` = `.claude/scripts/test-work-link.mjs`(완료 주장·머지 관측) · `A` = `.claude/scripts/test-work-aggregate.mjs`(부모 집계·집계 티켓) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -28,14 +28,14 @@
 | T14 | 동시 발행·계획 변경 | P2 | |
 | T15 | Jira 하위 작업 미지원 | 부분 | `V`「T15」 — 설정 없으면 필요한 설정을 돌려주고 트래커를 부르지 않는다. subtask는 미구현으로 표기(성공 위장 없음). **실 Jira 왕복 NOT_RUN** — 링크 방향(부모=outward)은 가정이며 `workLink.parentSide`로 뒤집을 수 있다 |
 | T16 | provider 조회 실패·페이지 절단 | 부분 | `V`「T16」 — total 미만이면 `complete:false`+커서, 0건 페이지는 `stalled`(전진 불가), 손상 커서는 loud, 형식 아닌 요청 키는 loud, 완결일 때만 못 본 키를 보고. gh 검색은 색인 지연이라 항상 불완전, 상한 도달은 `truncated`. **실 트래커 왕복 NOT_RUN**(없는 키 조회·검색 토큰화는 가정) |
-| T17 | Closed지만 테스트 실패 | P3 | |
+| T17 | Closed지만 테스트 실패 | 부분 | `A`「T17·T19」 — 트래커 상태는 집계 입력이 아니고, 작업이 머지돼도 부모는 `closeEligible: false`(증거 미연결)다. **남은 몫**: 실제 테스트 실행 결과를 작업·부모 증거로 연결하는 runner·receipt 결합 |
 | T18 | PR 링크만·다른 repo/base 머지 | 부분 | `N`「머지」·`K`「T45」 — PR 연결만으로는 완료가 아니고 선행으로도 세지 않는다(머지 관측만 센다). **남은 몫**: 머지된 PR의 base 브랜치·저장소가 맞는지는 보지 않는다(`state: MERGED`까지) |
-| T19 | 다른 revision의 TC 통과 모음 | P3 | |
+| T19 | 다른 revision의 TC 통과 모음 | 부분 | `A`「T17·T19」 — 통합 revision 증거가 없으므로 부모를 닫을 수 있다고 하지 않는다(모을 증거 자체가 아직 없다). **남은 몫**: 같은 통합 snapshot 기준 집계 |
 | T20 | TC 문자열만 주석에 존재 | 부분 | `N`「완료」 — 인용이 **아예 없는** 것은 막는다. **프록시 한계**: 주석에만 ID가 있어도 통과한다(legacy와 같은 등급, §4 등록) — 테스트가 기준을 실제로 검증하는지는 코드 리뷰의 몫 |
 | T21 | 정책·시안·공유 상태 계약 변경 | 부분 | U「T21」 — FEAT 명세 변경 시 분해를 낡음으로 거부. 증거 stale은 P3 |
 | T22 | 담당자만 변경 | P3 | 증거가 생긴 뒤에야 의미가 있다 |
 | T23 | 머지 후 revert·base 변경 | P3 | |
-| T24 | 인수 요구 누락·유예 TC | 부분 | `N`「완료 조건 미충족」 — 미충족을 `--accept-incomplete`로 넘기면 판정 요약과 함께 원장에 남는다. 유예 TC는 계획에서 책임 작업이 없다(P1). **남은 몫**: 부모 FEAT 집계에서 유예 두 종류의 분모 처리, 그리고 인수로 넘긴 뒤 머지된 작업을 집계에서 보통 완료와 구별해 드러내기(보드는 아직 `completed`만 보인다, P3-b) |
+| T24 | 인수 요구 누락·유예 TC | 부분 | `N`「완료 조건 미충족」 — 미충족을 `--accept-incomplete`로 넘기면 판정 요약과 함께 원장에 남는다. 유예 TC는 계획에서 책임 작업이 없다(P1). `A`「T24」 — 인수로 넘긴 완료는 `works-merged-with-exceptions`, 계획의 TC 유예는 `works-merged-with-deferrals`로 따로 표시되고 둘 다 닫을 수 없다. **남은 몫**: 사람 인수(`ACCEPTED`) 기록 |
 | T25 | 구 자동 닫기 설치본 | P3 | legacy 전환이 아니라 자동 닫기의 **교체**로 다룬다 |
 | T26 | 전환 중 실패 후 재시도 | N/A | legacy 전환 없음(사용자 결정) |
 | T27 | 분해하지 않은 v1 FEAT 유지 | N/A | P2에서 「WORK 경로만 존재」 확인으로 대체 |
@@ -79,7 +79,7 @@
 
 | 항목 | 상태 | 근거 |
 |---|---|---|
-| 후속 상세화와 제품 유예 구분 · 분모 보존 | 부분 | U「T44·§4.5」 — 유예 사유 종류 필수, fixture에 두 종류 모두 있음. C — 유예 FEAT가 검토표에 종류·TC 수와 함께 남는다. **P1에서 두 종류의 기계적 취급은 같다**(둘 다 작업 없음) — 「후속 상세화는 완료 분모를 줄이지 않는다」는 부모 집계(P3)가 생겨야 실체가 된다(명명 수준) |
+| 후속 상세화와 제품 유예 구분 · 분모 보존 | PASS | `A`「§4.5」 — 부모 집계에서 제품 유예는 분모에서 빠지고 후속 상세화는 분모에 남아 완료로 세지 않는다. 핸드오프(「유예 FEAT」)는 두 종류를 따로 **보고**하되 후속 상세화로 인계를 막지는 않는다(설계 결정) |
 | 부분 발행 · 기존 선행 재사용 | PASS | `P`「T12·T13」 — 실패분만 재개하고 이미 발행된 선행은 `reuse`로 재사용(재생성 0) |
 | 등록과 착수 조건 분리 | PASS | 등록(`P`)은 선행 닫힘만 요구하고, 착수 차단은 픽업(`K`)이 한다. `B`가 보드와 픽업을 **다섯 상태**(전부 발행 · 일부 발행 · 타인 배정 · 내 배정 · 발행 뒤 계획 변경)에서 행마다 대조한다 — 등록·판본·결정·선행·소유 **다섯 축에서** 일치한다. 티켓 본문이 필요한 축(인젝션·종류·키 대조·컨플릭)은 보드가 재지 않으며 계약에 그렇게 적었다 |
 | 담당자 조정(세부 구현에 리드 승인 강제 금지) | 기계 검사 없음 | 계약 문서 「claim 흐름」 4에 명시. 행동 규칙이라 회귀로 잴 수 없다 |
@@ -103,6 +103,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P3-b에서 15곳(유예 분모 2 · 닫기 불가 1 · 링크≠머지 1 · 예외·유예·TC 미대조 표시 3 · 책임 없는 TC 1 · 집계 티켓 발행 규율 5 · CLI 배선 1 · 핸드오프 보고 1) — 15/15 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p3b-seeds.json`).
 P3-a에서 21곳(STALE 3 · 완료 조건 4 · 대상 기준선 2 · 인수 기록 1 · 멱등 1 · 등록 1 · 머지 관측 4 · 닫는 줄 트래커 1 · 선행=머지 완료 3 · CLI 배선 1) — 21/21 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p3a-seeds.json`).
 P2-d 보드에서 7곳(픽업과 같은 축 1 · 발행 판본 1 · 소유 판정 1 · 미상≠미배정 1 · 등록 필수 1 · 사라진 티켓 1 · 조회 실패를 완결로 접기 1) — 7/7 발화

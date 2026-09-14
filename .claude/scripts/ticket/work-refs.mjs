@@ -28,6 +28,13 @@ export function buildWorkMarker({planId, workId, featureIds = [], testCaseIds = 
   return `${WORK_MARKER_BEGIN} plan=${planId} work=${workId} feat=${featureIds.join(',')} tc=${testCaseIds.join(',')} rev=${planDigest} ${MARKER_END}`
 }
 
+/** 집계 티켓 마커(순수) — 어느 계획의 어느 FEAT를 묶는가만 담는다. 작업 목록은 본문 표가 사람에게 보여준다. */
+export function buildAggregateMarker({planId, featureId}) {
+  if (!UUID.test(String(planId))) throw new Error(`INVALID_PLAN_ID: ${planId}`)
+  if (!/^FEAT-\d{3,}$/.test(String(featureId))) throw new Error(`INVALID_FEATURE_ID: ${featureId}`)
+  return `${AGGREGATE_MARKER_BEGIN} plan=${planId} feat=${featureId} ${MARKER_END}`
+}
+
 /**
  * 본문에서 WORK 마커를 되읽는다(순수). 마커 구획 **안에서만** 읽는다 — 산문의 언급을 줍지 않는다.
  * 마커가 둘 이상이거나 필드가 깨졌으면 `{error}` — 조용히 첫 번째를 고르지 않는다.

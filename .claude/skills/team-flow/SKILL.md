@@ -33,6 +33,8 @@ FEAT/TC는 요구사항(무엇이 되어야 하는가)이고, WORK는 실행 단
 cli.mjs claim [--features FEAT-001,…]                                   # 준비(P0)·검토(P1) — 외부 쓰기 없음
 cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--repo o/r] [--confirm]  # 확인한 판본만 발행
 cli.mjs board [--developer me] [--repo o/r]                             # 지금 집을 수 있는 WORK
+cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
+cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신
 cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run]            # 게이트 → 배정 → change-scope 발급
 cli.mjs link <티켓키> <pr-url> [--dry-run]                                # 완료 주장(STALE·수용 기준 판정)
 cli.mjs link --sync                                                     # 머지 관측 → 완료 기록
@@ -53,6 +55,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 | "이 티켓 픽업할게", "PF-104 가져갈게", "이거 개발 착수" | `pickup <티켓키>` |
 | "PR 연결해줘", "이 작업 끝났어" | `link <티켓키> <pr-url>` |
 | "머지됐어", "완료 반영해줘" | `link --sync` |
+| "FEAT별로 어디까지 됐어", "기능 단위 진행" | `board --by-feature` |
 | "이 Jira 기획 티켓 읽어줘", "티켓에서 기획 가져와" | `intake <티켓키>` |
 
 **티켓 종류마다 문이 다르다** — 기획 티켓은 `intake`로 **공급 원문**이 되고(개발 티켓이 아니다), 개발은
@@ -140,6 +143,12 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서 닫는다. 청구 브랜치 머지·Jira 전이를
 원장 기반으로 닫던 자동화(`assets/ticket-close.yml`·`close-merged-tickets.mjs`)는 옛 청구 원장을 읽으므로
 **WORK 티켓을 닫지 않는다** — WORK 원장 기반 교체는 후속 작업이다.
+
+### `board --by-feature` — 부모 FEAT 집계
+
+필수 WORK가 전부 머지된 FEAT도 `works-merged`일 뿐 **인수 완료가 아니다** — 통합 revision의 TC 증거가 아직
+연결되지 않아 닫을 수 있다고 하지 않는다. 제품 유예는 분모에서 빠지고 후속 상세화는 분모에 남는다. 트래커에
+FEAT 단위로 보이게 하려면 `claim --publish --aggregate`로 집계 티켓을 낸다(개발 대상이 아니다).
 
 ## 비협상
 

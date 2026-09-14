@@ -1151,7 +1151,11 @@ export function checkTicketsCoverPlan(root, units) {
     return hole('tickets-cover-plan', `WORK 원장을 읽지 못했다: ${String(error?.message ?? error).slice(0, 160)}`,
       '원장은 append-only다 — 파손 줄을 사람이 확인한다(조용히 버리면 지나간 상태로 되돌아간다)')
   }
-  const deferred = new Set((analysis?.scope?.featureDisposition ?? []).filter(entry => entry?.status === 'deferred').map(entry => entry.featureId))
+  // 유예 두 종류를 **다르게** 적는다(§4.5): 제품 유예는 분모에서 빠지고, 후속 상세화는 아직 분해되지 않았을 뿐
+  // 끝나지 않은 일이다 — 인계를 막지는 않지만(설계상 나중에 상세화한다) 「덮였다」에 넣지 않고 따로 센다.
+  const dispositions = (analysis?.scope?.featureDisposition ?? []).filter(entry => entry?.status === 'deferred')
+  const deferred = new Set(dispositions.map(entry => entry.featureId))
+  const followUp = dispositions.filter(entry => entry.deferral === 'follow-up-detail').map(entry => entry.featureId).sort()
   const bindings = new Map((plan.featureBindings ?? []).map(binding => [binding.featureId, binding]))
   const published = workId => state.works.get(workId)?.status === 'published'
   const unbound = []
@@ -1164,7 +1168,11 @@ export function checkTicketsCoverPlan(root, units) {
     if (missing.length > 0) unpublished.push(`${unit.featureId}(${missing.length})`)
   }
   const counted = units.length - deferred.size
-  const deferredNote = deferred.size > 0 ? ` · 분석이 유예한 FEAT ${deferred.size}건은 분모에서 뺐다` : ''
+  const productDeferred = deferred.size - followUp.length
+  const deferredNote = [
+    ...(productDeferred > 0 ? [` · 제품 유예 FEAT ${productDeferred}건은 분모에서 뺐다`] : []),
+    ...(followUp.length > 0 ? [` · 후속 상세화 대기 FEAT ${followUp.length}건(${followUp.join(', ')})은 아직 분해되지 않았다 — 끝난 것으로 세지 않는다`] : []),
+  ].join('')
   if (unbound.length === 0 && unpublished.length === 0) {
     return ok('tickets-cover-plan', `계획의 FEAT ${counted}건이 전부 발행된 WORK로 덮인다${deferredNote}`)
   }

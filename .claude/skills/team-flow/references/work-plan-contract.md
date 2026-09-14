@@ -36,14 +36,14 @@
 읽을 수 없게 만든다. `plan-reviewed`에는 `planDigest`와 `payload.workIds`가 필수이며, 같은 판본을 다시
 검토하면 이벤트를 쓰지 않는다(재실행이 원장을 상한까지 키우지 않게).
 종류는 `plan-reviewed` · `publish-attempted`·`publish-confirmed`·`publish-unknown` · `relation-linked` ·
-`work-linked`·`work-completed`다 — 생산자와 소비자가 함께 있는 것만 둔다. 검토 계보(한 번이라도 검토된 작업 ID)는
+`work-linked`·`work-completed` · `aggregate-attempted`·`aggregate-confirmed`·`aggregate-unknown`·`aggregate-refreshed`다 — 생산자와 소비자가 함께 있는 것만 둔다. 검토 계보(한 번이라도 검토된 작업 ID)는
 이 원장에서 읽으므로 로컬 포인터를 지워도 작업 삭제 대조가 살아 있다.
 
 WORK 티켓 본문에는 마커 하나를 둔다: `<!-- web-harness:work plan=<planId> work=<WORK-…> feat=… tc=… rev=<계획 digest> -->`.
 **모든 판독 입구는 종류를 먼저 판정한다**(`classifyTicketKind`) — 픽업은 WORK만 받고, 인테이크는 WORK·집계
 티켓을 공급 원문으로 되들이지 않는다. 마커가 둘이거나 필드가 깨졌거나 두 모델의 마커가 함께 있으면 명시적
 오류다 — 어느 쪽이 정본인지 추측하지 않는다. 옛 FEAT 개발 티켓(`web-harness:refs`)을 픽업하면 분해된 FEAT면
-어느 WORK로 가야 하는지 돌려준다. `aggregate`는 아직 **생산자가 없다**(부모 집계는 P3-b) — 판독 입구만 닫아 둔다.
+어느 WORK로 가야 하는지 돌려준다. `aggregate`의 생산자는 `claim --publish --aggregate`다(아래 「부모 집계」) — 픽업·인테이크는 여전히 거부한다.
 
 ## provider 능력 (P2-b)
 
@@ -160,6 +160,38 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 `--sync`는 연결됐고 아직 완료가 아닌 작업의 PR 상태를 PR URL의 호스트에서 읽는다(쓰기 없음).
 **머지로 확인된 것만** 완료로 쓰고, 열린 PR은 그대로, 조회 실패는 `ok:false`로 올린다 — 완료로도
 침묵으로도 접지 않는다.
+
+## 부모 집계 (P3-b)
+
+`board --by-feature`가 FEAT마다 필수 WORK의 상태를 모아 보여준다(로컬 계획·원장만 — 트래커를 부르지 않는다).
+
+| 상태 | 뜻 |
+|---|---|
+| `not-started` · `in-progress` | 필수 작업이 아직 머지되지 않았다(PR 연결은 머지가 아니다) |
+| `works-merged` | 필수 작업이 **전부 머지됐다** — 인수 완료가 아니다 |
+| `works-merged-with-exceptions` | 머지됐지만 어떤 작업이 완료 조건·STALE 대조를 명시 인수로 넘겼다 |
+| `works-merged-with-deferrals` | 머지됐지만 계획이 이 FEAT의 TC 일부를 유예했다 |
+| `awaiting-follow-up` | 후속 상세화 — **분모에 남고** 상세화·분해 전에는 끝나지 않는다 |
+| `deferred-product` | 제품 유예 — 분모에서 뺀다(뺐다고 적는다) |
+| `merged-tc-unchecked` | 머지됐지만 feature-plan에서 이 FEAT의 TC를 읽지 못해 **책임 대조를 하지 않았다** |
+| `plan-inconsistent` | 책임 없는 TC·취소된 필수 작업·빈 필수 작업 목록 — 분모를 줄인 것이 아니라 계획 불일치다 |
+
+**`closeEligible`은 늘 거짓이다.** 통합 revision의 TC 증거가 아직 연결되지 않았고 부모 자동 닫기는 기본 비활성이다
+(설계 §10.3·§10.4) — 무엇이 막는지 `closeBlockers`로 낸다. 사람이 판단해 전이한다.
+
+`claim --publish --aggregate [--features …]`는 FEAT마다 **집계 티켓**(`web-harness:aggregate` 마커·`work-aggregate`
+라벨)을 낸다. 개발 대상이 아니라 트래커에 보이는 요약이다. 발행 규율은 WORK와 같다: 확인한 판본만, 쓰기 전에
+시도를 남기고, 결과를 모르면 `unknown`으로 두어 **사람이 확인한다**(집계를 찾는 조회 능력이 없어 자동으로 풀지
+않는다 — 재발행하면 집계가 둘이 된다). 이미 낸 집계는 같은 요청에 `--confirm`이면 **본문만 갱신**하고,
+본문이 같으면 쓰지 않는다. WORK를 낼 때 `--parent <집계 키>`로 관계를 걸 수 있다.
+
+- **확인한 판본**은 계획 digest **와 분석 digest** 둘 다다 — 분석이 곧 분모(유예 종류)다. feature-plan을 읽지
+  못하면 TC 대조를 못 하므로 발행을 막는다.
+- **집계가 나가지 않는 FEAT**: 필수 작업이 없는 것 — 후속 상세화·blocked·unbound·제품 유예. 트래커에는 보이지
+  않고 `board --by-feature`에만 보인다.
+- **`unknown`을 푸는 법**: 사람이 트래커에서 그 FEAT의 집계 티켓을 찾는다. 있으면 원장에
+  `{"schemaVersion":1,"eventId":<새 UUID>,"operationId":<원장의 그 시도 operationId>,"planId":…,"featureId":"FEAT-…","eventType":"aggregate-confirmed","at":<시각>,"planDigest":…,"payload":{"ticketKey":"<키>"}}`
+  한 줄을 append한다. 없으면 아무것도 쓰지 않는다 — 그 FEAT는 계속 보류로 보이고, 푸는 CLI는 아직 없다(후속).
 
 ## 원칙
 
