@@ -7,7 +7,7 @@
 // 생성된 검토표만 쓴다. `--confirm`이 와도 발행하지 않으며 FEAT 발행으로 되돌아가지 않는다(T61) —
 // WORK 발행은 P2에서 연결된다.
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
-import {createHash} from 'node:crypto'
+import {createHash, randomUUID} from 'node:crypto'
 import {join} from 'node:path'
 import {canonicalDigest, safeRelativePath, validateWorkAnalysis, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {computeWorkView, validateWorkPlan, WORK_PLAN_PATH} from './work-plan.mjs'
@@ -16,6 +16,7 @@ import {unitContentHash} from './emit.mjs'
 import {loadPlanText, loadUnits} from './cli.mjs'
 import {collectDesignBinding, DESIGN_BINDING_PATH} from '../design-binding-lib.mjs'
 import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
+import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
 
 export const WORK_REVIEW_PATH = '_workspace/03_dev/work-plan-review.md'
 export const WORK_REVIEWED_POINTER = '_workspace/03_dev/work-plan-reviewed.json'
@@ -132,9 +133,13 @@ export async function runClaimWork({root, flags = {}}) {
   const plan = planFile.value
   const designBindingDigest = design.present && design.document ? canonicalDigest(design.document) : null
   const reviewed = readReviewed(root)
+  // 계보는 이벤트 원장(append-only)과 포인터를 합쳐 본다 — 포인터는 지울 수 있고 원장은 덜 지워진다.
+  const events = readWorkEvents(join(root, WORK_EVENTS_PATH))
+  const folded = foldWorkState(events)
+  const knownWorkIds = new Set([...reviewed.knownWorkIds, ...folded.knownWorkIds])
   const planResult = validateWorkPlan(plan, {analysis, analysisIds: analysisResult.ids, units, deferredTcs,
     unitDigest: unitContentHash, designBinding: design.present ? design.document : null, designBindingDigest,
-    knownWorkIds: reviewed.knownWorkIds, io})
+    knownWorkIds, io})
   const inputs = inputFingerprints(io, analysis, plan)
   const changedInputs = Object.keys(reviewed.inputs).filter(path => reviewed.inputs[path] !== (inputs[path] ?? null))
   const planDigestNow = canonicalDigest(plan)
@@ -150,11 +155,24 @@ export async function runClaimWork({root, flags = {}}) {
   const revisions = {analysis: writeRevision(root, 'analysis', analysisDigest, analysis), plan: writeRevision(root, 'plan', planDigest, plan)}
   mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
   writeFileSync(join(root, WORK_REVIEW_PATH), renderWorkReview({inventory, analysis, analysisResult, plan, planResult, view, units, analysisDigest, planDigest, staleInputs}))
-  const knownWorkIds = [...new Set([...reviewed.knownWorkIds, ...list(plan.workItems).map(item => item.workId)])].sort()
-  writeFileSync(join(root, WORK_REVIEWED_POINTER), `${JSON.stringify({planDigest, analysisDigest, reviewedAt: new Date().toISOString(), inputs, knownWorkIds, staleInputs}, null, 2)}\n`)
+  const workIds = [...new Set([...knownWorkIds, ...list(plan.workItems).map(item => item.workId)])].sort()
+  const reviewedAt = new Date().toISOString()
+  // 검토 사실을 이벤트로 남긴다 — 발행(P2-c)·픽업이 「어느 판본을 검토했는가」를 같은 축에서 읽는다.
+  // **같은 판본을 다시 검토하면 쓰지 않는다** — 재실행마다 붙이면 원장이 상한까지 자라 claim이 영원히 막힌다.
+  const unchanged = folded.lastReviewed?.planId === plan.planId
+    && folded.lastReviewed.planDigest === planDigest && folded.lastReviewed.analysisDigest === analysisDigest
+  if (!unchanged) {
+    appendWorkEvent(join(root, WORK_EVENTS_PATH), {
+      schemaVersion: 1, eventId: randomUUID(), planId: plan.planId,
+      eventType: 'plan-reviewed', at: reviewedAt, planDigest,
+      payload: {analysisDigest, workIds},
+    })
+  }
+  writeFileSync(join(root, WORK_REVIEWED_POINTER), `${JSON.stringify({planDigest, analysisDigest, reviewedAt, inputs, knownWorkIds: workIds, staleInputs}, null, 2)}\n`)
   return {...base, ok: true, phase: 'P1_REVIEW', publish: publishNote, warnings,
     confirmable: analysisResult.scopeBlocked.length === 0, scopeBlocked: analysisResult.scopeBlocked,
     digests: {analysis: analysisDigest, plan: planDigest}, revisions, review: WORK_REVIEW_PATH, changedInputs, staleInputs,
+    events: WORK_EVENTS_PATH,
     view: view.rows.map(row => ({...row, label: short(row.workId)})), ready: view.ready}
 }
 

@@ -1341,10 +1341,10 @@
     {
       "id": "work-claim-lineage-accumulates",
       "file": ".claude/scripts/ticket/work-claim.mjs",
-      "find": "  const knownWorkIds = [...new Set([...reviewed.knownWorkIds, ...list(plan.workItems).map(item => item.workId)])].sort()",
-      "replace": "  const knownWorkIds = list(plan.workItems).filter(item => (item.lifecycle ?? 'active') === 'active').map(item => item.workId)",
+      "find": "  const workIds = [...new Set([...knownWorkIds, ...list(plan.workItems).map(item => item.workId)])].sort()",
+      "replace": "  const workIds = list(plan.workItems).filter(item => (item.lifecycle ?? 'active') === 'active').map(item => item.workId)",
       "test": ".claude/scripts/test-work-claim-process.mjs",
-      "why": "검토 계보가 쌓이지 않으면 취소 뒤 배열에서 지우는 2단 삭제를 놓친다"
+      "why": "검토 계보가 쌓이지 않으면(취소 작업 제외 포함) 취소 뒤 배열에서 지우는 2단 삭제를 놓친다"
     },
     {
       "id": "work-plan-direct-ui-needs-basis",
@@ -1369,6 +1369,102 @@
       "replace": "      if (false) errors.push(",
       "test": ".claude/scripts/test-work-plan.mjs",
       "why": "임의 문자열을 반영처로 적어 자료를 쓴 것처럼 보인다"
+    },
+    {
+      "id": "work-events-reject-corrupt",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    try { event = JSON.parse(line) } catch (error) { throw new Error(`WORK_EVENTS_CORRUPT: ${index + 1}번째 줄을 읽지 못했다 — ${error.message}`) }",
+      "replace": "    try { event = JSON.parse(line) } catch { continue }",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "파손 줄을 조용히 버리면 상태가 이전 완료로 되돌아간다(설계 §8)"
+    },
+    {
+      "id": "work-events-reject-invalid",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    if (errors.length > 0) throw new Error(`WORK_EVENTS_INVALID: ${index + 1}번째 줄 — ${errors.join(' · ')}`)",
+      "replace": "    if (false) throw new Error(`WORK_EVENTS_INVALID: ${index + 1}번째 줄 — ${errors.join(' · ')}`)",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "스키마를 어긴 이벤트가 상태에 섞인다 — 모르는 종류가 조용히 통과한다"
+    },
+    {
+      "id": "work-events-detect-conflict",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "      if (seen.get(event.eventId) !== canonical) throw new Error(`WORK_EVENTS_CONFLICT: 같은 eventId ${event.eventId}가 다른 내용으로 두 번 있다`)",
+      "replace": "      if (false) throw new Error(`WORK_EVENTS_CONFLICT: 같은 eventId ${event.eventId}가 다른 내용으로 두 번 있다`)",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "같은 eventId의 다른 내용을 통과시키면 위조·사고가 침묵한다"
+    },
+    {
+      "id": "work-events-append-validates",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "  if (errors.length > 0) throw new Error(`WORK_EVENT_REJECTED: ${errors.join(' · ')}`)",
+      "replace": "  if (false) throw new Error(`WORK_EVENT_REJECTED: ${errors.join(' · ')}`)",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "파서가 되읽지 못하는 줄을 쓰면 다음 판독이 통째로 막힌다"
+    },
+    {
+      "id": "work-marker-single-source",
+      "file": ".claude/scripts/ticket/work-refs.mjs",
+      "find": "  if (starts.length > 1) return {present: true, error: 'WORK 마커가 둘 이상이다 — 어느 것이 정본인지 추측하지 않는다'}",
+      "replace": "  if (false) return {present: true, error: 'unused'}",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "WORK 마커가 둘이면 어느 계획·작업의 티켓인지 추측하게 된다(T11)"
+    },
+    {
+      "id": "ticket-kind-conflict-loud",
+      "file": ".claude/scripts/ticket/work-refs.mjs",
+      "find": "  if (kinds.length > 1) return {kind: 'conflict', error: `한 티켓에 마커가 둘 이상이다(${kinds.join(', ')}) — 같은 티켓이 두 모델에 속할 수 없다`}",
+      "replace": "  if (false) return {kind: 'conflict', error: 'unused'}",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "한 티켓이 legacy와 WORK 두 모델에 동시에 속한 채 통과한다"
+    },
+    {
+      "id": "pickup-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "find": "  if (kind.kind === 'work' || kind.kind === 'aggregate') {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "WORK 티켓이 legacy FEAT 폴백으로 읽혀 개발 티켓으로 픽업된다(T10)"
+    },
+    {
+      "id": "adopt-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "find": "  if (kind.kind === 'work' || kind.kind === 'aggregate') {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "이미 분해 모델에 있는 티켓을 개발 단위로 다시 인수해 이중 소유가 된다"
+    },
+    {
+      "id": "work-claim-records-review-event",
+      "file": ".claude/scripts/ticket/work-claim.mjs",
+      "find": "  appendWorkEvent(join(root, WORK_EVENTS_PATH), {",
+      "replace": "  if (false) appendWorkEvent(join(root, WORK_EVENTS_PATH), {",
+      "test": ".claude/scripts/test-work-claim-process.mjs",
+      "why": "검토 사실이 원장에 남지 않으면 발행·픽업이 어느 판본을 검토했는지 모른다"
+    },
+    {
+      "id": "work-events-require-lineage",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    const workIds = event.payload?.workIds\n    if (!Array.isArray(workIds) || workIds.length === 0) errors.push('plan-reviewed에는 payload.workIds(검토한 작업 ID)가 필요하다')",
+      "replace": "    const workIds = event.payload?.workIds\n    if (false) errors.push('unused')",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "계보 이벤트에 작업 ID가 없어도 통과하면 fold가 빈 계보를 만들고 작업 삭제 대조가 조용히 꺼진다"
+    },
+    {
+      "id": "work-events-require-plan-digest",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push('plan-reviewed에는 planDigest가 필요하다')",
+      "replace": "    if (false) errors.push('unused')",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "어느 판본을 검토했는지 없는 검토 이벤트는 발행·픽업이 기준으로 쓸 수 없다"
+    },
+    {
+      "id": "work-claim-skips-duplicate-review",
+      "file": ".claude/scripts/ticket/work-claim.mjs",
+      "find": "  const unchanged = folded.lastReviewed?.planId === plan.planId\n    && folded.lastReviewed.planDigest === planDigest && folded.lastReviewed.analysisDigest === analysisDigest",
+      "replace": "  const unchanged = false",
+      "test": ".claude/scripts/test-work-claim-process.mjs",
+      "why": "같은 판본을 다시 검토할 때마다 이벤트가 쌓이면 원장이 상한에 닿아 claim이 영원히 막힌다"
     }
   ]
 }

@@ -22,6 +22,7 @@
 
 import {createHash} from 'node:crypto'
 import {fenceFor} from './pickup.mjs'
+import {classifyTicketKind} from './work-refs.mjs'
 
 const INDEX_HEADER = '| 출처 | 형태 | 스냅샷 경로 | 가져온 시각 | 가져온 주체·수단 | SHA-256 | 분류 | 소비 지점 |'
 const INDEX_RULE = '|---|---|---|---|---|---|---|---|'
@@ -260,6 +261,13 @@ export function recordConsumption(sourceIndex, ticketKey, featureId) {
  * @returns {{ok: boolean, reason?: string, guidance?: string}}
  */
 export function checkAdopt({ticketKey, featureId, unit, ledgerRecord = null, body = '', components = [], axis = null}) {
+  // WORK·aggregate 티켓은 이미 분해 모델에 속한다 — 개발 단위로 다시 인수하면 이중 소유가 된다.
+  const kind = classifyTicketKind(body)
+  if (kind.kind === 'work' || kind.kind === 'aggregate') {
+    return {ok: false, reason: `${kind.kind}-ticket-not-adoptable`,
+      guidance: `${ticketKey}는 이미 WORK 분해 모델의 티켓입니다(${kind.kind}) — \`claim --work\`의 계획에서 다루세요`}
+  }
+  if (kind.kind === 'conflict') return {ok: false, reason: 'ticket-kind-conflict', guidance: kind.error}
   if (!/^FEAT-\d{3,}$/.test(String(featureId ?? ''))) {
     return {ok: false, reason: 'invalid-feature-id', guidance: `FEAT-NNN 형식이어야 한다: ${featureId}`}
   }

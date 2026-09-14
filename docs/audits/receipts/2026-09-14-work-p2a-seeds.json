@@ -1,0 +1,80 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T01:42:54.017Z",
+  "scope": "WORK 분해 P2-a(이벤트 원장·마커·종류 판정)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-events-reject-corrupt",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-events-reject-invalid",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-events-detect-conflict",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-events-append-validates",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-marker-single-source",
+      "file": ".claude/scripts/ticket/work-refs.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "ticket-kind-conflict-loud",
+      "file": ".claude/scripts/ticket/work-refs.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "pickup-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/pickup.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "adopt-refuses-work-ticket",
+      "file": ".claude/scripts/ticket/intake.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-claim-records-review-event",
+      "file": ".claude/scripts/ticket/work-claim.mjs",
+      "test": ".claude/scripts/test-work-claim-process.mjs"
+    },
+    {
+      "id": "work-events-require-lineage",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-events-require-plan-digest",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "test": ".claude/scripts/test-work-events.mjs"
+    },
+    {
+      "id": "work-claim-skips-duplicate-review",
+      "file": ".claude/scripts/ticket/work-claim.mjs",
+      "test": ".claude/scripts/test-work-claim-process.mjs"
+    }
+  ],
+  "result": {
+    "fired": 12,
+    "total": 12,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 12건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "seed는 각 가드 한 줄의 최소 변형이다 — 그 가드가 의미적으로 옳은지는 사람 검토의 몫",
+    "CI가 매 실행 전체 등록부를 돌린다(이 receipt는 이 묶음만)"
+  ]
+}

@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -16,14 +16,14 @@
 | T02 | 기반 작업에 사용자 TC 없음 | PASS | U「T02」 — checks 필수, 가짜 TC 거부 |
 | T03 | 공통 기반을 FEAT 둘이 사용 | 부분 | U — 계획상 WORK 하나를 소비 FEAT 셋이 같은 ID로 참조. 외부 티켓 하나는 P2 |
 | T04 | 필수 TC 매핑 제거 | PASS | U「T04」 — 누락·중복 책임 거부 |
-| T05 | 필수 작업을 계획에서 삭제 | PASS | U「T05」·C「T05·T39」·C「취소한 작업」 — 검토 계보(한 번이라도 검토한 작업 ID) 대조, 취소는 허용, 취소 뒤 지우는 2단 삭제도 거부. 한계: 계보는 로컬 포인터라 포인터를 지우면 사라진다(이벤트 원장은 P2) |
+| T05 | 필수 작업을 계획에서 삭제 | PASS | U「T05」·C「T05·T39」·C「취소한 작업」·C「검토는 이벤트 원장에」 — 계보는 **이벤트 원장 ∪ 포인터**라 포인터를 지워도 삭제를 잡는다. 한계: 원장 자체를 지우는 것은 못 막는다(append-only는 tamper-evident) |
 | T06 | foundation 순환·미충족 의존 | PASS | U「T06·T07」 |
 | T07 | 미선언 의존과 명시적 [] | PASS | U「T06·T07」 |
 | T08 | 같은 파일 동시 수정 | PASS | U「T08」 — 순서 있는 쌍은 허용 |
 | T09 | 범위 밖 수정·symlink 탈출 | P2 | WORK change-scope와 훅 소유권 연결은 픽업(P2) |
-| T10 | WORK 본문의 부모 FEAT를 legacy로 오인 | P2 | WORK 마커·티켓 종류 선판정 |
-| T11 | 마커 삭제·파손·중복 | P2 | |
-| T12 | 생성 응답 유실·원장 실패 | P2 | |
+| T10 | WORK 본문의 부모 FEAT를 legacy로 오인 | PASS | `E`「T10·T11」 — 종류 선판정 후 픽업·인수가 거부, 인테이크도 공급 원문으로 받지 않음 |
+| T11 | 마커 삭제·파손·중복 | 부분 | `E`「T10·T11」 — 파손·중복·두 모델 동시 소속은 명시적 오류. 마커 삭제 시의 원장 대조는 발행이 생기는 P2-c |
+| T12 | 생성 응답 유실·원장 실패 | P2 | 이벤트 원장 기반은 준비됨(`E`「파손·순서·원자성」) — 발행 경로는 P2-c |
 | T13 | 배치 일부 실패·재실행 | P2 | |
 | T14 | 동시 발행·계획 변경 | P2 | |
 | T15 | Jira 하위 작업 미지원 | P2 | provider 관계 능력 |
@@ -90,3 +90,5 @@
 
 핵심 가드를 반증 seed로 결박했다(`falsification-registry.json`의 `work-*`·`cli-claim-work-dispatch`·`web-plan-intake-before-planning`) —
 리뷰 반영 뒤 27곳(분석 7 · 계획 11 · CLI 7 · 스킬 1 · 계약 1) — 격리 사본 러너로 27/27 발화(2026-09-11).
+P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 2 · 검토 이벤트 2)을 더했다 — 12/12 발화
+(receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).

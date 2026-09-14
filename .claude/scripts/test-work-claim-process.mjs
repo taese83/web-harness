@@ -185,3 +185,31 @@ test('취소한 작업은 검토표에 남고, 검토 계보는 포인터에 쌓
     assert.ok(pointer.knownWorkIds.includes(search.workId), '검토 계보에 작업이 남지 않았다 — 다음에 배열에서 지워도 모른다')
   })
 })
+
+test('검토는 이벤트 원장에 남고 계보가 쌓인다 — 포인터를 지워도 작업 삭제 대조가 살아 있다', () => {
+  within(copyFixture('crud'), root => {
+    assert.equal(claim(root).result.phase, 'P1_REVIEW')
+    const eventsPath = join(root, '_workspace/03_dev/work-item-events.jsonl')
+    const events = readFileSync(eventsPath, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line))
+    assert.equal(events.length, 1)
+    assert.equal(events[0].eventType, 'plan-reviewed')
+    assert.ok(events[0].payload.workIds.length >= 6, '검토한 작업 계보가 이벤트에 없다')
+    // 포인터를 지운다(로컬 파일이라 지울 수 있다) — 계보는 append-only 원장에 남아 삭제를 여전히 잡는다.
+    rmSync(join(root, '_workspace/03_dev/work-plan-reviewed.json'))
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'))
+    plan.workItems = plan.workItems.filter(item => item.title !== '검색·필터')
+    writeFileSync(planPath, JSON.stringify(plan))
+    const removed = claim(root)
+    assert.equal(removed.status, 2, '포인터를 지우자 작업 삭제가 통과했다')
+    assert.ok(removed.result.errors.some(error => /사라졌다/.test(error)))
+  })
+})
+
+test('같은 판본을 다시 검토해도 이벤트는 한 줄이다 — 원장이 재실행으로 자라지 않는다', () => {
+  within(copyFixture('editor'), root => {
+    for (let round = 0; round < 3; round += 1) assert.equal(claim(root).result.phase, 'P1_REVIEW')
+    const lines = readFileSync(join(root, '_workspace/03_dev/work-item-events.jsonl'), 'utf8').split('\n').filter(Boolean)
+    assert.equal(lines.length, 1, `같은 판본 재검토가 이벤트를 ${lines.length}줄 남겼다 — 상한까지 자라면 claim이 막힌다`)
+  })
+})

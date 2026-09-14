@@ -9,6 +9,7 @@
 import {parseReadiness} from './readiness.mjs'
 import {unitContentHash} from './emit.mjs'
 import {parseIssueRefs} from './refs.mjs' // 트래커 무관 모듈에서 직접(I3)
+import {classifyTicketKind} from './work-refs.mjs'
 
 // 비신뢰 본문 스캔 — 하네스 제어 토큰·오버라이드·파괴/실행 지시를 고정밀로 잡는다.
 // 정상 기능 스펙(given/when/then)은 이들을 언급하지 않으므로 오탐이 낮다.
@@ -217,6 +218,15 @@ export function pickupTicket({issue, planUnits, ledgerRecord = null, allowedPath
   // **마커가 없으면 막지 않는다.** 이 형식 이전에 발행된 티켓은 요구 목록 자체가 없고,
   // 막으면 기존 티켓이 소급해서 전부 선다 — 강도는 새 티켓부터 붙는다.
   // 되돌아가는 길(`notifyPlanner`)은 이미 있으므로 막힌 사실이 기획자에게 간다.
+  // **종류를 먼저 판정한다**(설계 §7.3). `parseIssueRefs`는 마커가 없으면 본문 전체에서 FEAT를 줍는데,
+  // WORK 티켓 본문에는 부모 FEAT가 적힌다 — 선판정이 없으면 WORK 티켓이 legacy FEAT 티켓으로 오인된다.
+  const kind = classifyTicketKind(issue?.body ?? '')
+  if (kind.kind === 'work' || kind.kind === 'aggregate') {
+    return {ok: false, injection, bounce: {reason: `${kind.kind}-ticket-not-feature`, ticketKind: kind.kind}}
+  }
+  if (kind.kind === 'conflict' || kind.error) {
+    return {ok: false, injection, bounce: {reason: 'ticket-kind-conflict', detail: kind.error}}
+  }
   const readiness = parseReadiness(issue?.body ?? '')
   if (readiness.state === 'INCOMPLETE') {
     return {ok: false, injection,

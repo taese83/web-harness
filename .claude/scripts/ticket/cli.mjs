@@ -736,6 +736,13 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   const issue = await fetchIssue(ticketKey)
   if (!issue) return {ok: false, bounce: {reason: 'ticket-not-found'}, guidance: `${ticketKey}를 트래커에서 찾지 못했습니다`}
   const injection = scanUntrustedIssue(issue) // 코멘트도 스냅샷에 실리므로 같이 스캔한다
+  // 종류 선판정 — 파이프라인이 만든 WORK·aggregate 티켓을 공급 원문으로 되들이지 않는다(순환).
+  const {classifyTicketKind} = await import('./work-refs.mjs')
+  const ticketKind = classifyTicketKind(issue.body ?? '')
+  if (['work', 'aggregate', 'conflict'].includes(ticketKind.kind)) {
+    return {ok: false, bounce: {reason: `${ticketKind.kind}-ticket-not-source`},
+      guidance: ticketKind.error ?? `${ticketKey}는 WORK 분해 모델의 티켓입니다 — 공급 원문이 아닙니다`}
+  }
   // **분류는 명시할 때만 받는다.** 없으면 `미분류`이고 ingestor가 정한다 — 스크립트가
   // 추측하면 버그 티켓이 기획 입력으로 세어져 요구사항이 지어내진다.
   // 분류의 우선순위: **운영자 명시 > 팀이 선언한 컴포넌트 매핑 > 미분류.**
