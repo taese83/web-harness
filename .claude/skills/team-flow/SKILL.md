@@ -86,6 +86,9 @@ link는 change-scope STALE이면 완료 차단. merged 판정의 출처는 `gh p
 발행한 WORK는 `cli.mjs pickup --work <티켓키> --developer <나>`로 집는다 — legacy 픽업의 게이트
 (인젝션·종류 선판정·STALE·등록 대조·준비도)를 그대로 지나며, 분해된 FEAT 티켓을 집으면 어느
 WORK로 가야 하는지 알려준다. 트래커 쓰기는 배정·`in-progress` 전이·되돌림 알림뿐이다.
+`cli.mjs board --work --developer <나>`가 지금 집을 수 있는 작업을 보여준다 — 등록·발행 판본·
+미해결 결정·선행 등록·소유 다섯 축에서 픽업과 같은 판정을 하고(티켓 본문이 필요한 축은 픽업만
+본다), 트래커를 못 보면 그 사실을 적고 배정을 미상으로 둔다.
 단계별 절차·계약·키의 정본은 `references/work-plan-contract.md`.
 
 ### `claim` — 기획자 일괄 청구

@@ -9,7 +9,7 @@
 
 import {
   toAdf,
-  buildIssueFieldsFor, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
+  assigneeIdentity, buildIssueFieldsFor, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, featureJql,
   isClosed, parseCreateResponse, parseIssueResponse, parseSearchResponse, requireJiraConfig, resolveTransitionId,
   supportedTransitions,
 } from './provider-jira.mjs'
@@ -119,11 +119,14 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
       const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
       const jql = workKeysJql(keys)
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status`, options)
+      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status,assignee`, options)
       const parsed = parseWorkSearch(payload, {fetched: startAt})
       // 요청한 키 중 **못 본 것**을 함께 돌려준다 — 「조회했는데 없다」와 「이 페이지에 없다」는 다르다.
       const observed = new Set(parsed.matches.map(item => item.ticketKey))
-      return {items: parsed.matches, nextCursor: parsed.nextCursor, complete: parsed.complete, total: parsed.total,
+      // 배정 신원은 **쓰는 어휘와 같은 함수**로 고른다(픽업의 소유 판정과 갈라지지 않게).
+      const items = parsed.matches.map(item => ({...item,
+        assignees: item.assigneeRequested ? [assigneeIdentity(item.assigneeUser, config.assigneeField)].filter(Boolean) : null}))
+      return {items, nextCursor: parsed.nextCursor, complete: parsed.complete, total: parsed.total,
         requested: keys.map(String), missing: parsed.complete ? keys.map(String).filter(key => !observed.has(key)) : null,
         ...(parsed.stalled ? {stalled: true} : {})}
     },

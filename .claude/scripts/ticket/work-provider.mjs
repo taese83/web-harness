@@ -51,7 +51,12 @@ export function parseWorkSearch(payload, {fetched = null} = {}) {
   const stalled = total !== null && seen < total && issues.length === 0
   return {
     matches: issues.map(issue => ({ticketKey: issue.key, summary: issue.fields?.summary ?? null,
-      labels: issue.fields?.labels ?? [], statusCategory: issue.fields?.status?.statusCategory?.key ?? null})),
+      labels: issue.fields?.labels ?? [], statusCategory: issue.fields?.status?.statusCategory?.key ?? null,
+      // **배정을 안 물었으면 `null`이다** — 「미배정」과 「안 물어봤다」를 섞으면 보드가 남이
+      // 잡고 있는 작업을 「집을 수 있다」로 보여준다. 신원을 **무엇으로 부르는가**는 트래커의
+      // 어휘라 여기서 고르지 않는다 — 실행부가 `assigneeIdentity`로 한 번만 고른다.
+      assigneeRequested: Boolean(issue.fields && 'assignee' in issue.fields),
+      assigneeUser: issue.fields?.assignee ?? null})),
     total,
     complete: total === null ? false : seen >= total,
     nextCursor: total !== null && seen < total && !stalled ? String(seen) : null,
@@ -114,14 +119,15 @@ export const workSearchArgs = (repo, workId, limit = GITHUB_PAGE_LIMIT) => {
 
 /** GitHub 목록 인자(순수). `limit`에 닿으면 잘렸을 수 있다 — 그 사실을 호출자가 받는다. */
 export const workListArgs = (repo, limit = GITHUB_PAGE_LIMIT) => ['issue', 'list', '--repo', repo, '--state', 'all',
-  '--json', 'number,title,labels,state,body', '--limit', String(limit)]
+  '--json', 'number,title,labels,state,body,assignees', '--limit', String(limit)]
 
 /** gh 결과 해석(순수). 반환 수가 상한과 같으면 `complete: false` — 「전부」라고 말하지 않는다. */
 export function parseGithubWorkList(json, {limit = GITHUB_PAGE_LIMIT, indexLag = false} = {}) {
   const items = Array.isArray(json) ? json : []
   return {
     matches: items.map(item => ({ticketKey: String(item.number), summary: item.title ?? null,
-      labels: (item.labels ?? []).map(label => label?.name ?? label), state: item.state ?? null, body: item.body ?? null})),
+      labels: (item.labels ?? []).map(label => label?.name ?? label), state: item.state ?? null, body: item.body ?? null,
+      assignees: 'assignees' in item ? (item.assignees ?? []).map(person => person?.login ?? person) : null})),
     complete: items.length < limit && !indexLag,
     truncated: items.length >= limit,
     indexLag,

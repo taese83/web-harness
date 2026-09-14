@@ -1,0 +1,57 @@
+{
+  "kind": "falsification-seed-run",
+  "measuredAt": "2026-09-14T04:36:20.000Z",
+  "scope": "WORK 분해 P2-d(보드: 착수 가능 판정이 픽업과 같은 축)",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-board-matches-pickup",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-unknown-not-unassigned",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-registration-required",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-missing-ticket-named",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-tracker-failure-honest",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-stale-plan-axis",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "work-board-developer-required",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    }
+  ],
+  "result": {
+    "ok": 7,
+    "total": 7,
+    "treeChanged": null
+  },
+  "summary": [
+    "falsification: 7건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+  ],
+  "limits": [
+    "실 트래커 목록 조회는 NOT_RUN — provider stub·순수 판정까지만 돈다",
+    "보드-픽업 일치는 crud fixture 전 행을 **다섯 상태**로 돌려 대조한다(등록·판본·결정·선행·소유 다섯 축). 티켓 본문이 필요한 축(인젝션·종류·키 대조·컨플릭)은 보드가 재지 않으며 계약에 그렇게 적었다",
+    "GitHub은 저장소 이슈 목록 상한(100건) 창 안에서만 배정을 안다 — 키 단위 조회는 미구현",
+    "`treeChanged: null`은 러너가 실행 전후 정본 트리 digest를 대조해 차이가 없었다는 뜻이다"
+  ]
+}

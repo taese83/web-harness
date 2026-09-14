@@ -8,7 +8,7 @@
 **N/A** 사용자 결정(legacy 호환 불필요)으로 해당 없음 · **NOT_RUN** 외부 환경(실 Jira 등) 필요.
 
 테스트 파일: `U` = `.claude/scripts/test-work-plan.mjs` · `C` = `.claude/scripts/test-work-claim-process.mjs`(실제 CLI 프로세스) ·
-`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
+`E` = `.claude/scripts/test-work-events.mjs` · `V` = `.claude/scripts/test-work-provider.mjs`(provider 능력·WORK 필드 빌더 conformance) · `P` = `.claude/scripts/test-work-publish.mjs` · `K` = `.claude/scripts/test-work-pickup.mjs`(픽업·실행부·CLI 배선) · `B` = `.claude/scripts/test-work-board.mjs`(보드) · `L` = `.claude/scripts/test-wh-lanes.mjs`. fixture: `.claude/evals/fixtures/work-plan/{crud,editor}`.
 
 | T | 상황 | 상태 | 근거(테스트) · 남은 몫 |
 |---|---|---|---|
@@ -81,7 +81,7 @@
 |---|---|---|
 | 후속 상세화와 제품 유예 구분 · 분모 보존 | 부분 | U「T44·§4.5」 — 유예 사유 종류 필수, fixture에 두 종류 모두 있음. C — 유예 FEAT가 검토표에 종류·TC 수와 함께 남는다. **P1에서 두 종류의 기계적 취급은 같다**(둘 다 작업 없음) — 「후속 상세화는 완료 분모를 줄이지 않는다」는 부모 집계(P3)가 생겨야 실체가 된다(명명 수준) |
 | 부분 발행 · 기존 선행 재사용 | PASS | `P`「T12·T13」 — 실패분만 재개하고 이미 발행된 선행은 `reuse`로 재사용(재생성 0) |
-| 등록과 착수 조건 분리 | 부분 | 착수 가능 집합 계산(U「T37·T38」)과 등록(`P`)은 서로 다른 판정이다 — 등록은 선행 닫힘만 요구하고 착수 순서를 강제하지 않는다. 착수 차단 자체는 픽업(P2-d) |
+| 등록과 착수 조건 분리 | PASS | 등록(`P`)은 선행 닫힘만 요구하고, 착수 차단은 픽업(`K`)이 한다. `B`가 보드와 픽업을 **다섯 상태**(전부 발행 · 일부 발행 · 타인 배정 · 내 배정 · 발행 뒤 계획 변경)에서 행마다 대조한다 — 등록·판본·결정·선행·소유 **다섯 축에서** 일치한다. 티켓 본문이 필요한 축(인젝션·종류·키 대조·컨플릭)은 보드가 재지 않으며 계약에 그렇게 적었다 |
 | 담당자 조정(세부 구현에 리드 승인 강제 금지) | 기계 검사 없음 | 계약 문서 「claim 흐름」 4에 명시. 행동 규칙이라 회귀로 잴 수 없다 |
 | Jira 댓글을 계약 자동 승인으로 쓰지 않음 | 부분 | 인젝션 의심 코멘트 제외(J-1). 계약 차이 표시는 P2 |
 | 자동 일정 최적화·기간 추정 없음 | PASS(구성) | `computeWorkView`는 rank·여는 후속 수·ID만 쓴다 |
@@ -94,6 +94,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+P2-d 보드에서 7곳(픽업과 같은 축 1 · 발행 판본 1 · 소유 판정 1 · 미상≠미배정 1 · 등록 필수 1 · 사라진 티켓 1 · 조회 실패를 완결로 접기 1) — 7/7 발화
+(receipt `docs/audits/receipts/2026-09-14-work-board-seeds.json`).
 P2-d에서 16곳(인젝션·종류 2 · 등록·키 2 · STALE·워크트리 2 · 결정·선행 2 · 수용 기준 1 · 쓰기 경계 1 · 트래커 쓰기 제한 2 · 동시 배정 1 · 되돌림 어휘 1 · 범위 보호 1 · CLI 배선 1) — 16/16 발화
 (receipt `docs/audits/receipts/2026-09-14-work-p2d-seeds.json`).
 P2-c에서 20곳(검토 판본 결박 1 · 확인 전 쓰기 0 1 · 선행 닫힘·후손 전이 2 · 미해결 결정 2 · 재발행 금지 2 · 중복 보류 1 · 라벨 어휘·공유 라벨 2 · 시도 지문·순서 2 · 원장 실패 2 · 부모 참조 1 · WORK 필드 빌더 3 · CLI 배선 1) — 20/20 발화

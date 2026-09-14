@@ -1865,6 +1865,62 @@
       "replace": "    'work-not-registered-unused': 'this ticket is not a WORK registered in the ledger — check it came from the plan',",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "되돌림 사유 어휘가 없으면 코멘트가 나가지 않아 계획을 고칠 사람이 막힌 사실을 모른다"
+    },
+    {
+      "id": "work-board-matches-pickup",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "    const unregisteredDeps = list(work.dependsOn).filter(dep => (registrationOf(dep)?.status ?? 'unpublished') !== 'published')",
+      "replace": "    const unregisteredDeps = []",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "보드가 픽업과 다른 축으로 판정하면 표시가 장식이 된다 — 집을 수 없는 것을 집을 수 있다고 보여준다"
+    },
+    {
+      "id": "work-board-unknown-not-unassigned",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "            : takenByOther === null ? 'assignment-unknown' : null",
+      "replace": "            : null",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "배정을 모르는 것을 미배정으로 접으면 남이 잡고 있는 작업을 「집을 수 있다」로 보여준다"
+    },
+    {
+      "id": "work-board-registration-required",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "    const blockedReason = registration !== 'published' ? `not-registered:${registration}`",
+      "replace": "    const blockedReason = false ? `not-registered:${registration}`",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "발행되지 않은 작업을 착수 가능으로 보여주면 없는 티켓을 집으러 간다"
+    },
+    {
+      "id": "work-board-missing-ticket-named",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "    const missingFromTracker = issuesByWork !== null && lookupComplete && registration === 'published' && !issue",
+      "replace": "    const missingFromTracker = false",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "원장은 발행이라는데 트래커에 없는 것을 「배정 미상」으로 접으면 사라진 티켓이 눈에 띄지 않는다"
+    },
+    {
+      "id": "work-board-tracker-failure-honest",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      trackerNotes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)",
+      "replace": "      issuesByWork = new Map(); lookupComplete = true",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "조회 실패를 「완결 조회·전부 미배정」으로 접으면 남이 잡고 있는 작업을 집을 수 있다고 보여준다"
+    },
+    {
+      "id": "work-board-stale-plan-axis",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      : publishedWith === null ? 'plan-digest-unknown'\n        : planDigest && publishedWith !== planDigest ? 'stale-plan' : null",
+      "replace": "      : null",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "발행 뒤 바뀐 계획을 보드가 재지 않으면 「집을 수 있다」고 해놓고 픽업이 되돌려 보낸다 — 표시와 게이트가 갈라진다"
+    },
+    {
+      "id": "work-board-developer-required",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "              : !developer ? 'no-developer'",
+      "replace": "              : false ? 'no-developer'",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "누구인지 모른 채 「집을 수 있다」고 하면 남이 잡고 있는 작업이 가용으로 보인다(픽업은 같은 이유로 막는다)"
     }
   ]
 }

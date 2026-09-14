@@ -1245,7 +1245,15 @@ if (invokedDirectly) {
         }
         requireRepo(); return runPickup({root, repo, featureId: positional[0], developer: flags.developer, flags})
       case 'link': return runLink({root, featureId: positional[0], prUrl: positional[1], flags})
-      case 'board': requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
+      // `--work`: WORK 보드(P2-d). 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.
+      case 'board':
+        if (flags.work) {
+          const resolved = resolveTicketProvider({root, repo, flags, io: {}, hasLedgerRecords: readLedgerState(join(root, LEDGER_RELATIVE)).size > 0})
+          const usable = !resolved.choice?.needsChoice && !(resolved.choice?.provider === 'github' && (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)))
+          return (await import('./work-board.mjs')).runWorkBoard({root, developer: flags.developer ?? null, flags,
+            io: {provider: usable ? resolved.provider : null}})
+        }
+        requireRepo(); return runBoard({root, repo, developer: flags.developer ?? null, flags})
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'bind': requireRepo(); return runBind({root, repo, featureId: positional[0], ticketKey: positional[1], flags})
       case 'adopt': requireRepo(); return runAdopt({root, repo, featureId: positional[0], ticketKey: positional[1], flags})

@@ -127,6 +127,20 @@ export function toAdf(text) {
 }
 
 /**
+ * 배정 신원을 **한 곳에서** 고른다(순수). 두 곳에서 각자 고르면 같은 사용자가 픽업에서는
+ * `accountId`, 보드에서는 `name`으로 나와 소유 판정이 갈린다 — 배정을 **쓰는** 어휘
+ * (`config.assigneeField`)가 있으면 그것을 먼저 본다.
+ * @param {object|null} user  Jira user 객체
+ * @param {string|null} assigneeField  'name'이면 DC 어휘, 그 외/미지정이면 accountId 우선
+ */
+export function assigneeIdentity(user, assigneeField = null) {
+  if (!user) return null
+  return (assigneeField === 'name'
+    ? user.name ?? user.accountId ?? user.displayName
+    : user.accountId ?? user.name ?? user.displayName) ?? null
+}
+
+/**
  * TicketDraft → Jira 이슈 필드(순수). `TicketProvider.buildFields` 구현체.
  * @param {Object} config  requireJiraConfig 통과분
  */
@@ -183,7 +197,7 @@ export function parseIssueResponse(payload) {
     // 컴포넌트도 **근거**다 — 팀이 분류 매핑을 선언했을 때만 분류로 쓰인다.
     components: (payload.fields?.components ?? []).map(item => item?.name).filter(Boolean),
     // Jira의 assignee는 **단수다** — GitHub의 다중 배정 경합이 구조적으로 없다.
-    assignees: assignee ? [assignee.accountId ?? assignee.name ?? assignee.displayName] : [],
+    assignees: assignee ? [assigneeIdentity(assignee)] : [],
     // ── 티켓 맥락(2026-09-11) ── 본문 밖에 사는 결정이 개발 에이전트에 닿지 않았다: 기획자의
     // 답은 코멘트에, 선행·관련 티켓은 링크에 있다. **`null`은 「가져오지 않았다」, `[]`는
     // 「없다」** — 빠진 필드를 없음으로 읽으면 AOA-3의 `미분류`와 같은 침묵이 된다.
