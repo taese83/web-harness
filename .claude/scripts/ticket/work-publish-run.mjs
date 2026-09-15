@@ -14,8 +14,14 @@ import {buildWorkMarker} from './work-refs.mjs'
 import {planPublish, payloadDigest, reconcileAttempt, renderWorkBody, workContentDigest, workIssueFields} from './work-publish.mjs'
 import {planLabel, workLabel, workProviderReadiness, workRelationMode} from './work-provider.mjs'
 import {ticketKeyOf} from './ticket-provider.mjs'
+import {resolveCommentLanguage} from './readiness.mjs'
+import {readDeclaredLanguage} from './ticket-config.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
+const SYNC_NOTICE = {
+  ko: '계획이 바뀌어 이 티켓의 소비 FEAT·책임 TC를 갱신했습니다(작업 내용은 그대로입니다). 이미 픽업했다면 다시 픽업하세요 — 옛 change-scope로는 link가 막힙니다. 이 코멘트는 하네스가 남깁니다.',
+  en: 'The plan changed, so the consuming FEATs and owned TCs on this ticket were updated (the work itself is unchanged). If you already picked it up, pick it up again — link blocks the old change-scope. Posted by web-harness.',
+}
 const readJson = (root, relative) => {
   const path = join(root, relative)
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null
@@ -56,7 +62,9 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
       parentKey, relationMode: relation.mode})
     const draft = workIssueFields({work, plan, featureIds, body, featLabel: provider.featLabel,
       labels: [workLabel(work.workId), planLabel(plan.planId), ...list(config.labels)], components: list(config.components)})
-    return {featureIds, draft, fields: provider.buildWorkFields({title: draft.title, body: draft.body, labels: draft.labels, components: draft.components})}
+    // 소비 메타데이터 지문 — 개발자가 읽는 것(소비 FEAT·책임 TC·부모)이 바뀌었는가. 판본 표지만 바뀐 동기화는 알리지 않는다.
+    const consumerDigest = canonicalDigest({featureIds, testCaseIds: ownedTcs(work.workId), parentKey: parentKey ?? null})
+    return {featureIds, draft, consumerDigest, fields: provider.buildWorkFields({title: draft.title, body: draft.body, labels: draft.labels, components: draft.components})}
   }
   // ── 동기화(T47): 이미 발행한 작업이 **다른 판본으로** 나가 있으면 본문(마커·소비 FEAT·TC)과 라벨을 맞춘다 ──
   // 맞추지 않으면 계획 개정 뒤 그 티켓은 픽업·보드에서 영영 `stale-plan`이고, 새로 소비하는 FEAT의 라벨도 없다.
@@ -69,7 +77,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
   const syncs = readiness.ok ? decision.reuse.map(item => {
     const registered = state.works.get(item.workId)
     const work = byWorkId.get(item.workId)
-    const {featureIds, draft, fields} = draftOf(work, registered.relation?.parentKey ?? null)
+    const {featureIds, draft, fields, consumerDigest} = draftOf(work, registered.relation?.parentKey ?? null)
     const digest = payloadDigest(fields)
     if (registered.planDigest === planDigest && registered.payloadDigest === digest) return null
     const base = {workId: item.workId, ticketKey: registered.ticketKey, from: registered.planDigest}
@@ -86,7 +94,10 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     const previous = Array.isArray(registered.labels) ? registered.labels : null
     // 머지로 끝난 작업은 **라벨만** 맞춘다 — 닫힌 티켓의 본문을 그 PR이 구현하지 않은 판본으로 바꾸지 않는다.
     const labelsOnly = Boolean(registered.completed)
-    return {...base, featureIds, body: labelsOnly ? null : draft.body, labels: draft.labels, digest, contentDigest, labelsOnly,
+    // 알림은 **소비 메타데이터가 바뀌었을 때만**(기록이 없으면 바뀐 것으로 본다) — 무관한 개정마다 모든 티켓에 코멘트가 붙으면
+    // 아무도 읽지 않게 된다(실 GitHub·Jira 왕복 2026-09-15). 판본 표지만 바뀐 경우 개발자는 link STALE로 알게 된다.
+    const notify = !labelsOnly && registered.consumerDigest !== consumerDigest
+    return {...base, featureIds, body: labelsOnly ? null : draft.body, labels: draft.labels, digest, contentDigest, consumerDigest, labelsOnly, notify,
       add: draft.labels.filter(label => !list(previous).includes(label)),
       remove: previous ? previous.filter(label => !draft.labels.includes(label)) : [],
       previousLabelsKnown: previous !== null}
@@ -97,7 +108,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     provider: {name: provider?.name ?? null, ready: readiness.ok, missing: readiness.missing, relation: readiness.relation},
     publish: decision.publish.map(work => ({workId: work.workId, title: work.title, labels: [workLabel(work.workId), planLabel(plan.planId)]})),
     resume: decision.resume, reuse: decision.reuse, skipped: decision.skipped, errors: decision.errors,
-    sync: syncs.map(({body, digest, contentDigest, ...rest}) => rest),
+    sync: syncs.map(({body, digest, contentDigest, consumerDigest, ...rest}) => rest),
   }
   if (!decision.ok) return {...preview, ok: false, phase: 'PUBLISH_BLOCKED'}
   if (!readiness.ok) {
@@ -109,7 +120,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     return {...preview, ok: true,
       guidance: '이 목록으로 발행하려면 같은 요청에 --confirm을 붙인다'
         + (decision.resume.length > 0 ? ' · `resume` 항목은 조회 결과에 따라 확정되거나 새로 생성될 수 있다' : '')
-        + (syncs.some(item => !item.refused) ? ` · \`sync\` ${syncs.filter(item => !item.refused).length}건은 이미 발행한 티켓의 본문·라벨을 바꾸고 코멘트로 알린다(사람이 본문에 적은 것은 덮어쓴다)` : '')}
+        + (syncs.some(item => !item.refused) ? ` · \`sync\` ${syncs.filter(item => !item.refused).length}건은 이미 발행한 티켓의 본문·라벨을 바꾼다(소비 FEAT·TC가 바뀐 ${syncs.filter(item => item.notify).length}건만 코멘트로 알린다 · 사람이 본문에 적은 것은 덮어쓴다)` : '')}
   }
 
   const results = []
@@ -169,10 +180,10 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
       results.push({workId: work.workId, outcome: 'hold', reason: `선행의 발행 결과를 모른다 — ${blockedBy.join(', ')}`})
       continue
     }
-    const {featureIds, draft, fields} = draftOf(work, flags.parent ? String(flags.parent) : null)
+    const {featureIds, draft, fields, consumerDigest} = draftOf(work, flags.parent ? String(flags.parent) : null)
     const operationId = randomUUID()
     const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',
-      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})
+      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest}})
     if (attemptFailed) {
       unresolved.add(work.workId)
       results.push({workId: work.workId, outcome: 'hold', reason: `원장에 시도를 남기지 못해 발행하지 않는다 — ${attemptFailed}`})
@@ -243,20 +254,20 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     }
     const failed = record({operationId: randomUUID(), workId: item.workId, eventType: 'publish-synced',
       payload: {ticketKey: String(item.ticketKey), payloadDigest: item.digest, labels: item.labels, workDigest: item.contentDigest,
-        scope: item.labelsOnly ? 'labels-only' : 'body-and-labels', fromPlanDigest: item.from ?? null}})
+        consumerDigest: item.consumerDigest, scope: item.labelsOnly ? 'labels-only' : 'body-and-labels', fromPlanDigest: item.from ?? null}})
     // **조용히 바꾸지 않는다** — 본문을 바꿨으면 티켓에 한 줄 남긴다. 못 남겨도 동기화는 이미 됐다(보고만 한다).
     let notice = null
-    if (!failed && item.body !== null) {
+    if (!failed && item.notify) {
       if (typeof provider.comment === 'function') {
         externalWrites += 1
         try {
-          await provider.comment(item.ticketKey, '계획 판본이 바뀌어 이 티켓의 소비 FEAT·책임 TC·판본 표지를 갱신했다(작업 내용은 그대로다). 이미 픽업했다면 다시 픽업한다 — 옛 change-scope로는 link가 막힌다.')
+          await provider.comment(item.ticketKey, SYNC_NOTICE[resolveCommentLanguage({declared: readDeclaredLanguage(root), text: byWorkId.get(item.workId)?.title})])
         } catch (error) { notice = `알림 코멘트 실패: ${String(error?.message ?? error).slice(0, 120)}` }
       } else notice = 'provider에 코멘트 능력이 없어 알리지 못했다'
     }
     results.push(failed
       ? {workId: item.workId, outcome: 'hold', ticketKey: item.ticketKey, reason: `동기화는 됐는데 원장에 남기지 못했다 — ${failed}`}
-      : {workId: item.workId, outcome: 'synced', ticketKey: item.ticketKey, scope: item.labelsOnly ? 'labels-only' : 'body-and-labels',
+      : {workId: item.workId, outcome: 'synced', ticketKey: item.ticketKey, scope: item.labelsOnly ? 'labels-only' : 'body-and-labels', notified: item.notify && !notice,
         added: item.add, removed: item.remove, ...(notice ? {notice} : {}),
         ...(item.previousLabelsKnown ? {} : {note: '이전 라벨 기록이 없어 떼지 않았다'})})
   }

@@ -209,6 +209,14 @@ test('실행부: 되돌림은 **실제 코멘트로** 티켓에 남는다 — �
     assert.ok(comment, `되돌림이 티켓에 남지 않았다: ${JSON.stringify(calls.map(call => call.kind))}`)
     assert.match(comment.body, /not a WORK registered in the ledger|원장에 등록된 WORK가 아니다/,
       '되돌림 사유 어휘가 비어 사유 없는 코멘트가 나갔다')
+    // 한국어로 쓴 티켓에는 한국어로 남긴다(실 GitHub·Jira 왕복에서 영어 코멘트가 붙었다).
+    assert.match(comment.body, /개발 착수가 되돌아갔습니다/, '한국어 티켓에 다른 언어로 코멘트를 남겼다')
+    // 프로젝트가 산출물 언어를 선언했으면 그것이 우선이다.
+    writeFileSync(join(root, '_workspace/01_plan/project-profile.json'), JSON.stringify({outputLanguage: 'en'}))
+    calls.length = 0
+    await runWorkPickup({root, ticketKey: 'PF-104', developer: 'me', flags: {},
+      io: {provider: {...provider, async resolveIssue(key) { calls.push({kind: 'resolve', key}); return ticket(W(4), {key}) }}}})
+    assert.match(calls.find(call => call.kind === 'comment').body, /Pickup was sent back/, '프로젝트 언어 선언을 무시했다')
   })
 })
 

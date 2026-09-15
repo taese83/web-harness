@@ -1469,8 +1469,8 @@
     {
       "id": "work-publish-attempt-digest-recorded",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
-      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
+      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest}})",
+      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest}})",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "시도에 실제 요청 지문이 없으면 같은 시도 id로 다른 본문을 보냈는지 가릴 수 없고, 외부 쓰기 시점의 시도 대조도 공허해진다"
     },
@@ -1509,7 +1509,7 @@
     {
       "id": "work-publish-attempt-before-write",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work)}})",
+      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest}})",
       "replace": "    const attemptFailed = null",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "외부 쓰기 전에 시도가 원장에 없으면 응답이 유실됐을 때 흔적 없이 사라진다 — 재개할 근거가 없다"
@@ -2333,10 +2333,50 @@
     {
       "id": "work-sync-notifies-ticket",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "    if (!failed && item.body !== null) {",
+      "find": "    if (!failed && item.notify) {",
       "replace": "    if (false) {",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "본문을 바꾸고 알리지 않으면 이미 픽업한 개발자가 모른 채 옛 계약으로 작업한다"
+    },
+    {
+      "id": "work-sync-notifies-only-consumer-change",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    const notify = !labelsOnly && registered.consumerDigest !== consumerDigest",
+      "replace": "    const notify = !labelsOnly",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "판본 표지만 바뀐 동기화마다 코멘트를 붙이면 무관한 개정에도 모든 티켓이 알림으로 차 아무도 읽지 않는다(실 왕복 2026-09-15)"
+    },
+    {
+      "id": "bounce-comment-follows-ticket-language",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "find": "  return /[\\uAC00-\\uD7A3]/.test(prose) ? 'ko' : FALLBACK_LANG",
+      "replace": "  return FALLBACK_LANG",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "한국어로 쓴 티켓에 영어 되돌림 코멘트가 붙는다(실 왕복 2026-09-15)"
+    },
+    {
+      "id": "bounce-comment-declared-language-wins",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "find": "  if (Object.prototype.hasOwnProperty.call(COMMENT, value)) return value",
+      "replace": "  if (false) return value",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "프로젝트가 선언한 산출물 언어를 무시하면 영어권 팀 티켓에 한국어 코멘트가 붙는다"
+    },
+    {
+      "id": "board-withholds-decision-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "  const publishable = unpublishedIds.size - withheld.size",
+      "replace": "  const publishable = unpublishedIds.size",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "발행해도 건너뛸 작업을 「발행하면 된다」로 안내하면 사람이 발행을 반복해도 보드가 그대로다"
+    },
+    {
+      "id": "configure-auth-note-per-provider",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "    note: provider === 'jira' ? `인증은",
+      "replace": "    note: true ? `인증은",
+      "test": ".claude/scripts/test-ticket-jira.mjs",
+      "why": "GitHub 설정에 Jira 환경변수를 안내하면 사람이 필요 없는 토큰을 찾아 헤맨다(실 왕복 2026-09-15)"
     }
   ]
 }

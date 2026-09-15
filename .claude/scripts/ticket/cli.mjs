@@ -271,7 +271,9 @@ export async function runConfigure({root, flags, io = {}}) {
   const result = {ok: true, provider, config: next, path: TICKET_CONFIG_RELATIVE, shared,
     ...(writeCheck.switching ? {switching: writeCheck.switching} : {}),
     ...(writeCheck.updating ? {updating: true} : {}),
-    note: `인증은 이 파일이 아니라 환경변수입니다: ${JIRA_AUTH_ENV.join(' · ')}`}
+    // 인증 안내는 **그 트래커의 것**이어야 한다 — GitHub 설정에 Jira 환경변수를 안내하던 것을 고친다(실 왕복 2026-09-15).
+    note: provider === 'jira' ? `인증은 이 파일이 아니라 환경변수입니다: ${JIRA_AUTH_ENV.join(' · ')}`
+      : '인증은 이 파일이 아니라 gh 로그인입니다(`gh auth status`로 확인 — Enterprise면 host별로 로그인한다)'}
   const toWrite = writeCheck.merged ?? next
   if (!flags.confirm) return {...result, config: toWrite, dryRun: true}
   return {...result, config: toWrite, dryRun: false, written: writeTicketConfig(root, toWrite)}

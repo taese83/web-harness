@@ -20,7 +20,7 @@ const readJson = (root, relative) => {
 export function workCloseLine(providerName, ticketKey) {
   if (!providerName) return null
   if (providerName === 'github') return renderCloseReference({ok: true, verified: true, closes: String(ticketKey)})
-  return `Relates to ${ticketKey}\n\n> ⚠️ ${providerName}은 PR 머지로 자동 닫히지 않는다 — 머지 뒤 상태 전이가 필요하다`
+  return `Relates to ${ticketKey}\n\n> ⚠️ ${providerName} 티켓은 PR 머지로 자동 닫히지 않는다 — 머지 뒤 상태 전이가 필요하다`
 }
 
 export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}}) {

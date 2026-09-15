@@ -325,3 +325,20 @@ test('ADF 변환은 줄마다 문단이고 빈 줄은 빈 문단이다', () => {
   assert.equal(doc.content.length, 3)
   assert.deepEqual(doc.content[1].content, [])
 })
+
+test('configure: 인증 안내는 그 트래커의 것이다 — GitHub 설정에 Jira 환경변수를 안내하지 않는다', async () => {
+  const {runConfigure} = await import('./ticket/cli.mjs')
+  const {mkdtempSync, rmSync} = await import('node:fs')
+  const {tmpdir} = await import('node:os')
+  const {join} = await import('node:path')
+  const root = mkdtempSync(join(tmpdir(), 'wh-configure-note-'))
+  try {
+    const io = {checkShared: async () => ({shared: true})}
+    const github = await runConfigure({root, flags: {provider: 'github', set: 'workLink.mode=link-only'}, io})
+    assert.equal(github.ok, true, JSON.stringify(github))
+    assert.doesNotMatch(github.note, /JIRA/, 'GitHub 설정에 Jira 인증을 안내했다')
+    assert.match(github.note, /gh auth/)
+    const jira = await runConfigure({root, flags: {provider: 'jira', set: ['projectKey=PF', 'issueType=Task']}, io})
+    assert.match(jira.note, /JIRA_TOKEN/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})

@@ -10,6 +10,8 @@ import {canonicalDigest, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {computeWorkView, WORK_PLAN_PATH} from './work-plan.mjs'
 import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
 import {pickupWorkTicket} from './work-pickup.mjs'
+import {resolveCommentLanguage} from './readiness.mjs'
+import {readDeclaredLanguage} from './ticket-config.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
 
@@ -55,7 +57,8 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
     // 막힌 사실은 티켓으로 돌아간다 — 개발자 터미널에서 끝나면 계획을 고칠 사람이 모른다.
     const notify = io.notifyPlanner ?? cli.notifyPlanner
     const notified = await notify({provider, ticketKey, featureId: pick.changeScope?.featureId ?? null,
-      bounce: pick.bounce, io, dryRun: flags['dry-run']})
+      bounce: pick.bounce, io, dryRun: flags['dry-run'],
+      readinessLanguage: resolveCommentLanguage({declared: readDeclaredLanguage(root), text: `${issue?.title ?? ''}\n${issue?.body ?? ''}`})})
     return {...notified, ok: false, mode: 'work', bounce: pick.bounce, injection: pick.injection, assignment, freshness}
   }
   if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, assignment, changeScope: pick.changeScope, freshness}

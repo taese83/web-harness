@@ -1,0 +1,138 @@
+{
+  "kind": "work-github-live-roundtrip",
+  "measuredAt": "2026-09-15T00:20:02+00:00",
+  "harness": {
+    "pluginVersion": "0.27.0",
+    "source": "taese83/web-harness@32d5b45",
+    "cli": "dist/web-harness-plugin/.claude/scripts/ticket/cli.mjs"
+  },
+  "tracker": {
+    "provider": "github",
+    "host": "github.com",
+    "repo": "taese83/wh-work-e2e (private, 이 측정을 위해 생성)",
+    "fixture": ".claude/evals/fixtures/work-plan/crud"
+  },
+  "steps": [
+    {
+      "step": "configure --provider github --set workLink.mode=link-only --confirm",
+      "result": "PASS"
+    },
+    {
+      "step": "claim",
+      "result": "PASS",
+      "phase": "P1_REVIEW",
+      "ready": [
+        "WORK-1",
+        "WORK-3"
+      ]
+    },
+    {
+      "step": "claim --publish (미리보기)",
+      "result": "PASS",
+      "externalWrites": 0,
+      "publish": 4,
+      "skipped": [
+        "WORK-6 blocked-unresolved",
+        "WORK-7 blocked-predecessor"
+      ]
+    },
+    {
+      "step": "claim --publish --confirm",
+      "result": "PASS",
+      "externalWrites": 4,
+      "issues": "#1~#4, 라벨 work-·plan-·feat:FEAT-* (공유 작업은 FEAT 3개 라벨)"
+    },
+    {
+      "step": "board --developer taese83 (트래커 조회)",
+      "result": "PASS",
+      "ready": [
+        "WORK-1",
+        "WORK-3"
+      ],
+      "blocked": "WORK-4·5 dependency-incomplete"
+    },
+    {
+      "step": "validate-development-readiness --fix",
+      "result": "PASS",
+      "installed": [
+        ".github/workflows/ticket-close.yml",
+        ".github/scripts/close-merged-tickets.mjs"
+      ]
+    },
+    {
+      "step": "pickup 1 --developer taese83",
+      "result": "PASS",
+      "observed": "이슈 #1 배정 taese83 · change-scope 발급"
+    },
+    {
+      "step": "link 1 PR#5 --base main",
+      "result": "PASS",
+      "completion": "checks A-1 satisfied · baselineCheck verified · staleCheck verified"
+    },
+    {
+      "step": "PR #5 머지 → ticket-close 워크플로우",
+      "result": "PASS",
+      "run": "34912593765 success",
+      "observed": "#1 CLOSED + 근거 코멘트(PR 본문에 Closes 없음 — 원장 결속으로 닫힘)"
+    },
+    {
+      "step": "link --sync",
+      "result": "PASS",
+      "completed": [
+        "WORK-1"
+      ]
+    },
+    {
+      "step": "pickup 3 (선행 WORK-3 미머지)",
+      "result": "PASS",
+      "observed": "exit 2 dependency-incomplete · 배정 안 함 · 되돌림 코멘트 게시"
+    },
+    {
+      "step": "계획 개정(WORK-6 제목)+라벨 설정 추가 → claim → claim --publish --confirm",
+      "result": "PASS",
+      "externalWrites": 10,
+      "observed": "#1 labels-only(본문 판본 그대로) · #2~#4 본문 rev 갱신·team-web 라벨·알림 코멘트"
+    },
+    {
+      "step": "pickup 2 --dry-run (동기화 뒤)",
+      "result": "PASS",
+      "observed": "stale-plan 없이 통과"
+    },
+    {
+      "step": "WORK-5 objective 변경 → claim --publish --confirm",
+      "result": "PASS",
+      "observed": "#4 supersede-required 보류 · 본문·코멘트 불변 · 나머지는 동기화(쓰기 4)"
+    },
+    {
+      "step": "board --by-feature",
+      "result": "PASS",
+      "observed": "FEAT-001~003 in-progress · FEAT-004 deferred-product · FEAT-005 awaiting-follow-up"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "what": "configure --provider github 결과의 note가 Jira 인증 환경변수(JIRA_TOKEN·JIRA_EMAIL)를 안내한다"
+    },
+    {
+      "severity": "low",
+      "what": "되돌림 코멘트가 영어로 게시된다 — 한국어 팀에서 기본 언어가 맞지 않는다"
+    },
+    {
+      "severity": "low",
+      "what": "board 노트가 결정 미해결·선행 차단 작업까지 「발행되지 않은 작업 — claim --publish로 등록해야」로 안내한다(발행해도 건너뛴다)"
+    },
+    {
+      "severity": "medium",
+      "what": "다른 작업만 바뀐 계획 개정에도 열린 WORK 티켓 전부에 동기화 코멘트가 붙는다 — 판본 표지만 바뀐 경우 알림이 소음이 된다"
+    }
+  ],
+  "notRun": [
+    "Jira 왕복",
+    "GitHub Enterprise host",
+    "claim --publish --resolve(결과 불명 상태를 실제로 만들지 않았다)",
+    "claim --publish --aggregate(집계 티켓 발행)",
+    "fork PR의 자동 닫기"
+  ],
+  "evidence": "스크래치 출력 JSON(01~16)은 세션 로컬 — 이 receipt가 요약본이다"
+}

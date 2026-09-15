@@ -10,6 +10,11 @@
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 
+/** 프로젝트가 선언한 산출물 언어(`_workspace/01_plan/project-profile.json`). 없거나 못 읽으면 null. */
+export const readDeclaredLanguage = root => {
+  try { return JSON.parse(readFileSync(join(root, '_workspace/01_plan/project-profile.json'), 'utf8')).outputLanguage ?? null } catch { return null }
+}
+
 export const TICKET_CONFIG_RELATIVE = '_workspace/03_dev/ticket-provider.json'
 export const SUPPORTED_PROVIDERS = ['github', 'jira']
 

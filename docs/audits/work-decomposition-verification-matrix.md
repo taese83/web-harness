@@ -103,6 +103,8 @@ P2-a에서 12곳(이벤트 원장 6 · 마커·종류 판정 2 · 판독 입구 
 (receipt `docs/audits/receipts/2026-09-14-work-p2a-seeds.json`).
 P2-b에서 14곳(절단·커서 5 · 요청 키 2 · 관계 설정 4 · 검색·목록 정직 2 · 발행 전 판정 1) — 14/14 발화. 그중 `github-list-missing-only-when-complete`는 T47에서 **은퇴**했다 — 잘린 목록에서 키 필터로 부재를 읽는 경로 자체가 키 단위 조회로 바뀌어 결박할 코드가 없고, 부재 판정은 `github-key-lookup-not-found-only`가 승계한다
 (receipt `docs/audits/receipts/2026-09-14-work-p2b-seeds.json`).
+실 트래커 왕복(2026-09-15): GitHub(`taese83/wh-work-e2e`)과 Jira DC(AOA)에서 발행→보드→픽업→link→머지→자동 닫기(Jira는 PENDING)→link --sync→되돌림→동기화→내용 변경 거부까지 PASS
+(receipt `docs/audits/receipts/2026-09-15-work-github-live.json`·`2026-09-15-work-jira-live.json`). 드러난 결함 5건(동기화 알림 소음·코멘트 언어·보드 안내·configure 인증 안내·경고 조사)은 0.27.1에서 고치고 seed 5건으로 결박했다(receipt `2026-09-15-work-0271-seeds.json`).
 T47·GitHub 보드에서 12곳(판본 차이 감지 1 · 쓰기 실패 시 원장 유지 1 · 빠진 우리 라벨 제거 1 · 동기화 기록의 판본 이동·확정 전제 2 · 내용 변경 거부·트래커 불일치 거부·끝난 작업 라벨만·알림 4 · 키 단위 조회·부재 판정 2 · 라벨 능력 필수 1) — 12/12 발화
 (receipt `docs/audits/receipts/2026-09-14-work-t47-seeds.json`).
 P2 틈(T09·T11·확정 입구)에서 10곳(마커 삭제 인식 2 · 확정: 마커 확인·대상 제한·확인 필요·판본 일치 4 · CLI 배선 1 · 인테이크 원장 파손 정지 1 · 소유권 훅 실경로 판정·대상 없는 링크 2) — 픽업 seed와 함께 28/28 발화

@@ -1,0 +1,58 @@
+{
+  "kind": "falsification-receipt",
+  "measuredAt": "2026-09-15T00:33:41+00:00",
+  "scope": "0.27.1 — 실 GitHub·Jira 왕복(2026-09-15)이 드러낸 결함 수정: 동기화 알림은 소비 메타데이터 변경에만 · 코멘트 언어(프로젝트 선언 > 티켓 글) · 보드의 발행 안내에서 결정 미해결 작업 분리 · configure 인증 안내를 트래커별로",
+  "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
+  "seeds": [
+    {
+      "id": "work-publish-attempt-digest-recorded",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-publish-attempt-before-write",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-notifies-ticket",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "work-sync-notifies-only-consumer-change",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "test": ".claude/scripts/test-work-publish.mjs"
+    },
+    {
+      "id": "bounce-comment-follows-ticket-language",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "bounce-comment-declared-language-wins",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "test": ".claude/scripts/test-work-pickup.mjs"
+    },
+    {
+      "id": "board-withholds-decision-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-work-board.mjs"
+    },
+    {
+      "id": "configure-auth-note-per-provider",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "test": ".claude/scripts/test-ticket-jira.mjs"
+    }
+  ],
+  "result": {
+    "ok": 8,
+    "total": 8,
+    "treeChanged": null
+  },
+  "note": "신규 5건(configure-auth-note-per-provider · work-sync-notifies-only-consumer-change · bounce-comment-follows-ticket-language · bounce-comment-declared-language-wins · board-withholds-decision-blocked)과 앵커만 갱신한 기존 3건(work-sync-notifies-ticket · work-publish-attempt-digest-recorded · work-publish-attempt-before-write)",
+  "limits": [
+    "고친 뒤 실 트래커로 다시 돌리지는 않았다 — 메모리 트래커 회귀로만 재확인",
+    "「jira은」 조사 수정은 문구라 seed 없음(기존 회귀 정규식이 계속 통과)"
+  ]
+}

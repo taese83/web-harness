@@ -31,6 +31,19 @@ const REASONS = {
     'work-marker-missing': 'the ledger published this ticket as WORK but its WORK marker was removed — restore the body before starting',
   },
 }
+/**
+ * 트래커에 남기는 코멘트의 언어(순수). **프로젝트 선언(`outputLanguage`)이 우선**이고, 없으면 그 티켓·작업 글의
+ * 언어를 따른다(한글이 있으면 ko) — 둘 다 모르면 기본값(en). 한국어로 쓴 티켓에 영어 코멘트가 붙던 것을 고친다.
+ * @param {{declared?: string|null, text?: string|null}} args
+ */
+export function resolveCommentLanguage({declared = null, text = null} = {}) {
+  const value = String(declared ?? '').trim()
+  if (Object.prototype.hasOwnProperty.call(COMMENT, value)) return value
+  // 마커·주석은 언어 표지가 아니다 — 사람이 쓴 글만 본다.
+  const prose = String(text ?? '').replace(/<!--[\s\S]*?-->/g, '')
+  return /[\uAC00-\uD7A3]/.test(prose) ? 'ko' : FALLBACK_LANG
+}
+
 const COMMENT = {
   ko: {lead: '개발 착수가 되돌아갔습니다 — 계획·발행 쪽에서 해결해야 진행됩니다.', reason: '사유', target: '대상',
     detail: '상세', tail: '해결한 뒤 개발자가 다시 픽업합니다. 이 코멘트는 하네스가 남깁니다.'},

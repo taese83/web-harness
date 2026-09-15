@@ -67,7 +67,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
   }
   const linkedNotMerged = rows.filter(row => row.linked && !row.completed).length
   if (linkedNotMerged > 0) {
-    notes.push(`PR이 연결됐지만 머지가 관측되지 않은 작업 ${linkedNotMerged}건 — \`link --work --sync\`로 머지를 확인해야 후속이 열린다`)
+    notes.push(`PR이 연결됐지만 머지가 관측되지 않은 작업 ${linkedNotMerged}건 — \`link --sync\`로 머지를 확인해야 후속이 열린다`)
   }
   const stale = rows.filter(row => row.blockedReason === 'stale-plan').map(row => row.workId)
   if (stale.length > 0) {
@@ -78,8 +78,19 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
   if (lost.length > 0) {
     notes.push(`원장은 발행됐다는데 트래커 목록에 없는 작업 ${lost.length}건 — 지워졌거나 권한 밖이다(사람이 확인한다)`)
   }
-  const unpublished = rows.filter(row => row.registration !== 'published').length
-  if (unpublished > 0) notes.push(`발행되지 않은 작업 ${unpublished}건 — \`claim --publish\`로 등록해야 집을 수 있다`)
+  // 발행해도 **건너뛸** 작업(미해결 결정과 그 후손)을 「발행하면 된다」로 안내하지 않는다 — 발행 판정과 같은 축으로 나눈다.
+  const unpublishedIds = new Set(rows.filter(row => row.registration !== 'published').map(row => row.workId))
+  const withheld = new Set(list(view?.rows).filter(row => row.status === 'blocked-decision' && unpublishedIds.has(row.workId)).map(row => row.workId))
+  for (let grown = true; grown;) {
+    grown = false
+    for (const work of list(plan.workItems)) {
+      if (!unpublishedIds.has(work.workId) || withheld.has(work.workId)) continue
+      if (list(work.dependsOn).some(dep => withheld.has(dep))) { withheld.add(work.workId); grown = true }
+    }
+  }
+  const publishable = unpublishedIds.size - withheld.size
+  if (publishable > 0) notes.push(`발행되지 않은 작업 ${publishable}건 — \`claim --publish\`로 등록해야 집을 수 있다`)
+  if (withheld.size > 0) notes.push(`결정이 안 나 발행하지 않는 작업 ${withheld.size}건(후손 포함) — 결정을 먼저 닫는다(발행해도 건너뛴다)`)
   return {rows, notes}
 }
 

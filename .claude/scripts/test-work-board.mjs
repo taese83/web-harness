@@ -109,6 +109,19 @@ test('미등록·미해결 결정·미등록 선행은 사유와 함께 막힌�
   assert.deepEqual(row.incompleteDeps, [W(3)])
 })
 
+test('발행해도 건너뛸 작업(미해결 결정과 후손)을 「발행하면 된다」로 안내하지 않는다', () => {
+  const {notes} = buildWorkBoard({plan, view, state: {works: new Map()}, planDigest, developer: 'me', lookupComplete: true})
+  const blocked = view.rows.filter(row => row.status === 'blocked-decision').map(row => row.workId)
+  assert.ok(blocked.length > 0, 'fixture에 결정 미해결 작업이 없다 — 이 회귀가 아무것도 재지 않는다')
+  const withheld = new Set(blocked)
+  for (let grown = true; grown;) {
+    grown = false
+    for (const work of plan.workItems) if (!withheld.has(work.workId) && work.dependsOn.some(dep => withheld.has(dep))) { withheld.add(work.workId); grown = true }
+  }
+  assert.ok(notes.includes(`발행되지 않은 작업 ${plan.workItems.length - withheld.size}건 — \`claim --publish\`로 등록해야 집을 수 있다`), JSON.stringify(notes))
+  assert.ok(notes.some(note => note.startsWith(`결정이 안 나 발행하지 않는 작업 ${withheld.size}건`)), JSON.stringify(notes))
+})
+
 test('트래커를 못 보면 「미배정」이라 말하지 않는다 — 배정 미상으로 두고 그 사실을 적는다', () => {
   const published = state([W(1)])
   const offline = buildWorkBoard({plan, view, state: published, planDigest, issuesByWork: null, developer: 'me'})

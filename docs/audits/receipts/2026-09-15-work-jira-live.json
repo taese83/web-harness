@@ -1,0 +1,146 @@
+{
+  "kind": "work-jira-live-roundtrip",
+  "measuredAt": "2026-09-15T00:26:28+00:00",
+  "harness": {
+    "pluginVersion": "0.27.0",
+    "source": "taese83/web-harness@32d5b45",
+    "cli": "dist/web-harness-plugin/.claude/scripts/ticket/cli.mjs"
+  },
+  "tracker": {
+    "provider": "jira",
+    "deployment": "Data Center(jira.daumkakao.com) · REST v2 · assigneeField name",
+    "project": "AOA(사용자 지정)",
+    "config": "issueType Task · components DEVELOP · labels wh-e2e · transitions in-progress=31 done=51 · workLink issue-link Relate",
+    "auth": "JIRA_TOKEN 환경변수(bearer)"
+  },
+  "codeHost": {
+    "repo": "taese83/wh-work-e2e-jira (private, 이 측정을 위해 생성)",
+    "fixture": ".claude/evals/fixtures/work-plan/crud (제목에 [WH-E2E] 접두)"
+  },
+  "steps": [
+    {
+      "step": "configure --provider jira … --confirm",
+      "result": "PASS",
+      "note": "transitions.reopen은 허용 키가 아니라 거부됐다(설계상 쓰지 않는 전이)"
+    },
+    {
+      "step": "claim",
+      "result": "PASS",
+      "phase": "P1_REVIEW"
+    },
+    {
+      "step": "claim --publish (미리보기)",
+      "result": "PASS",
+      "externalWrites": 0,
+      "publish": 4
+    },
+    {
+      "step": "claim --publish --work-ids WORK-1 --confirm",
+      "result": "PASS",
+      "issues": [
+        "AOA-5"
+      ]
+    },
+    {
+      "step": "claim --publish --parent AOA-5 --confirm",
+      "result": "PASS",
+      "externalWrites": 6,
+      "issues": [
+        "AOA-6",
+        "AOA-7",
+        "AOA-8"
+      ],
+      "observed": "컴포넌트 DEVELOP · 라벨 work-·plan-·feat-FEAT-*·wh-e2e · Relate 링크 3건 applied(트래커에서 양방향 확인)"
+    },
+    {
+      "step": "board --developer ted.chung (JQL key in 조회)",
+      "result": "PASS",
+      "ready": [
+        "WORK-1",
+        "WORK-3"
+      ],
+      "blocked": "WORK-4·5 dependency-incomplete"
+    },
+    {
+      "step": "pickup AOA-5 --developer ted.chung",
+      "result": "PASS",
+      "observed": "배정 ted.chung · 상태 In Progress(전이 31)"
+    },
+    {
+      "step": "link AOA-5 PR#1(GitHub) --base main",
+      "result": "PASS",
+      "completion": "checks A-1 satisfied · baselineCheck verified",
+      "closeLine": "Relates to AOA-5 + Jira는 머지로 자동 닫히지 않는다는 경고"
+    },
+    {
+      "step": "PR 머지 → ticket-close 워크플로우",
+      "result": "PASS",
+      "run": "34913075816 success",
+      "observed": "PENDING AOA-5 provider=jira — 닫지 않음(설계대로)"
+    },
+    {
+      "step": "link --sync",
+      "result": "PASS",
+      "completed": [
+        "WORK-1"
+      ]
+    },
+    {
+      "step": "pickup AOA-7 (선행 WORK-3 미머지)",
+      "result": "PASS",
+      "observed": "exit 2 dependency-incomplete · 배정·전이 없음 · 되돌림 코멘트 게시"
+    },
+    {
+      "step": "계획 개정(WORK-6 제목)+라벨 wh-e2e-synced 추가 → claim --publish --confirm",
+      "result": "PASS",
+      "externalWrites": 10,
+      "observed": "AOA-5 labels-only(설명 판본 그대로·코멘트 없음) · AOA-6~8 description rev 갱신·update.labels add·알림 코멘트"
+    },
+    {
+      "step": "pickup AOA-6 --dry-run (동기화 뒤)",
+      "result": "PASS",
+      "observed": "stale-plan 없이 통과"
+    },
+    {
+      "step": "WORK-5 objective 변경 + 라벨 wh-e2e-synced 제거 → claim --publish --confirm",
+      "result": "PASS",
+      "externalWrites": 7,
+      "observed": "AOA-8 supersede-required(설명·라벨 불변) · AOA-5~7은 update.labels remove로 wh-e2e-synced만 제거"
+    },
+    {
+      "step": "board --by-feature",
+      "result": "PASS",
+      "observed": "FEAT-001~003 in-progress · FEAT-004 deferred-product · FEAT-005 awaiting-follow-up"
+    },
+    {
+      "step": "정리: AOA-5~8 Resolved 전이(REST 수동, 51)",
+      "result": "DONE",
+      "observed": "4건 모두 Resolved(statusCategory done) — 이슈 삭제 없음"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "what": "무관한 계획 개정에도 열린 WORK 티켓 전부에 동기화 코멘트가 붙는다(GitHub 측정과 같음)"
+    },
+    {
+      "severity": "low",
+      "what": "되돌림 코멘트가 영어로 게시된다(GitHub 측정과 같음)"
+    },
+    {
+      "severity": "low",
+      "what": "board 노트가 차단으로 건너뛸 작업까지 「claim --publish로 등록해야」로 안내한다(GitHub 측정과 같음)"
+    },
+    {
+      "severity": "low",
+      "what": "link의 closeLine 경고 문구 조사 오류: 「jira은」"
+    }
+  ],
+  "notRun": [
+    "Jira Cloud(REST v3·ADF·accountId)",
+    "claim --publish --resolve",
+    "claim --publish --aggregate",
+    "결과 불명(unknown) 재개의 라벨 JQL 조회 경로(발행이 모두 성공해 타지 않았다)"
+  ],
+  "evidence": "스크래치 출력 JSON(01~15)은 세션 로컬 — 이 receipt가 요약본이다"
+}

@@ -266,13 +266,29 @@ test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터�
     assert.equal(synced.ok, true, JSON.stringify(synced.results))
     assert.equal(synced.results.find(item => item.workId === W(1)).outcome, 'synced')
     assert.equal(calls.some(call => call.kind === 'create'), false, '동기화가 새 티켓을 만들었다')
-    assert.equal(calls.filter(call => call.kind === 'comment' && call.key === sharedKey).length, 1, '본문을 바꾸고 알리지 않았다')
+    // 다른 작업만 바뀐 개정이다 — 이 티켓의 소비 FEAT·TC는 그대로라 알리지 않는다(실 왕복에서 소음으로 드러났다).
+    assert.equal(calls.filter(call => call.kind === 'comment').length, 0, '판본 표지만 바뀐 동기화에 코멘트를 붙였다')
     assert.equal(foldWorkState(events(root)).works.get(W(1)).planDigest, revised)
     const fields = created.get(sharedKey)
     assert.equal(parseWorkMarker(fields.description).planDigest, revised, '본문 마커가 새 판본이 아니다')
     assert.ok(fields.labels.includes('team-b') && !fields.labels.includes('team-a'), JSON.stringify(fields.labels))
     assert.ok(fields.labels.includes('human-label'), '사람이 단 라벨을 뗐다')
     assert.deepEqual(fields.labels.filter(label => label.startsWith('feat-')).sort(), ['feat-FEAT-001', 'feat-FEAT-002', 'feat-FEAT-003'])
+
+    // 이 작업이 **책임지는 TC가 바뀌면** 개발자가 읽는 계약 메타데이터가 바뀐 것이다 — 그때는 코멘트로 알린다(티켓 언어로).
+    revise(plan => {
+      const owner = plan.featureBindings.find(binding => binding.featureId === 'FEAT-001').acceptanceOwners.find(entry => entry.testCaseId === 'TC-001-1')
+      owner.workId = W(1)
+    })
+    const reviewedOwners = await runClaimWork({root, flags: {}})
+    assert.equal(reviewedOwners.phase, 'P1_REVIEW', JSON.stringify(reviewedOwners.errors))
+    calls.length = 0
+    const owners = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-b'])}})
+    assert.equal(owners.results.find(item => item.workId === W(1)).notified, true, JSON.stringify(owners.results))
+    const notice = calls.find(call => call.kind === 'comment' && call.key === sharedKey)
+    assert.ok(notice, '책임 TC가 바뀌었는데 알리지 않았다')
+    assert.match(notice.text, /소비 FEAT·책임 TC/, '한국어 작업에 다른 언어로 알렸다')
+    assert.equal(calls.some(call => call.kind === 'comment' && call.key === otherKey), false, 'TC가 그대로인 작업에도 알렸다')
 
     // 맞춘 뒤 다시 부르면 쓰지 않는다.
     assert.deepEqual((await runWorkPublish({root, flags: ids, io: {provider, ticketConfig: team(['team-b'])}})).sync, [])

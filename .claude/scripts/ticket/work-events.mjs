@@ -167,7 +167,7 @@ export function foldWorkState(events) {
       // 시도는 **확정이 아니다.** 다음 실행이 이 자리를 이어야 한다 — 응답이 유실됐을 수 있다.
       works.set(event.workId, {...state, status: 'attempted', operationId: event.operationId,
         payloadDigest: event.payload.payloadDigest, planDigest: event.planDigest, labels: Array.isArray(event.payload.labels) ? event.payload.labels : null,
-        workDigest: event.payload.workDigest ?? null})
+        workDigest: event.payload.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? null})
     } else if (event.eventType === 'publish-confirmed') {
       works.set(event.workId, {...state, status: 'published', ticketKey: String(event.payload.ticketKey),
         operationId: event.operationId, planDigest: event.planDigest, provider: event.payload.provider ?? null})
@@ -177,7 +177,7 @@ export function foldWorkState(events) {
         throw new Error(`WORK_EVENTS_CORRUPT: ${event.workId}의 publish-synced가 확정된 티켓(${state.ticketKey ?? '없음'})과 맞지 않는다`)
       }
       works.set(event.workId, {...state, planDigest: event.planDigest, payloadDigest: event.payload.payloadDigest, labels: event.payload.labels,
-        workDigest: event.payload.workDigest ?? state.workDigest ?? null})
+        workDigest: event.payload.workDigest ?? state.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? state.consumerDigest ?? null})
     } else if (event.eventType === 'publish-unknown') {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
