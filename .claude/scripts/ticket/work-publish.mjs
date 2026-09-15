@@ -109,42 +109,11 @@ export function reconcileAttempt({lookup}) {
   return {action: 'republish', reason: '조회가 완전하고 결과가 없다 — 발행이 트래커에 닿지 않았다'}
 }
 
-/** WORK 티켓 본문(순수). 계약의 복제본이 아니라 **요약과 참조**다(설계 §4.5). */
-export function renderWorkBody({work, plan, featureIds, testCaseIds, marker, reviewUrl = null, parentKey = null, relationMode = null}) {
-  const bullets = (label, items) => (items.length > 0 ? [`- ${label}: ${items.join(', ')}`] : [])
-  const refs = list(work.contractRefs).map(ref => `${ref.path}${ref.anchor ? `#${ref.anchor}` : ''}`)
-  const design = work.designContext?.applicability === 'direct-ui'
-    ? list(work.designContext.selections).map(selection => `${selection.pageGroup}[${Object.entries(selection.condition ?? {}).map(([key, value]) => `${key}=${value}`).join('&')}]`)
-    : []
-  return [
-    work.objective ?? '',
-    '',
-    ...bullets('부모 FEAT', featureIds),
-    // `link-only`는 관계 API가 아니라 **본문 참조**다 — 그 참조를 여기 싣지 않으면 선언만 있고
-    // 표현이 없다. 관계를 실제로 거는 모드에서도 사실이므로 부모를 준 경우엔 늘 적는다.
-    ...bullets('부모 티켓', parentKey ? [`${parentKey}${relationMode === 'link-only' ? ' (본문 참조 — 트래커 관계 아님)' : ''}`] : []),
-    ...bullets('이 작업이 최종 검증하는 TC', testCaseIds),
-    ...bullets('하지 않는 것', list(work.nonGoals)),
-    ...bullets('선행', list(work.dependsOn).map(id => id.slice(0, 13))),
-    ...bullets('수정 경계', list(work.writePaths)),
-    ...bullets('계약 참조', refs),
-    ...bullets('디자인 조건', design),
-    ...bullets('검증', list(work.checks).map(check => `${check.kind}: ${check.expectedOutcome}`)),
-    '',
-    `계획 정본: \`_workspace/03_dev/work-plan.json\`(${plan.planId})${reviewUrl ? ` · 검토표 ${reviewUrl}` : ''}`,
-    '이 본문은 요약이다 — 계약과 근거의 정본은 계획·분석 파일이다.',
-    '',
-    marker,
-  ].join('\n')
-}
-
-/** 발행 필드(순수). 라벨로 조회 축을 만든다 — **공유 작업은 티켓 하나에 소비 FEAT 라벨을 모두 단다**(T43·T48). */
-export function workIssueFields({work, plan, featureIds, body, labels = [], components = [], featLabel = id => `feat-${id}`}) {
+/**
+ * 발행 필드(순수). **공유 작업도 티켓 하나다**(T43·T48) — 소비 FEAT는 본문 「참고」와 마커에 적고 라벨로 복제하지 않는다.
+ * 라벨은 호출자가 준 것(역할·팀 라벨)뿐이다(2026-09-15 사용자 결정 — 개발자가 fe·be로 거른다).
+ */
+export function workIssueFields({work, body, labels = [], components = []}) {
   if (!WORK_ID.test(String(work.workId))) throw new Error(`INVALID_WORK_ID: ${work.workId}`)
-  return {
-    title: work.title ?? work.workId,
-    body,
-    labels: [...new Set([...labels, ...featureIds.map(featureId => featLabel(featureId))])],
-    components,
-  }
+  return {title: work.title ?? work.workId, body, labels: [...new Set(labels.filter(Boolean))], components}
 }

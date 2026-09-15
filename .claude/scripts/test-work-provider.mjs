@@ -13,7 +13,7 @@ import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
 import {buildWorkIssueFieldsFor} from './ticket/provider-jira.mjs'
 import {buildWorkIssueFields} from './ticket/provider-github.mjs'
 import {createGithubProvider} from './ticket/provider-github-exec.mjs'
-import {issueLinkBody, parseCursor, parseWorkSearch, workJql, workKeysJql, workLabel, workProviderReadiness, workRelationMode, workSearchArgs} from './ticket/work-provider.mjs'
+import {issueLinkBody, parseCursor, parseWorkSearch, workKeysJql, workProviderReadiness, workRelationMode, workSearchArgs} from './ticket/work-provider.mjs'
 
 const WORK = 'WORK-00000001-0000-4000-8000-000000000001'
 const PLAN = '22222222-2222-4222-8222-222222222222'
@@ -28,19 +28,41 @@ const jira = (config, respond) => {
   return {provider: createJiraProvider({config, fetchImpl, env: {JIRA_TOKEN: 't'}}), seen}
 }
 
-test('WORK 조회는 계획·작업 라벨로 찾는다 — FEAT 라벨 질의를 재사용하지 않는다', async () => {
-  const {provider, seen} = jira(jiraConfig, () => ({json: {issues: [{key: 'PF-30', fields: {summary: 'WORK 회원 타입', labels: [workLabel(WORK)]}}], total: 1}}))
-  const found = await provider.findByWorkId({planId: PLAN, workId: WORK})
+test('결과를 모르는 발행의 조회는 라벨이 아니라 시도 시각 이후의 내 이슈를 끝까지 읽어 작업 ID로 찾는다', async () => {
+  const since = new Date(Date.now() - 3 * 60000).toISOString()
+  const {provider, seen} = jira(jiraConfig, () => ({json: {issues: [
+    {key: 'PF-30', fields: {summary: '회원 타입', description: `설명\n\n작업 ID: ${WORK}`}},
+    {key: 'PF-31', fields: {summary: '다른 작업', description: '작업 ID: WORK-00000009-0000-4000-8000-000000000009'}}], total: 2}}))
+  const found = await provider.findByWorkId({planId: PLAN, workId: WORK, since})
   const jql = decodeURIComponent(new URL(seen[0].url).searchParams.get('jql'))
-  assert.match(jql, /labels = "work-00000001-0000-4000-8000-000000000001"/)
-  assert.match(jql, /labels = "plan-22222222-2222-4222-8222-222222222222"/)
-  assert.doesNotMatch(jql, /feat-/, 'FEAT 라벨로 WORK를 찾고 있다 — 축이 다르다')
+  assert.match(jql, /AND created >= -\d+m/)
+  assert.doesNotMatch(jql, /reporter/, '보고자로 좁히면 다른 계정의 재개가 「완전·0건」이 된다')
+  assert.doesNotMatch(jql, /labels/, '라벨로 찾고 있다 — 조회 키 라벨은 없앴다')
   assert.deepEqual(found.matches.map(item => item.ticketKey), ['PF-30'])
   assert.equal(found.complete, true)
-  assert.equal(workJql(jiraConfig, {workId: WORK}).includes('plan-'), false, '계획을 안 주면 계획 조건을 붙이지 않는다')
   // 매칭이 더 남았으면 조회도 불완전하다 — 「이 작업의 티켓은 이것뿐」이라고 말하지 않는다.
-  const partial = jira(jiraConfig, () => ({json: {issues: [{key: 'PF-30', fields: {}}], total: 2}}))
-  assert.equal((await partial.provider.findByWorkId({workId: WORK})).complete, false)
+  const partial = jira(jiraConfig, ({url}) => ({json: {issues: new URL(url).searchParams.get('startAt') === '0' ? [{key: 'PF-30', fields: {description: WORK}}] : [], total: 2}}))
+  const cut = await partial.provider.findByWorkId({workId: WORK, since})
+  assert.equal(cut.complete, false)
+  // Cloud(v3)는 설명을 ADF 객체로 준다 — 문자열로 대조하면 늘 불일치라 「완전·0건」→재발행이 된다.
+  const cloud = jira({...jiraConfig, apiVersion: '3'}, () => ({json: {issues: [{key: 'PF-40', fields: {summary: 's',
+    description: {type: 'doc', version: 1, content: [{type: 'paragraph', content: [{type: 'text', text: `작업 ID: ${WORK}`}]}]}}}], total: 1}}))
+  assert.deepEqual((await cloud.provider.findByWorkId({workId: WORK, since})).matches.map(item => item.ticketKey), ['PF-40'], 'ADF 설명에서 작업 ID를 찾지 못했다')
+  // 시도 시각을 모르면 범위를 좁힐 수 없다 — 부재를 단정하지 않는다(트래커도 부르지 않는다).
+  const blind = jira(jiraConfig, () => ({json: {issues: [], total: 0}}))
+  assert.equal((await blind.provider.findByWorkId({workId: WORK})).complete, false)
+  assert.equal(blind.seen.length, 0)
+  // GitHub: 시각이 있으면 REST 목록(색인 지연 없음)을 끝까지 돌고 마커의 work=로 대조한다.
+  const calls = []
+  const marker = `<!-- web-harness:work plan=${PLAN} work=${WORK} feat=FEAT-001 tc= rev=${'a'.repeat(64)} -->`
+  const gh = createGithubProvider({repo: 'o/r', exec: async args => {
+    calls.push(args)
+    return [JSON.stringify({number: 7, title: 't', body: `본문\n\n${marker}`}), JSON.stringify({number: 8, title: 'x', body: `본문 ${WORK} 언급만`})].join('\n')
+  }})
+  const ghFound = await gh.findByWorkId({workId: WORK, since})
+  assert.deepEqual(ghFound.matches.map(item => item.ticketKey), ['7'], '산문 언급을 마커로 읽었다')
+  assert.equal(ghFound.complete, true)
+  assert.ok(calls[0].includes('--paginate') && calls[0].some(arg => arg.includes('since=')))
   // GitHub 경로는 형식이 아닌 workId를 트래커로 보내지 않는다.
   assert.throws(() => workSearchArgs('o/r', 'WORK-not-a-uuid'), /INVALID_WORK_ID/)
 })
@@ -157,28 +179,21 @@ test('발행 전 능력 판정: 없는 것을 있다고 말하지 않고 무엇�
 })
 
 // ── WORK 필드 빌더 conformance ──────────────────────────────────────────────────
-// FEAT 빌더는 `sourceKey`를 FEAT로 보고 `feat-<키>` 라벨과 `web-harness:refs` 마커를 덧붙인다.
-// WORK를 그 빌더로 내면 ① 조회 축(`work-…` 라벨)이 사라져 재개 조회가 「완전·0건」을 돌려주고(부재로
-// 읽혀 중복 발행) ② 본문에 두 모델의 마커가 함께 실려 판독 입구가 conflict로 거부한다.
-// 그래서 **두 형태 모두** 같은 케이스로 잰다 — 한쪽만 고치면 다른 트래커에서 같은 사고가 난다.
-const workDraft = {
-  title: '회원 타입·API 계약',
-  body: `요약\n\n<!-- web-harness:work plan=${PLAN} work=${WORK} feat=FEAT-001,FEAT-002 tc= rev=${'a'.repeat(64)} -->`,
-  labels: [workLabel(WORK), `plan-${PLAN}`, 'feat-FEAT-001', 'feat-FEAT-002'],
-}
+// 호출자 라벨(역할·팀)을 보존하고, 기계 마커는 **사람 눈에 보이지 않는 곳**에 둔다 — GitHub은 본문 끝 HTML 주석,
+// Jira는 이슈 속성(위키 서식이 주석을 숨기지 못해 글자로 보였다). FEAT 왕복 마커는 어느 쪽에도 붙이지 않는다.
+const workMarker = `<!-- web-harness:work plan=${PLAN} work=${WORK} feat=FEAT-001,FEAT-002 tc= rev=${'a'.repeat(64)} -->`
+const workDraft = {title: '회원 타입·API 계약', body: '### 완료 조건\n- [ ] 응답이 명세 타입과 맞는다', marker: workMarker, labels: ['fe', 'be', 'team-web']}
 for (const [name, build, read] of [
-  ['jira', draft => buildWorkIssueFieldsFor(jiraConfig, draft), built => ({labels: built.fields.labels, body: built.fields.description, title: built.fields.summary})],
-  ['github', draft => buildWorkIssueFields(draft), built => ({labels: built.labels, body: built.body, title: built.title})],
+  ['jira', draft => buildWorkIssueFieldsFor(jiraConfig, draft), built => ({labels: built.fields.labels, body: built.fields.description, title: built.fields.summary, marker: built.properties?.[0]?.value?.marker})],
+  ['github', draft => createGithubProvider({repo: 'o/r', exec: async () => ''}).buildWorkFields(draft), built => ({labels: built.labels, body: built.body, title: built.title, marker: built.body})],
 ]) {
-  test(`${name}: WORK 필드 빌더가 호출자 라벨을 보존하고 FEAT 마커를 붙이지 않는다`, () => {
+  test(`${name}: WORK 필드 빌더가 호출자 라벨을 보존하고 마커를 보이지 않는 곳에 둔다`, () => {
     const built = read(build(workDraft))
     assert.equal(built.title, workDraft.title)
-    for (const label of workDraft.labels) {
-      assert.ok(built.labels.includes(label), `${label} 라벨이 사라졌다 — 이 축으로 재개 조회를 한다`)
-    }
-    assert.equal(built.labels.some(label => /^feat-WORK-/.test(label)), false, '없는 축의 라벨을 만들었다')
-    assert.equal(built.body.includes('web-harness:refs'), false, 'WORK 본문에 FEAT 왕복 마커를 덧붙였다 — 판독 입구가 conflict로 거부한다')
-    assert.ok(built.body.includes('web-harness:work'), 'WORK 마커가 본문에서 사라졌다')
+    assert.deepEqual([...built.labels].sort(), [...workDraft.labels].sort(), '호출자 라벨이 바뀌었다 — 개발자가 이것으로 거른다')
+    assert.equal(built.body.includes('web-harness:refs'), false, 'WORK 본문에 FEAT 왕복 마커를 덧붙였다')
+    assert.ok(String(built.marker).includes('web-harness:work'), 'WORK 마커가 사라졌다')
+    if (name === 'jira') assert.equal(built.body.includes('web-harness:work'), false, 'Jira 설명에 마커를 넣었다 — 글자로 보인다')
   })
 }
 

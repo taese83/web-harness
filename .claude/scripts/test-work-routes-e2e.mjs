@@ -59,7 +59,8 @@ function createJiraStub() {
   const fetchImpl = async (url, {method = 'GET', body = null} = {}) => {
     const parsed = new URL(url)
     const path = parsed.pathname.replace(/^\/rest\/api\/2/, '')
-    const data = body ? JSON.parse(body) : null
+    const multipart = typeof FormData !== 'undefined' && body instanceof FormData
+    const data = body && !multipart ? JSON.parse(body) : null
     if (method !== 'GET') writes.push({method, path, body: data})
     let match
     if (method === 'GET' && path === '/search') {
@@ -69,6 +70,8 @@ function createJiraStub() {
       if ((match = jql.match(/^key in \(([^)]+)\)/))) {
         const keys = new Set(match[1].split(',').map(key => key.trim()))
         hits = [...issues.values()].filter(issue => keys.has(issue.key))
+      } else if (/AND created >= -\d+m/.test(jql)) {
+        hits = [...issues.values()]
       } else if ([...jql.matchAll(/labels = "([^"]+)"/g)].length > 0) {
         const labels = [...jql.matchAll(/labels = "([^"]+)"/g)].map(item => item[1])
         hits = [...issues.values()].filter(issue => labels.every(label => issue.fields.labels.includes(label)))
@@ -83,7 +86,8 @@ function createJiraStub() {
     if (method === 'POST' && path === '/issue') {
       const key = `PF-${++sequence}`
       const issue = {key, fields: {labels: [], components: [], issuelinks: [], comment: {total: 0, comments: []},
-        assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, ...data.fields}}
+        assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, ...data.fields},
+        properties: Object.fromEntries((data.properties ?? []).map(item => [item.key, item.value])), attachments: []}
       touch(issue)
       issues.set(key, issue)
       return respond(201, {key, self: `https://jira.test/rest/api/2/issue/${key}`})
@@ -101,6 +105,26 @@ function createJiraStub() {
       const issue = issues.get(match[1])
       if (method === 'GET') return respond(200, {transitions: [{id: '31', name: '진행'}, {id: '41', name: '완료'}]})
       issue.fields.status = {name: data.transition.id, statusCategory: {key: data.transition.id === '41' ? 'done' : 'indeterminate'}}
+      touch(issue)
+      return respond(204, null)
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)\/properties\/([^/]+)$/))) {
+      const issue = issues.get(decodeURIComponent(match[1]))
+      if (!issue) return respond(404, {errorMessages: ['없는 이슈']})
+      if (method === 'GET') return issue.properties[match[2]] ? respond(200, {key: match[2], value: issue.properties[match[2]]}) : respond(404, {errorMessages: ['속성 없음']})
+      if (method === 'PUT') { issue.properties[match[2]] = data; return respond(200, {}) }
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)\/attachments$/)) && method === 'POST') {
+      if (!multipart) return respond(415, {errorMessages: ['첨부는 multipart여야 한다']})
+      const file = body.get('file')
+      const issue = issues.get(decodeURIComponent(match[1]))
+      const id = String(1000 + issue.attachments.length)
+      issue.attachments.push({id, filename: file.name, content: await file.text()})
+      return respond(200, [{id, filename: file.name}])
+    }
+    if ((match = path.match(/^\/issue\/([^/]+)$/)) && method === 'PUT') {
+      const issue = issues.get(decodeURIComponent(match[1]))
+      if (data.fields?.description !== undefined) issue.fields.description = data.fields.description
       touch(issue)
       return respond(204, null)
     }
@@ -137,12 +161,18 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     const published = await runWorkPublish({root, flags: {'work-ids': `${W(1)},${W(3)},${W(4)}`, confirm: true}, io: {provider, ticketConfig}})
     assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published))
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
-    // (1) 실제 Jira 필드에 WORK 라벨이 실렸다 — 재개 조회가 이것으로 찾는다.
+    // (1) 실제 Jira 필드: 라벨은 역할뿐, 설명은 개발자용 위키 섹션, 마커는 이슈 속성, AI 맥락은 첨부 파일이다.
     const created = jira.issues.get(keyOf(W(1)))
-    assert.ok(created.fields.labels.includes('work-00000001-0000-4000-8000-000000000001'), JSON.stringify(created.fields.labels))
-    assert.equal(created.fields.description.includes('web-harness:refs'), false, 'WORK 본문에 FEAT 마커가 실렸다')
-    const lookup = await provider.findByWorkId({planId: '22222222-2222-4222-8222-222222222222', workId: W(1)})
+    assert.deepEqual([...created.fields.labels].sort(), ['be', 'fe'], JSON.stringify(created.fields.labels))
+    assert.match(created.fields.description, /h3\. 완료 조건[\s\S]*h3\. 수정 범위[\s\S]*h3\. 참고/)
+    assert.equal(created.fields.description.includes('web-harness:'), false, '설명에 기계 마커가 보인다')
+    assert.match(created.properties['web-harness.work']?.marker ?? '', /web-harness:work .*work=WORK-00000001/)
+    assert.equal(created.attachments.length, 1, 'AI 맥락이 첨부되지 않았다')
+    assert.match(created.attachments[0].content, /"writePaths"/)
+    const lookup = await provider.findByWorkId({workId: W(1), since: new Date(Date.now() - 60000).toISOString()})
     assert.deepEqual(lookup.matches.map(item => item.ticketKey), [keyOf(W(1))])
+    // ③-b 개발자가 트래커에서 완료 조건을 **더한다** — 픽업이 개발 범위에 싣는다.
+    created.fields.description = created.fields.description.replace(/(h3\. 완료 조건\n)/, '$1* ☐ 정지 회원은 목록에서 회색으로 보인다\n')
     // ③ 기획자가 트래커에서 결정을 코멘트로 남긴다(사람의 행동 — 하네스 쓰기가 아니다)
     jira.humanComment(keyOf(W(1)), '기획자', '회원 상태 값은 active/suspended 두 가지로 확정합니다')
     // ④ 픽업
@@ -150,6 +180,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     assert.equal(picked.ok, true, JSON.stringify(picked.bounce ?? picked))
     const scope = readChangeScopeFile(root)
     assert.equal(scope.workId, W(1))
+    assert.deepEqual(scope.ticketAcceptance.added, [{section: 'acceptance', text: '정지 회원은 목록에서 회색으로 보인다'}], '개발자가 더한 완료 조건이 개발 범위에 없다')
     // (2) 코멘트가 격리 블록 안에 실렸다
     assert.match(scope.TARGET_BEHAVIOR, /untrusted-ticket-comments[\s\S]*active\/suspended/)
     assert.equal(scope.ticket.revisionStage, 'settled-at-pickup')
@@ -162,6 +193,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
       io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     assert.match(linked.closeLine, /Relates to PF-/, 'Jira 키에 닫는 줄을 적었다')
+    assert.equal(linked.ticketAcceptance?.verification, 'not-automated', '사람이 더한 조건을 검증한 것처럼 접었다')
     let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
     // (4) 링크 기록이 개발 기준 개정을 싣는다 — 완료는 아직 없다
     const linkEvent = readWorkEvents(join(root, WORK_EVENTS_PATH)).find(event => event.eventType === 'work-linked')
@@ -180,7 +212,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     // (3) 트래커 쓰기는 정해진 것뿐이다
     const writes = describeWrites(jira.writes)
     summary.writes = writes
-    const allowed = /^(create issue|assign PF-\d+ → dev1|transition PF-\d+ → 31|comment PF-\d+)$/
+    const allowed = /^(create issue|assign PF-\d+ → dev1|transition PF-\d+ → 31|comment PF-\d+|POST \/issue\/PF-\d+\/attachments)$/
     assert.deepEqual(writes.filter(write => !allowed.test(write)), [], `허용 밖 트래커 쓰기: ${writes.join(' | ')}`)
     assert.equal(writes.some(write => /→ 41$/.test(write)), false, '완료 전이를 불렀다')
     assert.equal(writes.filter(write => write === 'create issue').length, 3)

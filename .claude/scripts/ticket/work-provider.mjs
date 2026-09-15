@@ -7,26 +7,10 @@
 //   2. **미지원을 성공으로 위장하지 않는다.** 관계 표현 능력이 없거나 설정이 없으면 `unsupported`와
 //      **무엇을 설정해야 하는지**를 돌려준다. 링크뿐이면 `link-only`이고 계층이라 부르지 않는다.
 //   3. **하드코딩하지 않는다.** Jira의 이슈 링크 타입·프로젝트·전이 id는 전부 설정이 든다(I3).
-import {UUID, WORK_ID} from './work-refs.mjs'
+import {WORK_ID} from './work-refs.mjs'
 
-/** WORK 조회 키로 쓰는 라벨. 트래커 라벨은 공백을 못 넣으므로 UUID 부분만 쓴다(41자, 하이픈 허용). */
-export function workLabel(workId) {
-  if (!WORK_ID.test(String(workId))) throw new Error(`INVALID_WORK_ID: ${workId}`)
-  return `work-${String(workId).slice('WORK-'.length)}`
-}
-
-/** 계획 라벨 — 한 계획의 티켓을 함께 조회한다. */
-export function planLabel(planId) {
-  if (!UUID.test(String(planId))) throw new Error(`INVALID_PLAN_ID: ${planId}`)
-  return `plan-${planId}`
-}
-
-/** `workId`로 찾는 JQL(순수). 프로젝트는 설정이 든다 — 키를 하드코딩하지 않는다. */
-export function workJql(config, {planId, workId}) {
-  const clauses = [`project = "${config.projectKey}"`, `labels = "${workLabel(workId)}"`]
-  if (planId) clauses.push(`labels = "${planLabel(planId)}"`)
-  return `${clauses.join(' AND ')} ORDER BY created ASC`
-}
+// WORK 조회는 **라벨을 쓰지 않는다**(2026-09-15 사용자 결정 — 라벨은 개발자가 거르는 축(fe·be)과 팀 라벨만).
+// 결과를 모르는 발행은 시도 시각 이후의 이슈를 끝까지 읽어 본문의 작업 ID·마커로 찾는다(provider 실행부).
 
 /** 키 목록 조회 JQL(순수). 페이지 순회는 실행부가 `startAt`으로 돈다. */
 export function workKeysJql(keys) {
@@ -154,6 +138,9 @@ export function workProviderReadiness(provider, config) {
     updateBody: typeof provider?.updateBody === 'function',
     // 이미 발행한 작업의 **소비 FEAT·판본 동기화**(T47)에 쓴다 — 없으면 계획 개정 뒤 티켓이 영영 낡는다.
     updateLabels: typeof provider?.updateLabels === 'function',
+    // 사람이 고친 본문을 덮지 않고 판본 표지만 옮기는 능력 · AI 작업 맥락을 본문 밖에 두는 능력(2026-09-15).
+    updateMarker: typeof provider?.updateMarker === 'function',
+    attachContext: typeof provider?.attachContext === 'function',
   }
   const relation = workRelationMode(name, config)
   const missing = Object.entries(capabilities).filter(([, present]) => !present).map(([key]) => `provider.${key}`)

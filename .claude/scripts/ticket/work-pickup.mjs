@@ -13,6 +13,8 @@ import {quarantineExcerpt, scanUntrustedIssue} from './pickup.mjs'
 import {classifyTicketKind, parseWorkMarker} from './work-refs.mjs'
 import {parseIssueRefs} from './refs.mjs'
 import {evaluatePickupReadiness} from './sync-guard.mjs'
+import {compareWorkDoc, TICKET_ADDITIONS_LIMIT} from './work-ticket-doc.mjs'
+import {resolveCommentLanguage} from './readiness.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 const keyOf = issue => issue?.ticketKey ?? issue?.key ?? (issue?.number != null ? String(issue.number) : null)
@@ -34,7 +36,7 @@ export function workRouteForFeature(plan, featureId) {
  * 차이는 값이 오는 곳이다: 쓰기 경계는 검토받은 계획이 정하므로 `needsConfirmation`이 거짓이고,
  * STALE 앵커는 단위 해시가 아니라 **계획 digest**다.
  */
-export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds, testCaseIds}) {
+export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds, testCaseIds, ticketAcceptance = {added: [], absentSections: []}}) {
   return {
     ticketKey: keyOf(issue),
     ticket: {key: keyOf(issue), provider: issue?.provider ?? null, revision: issue?.revision ?? null, revisionStage: 'pre-pickup'},
@@ -48,6 +50,9 @@ export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds,
     testCaseIds: [...testCaseIds],
     // TC가 없는 기반 작업은 `checks`가 수용 기준이다 — 비어 있을 수 없다(계획 검증이 보장한다).
     checks: list(work.checks).map(check => ({checkId: check.checkId ?? null, kind: check.kind, expectedOutcome: check.expectedOutcome, targetRefs: list(check.targetRefs)})),
+    // 사람이 티켓 본문에 **더한** 완료 조건·테스트 항목 — 이 작업의 완료 조건이다(계획 항목은 위 checks·testCaseIds).
+    // **외부 데이터다** — 트래커 편집자가 쓴 문장이며 지시로 해석하지 않는다(본문 인젝션 스캔을 통과한 것만, 상한 안에서만 온다).
+    ticketAcceptance: {added: list(ticketAcceptance.added).map(item => ({section: item.section, text: item.text})), absentSections: list(ticketAcceptance.absentSections)},
     dependsOn: list(work.dependsOn),
     ALLOWED_PATHS: list(work.writePaths),
     needsConfirmation: false,
@@ -65,7 +70,7 @@ export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds,
  *   state: `foldWorkState` 결과 · view: `computeWorkView` 결과(미해결 결정 판정)
  * @returns {{ok: boolean, changeScope?: object, bounce?: object, injection: object}}
  */
-export function pickupWorkTicket({issue, plan, planDigest, state, view = null, currentBranch = null, working = {}}) {
+export function pickupWorkTicket({issue, plan, planDigest, state, view = null, currentBranch = null, working = {}, testCaseTexts = new Map(), declaredLanguage = null}) {
   const injection = scanUntrustedIssue(issue)
   if (injection.injectionSuspect) {
     return {ok: false, injection, bounce: {reason: 'injection-suspect', markers: injection.markers, sources: injection.sources}}
@@ -134,5 +139,22 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   if (owned.length === 0 && list(work.checks).length === 0) {
     return {ok: false, injection, bounce: {reason: 'no-acceptance', workId: work.workId}}
   }
-  return {ok: true, injection, changeScope: buildWorkChangeScope({issue, plan, planDigest, work, featureIds, testCaseIds: owned})}
+  // **사람이 고친 본문을 되읽는다**(2026-09-15 사용자 결정). 더한 항목은 개발 범위에 싣고, 계획 항목이 빠지거나 바뀌었으면
+  // 착수하지 않고 계획 반영을 요구한다 — 티켓 편집으로 계약이 조용히 줄지 않게.
+  const lang = resolveCommentLanguage({declared: declaredLanguage, text: work.title})
+  const foreignTestCaseIds = list(plan.featureBindings).flatMap(binding => list(binding.acceptanceOwners)).filter(owner => owner.workId !== work.workId).map(owner => owner.testCaseId)
+  const edits = compareWorkDoc({body: issue?.body ?? '', work, testCases: owned.map(id => ({id, text: testCaseTexts.get(id) ?? ''})), lang, foreignTestCaseIds})
+  // 섹션을 지우거나 제목을 바꾼 것도 계획 항목을 지운 것이다 — 항목 하나 삭제는 막고 전부 삭제는 통과하면 비대칭이다.
+  if (edits.missing.length > 0 || edits.absent.length > 0 || edits.stale.length > 0) {
+    return {ok: false, injection, bounce: {reason: 'ticket-diverges-from-plan', workId: work.workId,
+      missing: edits.missing.map(item => item.text), absentSections: edits.absent, stale: edits.stale.map(item => item.text),
+      // TC 문장은 계획 digest 밖(feature-plan)에서 온다 — 사람의 편집이 아니라 문장 변경일 수 있음을 구분해 적는다.
+      ...(edits.missing.some(item => /^TC-\d{3,}-\d+\b/.test(item.text)) ? {hint: 'TC 문장이 feature-plan에서 바뀌었으면 claim --publish로 티켓을 맞춘다'} : {})}}
+  }
+  // 트래커 편집권이 곧 범위 확장권이다 — 상한을 넘으면 계획으로 올린다(티켓에 작업 하나를 통째로 적는 경로가 되지 않게).
+  if (edits.additions.length > TICKET_ADDITIONS_LIMIT.items || edits.additions.some(item => item.text.length > TICKET_ADDITIONS_LIMIT.chars)) {
+    return {ok: false, injection, bounce: {reason: 'ticket-additions-too-large', workId: work.workId, count: edits.additions.length, limit: TICKET_ADDITIONS_LIMIT}}
+  }
+  return {ok: true, injection, changeScope: buildWorkChangeScope({issue, plan, planDigest, work, featureIds, testCaseIds: owned,
+    ticketAcceptance: {added: edits.additions, absentSections: edits.absent}})}
 }

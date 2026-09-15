@@ -47,11 +47,12 @@ WORK 티켓 본문에는 마커 하나를 둔다: `<!-- web-harness:work plan=<p
 
 ## provider 능력 (P2-b)
 
-WORK 축은 FEAT 조회를 재사용하지 않는다 — 계획·작업 **라벨**(`plan-<planId>`·`work-<uuid>`)로 찾는다.
+WORK 축은 FEAT 조회를 재사용하지 않고 **라벨도 쓰지 않는다**(2026-09-15 — 라벨은 사람이 거르는 축만). 결과를 모르는 발행은
+원장의 시도 시각 이후 이슈를 끝까지 읽어 본문의 작업 ID·마커로 찾는다.
 
 | 능력 | Jira | GitHub |
 |---|---|---|
-| `findByWorkId` | 라벨 JQL. `total`보다 적게 받으면 `complete:false` | 본문 검색 — **색인 지연**이라 항상 `complete:false`(부재를 단정하지 않는다) |
+| `findByWorkId` | `created >= -Nm`을 끝까지 읽고 설명(Cloud는 ADF를 평문으로 풀어)의 작업 ID로 대조 — 보고자로 좁히지 않는다(다른 계정도 재개한다). 시각이 없거나 `total`보다 적게 받으면 `complete:false` | 시각이 있으면 REST 목록(`issues?since=`, 색인 지연 없음)을 끝까지 읽고 마커의 `work=`로 대조 — 완결. 시각이 없으면 본문 검색이라 `complete:false` |
 | `listWorkIssues` | `key in (...)` + `startAt` 커서 | 목록(`--limit` 상한). 키를 줬는데 목록이 잘렸으면 못 본 키를 `issue view`로 하나씩 조회한다 — 「없다」는 gh가 그렇게 답한 키만이다 |
 | `linkRelated` | 설정 `workLink.mode: issue-link` + `linkType`일 때만. 실패는 분류해 올린다 | `link-only` — 확인된 유형 관계가 없다(계층이라 부르지 않는다) |
 
@@ -89,14 +90,32 @@ WORK 축은 FEAT 조회를 재사용하지 않는다 — 계획·작업 **라벨
   원장의 티켓 키를 보고 사람이 잇는다(`--resolve`). 없는 라벨은 발행·동기화가 먼저 만든다(triage 이상 권한).
 - **Jira**: `workLink.mode: issue-link` + 프로젝트에 실재하는 `linkType`이 필요하다.
 
-WORK 티켓은 **공유 작업도 하나**다. 소비 FEAT는 라벨(`feat-<FEAT-ID>`)로 전부 달리고, FEAT마다 복제하지
-않는다. 본문은 계약의 복제본이 아니라 **요약과 참조**이며, 마지막 줄의 마커가 되돌아오는 길이다.
+### 티켓의 모양 (2026-09-15 사용자 결정)
+
+WORK 티켓은 **공유 작업도 하나**다(FEAT마다 복제하지 않는다). 두 독자를 가른다:
+
+- **라벨은 사람이 거르는 축뿐이다** — 계획의 `roles`(누가 집는가: `fe`·`be` 등)와 설정의 팀 라벨. 조회 키(`work-`·`plan-`)와
+  FEAT 라벨은 달지 않는다. 소비 FEAT는 본문 「참고」와 마커에 적는다.
+- **본문(description)은 개발자용이다** — 설명 · 완료 조건 · 테스트 항목 · 수정 범위 · 하지 않는 것 · 선행 작업(티켓 키) · 참고.
+  GitHub은 마크다운, Jira Data Center는 위키 서식(대괄호 등은 이스케이프)으로 쓴다(`work-ticket-doc.mjs`).
+- **기계 마커는 보이지 않는 곳에 둔다** — GitHub은 본문 끝 HTML 주석, Jira는 이슈 속성 `web-harness.work`(위키 서식이 주석을
+  숨기지 못해 글자로 보였다). Jira 조회는 속성을 본문 끝에 붙여 돌려주므로 판독 입구는 그대로 본문 마커를 본다.
+- **AI가 읽는 맥락은 첨부로 둔다** — 계약 참조·디자인 조건·검증 대상 경로·근거·판본을 담은 `web-harness-work-….md`.
+  Jira는 첨부 파일, GitHub은 파일 첨부 API가 없어 접힌 코멘트 하나다. 원장 `context-attached`가 첨부 id를 기억하고
+  동기화는 그것을 교체한다. 첨부 실패는 발행을 되돌리지 않고 보류로 올린다(다음 발행이 다시 붙인다).
+
+**사람이 본문을 고칠 수 있다.** 픽업이 완료 조건·테스트 항목 섹션을 되읽어 계획이 만든 항목과 대조한다(정규화한 문장 일치):
+사람이 **더한** 항목은 change-scope `ticketAcceptance.added`로 개발 범위에 싣고(자동 검증은 하지 않는다 — `link`가
+`not-automated`로 적는다), 계획 항목이 **빠지거나 바뀌면**, 섹션을 **지우거나 제목을 바꾸면**, 옛 계획의 흔적(다른 작업이 책임지는
+TC 줄·건수가 다른 통과 줄)이 남아 있으면 `ticket-diverges-from-plan`으로 착수하지 않는다(계획에 반영하거나 본문을 맞춘다).
+더한 항목은 외부 데이터이며(본문 인젝션 스캔을 통과한 것만) 20건·항목당 300자를 넘으면 `ticket-additions-too-large`로 계획에
+올린다. 보고는 원문 그대로다(대조만 정규화한다). Jira 위키의 `#`은 번호 목록으로 읽는다.
 
 ### 이미 발행한 티켓의 동기화 (T47)
 
 계획을 고쳐 다시 검토하면(FEAT 추가로 공유 WORK의 소비자가 늘었다, 다른 작업이 바뀌었다) 이미 발행한 티켓은
 옛 판본이다 — 픽업·보드가 `stale-plan`으로 막는다. 같은 `claim --publish`가 그 작업을 `sync`로 보여주고,
-`--confirm`이면 **소비 메타데이터만** 새 판본에 맞춘다: 본문(소비 FEAT·책임 TC·마커)을 다시 쓰고, 라벨을 증감한 뒤
+`--confirm`이면 **소비 메타데이터만** 새 판본에 맞춘다: 본문(소비 FEAT·책임 TC·선행 키)·마커·라벨·AI 맥락을 맞춘 뒤
 원장에 `publish-synced`를 남긴다. **소비 FEAT·책임 TC·부모가 바뀐 티켓에만** 코멘트로 알린다 — 다른 작업만 바뀐 개정(판본
 표지만 바뀜)마다 모든 티켓에 코멘트가 붙으면 소음이 된다(실 GitHub·Jira 왕복 2026-09-15).
 
@@ -107,7 +126,9 @@ WORK 티켓은 **공유 작업도 하나**다. 소비 FEAT는 라벨(`feat-<FEAT
 - 새로 만들지 않는다 — 원장이 확정한 그 키에만 쓴다. 판본과 요청 지문이 같으면 쓰지 않는다(멱등).
 - 떼는 라벨은 **원장이 기록한 우리 라벨** 중 새 요청에 없는 것뿐이다. 사람이 단 라벨은 건드리지 않는다.
 - 본문·라벨이 **둘 다 된 뒤에만** 원장을 새 판본으로 옮긴다. 중간 실패는 보류이고 원장은 옛 판본이라 픽업이 계속 막는다.
-- 본문은 **통째로 다시 쓴다** — 사람이 WORK 티켓 본문에 적은 것은 덮어쓴다(설명은 코멘트에 둔다).
+- **사람이 고친 본문은 덮어쓰지 않는다** — 우리가 마지막으로 쓴 본문의 지문(`docDigest`)과 지금 본문이 같을 때만 교체한다.
+  고쳤으면 마커(판본 표지)만 옮기고, 더할 계획 항목과 지울 옛 항목을 코멘트로 넘긴다(맞추기 전에는 픽업이 막는다).
+  **예외: 지문 기록이 없는 발행분(0.27.x)은 이관으로 교체한다** — 옛 본문은 섹션이 없어 대조할 수 없다(사람이 고친 0.27 본문도 덮인다).
 - 이미 픽업한 작업이면 그 change-scope는 옛 판본이다 — `link`가 STALE로 막으므로 다시 픽업한다.
 - 코멘트(동기화 알림·픽업 되돌림)의 언어는 프로젝트 선언(`project-profile.json`의 `outputLanguage`)을 따르고, 없으면 티켓·작업 글의 언어를 따른다.
 - 머지로 끝난 작업은 **라벨만** 맞춘다 — 닫힌 티켓의 본문을 그 PR이 구현하지 않은 판본으로 바꾸지 않는다.
@@ -298,7 +319,7 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 | plan.ref | `path` `digest` |
 | plan.binding | `featureId` `sourceDigest` `requiredWorkIds` `acceptanceOwners` |
 | plan.owner | `testCaseId` `workId` |
-| plan.work | `workId` `title` `kind` `objective` `nonGoals` `dependsOn` `readPaths` `writePaths` `contractRefs` `provides` `consumes` `designContext` `basisRefs` `priorityRefs` `blockerRefs` `contributesTo` `checks` `lifecycle` `supersededBy` |
+| plan.work | `workId` `title` `kind` `roles` `objective` `nonGoals` `dependsOn` `readPaths` `writePaths` `contractRefs` `provides` `consumes` `designContext` `basisRefs` `priorityRefs` `blockerRefs` `contributesTo` `checks` `lifecycle` `supersededBy` |
 | plan.contract | `path` `anchor` |
 | plan.design | `applicability` `rationaleRef` `selections` `contextRefs` `unresolvedRefs` |
 | plan.selection | `featureIds` `testCaseIds` `pageGroup` `condition` `referenceIds` `purpose` |

@@ -7,8 +7,9 @@
 // `fetch`는 주입 가능하다 — 테스트가 네트워크 없이 전 경로를 돌 수 있어야 한다(GitHub provider의
 // `exec` 주입과 같은 규율).
 
-import {toAdf, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, featLabel, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions} from './provider-jira.mjs'
-import {issueLinkBody, parseCursor, parseWorkSearch, workJql, workKeysJql, workRelationMode} from './work-provider.mjs'
+import {toAdf, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, fromAdf, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions, WORK_PROPERTY_KEY} from './provider-jira.mjs'
+import {issueLinkBody, parseCursor, parseWorkSearch, workKeysJql, workRelationMode} from './work-provider.mjs'
+import {withWorkMarker} from './work-refs.mjs'
 
 /** `resolveIssue`가 가져오는 필드. 빠진 필드는 응답에서 `undefined`로 와 「없다」와 구별되지 않는다. */
 export const ISSUE_FIELDS = Object.freeze([
@@ -63,8 +64,9 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
   const provider = {
     // ── TicketProvider 필수부 ──
     name: 'jira',
+    // Data Center(v2)는 위키 서식을 렌더하고, Cloud(v3)는 평문을 ADF로 옮긴다 — 마크다운 기호는 글자로 남는다.
+    docFormat: String(config.apiVersion ?? '3') === '2' ? 'jira-wiki' : 'markdown',
     buildWorkFields: draft => buildWorkIssueFieldsFor(config, draft),
-    featLabel,
     async createIssue(fields) {
       const payload = await call(config, '/issue', {...options, method: 'POST', body: fields})
       const created = parseCreateResponse(payload)
@@ -94,14 +96,37 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
         + `?fields=${ISSUE_FIELDS.join(',')}`, options)
       const issue = parseIssueResponse(payload)
       if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
-      return issue
+      // WORK 마커는 이슈 속성에 산다 — 읽는 쪽(종류 판정·픽업·확정)은 본문 마커를 보므로 **본문 끝에 붙여** 돌려준다.
+      // 속성이 없거나 읽지 못하면 붙이지 않는다(원장이 그 키를 알면 픽업이 `work-marker-missing`으로 막는다).
+      const marker = await call(config, `/issue/${encodeURIComponent(key)}/properties/${WORK_PROPERTY_KEY}`, options)
+        .then(result => result?.value?.marker ?? null).catch(() => null)
+      return marker ? {...issue, body: withWorkMarker(issue.body, marker), markerSource: 'property'} : issue
     },
     // ── WORK 축(P2-b) ── FEAT 조회를 재사용하지 않는다. 절단·미지원을 성공으로 세지 않는다.
     /** 계획·작업 라벨로 WORK 티켓을 찾는다. `complete:false`면 더 있을 수 있다 — 부재를 단정하지 않는다. */
-    async findByWorkId({planId, workId}) {
-      const jql = workJql(config, {planId, workId})
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&maxResults=50&fields=summary,labels,status`, options)
-      return parseWorkSearch(payload)
+    // 라벨 없이 찾는다: 시도 시각 이후 만들어진 이슈를 끝까지 읽고 본문의 작업 ID로 대조한다. 시각이 없으면 범위를
+    // 좁힐 수 없어 부재를 단정하지 않는다(`complete: false`). **보고자로 좁히지 않는다** — 원장은 팀이 공유하고 다른 계정이
+    // 재개할 수 있다(보고자로 좁히면 그 계정에서 「완전·0건」이 되어 재발행한다 — 적대 리뷰 2026-09-15).
+    async findByWorkId({workId, since = null}) {
+      if (!since) return {matches: [], complete: false, total: null, nextCursor: null, reason: 'attempt-time-unknown'}
+      const minutes = Math.max(1, Math.ceil((Date.now() - Date.parse(since)) / 60000)) + 10
+      const jql = `project = "${config.projectKey}" AND created >= -${minutes}m ORDER BY created ASC`
+      const matches = []
+      let startAt = 0
+      for (let guard = 0; guard < 20; guard++) {
+        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,description`, options)
+        const issues = Array.isArray(payload?.issues) ? payload.issues : []
+        for (const issue of issues) {
+          // Cloud(v3)는 설명을 ADF 객체로 준다 — 문자열로 대조하면 늘 불일치라 「완전·0건」→재발행이 된다.
+          if (fromAdf(issue?.fields?.description ?? '').includes(workId)) matches.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null})
+        }
+        startAt += issues.length
+        const total = Number(payload?.total)
+        if (!Number.isFinite(total)) return {matches, complete: false, total: null, nextCursor: null}
+        if (startAt >= total) return {matches, complete: true, total, nextCursor: null}
+        if (issues.length === 0) return {matches, complete: false, total, nextCursor: null, stalled: true}
+      }
+      return {matches, complete: false, total: null, nextCursor: null, truncated: true}
     },
     /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
@@ -179,10 +204,35 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     return {ticketKey: String(key), added: add, removed: remove}
   }
 
-  provider.updateBody = async (key, body) => {
+  provider.updateBody = async (key, body, {marker = null} = {}) => {
     await call(config, `/issue/${encodeURIComponent(key)}`, {...options, method: 'PUT',
       body: {fields: {description: commentBody(body)}}})
+    if (marker) await provider.updateMarker(key, marker)
     return {ticketKey: String(key), updated: true}
+  }
+
+  // 마커는 속성이다 — 사람이 고친 설명을 건드리지 않고 판본만 옮긴다.
+  provider.updateMarker = async (key, marker) => {
+    await call(config, `/issue/${encodeURIComponent(key)}/properties/${WORK_PROPERTY_KEY}`, {...options, method: 'PUT', body: {marker}})
+    return {ticketKey: String(key), updated: true, scope: 'marker'}
+  }
+
+  // AI 작업 맥락 첨부. 새 파일을 올린 **뒤** 옛 첨부를 지운다(올리기 실패로 맥락이 사라지지 않게). 지우기 실패는 보고만 한다.
+  provider.attachContext = async (key, {name, content, previous = null}) => {
+    const doFetch = options.fetchImpl ?? globalThis.fetch
+    const form = new FormData()
+    form.append('file', new Blob([String(content)], {type: 'text/markdown'}), name)
+    const url = `${String(config.baseUrl).replace(/\/+$/, '')}/rest/api/${String(config.apiVersion ?? '3')}/issue/${encodeURIComponent(key)}/attachments`
+    const response = await doFetch(url, {method: 'POST', headers: {Authorization: authHeader(options.env), 'X-Atlassian-Token': 'no-check', Accept: 'application/json'}, body: form})
+    if (!response.ok) throw new Error(`JIRA_HTTP_${response.status}: ${(await response.text().catch(() => '')).slice(0, 300)}`)
+    const uploaded = await response.json().catch(() => null)
+    const ref = Array.isArray(uploaded) && uploaded[0]?.id ? String(uploaded[0].id) : null
+    if (!ref) throw new Error('JIRA_ATTACH_NO_ID: 첨부 응답에 id가 없다')
+    let previousRemoved = null
+    if (previous && String(previous) !== ref) {
+      previousRemoved = await call(config, `/attachment/${encodeURIComponent(previous)}`, {...options, method: 'DELETE'}).then(() => true).catch(() => false)
+    }
+    return {ref, replaced: Boolean(previous), previousRemoved}
   }
 
   return provider

@@ -65,6 +65,13 @@ test('T02: 기반 작업은 사용자 TC 없이 checks로 유효하다 — check
   expectError(evaluate('crud', (analysis, plan) => { work(plan, 1).contributesTo = ['TC-999-1'] }), /TC가 아니다/, '가짜 TC를 통과시켰다')
 })
 
+test('작업마다 누가 집는지(roles)를 적는다 — 트래커 라벨이 되어 개발자가 fe·be로 거른다', () => {
+  expectError(evaluate('crud', (analysis, plan) => { delete work(plan, 4).roles }), /roles가 없다/, '역할 없는 작업을 통과시켰다')
+  expectError(evaluate('crud', (analysis, plan) => { work(plan, 4).roles = [] }), /roles가 없다/, '빈 역할을 통과시켰다')
+  expectError(evaluate('crud', (analysis, plan) => { work(plan, 4).roles = ['Front End'] }), /소문자 식별자/, '라벨로 못 쓰는 역할을 통과시켰다')
+  expectError(evaluate('crud', (analysis, plan) => { work(plan, 4).roles = ['fe', 'fe'] }), /중복/, '중복 역할을 통과시켰다')
+})
+
 test('T04: 필수 TC의 최종 검증 책임이 빠지거나 둘이면 막는다', () => {
   expectError(evaluate('crud', (analysis, plan) => { plan.featureBindings[0].acceptanceOwners.pop() }), /책임이 없는 TC — TC-001-3/, 'TC 책임 누락을 통과시켰다')
   expectError(evaluate('crud', (analysis, plan) => { plan.featureBindings[0].acceptanceOwners.push({testCaseId: 'TC-001-1', workId: W(7)}) }), /책임이 둘이다/, '책임 중복을 통과시켰다')

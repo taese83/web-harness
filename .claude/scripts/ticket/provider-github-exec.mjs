@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process'
 import {buildWorkIssueFields, featLabel, ghCreateArgs, parseCreatedIssueUrl, renderCloseReference} from './provider-github.mjs'
 import {classifyGhError} from './permissions.mjs'
 import {parseGithubWorkList, workListArgs, workSearchArgs} from './work-provider.mjs'
+import {withWorkMarker, WORK_MARKER_BEGIN} from './work-refs.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
 // `stdin`은 **본문처럼 긴 값**을 넘기는 통로다 — argv로 넘기면 인자 길이 한계와 셸 인용에
@@ -58,12 +59,20 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
   return {
     // ── TicketProvider 필수부(`ticket-provider.mjs`) ──
     name: 'github',
-    buildWorkFields: buildWorkIssueFields,
-    // FEAT 축 라벨의 **어휘는 트래커가 정한다**(GitHub `feat:`·Jira `feat-`) — 중립 코어가 한쪽을
-    // 박으면 같은 저장소에서 FEAT 축이 둘로 갈린다.
-    featLabel,
-    // ── WORK 축(P2-b) ── 본문 검색은 **색인 지연**이 있다 — 결과가 비어도 부재를 단정하지 않는다.
-    async findByWorkId({workId}) {
+    // 본문은 마크다운이고, 기계 마커는 **렌더되지 않는 HTML 주석**으로 본문 끝에 둔다(사람 눈에 보이지 않는다).
+    docFormat: 'markdown',
+    buildWorkFields: draft => buildWorkIssueFields({...draft, body: draft.marker ? withWorkMarker(draft.body, draft.marker) : draft.body}),
+    // ── WORK 축 ── 시도 시각(`since`)이 있으면 **REST 목록**(DB 기반, 색인 지연 없음)을 끝까지 돌아 마커로 찾는다 —
+    // 끝까지 돌았으면 완결이다. 시각이 없으면 본문 검색이고 색인 지연이라 부재를 단정하지 않는다.
+    async findByWorkId({workId, since = null}) {
+      if (since) {
+        const out = await run(['api', '--paginate', `repos/${repo}/issues?state=all&per_page=100&since=${encodeURIComponent(since)}`,
+          '--jq', '.[] | select(.pull_request == null) | {number, title, body}'])
+        const rows = out.split('\n').filter(Boolean).map(line => JSON.parse(line))
+        const matches = rows.filter(row => String(row.body ?? '').includes(`${WORK_MARKER_BEGIN} `) && String(row.body ?? '').includes(`work=${workId} `))
+          .map(row => ({ticketKey: String(row.number), summary: row.title ?? null}))
+        return {matches, complete: true, indexLag: false, total: rows.length, nextCursor: null}
+      }
       const json = JSON.parse(await run(workSearchArgs(repo, workId)))
       const parsed = parseGithubWorkList(json, {limit: 100, indexLag: true})
       return {matches: parsed.matches, complete: false, indexLag: true, total: null, nextCursor: null}
@@ -129,9 +138,30 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     },
     // 본문 교체. **호출자가 만든 본문을 그대로 넘긴다** — 이 메서드가 본문을 지어내지 않는다.
     // `--body`는 인자 길이 한계와 셸 인용 문제가 있어 stdin으로 넘긴다.
-    async updateBody(ticketKey, body) {
-      await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: String(body)})
+    async updateBody(ticketKey, body, {marker = null} = {}) {
+      await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: String(marker ? withWorkMarker(body, marker) : body)})
       return {ticketKey: String(ticketKey), updated: true}
+    },
+    // 마커만 바꾼다 — 사람이 고친 본문은 그대로 두고 끝의 주석만 교체한다(GitHub은 마커가 본문 안에 산다).
+    async updateMarker(ticketKey, marker, {currentBody}) {
+      await run(['issue', 'edit', String(ticketKey), '--repo', repo, '--body-file', '-'], {stdin: withWorkMarker(currentBody, marker)})
+      return {ticketKey: String(ticketKey), updated: true, scope: 'marker'}
+    },
+    // AI 작업 맥락. GitHub 이슈에는 파일 첨부 API가 없어 **접힌 코멘트 하나**로 두고, 동기화는 그 코멘트를 고친다.
+    async attachContext(ticketKey, {name, content, previous = null}) {
+      const body = `<details>\n<summary>AI 작업 맥락 · ${name}</summary>\n\n${content}\n</details>\n\n<!-- web-harness:work-context name=${name} -->`
+      if (previous) {
+        try {
+          await run(['api', '--method', 'PATCH', `repos/${repo}/issues/comments/${previous}`, '--input', '-'], {stdin: JSON.stringify({body})})
+          return {ref: String(previous), replaced: true}
+        } catch (error) {
+          // 사람이 코멘트를 지웠으면 새로 단다 — 다른 실패는 올린다.
+          if (!/\b404\b|Not Found/.test(String(error?.message ?? error))) throw error
+        }
+      }
+      const created = JSON.parse(await run(['api', '--method', 'POST', `repos/${repo}/issues/${ticketKey}/comments`, '--input', '-'], {stdin: JSON.stringify({body})}))
+      if (!created?.id) throw new Error('GH_CONTEXT_NO_ID: 코멘트 생성 응답에 id가 없다')
+      return {ref: String(created.id), replaced: false}
     },
     // 라벨 증감. 붙일 라벨은 생성과 같은 이유로 **먼저 보장**한다. 호출자가 준 것만 떼고 나머지 라벨은 건드리지 않는다.
     async updateLabels(ticketKey, {add = [], remove = []}) {

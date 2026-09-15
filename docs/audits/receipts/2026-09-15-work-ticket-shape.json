@@ -1,0 +1,261 @@
+{
+  "kind": "work-ticket-shape-receipt",
+  "measuredAt": "2026-09-15T01:33:18+00:00",
+  "decision": "2026-09-15 사용자 결정 — 라벨은 fe·be(계획 roles)와 팀 라벨만, 불필요한 라벨 제거, description은 개발자가 읽는 설명·완료 조건·테스트 항목, AI가 읽는 내용은 첨부(GitHub은 접힌 코멘트), 개발자 수정은 개발에 반영(추가는 반영·삭제/변경은 계획 반영 요구)",
+  "falsification": {
+    "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본",
+    "seeds": [
+      {
+        "id": "work-publish-attempt-digest-recorded",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-publish-attempt-before-write",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-publish-parent-in-body",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-sync-detects-revision",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-sync-event-requires-published",
+        "file": ".claude/scripts/ticket/work-events.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-sync-notifies-ticket",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-doc-lists-consuming-features",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-publish-labels-caller-only",
+        "file": ".claude/scripts/ticket/work-publish.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-publish-labels-from-roles",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "plan-requires-roles",
+        "file": ".claude/scripts/ticket/work-plan.mjs",
+        "test": ".claude/scripts/test-work-plan.mjs"
+      },
+      {
+        "id": "work-sync-preserves-human-edit",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "work-sync-hands-over-missing",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "pickup-refuses-diverged-ticket",
+        "file": ".claude/scripts/ticket/work-pickup.mjs",
+        "test": ".claude/scripts/test-work-pickup.mjs"
+      },
+      {
+        "id": "pickup-carries-ticket-additions",
+        "file": ".claude/scripts/ticket/work-pickup.mjs",
+        "test": ".claude/scripts/test-work-pickup.mjs"
+      },
+      {
+        "id": "jira-marker-in-property",
+        "file": ".claude/scripts/ticket/provider-jira.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      },
+      {
+        "id": "github-marker-hidden-in-body",
+        "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      },
+      {
+        "id": "jira-resolve-appends-property-marker",
+        "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+        "test": ".claude/scripts/test-ticket-github.mjs"
+      },
+      {
+        "id": "publish-attaches-context",
+        "file": ".claude/scripts/ticket/work-publish-run.mjs",
+        "test": ".claude/scripts/test-work-publish.mjs"
+      },
+      {
+        "id": "jira-attach-removes-previous-after-upload",
+        "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+        "test": ".claude/scripts/test-ticket-github.mjs"
+      },
+      {
+        "id": "github-lookup-matches-marker-not-prose",
+        "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      },
+      {
+        "id": "jira-lookup-requires-attempt-time",
+        "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      },
+      {
+        "id": "doc-wiki-escapes-brackets",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-ticket-doc.mjs"
+      },
+      {
+        "id": "pickup-refuses-missing-section",
+        "file": ".claude/scripts/ticket/work-pickup.mjs",
+        "test": ".claude/scripts/test-work-pickup.mjs"
+      },
+      {
+        "id": "doc-stale-plan-items-not-additions",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-ticket-doc.mjs"
+      },
+      {
+        "id": "doc-reports-raw-text",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-ticket-doc.mjs"
+      },
+      {
+        "id": "doc-wiki-hash-is-list",
+        "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+        "test": ".claude/scripts/test-work-ticket-doc.mjs"
+      },
+      {
+        "id": "pickup-caps-ticket-additions",
+        "file": ".claude/scripts/ticket/work-pickup.mjs",
+        "test": ".claude/scripts/test-work-pickup.mjs"
+      },
+      {
+        "id": "jira-lookup-reads-adf",
+        "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      },
+      {
+        "id": "jira-lookup-not-reporter-bound",
+        "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+        "test": ".claude/scripts/test-work-provider.mjs"
+      }
+    ],
+    "result": {
+      "ok": 29,
+      "total": 29,
+      "treeChanged": null
+    },
+    "newSeeds": [
+      "work-doc-lists-consuming-features",
+      "work-publish-labels-caller-only",
+      "work-publish-labels-from-roles",
+      "plan-requires-roles",
+      "work-sync-preserves-human-edit",
+      "work-sync-hands-over-missing",
+      "pickup-refuses-diverged-ticket",
+      "pickup-carries-ticket-additions",
+      "jira-marker-in-property",
+      "github-marker-hidden-in-body",
+      "jira-resolve-appends-property-marker",
+      "publish-attaches-context",
+      "jira-attach-removes-previous-after-upload",
+      "github-lookup-matches-marker-not-prose",
+      "jira-lookup-requires-attempt-time",
+      "doc-wiki-escapes-brackets",
+      "pickup-refuses-missing-section",
+      "doc-stale-plan-items-not-additions",
+      "doc-reports-raw-text",
+      "doc-wiki-hash-is-list",
+      "pickup-caps-ticket-additions",
+      "jira-lookup-reads-adf",
+      "jira-lookup-not-reporter-bound"
+    ],
+    "reanchored": [
+      "work-publish-parent-in-body",
+      "work-sync-detects-revision",
+      "work-sync-event-requires-published",
+      "work-sync-notifies-ticket",
+      "work-publish-attempt-digest-recorded",
+      "work-publish-attempt-before-write"
+    ],
+    "retired": [
+      {
+        "id": "work-publish-shared-feat-labels",
+        "successor": "work-doc-lists-consuming-features",
+        "why": "FEAT 라벨을 사용자 결정으로 없앴다 — 소비 FEAT는 본문 참고·마커에 적는다"
+      },
+      {
+        "id": "work-publish-feat-label-vocabulary",
+        "successor": "work-publish-labels-caller-only",
+        "why": "FEAT 라벨 어휘 자체가 사라졌다 — 코어가 라벨을 덧붙이지 않는 것이 새 불변식이다"
+      }
+    ]
+  },
+  "live": {
+    "github": {
+      "repo": "taese83/wh-work-e2e",
+      "cli": "repo .claude/scripts/ticket/cli.mjs(미배포 작업 트리)",
+      "steps": [
+        "0.27 형식 #1~#4를 claim --publish --confirm으로 이관: 조회 키·FEAT·team 라벨 제거 · fe/be 추가 · 본문 섹션형으로 교체 · AI 맥락 접힌 코멘트 · #1(완료)은 라벨만",
+        "#2 본문에 완료 조건 한 줄 추가(gh issue edit) → pickup --dry-run: ticketAcceptance.added에 그 줄",
+        "#2에서 계획 항목 삭제 → pickup --dry-run: exit 2 ticket-diverges-from-plan(missing 그 항목)",
+        "계획 개정(TC-001-1 책임을 WORK-3으로) → claim --publish --confirm: #2 bodyPreserved·마커 rev 갱신·새 항목 2건 코멘트로 넘김"
+      ]
+    },
+    "jira": {
+      "deployment": "Data Center REST v2(jira.daumkakao.com) · 프로젝트 AOA(사용자 지정)",
+      "issues": [
+        "AOA-9",
+        "AOA-10",
+        "AOA-11",
+        "AOA-12"
+      ],
+      "steps": [
+        "새 발행: 라벨 fe(공유 기반은 fe·be) · 컴포넌트 DEVELOP · 설명 위키 섹션(렌더 확인: h3·목록·{{경로}}·선행 작업 링크·대괄호 이스케이프) · 생성 요청의 properties로 web-harness.work 속성 · 첨부 web-harness-work-….md",
+        "AOA-10 설명에 완료 조건 한 줄 추가(REST PUT) → pickup --dry-run: ticketAcceptance.added",
+        "계획 개정 → 동기화: AOA-10 설명 보존·속성 rev 갱신·첨부 교체(1건 유지)·새 항목 코멘트 · 나머지는 설명 교체",
+        "동기화 뒤 AOA-10 pickup --dry-run: ticket-diverges-from-plan(넘긴 항목을 사람이 반영하기 전)",
+        "정리: AOA-9~12 Resolved 전이(삭제 없음)"
+      ]
+    }
+  },
+  "ci": "커밋 전 pnpm run ci 결과는 커밋 본문에 적는다",
+  "limits": [
+    "실 왕복은 repo CLI(미배포 작업 트리)로 돌렸다 — 배포본으로는 아직 돌리지 않았다",
+    "GitHub 결과 불명 재개의 REST 목록 조회·Jira 조회의 created 범위는 발행이 모두 성공해 실 트래커에서 타지 않았다(회귀·stub만)",
+    "사람 편집 대조는 정규화한 문장 일치다 — 같은 뜻의 다른 문장은 「바뀜」으로 막힌다",
+    "Jira Cloud(v3)는 설명을 마크다운 평문으로 ADF 변환한다 — 렌더 품질은 미확인",
+    "집계 티켓(--aggregate)의 본문·마커는 이번 모양 변경 밖이다(Jira에서 마커가 글자로 보일 수 있다)",
+    "리뷰 수정분(차단 조건 강화·조회 변경)은 실 트래커로 다시 돌리지 않았다 — 회귀·seed만"
+  ],
+  "review": {
+    "agent": "harness-change-reviewer",
+    "verdict": "BLOCKED",
+    "fixed": [
+      "Jira v3 재개 조회가 ADF 설명을 문자열로 대조(fromAdf) — BLOCK 사유",
+      "보존형 동기화 뒤 옛 계획 항목이 사람 추가로 둔갑(stale 분리·코멘트에 지울 항목)",
+      "정규화 문장으로 보고(원문 보고)",
+      "섹션 삭제·제목 변경 통과(차단)",
+      "Jira 위키 # 목록을 제목으로 오독",
+      "지문 기록 없는 0.27 발행분 덮어쓰기(문서에 이관 예외 명시)",
+      "reporter=currentUser 재개 계정 결박(제거)",
+      "추가 항목 격리·상한(외부 데이터 표기·20건/300자·protected-core 프록시 등록)",
+      "TC 문장 변경 힌트"
+    ],
+    "notFixed": [
+      "Jira updateBody 2단계 쓰기(설명 PUT 뒤 속성 PUT) 부분 실패 — 보존 쪽 오류라 남김"
+    ],
+    "reReview": "수정 뒤 재리뷰는 돌리지 않았다"
+  }
+}

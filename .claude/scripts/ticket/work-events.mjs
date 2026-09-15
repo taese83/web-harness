@@ -19,7 +19,7 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
-export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'relation-linked',
+export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'context-attached', 'relation-linked',
   'work-linked', 'work-completed', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
@@ -43,7 +43,7 @@ export function validateWorkEvent(event) {
   }
   if (event.operationId !== undefined && !UUID.test(String(event.operationId))) errors.push('operationId는 UUID여야 한다')
   // 발행 이벤트는 **어느 작업을 어느 시도로** 썼는지가 요체다 — 그것이 없으면 재개가 무엇을 이어야 할지 모른다.
-  if (event.eventType.startsWith('publish-') || event.eventType === 'relation-linked') {
+  if (event.eventType.startsWith('publish-') || event.eventType === 'relation-linked' || event.eventType === 'context-attached') {
     if (!WORK_ID.test(String(event.workId ?? ''))) errors.push(`${event.eventType}에는 workId가 필요하다`)
     if (!UUID.test(String(event.operationId ?? ''))) errors.push(`${event.eventType}에는 operationId(외부 쓰기 시도 단위)가 필요하다`)
     if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push(`${event.eventType}에는 planDigest가 필요하다 — 어느 판본을 발행했는지`)
@@ -53,6 +53,12 @@ export function validateWorkEvent(event) {
   }
   if (event.eventType === 'publish-confirmed' && !event.payload?.ticketKey) {
     errors.push('publish-confirmed에는 payload.ticketKey가 필요하다')
+  }
+  if (event.eventType === 'context-attached') {
+    // 어느 티켓의 어느 첨부(코멘트)인가 — 동기화가 그것을 교체한다. 없으면 맥락이 티켓마다 쌓인다.
+    if (!event.payload?.ticketKey) errors.push('context-attached에는 payload.ticketKey가 필요하다')
+    if (!event.payload?.ref) errors.push('context-attached에는 payload.ref(첨부·코멘트 id)가 필요하다')
+    if (!DIGEST.test(String(event.payload?.contentDigest ?? ''))) errors.push('context-attached에는 payload.contentDigest가 필요하다')
   }
   if (event.eventType === 'publish-synced') {
     if (!event.payload?.ticketKey) errors.push('publish-synced에는 payload.ticketKey가 필요하다')
@@ -167,7 +173,8 @@ export function foldWorkState(events) {
       // 시도는 **확정이 아니다.** 다음 실행이 이 자리를 이어야 한다 — 응답이 유실됐을 수 있다.
       works.set(event.workId, {...state, status: 'attempted', operationId: event.operationId,
         payloadDigest: event.payload.payloadDigest, planDigest: event.planDigest, labels: Array.isArray(event.payload.labels) ? event.payload.labels : null,
-        workDigest: event.payload.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? null})
+        workDigest: event.payload.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? null,
+        docDigest: event.payload.docDigest ?? null, attemptedAt: event.at})
     } else if (event.eventType === 'publish-confirmed') {
       works.set(event.workId, {...state, status: 'published', ticketKey: String(event.payload.ticketKey),
         operationId: event.operationId, planDigest: event.planDigest, provider: event.payload.provider ?? null})
@@ -177,7 +184,13 @@ export function foldWorkState(events) {
         throw new Error(`WORK_EVENTS_CORRUPT: ${event.workId}의 publish-synced가 확정된 티켓(${state.ticketKey ?? '없음'})과 맞지 않는다`)
       }
       works.set(event.workId, {...state, planDigest: event.planDigest, payloadDigest: event.payload.payloadDigest, labels: event.payload.labels,
-        workDigest: event.payload.workDigest ?? state.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? state.consumerDigest ?? null})
+        workDigest: event.payload.workDigest ?? state.workDigest ?? null, consumerDigest: event.payload.consumerDigest ?? state.consumerDigest ?? null,
+        docDigest: event.payload.docDigest ?? state.docDigest ?? null})
+    } else if (event.eventType === 'context-attached') {
+      if (state.status !== 'published' || String(state.ticketKey) !== String(event.payload.ticketKey)) {
+        throw new Error(`WORK_EVENTS_CORRUPT: ${event.workId}의 context-attached가 확정된 티켓(${state.ticketKey ?? '없음'})과 맞지 않는다`)
+      }
+      works.set(event.workId, {...state, context: {ref: String(event.payload.ref), digest: event.payload.contentDigest}})
     } else if (event.eventType === 'publish-unknown') {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,

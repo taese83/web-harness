@@ -12,7 +12,6 @@ import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from '
 import {aggregateFeatures, renderAggregateBody} from './work-aggregate.mjs'
 import {buildAggregateMarker} from './work-refs.mjs'
 import {payloadDigest} from './work-publish.mjs'
-import {planLabel} from './work-provider.mjs'
 import {ticketKeyOf} from './ticket-provider.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -83,7 +82,8 @@ export async function runAggregatePublish({root, flags = {}, io = {}}) {
     const marker = buildAggregateMarker({planId: plan.planId, featureId: feature.featureId})
     const body = renderAggregateBody({feature, plan, marker})
     const fields = provider.buildWorkFields({title: `[집계] ${feature.featureId}`, body,
-      labels: [planLabel(plan.planId), ...(typeof provider.featLabel === 'function' ? [provider.featLabel(feature.featureId)] : []), 'work-aggregate']})
+      // 조회 키 라벨을 달지 않는다(2026-09-15) — 집계 티켓은 원장이 키를 기억하고, 라벨은 사람이 거르는 축만 둔다.
+      labels: []})
     const digest = payloadDigest({body})
     const current = state.aggregates.get(feature.featureId) ?? null
     if (current?.status === 'attempted' || current?.status === 'unknown') {

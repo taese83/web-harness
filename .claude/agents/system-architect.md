@@ -93,6 +93,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 - `P1_PLAN_REQUIRED`: 그 분석을 근거로 `work-plan.json`을 쓴다. `analysisRef`는 결과의 `next.analysisRef`를
   그대로, `featureBindings[].sourceDigest`는 결과의 `inventory[].sourceDigest`를 그대로 옮긴다(CLI가 FEAT
   명세에서 계산한 값이다). WORK ID는 새 UUID로 한 번 짓고 **다시 쓸 때 바꾸지 않는다**.
+  작업마다 `roles`(누가 집는가 — `fe`·`be` 등 팀 어휘)를 적는다. 트래커 라벨이 되어 개발자가 자기 몫을 거른다.
 - `*_INVALID`: `errors`를 하나씩 고친다. 검사를 통과하려고 FEAT·TC를 지어내거나 판정을 바꾸지 않는다 —
   근거가 없으면 `unknown`·미결로 둔다.
 - 요구사항(정책·TC)이 바뀌어야 한다고 판단하면 계획에 넣지 않고 반환에 기획 검토 필요로 올린다.

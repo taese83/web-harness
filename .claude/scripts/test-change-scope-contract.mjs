@@ -81,8 +81,10 @@ test('실제 발급 파일도 문서 밖 키를 내지 않는다 — 런타임�
     const workId = 'WORK-00000001-0000-4000-8000-000000000001'
     appendWorkEvent(join(dir, WORK_EVENTS_PATH), {schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: plan.planId,
       workId, eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest, payload: {ticketKey: 'PF-7', provider: 'jira'}})
+    const {buildWorkDoc, formatWorkDoc} = await import('./ticket/work-ticket-doc.mjs')
+    const doc = formatWorkDoc(buildWorkDoc({work: plan.workItems.find(entry => entry.workId === workId)}), 'jira-wiki')
     const issue = {ticketKey: 'PF-7', provider: 'jira', title: 't', revision: 'r1', assignees: ['me'], links: [], comments: [], commentsOmitted: 0,
-      body: `요약\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds: ['FEAT-001'], testCaseIds: [], planDigest})}`}
+      body: `${doc}\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds: ['FEAT-001'], testCaseIds: [], planDigest})}`}
     // 이미 내 배정 → 배정 없이 진행, 끝의 재조회는 던진다 → `revisionError`가 덧붙는다.
     const seq = [issue]
     const provider = {name: 'jira', async resolveIssue() { if (seq.length === 0) throw new Error('tracker down'); return seq.shift() },

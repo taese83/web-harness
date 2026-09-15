@@ -118,7 +118,8 @@ test('집계 티켓: 미리보기는 쓰지 않고, 확인하면 FEAT마다 하�
     const created = await runAggregatePublish({root, flags: {confirm: true}, io: {provider: first.provider}})
     assert.equal(created.phase, 'PUBLISHED', JSON.stringify(created))
     assert.equal(first.calls.filter(call => call.kind === 'create').length, 3)
-    assert.ok(first.calls[0].labels.includes('feat-FEAT-001') && first.calls[0].labels.includes('work-aggregate'))
+    // 조회 키 라벨은 달지 않는다(2026-09-15) — 집계 티켓은 원장이 키를 기억한다.
+    assert.deepEqual(first.calls[0].labels, [])
     const ledger = readWorkEvents(join(root, WORK_EVENTS_PATH))
     const attemptAt = ledger.findIndex(event => event.eventType === 'aggregate-attempted' && event.featureId === 'FEAT-001')
     const confirmAt = ledger.findIndex(event => event.eventType === 'aggregate-confirmed' && event.featureId === 'FEAT-001')

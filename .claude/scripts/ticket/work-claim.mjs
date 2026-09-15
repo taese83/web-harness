@@ -209,8 +209,8 @@ export function renderWorkReview({inventory, analysis, analysisResult, plan, pla
     '',
     '## WORK',
     '',
-    '| 순서 | 실행 상태 | WORK | 종류 | FEAT · 최종 책임 TC | 선행 | 여는 후속 | 우선순위 근거 | 분석 근거 | 디자인 | 미결 |',
-    '|---|---|---|---|---|---|---|---|---|---|---|',
+    '| 순서 | 실행 상태 | WORK | 종류 | 역할 | FEAT · 최종 책임 TC | 선행 | 여는 후속 | 우선순위 근거 | 분석 근거 | 디자인 | 미결 |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...view.rows.slice().sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.workId.localeCompare(b.workId)).map(row => {
       const work = works.get(row.workId)
       const features = [...(planResult.featureOfWork.get(row.workId) ?? [])].join(', ')
@@ -218,7 +218,7 @@ export function renderWorkReview({inventory, analysis, analysisResult, plan, pla
       const priority = row.priorityRefs.map(ref => priorities.get(ref)?.preference ?? ref).join('; ') + (row.rankInheritedFrom ? ` (${short(row.rankInheritedFrom)}에서 승계)` : '')
       const basis = list(work.basisRefs).map(ref => findings.get(ref) ? `${ref}:${findings.get(ref).disposition}` : ref).join(', ')
       const status = {ready: '지금 가능', 'waiting-deps': '선행 대기', 'blocked-decision': '결정 대기'}[row.status]
-      return `| ${row.order ?? '—'} | ${status} | ${cell(label(row.workId))} | ${work.kind} | ${cell(features)}${tcs ? ` · ${cell(tcs)}` : ''} | ${cell(row.waiting.map(short).join(', ') || '없음')} | ${row.unlocks} | ${cell(priority || '—')} | ${cell(basis)} | ${work.designContext?.applicability ?? '?'} | ${cell(row.blockers.join(', ') || '—')} |`
+      return `| ${row.order ?? '—'} | ${status} | ${cell(label(row.workId))} | ${work.kind} | ${cell(list(work.roles).join(', ') || '?')} | ${cell(features)}${tcs ? ` · ${cell(tcs)}` : ''} | ${cell(row.waiting.map(short).join(', ') || '없음')} | ${row.unlocks} | ${cell(priority || '—')} | ${cell(basis)} | ${work.designContext?.applicability ?? '?'} | ${cell(row.blockers.join(', ') || '—')} |`
     }),
     '',
     '## 취소·대체된 작업 — 지우지 않고 남긴다',

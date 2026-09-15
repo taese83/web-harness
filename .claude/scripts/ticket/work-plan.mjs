@@ -20,6 +20,7 @@ export const pathsOverlap = (pathsA = [], pathsB = []) => pathsA.some(a => paths
 export const WORK_PLAN_PATH = '_workspace/03_dev/work-plan.json'
 export const WORK_KINDS = ['foundation', 'implementation', 'integration']
 export const LIFECYCLES = ['active', 'cancelled', 'superseded']
+export const ROLE = /^[a-z][a-z0-9-]{0,30}$/
 export const DESIGN_APPLICABILITY = ['direct-ui', 'behavior-context', 'not-applicable']
 export const SELECTION_PURPOSE = ['implementation', 'context', 'verification']
 
@@ -29,7 +30,7 @@ export const WORK_PLAN_KEYS = {
   ref: ['path', 'digest'],
   binding: ['featureId', 'sourceDigest', 'requiredWorkIds', 'acceptanceOwners'],
   owner: ['testCaseId', 'workId'],
-  work: ['workId', 'title', 'kind', 'objective', 'nonGoals', 'dependsOn', 'readPaths', 'writePaths', 'contractRefs',
+  work: ['workId', 'title', 'kind', 'roles', 'objective', 'nonGoals', 'dependsOn', 'readPaths', 'writePaths', 'contractRefs',
     'provides', 'consumes', 'designContext', 'basisRefs', 'priorityRefs', 'blockerRefs', 'contributesTo', 'checks',
     'lifecycle', 'supersededBy'],
   contract: ['path', 'anchor'],
@@ -178,6 +179,10 @@ export function validateWorkPlan(plan, context) {
     if (lifecycle !== 'active') continue
     if (!WORK_KINDS.includes(work.kind)) errors.push(`${label}: kind는 ${WORK_KINDS.join('|')}`)
     if (!work.objective) errors.push(`${label}: objective가 없다`)
+    // 누가 집는 작업인가(fe·be 등) — 트래커에서 개발자가 자기 몫을 거르는 축이다. 어휘는 팀이 정하고 형식만 본다.
+    if (!Array.isArray(work.roles) || work.roles.length === 0) errors.push(`${label}: roles가 없다 — 누가 집는 작업인지(fe·be 등) 적는다`)
+    else if (work.roles.some(role => !ROLE.test(String(role)))) errors.push(`${label}: roles는 소문자 식별자(fe·be·ios …)여야 한다 — 트래커 라벨로 쓰인다`)
+    else if (new Set(work.roles).size !== work.roles.length) errors.push(`${label}: roles에 중복이 있다`)
     if (!Array.isArray(work.dependsOn)) errors.push(`${label}: dependsOn이 없다 — 미선언은 「의존 없음」이 아니다. 없으면 []로 명시한다(T07)`)
     for (const dep of list(work.dependsOn)) {
       if (dep === work.workId) errors.push(`${label}: 자기 자신에 의존한다`)

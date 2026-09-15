@@ -21,6 +21,8 @@ import {buildWorkChangeScope, pickupWorkTicket} from './ticket/work-pickup.mjs'
 import {buildWorkMarker} from './ticket/work-refs.mjs'
 import {canonicalDigest} from './ticket/work-analysis.mjs'
 import {computeWorkView} from './ticket/work-plan.mjs'
+import {buildWorkDoc, formatWorkDoc, testCaseTexts} from './ticket/work-ticket-doc.mjs'
+import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 
 const repo = new URL('../..', import.meta.url).pathname
 const fixture = name => {
@@ -34,14 +36,51 @@ const W = n => `WORK-0000000${n}-0000-4000-8000-00000000000${n}`
 const featuresOf = workId => plan.featureBindings.filter(binding => binding.requiredWorkIds.includes(workId)).map(binding => binding.featureId)
 const tcsOf = workId => plan.featureBindings.flatMap(binding => binding.acceptanceOwners.filter(owner => owner.workId === workId).map(owner => owner.testCaseId))
 
+// 발행이 쓰는 것과 같은 개발자용 본문 — 픽업이 완료 조건·테스트 항목을 되읽는다(섹션이 없으면 계획 반영을 요구한다).
+const tcTexts = testCaseTexts(parseFeaturePlanUnits(readFileSync(join(repo, '.claude/evals/fixtures/work-plan/crud/_workspace/01_plan/feature-plan.md'), 'utf8')))
+const docFor = workId => {
+  const work = plan.workItems.find(entry => entry.workId === workId)
+  return work ? formatWorkDoc(buildWorkDoc({work, testCases: tcsOf(workId).map(id => ({id, text: tcTexts.get(id) ?? ''}))}), 'jira-wiki') : '요약'
+}
 const ticket = (workId, {key = 'PF-101', digest = planDigest, body = ''} = {}) => ({
   ticketKey: key, provider: 'jira', title: '회원 타입·API 계약', revision: 'r1', links: [], comments: [], commentsOmitted: 0,
-  body: `${body}\n요약\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds: featuresOf(workId), testCaseIds: tcsOf(workId), planDigest: digest})}`,
+  body: `${body}\n${docFor(workId)}\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds: featuresOf(workId), testCaseIds: tcsOf(workId), planDigest: digest})}`,
 })
 const published = (entries) => ({works: new Map(entries.map(([workId, extra = {}]) =>
   [workId, {status: 'published', ticketKey: 'PF-101', planDigest, ...extra}]))})
 const pick = (issue, {state = published([[W(1)]]), ...rest} = {}) =>
-  pickupWorkTicket({issue, plan, planDigest, state, view, ...rest})
+  pickupWorkTicket({issue, plan, planDigest, state, view, testCaseTexts: tcTexts, ...rest})
+
+test('사람이 티켓 본문에 더한 완료 조건은 개발 범위에 싣고, 계획 항목을 지우거나 바꾸면 계획 반영을 요구한다', async () => {
+  const {buildWorkDoc, formatWorkDoc} = await import('./ticket/work-ticket-doc.mjs')
+  const work = plan.workItems.find(entry => entry.workId === W(1))
+  const doc = formatWorkDoc(buildWorkDoc({work, featureIds: featuresOf(W(1))}), 'jira-wiki')
+  const withDoc = text => ({...ticket(W(1)), body: `${text}\n\n${buildWorkMarker({planId: plan.planId, workId: W(1), featureIds: featuresOf(W(1)), testCaseIds: tcsOf(W(1)), planDigest})}`})
+  // 손대지 않은 본문 — 더한 것도 빠진 것도 없다.
+  assert.deepEqual(pick(withDoc(doc)).changeScope.ticketAcceptance, {added: [], absentSections: []})
+  // 더했다 — 개발 범위에 실린다.
+  const added = pick(withDoc(doc.replace('h3. 완료 조건\n', 'h3. 완료 조건\n* ☐ 오류 응답도 타입으로 다룬다\n')))
+  assert.equal(added.ok, true, JSON.stringify(added.bounce))
+  assert.deepEqual(added.changeScope.ticketAcceptance.added, [{section: 'acceptance', text: '오류 응답도 타입으로 다룬다'}])
+  // 계획 항목을 지웠다 — 착수하지 않는다(티켓 편집으로 계약이 조용히 줄지 않게).
+  const check = work.checks[0].expectedOutcome
+  const removed = pick(withDoc(doc.split('\n').filter(line => !line.includes(check)).join('\n')))
+  assert.equal(removed.ok, false)
+  assert.equal(removed.bounce.reason, 'ticket-diverges-from-plan')
+  assert.deepEqual(removed.bounce.missing, [check])
+  // 섹션을 통째로 지워도(제목을 바꿔도) 같다 — 항목 하나 삭제는 막고 전부 삭제는 통과하면 비대칭이다.
+  const renamed = pick(withDoc(doc.replace('h3. 완료 조건', 'h3. 완료 조건 (v2)')))
+  assert.equal(renamed.bounce?.reason, 'ticket-diverges-from-plan', JSON.stringify(renamed.bounce))
+  assert.deepEqual(renamed.bounce.absentSections, ['acceptance'])
+  // 다른 작업이 책임지는 TC 줄이 남아 있으면 착수하지 않는다(보존형 동기화 뒤 흔적).
+  const foreign = plan.featureBindings.flatMap(binding => binding.acceptanceOwners).find(owner => owner.workId !== W(1)).testCaseId
+  const withStale = pick(withDoc(doc.replace('h3. 완료 조건\n', `h3. 완료 조건\n* ☐ ${foreign} 옛 계획 문장\n`)))
+  assert.equal(withStale.bounce?.reason, 'ticket-diverges-from-plan')
+  assert.deepEqual(withStale.bounce.stale, [`${foreign} 옛 계획 문장`])
+  // 트래커 편집이 곧 범위 확장이다 — 상한을 넘으면 계획으로 올린다.
+  const flood = pick(withDoc(doc.replace('h3. 완료 조건\n', `h3. 완료 조건\n${Array.from({length: 21}, (unused, index) => `* ☐ 추가 조건 ${index}`).join('\n')}\n`)))
+  assert.equal(flood.bounce?.reason, 'ticket-additions-too-large')
+})
 
 test('T09: change-scope의 쓰기 경계·보존 계약·수용 기준이 계획에서 온다', () => {
   const result = pick(ticket(W(1)))

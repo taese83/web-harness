@@ -43,6 +43,23 @@ test('배선: 두 provider가 본문을 교체할 수 있고 능력으로 표시
     ['label', 'create', 'feat-FEAT-004', '--repo', 'o/r', '--color', 'ededed', '--force'],
     ['issue', 'edit', '42', '--repo', 'o/r', '--add-label', 'feat-FEAT-004', '--remove-label', 'team-a']])
 
+  // AI 작업 맥락: 파일 첨부 API가 없어 접힌 코멘트 하나로 두고, 동기화는 그 코멘트를 고친다(지워졌으면 새로 단다).
+  calls.length = 0
+  const ghApi = createGithubProvider({repo: 'o/r', exec: async (args, options) => {
+    calls.push({args, stdin: options?.stdin})
+    if (args.includes('PATCH') && args.some(arg => arg.endsWith('/comments/404'))) throw new Error('gh exit 1: HTTP 404: Not Found')
+    return args.includes('POST') ? JSON.stringify({id: 555}) : '{}'
+  }})
+  assert.deepEqual(await ghApi.attachContext(42, {name: 'ctx.md', content: '# ctx'}), {ref: '555', replaced: false})
+  assert.ok(calls[0].args.includes('repos/o/r/issues/42/comments') && /<details>[\s\S]*# ctx/.test(JSON.parse(calls[0].stdin).body))
+  assert.equal((await ghApi.attachContext(42, {name: 'ctx.md', content: '# v2', previous: '777'})).replaced, true)
+  assert.equal((await ghApi.attachContext(42, {name: 'ctx.md', content: '# v3', previous: '404'})).ref, '555', '지워진 코멘트를 고치려다 멈췄다')
+  // 마커만 교체 — 사람이 고친 본문은 그대로 두고 끝의 주석만 바꾼다.
+  calls.length = 0
+  const oldMarker = '<!-- web-harness:work plan=p work=w rev=old -->'
+  await gh.updateMarker(42, '<!-- web-harness:work plan=p work=w rev=new -->', {currentBody: `사람이 고친 본문\n\n${oldMarker}`})
+  assert.equal(calls[0].stdin, '사람이 고친 본문\n\n<!-- web-harness:work plan=p work=w rev=new -->')
+
   // Jira: description은 코멘트와 같은 버전 분기를 탄다(Cloud v3는 ADF, DC v2는 평문).
   const seen = []
   const capture = async (url, init) => {
@@ -61,6 +78,29 @@ test('배선: 두 provider가 본문을 교체할 수 있고 능력으로 표시
   assert.equal(seen[1].body.fields.description, '본문')
   await dc.updateLabels('PF-1', {add: ['feat-FEAT-004'], remove: ['team-a']})
   assert.deepEqual(seen[2].body, {update: {labels: [{add: 'feat-FEAT-004'}, {remove: 'team-a'}]}}, '`fields.labels` 교체는 사람이 단 라벨까지 지운다')
+  // 마커는 이슈 속성이다 — 본문 교체와 함께 속성도 옮기고, 조회는 속성을 본문 끝에 붙여 돌려준다.
+  seen.length = 0
+  await dc.updateBody('PF-1', '본문', {marker: '<!-- web-harness:work m -->'})
+  assert.deepEqual(seen.map(call => `${call.method} ${new URL(call.url).pathname}`), ['PUT /rest/api/2/issue/PF-1', 'PUT /rest/api/2/issue/PF-1/properties/web-harness.work'])
+  assert.deepEqual(seen[1].body, {marker: '<!-- web-harness:work m -->'})
+  const withProperty = createJiraProvider({config: {...base, apiVersion: '2'}, env: {JIRA_TOKEN: 't'}, fetchImpl: async url => {
+    const json = String(url).includes('/properties/') ? {key: 'web-harness.work', value: {marker: '<!-- web-harness:work m -->'}} : {key: 'PF-1', fields: {summary: 's', description: '사람용 본문'}}
+    return {ok: true, status: 200, json: async () => json, text: async () => JSON.stringify(json)}
+  }})
+  const resolved = await withProperty.resolveIssue('PF-1')
+  assert.equal(resolved.body, '사람용 본문\n\n<!-- web-harness:work m -->')
+  // 첨부: multipart로 올리고, 새 파일이 올라간 **뒤** 옛 첨부를 지운다.
+  const attachCalls = []
+  const attacher = createJiraProvider({config: {...base, apiVersion: '2'}, env: {JIRA_TOKEN: 't'}, fetchImpl: async (url, init) => {
+    attachCalls.push({method: init.method, path: new URL(url).pathname, token: init.headers?.['X-Atlassian-Token'], multipart: init.body instanceof FormData})
+    const json = init.method === 'POST' ? [{id: '9001'}] : null
+    return {ok: true, status: init.method === 'DELETE' ? 204 : 200, json: async () => json, text: async () => ''}
+  }})
+  const attached = await attacher.attachContext('PF-1', {name: 'ctx.md', content: '# ctx', previous: '9000'})
+  assert.deepEqual(attached, {ref: '9001', replaced: true, previousRemoved: true})
+  assert.deepEqual(attachCalls.map(call => `${call.method} ${call.path}`), ['POST /rest/api/2/issue/PF-1/attachments', 'DELETE /rest/api/2/attachment/9000'])
+  assert.equal(attachCalls[0].token, 'no-check', 'XSRF 헤더 없이 올리면 Jira가 거부한다')
+  assert.equal(attachCalls[0].multipart, true)
 })
 
 test('parseIssueRefs: 옛 왕복 마커에서 FEAT/TC를 되읽는다 — 분해된 FEAT 티켓을 WORK로 안내하는 입력', () => {

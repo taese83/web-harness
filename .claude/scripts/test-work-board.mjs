@@ -17,6 +17,7 @@ import {computeWorkView} from './ticket/work-plan.mjs'
 import {canonicalDigest} from './ticket/work-analysis.mjs'
 import {pickupWorkTicket} from './ticket/work-pickup.mjs'
 import {buildWorkMarker} from './ticket/work-refs.mjs'
+import {buildWorkDoc, formatWorkDoc} from './ticket/work-ticket-doc.mjs'
 
 const repo = new URL('../..', import.meta.url).pathname
 const base = join(repo, '.claude/evals/fixtures/work-plan/crud/_workspace/03_dev')
@@ -33,8 +34,10 @@ const issueFor = (workId, ticketKey, assignees) => {
   const featureIds = plan.featureBindings.filter(binding => binding.requiredWorkIds.includes(workId)).map(binding => binding.featureId)
   const testCaseIds = plan.featureBindings.flatMap(binding =>
     binding.acceptanceOwners.filter(owner => owner.workId === workId).map(owner => owner.testCaseId))
+  const work = plan.workItems.find(entry => entry.workId === workId)
+  const doc = formatWorkDoc(buildWorkDoc({work, testCases: testCaseIds.map(id => ({id, text: ''}))}), 'markdown')
   return {ticketKey, provider: 'jira', title: workId, assignees,
-    body: `요약\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds, testCaseIds, planDigest})}`}
+    body: `${doc}\n\n${buildWorkMarker({planId: plan.planId, workId, featureIds, testCaseIds, planDigest})}`}
 }
 const ALL = [W(1), W(3), W(4), W(5), W(6), W(7)]
 

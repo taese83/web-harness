@@ -18,6 +18,8 @@
 
 /** FEAT 고유 라벨. Jira 라벨은 공백을 못 넣고 콜론이 버전에 따라 불안정해 하이픈을 쓴다. */
 export const featLabel = featureId => `feat-${featureId}`
+/** WORK 마커를 담는 Jira 이슈 속성 키. 사람 화면에 보이지 않고 UI로 지워지지 않는다. */
+export const WORK_PROPERTY_KEY = 'web-harness.work'
 
 
 /**
@@ -66,7 +68,8 @@ export function buildWorkIssueFieldsFor(config, draft) {
   }
   const components = [...(draft.components ?? []), ...(config.components ?? [])].filter(Boolean)
   if (components.length > 0) fields.components = [...new Set(components)].map(name => ({name}))
-  return {fields}
+  // 기계 마커는 **본문이 아니라 이슈 속성**에 둔다 — Jira 위키 서식은 HTML 주석을 숨기지 못해 글자로 보였다.
+  return draft.marker ? {fields, properties: [{key: WORK_PROPERTY_KEY, value: {marker: draft.marker}}]} : {fields}
 }
 
 /**

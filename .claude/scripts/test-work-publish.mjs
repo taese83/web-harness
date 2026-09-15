@@ -18,7 +18,6 @@ import {canonicalDigest} from './ticket/work-analysis.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents} from './ticket/work-events.mjs'
 import {randomUUID} from 'node:crypto'
 import {payloadDigest, planPublish, reconcileAttempt, workIssueFields} from './ticket/work-publish.mjs'
-import {featLabel as githubFeatLabel} from './ticket/provider-github.mjs'
 import {parseWorkMarker} from './ticket/work-refs.mjs'
 import {buildWorkIssueFieldsFor} from './ticket/provider-jira.mjs'
 
@@ -47,19 +46,20 @@ function tracker({failOn = new Set(), noKeyOn = new Set(), lockLedgerAfter = new
     created, calls,
     provider: {
       name: 'jira',
+      docFormat: 'jira-wiki',
       buildWorkFields: draft => buildWorkIssueFieldsFor(JIRA, draft),
       async createIssue(fields) {
         const title = fields.fields.summary
         calls.push({kind: 'create', title, labels: fields.fields.labels, attemptRecorded: attemptSeenAtCall(fields)})
         if (failOn.has(title)) throw new Error('JIRA_HTTP_502: 게이트웨이 오류')
         const key = `PF-${++sequence}`
-        created.set(key, fields.fields)
+        created.set(key, {...fields.fields, marker: fields.properties?.[0]?.value?.marker ?? null})
         // 생성은 됐는데 **확정을 원장에 못 남기는** 순간을 만든다 — 티켓은 이미 트래커에 있다.
         if (lockLedgerAfter.has(title)) chmodSync(ledger, 0o444)
         return noKeyOn.has(title) ? {} : {ticketKey: key, key, url: `https://jira.test/${key}`}
       },
-      async findByWorkId({workId}) {
-        calls.push({kind: 'find', workId})
+      async findByWorkId({workId, since}) {
+        calls.push({kind: 'find', workId, since})
         if (lookup) return lookup(workId, created)
         const hit = [...created.entries()].filter(([, fields]) => fields.description.includes(workId))
         return {matches: hit.map(([key]) => ({ticketKey: key})), complete: true}
@@ -69,11 +69,27 @@ function tracker({failOn = new Set(), noKeyOn = new Set(), lockLedgerAfter = new
         return {applied: true, mode: 'issue-link'}
       },
       async listWorkIssues() { return {items: [], complete: true} },
-      async updateBody(key, body) {
+      async resolveIssue(key) {
+        const fields = created.get(key)
+        return {ticketKey: key, title: fields?.summary ?? '', body: fields ? `${fields.description}${fields.marker ? `\n\n${fields.marker}` : ''}` : ''}
+      },
+      async updateBody(key, body, {marker = null} = {}) {
         calls.push({kind: 'update-body', key, body})
         if (failOn.has(`body:${key}`)) throw new Error('JIRA_HTTP_502: 본문 갱신 실패')
-        if (created.has(key)) created.set(key, {...created.get(key), description: body})
+        if (created.has(key)) created.set(key, {...created.get(key), description: body, ...(marker ? {marker} : {})})
         return {updated: true}
+      },
+      async updateMarker(key, marker) {
+        calls.push({kind: 'update-marker', key})
+        if (failOn.has(`body:${key}`)) throw new Error('JIRA_HTTP_502: 표지 갱신 실패')
+        if (created.has(key)) created.set(key, {...created.get(key), marker})
+        return {updated: true}
+      },
+      async attachContext(key, {name, content, previous = null}) {
+        calls.push({kind: 'attach', key, name, previous})
+        if (failOn.has(`attach:${key}`)) throw new Error('JIRA_HTTP_500: 첨부 실패')
+        if (created.has(key)) created.set(key, {...created.get(key), context: {name, content}})
+        return {ref: `att-${key}-${calls.length}`}
       },
       async comment(key, text) { calls.push({kind: 'comment', key, text}); return {commented: true} },
       async updateLabels(key, {add, remove}) {
@@ -196,7 +212,7 @@ test('T12: 조회가 불완전하면 재발행하지 않고 사람 조정으로 
   })
 })
 
-test('T43·T48: 공유 작업은 티켓 하나이고 소비 FEAT 라벨을 모두 단다 · 본문에 WORK 마커가 있다', async () => {
+test('T43·T48: 공유 작업은 티켓 하나다 · 라벨은 역할·팀뿐 · 본문은 개발자용 섹션 · 마커는 속성 · AI 맥락은 첨부', async () => {
   const root = fixture('crud')
   await within(root, async () => {
     await review(root)
@@ -205,12 +221,19 @@ test('T43·T48: 공유 작업은 티켓 하나이고 소비 FEAT 라벨을 모�
       io: {provider, ticketConfig}})
     assert.equal(published.ok, true)
     const shared = [...created.values()].find(fields => fields.summary === '회원 타입·API 계약')
-    assert.deepEqual([...shared.labels].filter(label => label.startsWith('feat-')).sort(),
-      ['feat-FEAT-001', 'feat-FEAT-002', 'feat-FEAT-003'], '공유 작업이 소비 FEAT 전부와 연결되지 않았다')
+    // 라벨은 개발자가 거르는 축(역할)과 팀 라벨뿐이다 — 조회 키·FEAT 라벨은 달지 않는다(2026-09-15 사용자 결정).
+    assert.deepEqual([...shared.labels].sort(), ['be', 'fe'], JSON.stringify(shared.labels))
+    // 본문은 개발자가 읽는 섹션이다 — 완료 조건·테스트 항목·수정 범위·참고(소비 FEAT 전부).
+    for (const heading of ['h3. 완료 조건', 'h3. 수정 범위', 'h3. 참고']) assert.ok(shared.description.includes(heading), `${heading} 섹션이 없다:\n${shared.description}`)
+    for (const feat of ['FEAT-001', 'FEAT-002', 'FEAT-003']) assert.ok(shared.description.includes(`기능: ${feat}`), `${feat}가 참고에 없다 — 공유 작업이 소비 FEAT 전부와 연결되지 않았다`)
+    assert.equal(shared.description.includes('web-harness:work'), false, '설명에 기계 마커가 보인다')
+    assert.ok(shared.context?.name && /"workId": "WORK-00000001/.test(shared.context.content), 'AI 맥락이 첨부되지 않았다')
+    const context = foldWorkState(events(root)).works.get(W(1)).context
+    assert.ok(context?.ref && context?.digest, '첨부를 원장에 남기지 않았다 — 동기화가 교체할 대상을 모른다')
     assert.equal(calls.filter(call => call.kind === 'create' && call.title === '회원 타입·API 계약').length, 1, '공유 작업을 FEAT마다 복제했다')
     assert.ok(calls.filter(call => call.kind === 'create').every(call => call.attemptRecorded === true),
       '외부 쓰기 시점에 그 요청의 시도가 원장에 없었다 — 응답이 유실되면 흔적 없이 사라진다')
-    const marker = parseWorkMarker(shared.description)
+    const marker = parseWorkMarker(shared.marker)
     assert.equal(marker.workId, W(1))
     assert.deepEqual(marker.featureIds, ['FEAT-001', 'FEAT-002', 'FEAT-003'])
     // 부모를 주면 관계를 걸고 그 사실을 원장에 남긴다.
@@ -270,10 +293,12 @@ test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터�
     assert.equal(calls.filter(call => call.kind === 'comment').length, 0, '판본 표지만 바뀐 동기화에 코멘트를 붙였다')
     assert.equal(foldWorkState(events(root)).works.get(W(1)).planDigest, revised)
     const fields = created.get(sharedKey)
-    assert.equal(parseWorkMarker(fields.description).planDigest, revised, '본문 마커가 새 판본이 아니다')
+    assert.equal(parseWorkMarker(fields.marker).planDigest, revised, '마커(이슈 속성)가 새 판본이 아니다')
+    assert.equal(fields.description.includes('web-harness:work'), false, 'Jira 설명에 마커가 들어갔다 — 글자로 보인다')
     assert.ok(fields.labels.includes('team-b') && !fields.labels.includes('team-a'), JSON.stringify(fields.labels))
     assert.ok(fields.labels.includes('human-label'), '사람이 단 라벨을 뗐다')
-    assert.deepEqual(fields.labels.filter(label => label.startsWith('feat-')).sort(), ['feat-FEAT-001', 'feat-FEAT-002', 'feat-FEAT-003'])
+    assert.deepEqual(fields.labels.filter(label => !['team-b', 'human-label'].includes(label)).sort(), ['be', 'fe'], '역할 라벨 밖의 라벨을 달았다')
+    assert.ok(calls.some(call => call.kind === 'attach' && call.key === sharedKey && call.previous), 'AI 맥락을 새 판본으로 교체하지 않았다')
 
     // 이 작업이 **책임지는 TC가 바뀌면** 개발자가 읽는 계약 메타데이터가 바뀐 것이다 — 그때는 코멘트로 알린다(티켓 언어로).
     revise(plan => {
@@ -294,7 +319,26 @@ test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터�
     assert.deepEqual((await runWorkPublish({root, flags: ids, io: {provider, ticketConfig: team(['team-b'])}})).sync, [])
     calls.length = 0
     await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-b'])}})
-    assert.equal(calls.filter(call => call.kind.startsWith('update-') || call.kind === 'comment').length, 0, '같은 판본을 다시 썼다')
+    assert.equal(calls.filter(call => call.kind.startsWith('update-') || call.kind === 'comment' || call.kind === 'attach').length, 0, '같은 판본을 다시 썼다')
+
+    // **사람이 본문을 고쳤으면 덮어쓰지 않는다** — 판본 표지(속성)만 옮기고, 계획이 새로 요구하는 항목은 코멘트로 넘긴다.
+    const humanLine = '* ☐ 오류 응답도 타입으로 다룬다'
+    created.set(sharedKey, {...created.get(sharedKey), description: created.get(sharedKey).description.replace(/(h3\. 완료 조건\n)/, `$1${humanLine}\n`)})
+    const edited = created.get(sharedKey).description
+    revise(plan => {
+      plan.workItems.find(work => work.workId === W(4)).title = '사람 편집 뒤 개정'
+      plan.featureBindings.find(binding => binding.featureId === 'FEAT-001').acceptanceOwners.find(entry => entry.testCaseId === 'TC-001-2').workId = W(1)
+    })
+    assert.equal((await runClaimWork({root, flags: {}})).phase, 'P1_REVIEW')
+    calls.length = 0
+    const kept = await runWorkPublish({root, flags: {...ids, confirm: true}, io: {provider, ticketConfig: team(['team-b'])}})
+    const keptRow = kept.results.find(item => item.workId === W(1))
+    assert.equal(keptRow.bodyPreserved, true, JSON.stringify(keptRow))
+    assert.equal(calls.some(call => call.kind === 'update-body' && call.key === sharedKey), false, '사람이 고친 본문을 덮어썼다')
+    assert.equal(created.get(sharedKey).description, edited, '사람 편집이 사라졌다')
+    assert.ok(calls.some(call => call.kind === 'update-marker' && call.key === sharedKey), '판본 표지를 옮기지 않았다 — 픽업이 계속 막는다')
+    const handOver = calls.find(call => call.kind === 'comment' && call.key === sharedKey)
+    assert.ok(handOver && /TC-001-2/.test(handOver.text), `계획이 새로 요구한 항목을 사람에게 넘기지 않았다: ${handOver?.text}`)
 
     // 머지로 끝난 작업은 라벨만 맞춘다 — 닫힌 티켓의 본문을 구현하지 않은 판본으로 바꾸지 않는다.
     const planId = JSON.parse(readFileSync(planPath, 'utf8')).planId
@@ -330,6 +374,9 @@ test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터�
   const planId = '22222222-2222-4222-8222-222222222222'
   assert.throws(() => foldWorkState([{eventType: 'publish-synced', workId: W(1), planId, planDigest: 'a'.repeat(64),
     payload: {ticketKey: 'PF-1', payloadDigest: 'b'.repeat(64), labels: []}}]), /WORK_EVENTS_CORRUPT/)
+  // 확정되지 않은 작업의 첨부 기록도 파손이다 — 어느 티켓의 첨부인지 원장이 모른다.
+  assert.throws(() => foldWorkState([{eventType: 'context-attached', workId: W(1), planId, planDigest: 'a'.repeat(64),
+    payload: {ticketKey: 'PF-1', ref: '9', contentDigest: 'c'.repeat(64)}}]), /WORK_EVENTS_CORRUPT/)
 })
 
 test('계획 없이 발행을 부르면 계획부터 요구한다 · 이미 발행된 것은 다시 내지 않는다', async () => {
@@ -459,10 +506,8 @@ test('부모를 주면 본문에 부모 티켓이 남는다 — `link-only`는 �
   })
 })
 
-test('FEAT 축 라벨의 어휘는 트래커가 정한다 — 중립 코어가 한쪽을 박지 않는다', () => {
+test('발행 필드의 라벨은 호출자가 준 것뿐이다 — 조회 키·FEAT 라벨을 덧붙이지 않는다', () => {
   const work = {workId: W(1), title: '공통 타입'}
-  const asGithub = workIssueFields({work, plan: {}, featureIds: ['FEAT-001'], body: '', featLabel: githubFeatLabel})
-  const asJira = workIssueFields({work, plan: {}, featureIds: ['FEAT-001'], body: ''})
-  assert.ok(asGithub.labels.includes('feat:FEAT-001'), JSON.stringify(asGithub.labels))
-  assert.ok(asJira.labels.includes('feat-FEAT-001'), JSON.stringify(asJira.labels))
+  const fields = workIssueFields({work, body: '', labels: ['fe', 'team-web', 'fe']})
+  assert.deepEqual(fields.labels, ['fe', 'team-web'])
 })

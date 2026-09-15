@@ -12,6 +12,8 @@ import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs
 import {pickupWorkTicket} from './work-pickup.mjs'
 import {resolveCommentLanguage} from './readiness.mjs'
 import {readDeclaredLanguage} from './ticket-config.mjs'
+import {parseFeaturePlanUnits} from './plan-units.mjs'
+import {testCaseTexts} from './work-ticket-doc.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
 
@@ -52,7 +54,10 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   if (assignment.status === 'taken') return {ok: false, mode: 'work', assignment, bounce: {reason: 'assigned-to-other', by: assignment.by}}
 
   const view = computeWorkView(plan, analysis)
-  const pick = pickupWorkTicket({issue, plan, planDigest, state, view, currentBranch, working})
+  // TC 문장은 발행 때와 같은 곳(feature-plan)에서 읽는다 — 본문 항목 대조가 같은 문장을 기대해야 한다.
+  const units = (() => { try { return parseFeaturePlanUnits(readFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'utf8')) } catch { return [] } })()
+  const pick = pickupWorkTicket({issue, plan, planDigest, state, view, currentBranch, working,
+    testCaseTexts: testCaseTexts(units), declaredLanguage: readDeclaredLanguage(root)})
   if (!pick.ok) {
     // 막힌 사실은 티켓으로 돌아간다 — 개발자 터미널에서 끝나면 계획을 고칠 사람이 모른다.
     const notify = io.notifyPlanner ?? cli.notifyPlanner

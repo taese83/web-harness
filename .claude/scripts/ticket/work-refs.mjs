@@ -28,6 +28,13 @@ export function buildWorkMarker({planId, workId, featureIds = [], testCaseIds = 
   return `${WORK_MARKER_BEGIN} plan=${planId} work=${workId} feat=${featureIds.join(',')} tc=${testCaseIds.join(',')} rev=${planDigest} ${MARKER_END}`
 }
 
+/** 본문에서 WORK 마커를 떼어낸다(순수) — 사람이 읽는 본문의 지문·교체에 쓴다. */
+export const stripWorkMarker = body => String(body ?? '').replace(/\s*<!-- web-harness:work\b[\s\S]*?-->\s*/g, '\n').trim()
+/** 마커를 본문 끝에 둔다(순수) — 기존 WORK 마커는 교체한다. 사람이 고친 본문은 그대로 둔다. */
+export const withWorkMarker = (body, marker) => `${stripWorkMarker(body)}\n\n${marker}`
+/** 사람이 읽는 본문의 지문 입력(순수) — 트래커가 줄 끝·공백을 바꿔 돌려줘도 같은 본문으로 본다. */
+export const normalizeDocBody = body => stripWorkMarker(body).replace(/\r\n/g, '\n').split('\n').map(line => line.trimEnd()).join('\n').trim()
+
 /** 집계 티켓 마커(순수) — 어느 계획의 어느 FEAT를 묶는가만 담는다. 작업 목록은 본문 표가 사람에게 보여준다. */
 export function buildAggregateMarker({planId, featureId}) {
   if (!UUID.test(String(planId))) throw new Error(`INVALID_PLAN_ID: ${planId}`)

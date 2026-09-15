@@ -215,8 +215,10 @@ test('실행부: 픽업이 change-scope에 대상 지문 기준선을 남긴다'
     const {runWorkPickup} = await import('./ticket/work-pickup-run.mjs')
     const {buildWorkMarker} = await import('./ticket/work-refs.mjs')
     const {readChangeScopeFile} = await import('./ticket/cli.mjs')
+    const {buildWorkDoc, formatWorkDoc} = await import('./ticket/work-ticket-doc.mjs')
+    const doc = formatWorkDoc(buildWorkDoc({work: work(W(1))}), 'markdown')
     const issue = {ticketKey: 'PF-101', provider: 'jira', title: 't', revision: 'r1', assignees: [], links: [], comments: [], commentsOmitted: 0,
-      body: `요약\n\n${buildWorkMarker({planId: plan.planId, workId: W(1), featureIds: ['FEAT-001'], testCaseIds: [], planDigest})}`}
+      body: `${doc}\n\n${buildWorkMarker({planId: plan.planId, workId: W(1), featureIds: ['FEAT-001'], testCaseIds: [], planDigest})}`}
     let assignees = []
     const provider = {name: 'jira', async resolveIssue() { return {...issue, assignees: [...assignees]} },
       async assign(key, who) { assignees = [who] }, async transition() { return {transitioned: true} },

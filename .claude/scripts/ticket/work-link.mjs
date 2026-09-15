@@ -171,7 +171,10 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
   }
   // 닫는 줄의 트래커는 **발행한 원장**이 정한다 — 지금 설정을 읽으면 설정이 바뀐 뒤 닫는 시늉이 나간다.
   const provider = registered.provider ?? (staleCheck === 'verified' ? changeScope?.ticket?.provider ?? null : null)
-  return {ok: true, workId, event, staleCheck, completion, closes: String(registered.ticketKey), provider}
+  // 사람이 티켓에 더한 조건은 **자동으로 검증하지 못한다** — 결과에 싣고 그 사실을 적는다(통과로 접지 않는다).
+  const added = staleCheck === 'verified' ? list(changeScope?.ticketAcceptance?.added) : []
+  return {ok: true, workId, event, staleCheck, completion, closes: String(registered.ticketKey), provider,
+    ...(added.length > 0 ? {ticketAcceptance: {items: added, verification: 'not-automated', guidance: '티켓에서 사람이 더한 조건이다 — PR 리뷰에서 충족을 확인한다'}} : {})}
 }
 
 /**

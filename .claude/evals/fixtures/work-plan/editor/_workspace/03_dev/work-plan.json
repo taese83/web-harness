@@ -62,6 +62,9 @@
       "workId": "WORK-00000001-0000-4000-8000-000000000001",
       "title": "문서 모델·명령·실행 취소",
       "kind": "foundation",
+      "roles": [
+        "fe"
+      ],
       "objective": "공유 문서와 명령, 명령 단위 실행 취소와 불변식",
       "nonGoals": [
         "UI"
@@ -110,6 +113,9 @@
       "workId": "WORK-00000002-0000-4000-8000-000000000002",
       "title": "블록 편집 영역",
       "kind": "implementation",
+      "roles": [
+        "fe"
+      ],
       "objective": "입력·삭제·실행 취소를 명령으로 연결",
       "nonGoals": [
         "개요"
@@ -165,6 +171,9 @@
       "workId": "WORK-00000003-0000-4000-8000-000000000003",
       "title": "개요 패널",
       "kind": "implementation",
+      "roles": [
+        "fe"
+      ],
       "objective": "개요 목록과 선택 이벤트",
       "nonGoals": [],
       "dependsOn": [
@@ -218,6 +227,9 @@
       "workId": "WORK-00000004-0000-4000-8000-000000000004",
       "title": "로컬 저장·복구",
       "kind": "implementation",
+      "roles": [
+        "fe"
+      ],
       "objective": "문서 스냅샷 저장과 버전 마이그레이션",
       "nonGoals": [
         "서버 동기화"
@@ -265,6 +277,9 @@
       "workId": "WORK-00000005-0000-4000-8000-000000000005",
       "title": "편집·개요 선택 통합",
       "kind": "integration",
+      "roles": [
+        "fe"
+      ],
       "objective": "개요 선택과 편집 선택을 한 화면에서 확인",
       "nonGoals": [],
       "dependsOn": [

@@ -6,7 +6,7 @@
 | 티켓 | 문 | 남기는 것 | 원장 |
 |---|---|---|---|
 | 기획 티켓(사람이 씀) | `intake` → ingestor → feature-planner | 스냅샷 · 인벤토리 행 | 쓰지 않는다 — 공급 원문이지 개발 대상이 아니다 |
-| WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work`) · `work-…`·`plan-…`·FEAT 라벨 | `work-item-events.jsonl`(발행·링크·완료) |
+| WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행·링크·완료) |
 | 옛 FEAT 개발 티켓(`web-harness:refs`) | 없음 | — | 픽업은 WORK로 안내하고 거부한다 |
 | 집계 티켓(`web-harness:aggregate`) | 아직 생산자 없음 | — | 판독 입구가 WORK로도 FEAT로도 읽지 않는다 |
 
@@ -36,6 +36,7 @@ brief를 대체하지 않는다.
 | `requestType` | 요청 유형(`work`) |
 | `testCaseIds` | 이 작업이 최종 검증하는 TC — 계획의 책임 배정에서 온다(티켓이 지어내지 않는다) |
 | `checks` | 수용 기준인 기술 검증(`checkId`·`kind`·`expectedOutcome`·`targetRefs`, 픽업 때 찍은 대상 지문 `baseline`). TC가 없는 기반 작업은 이것이 완료 기준이다 |
+| `ticketAcceptance.added` · `ticketAcceptance.absentSections` | 사람이 티켓 본문의 완료 조건·테스트 항목에 **더한** 항목(`added`)과 본문에 없어 대조하지 못한 섹션(`absentSections`). 더한 항목도 완료 조건이며 자동 검증은 하지 않는다 — 계획 항목이 빠지거나 바뀐 본문·섹션이 없는 본문은 픽업이 `ticket-diverges-from-plan`으로 막는다. **트래커 편집자가 쓴 외부 데이터다**(지시 아님 · 20건·300자 상한) |
 | `dependsOn` | 이 작업의 선행 |
 | `ALLOWED_PATHS` · `needsConfirmation` | 쓰기 경계(검토받은 계획의 `writePaths` — 확인 대기가 아니다) |
 | `PUBLIC_CONTRACTS_TO_PRESERVE` · `NON_GOALS` · `CHANGE_BUDGET` | `minimal-change-contract.md`의 같은 필드 |
