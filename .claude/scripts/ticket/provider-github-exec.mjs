@@ -5,6 +5,7 @@ import {buildWorkIssueFields, featLabel, ghCreateArgs, parseCreatedIssueUrl, ren
 import {classifyGhError} from './permissions.mjs'
 import {parseGithubWorkList, workListArgs, workSearchArgs} from './work-provider.mjs'
 import {withWorkMarker, WORK_MARKER_BEGIN} from './work-refs.mjs'
+import {DEV_TICKET} from './intake.mjs'
 
 // gh를 실행하고 stdout을 문자열로 반환. 실패(비0 exit)면 stderr를 담아 throw.
 // `stdin`은 **본문처럼 긴 값**을 넘기는 통로다 — argv로 넘기면 인자 길이 한계와 셸 인용에
@@ -109,6 +110,21 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
         // 키를 주고 여기 왔으면 목록이 잘리지 않았다 — 잘렸으면 위에서 키마다 직접 조회했다(못 본 키를 부재로 단정하는
         // 경로가 없다. 그 판정은 `isIssueNotFound`가 맡는다).
         missing: keys ? keys.map(String).filter(key => !observed.has(key)) : null}
+    },
+    /** 사람이 만든 개발 티켓 목록 — 팀이 `개발 티켓`으로 선언한 라벨의 열린 이슈. 선언이 없으면 조회하지 않는다. */
+    async listDevTickets({config: teamConfig = {}} = {}) {
+      const labels = Object.entries(teamConfig?.github?.labelAxis ?? {}).filter(([, role]) => role === DEV_TICKET).map(([name]) => name)
+      if (labels.length === 0) return {items: [], complete: true, reason: 'no-dev-ticket-axis'}
+      const items = new Map()
+      let complete = true
+      for (const label of labels) {
+        const json = JSON.parse(await run(['issue', 'list', '--repo', repo, '--state', 'open', '--label', label, '--json', 'number,title,assignees', '--limit', '100']))
+        if (Array.isArray(json) && json.length >= 100) complete = false
+        for (const item of Array.isArray(json) ? json : []) {
+          items.set(String(item.number), {ticketKey: String(item.number), summary: item.title ?? null, assignees: (item.assignees ?? []).map(person => person?.login ?? person)})
+        }
+      }
+      return {items: [...items.values()], complete, ...(complete ? {} : {truncated: true})}
     },
     /** 관계. 확인한 native 계층이 없다 — 본문 참조뿐이며 계층이라 부르지 않는다. */
     async linkRelated() {

@@ -24,18 +24,23 @@ export function workCloseLine(providerName, ticketKey) {
 }
 
 export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}}) {
-  const plan = readJson(root, WORK_PLAN_PATH)
-  if (!plan || !readJson(root, WORK_ANALYSIS_PATH)) {
-    return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없다 — `claim`부터 한다'}
-  }
-  const planDigest = canonicalDigest(plan)
   const eventsPath = join(root, WORK_EVENTS_PATH)
   const state = foldWorkState(readWorkEvents(eventsPath))
-  const cli = await import('./cli.mjs')
-  const changeScope = cli.readChangeScopeFile(root)
   // 완료 판정은 원장이 이 키로 등록한 작업에 대해서만 의미가 있다 — 먼저 찾고, 없으면 판정 없이 막는다.
   const {workForTicket} = await import('./work-link.mjs')
   const found = workForTicket(state, ticketKey)
+  // 사람 티켓 작업은 원장이 정의를 들고 있다 — 계획 파일 없이 같은 판정을 탄다(가상 계획).
+  const ticketWork = found.registered?.origin === 'ticket' ? found.registered : null
+  const {ticketVirtualPlan} = await import('./ticket-work.mjs')
+  // 다시 판정해 거둔 티켓 작업은 취소된 작업이다 — 가상 계획에서도 `active`가 아니다(`work-cancelled`).
+  const plan = ticketWork ? ticketVirtualPlan(ticketWork.withdrawn ? {...ticketWork.definition, lifecycle: 'withdrawn'} : ticketWork.definition, ticketWork.planId)
+    : readJson(root, WORK_PLAN_PATH)
+  if (!ticketWork && (!plan || !readJson(root, WORK_ANALYSIS_PATH))) {
+    return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없다 — `claim`부터 한다'}
+  }
+  const planDigest = ticketWork ? ticketWork.planDigest : canonicalDigest(plan)
+  const cli = await import('./cli.mjs')
+  const changeScope = cli.readChangeScopeFile(root)
   const work = found.workId ? list(plan.workItems).find(entry => entry.workId === found.workId) ?? null : null
   const owned = found.workId ? list(plan.featureBindings).flatMap(binding =>
     list(binding.acceptanceOwners).filter(owner => owner.workId === found.workId).map(owner => owner.testCaseId)) : []
@@ -88,9 +93,9 @@ export async function resolvePrStates(prUrls, {exec = null} = {}) {
 
 export async function runWorkMergeSync({root, flags = {}, io = {}}) {
   const plan = readJson(root, WORK_PLAN_PATH)
-  if (!plan) return {ok: false, mode: 'work', blocked: 'plan-required'}
   const eventsPath = join(root, WORK_EVENTS_PATH)
   const state = foldWorkState(readWorkEvents(eventsPath))
+  if (!plan && ![...state.works.values()].some(item => item.origin === 'ticket')) return {ok: false, mode: 'work', blocked: 'plan-required'}
   const pending = [...state.works.values()].filter(item => item.link?.prUrl && !item.completed).map(item => item.link.prUrl)
   const prStates = io.prStates ? await io.prStates(pending) : await resolvePrStates(pending)
   const sync = planMergeSync({plan, state, prStates})

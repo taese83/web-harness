@@ -1,4 +1,4 @@
-# web-harness:ticket-close v2 — PR이 기대 base에 머지되면 그 PR에 결속된 **WORK 티켓**을 닫는다.
+# web-harness:ticket-close v3 — PR이 기대 base에 머지되면 그 PR에 결속된 **WORK 티켓**을 닫는다.
 #
 # 왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은 작업을 통합
 # 브랜치에 모으므로 그 머지에서는 발동하지 않는다.

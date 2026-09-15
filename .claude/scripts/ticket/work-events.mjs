@@ -19,7 +19,7 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
-export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'context-attached', 'relation-linked',
+export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'context-attached', 'ticket-assessed', 'ticket-work-registered', 'relation-linked',
   'work-linked', 'work-completed', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
@@ -53,6 +53,21 @@ export function validateWorkEvent(event) {
   }
   if (event.eventType === 'publish-confirmed' && !event.payload?.ticketKey) {
     errors.push('publish-confirmed에는 payload.ticketKey가 필요하다')
+  }
+  // 사람이 만든 개발 티켓(ticket-work.mjs) — 판정 기록과 WORK 등록. 계획 ID 자리는 티켓에서 결정적으로 만든 ID다.
+  if (event.eventType === 'ticket-assessed' || event.eventType === 'ticket-work-registered') {
+    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push(`${event.eventType}에는 workId가 필요하다`)
+    if (!event.payload?.ticketKey) errors.push(`${event.eventType}에는 payload.ticketKey가 필요하다`)
+    if (!DIGEST.test(String(event.payload?.assessmentDigest ?? ''))) errors.push(`${event.eventType}에는 payload.assessmentDigest가 필요하다`)
+  }
+  if (event.eventType === 'ticket-assessed' && !['startable', 'needs-planning', 'needs-design', 'undecidable'].includes(event.payload?.verdict)) {
+    errors.push('ticket-assessed의 payload.verdict가 판정 어휘가 아니다')
+  }
+  if (event.eventType === 'ticket-work-registered') {
+    if (!UUID.test(String(event.operationId ?? ''))) errors.push('ticket-work-registered에는 operationId가 필요하다')
+    if (!DIGEST.test(String(event.planDigest ?? '')) || event.planDigest !== event.payload?.assessmentDigest) errors.push('ticket-work-registered의 planDigest는 판정서 지문이어야 한다')
+    if (!/^[a-z][a-z0-9-]*$/.test(String(event.payload?.provider ?? ''))) errors.push('ticket-work-registered에는 payload.provider가 필요하다')
+    if (event.payload?.definition?.workId !== event.workId) errors.push('ticket-work-registered의 payload.definition이 이 작업의 정의가 아니다')
   }
   if (event.eventType === 'context-attached') {
     // 어느 티켓의 어느 첨부(코멘트)인가 — 동기화가 그것을 교체한다. 없으면 맥락이 티켓마다 쌓인다.
@@ -147,6 +162,8 @@ export function foldWorkState(events) {
   const knownWorkIds = new Set()
   const works = new Map()
   const aggregates = new Map()
+  const tickets = new Map()
+  const ticketWorkIds = new Set()
   let lastReviewed = null
   const workState = workId => works.get(workId) ?? {workId, status: 'unpublished', ticketKey: null, operationId: null,
     payloadDigest: null, planDigest: null, relation: null, link: null, completed: null}
@@ -167,8 +184,35 @@ export function foldWorkState(events) {
       lastReviewed = {planId: event.planId, planDigest: event.planDigest, analysisDigest: event.payload.analysisDigest ?? null, at: event.at}
       continue
     }
+    if (event.eventType === 'ticket-assessed') {
+      const previous = tickets.get(String(event.payload.ticketKey)) ?? {}
+      tickets.set(String(event.payload.ticketKey), {...previous, verdict: event.payload.verdict, assessmentDigest: event.payload.assessmentDigest,
+        workId: event.workId, at: event.at, needs: event.payload.needs ?? null})
+      // **티켓 작업의 취소 경로** — 등록된 작업을 다시 판정해 착수 불가가 나오면 원장이 그 작업을 거둔다.
+      // 거둔 작업은 수정 범위를 놓고(겹침 대조에서 빠진다) 링크는 `work-cancelled`로 막힌다. 머지로 끝난 작업은 거두지 않는다.
+      const registeredWork = works.get(event.workId)
+      if (event.payload.verdict !== 'startable' && registeredWork?.origin === 'ticket' && !registeredWork.completed) {
+        works.set(event.workId, {...registeredWork, withdrawn: {verdict: event.payload.verdict, assessmentDigest: event.payload.assessmentDigest, at: event.at}})
+      }
+      continue
+    }
     const state = workState(event.workId)
     knownWorkIds.add(event.workId)
+    if (event.eventType === 'ticket-work-registered') {
+      // 사람이 만든 개발 티켓을 WORK로 등록했다 — 발행 확정과 같은 자리(published)에 서고, 정의는 원장이 들고 있다.
+      // 같은 티켓을 다른 판정서로 다시 등록하면 정의·판본이 새것으로 바뀐다(링크·완료 기록은 유지).
+      if (state.ticketKey && String(state.ticketKey) !== String(event.payload.ticketKey)) {
+        throw new Error(`WORK_EVENTS_CORRUPT: ${event.workId}가 다른 티켓(${state.ticketKey})으로 이미 등록돼 있다`)
+      }
+      ticketWorkIds.add(event.workId)
+      works.set(event.workId, {...state, status: 'published', origin: 'ticket', ticketKey: String(event.payload.ticketKey),
+        provider: event.payload.provider, planId: event.planId, planDigest: event.planDigest, operationId: event.operationId,
+        definition: event.payload.definition, labels: Array.isArray(event.payload.labels) ? event.payload.labels : state.labels ?? null,
+        docDigest: event.payload.docDigest ?? state.docDigest ?? null, withdrawn: null})
+      const ticket = tickets.get(String(event.payload.ticketKey)) ?? {}
+      tickets.set(String(event.payload.ticketKey), {...ticket, verdict: 'startable', assessmentDigest: event.payload.assessmentDigest, workId: event.workId, registered: true})
+      continue
+    }
     if (event.eventType === 'publish-attempted') {
       // 시도는 **확정이 아니다.** 다음 실행이 이 자리를 이어야 한다 — 응답이 유실됐을 수 있다.
       works.set(event.workId, {...state, status: 'attempted', operationId: event.operationId,
@@ -207,7 +251,9 @@ export function foldWorkState(events) {
         parentKey: event.payload?.parentKey ?? null}})
     }
   }
-  return {knownWorkIds, lastReviewed, works, aggregates}
+  // 계획 계보(검토한 작업 ID)는 **계획 WORK만**이다 — 티켓 작업이 섞이면 계획 검증이 「검토한 작업이 사라졌다」로 막는다.
+  for (const workId of ticketWorkIds) knownWorkIds.delete(workId)
+  return {knownWorkIds, lastReviewed, works, aggregates, tickets}
 }
 
 /** append. 형식 검증을 통과한 이벤트만 파일에 닿는다(파서가 되읽을 수 있는 줄만 쓴다). */

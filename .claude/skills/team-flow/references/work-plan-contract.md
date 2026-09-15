@@ -259,7 +259,7 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 ## 자동 닫기 (P3-c)
 
 `validate-development-readiness`의 `ticket-assets`가 WORK 원장이 있는 프로젝트에 `ticket-close.yml`·
-`close-merged-tickets.mjs`(v2)를 설치한다(`--fix`, 덮어쓰지 않는다). 머지된 PR마다:
+`close-merged-tickets.mjs`(v3)를 설치한다(`--fix`, 덮어쓰지 않는다). 머지된 PR마다:
 
 - **근거는 WORK 원장뿐** — `work-linked`가 이 PR을 결속했고, 기대 base가 머지 base와 같고, 그 작업이 **검토 계보에
   있을 때만**. PR 본문의 `#N`은 보지 않는다. 원장 줄도 PR이 가져오지만 PR diff로 리뷰를 거친다 — 신뢰 경계는 머지 승인이다.
@@ -271,8 +271,8 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
   없으면 PENDING으로 남긴다 — 추측해 닫지 않는다.
 - **부모 FEAT·집계 티켓은 닫지 않는다**(부모 자동 닫기는 기본 비활성).
 - 원장 파손 줄이 있으면 **멈춘다**.
-- 판본 표지(`web-harness:ticket-close v2`)가 없는 옛 사본은 설치됨으로 세지 않고 FAIL로 알린다 — 손봤을 수
-  있어 자동으로 덮지 않는다.
+- 판본 표지(`web-harness:ticket-close v3` — v3는 사람 티켓 작업도 닫는다)가 없는 옛 사본은 설치됨으로 세지 않고 FAIL로 알린다 — 손봤을 수
+  있어 자동으로 덮지 않는다. **v2 사본이 설치된 저장소는 사람 티켓 작업을 닫지 못한다** — 두 파일을 지우고 `--fix`로 다시 설치한다.
 
 ## 원칙
 

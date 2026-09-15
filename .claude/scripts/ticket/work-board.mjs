@@ -95,6 +95,52 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
 }
 
 /**
+ * 사람이 만든 개발 티켓 절(순수). 픽업과 같은 축으로만 「집을 수 있다」고 말한다 — 등록된 티켓 작업은 선행·배정으로,
+ * 판정만 된 티켓은 판정으로, 트래커에만 있는 개발 티켓은 「판정 전」으로 그린다(착수 가능으로 보이지 않는다).
+ * @param {{state: object, issuesByKey?: Map<string, object>|null, devTickets?: object[]|null, developer?: string|null, lookupComplete?: boolean}} args
+ */
+export function buildTicketBoard({state, issuesByKey = null, devTickets = null, developer = null, lookupComplete = false}) {
+  const rows = []
+  const works = [...(state?.works?.entries() ?? [])]
+  const seen = new Set()
+  for (const [workId, item] of works.filter(([, entry]) => entry.origin === 'ticket')) {
+    seen.add(String(item.ticketKey))
+    const issue = issuesByKey?.get(String(item.ticketKey)) ?? null
+    const assignees = issue?.assignees ?? null
+    const takenByOther = assignees ? assignees.length > 0 && !assignees.includes(developer) : null
+    const incompleteDeps = list(item.definition?.dependsOn).filter(dep => !state.works.get(dep)?.completed)
+    const blockedReason = item.completed ? 'completed'
+      : item.withdrawn ? `ticket-${item.withdrawn.verdict}`
+      : incompleteDeps.length > 0 ? 'dependency-incomplete'
+        : !developer ? 'no-developer'
+          : takenByOther === true ? 'assigned-to-other'
+            : takenByOther === null && lookupComplete ? 'ticket-not-found' : takenByOther === null ? 'assignment-unknown' : null
+    rows.push({ticketKey: item.ticketKey, workId, title: item.definition?.title ?? null, stage: 'registered', lane: item.definition?.lane ?? null,
+      roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed), assignees,
+      // 계획 작업 행과 같은 축이다 — `assignment-unknown`은 재지 못한 표시이지 집을 수 있다는 뜻이 아니다.
+      pickupable: blockedReason === null, blockedReason, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
+  }
+  for (const [ticketKey, ticket] of state?.tickets?.entries() ?? []) {
+    if (seen.has(ticketKey)) continue
+    seen.add(ticketKey)
+    const startable = ticket.verdict === 'startable'
+    rows.push({ticketKey, workId: ticket.workId ?? null, title: devTickets?.find(item => String(item.ticketKey) === ticketKey)?.summary ?? null,
+      stage: 'assessed', verdict: ticket.verdict, pickupable: false,
+      blockedReason: startable ? 'awaiting-confirmation' : `ticket-${ticket.verdict}`, needs: ticket.needs ?? null})
+  }
+  for (const item of list(devTickets)) {
+    if (seen.has(String(item.ticketKey))) continue
+    rows.push({ticketKey: String(item.ticketKey), workId: null, title: item.summary ?? null, stage: 'unassessed', pickupable: false,
+      blockedReason: 'assessment-required', assignees: item.assignees ?? null})
+  }
+  const notes = []
+  const waiting = rows.filter(row => row.stage === 'unassessed').length
+  if (waiting > 0) notes.push(`판정 전 개발 티켓 ${waiting}건 — \`pickup <키>\`가 판정부터 시작한다`)
+  if (devTickets === null) notes.push('트래커의 개발 티켓 목록을 읽지 않았다 — 판정 전 티켓은 이 보드에 없다(분류 설정이나 트래커 조회를 확인한다)')
+  return {rows, notes}
+}
+
+/**
  * 보드 실행부 — 트래커 목록을 붙여 판정한다. 조회 실패·절단을 **통과로 접지 않는다**.
  * @param {{root: string, developer?: string|null, flags?: object, io: {provider?: object}}} args
  */
@@ -110,11 +156,13 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   }
   const plan = readJson(WORK_PLAN_PATH)
   const analysis = readJson(WORK_ANALYSIS_PATH)
-  if (!plan || !analysis) {
-    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim`로 먼저 만든다'}
-  }
   const state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
-  const view = computeWorkView(plan, analysis)
+  const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
+  const ticketCapable = hasDevTicketAxis(io.ticketConfig) || [...state.works.values()].some(item => item.origin === 'ticket')
+  if ((!plan || !analysis) && !ticketCapable) {
+    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim`로 먼저 만든다(사람이 만든 개발 티켓을 보려면 개발 티켓 분류를 설정한다)'}
+  }
+  const view = plan && analysis ? computeWorkView(plan, analysis) : {rows: []}
   const provider = io.provider ?? null
   let issuesByWork = null
   let lookupComplete = false
@@ -144,8 +192,23 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
       trackerNotes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)
     }
   }
-  const board = buildWorkBoard({plan, view, state, planDigest: canonicalDigest(plan), issuesByWork, developer, lookupComplete})
-  return {ok: true, mode: 'work', planId: plan.planId, planDigest: canonicalDigest(plan),
+  const board = plan && analysis ? buildWorkBoard({plan, view, state, planDigest: canonicalDigest(plan), issuesByWork, developer, lookupComplete})
+    : {rows: [], notes: ['WORK 계획이 없다 — 사람이 만든 개발 티켓 절만 그린다']}
+  // 사람이 만든 개발 티켓 절 — 트래커의 개발 티켓 목록은 분류 설정과 조회 능력이 있을 때만 읽는다(못 읽으면 그렇게 적는다).
+  let devTickets = null
+  if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
+    try {
+      const listed = await provider.listDevTickets({config: io.ticketConfig ?? {}})
+      devTickets = listed.items
+      if (listed.complete !== true) trackerNotes.push('개발 티켓 목록이 완결이 아니다 — 판정 전 티켓 일부가 빠졌을 수 있다')
+    } catch (error) {
+      trackerNotes.push(`개발 티켓 목록 조회 실패 — 판정 전 티켓은 보이지 않는다: ${String(error?.message ?? error).slice(0, 120)}`)
+    }
+  }
+  const issuesByKey = issuesByWork ? new Map([...issuesByWork.values()].map(item => [String(item.ticketKey), item])) : null
+  const tickets = ticketCapable ? buildTicketBoard({state, issuesByKey, devTickets, developer, lookupComplete}) : {rows: [], notes: []}
+  return {ok: true, mode: 'work', planId: plan?.planId ?? null, planDigest: plan ? canonicalDigest(plan) : null,
     rows: board.rows, ready: board.rows.filter(row => row.pickupable).map(row => row.workId),
-    notes: [...trackerNotes, ...board.notes]}
+    ...(ticketCapable ? {tickets: tickets.rows, readyTickets: tickets.rows.filter(row => row.pickupable).map(row => row.ticketKey)} : {}),
+    notes: [...trackerNotes, ...board.notes, ...tickets.notes]}
 }

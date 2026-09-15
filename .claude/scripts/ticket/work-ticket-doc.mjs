@@ -28,6 +28,8 @@ const COPY = {
     editNote: 'Items you **add** to acceptance criteria or test items are carried into development at pickup. Removing or changing a plan item sends it back to plan review.'},
 }
 export const DOC_LANGUAGES = Object.keys(TITLES)
+/** 사람 티켓을 완성할 때 원문을 보존하는 섹션 제목 — 파서는 이 제목 아래를 읽지 않는다(원문 속 「완료 조건」이 섞이지 않게). */
+export const ORIGINAL_TITLES = ['원문', 'Original description']
 
 /** 계획이 만든 완료 조건·테스트 항목(순수) — 렌더와 픽업 대조가 **같은 함수**를 쓴다(둘로 만들면 갈라진다). */
 export function planDocItems({work, testCases = [], lang = 'ko'}) {
@@ -144,6 +146,7 @@ export function parseWorkDocSections(body) {
   const wiki = /^\s*h[1-6]\.\s/m.test(text)
   for (const raw of text.split(/\r?\n/)) {
     const title = wiki && /^\s*#/.test(raw) ? null : headingOf(raw)
+    if (title !== null && ORIGINAL_TITLES.includes(title)) break
     if (title !== null) {
       const id = SECTION_BY_TITLE.get(title)
       current = id === 'acceptance' || id === 'tests' ? id : null

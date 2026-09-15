@@ -36,7 +36,7 @@ cli.mjs board [--developer me] [--repo o/r]                             # 지금
 cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
 cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신
 cli.mjs claim --publish --resolve <WORK-ID|FEAT-ID> --ticket <키> [--confirm]  # 결과를 모르는 발행을 확정(본문 마커 확인)
-cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run]            # 게이트 → 배정 → change-scope 발급
+cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run] [--assessment <지문>]  # 게이트 → 배정 → change-scope 발급(사람 개발 티켓은 판정·완성부터)
 cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base)
 cli.mjs link --sync                                                     # 머지 관측 → 완료 기록
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
@@ -60,7 +60,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 | "이 Jira 기획 티켓 읽어줘", "티켓에서 기획 가져와" | `intake <티켓키>` |
 
 **티켓 종류마다 문이 다르다** — 기획 티켓은 `intake`로 **공급 원문**이 되고(개발 티켓이 아니다), 개발은
-계획이 발행한 **WORK 티켓만** 집는다. 분해된 FEAT를 집으려 하면 어느 WORK로 가야 하는지 돌려준다.
+계획이 발행한 **WORK 티켓**과, 팀이 선언한 분류의 **사람 개발 티켓**(판정·확인을 거쳐 WORK로 완성한 뒤)만 집는다. 분해된 FEAT를 집으려 하면 어느 WORK로 가야 하는지 돌려준다.
 판정 기준은 `references/ticket-kinds.md`가 정본이다.
 
 ## 역할
@@ -103,6 +103,12 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 배정 감지) · 미해결 컨플릭을 지난 뒤 change-scope(`_workspace/03_dev/change-scope.md`)를 발급한다.
 쓰기 경계는 검토받은 계획의 `writePaths`다. 막히면 **되돌림 코멘트가 티켓으로 간다**.
 
+**사람이 만든 개발 티켓**(팀이 `개발 티켓`으로 선언한 Jira 컴포넌트 · GitHub 라벨)도 같은 `pickup`으로 받는다 — 판정서가
+없으면 `system-architect`를 티켓 판정 모드로 스폰하고, 착수 불가면 요청 코멘트로 끝나며, 착수 가능이면 **미리보기(완성될 본문·
+테스트 항목·수정 범위)를 사용자에게 보여주고 확인받은 뒤** `--assessment <지문>`으로 티켓을 WORK 모양으로 완성하고 착수한다.
+이 확인은 픽업 요청으로 대신하지 않는다(티켓 본문을 바꾸는 쓰기다). change 레인이면 구현 전 `/wh change` 1-A 스팩 승인.
+정본: `references/ticket-work-contract.md`.
+
 **묻지 않고 실행한다 — 픽업 요청이 곧 승인이다.** 승인 범위는 셋이다: 본인 배정 · `in-progress` 전이
 (능력이 있을 때만 — 없으면 `transition.supported: false`로 표시) · 되돌림 코멘트. 머지·완료 전이는 하지 않는다.
 
@@ -142,7 +148,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 `baseMismatch`로 남는다. 후속 작업은 완료가 있어야 열린다. 조회 실패는 완료로도 침묵으로도 접지 않는다.
 
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해
-개발 준비 검사가 `assets/ticket-close.yml`·`close-merged-tickets.mjs`(v2)를 설치한다 — **WORK 원장**에서 이
+개발 준비 검사가 `assets/ticket-close.yml`·`close-merged-tickets.mjs`(v3)를 설치한다 — **WORK 원장**에서 이
 PR이 결속되고 기대 base가 머지 base와 같은 GitHub WORK 티켓만 닫는다. Jira 등은 PENDING으로 남기고(능동 전이
 필요), 부모 FEAT·집계 티켓은 닫지 않는다. 옛 청구 원장 기반 사본이 남아 있으면 준비 검사가 알린다(덮지 않는다).
 

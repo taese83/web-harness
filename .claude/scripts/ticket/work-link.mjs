@@ -17,7 +17,8 @@ import {join, relative as relativePath, resolve, sep} from 'node:path'
 import {createHash, randomUUID} from 'node:crypto'
 
 const list = value => (Array.isArray(value) ? value : [])
-const TC_ID = /\bTC-\d+-\d+\b/g
+// 기획 TC(`TC-…`)와 사람 티켓의 테스트 항목(`TT-<티켓키>-<n>`, ticket-work.mjs) — 둘 다 테스트 코드 인용으로 잰다.
+const TC_ID = /\b(?:TC-\d+-\d+|TT-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-\d+)\b/g
 const CITATION_EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|svelte|vue|astro)$/
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '_workspace', 'coverage', 'playwright-report'])
 
@@ -196,7 +197,10 @@ export function planMergeSync({plan, state, prStates, now = new Date().toISOStri
     if (!item.link.baseRef || observed.baseRefName !== item.link.baseRef) {
       baseMismatch.push({workId, prUrl: item.link.prUrl, expected: item.link.baseRef ?? null, observed: observed.baseRefName ?? null}); continue
     }
-    events.push({schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-completed', at: now,
+    // 사람 티켓 작업은 자기 계획 ID(티켓에서 만든 ID)를 쓴다 — 계획이 없는 프로젝트에서도 머지를 관측한다.
+    const planId = item.origin === 'ticket' ? item.planId : plan?.planId
+    if (!planId) { unknown.push({workId, prUrl: item.link.prUrl, error: 'plan-unknown'}); continue }
+    events.push({schemaVersion: 1, eventId: randomUUID(), planId, workId, eventType: 'work-completed', at: now,
       payload: {prUrl: item.link.prUrl, via: 'pr-merged', baseRef: observed.baseRefName}})
   }
   return {events, unknown, open, baseMismatch}

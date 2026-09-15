@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// web-harness:ticket-close v2 — WORK 원장 기반. 머지된 PR에 묶인 **WORK 티켓**을 닫는다. ticket-close.yml이 실행한다.
+// web-harness:ticket-close v3 — WORK 원장 기반. 머지된 PR에 묶인 **WORK 티켓**을 닫는다. ticket-close.yml이 실행한다.
 //
 // **근거는 WORK 원장 하나뿐이다.** PR 본문의 `#N`은 작성자가 아무 숫자나 적을 수 있어 남의 티켓을 닫는 경로가
 // 된다. 원장 줄도 PR이 가져오는 것이지만 **PR diff에 실려 리뷰를 거친다** — 그것이 차이이며 신뢰 경계는 머지
@@ -43,6 +43,12 @@ for (const [index, raw] of readFileSync(LEDGER, 'utf8').split('\n').entries()) {
     process.exit(1)
   }
   if (event?.eventType === 'plan-reviewed') { for (const id of event.payload?.workIds ?? []) reviewed.add(id); continue }
+  // 사람이 만든 개발 티켓을 개발자가 판정서 지문으로 확인해 등록한 작업도 검토 계보다(ticket-work.mjs).
+  if (event?.eventType === 'ticket-work-registered' && event.workId) {
+    reviewed.add(event.workId)
+    works.set(event.workId, {...(works.get(event.workId) ?? {}), ticketKey: String(event.payload?.ticketKey ?? ''), provider: event.payload?.provider ?? null})
+    continue
+  }
   if (!event?.workId) continue // 집계 이벤트는 작업이 아니다
   const current = works.get(event.workId) ?? {}
   if (event.eventType === 'publish-confirmed') works.set(event.workId, {...current, ticketKey: String(event.payload?.ticketKey ?? ''), provider: event.payload?.provider ?? null})

@@ -32,18 +32,43 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   if (!developer) return {ok: false, mode: 'work', bounce: {reason: 'no-developer'}, guidance: '--developer <login> 필요(소유권 판정 주체)'}
   const plan = readJson(root, WORK_PLAN_PATH)
   const analysis = readJson(root, WORK_ANALYSIS_PATH)
-  if (!plan || !analysis) {
-    return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
-      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다'}
-  }
   // **판정 전에 origin 스냅샷을 갱신한다** — 로컬 계획·로컬 원장만 보면 남이 고친 계획을 못 보고
   // 「최신」이라 판정한다. 못 가져오면 막지 않고 `basis: local-snapshot`으로 **적는다**(legacy와 같다).
   const freshness = await cli.ensureRemoteFreshness({root, flags, io})
-  const planDigest = canonicalDigest(plan)
-  const state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
   const provider = io.provider
+  // 계획이 없고 사람 티켓 경로도 쓸 수 없으면 **트래커를 부르기 전에** 멈춘다(읽기라도 부를 이유가 없다).
+  const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
+  if ((!plan || !analysis) && !hasDevTicketAxis(io.ticketConfig) && ![...state.works.values()].some(item => item.origin === 'ticket')) {
+    return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
+      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다. '
+        + '사람이 만든 개발 티켓을 바로 집으려면 트래커 설정에 개발 티켓 분류(Jira `componentAxis` · GitHub `labelAxis`의 `개발 티켓`)를 선언한다'}
+  }
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
-  const issue = await fetchIssue(ticketKey)
+  let issue = await fetchIssue(ticketKey)
+  // **사람이 만든 개발 티켓**이면 판정·확인·완성을 거쳐 같은 픽업으로 이어진다(ticket-work-run.mjs). 계획 WORK면 그대로 아래로 간다.
+  const {resolveTicketPickup} = await import('./ticket-work-run.mjs')
+  const ticket = await resolveTicketPickup({root, ticketKey, developer, issue, state, plan, flags, io})
+  if (ticket.result) {
+    if (ticket.result.notify) {
+      const notify = io.notifyPlanner ?? cli.notifyPlanner
+      const notified = await notify({provider, ticketKey, featureId: null, bounce: ticket.result.bounce, io, dryRun: flags['dry-run'],
+        readinessLanguage: resolveCommentLanguage({declared: readDeclaredLanguage(root), text: issue?.title ?? ''})})
+      const {notify: _flag, ...rest} = ticket.result
+      return {...rest, ...notified, freshness}
+    }
+    const {notify: _unused, ...rest} = ticket.result
+    return {...rest, freshness}
+  }
+  if (!ticket.context && (!plan || !analysis)) {
+    return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
+      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다. '
+        + '사람이 만든 개발 티켓을 바로 집으려면 트래커 설정에 개발 티켓 분류(Jira `componentAxis` · GitHub `labelAxis`의 `개발 티켓`)를 선언한다'}
+  }
+  if (ticket.issue) issue = ticket.issue
+  // 방금 등록했으면 원장을 다시 접는다 — 등록 전 상태로 판정하면 「원장에 없는 작업」으로 되돌린다.
+  if (ticket.extra?.ticketWork?.registered) state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  const planDigest = ticket.context?.planDigest ?? canonicalDigest(plan)
   // **기본값은 실물이다.** 주입이 없을 때 빈 값을 쓰면 컨플릭 게이트가 영원히 발화하지 않는다
   // (적대 리뷰 2026-09-14: 「같은 함수를 쓴다」가 참이어도 입력이 비면 게이트는 없는 것과 같다).
   const currentBranch = await (io.currentBranch ?? resolveCurrentBranch)({repoRoot: root})
@@ -53,20 +78,20 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const assignment = computeAssignmentPlan({issue, developer})
   if (assignment.status === 'taken') return {ok: false, mode: 'work', assignment, bounce: {reason: 'assigned-to-other', by: assignment.by}}
 
-  const view = computeWorkView(plan, analysis)
-  // TC 문장은 발행 때와 같은 곳(feature-plan)에서 읽는다 — 본문 항목 대조가 같은 문장을 기대해야 한다.
-  const units = (() => { try { return parseFeaturePlanUnits(readFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'utf8')) } catch { return [] } })()
-  const pick = pickupWorkTicket({issue, plan, planDigest, state, view, currentBranch, working,
-    testCaseTexts: testCaseTexts(units), declaredLanguage: readDeclaredLanguage(root)})
+  // TC 문장은 발행 때와 같은 곳(feature-plan)에서 읽는다 — 본문 항목 대조가 같은 문장을 기대해야 한다. 티켓 작업은 정의가 들고 있다.
+  const units = ticket.context ? [] : (() => { try { return parseFeaturePlanUnits(readFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'utf8')) } catch { return [] } })()
+  const pick = pickupWorkTicket({issue, plan: ticket.context?.plan ?? plan, planDigest, state,
+    view: ticket.context ? null : computeWorkView(plan, analysis), currentBranch, working,
+    testCaseTexts: ticket.context?.testCaseTexts ?? testCaseTexts(units), declaredLanguage: readDeclaredLanguage(root)})
   if (!pick.ok) {
     // 막힌 사실은 티켓으로 돌아간다 — 개발자 터미널에서 끝나면 계획을 고칠 사람이 모른다.
     const notify = io.notifyPlanner ?? cli.notifyPlanner
     const notified = await notify({provider, ticketKey, featureId: pick.changeScope?.featureId ?? null,
       bounce: pick.bounce, io, dryRun: flags['dry-run'],
       readinessLanguage: resolveCommentLanguage({declared: readDeclaredLanguage(root), text: `${issue?.title ?? ''}\n${issue?.body ?? ''}`})})
-    return {...notified, ok: false, mode: 'work', bounce: pick.bounce, injection: pick.injection, assignment, freshness}
+    return {...notified, ok: false, mode: 'work', bounce: pick.bounce, injection: pick.injection, assignment, freshness, ...(ticket.extra ?? {})}
   }
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, assignment, changeScope: pick.changeScope, freshness}
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, assignment, changeScope: pick.changeScope, freshness, ...(ticket.extra ?? {})}
 
   // 진행 중인 다른 범위를 조용히 덮지 않는다 — 그 작업의 STALE 앵커가 사라진다(legacy와 같은 규율).
   const existing = cli.readChangeScopeFile(root)
@@ -123,5 +148,5 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
     baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
-  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, worktree: working}
+  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, worktree: working, ...(ticket.extra ?? {})}
 }

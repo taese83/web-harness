@@ -60,7 +60,7 @@ export function parseArgs(argv) {
 
 // 티켓 이슈 자동 닫기 자산 — WORK 원장 기반(v2). 개발 준비 검사(`validate-development-readiness`)가 설치한다.
 // 설치본에는 판본 표지가 있다 — 옛 청구 원장을 읽는 v1 사본이 남아 있으면 **덮지 않고 알린다**(손본 사본일 수 있다).
-export const TICKET_CLOSE_VERSION_MARKER = 'web-harness:ticket-close v2'
+export const TICKET_CLOSE_VERSION_MARKER = 'web-harness:ticket-close v3'
 const ASSETS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills', 'team-flow', 'assets')
 export const TICKET_CLOSE_ASSETS = [
   {asset: 'ticket-close.yml', target: '.github/workflows/ticket-close.yml'},
@@ -367,12 +367,13 @@ export async function runIntake({root, repo, ticketKey, flags, io = {}}) {
   // 셋 다 없으면 추측하지 않고 ingestor가 본문을 읽어 정한다.
   const axis = resolved.config?.jira?.componentAxis ?? null
   const byComponent = classifyByComponent(issue.components ?? [], axis)
+    ?? classifyByComponent(issue.labels ?? [], resolved.config?.github?.labelAxis ?? null)
   // **개발 티켓은 공급 원문이 아니다.** 파이프라인의 출력을 다시 입력으로 들이면 자기가 만든
   // 요구사항을 기획으로 재수집하는 순환이 된다.
   if (byComponent?.role === DEV_TICKET) {
     return {ok: false, bounce: {reason: 'dev-ticket-not-source', by: byComponent.by},
       guidance: `${ticketKey}는 개발 티켓입니다(${byComponent.by}) — 공급 원문이 아닙니다. `
-        + '기획 티켓을 인테이크하세요. 개발 작업은 계획이 WORK로 발행한 티켓만 착수합니다(`claim --publish` → `pickup`).'}
+        + '기획 티켓을 인테이크하세요. 사람이 만든 개발 티켓은 `pickup <키>`가 기획·디자인이 필요한지 판정한 뒤 WORK로 완성해 착수합니다.'}
   }
   const plan = planIntake({
     ticketKey, title: issue.title, body: issue.body, url: issue.url ?? null,
@@ -454,7 +455,7 @@ if (invokedDirectly) {
             guidance: missing === 'provider' ? '티켓 provider 설정이 없다 — `configure`로 먼저 정한다' : 'GitHub 티켓을 집으려면 `--repo <owner/name>`가 필요하다'}
         }
         return (await import('./work-pickup-run.mjs')).runWorkPickup({root, ticketKey: args[0] ?? null,
-          developer: flags.developer, flags, io: {provider: resolved.provider}})
+          developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
       }
       // 완료 주장(PR 연결)·머지 관측(`--sync`). 트래커를 부르지 않는다.
       case 'link': {
@@ -468,7 +469,7 @@ if (invokedDirectly) {
         if (flags['by-feature']) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags})
         const {resolved, missing} = tracker()
         return (await import('./work-board.mjs')).runWorkBoard({root, developer: flags.developer ?? null, flags,
-          io: {provider: missing ? null : resolved.provider}})
+          io: {provider: missing ? null : resolved.provider, ticketConfig: resolved.config}})
       }
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'configure': return runConfigure({root, flags})

@@ -70,6 +70,9 @@ export const GITHUB_QUESTIONS = [
     required: false,
     ask: 'WORK 티켓과 부모의 관계 표현 — GitHub은 `link-only`(본문 참조뿐, 관계 아님)만 가능합니다. 비우면 WORK 발행이 막힙니다',
   },
+  // GitHub에는 컴포넌트가 없다 — 같은 역할을 라벨이 맡는다(Jira `componentAxis`의 대응).
+  {key: 'labelAxis', required: false, ask: '라벨 → 분류 매핑(예: dev=개발 티켓, planning=기획 입력). `개발 티켓`으로 선언한 라벨이 붙은 이슈는 사람이 만든 개발 티켓으로 픽업 판정을 거치고, 인테이크가 공급 원문으로 받지 않습니다'},
+  {key: 'labels', required: false, ask: '하네스가 발행·완성하는 WORK 티켓에 붙일 팀 라벨(쉼표 구분)'},
 ]
 
 /** provider별 질문. 선택이 정해지기 전에는 무엇을 물을지 모른다. */
@@ -165,6 +168,11 @@ export function buildTicketConfig(provider, answers = {}) {
     if (host && host !== 'github.com') github.host = host
     const mode = typeof answers['workLink.mode'] === 'string' ? answers['workLink.mode'].trim() : ''
     if (mode) github.workLink = {mode}
+    for (const [key, value] of Object.entries(answers)) {
+      if (!key.startsWith('labelAxis.') || typeof value !== 'string' || !value.trim()) continue
+      github.labelAxis = {...(github.labelAxis ?? {}), [key.slice('labelAxis.'.length)]: value.trim()}
+    }
+    if (typeof answers.labels === 'string' && answers.labels.trim()) github.labels = answers.labels.split(',').map(item => item.trim()).filter(Boolean)
     return Object.keys(github).length > 0 ? {provider, github} : {provider}
   }
   const jira = {}
@@ -197,7 +205,7 @@ const SECRET_LIKE = /(token|secret|password|passwd|apikey|api_key|credential|aut
 export const ALLOWED_JIRA_KEYS = new Set(JIRA_QUESTIONS.map(q => q.key))
 // 값이 **팀이 정하는 이름**인 키는 하위 경로를 열어둔다 — `componentAxis.PLAN`처럼 컴포넌트
 // 이름이 키가 되므로 열거할 수 없다. 접두는 여전히 허용 목록 안이어야 한다.
-const OPEN_PREFIXES = ['componentAxis']
+const OPEN_PREFIXES = ['componentAxis', 'labelAxis']
 export const ALLOWED_GITHUB_KEYS = new Set(GITHUB_QUESTIONS.map(q => q.key))
 const ALLOWED_KEYS_BY_PROVIDER = {github: ALLOWED_GITHUB_KEYS, jira: ALLOWED_JIRA_KEYS}
 

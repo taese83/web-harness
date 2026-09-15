@@ -7,13 +7,14 @@
 |---|---|---|---|
 | 기획 티켓(사람이 씀) | `intake` → ingestor → feature-planner | 스냅샷 · 인벤토리 행 | 쓰지 않는다 — 공급 원문이지 개발 대상이 아니다 |
 | WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행·링크·완료) |
+| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 판정(`ticket-work-contract.md`) → 확인 → 완성 | 착수 가능이면 WORK와 같은 모양(원문 보존) · 착수 불가면 요청 코멘트 | `ticket-assessed` · `ticket-work-registered` 뒤로는 WORK와 같다 |
 | 옛 FEAT 개발 티켓(`web-harness:refs`) | 없음 | — | 픽업은 WORK로 안내하고 거부한다 |
 | 집계 티켓(`web-harness:aggregate`) | 아직 생산자 없음 | — | 판독 입구가 WORK로도 FEAT로도 읽지 않는다 |
 
 팀이 컴포넌트 축을 선언했으면(`componentAxis`) 인테이크가 그것으로 분류하고 **개발 티켓을 공급 원문으로
 받지 않는다**(파이프라인 출력을 입력으로 되들이는 순환). 선언이 없으면 인테이크는 분류하지 않고
 `source-artifact-ingestor`가 본문을 읽어 정한다. 사람이 직접 쓴 개발 티켓은 이제 들어오는 문이 없다 —
-그 내용은 개발 설계 입력으로 받아(`developer-design-input.md`) 분석·분해를 거쳐 WORK로 나간다.
+그 내용은 개발 설계 입력으로 받아(`developer-design-input.md`) 분석·분해를 거쳐 WORK로 나간다 — **다만 팀이 개발 티켓 분류를 선언했으면 `pickup`이 그 티켓을 판정해 WORK로 완성한다**(2026-09-15, `ticket-work-contract.md`).
 
 ## change-scope 키
 
@@ -26,6 +27,7 @@ brief를 대체하지 않는다.
 | 키 | 뜻 |
 |---|---|
 | `ticketKey` | 트래커 키 |
+| `origin` · `lane` | 작업의 출처 — `plan`(검토한 계획) · `ticket`(사람이 만든 개발 티켓을 판정해 완성). 티켓 작업이면 `lane`이 `fix`·`change`(change면 구현 전 1-A 스팩 승인) |
 | `ticket.key` · `ticket.provider` | 어느 트래커의 어느 티켓인가 |
 | `ticket.revision` · `ticket.revisionStage` | 개발 기준 개정 — 픽업 끝에 다시 잰다(`settled-at-pickup`). 못 재면 `pre-pickup` 그대로 |
 | `ticket.revisionError` (선택) | 픽업 끝의 재조회가 실패했거나 빈 값을 줬을 때 그 이유 |

@@ -117,7 +117,8 @@ export const AGENT_OWNERSHIP = {
   // WORK 분해의 선행 분석과 계획도 이 에이전트 **하나**가 쓴다(2026-09-11) — 구현 설계 결정·모듈 경계를
   // 이미 맡고 사용자 설계 원문을 우선 입력으로 읽는다. FEAT(feature-planner)와 WORK의 작성 책임을 가른다.
   'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/,
-    /^_workspace\/03_dev\/work-analysis\.json$/, /^_workspace\/03_dev\/work-plan\.json$/],
+    /^_workspace\/03_dev\/work-analysis\.json$/, /^_workspace\/03_dev\/work-plan\.json$/,
+    /^_workspace\/03_dev\/ticket-assessments\/[A-Za-z0-9_-]+\.json$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
@@ -176,7 +177,7 @@ export const AGENT_LAYER_ROLES = {}
 //
 // 파일이면 그대로 두고 디렉토리면 `/`를 붙인다. 확장자 유무로 가른다 — 마지막 세그먼트에
 // 점이 있으면 파일로 본다. 프록시이며 확장자 없는 파일(`Makefile` 등)은 디렉토리로 오인된다.
-const normalizeLayerPath = value => {
+export const normalizeLayerPath = value => {
   const trimmed = String(value).trim().replace(/^\.\//, '').replace(/\/+$/, '')
   const last = trimmed.split('/').at(-1) ?? ''
   return /\.[^.]+$/.test(last) ? trimmed : `${trimmed}/`

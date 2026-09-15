@@ -10,6 +10,7 @@
 import {toAdf, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, fromAdf, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions, WORK_PROPERTY_KEY} from './provider-jira.mjs'
 import {issueLinkBody, parseCursor, parseWorkSearch, workKeysJql, workRelationMode} from './work-provider.mjs'
 import {withWorkMarker} from './work-refs.mjs'
+import {DEV_TICKET} from './intake.mjs'
 
 /** `resolveIssue`가 가져오는 필드. 빠진 필드는 응답에서 `undefined`로 와 「없다」와 구별되지 않는다. */
 export const ISSUE_FIELDS = Object.freeze([
@@ -127,6 +128,33 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
         if (issues.length === 0) return {matches, complete: false, total, nextCursor: null, stalled: true}
       }
       return {matches, complete: false, total: null, nextCursor: null, truncated: true}
+    },
+    /**
+     * 사람이 만든 개발 티켓 목록(보드의 「판정 전」). 팀이 `개발 티켓`으로 선언한 컴포넌트의 열린 이슈를 끝까지 읽는다.
+     * 선언이 없으면 조회하지 않는다 — 무엇이 개발 티켓인지 추측하지 않는다.
+     */
+    async listDevTickets({config: teamConfig = {}} = {}) {
+      const axis = teamConfig?.jira?.componentAxis ?? config.componentAxis ?? {}
+      const components = Object.entries(axis).filter(([, role]) => role === DEV_TICKET).map(([name]) => name)
+      if (components.length === 0) return {items: [], complete: true, reason: 'no-dev-ticket-axis'}
+      const quoted = components.map(name => `"${String(name).replace(/"/g, '\\"')}"`).join(', ')
+      const jql = `project = "${config.projectKey}" AND component in (${quoted}) AND statusCategory != Done ORDER BY created DESC`
+      const items = []
+      let startAt = 0
+      for (let guard = 0; guard < 10; guard++) {
+        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,assignee`, options)
+        const issues = Array.isArray(payload?.issues) ? payload.issues : []
+        for (const issue of issues) {
+          items.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null,
+            assignees: issue.fields?.assignee ? [assigneeIdentity(issue.fields.assignee, config.assigneeField)].filter(Boolean) : []})
+        }
+        startAt += issues.length
+        const total = Number(payload?.total)
+        if (!Number.isFinite(total)) return {items, complete: false}
+        if (startAt >= total) return {items, complete: true}
+        if (issues.length === 0) return {items, complete: false, stalled: true}
+      }
+      return {items, complete: false, truncated: true}
     },
     /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {

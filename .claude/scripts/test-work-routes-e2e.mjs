@@ -70,6 +70,9 @@ function createJiraStub() {
       if ((match = jql.match(/^key in \(([^)]+)\)/))) {
         const keys = new Set(match[1].split(',').map(key => key.trim()))
         hits = [...issues.values()].filter(issue => keys.has(issue.key))
+      } else if ((match = jql.match(/component in \(([^)]+)\)/))) {
+        const names = new Set(match[1].split(',').map(name => name.trim().replace(/^"|"$/g, '')))
+        hits = [...issues.values()].filter(issue => issue.fields.components.some(component => names.has(component.name)) && issue.fields.status.statusCategory.key !== 'done')
       } else if (/AND created >= -\d+m/.test(jql)) {
         hits = [...issues.values()]
       } else if ([...jql.matchAll(/labels = "([^"]+)"/g)].length > 0) {
@@ -125,6 +128,10 @@ function createJiraStub() {
     if ((match = path.match(/^\/issue\/([^/]+)$/)) && method === 'PUT') {
       const issue = issues.get(decodeURIComponent(match[1]))
       if (data.fields?.description !== undefined) issue.fields.description = data.fields.description
+      for (const op of data.update?.labels ?? []) {
+        if (op.add && !issue.fields.labels.includes(op.add)) issue.fields.labels.push(op.add)
+        if (op.remove) issue.fields.labels = issue.fields.labels.filter(label => label !== op.remove)
+      }
       touch(issue)
       return respond(204, null)
     }
@@ -134,7 +141,16 @@ function createJiraStub() {
     }
     throw new Error(`jira stub: 모르는 요청 ${method} ${path}`)
   }
-  return {issues, writes, humanComment, fetchImpl}
+  /** 사람이 트래커에 직접 만든 티켓(하네스 쓰기가 아니다 — writes에 세지 않는다). */
+  const humanTicket = ({summary, description, components = []}) => {
+    const key = `PF-${++sequence}`
+    const issue = {key, fields: {summary, description, labels: [], components: components.map(name => ({name})), issuelinks: [],
+      comment: {total: 0, comments: []}, assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}}, properties: {}, attachments: []}
+    touch(issue)
+    issues.set(key, issue)
+    return key
+  }
+  return {issues, writes, humanComment, humanTicket, fetchImpl}
 }
 
 const describeWrites = writes => writes.map(write => {
@@ -226,3 +242,95 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     }
   }
 })
+
+test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 → 미리보기 → 지문 확인 → WORK 완성 → 완료 → 머지 관측 → 보드 (계획 없는 프로젝트)', async () => {
+  const {writeFileSync: write} = await import('node:fs')
+  const {assessmentDigest, assessmentPath} = await import('./ticket/ticket-work.mjs')
+  const {runWorkBoard} = await import('./ticket/work-board.mjs')
+  const root = mkdtempSync(join(tmpdir(), 'wh-ticket-work-e2e-'))
+  const jira = createJiraStub()
+  const config = {...jiraConfig, componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}
+  const provider = createJiraProvider({config, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+  const io = {provider, ticketConfig: {provider: 'jira', jira: config}, ...gitIo}
+  try {
+    // 기획 없이 스팩만 확정한 브라운필드 — 소유 경계는 스팩이 준다.
+    mkdirSync(join(root, '_workspace/03_dev/ticket-assessments'), {recursive: true})
+    write(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({specTier: 'unverifiable', layerMap: {ui: 'src', tests: 'tests'}}))
+    const key = jira.humanTicket({summary: '정지 회원 표시', components: ['DEVELOP'],
+      description: '회원 목록에서 정지된 회원을 구분하고 싶습니다.\n\n완료 조건: 정지 회원은 목록에서 회색으로 보인다'})
+    // ① 판정서가 없다 — 트래커에 쓰지 않고 판정을 요구한다.
+    const required = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
+    assert.equal(required.phase, 'TICKET_ASSESSMENT_REQUIRED', JSON.stringify(required))
+    assert.equal(required.next.agent, 'system-architect')
+    assert.equal(jira.writes.length, 0, '판정 전에 트래커에 썼다')
+    // ② 기획이 필요하다고 판정 — 착수하지 않고 무엇이 필요한지 티켓에 요청한다.
+    const selfCheck = ['new-route', 'new-data-contract', 'new-auth-path', 'new-external-dependency', 'public-contract-change'].map(id => ({id, answer: 'no', evidence: ['src/members/list.tsx:1']}))
+    const base = {schemaVersion: 1, ticket: {key, provider: 'jira'}, selfCheck, planningNeeds: [], designNeeds: [], nonGoals: [], dependsOn: []}
+    write(join(root, assessmentPath(key)), JSON.stringify({...base, verdict: 'needs-planning', lane: null, planningNeeds: [{what: '정지 기준', why: '며칠 미접속이 정지인지 정해져 있지 않다'}]}))
+    const needs = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
+    assert.equal(needs.phase, 'TICKET_NOT_STARTABLE')
+    assert.equal(needs.bounce.reason, 'ticket-needs-planning')
+    assert.ok(jira.issues.get(key).fields.comment.comments.some(comment => /기획이 필요하다[\s\S]*정지 기준/.test(comment.body)), '기획 요청이 티켓에 남지 않았다')
+    assert.equal(jira.issues.get(key).fields.assignee, null, '착수 불가인데 배정했다')
+    // 같은 판정서로 다시 불러도 요청 코멘트를 또 달지 않는다 — 새 판정일 때만 알린다.
+    const commentsBefore = jira.issues.get(key).fields.comment.comments.length
+    const again = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
+    assert.equal(again.phase, 'TICKET_NOT_STARTABLE')
+    assert.equal(jira.issues.get(key).fields.comment.comments.length, commentsBefore, '같은 판정으로 요청 코멘트를 반복했다')
+    // ③ 기획이 답해 착수 가능으로 다시 판정 — 미리보기는 쓰지 않는다.
+    const assessment = {...base, verdict: 'startable', lane: 'change', objective: '정지 회원을 목록에서 구분해 보인다', roles: ['fe'],
+      writePaths: ['src/members/'], acceptance: [{text: '정지 회원은 목록에서 회색으로 보인다', source: 'ticket'}],
+      testItems: [{id: `TT-${key}-1`, text: '정지 회원을 불러오면 회색 행으로 보인다', source: 'proposed'}]}
+    write(join(root, assessmentPath(key)), JSON.stringify(assessment))
+    const before = jira.writes.length
+    const preview = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
+    assert.equal(preview.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(preview))
+    assert.equal(jira.writes.length, before, '미리보기가 트래커에 썼다')
+    assert.match(preview.body, /h3\. 완료 조건[\s\S]*h3\. 원문/)
+    // ④ 다른 지문으로는 착수하지 않는다.
+    assert.equal((await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {assessment: 'f'.repeat(64)}, io})).phase, 'TICKET_ASSESSMENT_MISMATCH')
+    // ⑤ 확인한 지문으로 착수 — 티켓이 WORK 모양으로 완성되고 기존 픽업으로 이어진다.
+    const picked = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {assessment: assessmentDigest(assessment)}, io})
+    assert.equal(picked.ok, true, JSON.stringify(picked))
+    const issue = jira.issues.get(key)
+    assert.match(issue.fields.description, /h3\. 완료 조건[\s\S]*h3\. 테스트 항목[\s\S]*TT-PF-\d+-1[\s\S]*h3\. 원문\n회원 목록에서 정지된 회원을 구분하고 싶습니다/)
+    assert.equal(issue.fields.description.includes('web-harness:'), false, '설명에 기계 마커가 보인다')
+    assert.match(issue.properties['web-harness.work']?.marker ?? '', /work=WORK-/)
+    assert.deepEqual(issue.fields.labels, ['fe'])
+    assert.equal(issue.attachments.length, 1, 'AI 맥락이 첨부되지 않았다')
+    assert.equal(issue.fields.assignee?.name, 'dev1')
+    const scope = readChangeScopeFile(root)
+    assert.equal(scope.origin, 'ticket')
+    assert.equal(scope.lane, 'change')
+    assert.deepEqual(scope.testCaseIds, [`TT-${key}-1`])
+    assert.deepEqual(scope.ALLOWED_PATHS, ['src/members/'])
+    // ⑥ 작업 → 완료 주장: 수정 범위가 바뀌었고 테스트가 TT를 인용한다.
+    mkdirSync(join(root, 'src/members'), {recursive: true})
+    write(join(root, 'src/members/list.tsx'), 'export const Suspended = () => null\n')
+    write(join(root, 'src/members/list.test.tsx'), `// TT-${key}-1 정지 회원 회색 행\n`)
+    const linked = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {},
+      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'})}})
+    assert.equal(linked.ok, true, JSON.stringify(linked))
+    assert.equal(linked.completion.testCases.missing.length, 0)
+    // ⑦ 머지 관측 — 계획 파일 없이도 완료가 기록된다.
+    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main'}]))}})
+    assert.equal(sync.completed.length, 1, JSON.stringify(sync))
+    // ⑧ 보드: 계획이 없어도 사람 티켓 절을 그린다 — 완료된 작업과 판정 전 개발 티켓을 구분한다.
+    const other = jira.humanTicket({summary: '검색 결과 정렬', components: ['DEVELOP'], description: '정렬 기준을 추가해 주세요'})
+    jira.humanTicket({summary: '기획 입력', components: ['PLAN'], description: '기획 티켓'})
+    const board = await runWorkBoard({root, developer: 'dev1', flags: {}, io: {provider, ticketConfig: {provider: 'jira', jira: config}}})
+    assert.equal(board.ok, true, JSON.stringify(board))
+    const rows = new Map(board.tickets.map(row => [row.ticketKey, row]))
+    assert.equal(rows.get(key).stage, 'registered')
+    assert.equal(rows.get(key).blockedReason, 'completed')
+    assert.equal(rows.get(other).blockedReason, 'assessment-required')
+    assert.equal(rows.get(other).pickupable, false, '판정 전 티켓을 착수 가능으로 보였다')
+    assert.equal(board.tickets.length, 2, '기획 티켓을 개발 티켓 절에 넣었다')
+    // 트래커 쓰기는 정해진 것뿐이다 — 요청 코멘트 · 본문 완성(설명·속성) · 역할 라벨 · 첨부 · 배정 · 전이.
+    const allowed = /^(comment PF-\d+|PUT \/issue\/PF-\d+|PUT \/issue\/PF-\d+\/properties\/web-harness\.work|POST \/issue\/PF-\d+\/attachments|assign PF-\d+ → dev1|transition PF-\d+ → 31)$/
+    assert.deepEqual(describeWrites(jira.writes).filter(write => !allowed.test(write)), [], describeWrites(jira.writes).join(' | '))
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+

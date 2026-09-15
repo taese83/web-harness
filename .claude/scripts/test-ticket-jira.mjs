@@ -246,9 +246,10 @@ test('반증: GitHub provider에 모르는 --set 키를 주면 조용히 버리�
   // 0.23.10부터 github도 설정을 받는다(`host` — 사내 GitHub Enterprise 주소). 그래서 판정이
   // 「이 provider는 설정을 안 받는다」에서 **「그 키가 허용 목록에 없다」**로 바뀌었고,
   // 거절 메시지가 **거절된 키와 허용 목록을 함께** 말한다. 버리지 않는다는 계약은 그대로다.
-  const result = await runConfigure({root: '/tmp', flags: {provider: 'github', set: ['labels=x']}, io: noShare})
+  // `labels`·`labelAxis`는 2026-09-15부터 GitHub도 받는다(사람 개발 티켓 분류) — GitHub에 없는 개념(컴포넌트)으로 잰다.
+  const result = await runConfigure({root: '/tmp', flags: {provider: 'github', set: ['components=x']}, io: noShare})
   assert.equal(result.blocked, 'key-refused')
-  assert.match(result.guidance, /labels/, '거절된 키를 말하지 않으면 사용자는 무엇이 틀렸는지 모른다')
+  assert.match(result.guidance, /components/, '거절된 키를 말하지 않으면 사용자는 무엇이 틀렸는지 모른다')
   assert.match(result.guidance, /허용\(github\): host/, '허용 목록을 말하지 않으면 되물어야 한다')
 })
 
