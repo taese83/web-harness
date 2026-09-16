@@ -117,10 +117,19 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
         : !developer ? 'no-developer'
           : takenByOther === true ? 'assigned-to-other'
             : takenByOther === null && lookupComplete ? 'ticket-not-found' : takenByOther === null ? 'assignment-unknown' : null
+    const next = item.completed ? '끝났습니다.'
+      : item.link?.prUrl ? '연결한 PR이 머지되면 `link --sync`로 확인합니다.'
+      : blockedReason === null ? `\`pickup ${item.ticketKey}\`로 이어서 개발합니다.`
+        : blockedReason === 'dependency-incomplete' ? '먼저 끝나야 할 작업이 남아 있습니다.'
+          : blockedReason === 'no-developer' ? '`--developer <내 아이디>`를 붙여 다시 보면 집을 수 있는지 알 수 있습니다.'
+            : blockedReason === 'assigned-to-other' ? '다른 개발자가 맡고 있습니다.'
+              : blockedReason === 'assignment-unknown' ? '트래커에서 담당자를 읽지 못했습니다. 티켓에서 직접 확인하세요.'
+                : blockedReason === 'ticket-not-found' ? '트래커에서 이 티켓을 찾지 못했습니다.'
+                  : '다시 판정해 착수할 수 있는지 확인합니다.'
     rows.push({ticketKey: item.ticketKey, workId, title: item.definition?.title ?? null, stage: 'registered', lane: item.definition?.lane ?? null,
       roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed), assignees,
       // 계획 작업 행과 같은 축이다 — `assignment-unknown`은 재지 못한 표시이지 집을 수 있다는 뜻이 아니다.
-      pickupable: blockedReason === null, blockedReason, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
+      pickupable: blockedReason === null, blockedReason, next, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
   }
   for (const [ticketKey, ticket] of state?.tickets?.entries() ?? []) {
     if (seen.has(ticketKey)) continue
@@ -128,12 +137,18 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     const startable = ticket.verdict === 'startable'
     rows.push({ticketKey, workId: ticket.workId ?? null, title: devTickets?.find(item => String(item.ticketKey) === ticketKey)?.summary ?? null,
       stage: 'assessed', verdict: ticket.verdict, pickupable: false,
-      blockedReason: startable ? 'awaiting-confirmation' : `ticket-${ticket.verdict}`, needs: ticket.needs ?? null})
+      // 착수 가능 판정은 **막힌 것이 아니다** — 개발자가 미리보기를 확인하면 바로 시작한다.
+      blockedReason: startable ? null : `ticket-${ticket.verdict}`,
+      next: startable ? `\`pickup ${ticketKey}\`로 미리보기를 보고 확인하면 시작합니다.`
+        : ticket.verdict === 'needs-design' ? '디자인이 정해져야 시작할 수 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.'
+          : '먼저 정해야 할 것이 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.',
+      needs: ticket.needs ?? null})
   }
   for (const item of list(devTickets)) {
     if (seen.has(String(item.ticketKey))) continue
+    // 판정 전은 **막힌 상태가 아니다.** `pickup`이 판정부터 시작하므로, 여기에 이유를 적으면 할 수 없는 일처럼 읽힌다.
     rows.push({ticketKey: String(item.ticketKey), workId: null, title: item.summary ?? null, stage: 'unassessed', pickupable: false,
-      blockedReason: 'assessment-required', assignees: item.assignees ?? null})
+      blockedReason: null, next: `\`pickup ${item.ticketKey}\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})
   }
   const notes = []
   const waiting = rows.filter(row => row.stage === 'unassessed').length

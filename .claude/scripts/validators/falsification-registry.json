@@ -2749,8 +2749,8 @@
     {
       "id": "ticket-board-unknown-assignment-not-pickupable",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      pickupable: blockedReason === null, blockedReason, incompleteDeps, ...(item.withdrawn",
-      "replace": "      pickupable: blockedReason === null || blockedReason === 'assignment-unknown', blockedReason, incompleteDeps, ...(item.withdrawn",
+      "find": "pickupable: blockedReason === null, blockedReason, next,",
+      "replace": "pickupable: blockedReason === null || blockedReason === 'assignment-unknown', blockedReason, next,",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "배정을 모르는 티켓 작업을 집을 수 있다고 보이면 계획 작업 행과 축이 갈린다"
     },
@@ -2793,6 +2793,14 @@
       "replace": "    if (false) notes.push(",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "판정 조건을 보드가 말하지 않으면 사용자가 계획·specTier 같은 엉뚱한 이유를 추측한다(2026-09-16 실측)"
+    },
+    {
+      "id": "ticket-board-unassessed-not-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      blockedReason: null, next: `\\`pickup ${item.ticketKey}\\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})",
+      "replace": "      blockedReason: 'assessment-required', next: null, assignees: item.assignees ?? null})",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "판정 전 티켓을 막힌 것으로 그리면 할 수 없는 일처럼 읽혀, 바로 시작할 수 있는 티켓을 아무도 집지 않는다"
     }
   ]
 }

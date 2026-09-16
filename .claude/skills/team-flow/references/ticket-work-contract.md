@@ -86,6 +86,12 @@ CLI가 막는 것:
   `TICKET_EDITS_NOT_IN_ASSESSMENT`로 멈춘다 — 판정서(`source: proposed`)로 옮겨야 한다(덮어써 잃지 않는다).
   표지만 옮기면 본문이 옛 정의로 남아 픽업이 영원히 「계획과 다르다」로 막힌다.
 
+## 보드
+
+사람 티켓 절의 각 행은 `next`로 **다음 할 일**을 말한다. 판정 전(`unassessed`)과 착수 가능 판정
+(`assessed` + `startable`)은 `blockedReason`이 없다 — 막힌 것이 아니라 `pickup`으로 이어가는 자리다.
+막힌 행(기획·디자인 필요, 선행 미완료, 다른 개발자 배정)만 이유를 단다.
+
 ## 취소
 
 등록된 티켓 작업을 다시 판정해 `needs-planning`·`needs-design`·`undecidable`이 나오면 원장이 **그 작업을 거둔다**(`withdrawn`) —

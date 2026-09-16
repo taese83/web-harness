@@ -323,7 +323,8 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     const rows = new Map(board.tickets.map(row => [row.ticketKey, row]))
     assert.equal(rows.get(key).stage, 'registered')
     assert.equal(rows.get(key).blockedReason, 'completed')
-    assert.equal(rows.get(other).blockedReason, 'assessment-required')
+    assert.equal(rows.get(other).stage, 'unassessed')
+    assert.equal(rows.get(other).blockedReason, null, '판정 전 티켓을 막힌 것으로 그렸다')
     assert.equal(rows.get(other).pickupable, false, '판정 전 티켓을 착수 가능으로 보였다')
     assert.equal(board.tickets.length, 2, '기획 티켓을 개발 티켓 절에 넣었다')
     // 트래커 쓰기는 정해진 것뿐이다 — 요청 코멘트 · 본문 완성(설명·속성) · 역할 라벨 · 첨부 · 배정 · 전이.

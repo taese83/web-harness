@@ -307,10 +307,28 @@ test('원문: 사람이 처음 쓴 본문의 「원문」 제목은 자르지 �
 test('보드: 판정 전 티켓이 있으면 판정 조건을 말한다 — 스팩 소유 경계이지 기획·specTier가 아니다', () => {
   const devTickets = [{ticketKey: 'AOA-17', summary: '스택 정하기'}]
   const withSpec = buildTicketBoard({state: emptyState(), devTickets, developer: 'dev1', specBoundary: true})
-  assert.equal(withSpec.rows[0].blockedReason, 'assessment-required')
+  assert.equal(withSpec.rows[0].stage, 'unassessed')
   assert.ok(withSpec.notes.some(note => /pickup <티켓키>.*기획이 없어도 됩니다/.test(note)), withSpec.notes.join('\n'))
   assert.equal(withSpec.notes.some(note => /layerMap/.test(note)), false, '스팩이 있는데 없다고 적었다')
   // 스팩이 없으면 판정을 돌리기 전에 그렇게 말한다 — 전부 undecidable로 돌아가는 것을 뒤늦게 알 이유가 없다.
   const noSpec = buildTicketBoard({state: emptyState(), devTickets, developer: 'dev1', specBoundary: false})
   assert.ok(noSpec.notes.some(note => /layerMap.*판정이 모두 되돌아옵니다/.test(note)), noSpec.notes.join('\n'))
+})
+
+test('보드: 판정 전과 확인 대기는 막힌 것이 아니다 — 다음 할 일을 주고 이유는 달지 않는다', () => {
+  const digest = 'a'.repeat(64)
+  const state = {works: new Map(), tickets: new Map([
+    ['AOA-15', {verdict: 'needs-planning', assessmentDigest: digest, needs: [{what: '휴면 기준', why: '미정'}]}],
+    ['AOA-16', {verdict: 'startable', assessmentDigest: digest}]])}
+  const rows = new Map(buildTicketBoard({state, devTickets: [{ticketKey: 'AOA-17', summary: '스택 정하기'}], developer: 'dev1'})
+    .rows.map(row => [row.ticketKey, row]))
+  // 판정 전: pickup이 판정부터 시작하므로 막힌 것이 아니다.
+  assert.equal(rows.get('AOA-17').blockedReason, null, '판정 전 티켓을 막힌 것으로 그렸다')
+  assert.match(rows.get('AOA-17').next, /pickup AOA-17.*판정부터/)
+  // 착수 가능 판정: 개발자 확인만 남았다.
+  assert.equal(rows.get('AOA-16').blockedReason, null, '확인만 남은 티켓을 막힌 것으로 그렸다')
+  assert.match(rows.get('AOA-16').next, /pickup AOA-16.*확인/)
+  // 기획이 필요한 티켓은 실제로 막혔다 — 이유를 단다.
+  assert.equal(rows.get('AOA-15').blockedReason, 'ticket-needs-planning')
+  assert.match(rows.get('AOA-15').next, /정해야 할 것/)
 })

@@ -1,6 +1,6 @@
 {
   "kind": "falsification-receipt",
-  "measuredAt": "2026-09-16T04:29:05+00:00",
+  "measuredAt": "2026-09-16T05:17:12+00:00",
   "scope": "사람이 만든 개발 티켓 → WORK(판정서 검증·지문 확인·티켓 완성·원장 등록·링크 TT 인용·자동 닫기 v3·계획 계보 분리) + 리뷰 반영 진입 가드(계획 WORK·집계 티켓 충돌·원문 절단 금지·인젝션 스캔 선행·미리보기 원문 격리·겹침 무기록·재등록 편집 보존·취소·코멘트 중복·보드 축·경로 모양) + 보드가 판정 조건을 말한다(0.29.1)",
   "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
   "seeds": [
@@ -158,15 +158,20 @@
       "id": "ticket-board-names-spec-boundary",
       "file": ".claude/scripts/ticket/work-board.mjs",
       "test": ".claude/scripts/test-ticket-work.mjs"
+    },
+    {
+      "id": "ticket-board-unassessed-not-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-ticket-work.mjs"
     }
   ],
   "result": {
-    "ok": 31,
-    "total": 31,
+    "ok": 32,
+    "total": 32,
     "treeChanged": null
   },
   "summary": [
-    "falsification: 31건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+    "falsification: 32건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
   ],
   "limits": [
     "실 트래커 왕복 1회 수행(2026-09-16, Jira AOA) — 판정 요구→요청 코멘트→미리보기→지문 확인→티켓 완성→편집 반영→보드까지. PR 연결·머지 관측·자동 닫기 레그는 NOT_RUN",
