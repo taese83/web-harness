@@ -332,3 +332,15 @@ test('보드: 판정 전과 확인 대기는 막힌 것이 아니다 — 다음 
   assert.equal(rows.get('AOA-15').blockedReason, 'ticket-needs-planning')
   assert.match(rows.get('AOA-15').next, /정해야 할 것/)
 })
+
+test('되돌림 코멘트: 정해야 할 것을 번호 목록으로 적고, 어떻게 채우면 되는지까지 말한다', async () => {
+  const {bounceComment} = await import('./ticket/readiness.mjs')
+  const text = bounceComment({reason: 'ticket-needs-planning', outputLanguage: 'ko',
+    items: [{what: '휴면 기준', why: '원문에 정해지지 않았습니다'}, {what: '로그인 시 동작', why: '정책이라 화면 밖까지 영향이 갑니다'}]})
+  assert.match(text, /정해야 할 것\n1\. 휴면 기준\n {3}왜 필요한가: 원문에 정해지지 않았습니다\n2\. 로그인 시 동작/)
+  assert.match(text, /이 티켓 본문이나 코멘트에 적어 주세요[\s\S]*다시 판정합니다/, '어떻게 채우면 되는지를 말하지 않았다')
+  assert.equal(/왜 필요한가[\s\S]*해결되면 개발자가 다시 가져갑니다/.test(text), false, '같은 뜻의 마무리 문장이 두 번 나왔다')
+  // 목록이 없는 되돌림(계획 작업)은 종전 한 줄 형태 그대로다.
+  const plain = bounceComment({reason: 'dependency-incomplete', detail: 'WORK-3', outputLanguage: 'ko'})
+  assert.match(plain, /- 필요한 것: WORK-3[\s\S]*해결되면 개발자가 다시 가져갑니다/)
+})

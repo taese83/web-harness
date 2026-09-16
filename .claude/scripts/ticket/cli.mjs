@@ -308,7 +308,7 @@ export async function notifyPlanner({provider, ticketKey, featureId, bounce, io 
   // 상세는 **ID 목록**이라 언어 중립이다 — 문장으로 감싸면 그 문장이 하드코딩된 언어가 된다.
   // 되돌림의 대상 목록(선행 작업 ID 등)은 **상세**다 — 체크리스트로 그리면 「채울 칸」처럼 읽힌다.
   const detail = bounce?.missing?.length ? bounce.missing.join(', ') : bounce?.workId ?? null
-  const text = bounceComment({featureId, reason: bounce?.reason, detail,
+  const text = bounceComment({featureId, reason: bounce?.reason, detail, items: bounce?.needs ?? null,
     outputLanguage: bounce?.outputLanguage ?? readinessLanguage})
   if (!text) return {}
   // **미리보기는 트래커에 쓰지 않는다.** 코멘트는 지울 수 없는 부작용이고, 이 파일 머리말이

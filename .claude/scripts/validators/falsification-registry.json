@@ -2801,6 +2801,14 @@
       "replace": "      blockedReason: 'assessment-required', next: null, assignees: item.assignees ?? null})",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "판정 전 티켓을 막힌 것으로 그리면 할 수 없는 일처럼 읽혀, 바로 시작할 수 있는 티켓을 아무도 집지 않는다"
+    },
+    {
+      "id": "ticket-bounce-lists-needs",
+      "file": ".claude/scripts/ticket/readiness.mjs",
+      "find": "    ...(numbered.length > 0 ? ['', `${copy.needsTitle}`, ...numbered, '', copy.howTo]",
+      "replace": "    ...(false ? ['', `${copy.needsTitle}`, ...numbered, '', copy.howTo]",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "필요한 것을 한 줄에 몰아 적으면 어디서 끊기는지 보이지 않고, 어떻게 채우면 되는지도 말하지 못한다"
     }
   ]
 }

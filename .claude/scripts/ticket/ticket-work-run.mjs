@@ -148,7 +148,11 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     // **새 판정일 때만** 단다 — 같은 판정서로 pickup을 다시 부를 때마다 같은 코멘트가 쌓이지 않게.
     // 등록된 작업이면 원장이 그 작업을 거둔다(수정 범위를 놓는다) — 링크는 `work-cancelled`로 막는다.
     return {result: {ok: false, mode: 'work', phase: 'TICKET_NOT_STARTABLE', ticketKey, verdict: assessment.verdict, assessmentDigest: digest,
-      bounce: {reason: `ticket-${assessment.verdict}`, workId, missing: needs.map(item => (item.why ? `${item.what} — ${item.why}` : item.what))},
+      bounce: {reason: `ticket-${assessment.verdict}`, workId,
+        // 티켓 코멘트는 `needs`를 번호 목록으로 적는다. `missing`은 한 줄 요약으로 남긴다(옛 소비자 호환).
+        needs: needs.map(item => ({what: item.what, why: item.why ?? ''})),
+        missing: needs.map(item => (item.why ? `${item.what} — ${item.why}` : item.what))},
+      guidance: '정해야 할 것을 이 티켓에 적은 뒤 다시 pickup을 부르면 새 내용으로 다시 판정합니다. 같은 내용을 다시 부르면 판정 결과만 보여 줍니다.',
       ...(registered ? {withdrawn: !flags['dry-run']} : {}),
       notify: newJudgment, ...(newJudgment ? {} : {notified: {done: false, reason: 'same-assessment-already-notified'}})}}
   }
