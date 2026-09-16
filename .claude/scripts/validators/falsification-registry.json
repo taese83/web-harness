@@ -2785,6 +2785,14 @@
       "replace": "].map(normalizeDocItem))",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "테스트 항목에 더한 줄을 판정서로 옮겨도 ID 접두 때문에 재등록이 영원히 막힌다"
+    },
+    {
+      "id": "ticket-board-names-spec-boundary",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "    if (specBoundary === false) notes.push(",
+      "replace": "    if (false) notes.push(",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "판정 조건을 보드가 말하지 않으면 사용자가 계획·specTier 같은 엉뚱한 이유를 추측한다(2026-09-16 실측)"
     }
   ]
 }

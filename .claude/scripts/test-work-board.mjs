@@ -80,7 +80,7 @@ test('보드도 발행 뒤 바뀐 계획을 막는다 — 픽업과 같은 사�
   const row = rows.find(entry => entry.workId === W(1))
   assert.equal(row.blockedReason, 'stale-plan')
   assert.equal(row.publishedWith, 'b'.repeat(64))
-  assert.ok(notes.some(note => /발행 뒤 계획이 바뀐 작업/.test(note)), JSON.stringify(notes))
+  assert.ok(notes.some(note => /계획이 바뀐 작업이 \d+건/.test(note)), JSON.stringify(notes))
   // 발행 판본을 원장이 모르면 「같다」고 접지 않는다.
   const unknown = buildWorkBoard({plan, view, state: {works: new Map([[W(1), {status: 'published', ticketKey: 'PF-100'}]])},
     planDigest, developer: 'me', lookupComplete: true, issuesByWork: new Map([[W(1), {ticketKey: 'PF-100', assignees: []}]])})
@@ -121,8 +121,8 @@ test('발행해도 건너뛸 작업(미해결 결정과 후손)을 「발행하�
     grown = false
     for (const work of plan.workItems) if (!withheld.has(work.workId) && work.dependsOn.some(dep => withheld.has(dep))) { withheld.add(work.workId); grown = true }
   }
-  assert.ok(notes.includes(`발행되지 않은 작업 ${plan.workItems.length - withheld.size}건 — \`claim --publish\`로 등록해야 집을 수 있다`), JSON.stringify(notes))
-  assert.ok(notes.some(note => note.startsWith(`결정이 안 나 발행하지 않는 작업 ${withheld.size}건`)), JSON.stringify(notes))
+  assert.ok(notes.some(note => note.startsWith(`아직 티켓으로 발행하지 않은 작업이 ${plan.workItems.length - withheld.size}건`)), JSON.stringify(notes))
+  assert.ok(notes.some(note => /결정 때문에 발행을 미룬 작업이 \d+건/.test(note)), JSON.stringify(notes))
 })
 
 test('트래커를 못 보면 「미배정」이라 말하지 않는다 — 배정 미상으로 두고 그 사실을 적는다', () => {
@@ -132,7 +132,7 @@ test('트래커를 못 보면 「미배정」이라 말하지 않는다 — 배�
   assert.equal(row.assignees, null)
   assert.equal(row.mine, null)
   assert.equal(row.blockedReason, 'assignment-unknown', '배정을 모르는데 집을 수 있다고 했다')
-  assert.ok(offline.notes.some(note => /미배정이라는 뜻이 아니다/.test(note)), JSON.stringify(offline.notes))
+  assert.ok(offline.notes.some(note => /담당자가 없다는 뜻이 아닙니다/.test(note)), JSON.stringify(offline.notes))
   // 남이 잡고 있으면 막는다.
   const taken = buildWorkBoard({plan, view, state: published, planDigest, developer: 'me', lookupComplete: true,
     issuesByWork: new Map([[W(1), {ticketKey: 'PF-100', assignees: ['someone-else']}]])})
@@ -174,5 +174,5 @@ test('원장은 발행됐다는데 트래커에 없으면 「배정 미상」이
   const {rows, notes} = buildWorkBoard({plan, view, state: state([W(1)]), planDigest, issuesByWork: new Map(), developer: 'me', lookupComplete: true})
   const row = rows.find(entry => entry.workId === W(1))
   assert.equal(row.blockedReason, 'ticket-not-found')
-  assert.ok(notes.some(note => /트래커 목록에 없는 작업/.test(note)), JSON.stringify(notes))
+  assert.ok(notes.some(note => /트래커에서 찾을 수 없는 작업/.test(note)), JSON.stringify(notes))
 })

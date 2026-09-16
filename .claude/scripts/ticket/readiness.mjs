@@ -13,18 +13,18 @@ const REASONS = {
   ko: {
     // 계획을 고칠 사람이 봐야 하는 것만 넣는다 — 배정 경합·인젝션처럼 기획 쪽에 할 일이 없는
     // 사유는 null이라 티켓이 소음으로 차지 않는다.
-    'stale-plan': '발행 뒤 WORK 계획이 바뀌었다 — 바뀐 안을 다시 검토하고 `claim --publish --confirm`으로 티켓을 새 판본에 맞춰야 착수할 수 있다',
-    'decision-unresolved': '이 작업에 아직 닫히지 않은 결정이 있다(디자인 조건·계약 선택)',
-    'dependency-incomplete': '선행 작업이 아직 머지로 끝나지 않았다 — 그 위에서 개발하면 재작업이 된다',
-    'no-acceptance': '이 작업에 수용 기준(TC 또는 checks)이 하나도 없다 — 무엇으로 끝났다고 할지가 없다',
-    'work-not-registered': '이 티켓이 원장에 등록된 WORK가 아니다 — 계획에서 발행된 티켓인지 확인해야 한다',
-    'feature-decomposed-pick-work': '이 FEAT는 WORK로 분해됐다 — FEAT 티켓이 아니라 해당 WORK 티켓을 집어야 한다',
-    'ticket-needs-planning': '이 개발 티켓은 착수 전에 기획이 필요하다 — 아래 항목을 정해 티켓에 반영한다',
-    'ticket-needs-design': '이 개발 티켓은 착수 전에 디자인이 필요하다 — 아래 화면·상태의 모양을 정한다',
-    'ticket-undecidable': '이 개발 티켓은 지금 정보로 착수 여부를 판정할 수 없다 — 아래 사유를 해소한다',
-    'ticket-additions-too-large': '티켓에 더한 완료 조건·테스트 항목이 너무 많거나 길다 — 계획에 작업으로 반영한다',
-    'ticket-diverges-from-plan': '티켓 본문에서 계획의 완료 조건·테스트 항목이 빠지거나 바뀌었다 — 계획에 반영(재검토·발행)하거나 본문을 되돌린다',
-    'work-marker-missing': '이 티켓은 원장에 WORK로 발행됐는데 본문의 WORK 마커가 지워졌다 — 본문을 복구해야 착수할 수 있다',
+    'stale-plan': '티켓을 만든 뒤 계획이 바뀌었습니다. 바뀐 계획을 검토하고 다시 발행하면 착수할 수 있습니다.',
+    'decision-unresolved': '아직 정해지지 않은 결정이 남아 있습니다. 그 결정을 먼저 내려야 합니다.',
+    'dependency-incomplete': '먼저 끝나야 할 작업이 아직 머지되지 않았습니다. 그 작업이 끝나면 이어서 진행합니다.',
+    'no-acceptance': '무엇이 되면 끝인지가 이 작업에 적혀 있지 않습니다. 완료 조건을 정해 주세요.',
+    'work-not-registered': '이 티켓은 하네스가 만든 작업 티켓이 아닙니다. 계획에서 발행한 티켓인지 확인해 주세요.',
+    'feature-decomposed-pick-work': '이 기능은 여러 작업으로 나뉘었습니다. 이 티켓 대신 나뉜 작업 티켓을 집어야 합니다.',
+    'ticket-needs-planning': '개발을 시작하기 전에 정해야 할 것이 있습니다. 아래 항목을 정해 티켓에 적어 주세요.',
+    'ticket-needs-design': '개발을 시작하기 전에 화면 모양이 정해져야 합니다. 아래 화면을 디자인해 주세요.',
+    'ticket-undecidable': '지금 티켓 내용만으로는 개발을 시작할 수 있는지 판단할 수 없습니다. 아래 내용을 보태 주세요.',
+    'ticket-additions-too-large': '티켓에 새로 더한 내용이 한 작업으로 보기에 너무 많습니다. 계획에서 작업을 나눠 주세요.',
+    'ticket-diverges-from-plan': '계획이 정한 완료 조건이나 테스트 항목이 티켓에서 지워지거나 바뀌었습니다. 계획을 고쳐 다시 발행하거나 티켓 내용을 되돌려 주세요.',
+    'work-marker-missing': '하네스가 이 티켓에 남긴 표시가 지워졌습니다. 티켓 내용을 되돌려야 착수할 수 있습니다.',
   },
   en: {
     'stale-plan': 'the WORK plan changed after publishing — review it again and run `claim --publish --confirm` to sync the ticket before starting',
@@ -55,8 +55,8 @@ export function resolveCommentLanguage({declared = null, text = null} = {}) {
 }
 
 const COMMENT = {
-  ko: {lead: '개발 착수가 되돌아갔습니다 — 계획·발행 쪽에서 해결해야 진행됩니다.', reason: '사유', target: '대상',
-    detail: '상세', tail: '해결한 뒤 개발자가 다시 픽업합니다. 이 코멘트는 하네스가 남깁니다.'},
+  ko: {lead: '개발을 시작하지 못하고 되돌아왔습니다. 아래를 해결해 주세요.', reason: '이유', target: '대상',
+    detail: '필요한 것', tail: '해결되면 개발자가 다시 가져갑니다. 이 코멘트는 web-harness가 자동으로 남깁니다.'},
   en: {lead: 'Pickup was sent back — the plan or its publishing needs attention before development starts.', reason: 'Reason',
     target: 'Target', detail: 'Detail', tail: 'Once resolved, the developer picks this up again. Posted by web-harness.'},
 }

@@ -28,8 +28,8 @@ const readJson = (root, relative) => {
  */
 export async function runWorkPickup({root, ticketKey, developer, flags = {}, io = {}}) {
   const cli = await import('./cli.mjs')
-  if (!ticketKey) return {ok: false, mode: 'work', bounce: {reason: 'ticket-key-required'}, guidance: '어느 WORK 티켓인지 키를 준다: `pickup --work <티켓키> --developer <나>`'}
-  if (!developer) return {ok: false, mode: 'work', bounce: {reason: 'no-developer'}, guidance: '--developer <login> 필요(소유권 판정 주체)'}
+  if (!ticketKey) return {ok: false, mode: 'work', bounce: {reason: 'ticket-key-required'}, guidance: '어느 티켓인지 키가 필요합니다. `pickup <티켓키> --developer <내 아이디>`로 부르세요.'}
+  if (!developer) return {ok: false, mode: 'work', bounce: {reason: 'no-developer'}, guidance: '누가 집는지 알아야 합니다. `--developer <내 아이디>`를 붙여 주세요.'}
   const plan = readJson(root, WORK_PLAN_PATH)
   const analysis = readJson(root, WORK_ANALYSIS_PATH)
   // **판정 전에 origin 스냅샷을 갱신한다** — 로컬 계획·로컬 원장만 보면 남이 고친 계획을 못 보고
@@ -41,8 +41,8 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
   if ((!plan || !analysis) && !hasDevTicketAxis(io.ticketConfig) && ![...state.works.values()].some(item => item.origin === 'ticket')) {
     return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
-      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다. '
-        + '사람이 만든 개발 티켓을 바로 집으려면 트래커 설정에 개발 티켓 분류(Jira `componentAxis` · GitHub `labelAxis`의 `개발 티켓`)를 선언한다'}
+      guidance: '개발 계획이 아직 없습니다. `claim`으로 계획을 만들어 검토하고 발행한 뒤 집으세요. '
+        + '사람이 트래커에 직접 만든 개발 티켓을 바로 집고 싶으면, 트래커 설정에서 어떤 분류가 개발 티켓인지 먼저 정하세요.'}
   }
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
   let issue = await fetchIssue(ticketKey)
@@ -62,8 +62,8 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   }
   if (!ticket.context && (!plan || !analysis)) {
     return {ok: false, mode: 'work', bounce: {reason: 'plan-required'},
-      guidance: 'WORK 계획이 없다 — `claim`로 분석·계획을 만들고 검토·발행한 뒤 픽업한다. '
-        + '사람이 만든 개발 티켓을 바로 집으려면 트래커 설정에 개발 티켓 분류(Jira `componentAxis` · GitHub `labelAxis`의 `개발 티켓`)를 선언한다'}
+      guidance: '개발 계획이 아직 없습니다. `claim`으로 계획을 만들어 검토하고 발행한 뒤 집으세요. '
+        + '사람이 트래커에 직접 만든 개발 티켓을 바로 집고 싶으면, 트래커 설정에서 어떤 분류가 개발 티켓인지 먼저 정하세요.'}
   }
   if (ticket.issue) issue = ticket.issue
   // 방금 등록했으면 원장을 다시 접는다 — 등록 전 상태로 판정하면 「원장에 없는 작업」으로 되돌린다.
@@ -98,26 +98,26 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const existingId = existing?.workId ?? existing?.featureId ?? null
   if (existing && existingId !== pick.changeScope.workId && !flags['replace-scope']) {
     return {ok: false, mode: 'work', bounce: {reason: 'active-change-scope', active: existingId},
-      guidance: `${existingId} 픽업이 진행 중이다 — 끝내거나 --replace-scope로 명시 교체한다(그 범위의 STALE 앵커가 사라진다)`}
+      guidance: `${existingId} 작업을 이미 집어 둔 상태입니다. 그 작업을 끝내거나, 바꾸려면 --replace-scope를 붙이세요.`}
   }
   if (assignment.action === 'self-assign') {
     // 판정 뒤 남이 먼저 잡았을 수 있다 — 배정 **직전에** 다시 조회해 양보한다(CAS가 없다).
     const fresh = await fetchIssue(ticketKey)
     if (computeAssignmentPlan({issue: fresh, developer}).status === 'taken') {
       return {ok: false, mode: 'work', bounce: {reason: 'assigned-to-other', by: fresh.assignees?.[0] ?? null},
-        guidance: '판정 이후 다른 개발자가 먼저 배정했다 — 다른 작업을 고른다'}
+        guidance: '그 사이 다른 개발자가 이 티켓을 가져갔습니다. 다른 작업을 고르세요.'}
     }
     await provider.assign(ticketKey, developer)
     const after = await fetchIssue(ticketKey)
     const assignees = after.assignees ?? []
     if (!assignees.includes(developer)) {
       return {ok: false, mode: 'work', bounce: {reason: 'assign-lost', assignees},
-        guidance: '배정 직후 다른 개발자가 배정을 가져갔다 — 팀과 조율한다(자동 판정하지 않는다)'}
+        guidance: '배정 직후 다른 개발자도 이 티켓을 가져갔습니다. 누가 할지 팀과 정하세요.'}
     }
     // GitHub의 배정은 **덧붙임**이라 동시에 집으면 둘 다 자기 이름을 본다 — 소유가 하나인지도 본다.
     if (assignees.length > 1) {
       return {ok: false, mode: 'work', bounce: {reason: 'multi-assign-detected', assignees},
-        guidance: '동시 배정이 감지됐다 — 한 명이 양보하도록 팀과 조율한다(자동 판정하지 않는다)'}
+        guidance: '두 사람이 같은 티켓에 배정돼 있습니다. 누가 할지 팀과 정하세요.'}
     }
   }
   // 전이는 **능력이 있을 때만**. 없으면 조용히 넘기지 않고 표시한다 — 안 한 것과 못 한 것은 다르다.

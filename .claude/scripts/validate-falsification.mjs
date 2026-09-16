@@ -18,6 +18,11 @@
 // 셋 다 「정본에 쓴다」에서 나온다. 그래서 **정본에 쓰지 않는다** — 작업 트리를 임시 디렉터리로
 // 복사하고 거기서 변형·테스트한다. 정본은 읽기만 하며, 실행 전후 트리 digest로 그것을 증명한다.
 // 사본 안에서 짝 테스트 606건이 원형 그대로 통과하는 것을 먼저 확인했다(node_modules·.git 불요).
+// ── 앵커는 조건문까지만 (2026-09-16) ────────────────────────────────────────────
+// `find`에 **사용자에게 보이는 문구**까지 넣으면 안내 문장을 다듬는 것만으로 seed가 「변형 지점을
+// 찾지 못했다」로 실패한다. 게이트는 그대로인데 CI가 빨개지면, 고치는 사람이 문구가 아니라 seed를
+// 손대고 싶어진다 — 게이트를 약하게 만드는 압력이다(실측: 0.29.1 문구 개선에서 발생).
+// 그래서 앵커는 **판정하는 조건**까지만 잡는다. 메시지는 인자로 남겨 두면 문구 수정과 무관해진다.
 import {execFileSync} from 'node:child_process'
 import {copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'

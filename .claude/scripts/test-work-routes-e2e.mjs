@@ -223,7 +223,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     const blocked = await runWorkPickup({root, ticketKey: keyOf(W(4)), developer: 'dev1', flags: {}, io: {provider, ...gitIo}})
     assert.equal(blocked.bounce.reason, 'dependency-incomplete')
     assert.deepEqual(blocked.bounce.missing, [W(3)])
-    assert.ok(jira.issues.get(keyOf(W(4))).fields.comment.comments.some(comment => /머지로 끝나지 않았다|not merged/.test(comment.body)),
+    assert.ok(jira.issues.get(keyOf(W(4))).fields.comment.comments.some(comment => /아직 머지되지 않았습니다|not merged/.test(comment.body)),
       '되돌림이 트래커에 남지 않았다')
     // (3) 트래커 쓰기는 정해진 것뿐이다
     const writes = describeWrites(jira.writes)
@@ -270,7 +270,7 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     const needs = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
     assert.equal(needs.phase, 'TICKET_NOT_STARTABLE')
     assert.equal(needs.bounce.reason, 'ticket-needs-planning')
-    assert.ok(jira.issues.get(key).fields.comment.comments.some(comment => /기획이 필요하다[\s\S]*정지 기준/.test(comment.body)), '기획 요청이 티켓에 남지 않았다')
+    assert.ok(jira.issues.get(key).fields.comment.comments.some(comment => /정해야 할 것이 있습니다[\s\S]*정지 기준/.test(comment.body)), '기획 요청이 티켓에 남지 않았다')
     assert.equal(jira.issues.get(key).fields.assignee, null, '착수 불가인데 배정했다')
     // 같은 판정서로 다시 불러도 요청 코멘트를 또 달지 않는다 — 새 판정일 때만 알린다.
     const commentsBefore = jira.issues.get(key).fields.comment.comments.length

@@ -303,3 +303,14 @@ test('원문: 사람이 처음 쓴 본문의 「원문」 제목은 자르지 �
     assert.equal(out.result.carriedAdditions, 1)
   })
 })
+
+test('보드: 판정 전 티켓이 있으면 판정 조건을 말한다 — 스팩 소유 경계이지 기획·specTier가 아니다', () => {
+  const devTickets = [{ticketKey: 'AOA-17', summary: '스택 정하기'}]
+  const withSpec = buildTicketBoard({state: emptyState(), devTickets, developer: 'dev1', specBoundary: true})
+  assert.equal(withSpec.rows[0].blockedReason, 'assessment-required')
+  assert.ok(withSpec.notes.some(note => /pickup <티켓키>.*기획이 없어도 됩니다/.test(note)), withSpec.notes.join('\n'))
+  assert.equal(withSpec.notes.some(note => /layerMap/.test(note)), false, '스팩이 있는데 없다고 적었다')
+  // 스팩이 없으면 판정을 돌리기 전에 그렇게 말한다 — 전부 undecidable로 돌아가는 것을 뒤늦게 알 이유가 없다.
+  const noSpec = buildTicketBoard({state: emptyState(), devTickets, developer: 'dev1', specBoundary: false})
+  assert.ok(noSpec.notes.some(note => /layerMap.*판정이 모두 되돌아옵니다/.test(note)), noSpec.notes.join('\n'))
+})

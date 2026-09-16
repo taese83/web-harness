@@ -16,11 +16,11 @@ const TITLES = {
   en: {acceptance: 'Acceptance criteria', tests: 'Test items', scope: 'Scope of change', nonGoals: 'Out of scope', dependsOn: 'Depends on', references: 'References'},
 }
 const COPY = {
-  ko: {noTests: '이 작업이 최종 검증하는 TC는 없다 — 완료 조건의 검증으로 끝낸다', noDeps: '없음 — 바로 착수할 수 있다',
+  ko: {noTests: '이 작업이 확인하는 테스트 항목은 없습니다. 위 완료 조건으로 끝을 판단합니다', noDeps: '없습니다. 바로 시작할 수 있습니다',
     unpublished: '아직 발행되지 않음', workId: '작업 ID', features: '기능', design: '디자인 조건', contracts: '계약 문서',
     parent: '부모 티켓', parentLinkOnly: '본문 참조 — 트래커 관계 아님', context: 'AI 작업 맥락', target: '대상',
     testsPass: n => `아래 테스트 항목 ${n}건이 모두 통과한다`,
-    editNote: '완료 조건·테스트 항목에 항목을 **더하면** 픽업 때 개발 범위에 반영된다. 계획이 만든 항목을 지우거나 바꾸면 계획 검토로 돌아간다.'},
+    editNote: '완료 조건과 테스트 항목에 **새 항목을 더하면** 개발에 그대로 반영됩니다. 이미 있는 항목을 지우거나 고치면 개발이 멈추고 계획 검토로 돌아갑니다.'},
   en: {noTests: 'No test case is finally verified by this work — the acceptance checks close it', noDeps: 'None — ready to start',
     unpublished: 'not published yet', workId: 'Work ID', features: 'Features', design: 'Design conditions', contracts: 'Contracts',
     parent: 'Parent ticket', parentLinkOnly: 'body reference — not a tracker relation', context: 'AI work context', target: 'target',

@@ -61,22 +61,22 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     }
   })
   if (issuesByWork === null) {
-    notes.push('트래커를 조회하지 않았다 — 아래는 로컬 계획·원장 기준이며 배정은 반영되지 않았다(미배정이라는 뜻이 아니다)')
+    notes.push('트래커를 읽지 않았습니다. 아래는 내 컴퓨터의 계획 기준이고, 담당자는 비어 있어도 담당자가 없다는 뜻이 아닙니다.')
   } else if (!lookupComplete) {
-    notes.push('트래커 목록이 완결이 아니다(절단·색인 지연) — 못 본 작업의 배정은 `null`이며 「미배정」으로 읽지 않는다')
+    notes.push('트래커 목록을 끝까지 읽지 못했습니다. 못 읽은 작업의 담당자는 비어 있게 나오지만 담당자가 없다는 뜻은 아닙니다.')
   }
   const linkedNotMerged = rows.filter(row => row.linked && !row.completed).length
   if (linkedNotMerged > 0) {
-    notes.push(`PR이 연결됐지만 머지가 관측되지 않은 작업 ${linkedNotMerged}건 — \`link --sync\`로 머지를 확인해야 후속이 열린다`)
+    notes.push(`PR은 연결됐지만 아직 머지를 확인하지 못한 작업이 ${linkedNotMerged}건 있습니다. \`link --sync\`로 머지를 확인해야 다음 작업이 열립니다.`)
   }
   const stale = rows.filter(row => row.blockedReason === 'stale-plan').map(row => row.workId)
   if (stale.length > 0) {
-    notes.push(`발행 뒤 계획이 바뀐 작업 ${stale.length}건 — 바뀐 안을 다시 검토·발행해야 집을 수 있다(픽업도 같은 이유로 막는다)`)
+    notes.push(`티켓을 만든 뒤 계획이 바뀐 작업이 ${stale.length}건 있습니다. 바뀐 계획을 검토하고 다시 발행해야 집을 수 있습니다.`)
   }
-  if (!developer) notes.push('`--developer <나>`가 없으면 누가 집을 수 있는지 판정할 수 없다 — 픽업도 같은 이유로 막는다')
+  if (!developer) notes.push('누가 보는지 몰라 집을 수 있는지 판단하지 못했습니다. `--developer <내 아이디>`를 붙여 주세요.')
   const lost = rows.filter(row => row.blockedReason === 'ticket-not-found').map(row => row.workId)
   if (lost.length > 0) {
-    notes.push(`원장은 발행됐다는데 트래커 목록에 없는 작업 ${lost.length}건 — 지워졌거나 권한 밖이다(사람이 확인한다)`)
+    notes.push(`발행했다고 기록됐지만 트래커에서 찾을 수 없는 작업이 ${lost.length}건 있습니다. 티켓이 지워졌거나 볼 권한이 없습니다.`)
   }
   // 발행해도 **건너뛸** 작업(미해결 결정과 그 후손)을 「발행하면 된다」로 안내하지 않는다 — 발행 판정과 같은 축으로 나눈다.
   const unpublishedIds = new Set(rows.filter(row => row.registration !== 'published').map(row => row.workId))
@@ -89,17 +89,19 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     }
   }
   const publishable = unpublishedIds.size - withheld.size
-  if (publishable > 0) notes.push(`발행되지 않은 작업 ${publishable}건 — \`claim --publish\`로 등록해야 집을 수 있다`)
-  if (withheld.size > 0) notes.push(`결정이 안 나 발행하지 않는 작업 ${withheld.size}건(후손 포함) — 결정을 먼저 닫는다(발행해도 건너뛴다)`)
+  if (publishable > 0) notes.push(`아직 티켓으로 발행하지 않은 작업이 ${publishable}건 있습니다. \`claim --publish\`로 발행해야 집을 수 있습니다.`)
+  if (withheld.size > 0) notes.push(`아직 정해지지 않은 결정 때문에 발행을 미룬 작업이 ${withheld.size}건 있습니다. 그 결정을 먼저 내려 주세요.`)
   return {rows, notes}
 }
 
 /**
  * 사람이 만든 개발 티켓 절(순수). 픽업과 같은 축으로만 「집을 수 있다」고 말한다 — 등록된 티켓 작업은 선행·배정으로,
  * 판정만 된 티켓은 판정으로, 트래커에만 있는 개발 티켓은 「판정 전」으로 그린다(착수 가능으로 보이지 않는다).
- * @param {{state: object, issuesByKey?: Map<string, object>|null, devTickets?: object[]|null, developer?: string|null, lookupComplete?: boolean}} args
+ * @param {{state: object, issuesByKey?: Map<string, object>|null, devTickets?: object[]|null, developer?: string|null,
+ *          lookupComplete?: boolean, specBoundary?: boolean|null}} args
+ *   specBoundary: 스팩(layerMap)이 있는가 — 판정이 수정 범위를 대조할 경계다(기획·specTier는 이 경로의 조건이 아니다)
  */
-export function buildTicketBoard({state, issuesByKey = null, devTickets = null, developer = null, lookupComplete = false}) {
+export function buildTicketBoard({state, issuesByKey = null, devTickets = null, developer = null, lookupComplete = false, specBoundary = null}) {
   const rows = []
   const works = [...(state?.works?.entries() ?? [])]
   const seen = new Set()
@@ -135,8 +137,12 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
   }
   const notes = []
   const waiting = rows.filter(row => row.stage === 'unassessed').length
-  if (waiting > 0) notes.push(`판정 전 개발 티켓 ${waiting}건 — \`pickup <키>\`가 판정부터 시작한다`)
-  if (devTickets === null) notes.push('트래커의 개발 티켓 목록을 읽지 않았다 — 판정 전 티켓은 이 보드에 없다(분류 설정이나 트래커 조회를 확인한다)')
+  if (waiting > 0) {
+    notes.push(`아직 판정하지 않은 개발 티켓이 ${waiting}건 있습니다. \`pickup <티켓키>\`를 부르면 판정부터 시작합니다. 기획이 없어도 됩니다.`)
+    // 판정은 수정 범위를 **스팩 소유 경계**로 대조한다 — 없으면 전부 undecidable로 돌아간다. 판정을 돌린 뒤에 알면 늦다.
+    if (specBoundary === false) notes.push('다만 프로젝트 구조 정의(`_workspace/03_dev/spec.json`의 `layerMap`)가 없습니다. 어디까지 고쳐도 되는지 댈 기준이 없어 판정이 모두 되돌아옵니다.')
+  }
+  if (devTickets === null) notes.push('트래커에서 개발 티켓 목록을 읽지 않았습니다. 아직 판정하지 않은 티켓은 이 목록에 보이지 않습니다.')
   return {rows, notes}
 }
 
@@ -160,7 +166,7 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
   const ticketCapable = hasDevTicketAxis(io.ticketConfig) || [...state.works.values()].some(item => item.origin === 'ticket')
   if ((!plan || !analysis) && !ticketCapable) {
-    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim`로 먼저 만든다(사람이 만든 개발 티켓을 보려면 개발 티켓 분류를 설정한다)'}
+    return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: '개발 계획이 없습니다. `claim`으로 계획을 만드세요. 사람이 만든 개발 티켓을 보려면 트래커 설정에서 어떤 분류가 개발 티켓인지 정하세요.'}
   }
   const view = plan && analysis ? computeWorkView(plan, analysis) : {rows: []}
   const provider = io.provider ?? null
@@ -185,28 +191,29 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
         const found = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
         if (found) issuesByWork.set(workId, {ticketKey: found.ticketKey, assignees: found.assignees ?? null})
       }
-      if (listed.truncated) trackerNotes.push('트래커 목록이 상한에 닿았다 — 넘은 분은 반영되지 않았다')
-      if (listed.stalled) trackerNotes.push('트래커 커서가 전진하지 않았다 — 목록이 불완전하다')
+      if (listed.truncated) trackerNotes.push('트래커 목록이 최대 개수에 닿았습니다. 그 뒤 작업은 반영되지 않았습니다.')
+      if (listed.stalled) trackerNotes.push('트래커 목록을 더 읽지 못하고 멈췄습니다. 목록이 완전하지 않습니다.')
     } catch (error) {
       // 조회 실패를 「배정 없음」으로 접지 않는다 — 로컬 기준임을 적고 배정은 미상으로 둔다.
       trackerNotes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)
     }
   }
   const board = plan && analysis ? buildWorkBoard({plan, view, state, planDigest: canonicalDigest(plan), issuesByWork, developer, lookupComplete})
-    : {rows: [], notes: ['WORK 계획이 없다 — 사람이 만든 개발 티켓 절만 그린다']}
+    : {rows: [], notes: ['개발 계획이 없어 사람이 만든 개발 티켓만 보여 줍니다. 이 티켓들을 집는 데 계획은 필요 없습니다.']}
   // 사람이 만든 개발 티켓 절 — 트래커의 개발 티켓 목록은 분류 설정과 조회 능력이 있을 때만 읽는다(못 읽으면 그렇게 적는다).
   let devTickets = null
   if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
     try {
       const listed = await provider.listDevTickets({config: io.ticketConfig ?? {}})
       devTickets = listed.items
-      if (listed.complete !== true) trackerNotes.push('개발 티켓 목록이 완결이 아니다 — 판정 전 티켓 일부가 빠졌을 수 있다')
+      if (listed.complete !== true) trackerNotes.push('개발 티켓 목록을 끝까지 읽지 못했습니다. 아직 판정하지 않은 티켓 일부가 빠졌을 수 있습니다.')
     } catch (error) {
       trackerNotes.push(`개발 티켓 목록 조회 실패 — 판정 전 티켓은 보이지 않는다: ${String(error?.message ?? error).slice(0, 120)}`)
     }
   }
   const issuesByKey = issuesByWork ? new Map([...issuesByWork.values()].map(item => [String(item.ticketKey), item])) : null
-  const tickets = ticketCapable ? buildTicketBoard({state, issuesByKey, devTickets, developer, lookupComplete}) : {rows: [], notes: []}
+  const specBoundary = (() => { const spec = readJson('_workspace/03_dev/spec.json'); return spec ? Boolean(spec.layerMap && Object.keys(spec.layerMap).length > 0) : false })()
+  const tickets = ticketCapable ? buildTicketBoard({state, issuesByKey, devTickets, developer, lookupComplete, specBoundary}) : {rows: [], notes: []}
   return {ok: true, mode: 'work', planId: plan?.planId ?? null, planDigest: plan ? canonicalDigest(plan) : null,
     rows: board.rows, ready: board.rows.filter(row => row.pickupable).map(row => row.workId),
     ...(ticketCapable ? {tickets: tickets.rows, readyTickets: tickets.rows.filter(row => row.pickupable).map(row => row.ticketKey)} : {}),

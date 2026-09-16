@@ -117,7 +117,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       next: {agent: 'system-architect', mode: 'ticket-assessment', writes: path,
         contract: '.claude/skills/team-flow/references/ticket-work-contract.md',
         reads: [flags['dry-run'] ? '(dry-run — 격리 스냅샷을 쓰지 않았다)' : snapshot, '_workspace/03_dev/spec.json', '현재 코드', '_workspace/03_dev/work-plan.json(있으면)']},
-      guidance: `${ticketKey}는 사람이 만든 개발 티켓입니다(${dev.by ?? '등록된 티켓 작업'}) — 기획·디자인이 필요한지 먼저 판정합니다. system-architect가 격리 스냅샷을 읽고 ${path}를 쓴 뒤 다시 pickup을 부릅니다`}}
+      guidance: `사람이 만든 개발 티켓입니다(${dev.by ?? '등록된 티켓 작업'}). 기획이나 디자인이 더 필요한지 먼저 판정합니다. system-architect가 ${path}를 쓴 뒤 다시 pickup을 부르세요.`}}
   }
 
   const workId = ticketWorkId(providerName, ticketKey)
@@ -174,7 +174,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     if (dropped.length > 0) {
       return {result: {ok: false, mode: 'work', phase: 'TICKET_EDITS_NOT_IN_ASSESSMENT', ticketKey, externalWrites: 0,
         bounce: {reason: 'ticket-edits-not-in-assessment', workId, missing: dropped.map(item => item.text)},
-        guidance: '사람이 티켓에 더한 항목이 새 판정서에 없다 — 판정서의 acceptance·testItems(source: proposed)로 옮긴 뒤 다시 확인한다(재등록은 본문을 다시 쓴다)'}}
+        guidance: '누군가 티켓에 더한 항목이 새 판정서에 없습니다. 티켓 내용을 다시 쓰면 그 항목이 사라지니, 판정서에 옮긴 뒤 다시 확인하세요.'}}
     }
     carriedAdditions = edits.additions.length
   }
@@ -190,12 +190,12 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     reregister: Boolean(registered), ...(registered ? {carriedAdditions} : {}), externalWrites: 0}
   if (!flags.assessment || flags['dry-run']) {
     return {result: {...preview, ok: true, phase: 'TICKET_WORK_PREVIEW',
-      guidance: `이 판정·보강안으로 착수하려면 개발자가 확인한 뒤 같은 요청에 --assessment ${digest}를 붙인다(확인 전에는 트래커에 쓰지 않는다)`
-        + (assessment.lane === 'change' ? ' · change 레인이다 — 구현 전에 /wh change의 1-A 스팩 승인을 거친다' : '')}}
+      guidance: `이대로 진행하려면 --assessment ${digest}를 붙여 다시 부르세요. 확인 전에는 티켓을 고치지 않습니다.`
+        + (assessment.lane === 'change' ? ' 새 동작을 더하는 작업이라, 구현 전에 /wh change로 스팩 승인을 받습니다.' : '')}}
   }
   if (String(flags.assessment) !== digest) {
     return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_MISMATCH', ticketKey, expected: digest,
-      guidance: '확인한 판정서와 지금 판정서가 다르다 — 미리보기를 다시 보고 확인한다'}}
+      guidance: '확인한 판정서가 지금 판정서와 다릅니다. 미리보기를 다시 보고 확인하세요.'}}
   }
   const missing = ['updateBody', 'updateLabels', 'attachContext'].filter(name => typeof provider?.[name] !== 'function')
   if (missing.length > 0) return {result: {ok: false, mode: 'work', phase: 'PROVIDER_NOT_READY', missing: missing.map(name => `provider.${name}`)}}
@@ -213,14 +213,14 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     if (labelsToAdd.length > 0) { externalWrites += 1; await provider.updateLabels(ticketKey, {add: labelsToAdd, remove: []}) }
   } catch (error) {
     return {result: {ok: false, mode: 'work', phase: 'TICKET_WORK_WRITE_FAILED', ticketKey, externalWrites,
-      guidance: `티켓 완성에 실패했다 — 원장에 등록하지 않았다(다시 부르면 같은 작업 ID로 재시도한다): ${String(error?.message ?? error).slice(0, 160)}`}}
+      guidance: `티켓을 고치지 못했습니다. 등록도 하지 않았으니 다시 부르면 같은 작업으로 재시도합니다: ${String(error?.message ?? error).slice(0, 160)}`}}
   }
   try {
     record({eventType: 'ticket-work-registered', operationId: randomUUID(), planDigest: digest,
       payload: {ticketKey: String(ticketKey), provider: providerName, assessmentDigest: digest, definition, labels: definition.roles, docDigest}})
   } catch (error) {
     return {result: {ok: false, mode: 'work', phase: 'TICKET_WORK_WRITE_FAILED', ticketKey, externalWrites,
-      guidance: `티켓은 완성했는데 원장에 등록하지 못했다 — 원장을 고친 뒤 같은 요청을 다시 부른다: ${String(error?.message ?? error).slice(0, 160)}`}}
+      guidance: `티켓은 고쳤지만 기록에 남기지 못했습니다. 기록 파일을 고친 뒤 다시 부르세요: ${String(error?.message ?? error).slice(0, 160)}`}}
   }
   let contextNote = null
   try {

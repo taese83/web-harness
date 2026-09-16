@@ -1,7 +1,7 @@
 {
   "kind": "falsification-receipt",
-  "measuredAt": "2026-09-15T09:52:28+00:00",
-  "scope": "사람이 만든 개발 티켓 → WORK(판정서 검증·지문 확인·티켓 완성·원장 등록·링크 TT 인용·자동 닫기 v3·계획 계보 분리) + 리뷰 반영 진입 가드(계획 WORK·집계 티켓 충돌·원문 절단 금지·인젝션 스캔 선행·미리보기 원문 격리·겹침 무기록·재등록 편집 보존·취소·코멘트 중복·보드 축·경로 모양)",
+  "measuredAt": "2026-09-16T04:29:05+00:00",
+  "scope": "사람이 만든 개발 티켓 → WORK(판정서 검증·지문 확인·티켓 완성·원장 등록·링크 TT 인용·자동 닫기 v3·계획 계보 분리) + 리뷰 반영 진입 가드(계획 WORK·집계 티켓 충돌·원문 절단 금지·인젝션 스캔 선행·미리보기 원문 격리·겹침 무기록·재등록 편집 보존·취소·코멘트 중복·보드 축·경로 모양) + 보드가 판정 조건을 말한다(0.29.1)",
   "runner": ".claude/scripts/validate-falsification.mjs — 격리 사본(정본 digest 불변)",
   "seeds": [
     {
@@ -153,18 +153,23 @@
       "id": "ticket-reregister-tests-match-without-id",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
       "test": ".claude/scripts/test-ticket-work.mjs"
+    },
+    {
+      "id": "ticket-board-names-spec-boundary",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "test": ".claude/scripts/test-ticket-work.mjs"
     }
   ],
   "result": {
-    "ok": 30,
-    "total": 30,
+    "ok": 31,
+    "total": 31,
     "treeChanged": null
   },
   "summary": [
-    "falsification: 30건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
+    "falsification: 31건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)"
   ],
   "limits": [
-    "실 트래커 왕복은 NOT_RUN — 메모리 Jira(REST v2 일부)와 GitHub argv까지",
+    "실 트래커 왕복 1회 수행(2026-09-16, Jira AOA) — 판정 요구→요청 코멘트→미리보기→지문 확인→티켓 완성→편집 반영→보드까지. PR 연결·머지 관측·자동 닫기 레그는 NOT_RUN",
     "판정 자체의 참(예: 새 데이터 계약이 아니다)은 검사 밖 — 개발자 확인이 맡는다",
     "system-architect 티켓 판정 모드의 실제 판정 품질은 측정하지 않았다(판정서는 테스트가 손으로 쓴 것)",
     "--assessment 지문 확인은 개발자 신원 증명이 아니다(protected-core §4 ⑦)"
