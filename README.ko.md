@@ -55,7 +55,7 @@ pnpm run ci
 
 green 실행은 다음을 검증한다:
 
-- 25 skills <!-- inventory:skills -->
+- 22 skills <!-- inventory:skills -->
 - 46 agents <!-- inventory:agents -->
 - 3개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`·`next-app-fullstack`은
   `compatible`. `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼

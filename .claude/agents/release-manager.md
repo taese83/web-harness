@@ -85,8 +85,8 @@ AI architecture가 있으면 model gateway, provider와 prompt version, tool sco
 - Theme change: edit src/app/theme.ts
 - 컴포넌트 수정: `/component-gen` 실행
 
-## Add a feature (/feature-add)
-- `/feature-add` 실행: "알람 기능을 추가해줘"
+## Add a feature (/wh change)
+- `/wh change 알람 기능을 추가해줘`
 
 ## Project structure
 [App Router or FSD structure tree matching the locked profile]

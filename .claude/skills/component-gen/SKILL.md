@@ -31,7 +31,7 @@ When the user invokes `/component-gen` alone, start with:
 
 ## Workflow
 
-1. 위치(레이어/슬라이스)와 역할을 파악한다. 레이어가 불명확하면 `/fsd-scaffold` 결정 트리를 적용하고 결과를 한 줄로 설명한다.
+1. 위치(레이어/슬라이스)와 역할을 파악한다. 레이어가 불명확하면 `references/fsd-rules.md`의 레이어 결정 트리를 적용하고 결과를 한 줄로 설명한다.
 2. 기존 component 수정이면 change brief에 목표 동작, `ALLOWED_PATHS`, 보존할 props/접근성 contract, `NON_GOALS`를 기록한다. **신규 생성이면 이 단계를 생략한다.**
 3. `references/mui-patterns.md`의 map으로 필요한 focused reference만 선택한다. interactive UI(클릭·키보드·포커스가 있는 컴포넌트)면 `references/accessibility.md`를 반드시 읽는다.
 4. 프로젝트 Prettier 설정에 맞는 코드를 생성한다.

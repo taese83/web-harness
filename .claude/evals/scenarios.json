@@ -69,7 +69,7 @@
     "id": "production-aws-deploy",
     "entrySkill": "/dev-orchestrator",
     "covers": [
-      "dev-orchestrator"
+      "web-orchestrator"
     ],
     "prompt": "S3와 CloudFront로 승인 기반 프로덕션 배포 파이프라인까지 만들어줘.",
     "assertions": [
@@ -82,7 +82,7 @@
     "id": "trusted-npm-publish",
     "entrySkill": "/dev-orchestrator",
     "covers": [
-      "dev-orchestrator"
+      "web-orchestrator"
     ],
     "prompt": "공개 TypeScript 라이브러리와 안전한 npm publish workflow를 만들어줘.",
     "assertions": [

@@ -283,7 +283,6 @@ const webOrchestrationSource = [
   orchestrationSurface(repositoryRoot),
   read('.claude/skills/web-verify/SKILL.md'),
 ].join('\n')
-const devOrchestratorSource = read('.claude/skills/dev-orchestrator/SKILL.md')
 for (const agentName of [
   'api-contract-verifier',
   'browser-verifier',
@@ -299,16 +298,6 @@ for (const agentName of [
 }
 for (const modeName of ['TIMESERIES_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
   if (!webOrchestrationSource.includes(modeName)) fail(`web orchestrators do not define ${modeName}`)
-  if (devOrchestratorSource.includes(modeName)) fail(`dev-orchestrator duplicates web mode ${modeName}`)
-}
-if (!devOrchestratorSource.includes('/web-orchestrator')) fail('dev-orchestrator does not delegate web applications')
-// 이 목록은 **실존 이름만** 담아야 한다. 삭제된 이름은 dev-orchestrator에 나타날 수 없으므로
-// 그 항목은 영원히 발화하지 않는 vacuous 검사가 된다 — 실측(2026-08-27): 4개 중 3개
-// (realtime-data-builder·mock-api-builder·data-ui-binder)가 2026-08-26 삭제 후 그 상태였고
-// 아무도 몰랐다. 실존 대조를 함께 걸어 목록이 조용히 비지 않게 한다.
-for (const webOnlyAgent of ['timeseries-architect', 'timeseries-verifier', 'analytics-domain-architect', 'analytics-verifier', 'browser-verifier']) {
-  if (!agentNames.has(webOnlyAgent)) fail(`web-only agent registry is stale: ${webOnlyAgent} no longer exists (check would be vacuous)`)
-  if (devOrchestratorSource.includes(webOnlyAgent)) fail(`dev-orchestrator duplicates web agent ${webOnlyAgent}`)
 }
 if (!existsSync(join(claudeDirectory, 'skills', 'timeseries-dashboard', 'SKILL.md'))) fail('timeseries-dashboard skill is missing')
 pass('canonical web orchestration and dev delegation checked')

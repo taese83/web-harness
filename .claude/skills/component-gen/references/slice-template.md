@@ -1,6 +1,6 @@
 # Slice Template Reference
 
-web-harness FSD 슬라이스 보일러플레이트 템플릿. `/fsd-scaffold`에서 파일 생성 시 사용한다.
+web-harness FSD 슬라이스 보일러플레이트 템플릿. 레이어가 정해진 뒤 파일을 만들 때 쓴다.
 
 ## Feature 슬라이스 템플릿
 
