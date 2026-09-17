@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: eval-covered
   updated: 2026-08-03
-  changelog: 인증 엔드포인트 남용 방어 절 신설 — rate limit·body 캡·입력 검증·응답 균일성·백오프를 작업 순서와 완료 조건에 강제하고, serverless in-memory rate limit의 soft limit 한계 고지 의무 추가.
 ---
 
 # Auth Setup

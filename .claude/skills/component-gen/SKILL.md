@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: contract-only
   updated: 2026-07-27
-  changelog: UI 레인 이원화(M4) — UI_LANE(mui|tailwind-shadcn) 분기, tailwind-shadcn-styling 계약 신설, 인덱스·설명 레인 중립화.
 ---
 
 # Component Gen

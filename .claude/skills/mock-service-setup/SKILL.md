@@ -8,7 +8,6 @@ metadata:
   version: 1.0.0
   maturity: contract-only
   updated: 2026-07-27
-  changelog: 최초 버저닝 — adapter 재생성·검증 체계 도입과 함께 일괄 부여.
 ---
 
 # Mock Service Setup

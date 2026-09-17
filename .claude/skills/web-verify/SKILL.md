@@ -8,7 +8,6 @@ metadata:
   version: 1.2.0
   maturity: eval-covered
   updated: 2026-09-10
-  changelog: 준비 단계가 source를 만든다는 사실을 표시하고 착수 전 승인을 요구한다 — 감사 FINDING-002. 이전 — 전제(점 0) 신설 — `_workspace` 없는 브라운필드 첫 진입에서 preflight BLOCKED로 끝나던 것을, 대조 전용 경로와 해소 경로로 받는다. 대조 전용은 Phase 4가 아니며 tier를 붙이지 않는다. 이전 — 최초 버저닝(adapter 재생성·검증 체계 도입과 함께 일괄 부여).
 ---
 
 # Web Verify

@@ -4,7 +4,7 @@
 
 **먼저 기계 판정을 돌리고 결과를 그대로 보여준다.** 디자인 단계가 읽을 입력이 기계가 읽을 수
 있는 형태인지 보는 검사이며, 2026-08-30부터 코드에 있었으나 **부르는 계약 문장이 없어 한 번도
-실행되지 않았다**(`docs/protected-core.md` §4 「단계 인계 판정」 ③).
+실행되지 않았다**(`docs/protected-core.md` §4 「단계 인계 판정」).
 
 ```bash
 node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to design

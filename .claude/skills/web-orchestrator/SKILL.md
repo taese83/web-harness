@@ -8,7 +8,6 @@ metadata:
   version: 1.8.0
   maturity: eval-covered
   updated: 2026-09-10
-  changelog: verify 표기 정정(감사 F-002). 이전 — 공급원(provenance) 축 신설 — 기획·디자인·설계가 generated|supplied|absent 중 하나로 서고 Fresh Mode가 그 조합을 조립한다. 이전 — 디자인 발산 프로토콜(design-principles-research) 신설 + A/B 비교를 커밋된 단일 시안·근거 제시로 교체(멀티 시안은 opt-in).
 ---
 
 # Web Orchestrator

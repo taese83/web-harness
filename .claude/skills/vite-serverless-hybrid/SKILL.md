@@ -8,7 +8,6 @@ metadata:
   version: 1.2.3
   maturity: eval-covered
   updated: 2026-08-23
-  changelog: certified 승격 — 격리 CI(hybrid-t1, run 32614388125)가 ISOLATED_VERIFIED t1-summary receipt를 산출해 validate-certified-evidence의 기계 하한을 처음 통과했다. T2 attestation은 여전히 별도. 이전 — T1 제안본·QA report·cohort 검증기 추가.
 ---
 
 # Vite + Serverless Hybrid

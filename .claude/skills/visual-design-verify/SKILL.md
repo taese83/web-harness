@@ -8,7 +8,6 @@ metadata:
   version: 1.2.0
   maturity: eval-covered
   updated: 2026-09-11
-  changelog: 테스트 준비가 source를 만든다는 사실을 표시하고 착수 전 승인을 요구한다 — 승인이 web-verify 준비 단계에만 있어 이 스킬로 바로 들어오면 없었다(감사 FINDING-002 후속). 이전 — UI 레인 이원화(M4) — 토큰 체인 서술을 레인 중립으로(mui theme.ts / tailwind-shadcn @theme).
 ---
 
 # Visual Design Verify

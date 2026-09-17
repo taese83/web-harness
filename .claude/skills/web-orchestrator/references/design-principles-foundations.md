@@ -35,11 +35,6 @@
 
 ## 디자인 시스템 3대 철학과 공통 불변 원칙
 
-| | Material 3 (Google) | HIG (Apple) | Fluent 2 (Microsoft) |
-|---|---|---|---|
-| 핵심 가치 | Personal·Adaptive·Expressive | Hierarchy·Harmony·Consistency | Built for focus·포용성 |
-| 강점 영역 | 컨슈머 앱, 브랜드 차별화 | 콘텐츠 몰입형, 미디어 | B2B·생산성 도구 |
-
 서비스 성격에 따라 기본 태도를 고른다: 컨슈머·감성 → M3식 expressive / 콘텐츠·미디어 → HIG식 deference / B2B 도구 → Fluent식 focus. 어떤 태도를 골라도 다음 5개는 협상 불가:
 
 1. **위계** — 중요도가 시각적 무게(크기·대비·위치)에 반영될 것

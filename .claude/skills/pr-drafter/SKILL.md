@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: contract-only
   updated: 2026-08-03
-  changelog: base 브랜치 하드코딩(develop) 제거 — 인자 → 기본 브랜치 후보 탐색 → working-tree fallback 순으로 확정하고 사용한 base를 초안에 명시.
 ---
 
 # PR Drafter

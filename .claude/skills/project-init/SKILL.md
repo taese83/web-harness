@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: eval-covered
   updated: 2026-08-18
-  changelog: scaffold vs 서비스 구축 범위 기준선 신설 — 서비스 요청을 골격 생성으로 흡수해 기획·설계·QA 게이트를 우회하지 못하게 하고, scaffold 완결 시 게이트 미실행 고지를 의무화.
 ---
 
 # Project Init

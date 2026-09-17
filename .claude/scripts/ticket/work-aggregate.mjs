@@ -6,7 +6,7 @@
 // `works-merged`라 부르며, **`closeEligible`은 늘 거짓**이고 무엇이 막는지 이유를 함께 낸다(부모 자동 닫기는
 // 기본 비활성, 설계 §10.4).
 //
-// 유예는 두 종류를 **다르게** 센다(§4.5 · protected-core §4 ⑧):
+// 유예는 두 종류를 **다르게** 센다(protected-core §4 「WORK 분해 검증」):
 //   product-deferral   제품 범위에서 뺐다 — 완료 분모에서 뺀다(뺐다고 적는다)
 //   follow-up-detail   나중에 상세화한다 — **분모에 남고** 상세화·분해·완료 전에는 끝나지 않는다
 // 계획 본문의 TC 유예(`[유예: 사유]`)는 FEAT를 끝낼 수는 있지만 `works-merged-with-deferrals`로 따로 표시한다.

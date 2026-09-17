@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: contract-only
   updated: 2026-09-10
-  changelog: 빈 인덱스 안내를 `/wh plan`·`/wh new`로 — 단일 진입점. 이전 — Web Harness Console의 중복 실행 방지, 소유 세션 재시작, 상태 검증과 안전한 종료 절차를 추가.
 ---
 
 # Web Console

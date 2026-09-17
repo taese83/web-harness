@@ -48,8 +48,7 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 
 **`designSource`는 선택이다.** 디자인 값이 없는 산출물(라이브러리·CLI)에서 강제하지 않는다 —
 없으면 `Gate D`가 `UNDECLARED`로 명시 보고하고 끝난다. 있으면 값이 **어디서 오는지**와 **지금
-읽을 수 있는지**가 기계가 읽을 수 있는 형태로 남는다. 종전에는 이것이 산문(`design-system-architect`
-규칙 7)과 인제스트 스냅샷뿐이라, 「원본이 무엇이고 지금 읽히는가」를 어떤 기계도 대조하지 못했다.
+읽을 수 있는지**가 기계가 읽을 수 있는 형태로 남는다.
 
 `modes`의 `selector` 어휘를 프로젝트가 정하는 이유는 `layerMap`과 같다 — 하네스가
 `[data-theme="dark"]`인지 `.dark`인지 `prefers-color-scheme`인지 이름으로 맞히면 그것이 프록시다.
@@ -151,8 +150,7 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격되므로
 **형식을 임의로 바꾸지 않는다.**
 
-형식 예시는 `assets/solution-design-block.md`에 있다 — 활성 참조 400줄 상한 때문에 옮겼고
-내용은 그대로다(`validate-modularity`가 제시한 「asset으로 만든다」).
+형식 예시는 `assets/solution-design-block.md`에 있다.
 
 `pattern`의 나열값은 **예시이며 열린 문자열이다** — hexagonal 등 미등재 패턴도 유효하다.
 
@@ -164,10 +162,8 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 | `measured-absent` | 실측해 **없음**을 확인했다. `choice: "none"`과 짝을 이룬다 |
 | `proposed` | 설계자가 새로 제안한 값 — 실측 근거가 없다 |
 
-`measured-absent`가 별도 값인 이유(실사용 발견, 2026-08-26): `choice: "none"` + `source:
-"measured"`로는 **"찾아봤는데 없다"와 "안 찾아봤다"가 구분되지 않는다**. 네트워크 계층·mock·
-E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확인은 이후 단계에서 전혀 다르게 다뤄야
-한다. 확인하지 않았으면 `measured-absent`를 쓰지 말고 미결정으로 올려라.
+`measured-absent`가 별도 값인 이유: `choice: "none"` + `source: "measured"`로는 **"찾아봤는데 없다"와
+"안 찾아봤다"가 구분되지 않는다**(부재도 설계 결정이다). 확인하지 않았으면 `measured-absent`를 쓰지 말고 미결정으로 올려라.
 
 ## 일반화 근거
 
@@ -199,17 +195,13 @@ E2E의 부재는 그 자체가 설계 결정이며, 확인된 부재와 미확�
   할 수 있지만 그것이 맞는지 판정할 기준이 없다
 - 수용 기준을 여기서 지어내지 않는다(§2). 필요하면 feature-plan을 선행하라는 것이 답이다
 
-**Stage 1 전제조건**: 스팩 확정 아티팩트로 승격할 때 `acceptanceSource: "absent"`를 허용할지
-결정해야 한다. 허용하면 검증 기준 없는 스팩이 잠기고, 불허하면 기획 없는 브라운필드 개선이
-막힌다. 이 판단은 Stage 1의 몫이며 여기서 미리 정하지 않는다.
+이 상태의 확정은 §6 「거부하지 않고 라벨로 표기하는 것」이 정한다(`specTier: "unverifiable"`).
 
 ## 6. 스팩 확정 (Stage 1)
 
 **확정 전에 프로필 해석과 브라운필드 오버레이를 끝낸다.** `project-profile.json`과
-`integration-overlay.json`은 둘 다 `LOCK_INPUTS`인데, 종전 순서는 이 둘을 Phase 3에서
-만들었다 — **확정하는 순간 낡도록 설계돼 있었다**(2026-08-30 실측: 확정 11:48, 프로필 생성
-12:53 → 즉시 stale). 순서를 앞으로 당긴다. 둘 다 스팩을 읽지 않으므로 앞당기는 데 의존성
-문제가 없고, 오버레이는 애초에 `system-architect`의 선언된 입력이라 그 앞에 있어야 맞다.
+`integration-overlay.json`은 둘 다 `LOCK_INPUTS`라 확정 뒤에 만들면 스팩이 즉시 stale이 된다.
+둘 다 스팩을 읽지 않으므로 앞당겨도 의존성 문제가 없다.
 
 ```bash
 node .claude/scripts/web-core/resolve-profile.mjs …   # → _workspace/01_plan/project-profile.json
@@ -231,9 +223,6 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다 — `project-p
 쓸 수 없다**. `agent-registry`의 `developer`는 소유권이 비어 있고(FSD 경로 폴백을 주면 그
 순간 다시 경로 처방이 되므로 의도된 설계다) `layerMap`이 소유를 공급하기 때문이다.
 
-종전에는 SKILL.md의 한 문장이 두 단계를 뭉개 "게이트가 아니니 없어도 그대로 진행"으로
-읽혔다. 실제로는 확정을 건너뛴 프로젝트에서 구현 스폰이 **디스크 변경 0건으로 반려**됐고,
-훅 메시지가 원인을 가리지 못해 개발자가 하네스를 직접 파헤쳐야 했다(2026-08-30 실측).
 Phase 3 3단계도 같은 전제조건을 명시한다.
 
 **스팩은 커밋한다.** 이 기제의 목적이 협업이므로 공유되지 않으면 값이 0이다 — 개발자 B가
@@ -256,9 +245,7 @@ protected-core에 기등록된 한계다.
 - `acceptanceSource`와 `acceptanceRefs`의 자기 모순
 - `architecture.rationale` 부재 — 무엇을 골랐는지만으로는 잠글 수 없다
 
-- `acceptanceRefs`가 `feature-plan.md`에 **실제로 없는 ID**를 가리킨다(`ACCEPTANCE_REF_NOT_FOUND`).
-  종전에는 파일 실존까지만 봐서 존재하지 않는 `TC-999-1`을 적어도 확정됐다 — 기획→스팩 고리가
-  자기보고였다(2026-08-28 해소). ID를 적을 때는 기획에 그 ID가 있어야 한다.
+- `acceptanceRefs`가 `feature-plan.md`에 **실제로 없는 ID**를 가리킨다(`ACCEPTANCE_REF_NOT_FOUND`). ID를 적을 때는 기획에 그 ID가 있어야 한다.
 
 **확정 이후에 대조되는 것**
 
@@ -298,9 +285,7 @@ protected-core에 기등록된 한계다.
 node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root} --json
 ```
 
-**왜 게이트 선택 전환보다 먼저인가**: 스팩이 게이트를 고르게 하려면 스팩 자체가 먼저 검증돼야
-한다. 검증되지 않은 자기보고에 게이트 선택을 맡기는 것이 검증 약화다. 2a가 서야 2b(형태별
-게이트 선택)를 얹을 수 있다.
+**2a가 2b(형태별 게이트 선택)보다 먼저다** — 검증되지 않은 자기보고에 게이트 선택을 맡기는 것이 검증 약화다.
 
 **FAIL 조건**
 
@@ -333,12 +318,9 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 직접 "이 경로가 테스트다"라고 말한다. 경로가 `layerMap` 값과 겹쳐도 된다 — 유닛 테스트를
 소스 옆에 두는 것이 정상이고, 겹침 불신은 `layerMap` 안에서만 적용된다.
 
-**왜 필요한가(실측)**: 2026-08-26 통합으로 test-writer·visual-test-writer가 사라지면서
-`e2e/**`를 **아무도 소유하지 않게 됐다**. 실제 소유권 훅으로 재현하니 `e2e/checkout.spec.ts`
-쓰기가 차단됐다(소스 안의 유닛 테스트는 `layerMap`이 덮어 통과했다). `layerMap`은 논리
-**소스** 레이어라 `e2e`가 들어갈 자리가 구조적으로 없었다.
+`layerMap`은 논리 **소스** 레이어라 `e2e/**`가 들어갈 자리가 없다 — 이 필드가 없으면 아무도 소유하지 못한다.
 
-이 필드를 담는 스팩은 `schemaVersion: 2`다. 세대 1(2026-08-28 이전 확정)은 그대로 유효하며
+이 필드를 담는 스팩은 `schemaVersion: 2`다. 세대 1은 그대로 유효하며
 읽기 전용 이력이다 — 이미 커밋된 증거에 결박된 스팩을 새 규칙에 맞춰 고쳐 쓰지 않는다.
 
 ### layerMap이 소유권을 공급한다 (Stage 3)
@@ -347,11 +329,8 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 
 - 역할(도메인 모델을 만드는 자·라우트를 만드는 자)은 하네스가 고정하고, **그 역할이 어느
   경로를 쓰는지는 스팩이 정한다**. 소유권 강도는 그대로고 어휘만 프로젝트가 정한다
-- 스팩이 `layerMap`을 주지 않으면 기존 등록부가 그대로 쓰인다. **FSD를 기본 layerMap으로
-  대체하려 했으나 게이트가 회귀를 잡았다**(실측 2026-08-26) — 등록부는 레이어 이름보다 많은
-  것을 인코딩한다. 예: `developer`는 `src/features/*/api/`를 갖되 `live-mode`를
-  제외한다(그 영역은 `developer` 소유). 평면 `layerMap`은 이런 carve-out을 표현할
-  수 없어 기본값으로 쓰면 두 에이전트의 경계가 무너진다. **"FSD 기본값 제거"는 `layerMap`이
+- 스팩이 `layerMap`을 주지 않으면 기존 등록부가 그대로 쓰인다 — 등록부는 레이어 이름보다 많은
+  것(carve-out)을 인코딩하고 평면 `layerMap`은 이를 표현할 수 없어 기본값으로 쓰면 에이전트 경계가 무너진다. **"FSD 기본값 제거"는 `layerMap`이
   carve-out을 표현할 수 있게 된 뒤에야 가능하다** — 미해결
 - **레이어는 서로 겹치면 안 된다.** `src/`가 `src/pages/`를 삼키는 식이면 스팩을 신뢰하지
   않고 기본값으로 돌아간다 — 넓은 레이어 하나로 남의 영역을 가져가는 권한 확대를 막는다

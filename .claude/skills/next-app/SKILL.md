@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: contract-only
   updated: 2026-08-04
-  changelog: 풀스택 Track 2 — backend-patterns-contract 신설·연결. Route Handler·Server Action의 엔드포인트 가드 5종(§7 이식)·트랜잭션 경계·idempotency 레시피·업로드·작업 위임·에러 envelope·서버 관측을 runtime-builder 선행 계약과 contract-verifier FAIL 기준으로 강제.
 ---
 
 # Next App

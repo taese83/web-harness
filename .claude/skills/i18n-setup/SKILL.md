@@ -8,7 +8,6 @@ metadata:
   version: 1.0.0
   maturity: eval-covered
   updated: 2026-08-03
-  changelog: 신설 — P1-3 i18n 커버리지 확장 (자동화 역량 보고서 로드맵).
 ---
 
 # i18n Setup

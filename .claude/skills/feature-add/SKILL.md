@@ -8,7 +8,6 @@ metadata:
   version: 1.6.0
   maturity: contract-only
   updated: 2026-09-11
-  changelog: `/wh change`가 이 스킬을 부르지 않는다는 사실로 description을 정정하고 maturity를 contract-only로 — eval 2건은 web-orchestrator를 시험한다. 이전 — 수정 라운드 게이트 3종 도입 — 04_qa receipt 재발급 의무, capabilities 승격 감지 시 security-reviewer/api-contract-verifier 재투입, canonical 문서(02_design) 동기화를 라운드 종료 조건으로 강제 (회귀 평가 회고 반영).
 ---
 
 # Feature Add

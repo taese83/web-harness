@@ -8,7 +8,6 @@ metadata:
   version: 1.3.0
   maturity: contract-only
   updated: 2026-09-10
-  changelog: `plan` 레인 신설(명시 지정 전용, 게이트는 plan-reviewer readiness) · verify 게이트를 「검증자 read-only, 준비 단계는 착수 전 승인」으로 정정 — 감사 FINDING-001·002. 이전 — 디자인 ④의 대가를 성질로 말하고 목록은 조건 표가 서는 즉시(Phase 1 → 2) 보여준다고 약속한다 — 이 시점에는 조건을 셀 수 없다. 이전 — new 레인 착수 전 공급원 3문항(§1-B) — 기획·디자인·설계를 문서/링크·글로 설명·하네스가 만든다·없이 진행 중에서 고른다. 이전 — 신설: 진입점을 하나로 모으고 레인별 게이트를 명시한다.
 ---
 
 # wh — Web Harness 진입점

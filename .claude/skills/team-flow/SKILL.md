@@ -8,7 +8,6 @@ metadata:
   version: 1.0.0
   maturity: contract-only
   updated: 2026-09-14
-  changelog: 모델을 WORK 하나로 바꿨다 — FEAT 개발 티켓의 claim·pickup·board·link와 bind·adopt(--normalize)를 제거하고, 게이트는 WORK 경로로 이관했다(대응표는 references/work-plan-contract.md). 준비(P0)·검토(P1) → 발행(확인한 판본만·재개 가능) → 픽업(legacy 게이트 이관·선행은 머지 완료로) → 완료 주장(link)과 머지 관측(link --sync)을 분리. 이전 0.9.0 — FEAT 청구 흐름(claim·board·pickup·link·intake·bind·adopt·configure)과 개발 절.
 ---
 
 # Team Flow
@@ -43,7 +42,7 @@ cli.mjs intake <티켓키> --repo o/r                                         # 
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
 ```
 
-`--work`는 기본 모델이라 붙여도 같다. `claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
+`claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
 `pickup`·`link`·`intake`는 **사용자의 요청이 곧 승인**이다(미리보기는 `--dry-run`).
 
 ## Start — 자연어 의도 매핑
@@ -96,9 +95,8 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 착수 가능 판정은 **픽업과 같은 축**이다(등록 · 발행 판본 · 미해결 결정 · 선행 머지 완료 · 소유). 트래커를
 못 보거나 목록이 잘리면 배정을 **미상**으로 두고 그 사실을 적는다 — 「미배정」으로 읽지 않는다.
 
-**사람이 만든 개발 티켓 절은 `next`(다음 할 일)로 보여준다.** 판정 전 티켓은 막힌 것이 아니라 `pickup`이
-판정부터 시작하는 자리이고, 착수 가능 판정이 난 티켓도 확인만 남았다 — 이런 행을 「집을 수 없음」으로
-그리면 할 수 없는 일처럼 읽힌다. `blockedReason`이 있는 행만 이유를 적는다(기획·디자인 필요, 선행 미완료,
+**사람이 만든 개발 티켓 절은 `next`(다음 할 일)로 보여준다.** 판정 전·착수 가능 판정 티켓은 막힌 것이 아니라
+`pickup`으로 이어가는 자리다. `blockedReason`이 있는 행만 이유를 적는다(기획·디자인 필요, 선행 미완료,
 다른 개발자 배정 등).
 
 ### `pickup <티켓키>` — 착수
@@ -141,8 +139,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 4. **커밋 후 dev 브랜치에 푸시한다** — 그 작업 전용이고 공유 base가 아니다.
 5. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
 
-> **왜 커밋·푸시는 열고 PR은 닫는가**: dev 브랜치의 커밋·푸시는 되돌릴 수 있고 그 작업 안에 갇힌다.
-> PR은 리뷰어를 부르고 base로 나가는 **팀을 향한 행위**다.
+> 커밋·푸시는 dev 브랜치 안에서 되돌릴 수 있지만, PR은 리뷰어를 부르고 base로 나가는 **팀을 향한 행위**다.
 
 ### `link <티켓키> <pr-url>` · `link --sync` — 완료
 

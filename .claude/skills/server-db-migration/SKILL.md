@@ -8,7 +8,6 @@ metadata:
   version: 1.2.0
   maturity: contract-only
   updated: 2026-08-04
-  changelog: seeding-contract 신설 — reference seed/dev seed/test fixture 3종 구분, dev seed의 production DSN 실행 차단, idempotent·스키마 동기화 규칙. 신규 합류 흐름은 pnpm migrate && pnpm seed:dev 두 명령으로 고정.
 ---
 
 # Server DB Migration

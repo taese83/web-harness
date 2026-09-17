@@ -8,7 +8,6 @@ metadata:
   version: 1.3.0
   maturity: eval-covered
   updated: 2026-09-11
-  changelog: 공급 취합 단계(0) — 붙인 문서는 ingestor로, 기획 티켓 키는 기존 intake로 00_source에 넣고 계획이 읽는다. 종전에는 /wh plan에 0-A가 없어 준 자료가 계획에 닿지 않았다. 이전 — description을 참으로 — `/wh plan` 레인이 이 스킬을 실제로 호출한다(종전엔 호출 경로 0건). 계속 경로를 내부 스킬에서 `/wh new`로 — 감사 FINDING-001. 이전 — ASSUMPTION 관용구를 시안 확정(발산 조사가 커밋한 단일 시안 승인)으로 교체 — design-readiness-contract.
 ---
 
 # Web Plan

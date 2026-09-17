@@ -8,7 +8,6 @@ metadata:
   version: 1.1.0
   maturity: contract-only
   updated: 2026-08-18
-  changelog: UI 레인 tier b — slice-template 보일러플레이트 레인 분기(mui/tailwind-shadcn 병기).
 ---
 
 # FSD Scaffold

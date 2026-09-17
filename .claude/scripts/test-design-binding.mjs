@@ -1158,7 +1158,7 @@ test('배선: 두 시점이 청구서를 부른다 — 부르지 않는 절차�
 
 test('배선: Phase 1 → 2가 --to design을 부른다 — 코드에만 있는 검사는 없는 것과 같다', () => {
   // 이 검사는 2026-08-30부터 코드에 있었으나 부르는 계약 문장이 없어 한 번도 실행되지 않았다
-  // (protected-core §4 「단계 인계 판정」 ③). 문장이 사라지면 같은 상태로 돌아간다.
+  // (protected-core §4 「단계 인계 판정」). 문장이 사라지면 같은 상태로 돌아간다.
   const checkpoints = readFileSync(new URL('../skills/web-orchestrator/references/approval-checkpoints.md', import.meta.url), 'utf8')
   const phase1to2 = checkpoints.slice(0, checkpoints.indexOf('## Phase 2 → Phase 3'))
   assert.match(phase1to2, /--to design/, 'Phase 1 → 2가 design 인계 판정을 부르지 않는다')
