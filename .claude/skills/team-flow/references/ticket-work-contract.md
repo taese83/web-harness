@@ -85,6 +85,16 @@ CLI가 막는 것:
 - 판정서를 고쳐 다시 확인하면 **재등록하고 본문을 새 판정서로 다시 쓴다.** 사람이 더한 항목이 새 판정서에 없으면
   `TICKET_EDITS_NOT_IN_ASSESSMENT`로 멈춘다 — 판정서(`source: proposed`)로 옮겨야 한다(덮어써 잃지 않는다).
 
+## 파일 수명
+
+`_workspace/03_dev/ticket-assessments/`는 **작업 중에만 쓰는 로컬 파일**이다 — 커밋하지 않는다
+(`.gitignore`에 `_workspace/03_dev/ticket-assessments/`를 넣는다). 남아야 할 사실은 원장(`work-item-events.jsonl`)에 있다.
+
+| 파일 | 지우는 때 |
+|---|---|
+| `<키>.ticket.md`(격리 사본) | 판정서가 검증을 통과하면 CLI가 지운다. 검증에 실패하면 다시 판정하도록 남긴다 |
+| `<키>.json`(판정서) | 작업이 머지로 끝나면 `link --sync`가 지운다. 착수 불가 판정서는 남긴다 — 지우면 같은 티켓을 부를 때마다 다시 판정한다 |
+
 ## 보드
 
 사람 티켓 절의 각 행은 `next`로 **다음 할 일**을 말한다. 판정 전(`unassessed`)과 착수 가능 판정

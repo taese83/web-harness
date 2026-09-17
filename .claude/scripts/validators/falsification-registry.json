@@ -2817,6 +2817,22 @@
       "replace": "  // (removed)",
       "test": ".claude/scripts/test-ownership-hook.mjs",
       "why": "복구 기록을 스폰이 직접 쓰면 스팩 layerMap이 `_workspace`를 덮는 순간 에이전트가 자기 실패 기록을 고칠 수 있다 — 죽은 스폰은 어차피 쓰지 못한다"
+    },
+    {
+      "id": "ticket-snapshot-removed-after-valid-assessment",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  if (!flags['dry-run']) rmSync(join(root, assessmentSnapshotPath(ticketKey)), {force: true})",
+      "replace": "  // (removed)",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "판정이 끝난 격리 사본이 남으면 사용자 프로젝트에 읽히지 않는 트래커 원문 사본이 쌓인다"
+    },
+    {
+      "id": "ticket-assessment-removed-after-merge",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "      if (done?.origin === 'ticket' && done.ticketKey) rmSync(join(root, assessmentPath(done.ticketKey)), {force: true})",
+      "replace": "      // (removed)",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
+      "why": "머지로 끝난 작업의 판정서가 남으면 필요한 사실은 원장에 있는데도 로컬 파일이 계속 쌓인다"
     }
   ]
 }

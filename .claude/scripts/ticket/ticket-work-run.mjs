@@ -3,7 +3,7 @@
 // 순서: 개발 티켓인가(팀이 선언한 분류) → 계획 WORK가 아닌가 → 인젝션 스캔(fail-closed) → 판정서가 있는가 → CLI 검증 → 착수 불가면 기록·요청 코멘트 →
 // 착수 가능이면 **미리보기**(외부 쓰기 0) → 개발자가 판정서 지문으로 확인 → 티켓 완성(원문 보존) · 역할 라벨 ·
 // 원장 등록 · AI 맥락 첨부 → 기존 WORK 픽업으로 이어진다. 확인 전에는 트래커에 쓰지 않는다.
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {randomUUID} from 'node:crypto'
 import {canonicalDigest} from './work-analysis.mjs'
@@ -128,6 +128,8 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const checked = validateTicketAssessment({assessment, ticketKey, provider: providerName, originalBody, spec,
     activeWorks: activeWorksFrom({plan, state, exceptWorkId: workId}), knownWorkIds: new Set([...planWorkIds, ...ticketIds])})
   if (!checked.ok) return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_INVALID', ticketKey, path, errors: checked.errors}}
+  // 격리 사본은 판정 한 번을 위한 것이다 — 판정서가 검증을 통과하면 지운다(실패하면 다시 판정해야 하므로 남긴다).
+  if (!flags['dry-run']) rmSync(join(root, assessmentSnapshotPath(ticketKey)), {force: true})
   const digest = checked.digest
   // 겹침은 판정보다 먼저 본다 — 착수할 수 없는 판정을 「착수 가능」으로 원장에 남기지 않는다.
   if (assessment.verdict === 'startable' && checked.bounce) {

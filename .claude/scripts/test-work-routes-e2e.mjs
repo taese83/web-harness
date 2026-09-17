@@ -18,7 +18,7 @@
 // `WEB_HARNESS_E2E_RECEIPT=<경로>`를 주면 실행 요약을 JSON으로 쓴다(사람이 보는 receipt — 게이트가 아니다).
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
@@ -315,6 +315,7 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     // ⑦ 머지 관측 — 계획 파일 없이도 완료가 기록된다.
     const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main'}]))}})
     assert.equal(sync.completed.length, 1, JSON.stringify(sync))
+    assert.equal(existsSync(join(root, assessmentPath(key))), false, '머지로 끝난 작업의 판정서가 남았다')
     // ⑧ 보드: 계획이 없어도 사람 티켓 절을 그린다 — 완료된 작업과 판정 전 개발 티켓을 구분한다.
     const other = jira.humanTicket({summary: '검색 결과 정렬', components: ['DEVELOP'], description: '정렬 기준을 추가해 주세요'})
     jira.humanTicket({summary: '기획 입력', components: ['PLAN'], description: '기획 티켓'})

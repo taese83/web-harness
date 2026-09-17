@@ -344,3 +344,22 @@ test('되돌림 코멘트: 정해야 할 것을 번호 목록으로 적고, 어�
   const plain = bounceComment({reason: 'dependency-incomplete', detail: 'WORK-3', outputLanguage: 'ko'})
   assert.match(plain, /- 필요한 것: WORK-3[\s\S]*해결되면 개발자가 다시 가져갑니다/)
 })
+
+test('파일 수명: 격리 사본은 판정서가 검증을 통과하면 지우고, 검증에 실패하면 남긴다', async () => {
+  const io = {provider: recordingProvider([]), ticketConfig: githubDev}
+  const issue = {number: KEY, title: '정지 회원 표시', body: original, labels: ['dev']}
+  await withRoot(null, async root => {
+    await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state: emptyState(), plan: null, flags: {}, io})
+    const snapshot = join(root, assessmentSnapshotPath(KEY))
+    assert.equal(existsSync(snapshot), true, '판정 요구 때 격리 사본을 만들지 않았다')
+    writeFileSync(join(root, assessmentPath(KEY)), JSON.stringify(startable({ticket: {key: KEY, provider: 'github'}, writePaths: ['infra/']})))
+    const invalid = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state: emptyState(), plan: null, flags: {}, io})
+    assert.equal(invalid.result?.phase, 'TICKET_ASSESSMENT_INVALID')
+    assert.equal(existsSync(snapshot), true, '검증에 실패했는데 다시 판정할 사본을 지웠다')
+    writeFileSync(join(root, assessmentPath(KEY)), JSON.stringify(startable({ticket: {key: KEY, provider: 'github'}})))
+    const preview = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state: emptyState(), plan: null, flags: {}, io})
+    assert.equal(preview.result?.phase, 'TICKET_WORK_PREVIEW')
+    assert.equal(existsSync(snapshot), false, '판정이 끝났는데 격리 사본이 남았다')
+    assert.equal(existsSync(join(root, assessmentPath(KEY))), true, '판정서는 작업이 끝날 때까지 남아야 한다')
+  })
+})

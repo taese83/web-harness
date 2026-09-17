@@ -2,7 +2,7 @@
 //
 // 트래커는 부르지 않는다 — 연결은 로컬 원장의 사실 기록이고(legacy와 같다), 머지 관측만 PR 호스트를
 // 읽는다(쓰기 없음). PR 호스트는 PR URL의 호스트다 — 트래커가 Jira여도 PR은 GitHub에 있다.
-import {existsSync, readFileSync} from 'node:fs'
+import {existsSync, readFileSync, rmSync} from 'node:fs'
 import {join} from 'node:path'
 import {canonicalDigest, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {WORK_PLAN_PATH} from './work-plan.mjs'
@@ -100,6 +100,15 @@ export async function runWorkMergeSync({root, flags = {}, io = {}}) {
   const prStates = io.prStates ? await io.prStates(pending) : await resolvePrStates(pending)
   const sync = planMergeSync({plan, state, prStates})
   if (!flags['dry-run']) for (const event of sync.events) appendWorkEvent(eventsPath, event)
+  // 머지로 끝난 사람 티켓 작업의 판정서는 더 읽을 곳이 없다 — 판정·정의·지문은 원장에 남아 있다.
+  // (착수 불가 판정서는 지우지 않는다: 지우면 같은 티켓을 부를 때마다 판정 에이전트를 다시 띄운다.)
+  if (!flags['dry-run']) {
+    const {assessmentPath} = await import('./ticket-work.mjs')
+    for (const event of sync.events) {
+      const done = state.works.get(event.workId)
+      if (done?.origin === 'ticket' && done.ticketKey) rmSync(join(root, assessmentPath(done.ticketKey)), {force: true})
+    }
+  }
   return {ok: sync.unknown.length === 0 && sync.baseMismatch.length === 0, mode: 'work', dryRun: Boolean(flags['dry-run']),
     completed: sync.events.map(event => event.workId), open: sync.open, unknown: sync.unknown, baseMismatch: sync.baseMismatch,
     ...(sync.baseMismatch.length > 0 ? {baseGuidance: '기대한 base와 다른 브랜치에 머지됐다 — 완료로 쓰지 않는다. 기대 base로 다시 머지하거나 계획·링크를 확인한다'} : {}),
