@@ -321,24 +321,6 @@
       "command": "rg -n --hidden token .claude/scripts"
     },
     {
-      "id": "record-verification-pnpm-script",
-      "expect": "ALLOW",
-      "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/record-verification.mjs --project . --label build -- pnpm run build"
-    },
-    {
-      "id": "record-verification-arbitrary-command",
-      "expect": "DENY",
-      "code": "DENY_VALIDATION_COMMAND",
-      "command": "node .claude/scripts/record-verification.mjs --project . --label build -- rm -rf workspace"
-    },
-    {
-      "id": "record-verification-pnpm-exec-escape",
-      "expect": "DENY",
-      "code": "DENY_NETWORK",
-      "command": "node .claude/scripts/record-verification.mjs --project . --label build -- pnpm exec tsc"
-    },
-    {
       "id": "preview-server-bounded",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

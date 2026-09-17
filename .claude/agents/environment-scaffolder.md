@@ -54,23 +54,6 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
     pin이 하니스 현행 값보다 뒤처졌는지 대조하고, 뒤처진 버전이 upstream 결함 선언된 릴리스면(예: pnpm 11.13.0 —
     broken release로 신규 환경 설치 자체가 불가) 이번 라운드에서 pin 승격을 함께 수행한다. 생성 시점 pin의 동결은
     "그때는 맞았다"일 뿐 재현 가능한 설치를 보장하지 않는다.
-18. **프로젝트 루트 `CLAUDE.md` 재진입 마커**도 이 에이전트 소유다 — 미래 세션이 이 프로젝트를 하네스 관할로
-    인식하게 하는 라우팅 정보를 산출물 자신이 들고 다니게 한다. 파일이 없으면 아래 마커만으로 생성하고, **이미
-    존재하면 덮어쓰지 않고 마커 블록이 없을 때만 끝에 append한다**(사용자 내용 파괴 금지). 마커는 이 블록을
-    그대로 쓴다(내용 변형 금지 — 안내 층이므로 프로젝트별 규칙을 여기에 추가하지 않는다):
-
-    ```markdown
-    <!-- web-harness-managed -->
-    This project is managed by the web-harness pipeline (`_workspace/` artifacts).
-    For follow-up changes, re-enter via the situation-matched minimal contract load in
-    the web-orchestrator `reentry-map.md` instead of reloading the full skill. The
-    web-harness plugin's SessionStart hook injects that file's absolute path; without
-    the hook, locate it with Glob `**/skills/web-orchestrator/references/reentry-map.md`.
-    Full `/web-orchestrator` entry is only needed for a new service or when the
-    situation is unclear.
-    <!-- /web-harness-managed -->
-    ```
-
 1. `environment-scaffolder`가 생성한 package scripts와 맞춘다.
 2. path alias는 `@app`, `@pages`, `@widgets`, `@features`, `@entities`, `@shared`, `@test`를 포함한다.
 3. `src/main.tsx`, `src/app/App.tsx`, 라우트, 컴포넌트 파일은 생성하지 않는다.
@@ -114,7 +97,6 @@ build: {assetsInlineLimit: 4096},
 - lockfile resolved version의 engine/peer가 compatibility matrix를 만족한다.
 - 현재 실행 Node가 선언 engine을 만족하지 않으면 후속 command evidence를 release evidence로 사용하지 않는다.
 - 후속 에이전트가 소스 파일을 만들 수 있는 프로젝트 루트가 확정됐다.
-- 프로젝트 루트 `CLAUDE.md`에 `web-harness-managed` 재진입 마커 블록이 존재한다(기존 파일이면 append, 파괴 금지).
 - clean clone의 root command와 deployment command가 동일 package graph와 required generated artifact를 검증한다.
 
 - `src/vite-env.d.ts`(vite/client 타입 스텁)를 생성한다 — 이 파일은 이 에이전트 소유이며, 누락 시 `import.meta.env` typecheck가 실패한다(파일럿 실측).

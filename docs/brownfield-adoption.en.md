@@ -49,12 +49,9 @@ harness's change-management loop onto a code-canonical world**.
 
 Higher levels never require lower ones — L1 stands without any preview.
 
-**Re-entry marker (optional, valid from L0):** brownfield repos never met the scaffolder, so
-append the `web-harness-managed` marker block to the root `CLAUDE.md` by hand (the exact
-block from the `environment-scaffolder` re-entry marker rule); future sessions then recognize the repo as
-harness-managed and enter via the minimal re-entry map. With the plugin installed, the
-SessionStart hook injects the same guidance automatically on `_workspace/` detection — the
-marker covers hook-less environments.
+**Re-entry (valid from L0):** the harness marker is `_workspace/web-harness.md` (created by
+`init-workspace.mjs`). With the plugin installed, the SessionStart hook injects the re-entry map
+guidance on `_workspace/` detection. The user's `CLAUDE.md` is never touched (it is a tracked file).
 
 ## Entry point — change-driven (option A, confirmed)
 

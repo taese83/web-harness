@@ -37,4 +37,4 @@ maxTurns: 15
 
 ## 출력 파일
 
-- 오케스트레이터가 `_workspace/RELEASE/version-analysis.md`에 저장할 내용 반환
+- 분석 결과를 오케스트레이터에 반환한다(파일로 저장하지 않는다)

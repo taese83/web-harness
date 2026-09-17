@@ -2,7 +2,7 @@
 
 ## Required artifacts
 
-`visual-contract-designer`는 사람이 읽는 `visual-qa-contract.md`와 machine-readable `visual-qa-contract.json`을 함께 만든다. JSON은 `.claude/schemas/visual-qa-contract.schema.json`을 따른다.
+`visual-contract-designer`는 `visual-qa-contract.json` 하나를 만든다(같은 내용의 마크다운 사본은 만들지 않는다). JSON은 `.claude/schemas/visual-qa-contract.schema.json`을 따른다.
 
 ## Target contract
 

@@ -40,7 +40,6 @@ metadata:
 
 `visual-contract-designer`가 다음을 만든다.
 
-- `_workspace/02_design/visual-qa-contract.md`
 - `_workspace/02_design/visual-qa-contract.json`
 
 contract에 target, state, viewport, theme, locale, reference, threshold, stability, baseline policy를 고정한다. Figma 연결이 없으면 local export path와 SHA-256을 사용한다. 원격 URL을 읽을 수 있다고 가정하지 않는다.

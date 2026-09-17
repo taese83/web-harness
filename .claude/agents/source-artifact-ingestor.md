@@ -122,7 +122,7 @@ maxTurns: 25
   **`소비 지점` 열은 필수**이며 그 원문이 어느 산출물로 갔는지 적는다. 쓰지 않았으면 `없음(사유)`다 —
   빈 칸은 인계 판정이 미기록으로 잡는다
 - `_workspace/00_source/gap-report.md`
-- `_workspace/00_source/source-change-proposals.md`
+- `_workspace/00_source/source-change-proposals.md` (원문 변경 제안이 있을 때만)
 - `_workspace/00_source/author-questions.md` (`QUESTION`이 1건 이상일 때만 — 0건이면 만들지 않고 `gap-report.md`에 `INFO`로 남긴다)
 - `_workspace/00_source/design-binding.json` (디자인 근거를 받았을 때만)
 - `_workspace/01_plan/planning-context.md`

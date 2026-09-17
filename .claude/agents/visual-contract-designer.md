@@ -21,7 +21,6 @@ maxTurns: 25
 
 ## Outputs
 
-- `_workspace/02_design/visual-qa-contract.md`
 - `_workspace/02_design/visual-qa-contract.json`
 
 두 파일 외에는 수정하지 않는다.

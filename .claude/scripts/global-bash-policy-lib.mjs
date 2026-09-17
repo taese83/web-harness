@@ -557,30 +557,6 @@ const gitInspectionContract = (args, context) => {
     !commandArgs[1].includes('..') && !commandArgs[1].includes('//')
 }
 
-// record-verification.mjs — `--` 뒤의 명령을 실행하는 래퍼다. 감싼 명령을 무제한 허용하면
-// 래퍼 하나로 이 정책 전체가 무력화되므로(`-- rm -rf ...`), 감싼 명령은 정책이 이미 허용하는
-// pnpm script 실행으로 제한한다. (main 세션은 이 정책 자체가 면제이므로 사람이 쓰는 경로는 영향 없음)
-const recordVerificationContract = (args, context) => {
-  const separatorIndex = args.indexOf('--')
-  if (separatorIndex === -1) return false
-  const options = args.slice(0, separatorIndex)
-  const wrapped = args.slice(separatorIndex + 1)
-  if (options.length !== 4 || wrapped.length === 0) return false
-  const values = new Map()
-  for (let index = 0; index < options.length; index += 2) {
-    const option = options[index]
-    const value = options[index + 1]
-    if (!['--project', '--label'].includes(option) || value === undefined || values.has(option)) return false
-    values.set(option, value)
-  }
-  if (!values.has('--project') || !values.has('--label')) return false
-  readablePath(values.get('--project'), context, 'directory')
-  if (!/^[a-z][a-z0-9-]{0,31}$/.test(values.get('--label'))) return false
-  if (wrapped[0] !== 'pnpm') return false
-  validatePnpmCommand(wrapped.slice(1), context) // 위반 시 throw — 래퍼 경유 우회 차단
-  return true
-}
-
 const previewServerContract = (args, context) => {
   if (!args.includes('--project')) return false
   const commandArgs = withoutDirectoryOption(args, '--project', context)
@@ -703,7 +679,6 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/run-package-operation.mjs') return packageOperationContract(args, context)
   if (script === '.claude/scripts/run-git-inspection.mjs') return gitInspectionContract(args, context)
   if (script === '.claude/scripts/read-skill-section.mjs') return skillSectionContract(args)
-  if (script === '.claude/scripts/record-verification.mjs') return recordVerificationContract(args, context)
   if (script === '.claude/scripts/preview-server.mjs') return previewServerContract(args, context)
   if (script === '.claude/scripts/validate-design-preview.mjs') return designPreviewValidationContract(args, context)
   if (script === '.claude/scripts/run-eval-executor.mjs') return evalExecutorContract(args)

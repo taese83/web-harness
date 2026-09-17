@@ -138,7 +138,8 @@ export const validateAgentBoundaries = ({
   const cases = [
     ['environment scaffolder root nvmrc', 'environment-scaffolder', join(repositoryRoot, '.nvmrc'), 0],
     ['environment scaffolder app nvmrc', 'environment-scaffolder', join(repositoryRoot, 'apps/web/.nvmrc'), 0],
-    ['environment scaffolder root claude-md marker', 'environment-scaffolder', join(repositoryRoot, 'CLAUDE.md'), 0],
+    // 사용자 CLAUDE.md는 추적 파일이다 — 재진입 표시는 `_workspace/web-harness.md`가 맡고 스캐폴더는 건드리지 못한다.
+    ['environment scaffolder cannot write user CLAUDE.md', 'environment-scaffolder', join(repositoryRoot, 'CLAUDE.md'), 2],
     ['environment scaffolder vite-env stub', 'environment-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
     ['environment scaffolder app eslint config', 'environment-scaffolder', join(repositoryRoot, 'apps/web/eslint.config.js'), 0],
     ['timeseries architecture output', 'timeseries-architect', join(repositoryRoot, '_workspace/02_design/timeseries-architecture.md'), 0],

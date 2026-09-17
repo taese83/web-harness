@@ -68,8 +68,8 @@ export const AGENT_OWNERSHIP = {
     /^\.changeset\//, /^\.github\/(?:renovate\.json|dependabot\.yml)$/,
     /^\.github\/workflows\/(?:deploy[^/]*|publish|crawl(?:-[a-z0-9]+)*|refresh(?:-[a-z0-9]+)*)\.ya?ml$/,
     /^vercel\.json$/, /^apps\/[a-z0-9][a-z0-9_-]*\/vercel\.json$/,
-    /^_workspace\/03_dev\/db-changelog\.md$/, /^_workspace\/RELEASE\/changelog-draft\.md$/,
-    /^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc|CLAUDE\.md)$/,
+    /^_workspace\/03_dev\/db-changelog\.md$/,
+    /^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc)$/,
     /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/,
     /^(?:(?:[^/]+\/)+)?(?:tsconfig(?:\.[^.]+)?\.json|vite\.config\.ts|vitest(?:\.[^.]+)?\.config\.ts|playwright\.config\.ts)$/,
     /^(?:(?:[^/]+\/)+)?src\/vite-env\.d\.ts$/,
@@ -125,7 +125,6 @@ export const AGENT_OWNERSHIP = {
   'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
   'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
   'visual-contract-designer': [
-    /^_workspace\/02_design\/visual-qa-contract\.md$/,
     /^_workspace\/02_design\/visual-qa-contract\.json$/,
   ],
 }

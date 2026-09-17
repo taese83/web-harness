@@ -41,11 +41,9 @@ harness의 변경 관리 레이어를 얹는 것"**이다.
 
 상위 레벨은 하위를 요구하지 않는다 — L1은 프리뷰 없이 성립한다.
 
-**재진입 마커(선택, L0부터 유효)**: 브라운필드 repo는 스캐폴더가 마커를 심을 기회가 없으므로,
-루트 `CLAUDE.md`에 `web-harness-managed` 마커 블록(`environment-scaffolder` 재진입 마커 규칙의 블록을 그대로)을
-수동으로 append하면 미래 세션이 이 repo를 하네스 관할로 인식하고 재진입 맵(reentry-map.md)의
-최소 로드로 진입한다. 플러그인이 설치돼 있으면 SessionStart 훅이 `_workspace/` 감지로 같은
-안내를 자동 주입하므로 마커는 훅 미설치 환경의 보완이다.
+**재진입(L0부터 유효)**: 하네스 관할 표시는 `_workspace/web-harness.md`다(`init-workspace.mjs`가 만든다).
+플러그인이 설치돼 있으면 SessionStart 훅이 `_workspace/` 감지로 재진입 맵(reentry-map.md) 안내를 주입한다.
+사용자 `CLAUDE.md`는 건드리지 않는다(추적 파일이다).
 
 ## 진입점 — 변경 주도 (A안, 확정)
 
