@@ -187,7 +187,7 @@ test('스팩에 적어도 오케스트레이터 산출물은 쓰지 못한다 �
     testLayers: {unit: 'src'},
   }
   withNestedProject(({harnessRoot, projectRoot}) => {
-    for (const target of ['_workspace/03_dev/spec.json', '_workspace/03_dev/change-scope.md', '_workspace/03_dev/build-manifest/plan.json']) {
+    for (const target of ['_workspace/03_dev/spec.json', '_workspace/03_dev/change-scope.md', '_workspace/03_dev/build-manifest/plan.json', '_workspace/03_dev/change-journal/developer.md']) {
       const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, target)})
       assert.equal(result.allowed, false, `${target}에 쓸 수 있다 — 스팩 자기수정으로 소유권을 넓힐 수 있다`)
       assert.match(result.message, /orchestrator-authored/)

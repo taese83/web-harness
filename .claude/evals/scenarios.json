@@ -325,7 +325,7 @@
       "the OpenAPI source is inspected without committing a full snapshot and only the two operation IDs or path plus method pairs enter the adoption manifest",
       "an existing generator is reused; when none exists a narrow generator or handwritten validated adapter is proposed before source edits",
       "generated output is isolated behind a stable adapter and diff budget, unrelated endpoints and public contracts remain unchanged, and Mock handlers share the selected request and response contract",
-      "change journal and rollback instructions identify generated files, commands, evidence, and safe removal boundaries"
+      "rollback instructions identify generated files, commands, evidence, and safe removal boundaries from change-scope, the diff and resume-manifest"
     ]
   },
   {

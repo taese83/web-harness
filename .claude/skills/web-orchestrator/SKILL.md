@@ -20,7 +20,7 @@ metadata:
 **시점 로드** — 앵커 밖 계약은 전부 그 시점 직전에 읽는다(선행 로드 금지). **시점 표기가 곧 계약이다.**
 - **Fresh mode 첫 intake 전** `../web-plan/references/planning-facilitation-contract.md`, `../web-plan/references/planning-readiness-contract.md` — Iterate/Resume mode는 Phase 1 intake를 반복하지 않으므로 읽지 않는다
 - **첫 스폰 전** `references/execution-budget-contract.md` — 이후 **스폰이 끝날 때마다 결과 usage를 `_workspace/04_qa/execution-telemetry.json`에 기록한다** (usage 미제공 환경이면 `null`, 지어내지 않는다)
-- **기존 source 변경 감지 시** `references/change-journal-contract.md`, `references/integration-overlay.md` · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 3 착수 전** `references/solution-design-contract.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
+- **기존 source 변경 감지 시** `references/integration-overlay.md`(실패 시 `change-journal-contract.md`) · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 3 착수 전** `references/solution-design-contract.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
 - **재진입**(후속 턴·새 세션·압축 후 재관여)은 이 스킬 전체를 재로드하지 않는다 — `references/reentry-map.md`의 상황별 최소 로드가 정본이다. 전체 진입은 신규 서비스·모드 미판별에서만 필요하다
 
 자연어 설명 하나 또는 기존 기획/디자인/API 문서로 완성된 웹 애플리케이션을 만든다. 입력 상태를 먼저 판별한 뒤 필요한 Phase만 실행한다.

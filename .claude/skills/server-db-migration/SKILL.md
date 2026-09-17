@@ -163,7 +163,7 @@ profiles 테이블, participations.user_id → profile_id 이전
 participations.attended BOOLEAN NOT NULL DEFAULT TRUE 추가
 ```
 
-각 migration의 목적, 영향 범위, 예상 downtime을 기록. existing-change이면 실행 owner의 `_workspace/03_dev/change-journal/{agent-name}.md`와 연동.
+각 migration의 목적, 영향 범위, 예상 downtime을 기록. 이유는 커밋 메시지에 남긴다.
 
 ### 7. Breaking migration 계약
 

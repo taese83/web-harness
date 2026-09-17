@@ -27,6 +27,9 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 | `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 두 단계 | `pack-verifier` |
 | `serverless-functions` | `api-schema-designer` | `/vite-serverless-hybrid` 계약의 `api/` handler | `api-contract-verifier` |
 
+Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·integration·security·api-contract·test)는 형태와 무관하게
+`release-report-policy.mjs`의 `BASE_REPORTS`가 요구한다.
+
 **React 컴포넌트 패키지**(`library` + UI 런타임이 react)이면 스토리 작성은 구현과 **별도 스폰**이다.
 스토리는 구현과 같은 공개 API를 소비하므로 **의존 순서는 없다** — 그러나 같은 체크아웃에서는
 **병렬로 돌리지 않는다.** 둘 다 `developer`이고 갈리는 것은 스폰 범위뿐인데, 범위를 스폰별로

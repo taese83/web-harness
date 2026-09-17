@@ -72,4 +72,4 @@ fixture는 3가지 시점에 갱신한다:
 2. **UI 요구 변화 시** — 새 상태 (empty, error, extreme size) 커버 확대
 3. **버그 재현 시** — 특정 조합에서 발생한 버그를 fixture로 복제 후 회귀 테스트
 
-fixture는 시간이 지나며 성장한다. `_workspace/03_dev/change-journal/{agent-name}.md`에 fixture 변경 이유를 기록한다 (existing-change 모드일 때만).
+fixture는 시간이 지나며 성장한다. fixture를 바꾼 이유는 커밋 메시지에 남긴다.

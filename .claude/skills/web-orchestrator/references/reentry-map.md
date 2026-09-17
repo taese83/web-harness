@@ -48,7 +48,8 @@
 | 에이전트를 스폰하기 전(승격 QA 포함) | `execution-budget-contract.md` — telemetry 기록 의무 포함 |
 | QA 재시도를 결정하기 전 | `retry-policy.md` |
 | `DEPLOY_ONLY` criterion을 fixture 주입으로 검증할 때 | `auth-verification-contract.md` |
-| 기존 source 변경 감지 시(SKILL.md 지시) | `change-journal-contract.md` + `integration-overlay.md` |
+| 기존 source 변경 감지 시(SKILL.md 지시) | `integration-overlay.md` |
+| 그 변경 스폰이 실패·미완일 때 | `change-journal-contract.md` |
 | 완료 보고 작성 전 | `completion-contract.md` — 표현 규칙이 tier 라벨을 따른다 |
 | 외부 콘텐츠(수집·RAG·사용자 제공 외부 파일)가 이번 라운드에 유입될 때 | `untrusted-content-quarantine.md` — 수집 에이전트 prompt에 경로 전달 의무 |
 

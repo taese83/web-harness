@@ -43,6 +43,7 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/work-plan-revisions/', // `claim`가 검토한 계획 판본(내용 digest 이름)
   '_workspace/03_dev/work-plan-review.md', // 검토표(생성물 — 되읽지 않는다)
   '_workspace/03_dev/work-plan-reviewed.json', // 직전 검토 판본 포인터(작업 삭제 대조의 기준)
+  '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)
 ]
 
 export const AGENT_OWNERSHIP = {

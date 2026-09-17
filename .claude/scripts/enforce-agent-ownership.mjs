@@ -166,7 +166,7 @@ try {
   // **같은 체크아웃의 developer 스폰은 한 번에 하나만 쓴다(감사 FINDING-003).** 범위 파일
   // (`change-scope.md`)을 모든 스폰이 공유하므로 병렬로 쓰면 마지막 범위가 다른 스폰에도 적용된다.
   // 스폰 신원은 런타임이 `agent_id`로 넣는다(2026-09-11 실측: 병렬 서브에이전트 둘 → 서로 다른 id,
-  // 메인 스레드 → 없음). 저널 쓰기보다 **앞에** 둔다 — 저널도 `developer.md` 하나를 공유한다.
+  // 메인 스레드 → 없음).
   // 소유권 **정의**가 있는 developer만 잡는다(스팩이 없는 스폰은 위에서 막혀 임대를 잡지 않는다).
   // layerMap 밖 경로 쓰기는 임대를 잡은 뒤 아래에서 막힌다 — 이미 쓰려는 같은 스폰이므로 그 스폰의
   // `SubagentStop`이 놓는다.
@@ -178,8 +178,6 @@ try {
         + `(${lease.unavailable.join(' · ')}). 보장할 수 없으면 쓰지 않는다.`)
     }
   }
-  const ownJournalPath = `_workspace/03_dev/change-journal/${agentType}.md`
-  if (ownershipPath === ownJournalPath) process.exit(0)
   if (!allowedPatterns.some(pattern => pattern.test(ownershipPath))) {
     // `specPatterns`는 빈 배열일 수 있고 빈 배열은 truthy다 — 종전에는 폴백해 놓고도
     // `spec-lock layerMap`이라 표시해 원인을 반대로 가리켰다(2026-08-30 실측).

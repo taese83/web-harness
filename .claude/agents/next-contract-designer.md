@@ -14,7 +14,7 @@ maxTurns: 30
 
 ## 입력
 
-- `_workspace/01_plan/requirements.md`, `feature-plan.md`, `tech-stack.md`, `project-brief.md`
+- `_workspace/01_plan/requirements.md`, `feature-plan.md`, `tech-stack.md`, `project-brief.md`(Open Decisions만)
 - `_workspace/01_plan/project-profile.json` (resolved profile — 존재할 때)
 - `.claude/adapters/next-app-fullstack/references/app-router-boundary-contract.md`
 - `.claude/adapters/next-app-fullstack/references/rendering-deployment-contract.md`

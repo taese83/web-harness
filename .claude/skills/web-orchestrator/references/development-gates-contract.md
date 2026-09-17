@@ -4,7 +4,7 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
 
 ## 공통 규칙
 
-- 각 gate 전에 실제 changed paths와 owner journal을 확인한다.
+- 각 gate 전에 실제 changed paths와 스폰의 `SPAWN_RESULT FILES`·resume-manifest를 확인한다.
 - **host 실행 승인은 프로젝트당 한 번이다.** 러너가 생성 프로젝트의 package script를 사용자
   머신에서 실행하므로 처음 한 번은 `--allow-host-execution`으로 승인받는다. 그 승인은
   `_workspace/03_dev/host-execution-grant.json`에 **프로젝트·호스트 결박**으로 기록되고,
@@ -115,7 +115,7 @@ package, tooling, shared foundation, app shell과 활성 infrastructure가 완�
    Phase 3가 진행돼, 세 게이트가 요구하는 lint 축이 도구 부재로 조용히 사라졌다).
 2. locked profile/toolchain 재생성 및 execution-plan binding
 3. `typecheck`, `lint`
-4. 기존 프로젝트면 changed paths ↔ `ALLOWED_PATHS`와 owner journal
+4. 기존 프로젝트면 changed paths ↔ `ALLOWED_PATHS`와 `SPAWN_RESULT FILES`
 
 entrypoint나 dependency가 아직 없어 check가 실행 불가능하면 `BLOCKED`다. 후속 UI가 해결할 오류로 넘기지 않는다.
 

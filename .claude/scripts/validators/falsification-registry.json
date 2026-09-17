@@ -2809,6 +2809,14 @@
       "replace": "    ...(false ? ['', `${copy.needsTitle}`, ...numbered, '', copy.howTo]",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "필요한 것을 한 줄에 몰아 적으면 어디서 끊기는지 보이지 않고, 어떻게 채우면 되는지도 말하지 못한다"
+    },
+    {
+      "id": "change-journal-orchestrator-only",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "  '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)",
+      "replace": "  // (removed)",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "복구 기록을 스폰이 직접 쓰면 스팩 layerMap이 `_workspace`를 덮는 순간 에이전트가 자기 실패 기록을 고칠 수 있다 — 죽은 스폰은 어차피 쓰지 못한다"
     }
   ]
 }
