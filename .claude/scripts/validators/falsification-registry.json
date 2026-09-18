@@ -2993,6 +2993,14 @@
       "replace": "  const sources = Object.values(spec?.layerMap ?? {}).filter(path => typeof path === 'string' && path.trim())",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "끝 슬래시 없는 소스 경로와 비교하면 짧은 테스트 레이어(src)가 겹치지 않는다고 읽혀 범위가 두 앱의 src 전체로 넓어진다"
+    },
+    {
+      "id": "link-reports-outside-scope",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  return [...files].filter(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX) && !patterns.some(pattern => pattern.test(file))).sort()",
+      "replace": "  return []",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "범위 밖 손 편집을 알리지 않으면 병렬 작업끼리 머지에서야 충돌로 드러난다"
     }
   ]
 }

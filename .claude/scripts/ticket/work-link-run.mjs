@@ -7,7 +7,8 @@ import {join} from 'node:path'
 import {canonicalDigest, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {WORK_PLAN_PATH} from './work-plan.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
-import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, planMergeSync, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
+import {layerPattern} from '../agent-registry.mjs'
+import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, planMergeSync, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -77,10 +78,18 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const commitSplit = !split.checked ? {...split, guidance: `커밋 구성을 점검하지 못했습니다: ${split.reason}.`}
     : split.mixed.length > 0 ? {...split, guidance: `하네스 산출물(_workspace)과 코드가 한 커밋에 섞인 커밋이 ${split.mixed.length}개 있습니다. PR 전에 나눠 커밋하세요.`}
       : split
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, ...ticketAcceptance}
+  // 작업 범위 밖 파일 — 병렬 작업과 머지에서 충돌할 수 있는 곳을 PR 전에 보인다(막지 않는다).
+  const ownScope = changeScope && found.workId && changeScope.workId === found.workId ? changeScope : null
+  const outside = split.checked && ownScope
+    ? findOutsideScope(logText, ownScope.ALLOWED_PATHS, layerPattern) : null
+  const driftReason = !split.checked ? split.reason : '이 작업의 change-scope가 없습니다'
+  const scopeDrift = outside === null ? {checked: false, reason: driftReason, guidance: `작업 범위 밖 파일을 점검하지 못했습니다: ${driftReason}.`}
+    : outside.length > 0 ? {checked: true, outside, guidance: `작업 범위 밖 파일을 고쳤습니다(${outside.join(', ')}). 다른 작업과 충돌할 수 있으니 PR에 적어 두세요.`}
+      : {checked: true, outside}
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...ticketAcceptance}
   appendWorkEvent(eventsPath, decision.event)
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
-  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, ...ticketAcceptance,
+  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
 }
 

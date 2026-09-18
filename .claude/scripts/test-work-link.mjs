@@ -133,6 +133,15 @@ const workspace = () => {
   return root
 }
 
+test('범위 밖 파일: 작업 범위·테스트 레이어·하네스 산출물 밖에서 고친 파일만 알린다', async () => {
+  const {findOutsideScope} = await import('./ticket/work-link.mjs')
+  const {layerPattern} = await import('./agent-registry.mjs')
+  const log = ['@@commit a1 code', 'src/pages/members/list/List.tsx', 'package.json', 'tests/list.test.ts', '',
+    '@@commit b2 harness', '_workspace/03_dev/work-item-events.jsonl', 'src/app/routes.ts'].join('\n')
+  assert.deepEqual(findOutsideScope(log, ['src/pages/members/list/', 'tests/'], layerPattern), ['package.json', 'src/app/routes.ts'])
+  assert.deepEqual(findOutsideScope(log, ['src/pages/members/list/', 'tests/', 'src/app/routes.ts', 'package.json'], layerPattern), [])
+})
+
 test('실행부: 범위도 등록도 없는 티켓을 연결하면 멈춘다 — 판정 전에 던지지 않는다', async () => {
   const root = workspace()
   try {

@@ -253,7 +253,8 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 - 완료된 작업은 다시 집지 않는다. 되돌려야 하면 새 작업으로 계획에 올린다.
 - 머지 확인은 누구나 로컬에서 할 수 있다. 같은 완료가 여러 사람에게서 다른 eventId로 기록돼도 접기 결과는 같다.
 - 픽업 범위에는 작업의 `writePaths`와 소스와 따로 둔 테스트 레이어(`spec.testLayers`)가 들어간다. 테스트를 소스 옆에 두는 레이어는 넣지 않는다(범위가 소스 전체로 넓어진다). 테스트 레이어 안에서는 다른 작업의 테스트도 쓸 수 있고, 짧은 이름(`tests`)은 어느 깊이의 같은 이름 디렉터리에도 맞는다.
-- 회귀: `test-team-e2e.mjs`(Jira)·`test-team-github-e2e.mjs`(GitHub·자동 닫기 v3)·`test-team-monorepo-e2e.mjs`(앱 접두 범위·실제 소유권 훅), 모두 실제 git.
+- 같은 파일을 쓰는 작업은 계획에서 순서를 줘야 한다(T08). 선언하지 않은 파일(package.json 등)을 고쳐 커밋하면 `link`가 `scopeDrift`로 알린다 — 막지 않으며, 병렬 작업과의 충돌은 머지에서 난다. 점검하지 못하면 그 이유를 적는다.
+- 회귀: `test-team-e2e.mjs`(Jira)·`test-team-github-e2e.mjs`(GitHub·자동 닫기 v3)·`test-team-monorepo-e2e.mjs`(앱 접두 범위·실제 소유권 훅)·`test-team-shared-file-e2e.mjs`(같은 파일), 모두 실제 git.
 
 ## 자동 닫기 (P3-c)
 

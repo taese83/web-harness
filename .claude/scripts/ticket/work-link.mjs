@@ -59,7 +59,7 @@ const COMMIT_MARK = '@@commit '
  * 컨벤션 점검이지 게이트가 아니다 — 섞인 커밋을 알리고 막지 않는다.
  * @returns {{mixed: {commit: string, subject: string}[], commits: number}}
  */
-export function findMixedCommits(logText) {
+function parseCommitLog(logText) {
   const commits = []
   for (const line of String(logText ?? '').split('\n')) {
     if (line.startsWith(COMMIT_MARK)) {
@@ -72,9 +72,25 @@ export function findMixedCommits(logText) {
       commits.at(-1).files.push(path)
     }
   }
+  return commits
+}
+
+export function findMixedCommits(logText) {
+  const commits = parseCommitLog(logText)
   const mixed = commits.filter(item => item.files.some(file => file.startsWith(HARNESS_ARTIFACT_PREFIX))
     && item.files.some(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX)))
   return {mixed: mixed.map(({commit, subject}) => ({commit, subject})), commits: commits.length}
+}
+
+/**
+ * base 이후 고친 파일 중 작업 범위 밖인 것(하네스 산출물 제외). **막지 않고 알린다** — 사람이 손으로 고친
+ * 공유 파일(package.json 등)은 훅이 보지 못하고, 병렬 작업끼리 머지에서야 충돌로 드러난다.
+ * 경로 판정은 소유권 훅과 같은 `layerPattern`이다.
+ */
+export function findOutsideScope(logText, allowedPaths, layerPattern) {
+  const patterns = list(allowedPaths).map(path => layerPattern(path))
+  const files = new Set(parseCommitLog(logText).flatMap(item => item.files))
+  return [...files].filter(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX) && !patterns.some(pattern => pattern.test(file))).sort()
 }
 
 /** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */
