@@ -280,6 +280,52 @@ test('실행부: 동시 배정은 한 명이 양보하도록 남긴다 — 둘 �
   })
 })
 
+test('실행부: 배정을 거둘 수 있으면 남을 본 쪽이 물러난다 — 둘 다 「내 배정」으로 남지 않는다', async () => {
+  await within(workspace(), async root => {
+    const calls = []
+    let assignees = []
+    const provider = {
+      name: 'github',
+      async resolveIssue(key) { calls.push({kind: 'resolve'}); return {...ticket(W(1), {key}), assignees: [...assignees]} },
+      async assign(key, who) { calls.push({kind: 'assign'}); assignees = [...assignees, 'someone-else', who] },
+      async unassign(key, who) { calls.push({kind: 'unassign', who}); assignees = assignees.filter(login => login !== who) },
+      async comment(key, body) { calls.push({kind: 'comment', body}); return {ok: true} },
+    }
+    const result = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.equal(result.bounce.reason, 'assigned-to-other')
+    assert.equal(result.bounce.by, 'someone-else')
+    assert.deepEqual(assignees, ['someone-else'], '물러나면서 자기 배정을 거두지 않았다')
+    assert.equal(readChangeScopeFile(root), null)
+  })
+})
+
+test('실행부: 나 말고도 배정돼 있으면 내 것으로 보지 않는다 — 회수하지 못한 경합 잔재에서 둘 다 착수하지 않는다', async () => {
+  await within(workspace(), async root => {
+    const {provider, calls} = stubProvider({assignees: ['me', 'someone-else']})
+    const result = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.equal(result.bounce?.reason, 'multi-assign-detected')
+    assert.equal(calls.some(call => call.kind !== 'resolve' && call.kind !== 'comment'), false, '공유 배정 상태에서 트래커에 썼다')
+    assert.equal(readChangeScopeFile(root), null)
+  })
+})
+
+test('실행부: 소스와 따로 둔 테스트 레이어는 범위에 넣고, 소스와 겹치는 레이어는 넣지 않는다', async () => {
+  const {separateTestLayers} = await import('./ticket/work-pickup-run.mjs')
+  const spec = {layerMap: {pages: 'apps/web/src/pages', api: 'apps/api/src'}, testLayers: {unit: 'apps/web/src', api: 'apps/api/tests', e2e: 'e2e'}}
+  assert.deepEqual(separateTestLayers(spec), ['apps/api/tests/', 'e2e/'])
+  // 같은 경로·슬래시 없는 짧은 이름도 소스와 겹친다 — 넣으면 범위가 소스 전체(두 앱의 src)로 넓어진다.
+  assert.deepEqual(separateTestLayers({layerMap: {app: 'src'}, testLayers: {unit: 'src'}}), [])
+  assert.deepEqual(separateTestLayers({layerMap: {api: 'apps/api/src', web: 'apps/web/src'}, testLayers: {unit: 'src'}}), [])
+  await within(workspace(), async root => {
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({schemaVersion: 2, layerMap: {entities: 'src/entities', pages: 'src/pages'},
+      testLayers: {unit: 'src', e2e: 'e2e'}}))
+    const {provider} = stubProvider()
+    const result = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.equal(result.ok, true, JSON.stringify(result.bounce))
+    assert.deepEqual(readChangeScopeFile(root).ALLOWED_PATHS, ['src/entities/member/', 'e2e/'], '테스트 레이어가 범위를 소스 전체로 넓혔거나 빠졌다')
+  })
+})
+
 test('실행부: 미해결 컨플릭이면 착수하지 않는다 — 정렬이 먼저다', async () => {
   await within(workspace(), async root => {
     const {provider, calls} = stubProvider()

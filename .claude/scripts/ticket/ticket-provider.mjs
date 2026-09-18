@@ -39,6 +39,8 @@
  * @property {(key: string, body: string) => Promise<any>} [updateBody]
  *   이슈 본문을 **교체**한다. 원시 교체이므로 호출자가 완성한 본문을 넘긴다 — 이 메서드가
  *   본문을 지어내면 사람이 쓴 내용이 사라진다. 선택이며, 호출자는 능력 부재를 표시한다.
+ * @property {(key: string, login: string) => Promise<any>} [unassign]
+ *   자기 배정을 거둔다. 배정이 덧붙이기인 트래커(GitHub)에서 동시 픽업을 한 사람으로 정리하는 데 쓴다.
  * @property {(message: string) => {kind: string, hint: string}} [classifyError]
  */
 

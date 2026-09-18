@@ -50,6 +50,7 @@ const DEV_ONLY_SCRIPTS = new Set([
   'validate-harness.mjs',
   'validate-toolchain.mjs',
   'ticket/jira-memory-stub.mjs',
+  'ticket/github-memory-stub.mjs',
 ])
 const DEV_ONLY_SCRIPT_DIRS = new Set(['validators'])
 const DEV_ONLY_SCRIPT_PATTERN = /^test-.*\.mjs$/

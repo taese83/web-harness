@@ -133,6 +133,15 @@ const workspace = () => {
   return root
 }
 
+test('실행부: 범위도 등록도 없는 티켓을 연결하면 멈춘다 — 판정 전에 던지지 않는다', async () => {
+  const root = workspace()
+  try {
+    const result = await runWorkLink({root, ticketKey: 'PF-999', prUrl: PR, flags: {base: 'develop'}})
+    assert.equal(result.ok, false)
+    assert.equal(result.blocked, 'work-not-registered')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
 test('실행부: 기반 작업을 연결하면 원장에 판정과 함께 남고, 머지 관측 뒤에야 완료가 된다', async () => {
   const root = workspace()
   try {

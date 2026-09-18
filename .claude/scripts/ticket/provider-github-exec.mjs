@@ -147,6 +147,10 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       await run(assignArgs(repo, key, login))
       return {ticketKey: String(key), assignee: login}
     },
+    async unassign(key, login) {
+      await run(['issue', 'edit', String(key), '--repo', repo, '--remove-assignee', login])
+      return {ticketKey: String(key), removed: login}
+    },
     // 되돌림을 기획자에게 알리는 경로.
     async comment(ticketKey, text) {
       await run(['issue', 'comment', String(ticketKey), '--repo', repo, '--body', String(text)])

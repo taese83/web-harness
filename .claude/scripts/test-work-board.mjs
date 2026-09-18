@@ -47,6 +47,7 @@ test('보드의 착수 가능 판정이 픽업의 실제 차단과 같은 축이
     {name: '일부만 발행', published: [W(1), W(4)], assignees: () => []},
     {name: '남이 잡고 있음', published: ALL, assignees: workId => (workId === W(1) ? ['someone-else'] : [])},
     {name: '내가 잡고 있음', published: ALL, assignees: workId => (workId === W(1) ? ['me'] : [])},
+    {name: '나와 남이 함께 배정', published: ALL, assignees: workId => (workId === W(1) ? ['me', 'someone-else'] : [])},
     {name: '발행 뒤 계획이 바뀜', published: ALL, assignees: () => [], publishedWith: 'b'.repeat(64)},
     {name: '기반 둘이 머지됨', published: ALL, assignees: () => [], completed: [W(1), W(3)]},
     {name: 'PR만 연결됨', published: ALL, assignees: () => [], linked: [W(1), W(3)]},

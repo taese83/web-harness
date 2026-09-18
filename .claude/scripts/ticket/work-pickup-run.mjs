@@ -1,7 +1,7 @@
 // work-pickup-run.mjs — `pickup --work <티켓키>`: WORK 티켓을 개발에 넘기는 **실행부**.
 //
 // legacy 픽업과 **같은 것을 쓰고 같은 것을 쓰지 않는다**(I2·I6): 소유권 판정과 배정 직전
-// 재조회(TOCTOU)는 같은 함수, 트래커 쓰기는 배정·`in-progress` 전이·되돌림 알림 셋뿐이고
+// 재조회(TOCTOU)는 같은 함수, 트래커 쓰기는 배정·경합 시 자기 배정 회수·`in-progress` 전이·되돌림 알림뿐이고
 // 머지·완료 전이는 여기서도 하지 않는다. change-scope는 같은 파일·같은 키 집합으로 나간다.
 import {existsSync, readFileSync} from 'node:fs'
 import {join} from 'node:path'
@@ -16,6 +16,8 @@ import {parseFeaturePlanUnits} from './plan-units.mjs'
 import {testCaseTexts} from './work-ticket-doc.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
 import {resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
+import {readSpecAt, withinScope} from '../validate-spawn-plan.mjs'
+import {normalizeLayerPath, testLayerPaths} from '../agent-registry.mjs'
 
 const readJson = (root, relative) => {
   const path = join(root, relative)
@@ -36,6 +38,18 @@ export function pickupOutcome(result) {
   if (result?.phase === 'TICKET_ASSESSMENT_REQUIRED') return 'assessing'
   if (result?.phase === 'TICKET_WORK_PREVIEW') return 'confirm'
   return result?.ok ? 'started' : 'stopped'
+}
+
+/**
+ * 완료 조건은 이 작업의 TC를 인용하는 테스트다 — 소스와 **따로 둔** 테스트 레이어는 범위에 넣는다. 넣지 않으면
+ * 소유권 훅이 범위와 교집합을 내 테스트 파일 쓰기를 막는다. 소스와 겹치는 레이어(테스트를 소스 옆에 둠)는 넣지
+ * 않는다 — 넣으면 범위가 소스 전체로 넓어진다. 그때 테스트는 작업 경로 안에 둔다.
+ */
+export function separateTestLayers(spec) {
+  // 양쪽을 정규화해 비교한다 — 끝 슬래시 하나로 같은 경로를 다르다고 읽으면 범위가 소스 전체로 넓어진다.
+  const sources = Object.values(spec?.layerMap ?? {}).filter(path => typeof path === 'string' && path.trim()).map(normalizeLayerPath)
+  return testLayerPaths(spec).map(normalizeLayerPath)
+    .filter(test => !sources.some(source => withinScope(source, test) || withinScope(test, source)))
 }
 
 export async function runWorkPickup({root, ticketKey, developer, flags = {}, io = {}}) {
@@ -89,6 +103,11 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   // 소유권이 먼저다 — 남이 잡고 있으면 판정을 더 돌 이유가 없다(legacy와 같은 순서·같은 함수).
   const assignment = computeAssignmentPlan({issue, developer})
   if (assignment.status === 'taken') return {ok: false, mode: 'work', assignment, bounce: {reason: 'assigned-to-other', by: assignment.by}}
+  // 나와 다른 사람이 함께 배정돼 있으면 내 것이라고 보지 않는다 — 회수하지 못한 경합 잔재와 사람이 둔 2인 배정은 구별되지 않는다.
+  if (assignment.status === 'already-mine' && (issue?.assignees ?? []).length > 1) {
+    return {ok: false, mode: 'work', assignment, bounce: {reason: 'multi-assign-detected', assignees: issue.assignees},
+      guidance: '이 티켓에 여러 사람이 배정돼 있습니다. 한 사람만 남긴 뒤 다시 집으세요.'}
+  }
 
   // TC 문장은 발행 때와 같은 곳(feature-plan)에서 읽는다 — 본문 항목 대조가 같은 문장을 기대해야 한다. 티켓 작업은 정의가 들고 있다.
   const units = ticket.context ? [] : (() => { try { return parseFeaturePlanUnits(readFileSync(join(root, '_workspace/01_plan/feature-plan.md'), 'utf8')) } catch { return [] } })()
@@ -130,8 +149,18 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
         guidance: '배정 직후 다른 개발자도 이 티켓을 가져갔습니다. 누가 할지 팀과 정하세요.'}
     }
     // GitHub의 배정은 **덧붙임**이라 동시에 집으면 둘 다 자기 이름을 본다 — 소유가 하나인지도 본다.
+    // 남이 먼저 혼자 보고 시작했을 수 있으므로 **남을 본 쪽이 물러난다**. 동시에 보면 둘 다 물러나고 다시 집으면 된다.
+    // 그대로 두면 둘 다 「내 배정」으로 읽혀 보드와 재픽업에서 같은 작업을 둘이 시작한다.
     if (assignees.length > 1) {
-      return {ok: false, mode: 'work', bounce: {reason: 'multi-assign-detected', assignees},
+      let unassignError = null
+      const released = typeof provider.unassign === 'function'
+        ? await provider.unassign(ticketKey, developer).then(() => true, error => { unassignError = String(error?.message ?? error).slice(0, 200); return false }) : false
+      if (released) {
+        return {ok: false, mode: 'work', bounce: {reason: 'assigned-to-other', by: assignees.find(login => login !== developer) ?? null},
+          guidance: '같은 때 다른 개발자도 이 티켓을 집어 물러났습니다. 다른 작업을 고르거나 잠시 뒤 다시 집으세요.'}
+      }
+      return {ok: false, mode: 'work', bounce: {reason: 'multi-assign-detected', assignees,
+        ...(unassignError ? {unassign: {attempted: true, error: unassignError}} : {})},
         guidance: '두 사람이 같은 티켓에 배정돼 있습니다. 누가 할지 팀과 정하세요.'}
     }
   }
@@ -161,6 +190,7 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const digestOf = io.refDigest ?? projectRefDigest(root)
   pick.changeScope.checks = pick.changeScope.checks.map(check => ({...check,
     baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))
+  pick.changeScope.ALLOWED_PATHS = [...new Set([...pick.changeScope.ALLOWED_PATHS, ...separateTestLayers(readSpecAt(root))])]
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
   return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, worktree: working, ...(ticket.extra ?? {})}

@@ -2937,6 +2937,62 @@
       "replace": "  const untrack = false && tracked.length > 0",
       "test": ".claude/scripts/test-development-readiness.mjs",
       "why": "무시 규칙은 이미 추적 중인 파일에 듣지 않는다 — 줄만 보고 통과시키면 충돌이 그대로 남는다"
+    },
+    {
+      "id": "pickup-contended-assign-yields",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "      const released = typeof provider.unassign === 'function'",
+      "replace": "      const released = false && typeof provider.unassign === 'function'",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "덧붙이기 배정에서 둘 다 이름을 남기면 둘 다 「내 배정」으로 읽혀 같은 작업을 둘이 시작한다"
+    },
+    {
+      "id": "link-unregistered-no-scope-guard",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "  const baseline = changeScope && found.workId && changeScope.workId === found.workId",
+      "replace": "  const baseline = changeScope?.workId === found.workId",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "범위도 등록도 없으면 undefined끼리 같다고 읽어 판정 전에 죽는다 — 멈춘 이유를 보여주지 못한다"
+    },
+    {
+      "id": "pickup-shared-assignment-not-mine",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  if (assignment.status === 'already-mine' && (issue?.assignees ?? []).length > 1) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "회수하지 못한 경합 잔재를 「내 배정」으로 읽으면 재시도에서 둘 다 착수한다"
+    },
+    {
+      "id": "board-multi-assigned-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "                  : shared ? 'multi-assigned'",
+      "replace": "                  : false ? 'multi-assigned'",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "픽업이 멈추는 공유 배정을 보드가 「집을 수 있음」으로 보이면 같은 축이 갈린다"
+    },
+    {
+      "id": "pickup-scope-includes-test-layers",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  pick.changeScope.ALLOWED_PATHS = [...new Set([...pick.changeScope.ALLOWED_PATHS, ...separateTestLayers(readSpecAt(root))])]",
+      "replace": "  void separateTestLayers",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "따로 둔 테스트 레이어가 범위에 없으면 소유권 훅이 완료 조건인 테스트 쓰기를 막는다"
+    },
+    {
+      "id": "pickup-test-layers-not-source",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    .filter(test => !sources.some(source => withinScope(source, test) || withinScope(test, source)))",
+      "replace": "    .filter(() => true)",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "소스와 겹치는 테스트 레이어를 넣으면 작업 범위가 소스 전체로 넓어진다"
+    },
+    {
+      "id": "pickup-test-layers-normalized",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  const sources = Object.values(spec?.layerMap ?? {}).filter(path => typeof path === 'string' && path.trim()).map(normalizeLayerPath)",
+      "replace": "  const sources = Object.values(spec?.layerMap ?? {}).filter(path => typeof path === 'string' && path.trim())",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "끝 슬래시 없는 소스 경로와 비교하면 짧은 테스트 레이어(src)가 겹치지 않는다고 읽혀 범위가 두 앱의 src 전체로 넓어진다"
     }
   ]
 }

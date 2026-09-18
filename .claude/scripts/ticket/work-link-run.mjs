@@ -45,7 +45,7 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const owned = found.workId ? list(plan.featureBindings).flatMap(binding =>
     list(binding.acceptanceOwners).filter(owner => owner.workId === found.workId).map(owner => owner.testCaseId)) : []
   // 기준선은 **이 작업의 범위**에서만 쓴다 — 다른 작업의 지문과 비교하면 판정이 뜻을 잃는다.
-  const baseline = changeScope?.workId === found.workId
+  const baseline = changeScope && found.workId && changeScope.workId === found.workId
     ? Object.fromEntries(list(changeScope.checks).filter(check => check.checkId && check.baseline).map(check => [check.checkId, check.baseline]))
     : null
   const completion = work ? evaluateWorkCompletion({work, ownedTestCaseIds: owned,

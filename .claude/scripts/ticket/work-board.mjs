@@ -28,6 +28,8 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
     const assignees = issue?.assignees ?? null
     const mine = developer && assignees ? assignees.includes(developer) : null
     const takenByOther = assignees ? assignees.length > 0 && !assignees.includes(developer) : null
+    // 나 말고도 배정돼 있으면 집을 수 없다 — 픽업이 multi-assign-detected로 멈춘다(같은 축).
+    const shared = Boolean(assignees && assignees.length > 1 && assignees.includes(developer))
     const incompleteDeps = list(work.dependsOn).filter(dep => !registrationOf(dep)?.completed)
     // 조회를 **완전히** 했는데 등록된 티켓이 목록에 없다 = 트래커에서 사라졌거나 권한 밖이다.
     // 「배정을 모른다」와 다르므로 다른 이름으로 말한다.
@@ -46,9 +48,10 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
             : missingFromTracker ? 'ticket-not-found'
               : !developer ? 'no-developer'
                 : takenByOther === true ? 'assigned-to-other'
-                  : takenByOther === null ? 'assignment-unknown' : null
+                  : shared ? 'multi-assigned'
+                    : takenByOther === null ? 'assignment-unknown' : null
     return {
-      workId: row.workId, title: row.title, kind: row.kind, order: row.order ?? null, rank: row.rank,
+      workId: row.workId, title: row.title, kind: row.kind, roles: list(work.roles), order: row.order ?? null, rank: row.rank,
       featureIds: featuresOf(row.workId),
       registration, ticketKey: registered?.ticketKey ?? issue?.ticketKey ?? null, publishedWith,
       assignees, mine,
@@ -114,12 +117,14 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     const issue = issuesByKey?.get(String(item.ticketKey)) ?? null
     const assignees = issue?.assignees ?? null
     const takenByOther = assignees ? assignees.length > 0 && !assignees.includes(developer) : null
+    const shared = Boolean(assignees && assignees.length > 1 && assignees.includes(developer))
     const incompleteDeps = list(item.definition?.dependsOn).filter(dep => !state.works.get(dep)?.completed)
     const blockedReason = item.completed ? 'completed'
       : item.withdrawn ? `ticket-${item.withdrawn.verdict}`
       : incompleteDeps.length > 0 ? 'dependency-incomplete'
         : !developer ? 'no-developer'
           : takenByOther === true ? 'assigned-to-other'
+            : shared ? 'multi-assigned'
             : takenByOther === null && lookupComplete ? 'ticket-not-found' : takenByOther === null ? 'assignment-unknown' : null
     const next = item.completed ? '끝났습니다.'
       : item.link?.prUrl ? '연결한 PR이 머지되면 `link --sync`로 확인합니다.'
@@ -127,6 +132,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
         : blockedReason === 'dependency-incomplete' ? '먼저 끝나야 할 작업이 남아 있습니다.'
           : blockedReason === 'no-developer' ? '`--developer <내 아이디>`를 붙여 다시 보면 집을 수 있는지 알 수 있습니다.'
             : blockedReason === 'assigned-to-other' ? '다른 개발자가 맡고 있습니다.'
+              : blockedReason === 'multi-assigned' ? '여러 사람이 배정돼 있습니다. 한 사람만 남기세요.'
               : blockedReason === 'assignment-unknown' ? '트래커에서 담당자를 읽지 못했습니다. 티켓에서 직접 확인하세요.'
                 : blockedReason === 'ticket-not-found' ? '트래커에서 이 티켓을 찾지 못했습니다.'
                   : '다시 판정해 착수할 수 있는지 확인합니다.'
