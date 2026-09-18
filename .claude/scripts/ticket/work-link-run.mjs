@@ -7,7 +7,7 @@ import {join} from 'node:path'
 import {canonicalDigest, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {WORK_PLAN_PATH} from './work-plan.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
-import {collectCitedTestCaseIds, evaluateWorkCompletion, planMergeSync, planWorkLink, projectPathExists, projectRefDigest} from './work-link.mjs'
+import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, planMergeSync, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -67,10 +67,20 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   }
   const closeLine = workCloseLine(decision.provider, decision.closes)
   const ticketAcceptance = decision.ticketAcceptance ? {ticketAcceptance: decision.ticketAcceptance} : {}
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, ...ticketAcceptance}
+  // 형상 규율: 하네스 산출물(`_workspace/`)과 코드는 따로 커밋한다 — 섞였으면 알린다(막지 않는다).
+  const logText = baseRef ? (io.commitLog ? await io.commitLog(baseRef) : readCommitLog(root, baseRef)) : null
+  // 점검하지 못한 것과 비교할 커밋이 없는 것은 「깨끗함」이 아니다 — 그렇게 적는다.
+  const scanned = logText === null ? null : findMixedCommits(logText)
+  const split = scanned === null ? {checked: false, reason: baseRef ? 'git log를 읽지 못했습니다' : 'PR의 base를 모릅니다'}
+    : scanned.commits === 0 ? {checked: false, reason: 'base 이후 커밋이 없습니다(base 브랜치에서 실행했거나 origin이 오래됐습니다)'}
+      : {checked: true, ...scanned}
+  const commitSplit = !split.checked ? {...split, guidance: `커밋 구성을 점검하지 못했습니다: ${split.reason}.`}
+    : split.mixed.length > 0 ? {...split, guidance: `하네스 산출물(_workspace)과 코드가 한 커밋에 섞인 커밋이 ${split.mixed.length}개 있습니다. PR 전에 나눠 커밋하세요.`}
+      : split
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, ...ticketAcceptance}
   appendWorkEvent(eventsPath, decision.event)
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
-  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, ...ticketAcceptance,
+  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
 }
 

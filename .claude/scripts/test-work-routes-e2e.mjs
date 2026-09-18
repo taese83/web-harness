@@ -308,9 +308,18 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     mkdirSync(join(root, 'src/members'), {recursive: true})
     write(join(root, 'src/members/list.tsx'), 'export const Suspended = () => null\n')
     write(join(root, 'src/members/list.test.tsx'), `// TT-${key}-1 정지 회원 회색 행\n`)
+    // 비교할 커밋이 없으면 「깨끗함」이 아니라 점검하지 못했다고 적는다.
+    const empty = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {'dry-run': true},
+      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => ''}})
+    assert.equal(empty.commitSplit.checked, false)
+    assert.match(empty.commitSplit.guidance, /점검하지 못했습니다/)
+    const mixedLog = ['@@commit 0f9e8d7 한꺼번에 올림', 'src/members/list.tsx', '_workspace/03_dev/work-item-events.jsonl', ''].join('\n')
     const linked = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {},
-      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'})}})
+      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => mixedLog}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
+    // 컨벤션 점검이라 연결을 막지 않지만, 섞인 커밋은 결과에 드러난다.
+    assert.deepEqual(linked.commitSplit.mixed, [{commit: '0f9e8d7', subject: '한꺼번에 올림'}])
+    assert.match(linked.commitSplit.guidance, /나눠 커밋/)
     assert.equal(linked.completion.testCases.missing.length, 0)
     // ⑦ 머지 관측 — 계획 파일 없이도 완료가 기록된다.
     const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main'}]))}})

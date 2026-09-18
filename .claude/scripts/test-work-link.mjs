@@ -14,7 +14,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {randomUUID} from 'node:crypto'
 import {spawnSync} from 'node:child_process'
-import {evaluateWorkCompletion, planMergeSync, planWorkLink, projectRefDigest} from './ticket/work-link.mjs'
+import {evaluateWorkCompletion, findMixedCommits, planMergeSync, planWorkLink, projectRefDigest} from './ticket/work-link.mjs'
 import {resolvePrStates, runWorkLink, runWorkMergeSync, workCloseLine} from './ticket/work-link-run.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents, validateWorkEvent, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
 import {canonicalDigest} from './ticket/work-analysis.mjs'
@@ -316,3 +316,19 @@ test('PR URL은 정규형만 받고, base의 refs/heads·origin 접두는 떼어
   assert.equal(planWorkLink({...base, baseRef: 'origin/feature/members', prUrl: PR}).event.payload.baseRef, 'feature/members')
   assert.equal(planWorkLink({...base, baseRef: 'refs/heads/main', prUrl: PR}).event.payload.baseRef, 'main')
 })
+
+test('형상 규율: 하네스 산출물(_workspace)과 코드가 한 커밋에 섞였으면 그 커밋을 짚는다', () => {
+  const log = [
+    '@@commit a1b2c3d 정지 회원 표시', 'src/members/MemberList.tsx', 'tests/members.test.tsx', '',
+    '@@commit d4e5f60 원장: 작업 연결', '_workspace/03_dev/work-item-events.jsonl', '',
+    '@@commit 0f9e8d7 한꺼번에 올림', 'src/members/api.ts', '_workspace/04_qa/qa-code.md', '',
+  ].join('\n')
+  const result = findMixedCommits(log)
+  assert.equal(result.commits, 3)
+  assert.deepEqual(result.mixed, [{commit: '0f9e8d7', subject: '한꺼번에 올림'}], '코드만·산출물만인 커밋을 섞였다고 했거나 섞인 커밋을 놓쳤다')
+  assert.deepEqual(findMixedCommits('').mixed, [])
+  // 특수 문자로 따옴표가 붙은 산출물 경로도 산출물이다 — 산출물만 담은 커밋을 섞였다고 하지 않는다.
+  const quoted = ['@@commit 1a2b3c4 QA 보고', '"_workspace/04_qa/qa \\"final\\".md"', '_workspace/04_qa/qa-code.md', ''].join('\n')
+  assert.deepEqual(findMixedCommits(quoted).mixed, [], '따옴표 붙은 산출물 경로를 코드로 읽었다')
+})
+

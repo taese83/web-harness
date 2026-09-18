@@ -15,6 +15,7 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative as relativePath, resolve, sep} from 'node:path'
 import {createHash, randomUUID} from 'node:crypto'
+import {execFileSync} from 'node:child_process'
 
 const list = value => (Array.isArray(value) ? value : [])
 // 기획 TC(`TC-…`)와 사람 티켓의 테스트 항목(`TT-<티켓키>-<n>`, ticket-work.mjs) — 둘 다 테스트 코드 인용으로 잰다.
@@ -49,6 +50,44 @@ export const insideProject = (root, relative) => {
  * @param {{work: object, ownedTestCaseIds: string[], citedIds: Set<string>|string[], pathExists: (p: string) => boolean}} args
  * @returns {{ok: boolean, reason?: string, testCases: object, checks: object}}
  */
+/** 하네스 산출물 경로 — 코드와 따로 커밋한다(형상 규율). */
+export const HARNESS_ARTIFACT_PREFIX = '_workspace/'
+const COMMIT_MARK = '@@commit '
+
+/**
+ * 하네스 산출물과 코드가 한 커밋에 섞였는가(순수). 입력은 `git log --name-only --format=@@commit %h %s` 출력이다.
+ * 컨벤션 점검이지 게이트가 아니다 — 섞인 커밋을 알리고 막지 않는다.
+ * @returns {{mixed: {commit: string, subject: string}[], commits: number}}
+ */
+export function findMixedCommits(logText) {
+  const commits = []
+  for (const line of String(logText ?? '').split('\n')) {
+    if (line.startsWith(COMMIT_MARK)) {
+      const rest = line.slice(COMMIT_MARK.length)
+      const space = rest.indexOf(' ')
+      commits.push({commit: space < 0 ? rest : rest.slice(0, space), subject: space < 0 ? '' : rest.slice(space + 1), files: []})
+    } else if (line.trim() && commits.length > 0) {
+      // 특수 문자가 든 경로는 git이 따옴표로 감싼다 — 벗겨야 접두 판정이 맞는다(한글은 quotePath=false로 날것이 온다).
+      const path = line.trim().replace(/^"(.*)"$/, '$1')
+      commits.at(-1).files.push(path)
+    }
+  }
+  const mixed = commits.filter(item => item.files.some(file => file.startsWith(HARNESS_ARTIFACT_PREFIX))
+    && item.files.some(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX)))
+  return {mixed: mixed.map(({commit, subject}) => ({commit, subject})), commits: commits.length}
+}
+
+/** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */
+export function readCommitLog(root, baseRef) {
+  for (const base of [`origin/${baseRef}`, baseRef]) {
+    try {
+      return execFileSync('git', ['-C', root, '-c', 'core.quotePath=false', 'log', '--name-only', `--format=${COMMIT_MARK}%h %s`, `${base}..HEAD`],
+        {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 8 * 1024 * 1024})
+    } catch { /* 다음 후보 */ }
+  }
+  return null
+}
+
 export function evaluateWorkCompletion({work, ownedTestCaseIds, citedIds, pathExists, baseline = null, currentDigest = null}) {
   const cited = citedIds instanceof Set ? citedIds : new Set(citedIds)
   const tcs = [...new Set(list(ownedTestCaseIds))].sort()

@@ -2865,6 +2865,14 @@
       "replace": "    nonGoals: definition.nonGoals,",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "미리보기 확인이 스팩 승인을 대신하는데 디자인 부채가 빠지면 사용자가 승인하는 범위가 실제 승인 대상보다 좁다"
+    },
+    {
+      "id": "link-flags-mixed-harness-commits",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const mixed = commits.filter(item => item.files.some(file => file.startsWith(HARNESS_ARTIFACT_PREFIX))\n    && item.files.some(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX)))",
+      "replace": "  const mixed = []",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "섞인 커밋을 알리지 않으면 산출물과 코드를 나눠 커밋한다는 컨벤션이 확인 없이 무너진다"
     }
   ]
 }
