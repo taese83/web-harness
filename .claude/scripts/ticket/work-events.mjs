@@ -20,7 +20,7 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
 export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'context-attached', 'relation-linked',
-  'work-linked', 'work-completed', 'work-reopened', 'work-retired', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
+  'work-retired', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
 
@@ -68,36 +68,13 @@ export function validateWorkEvent(event) {
   if (event.eventType === 'publish-confirmed' && event.payload?.provider !== undefined && !/^[a-z][a-z0-9-]*$/.test(String(event.payload.provider))) {
     errors.push('publish-confirmed의 payload.provider 형식 오류')
   }
-  // PR 연결·완료는 **어느 작업의 어느 PR**인가가 요체다. 완료 판정 요약이 없으면 「의식적 인수」로
-  // 넘긴 링크와 전부 충족한 링크가 사후에 구별되지 않는다(legacy 원장이 같은 이유로 남기던 것).
-  if (event.eventType === 'work-linked' || event.eventType === 'work-completed') {
-    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push(`${event.eventType}에는 workId가 필요하다`)
-    if (typeof event.payload?.prUrl !== 'string' || event.payload.prUrl.length === 0) errors.push(`${event.eventType}에는 payload.prUrl이 필요하다`)
-  }
-  if (event.eventType === 'work-linked') {
-    if (!DIGEST.test(String(event.planDigest ?? ''))) errors.push('work-linked에는 planDigest가 필요하다 — 어느 판본으로 완료를 주장했는지')
-    const completion = event.payload?.completion
-    if (!completion || typeof completion !== 'object' || typeof completion.ok !== 'boolean') {
-      errors.push('work-linked에는 payload.completion(판정 요약)이 필요하다')
-    }
-    if (typeof event.payload?.staleCheck !== 'string') errors.push('work-linked에는 payload.staleCheck가 필요하다')
-  }
-  // 되돌린 완료 — 어느 PR의 완료를 왜 거뒀는지가 요체다(머지 되돌림은 원장이 스스로 보지 못한다).
-  if (event.eventType === 'work-reopened') {
-    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push('work-reopened에는 workId가 필요하다')
-    if (typeof event.payload?.reason !== 'string' || !event.payload.reason.trim()) errors.push('work-reopened에는 payload.reason이 필요하다 — 왜 완료를 거두는지')
-    // 머지된 커밋·트래커로 끝난 작업은 원장에 PR이 없다 — 그때는 null이다(있으면 문자열).
-    if (event.payload?.prUrl !== null && (typeof event.payload?.prUrl !== 'string' || !event.payload.prUrl)) errors.push('work-reopened의 payload.prUrl은 거둔 완료의 PR이거나 null이다')
-  }
   // 계획에서 빠진(대체·취소) 작업의 티켓에 그 사실을 알렸다 — 한 번만 알리기 위한 기록이다.
   if (event.eventType === 'work-retired') {
     if (!WORK_ID.test(String(event.workId ?? ''))) errors.push('work-retired에는 workId가 필요하다')
     if (!event.payload?.ticketKey) errors.push('work-retired에는 payload.ticketKey가 필요하다')
     if (!['cancelled', 'superseded'].includes(event.payload?.lifecycle)) errors.push('work-retired의 payload.lifecycle은 cancelled|superseded다')
   }
-  if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {
-    errors.push('work-completed의 payload.via는 pr-merged여야 한다 — 머지를 관측하지 않은 완료를 기록하지 않는다')
-  }
+
   // 집계 티켓은 **FEAT 단위**다 — 어느 FEAT의 집계를 어느 시도로 썼는지가 요체다(발행 규율은 WORK와 같다).
   if (event.eventType.startsWith('aggregate-')) {
     if (!/^FEAT-\d{3,}$/.test(String(event.featureId ?? ''))) errors.push(`${event.eventType}에는 featureId가 필요하다`)
@@ -161,7 +138,6 @@ export function foldWorkState(events) {
   const works = new Map()
   const aggregates = new Map()
   const tickets = new Map()
-  const ticketWorkIds = new Set()
   let lastReviewed = null
   const workState = workId => works.get(workId) ?? {workId, status: 'unpublished', ticketKey: null, operationId: null,
     payloadDigest: null, planDigest: null, relation: null, link: null, completed: null}
@@ -184,8 +160,6 @@ export function foldWorkState(events) {
     }
     const state = workState(event.workId)
     knownWorkIds.add(event.workId)
-    // 사람 티켓 작업은 **티켓이 등록 기록**이라 원장에는 연결·완료·회수만 온다 — 계획 계보(검토한 작업)에 섞지 않는다.
-    if (event.payload?.origin === 'ticket') ticketWorkIds.add(event.workId)
     if (event.eventType === 'publish-attempted') {
       // 시도는 **확정이 아니다.** 다음 실행이 이 자리를 이어야 한다 — 응답이 유실됐을 수 있다.
       works.set(event.workId, {...state, status: 'attempted', operationId: event.operationId,
@@ -212,20 +186,6 @@ export function foldWorkState(events) {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
         planDigest: event.planDigest, reason: event.payload?.reason ?? null})
-    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl && state.reopened.prUrl === event.payload?.prUrl) {
-      // 되돌린 PR은 다시 머지될 수 없다 — 그 PR의 연결·완료 줄은 union 병합 순서와 무관하게 무시한다.
-    } else if (event.eventType === 'work-linked') {
-      // 완료 **주장**이다 — 머지를 본 것이 아니다. 선행 조건은 이것이 아니라 `completed`를 본다.
-      works.set(event.workId, {...state, link: {prUrl: event.payload.prUrl, planId: event.planId, planDigest: event.planDigest,
-        ticketKey: event.payload.ticketKey ?? null, origin: event.payload.origin ?? null,
-        completion: event.payload.completion, staleCheck: event.payload.staleCheck, baseRef: event.payload.baseRef ?? null,
-        acceptedIncomplete: event.payload.acceptedIncomplete === true, acceptedUnverifiedScope: event.payload.acceptedUnverifiedScope === true}})
-    } else if (event.eventType === 'work-completed') {
-      works.set(event.workId, {...state, completed: {prUrl: event.payload.prUrl, at: event.at}})
-    } else if (event.eventType === 'work-reopened') {
-      // 완료와 연결을 함께 거둔다 — 옛 PR의 머지 관측이 다시 완료로 쓰지 않게. 등록(발행)은 그대로다.
-      const {link, completed, ...rest} = state
-      works.set(event.workId, {...rest, reopened: {prUrl: event.payload.prUrl, reason: event.payload.reason, at: event.at}})
     } else if (event.eventType === 'work-retired') {
       works.set(event.workId, {...state, retired: {lifecycle: event.payload.lifecycle, at: event.at, replacedBy: event.payload.replacedBy ?? []}})
     } else if (event.eventType === 'relation-linked') {
@@ -233,8 +193,6 @@ export function foldWorkState(events) {
         parentKey: event.payload?.parentKey ?? null}})
     }
   }
-  // 계획 계보(검토한 작업 ID)는 **계획 WORK만**이다 — 티켓 작업이 섞이면 계획 검증이 「검토한 작업이 사라졌다」로 막는다.
-  for (const workId of ticketWorkIds) knownWorkIds.delete(workId)
   return {knownWorkIds, lastReviewed, works, aggregates, tickets}
 }
 

@@ -53,7 +53,9 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
   }
   const planDigest = canonicalDigest(plan)
   const eventsPath = join(root, WORK_EVENTS_PATH)
-  const state = foldWorkState(readWorkEvents(eventsPath))
+  let state = foldWorkState(readWorkEvents(eventsPath))
+  // 끝난 작업(라벨만 맞춤·대체 알림 제외)은 트래커에서 계산한다 — 원장에는 완료가 없다.
+  if (io.provider) state = (await (await import('./work-state-run.mjs')).readTrackerWorkState({provider: io.provider, state, root, plan, config: io.ticketConfig ?? null, io})).state
   const provider = io.provider
   // 설정의 모양은 provider가 정한다 — 중립 실행부가 `jira`만 아는 것이 I3 위반이었다.
   const stored = io.ticketConfig ?? {}

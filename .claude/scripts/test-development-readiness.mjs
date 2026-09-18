@@ -276,6 +276,30 @@ test('배선: 주입 없이 실제 훅을 돌려 허용과 차단이 모두 나�
   })
 })
 
+test('팀 공유 설정: 두 브랜치가 원장에 각자 덧붙여도 병합이 충돌하지 않는다(실제 git)', async () => {
+  const {checkTeamSharing} = await import('./validate-development-readiness.mjs')
+  const {execFileSync} = await import('node:child_process')
+  const {readFileSync} = await import('node:fs')
+  const root = mkdtempSync(join(tmpdir(), 'wh-team-union-'))
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']})
+  const ledger = join(root, '_workspace/03_dev/work-item-events.jsonl')
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(ledger, '{"line":0}\n')
+    assert.equal(checkTeamSharing(root, {install: true}).state, 'PASS')
+    git('init', '-q', '-b', 'main'); git('config', 'user.name', 't'); git('config', 'user.email', 't@t')
+    git('add', '-A'); git('commit', '-qm', 'init')
+    for (const [branch, line] of [['a', '{"line":"a"}'], ['b', '{"line":"b"}']]) {
+      git('checkout', '-qb', branch, 'main')
+      writeFileSync(ledger, `${readFileSync(ledger, 'utf8')}${line}\n`)
+      git('commit', '-qam', branch)
+    }
+    git('checkout', '-q', 'main'); git('merge', '-q', '--no-ff', '-m', 'a', 'a')
+    assert.doesNotThrow(() => git('merge', '-q', '--no-ff', '-m', 'b', 'b'), '원장에 덧붙인 두 브랜치가 충돌했다 — 병합 규칙이 없다')
+    assert.deepEqual(readFileSync(ledger, 'utf8').trim().split('\n').sort(), ['{"line":"a"}', '{"line":"b"}', '{"line":0}'].sort())
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
 test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 그대로 둔다', async () => {
   const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
   const {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} = await import('node:fs')

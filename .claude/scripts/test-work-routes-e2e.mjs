@@ -6,14 +6,14 @@
 // `fields=`로 응답을 거르고, 모르는 JQL·틀린 배정 형식에 400을 준다(관대하면 요청 쪽 결함이 안 보인다).
 //
 //   claim(분석·계획 검토) → claim --publish --confirm(발행) → 기획자가 트래커에 코멘트 → pickup → 작업 → link
-//   → link --sync(머지 관측) → 후속 작업 pickup: 선행 하나가 아직 머지되지 않아 되돌림이 트래커로 간다
+//   → 머지(PR 상태로 읽는다) → 후속 작업 pickup: 선행 하나가 아직 머지되지 않아 되돌림이 트래커로 간다
 //
 // 여기서 고정하는 사실:
 //   (1) 발행한 티켓에 WORK 라벨이 **실제 Jira 필드로** 실린다 — 재개 조회의 축이 살아 있다
 //   (2) 기획자 코멘트가 change-scope에 실린다(격리 블록) — 본문 밖의 결정이 개발 에이전트에 닿는다
-//   (3) 트래커 쓰기는 **정해진 것뿐이다** — 발행·배정·in-progress 전이·되돌림 코멘트. `done`이 매핑돼 있어도
+//   (3) 트래커 쓰기는 **정해진 것뿐이다** — 발행·배정·in-progress 전이·연결·되돌림 코멘트. `done`이 매핑돼 있어도
 //       부르지 않는다(머지·닫기는 사람·close 흐름의 몫)
-//   (4) 원장의 링크 기록이 change-scope의 개발 기준 개정을 싣고, 완료는 머지 관측 뒤에만 생긴다
+//   (4) 티켓의 연결 기록이 change-scope의 개발 기준 개정을 싣고(원장엔 없다), 완료는 PR이 머지된 뒤에만 읽힌다
 //
 // `WEB_HARNESS_E2E_RECEIPT=<경로>`를 주면 실행 요약을 JSON으로 쓴다(사람이 보는 receipt — 게이트가 아니다).
 import assert from 'node:assert/strict'
@@ -27,7 +27,9 @@ import {readChangeScopeFile} from './ticket/cli.mjs'
 import {runClaimWork} from './ticket/work-claim.mjs'
 import {runWorkPublish} from './ticket/work-publish-run.mjs'
 import {runWorkPickup} from './ticket/work-pickup-run.mjs'
-import {runWorkLink, runWorkMergeSync} from './ticket/work-link-run.mjs'
+import {runWorkLink} from './ticket/work-link-run.mjs'
+import {parseWorkRecords} from './ticket/work-records.mjs'
+import {readTrackerWorkState} from './ticket/work-state-run.mjs'
 import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
 
 const repoRoot = new URL('../..', import.meta.url).pathname
@@ -51,7 +53,7 @@ const describeWrites = writes => writes.map(write => {
 // git 쪽 사실은 주입한다 — 이 테스트가 재는 것은 트래커 계약이지 저장소 상태가 아니다.
 const gitIo = {currentBranch: async () => 'feature/members', worktree: async () => ({dirty: false, conflicted: false}), refresh: async () => ({ok: true})}
 
-test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관측 → 후속 선행 게이트가 실제 Jira provider로 닿는다', async () => {
+test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 → 후속 선행 게이트가 실제 Jira provider로 닿는다', async () => {
   const root = mkdtempSync(join(tmpdir(), 'wh-work-e2e-'))
   const jira = createJiraStub()
   const provider = createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
@@ -94,21 +96,24 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     mkdirSync(join(root, 'src/entities/member'), {recursive: true})
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string; status: "active" | "suspended"}\n')
     const linked = await runWorkLink({root, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/11', flags: {},
-      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
+      io: {provider, prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     assert.match(linked.closeLine, /Relates to PF-/, 'Jira 키에 닫는 줄을 적었다')
     assert.equal(linked.ticketAcceptance?.verification, 'not-automated', '사람이 더한 조건을 검증한 것처럼 접었다')
-    let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
-    // (4) 링크 기록이 개발 기준 개정을 싣는다 — 완료는 아직 없다
-    const linkEvent = readWorkEvents(join(root, WORK_EVENTS_PATH)).find(event => event.eventType === 'work-linked')
-    assert.deepEqual(linkEvent.payload.ticket, scope.ticket)
-    assert.equal(state.works.get(W(1)).completed, null)
-    // ⑥ 머지 관측
-    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'feature/members'}]))}})
-    assert.deepEqual(sync.completed, [W(1)])
+    // (4) 연결 기록(티켓 코멘트)이 개발 기준 개정을 싣는다 — 원장엔 쓰지 않고, 완료는 아직 없다
+    assert.equal(readWorkEvents(join(root, WORK_EVENTS_PATH)).some(event => /^work-/.test(event.eventType)), false, '연결이 원장에 쓰였다')
+    const record = parseWorkRecords(jira.issues.get(keyOf(W(1))).fields.comment.comments.map(comment => ({created: comment.created, body: comment.body}))).link
+    assert.equal(record?.revision, scope.ticket.revision, '어느 티켓 개정으로 개발했는지 남지 않았다')
+    const readState = prStates => readTrackerWorkState({provider, state: foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))), root,
+      io: {prStates, repoContext: async () => null}, keys: [keyOf(W(1))]})
+    assert.equal((await readState(async urls => new Map(urls.map(url => [url, {state: 'OPEN', baseRefName: 'feature/members'}])))).state.works.get(W(1)).completed ?? null, null)
+    // ⑥ 머지 — 기록하지 않고 PR에서 읽는다
+    const merged = await readState(async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'feature/members', mergedAt: new Date().toISOString()}])))
+    assert.equal(merged.state.works.get(W(1)).completed?.via, 'merge')
     // ⑦ 후속 픽업: W3이 아직 머지되지 않았다 — 막히고 되돌림이 트래커로 간다
     await import('node:fs').then(fs => fs.rmSync(join(root, '_workspace/03_dev/change-scope.md')))
-    const blocked = await runWorkPickup({root, ticketKey: keyOf(W(4)), developer: 'dev1', flags: {}, io: {provider, ...gitIo}})
+    const blocked = await runWorkPickup({root, ticketKey: keyOf(W(4)), developer: 'dev1', flags: {},
+      io: {provider, ...gitIo, prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'feature/members', mergedAt: new Date().toISOString()}]))}})
     assert.equal(blocked.bounce.reason, 'dependency-incomplete')
     assert.deepEqual(blocked.bounce.missing, [W(3)])
     assert.ok(jira.issues.get(keyOf(W(4))).fields.comment.comments.some(comment => /아직 머지되지 않았습니다|not merged/.test(comment.body)),
@@ -120,7 +125,7 @@ test('WORK 흐름: 분해 검토 → 발행 → 픽업 → 완료 → 머지 관
     assert.deepEqual(writes.filter(write => !allowed.test(write)), [], `허용 밖 트래커 쓰기: ${writes.join(' | ')}`)
     assert.equal(writes.some(write => /→ 41$/.test(write)), false, '완료 전이를 불렀다')
     assert.equal(writes.filter(write => write === 'create issue').length, 3)
-    summary.result = {published: published.published.length, picked: scope.workId, linked: linkEvent.payload.prUrl, completed: sync.completed, downstream: blocked.bounce.reason}
+    summary.result = {published: published.published.length, picked: scope.workId, linked: record.prUrl, completed: [...merged.state.works].filter(([, item]) => item.completed).map(([workId]) => workId), downstream: blocked.bounce.reason}
   } finally {
     rmSync(root, {recursive: true, force: true})
     if (process.env.WEB_HARNESS_E2E_RECEIPT) {
@@ -223,14 +228,14 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     assert.deepEqual(linked.commitSplit.mixed, [{commit: '0f9e8d7', subject: '한꺼번에 올림'}])
     assert.match(linked.commitSplit.guidance, /나눠 커밋/)
     assert.equal(linked.completion.testCases.missing.length, 0)
-    // ⑦ 머지 관측 — 계획 파일 없이도 완료가 기록된다.
-    const sync = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main'}]))}})
-    assert.equal(sync.completed.length, 1, JSON.stringify(sync))
-    assert.equal(existsSync(join(root, assessmentPath(key))), false, '머지로 끝난 작업의 판정서가 남았다')
+    // 연결한 작업의 판정서는 더 읽을 곳이 없다 — 정의는 티켓에 있다.
+    assert.equal(existsSync(join(root, assessmentPath(key))), false, '연결한 작업의 판정서가 남았다')
+    // ⑦ 머지 — 계획 파일도 원장 기록도 없이 PR에서 완료를 읽는다.
+    const mergedPr = async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()}]))
     // ⑧ 보드: 계획이 없어도 사람 티켓 절을 그린다 — 완료된 작업과 판정 전 개발 티켓을 구분한다.
     const other = jira.humanTicket({summary: '검색 결과 정렬', components: ['DEVELOP'], description: '정렬 기준을 추가해 주세요'})
     jira.humanTicket({summary: '기획 입력', components: ['PLAN'], description: '기획 티켓'})
-    const board = await runWorkBoard({root, developer: 'dev1', flags: {}, io: {provider, ticketConfig: {provider: 'jira', jira: config}}})
+    const board = await runWorkBoard({root, developer: 'dev1', flags: {}, io: {provider, prStates: mergedPr, ticketConfig: {provider: 'jira', jira: config}}})
     assert.equal(board.ok, true, JSON.stringify(board))
     const rows = new Map(board.tickets.map(row => [row.ticketKey, row]))
     assert.equal(rows.get(key).stage, 'registered')

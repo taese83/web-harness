@@ -259,7 +259,6 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
     `${base} claim --publish --work-ids WORK-1 --repo o/r --confirm`,
     `${base} pickup PF-101 --repo o/r --developer me`,
     `${base} link PF-101 https://x/pull/1`,
-    `${base} link --sync`,
     `${base} link --reopen PF-101 --reason "머지를 되돌림"`,
     `${base} intake PF-1 --repo o/r`,
     `${base} configure --provider jira --set projectKey=PFFE --set issueType=Task`,

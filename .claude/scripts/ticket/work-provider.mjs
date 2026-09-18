@@ -72,10 +72,19 @@ export function classifyTrackerDone(item, {completedResolutions = DEFAULT_COMPLE
  * 원장 상태에 트래커의 끝남을 겹친다(순수). **이관 중에는 둘 중 하나라도 완료면 완료다** — 지금까지 하네스가 Jira를
  * 완료로 전이하지 않아 원장만 완료인 작업이 많다. 트래커에서 취소로 끝난 작업은 `trackerCancelled`로 표시한다.
  */
-export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS, mergeEvidence = new Map()} = {}) {
+export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS, mergeEvidence = new Map(),
+  records = new Map(), prStates = new Map()} = {}) {
   const byKey = new Map((Array.isArray(items) ? items : []).map(item => [String(item.ticketKey),
     {done: classifyTrackerDone(item, {completedResolutions}), doneAt: item.doneAt ?? null}]))
-  const works = new Map([...(state?.works?.entries() ?? [])].map(([workId, item]) => {
+  const works = new Map([...(state?.works?.entries() ?? [])].map(([workId, entry]) => {
+    let item = entry
+    // 티켓 코멘트의 작업 기록 — 가장 최근 PR 연결과 완료 회수(`work-records.mjs`). 원장에는 없다.
+    const record = item.ticketKey ? records.get(String(item.ticketKey)) : null
+    // 회수가 연결보다 뒤면 그 연결은 끝난 것이다 — 겹치지 않아야 다시 집은 뒤 새 PR을 연결할 수 있다(멱등이 옛 PR을 돌려주지 않게).
+    if (record?.link && !(record.reopen && !(Date.parse(record.link.at) > Date.parse(record.reopen.at)))) item = {...item, link: {...record.link}}
+    if (record?.reopen && !(item.reopened && Date.parse(item.reopened.at) >= Date.parse(record.reopen.at))) {
+      item = {...item, reopened: {at: record.reopen.at, prUrl: record.reopen.prUrl}}
+    }
     const tracker = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
     if (item.completed) return [workId, item]
     // 기대 base에 머지된 커밋이 먼저다 — 코드가 base에 있으면 선행은 끝났다(팀의 Done은 QA·배포를 기다릴 수 있다).
@@ -84,6 +93,14 @@ export function withTrackerCompletion(state, items, {completedResolutions = DEFA
     const cancelledAfter = tracker?.done === 'cancelled' && !(tracker.doneAt && Date.parse(evidence?.date) > Date.parse(tracker.doneAt))
     if (evidence && !cancelledAfter && !(item.reopened && !(Date.parse(evidence.date) > Date.parse(item.reopened.at)))) {
       return [workId, {...item, completed: {via: 'commit', at: evidence.date, commit: evidence.commit, pr: evidence.pr, branch: evidence.branch}}]
+    }
+    // 연결한 PR이 **기대 base에** 머지됐다 — 다른 브랜치 머지·거두기 전 머지·취소 전 머지는 세지 않는다.
+    const pr = item.link?.prUrl ? prStates.get(item.link.prUrl) : null
+    const mergedAfter = at => Boolean(pr?.mergedAt) && Date.parse(pr.mergedAt) > Date.parse(at)
+    if (pr?.state === 'MERGED' && pr.baseRefName === item.link.baseRef
+      && !(tracker?.done === 'cancelled' && !(tracker.doneAt && mergedAfter(tracker.doneAt)))
+      && !(item.reopened && !mergedAfter(item.reopened.at))) {
+      return [workId, {...item, completed: {via: 'merge', prUrl: item.link.prUrl, at: pr.mergedAt ?? null}}]
     }
     if (!tracker?.done) return [workId, item]
     // 완료를 거둔(reopen) 작업은 **거둔 뒤에** 트래커에서 다시 끝났을 때만 겹친다 — 하네스는 트래커를 다시 열지 않으므로

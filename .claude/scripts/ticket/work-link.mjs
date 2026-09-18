@@ -1,17 +1,17 @@
-// work-link.mjs — WORK의 PR 연결(완료 주장)과 머지 관측(완료)을 판정한다.
+// work-link.mjs — WORK의 PR 연결(완료 주장)을 판정한다(순수에 가깝다). 기록은 티켓 코멘트다(work-records.mjs).
 //
 // legacy `link`의 게이트를 **옮긴다**(I2):
 //   STALE 대조      → change-scope가 이 작업의 것이면 계획 digest로 대조, 아니면 미수행을 loud하게
-//                     (`--accept-unverified-scope` 명시 인수는 원장에 남는다)
+//                     (`--accept-unverified-scope` 명시 인수는 연결 기록에 남는다)
 //   멱등            → 이미 연결된 작업의 재실행은 지나간 판정을 다시 심판하지 않는다
 //   완료 조건        → 수용 기준이 없으면 판정 불가, 있으면 **아예 없는 것**을 잡는다
-//                     (`--accept-incomplete` 명시 인수는 원장에 남는다)
+//                     (`--accept-incomplete` 명시 인수는 연결 기록에 남는다)
 //   close 대상 정합 → 원장이 이 작업에 등록한 티켓 키로만 닫는 줄을 만든다
 //
 // WORK에서 달라지는 것: 수용 기준은 TC(소유한 것) **와** `checks`다. TC는 legacy와 같은 프록시
 // (소스·테스트에 ID가 인용되는가)로, check는 **대상 경로가 실재하는가**로 잰다 — 둘 다 「아예 없음」의
-// 하한이지 의미 검증이 아니다(§4 등록). 완료(`work-completed`)는 **머지를 관측했을 때만** 쓴다 —
-// 링크는 완료의 주장이지 완료가 아니다.
+// 하한이지 의미 검증이 아니다(§4 등록). 완료는 기록하지 않는다 — 연결한 PR의 머지·트래커에서 계산한다
+// (work-state-run.mjs). 링크는 완료의 주장이지 완료가 아니다.
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative as relativePath, resolve, sep} from 'node:path'
 import {createHash, randomUUID} from 'node:crypto'
@@ -150,7 +150,7 @@ export function workForTicket(state, ticketKey) {
 }
 
 /**
- * 연결 판정(순수) — 게이트를 통과하면 원장에 쓸 이벤트를 만든다.
+ * 연결 판정(순수) — 게이트를 통과하면 연결 기록에 담을 내용(`event.payload`)을 만든다.
  * @param {{plan: object, planDigest: string, state: object, changeScope: object|null, ticketKey: string,
  *          prUrl: string, completion: object|null, flags?: object, now?: string}} args
  */
@@ -207,9 +207,9 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
       'check-targets-missing': `check 대상이 없다: ${list(completion?.checks?.missing).map(item => `${item.checkId}(${item.missingRefs.join(', ')})`).join(' · ')} — 작업 산출물이 그 경로에 있어야 한다`,
       'check-targets-unchanged': `check 대상이 픽업 뒤 바뀌지 않았다: ${list(completion?.checks?.missing).map(item => item.checkId).join(', ')} — 이 작업이 만든 결과가 아니다`,
     }[completion?.reason] ?? '완료 판정을 할 수 없다'
-    // 개발자가 PR에서 기준을 낮추는 경로는 두지 않는다 — 넘기려면 의식적으로 인수하고 그 사실이 원장에 남는다.
+    // 개발자가 PR에서 기준을 낮추는 경로는 두지 않는다 — 넘기려면 의식적으로 인수하고 그 사실이 연결 기록에 남는다.
     return {ok: false, blocked: `completion:${completion?.reason ?? 'unknown'}`, completion, workId, staleCheck,
-      guidance: `${guidance}. 의식적으로 넘기려면 --accept-incomplete(원장에 남는다)`}
+      guidance: `${guidance}. 의식적으로 넘기려면 --accept-incomplete(연결 기록에 남는다)`}
   }
   const event = {
     schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-linked', at: now, planDigest,
@@ -235,33 +235,6 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
     ...(added.length > 0 ? {ticketAcceptance: {items: added, verification: 'not-automated', guidance: '티켓에서 사람이 더한 조건이다 — PR 리뷰에서 충족을 확인한다'}} : {})}
 }
 
-/**
- * 머지 관측(순수) — 연결됐고 아직 완료가 아닌 작업 중 PR이 **머지로 확인된 것**만 완료 이벤트로 만든다.
- * 조회 실패·미상은 완료가 아니다(보수). 무엇을 못 쟀는지 함께 돌려준다.
- * @param {{plan: object, state: object, prStates: Map<string, {state?: string, error?: string}>, now?: string}} args
- */
-export function planMergeSync({plan, state, prStates, now = new Date().toISOString()}) {
-  const events = []
-  const unknown = []
-  const open = []
-  const baseMismatch = []
-  for (const [workId, item] of state?.works?.entries() ?? []) {
-    if (!item.link?.prUrl || item.completed) continue
-    const observed = prStates.get(item.link.prUrl) ?? null
-    if (!observed || observed.error) { unknown.push({workId, prUrl: item.link.prUrl, error: observed?.error ?? 'not-queried'}); continue }
-    if (observed.state !== 'MERGED') { open.push({workId, prUrl: item.link.prUrl, state: observed.state ?? null}); continue }
-    // **기대한 base에 머지됐을 때만** 끝난 것이다. 다른 브랜치에 머지된 PR·base를 모르는 링크는 완료로 쓰지 않는다.
-    if (!item.link.baseRef || observed.baseRefName !== item.link.baseRef) {
-      baseMismatch.push({workId, prUrl: item.link.prUrl, expected: item.link.baseRef ?? null, observed: observed.baseRefName ?? null}); continue
-    }
-    // 사람 티켓 작업은 자기 계획 ID(티켓에서 만든 ID)를 쓴다 — 계획이 없는 프로젝트에서도 머지를 관측한다.
-    const planId = item.planId ?? item.link?.planId ?? plan?.planId
-    if (!planId) { unknown.push({workId, prUrl: item.link.prUrl, error: 'plan-unknown'}); continue }
-    events.push({schemaVersion: 1, eventId: randomUUID(), planId, workId, eventType: 'work-completed', at: now,
-      payload: {prUrl: item.link.prUrl, via: 'pr-merged', baseRef: observed.baseRefName}})
-  }
-  return {events, unknown, open, baseMismatch}
-}
 
 /**
  * 대상의 지문(읽기). 파일은 내용, 디렉터리는 **하위 파일 경로·내용 전부**(깊이 상한)의 해시다.

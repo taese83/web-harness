@@ -34,8 +34,9 @@
 `eventId`가 다른 내용이면 실패, 같은 내용의 재기록은 재실행의 정상 결과다. **순서의 정본은 파일 순서이고
 `at`은 정보다** — 겹친 append는 시각이 역전될 수 있어 시각 단조를 강제하지 않는다. `plan-reviewed`에는 `planDigest`와 `payload.workIds`가 필수이며, 같은 판본을 다시
 검토하면 이벤트를 쓰지 않는다(재실행이 원장을 상한까지 키우지 않게).
-종류는 `plan-reviewed` · `publish-attempted`·`publish-confirmed`·`publish-unknown` · `relation-linked` ·
-`work-linked`·`work-completed` · `aggregate-attempted`·`aggregate-confirmed`·`aggregate-unknown`·`aggregate-refreshed`다 — 생산자와 소비자가 함께 있는 것만 둔다. 검토 계보(한 번이라도 검토된 작업 ID)는
+종류는 `plan-reviewed` · `publish-attempted`·`publish-confirmed`·`publish-unknown`·`publish-synced` · `context-attached` · `relation-linked` ·
+`work-retired` · `aggregate-attempted`·`aggregate-confirmed`·`aggregate-unknown`·`aggregate-refreshed`다 — 리드의 계획·발행 기록만이고, 생산자와 소비자가 함께 있는 것만 둔다.
+개발 쪽 사실(연결·완료·회수)은 원장에 없다 — 티켓 코멘트와 트래커·PR 상태에서 읽는다(「완료」 절). 검토 계보(한 번이라도 검토된 작업 ID)는
 이 원장에서 읽으므로 로컬 포인터를 지워도 작업 삭제 대조가 살아 있다.
 
 WORK 티켓 본문에는 마커 하나를 둔다: `<!-- web-harness:work plan=<planId> work=<WORK-…> feat=… tc=… rev=<계획 digest> -->`.
@@ -168,47 +169,42 @@ digest이며, 공유 작업이면 `featureId`가 `null`이고 `featureIds`가 �
 `assignment-unknown`이며 **미배정이 아니다**(`--no-tracker`로 조회를 아예 건너뛸 수 있고, 그때도
 같은 표기가 붙는다). 원장은 발행이라는데 목록에 없으면 `ticket-not-found`로 따로 말한다.
 발행 판본을 원장이 모르면 `plan-digest-unknown`이며 「같다」고 접지 않는다.
-PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — `link --sync`로 머지를 확인해야 후속이 열린다.
+PR은 연결됐는데 머지를 확인하지 못한 작업은 따로 센다 — 기대 base에 머지돼야 후속이 열린다.
 
 **트래커 창의 한계**: Jira는 커서를 따라 돌고, GitHub은 저장소 이슈 목록(생성 역순 상한 100건)을 먼저 읽고, 목록이 잘렸으면 **원장의 키를 하나씩 직접 조회**한다(발행한 WORK 수만큼 `gh` 호출). 권한·네트워크
 실패는 부재가 아니라 「조회 실패」로 적는다.
 
 ## 완료 (P3-a)
 
-`link <티켓키> <PR>`은 **완료를 주장**하고, `link --sync`는 **머지를 관측**한다.
-둘은 다른 사실이다 — 원장에 `work-linked`와 `work-completed`로 따로 남는다. **완료는 머지 관측·머지된 커밋·트래커의 끝남 중 하나다**
-(트래커를 정본으로 옮기는 중이라 하나라도 완료면 완료). 머지된 커밋은 Jira Git Integration 애드온이 티켓 키로 모은 커밋 중
+`link <티켓키> <PR>`은 **완료를 주장**하고 그 기록을 **티켓 코멘트**로 남긴다(`web-harness:link pr= base= def= rev= accepted=`
+마커 + 한 줄, 원장에 쓰지 않는다 — 트래커 설정이 없으면 `tracker-required`로 막는다). 가장 최근 연결 기록(트래커가 붙인 작성 시각)이 정본이다.
+**완료는 기록하지 않고 읽을 때 계산한다** — 연결한 PR이 기대 base에 머지됨 · 머지된 커밋 · 트래커의 끝남 중 하나다.
+PR 상태는 PR URL의 호스트에서 읽는다(쓰기 없음). 다른 브랜치 머지·열린 PR·조회 실패는 완료가 아니고, 조회 실패는 `notes`로 알린다. 머지된 커밋은 Jira Git Integration 애드온이 티켓 키로 모은 커밋 중
 기대 base(계획의 baseBranch, 없으면 원격 기본 브랜치)에 있는 **GitHub 스쿼시 머지 커밋**(제목이 티켓 키로 시작하고 `(#PR번호)`로
 끝남)이다 — 그래서 `link`가 Jira 작업의 PR 제목이 키로 시작하지 않으면 알린다. 애드온이 없는 인스턴스는 이 근거 없이 간다. 트래커의 끝남은 Jira는 해결 사유가 설정 `completedResolutions`
 (기본 Fixed·Done)에 있을 때, GitHub은 닫힌 이유가 completed일 때다. 나머지 해결 사유·not planned는 취소로 보고 집지도 선행으로
-세지도 않으며, 해결 사유 없이 끝난 Jira 티켓은 어느 쪽으로도 세지 않고 보드가 알린다. `link --reopen`으로 거둔 작업은 거둔 뒤에
-트래커에서 다시 끝났을 때만 트래커 완료를 센다.
+세지도 않으며, 해결 사유 없이 끝난 Jira 티켓은 어느 쪽으로도 세지 않고 보드가 알린다. 트래커에서 취소된 티켓은 취소 **뒤의** 머지만
+완료로 센다. `link --reopen`은 완료 회수를 티켓 코멘트(`web-harness:reopen`)로 남기고, 그 뒤의 머지·커밋·끝남만 완료로 센다(시각을 모르면 세지 않는다).
 
 `link`의 게이트:
 
 | 게이트 | 규칙 |
 |---|---|
-| STALE 대조(미수행은 loud) | change-scope가 이 작업의 것이면 계획 digest로 대조. 없거나 다른 작업의 것이면 `--accept-unverified-scope` 없이 막고, 넘기면 원장에 남긴다 |
-| 멱등 | 이미 연결된 작업의 재실행은 지나간 판정을 다시 심판하지 않는다 |
-| 완료 조건(TC 인용) | 소유 TC가 소스·테스트에 인용되는가 **그리고** `checks`의 대상 경로가 실재하고 픽업 때 찍은 지문에서 바뀌었는가(이미 있던 경로를 적고 아무것도 안 한 기반 작업은 `check-targets-unchanged`). 기준이 하나도 없으면 판정 불가(`no-acceptance`). `--accept-incomplete`로 넘기면 원장에 남긴다 |
+| STALE 대조(미수행은 loud) | change-scope가 이 작업의 것이면 계획 digest로 대조. 없거나 다른 작업의 것이면 `--accept-unverified-scope` 없이 막고, 넘기면 연결 기록에 남긴다 |
+| 멱등 | 이미 연결된 작업(티켓의 연결 기록)의 재실행은 지나간 판정을 다시 심판하지 않는다 |
+| 완료 조건(TC 인용) | 소유 TC가 소스·테스트에 인용되는가 **그리고** `checks`의 대상 경로가 실재하고 픽업 때 찍은 지문에서 바뀌었는가(이미 있던 경로를 적고 아무것도 안 한 기반 작업은 `check-targets-unchanged`). 기준이 하나도 없으면 판정 불가(`no-acceptance`). `--accept-incomplete`로 넘기면 연결 기록에 남긴다 |
 | close 대상 정합 | 원장이 이 작업에 등록한 티켓 키로만 닫는 줄을 만든다. 트래커는 **발행 원장**이 정한다(지금 설정이 아니다). GitHub만 머지로 닫히고, 트래커를 모르면 닫는다고 적지 않는다 |
 
 **완료 판정은 프록시다** — TC는 ID가 인용됐는가, check는 대상 경로가 있는가까지이며 그 테스트가
 기준을 실제로 검증하는지는 보지 않는다(의미 판정은 코드 리뷰의 몫).
 
-**기대 base**: `link`는 이 작업이 어느 브랜치에 머지돼야 끝나는지 원장에 남긴다 — PR에서 읽거나(`gh pr view`)
+**기대 base**: `link`는 이 작업이 어느 브랜치에 머지돼야 끝나는지 연결 기록에 남긴다 — PR에서 읽거나(`gh pr view`)
 운영자가 `--base`로 준다(`refs/heads/`·`origin/` 접두는 떼어 기록한다). 모르면 링크하지 않는다(기대 base 없는 링크는
-아무 브랜치 머지로 완료가 된다). 기대 base 없이 남은 **옛 링크는 같은 PR에 한해** `link <키> <PR> --base <브랜치>`로
-다시 기록한다 — 판정은 전부 다시 지난다. PR URL은 정규형(`…/pull/<번호>`)만 받는다.
-
-`--sync`는 연결됐고 아직 완료가 아닌 작업의 PR 상태를 PR URL의 호스트에서 읽는다(쓰기 없음). **기대 base에
-머지된 것만** 완료로 쓰고, 다른 브랜치 머지·기대 base 없는 옛 링크는 `baseMismatch`로 올린다.
-열린 PR은 그대로, 조회 실패는 `ok:false`로 올린다 — 완료로도
-침묵으로도 접지 않는다.
+아무 브랜치 머지로 완료가 된다). PR URL은 정규형(`…/pull/<번호>`)만 받는다.
 
 ## 부모 집계 (P3-b)
 
-`board --by-feature`가 FEAT마다 필수 WORK의 상태를 모아 보여준다(로컬 계획·원장만 — 트래커를 부르지 않는다).
+`board --by-feature`가 FEAT마다 필수 WORK의 상태를 모아 보여준다(계획·원장에 트래커의 머지·끝남을 겹친다 — 트래커가 없으면 그렇다고 적는다).
 
 | 상태 | 뜻 |
 |---|---|
@@ -258,31 +254,27 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 - 원장은 브랜치마다 끝에 줄을 덧붙이므로 `.gitattributes`에 `merge=union`이 있어야 PR끼리 충돌하지 않는다. `change-scope.md`와
   `ticket-assessments/`는 한 개발자의 로컬 작업 상태라 커밋하지 않는다. 개발 준비 검사 `team-sharing`이 둘을 확인하고 `--fix`로 넣는다.
 - 연결·완료된 작업의 범위는 다음 픽업을 막지 않는다(STALE 대조는 link 때 끝났다).
-- 완료된 작업은 다시 집지 않는다. 머지를 되돌렸으면 `link --reopen <키> --reason`으로 완료·연결을 거둔다(`work-reopened`, 원장에 PR이 없는 커밋·트래커 완료도) — 같은 작업을 다시 집고,
+- 완료된 작업은 다시 집지 않는다. 머지를 되돌렸으면 `link --reopen <키> --reason`으로 완료를 거둔다(티켓 코멘트, PR 머지·커밋·트래커 완료 모두) — 같은 작업을 다시 집고,
   이 작업을 선행으로 둔 작업은 다시 기다린다. 이미 끝난 후속 작업은 목록으로 알릴 뿐 거두지 않는다. 닫힌 티켓은 사람이 다시 연다.
-- 머지 확인은 누구나 로컬에서 할 수 있다. 같은 완료가 여러 사람에게서 다른 eventId로 기록돼도 접기 결과는 같다.
+- 머지는 아무도 기록하지 않는다 — 어느 클론이든 보드·픽업이 트래커와 PR에서 같은 답을 읽는다(보호된 main에 올릴 커밋이 없다).
 - 픽업 범위에는 작업의 `writePaths`와 소스와 따로 둔 테스트 레이어(`spec.testLayers`)가 들어간다. 테스트를 소스 옆에 두는 레이어는 넣지 않는다(범위가 소스 전체로 넓어진다). 테스트 레이어 안에서는 다른 작업의 테스트도 쓸 수 있고, 짧은 이름(`tests`)은 어느 깊이의 같은 이름 디렉터리에도 맞는다.
 - 같은 파일을 쓰는 작업은 계획에서 순서를 줘야 한다(T08). 선언하지 않은 파일(package.json 등)을 고쳐 커밋하면 `link`가 `scopeDrift`로 알린다 — 막지 않으며, 병렬 작업과의 충돌은 머지에서 난다. 점검하지 못하면 그 이유를 적는다.
 - 사람 티켓의 겹침은 다른 클론에서 방금 등록돼 내 원장에 없는 진행 중 티켓까지 본다 — 트래커 본문의 「수정 범위」로 잰다.
-- 회귀: `test-team-e2e.mjs`(Jira)·`test-team-github-e2e.mjs`(GitHub·자동 닫기 v3)·`test-team-monorepo-e2e.mjs`(앱 접두 범위·실제 소유권 훅)·`test-team-shared-file-e2e.mjs`(같은 파일)·`test-team-revision-e2e.mjs`(5인·개정 두 번·되돌림)·`test-team-human-tickets-e2e.mjs`(계획 없이 사람 티켓만), 모두 실제 git.
+- 회귀: `test-team-e2e.mjs`(Jira)·`test-team-github-e2e.mjs`(GitHub·자동 닫기 v4)·`test-team-monorepo-e2e.mjs`(앱 접두 범위·실제 소유권 훅)·`test-team-shared-file-e2e.mjs`(같은 파일)·`test-team-revision-e2e.mjs`(5인·개정 두 번·되돌림)·`test-team-human-tickets-e2e.mjs`(계획 없이 사람 티켓만), 모두 실제 git.
 
 ## 자동 닫기 (P3-c)
 
 `validate-development-readiness`의 `ticket-assets`가 WORK 원장이 있는 프로젝트에 `ticket-close.yml`·
-`close-merged-tickets.mjs`(v3)를 설치한다(`--fix`, 덮어쓰지 않는다). 머지된 PR마다:
+`close-merged-tickets.mjs`(v4)를 설치한다(`--fix`, 덮어쓰지 않는다). 머지된 PR마다:
 
-- **근거는 WORK 원장뿐** — `work-linked`가 이 PR을 결속했고, 기대 base가 머지 base와 같고, 그 작업이 **검토 계보에
-  있을 때만**. PR 본문의 `#N`은 보지 않는다. 원장 줄도 PR이 가져오지만 PR diff로 리뷰를 거친다 — 신뢰 경계는 머지 승인이다.
-- **전제**: `link`가 남긴 `work-linked` 줄이 **그 PR에 커밋돼 base에 도달**해야 한다. 커밋하지 않으면 워크플로우는
-  「결속된 WORK 없음」으로 아무것도 닫지 않는다.
-- 이슈 번호가 아닌 키는 provider가 github여도 닫지 않는다(gh는 URL도 받는다). 한 건 실패는 모아서 exit 1로 알린다.
-  fork PR은 토큰이 읽기 전용이라 닫지 못한다.
-- **GitHub WORK 티켓만 닫는다**(근거 코멘트, 이미 닫혔으면 건너뜀). 발행 트래커가 GitHub이 아니거나 기록이
-  없으면 PENDING으로 남긴다 — 추측해 닫지 않는다.
+- **PR 본문의 `#N`은 후보일 뿐이다.** 후보 이슈가 하네스 작업 이슈(`web-harness:work` 표지, 집계 표지 없음)이고, 그 이슈의
+  **가장 최근 연결 기록**이 이 PR·이 머지 base일 때만 닫는다. 기록이 없거나 다른 PR·다른 base면 닫지 않는다.
+  신뢰 경계는 이슈 코멘트 권한이다 — 연결 기록의 작성자·시각이 이슈 이력에 남는다(protected-core §4).
+- GitHub 이슈만 닫는다(근거 코멘트, 이미 닫혔으면 건너뜀). Jira 작업은 닫는 줄이 `Relates to`라 후보가 없다. 한 건 실패는 모아서
+  exit 1로 알린다. fork PR은 토큰이 읽기 전용이라 닫지 못한다.
 - **부모 FEAT·집계 티켓은 닫지 않는다**(부모 자동 닫기는 기본 비활성).
-- 원장 파손 줄이 있으면 **멈춘다**.
-- 판본 표지(`web-harness:ticket-close v3` — v3는 사람 티켓 작업도 닫는다)가 없는 옛 사본은 설치됨으로 세지 않고 FAIL로 알린다 — 손봤을 수
-  있어 자동으로 덮지 않는다. **v2 사본이 설치된 저장소는 사람 티켓 작업을 닫지 못한다** — 두 파일을 지우고 `--fix`로 다시 설치한다.
+- 판본 표지(`web-harness:ticket-close v4`)가 없는 옛 사본은 설치됨으로 세지 않고 FAIL로 알린다 — 손봤을 수 있어 자동으로 덮지 않는다.
+  옛 사본은 원장을 근거로 해 아무것도 닫지 못한다 — 두 파일을 지우고 `--fix`로 다시 설치한다.
 
 ## 원칙
 

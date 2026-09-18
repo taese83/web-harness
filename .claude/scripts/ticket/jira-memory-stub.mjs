@@ -12,9 +12,12 @@ export function createJiraStub({gitIntegration = false} = {}) {
   let sequence = 100
   const touch = issue => { issue.fields.updated = `2026-09-14T00:00:${String(++clock).padStart(2, '0')}.000+0000` }
   const respond = (status, json) => ({ok: status < 400, status, json: async () => json, text: async () => JSON.stringify(json ?? '')})
+  // 코멘트 시각은 실제 시각이다(뒤로 가지 않는다) — 기록 코멘트의 앞뒤를 시각으로 가린다.
+  let lastCommentAt = 0
+  const commentTime = () => { lastCommentAt = Math.max(Date.now(), lastCommentAt + 1); return new Date(lastCommentAt).toISOString() }
   const humanComment = (key, author, body) => {
     const issue = issues.get(key)
-    issue.fields.comment.comments.push({author: {displayName: author}, created: `c${clock}`, body})
+    issue.fields.comment.comments.push({author: {displayName: author}, created: commentTime(), body})
     issue.fields.comment.total += 1
     touch(issue)
   }

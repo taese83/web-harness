@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// test-work-link.mjs — WORK의 완료 주장(link)과 완료(머지 관측): legacy `link`의 게이트를 옮겼는가.
+// test-work-link.mjs — WORK의 완료 주장(link)과 완료(연결한 PR의 머지): legacy `link`의 게이트를 옮겼는가.
 //
 // 고정하는 사실:
 //   STALE  change-scope가 이 작업의 것이면 계획 digest로 대조하고, 대조할 수 없으면 명시 인수 없이 막는다
 //   멱등   이미 연결된 작업의 재실행은 지나간 판정을 다시 심판하지 않는다
 //   완료   소유 TC가 인용되지 않았거나 check 대상이 없으면 막는다 — 기준이 하나도 없으면 판정 불가
-//   인수   `--accept-*`로 넘긴 사실은 원장에 남는다(휘발성 주장이 되지 않게)
-//   머지   `work-completed`는 머지를 **관측했을 때만** 쓴다 — 조회 실패·열린 PR은 완료가 아니다
+//   인수   `--accept-*`로 넘긴 사실은 티켓의 연결 기록에 남는다(휘발성 주장이 되지 않게)
+//   머지   완료는 기록하지 않는다 — 연결한 PR이 기대 base에 머지됐을 때만 완료로 읽는다(조회 실패·열린 PR은 아니다)
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
@@ -14,8 +14,11 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {randomUUID} from 'node:crypto'
 import {spawnSync} from 'node:child_process'
-import {evaluateWorkCompletion, findMixedCommits, planMergeSync, planWorkLink, projectRefDigest} from './ticket/work-link.mjs'
-import {resolvePrStates, runWorkLink, runWorkMergeSync, workCloseLine} from './ticket/work-link-run.mjs'
+import {evaluateWorkCompletion, findMixedCommits, planWorkLink, projectRefDigest} from './ticket/work-link.mjs'
+import {resolvePrStates, runWorkLink, workCloseLine} from './ticket/work-link-run.mjs'
+import {withTrackerCompletion} from './ticket/work-provider.mjs'
+import {parseWorkRecords} from './ticket/work-records.mjs'
+import {readTrackerWorkState} from './ticket/work-state-run.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents, validateWorkEvent, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
 import {canonicalDigest} from './ticket/work-analysis.mjs'
 import {writeChangeScopeFile} from './ticket/cli.mjs'
@@ -31,6 +34,18 @@ const work = id => plan.workItems.find(entry => entry.workId === id)
 const owned = id => plan.featureBindings.flatMap(binding => binding.acceptanceOwners.filter(owner => owner.workId === id).map(owner => owner.testCaseId))
 const everything = () => true
 const published = (id, extra = {}) => ({works: new Map([[id, {status: 'published', ticketKey: 'PF-104', planDigest, ...extra}]])})
+// 코멘트만 읽고 쓰는 트래커 — 연결 기록이 사는 곳.
+const memoryTracker = () => {
+  const comments = new Map()
+  let last = 0
+  return {name: 'jira', comments,
+    async resolveIssue(key) { return {ticketKey: key, provider: 'jira', title: 't', body: '', assignees: [], links: [], comments: [...(comments.get(key) ?? [])], commentsOmitted: 0} },
+    async comment(key, body) {
+      last = Math.max(Date.now(), last + 1)
+      comments.set(key, [...(comments.get(key) ?? []), {author: 'me', created: new Date(last).toISOString(), body}])
+      return {ok: true}
+    }}
+}
 const scopeFor = id => ({workId: id, sourceDigest: planDigest, ticket: {key: 'PF-104', provider: 'jira', revision: 'r1', revisionStage: 'settled-at-pickup'}})
 
 test('완료: 소유 TC가 인용되지 않았거나 check 대상이 없으면 충족이 아니다', () => {
@@ -62,13 +77,13 @@ test('STALE: 픽업 뒤 계획이 바뀌었으면 막고, 대조할 수 없으�
   assert.equal(planWorkLink({baseRef: 'develop', ...base, changeScope: scopeFor(W(1))}).staleCheck, 'not-performed:different-work')
   const accepted = planWorkLink({baseRef: 'develop', ...base, changeScope: null, flags: {'accept-unverified-scope': true}})
   assert.equal(accepted.ok, true)
-  assert.equal(accepted.event.payload.acceptedUnverifiedScope, true, '대조 없이 넘긴 사실이 원장에서 사라졌다')
+  assert.equal(accepted.event.payload.acceptedUnverifiedScope, true, '대조 없이 넘긴 사실이 연결 기록에서 사라졌다')
   const verified = planWorkLink({baseRef: 'develop', ...base, changeScope: scopeFor(W(4))})
   assert.equal(verified.event.payload.staleCheck, 'verified')
-  assert.deepEqual(verified.event.payload.ticket, scopeFor(W(4)).ticket, '어느 티켓 개정으로 개발했는지 원장에 남지 않았다')
+  assert.deepEqual(verified.event.payload.ticket, scopeFor(W(4)).ticket, '어느 티켓 개정으로 개발했는지 남지 않았다')
 })
 
-test('완료 조건 미충족은 막고, 명시 인수로 넘기면 그 사실이 원장에 남는다', () => {
+test('완료 조건 미충족은 막고, 명시 인수로 넘기면 그 사실이 연결 기록에 남는다', () => {
   const partial = evaluateWorkCompletion({work: work(W(4)), ownedTestCaseIds: owned(W(4)), citedIds: [], pathExists: everything})
   const base = {baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion: partial}
   assert.equal(planWorkLink(base).blocked, 'completion:uncited-test-cases')
@@ -90,32 +105,44 @@ test('등록·멱등: 원장이 모르는 키는 막고, 이미 연결된 작업
   assert.equal(planWorkLink({baseRef: 'develop', plan, planDigest, state: published(W(4)), changeScope: null, ticketKey: 'PF-104', prUrl: 'not-a-url', completion}).blocked, 'pr-url-required')
 })
 
-test('머지: 머지를 관측한 것만 완료다 — 열린 PR·조회 실패는 완료가 아니다', () => {
-  const state = {works: new Map([
-    [W(1), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/1', baseRef: 'develop'}}],
-    [W(3), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/3', baseRef: 'develop'}}],
-    [W(4), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/4', baseRef: 'develop'}}],
-    [W(5), {status: 'published', link: {prUrl: 'https://github.com/o/r/pull/5'}, completed: {prUrl: 'x', at: 't'}}],
-  ])}
+test('머지: 연결한 PR이 기대 base에 머지된 것만 완료다 — 열린 PR·조회 실패·거둔 뒤가 아닌 머지는 완료가 아니다', () => {
+  const at = '2026-09-10T00:00:00.000Z'
+  const link = n => ({link: {prUrl: `https://github.com/o/r/pull/${n}`, baseRef: 'develop', at}, reopen: null})
+  const state = {works: new Map([1, 3, 4, 5].map(n => [W(n), {status: 'published', ticketKey: `PF-${n}`}]))}
+  const records = new Map([1, 3, 4, 5].map(n => [`PF-${n}`, link(n)]))
+  records.set('PF-5', {...link(5), reopen: {at: '2026-09-12T00:00:00.000Z', prUrl: 'https://github.com/o/r/pull/5'}})
   const prStates = new Map([
-    ['https://github.com/o/r/pull/1', {state: 'MERGED', baseRefName: 'develop'}],
-    ['https://github.com/o/r/pull/3', {state: 'OPEN'}],
+    ['https://github.com/o/r/pull/1', {state: 'MERGED', baseRefName: 'develop', mergedAt: '2026-09-11T00:00:00.000Z'}],
+    ['https://github.com/o/r/pull/3', {state: 'OPEN', baseRefName: 'develop'}],
     ['https://github.com/o/r/pull/4', {error: 'gh: not logged in'}],
+    ['https://github.com/o/r/pull/5', {state: 'MERGED', baseRefName: 'develop', mergedAt: '2026-09-11T00:00:00.000Z'}],
   ])
-  const sync = planMergeSync({plan, state, prStates})
-  assert.deepEqual(sync.events.map(event => event.workId), [W(1)])
-  assert.equal(sync.events[0].payload.via, 'pr-merged')
-  assert.deepEqual(sync.open.map(item => item.workId), [W(3)])
-  assert.deepEqual(sync.unknown.map(item => item.workId), [W(4)])
+  const next = withTrackerCompletion(state, [], {records, prStates})
+  assert.deepEqual([...next.works].filter(([, item]) => item.completed).map(([workId]) => workId), [W(1)])
+  assert.equal(next.works.get(W(1)).completed.via, 'merge')
+  assert.equal(next.works.get(W(3)).link.prUrl, 'https://github.com/o/r/pull/3', '연결 기록을 겹치지 않았다')
+  assert.ok(next.works.get(W(5)).reopened, '완료 회수 기록을 겹치지 않았다')
 })
 
-test('원장: 머지를 관측하지 않은 완료·판정 요약 없는 링크는 쓸 수 없다', () => {
+test('원장: 개발 쪽 기록(연결·완료·회수)은 원장에 쓸 수 없다 — 티켓 코멘트가 기록이다', () => {
   const base = {schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId: W(1), at: new Date().toISOString()}
-  assert.deepEqual(validateWorkEvent({...base, eventType: 'work-completed', payload: {prUrl: PR, via: 'pr-merged'}}), [])
-  assert.ok(validateWorkEvent({...base, eventType: 'work-completed', payload: {prUrl: PR, via: 'manual'}}).some(error => /pr-merged/.test(error)),
-    '머지 관측이 아닌 완료가 원장에 들어간다')
-  assert.ok(validateWorkEvent({...base, eventType: 'work-linked', planDigest, payload: {prUrl: PR, staleCheck: 'verified'}})
-    .some(error => /completion/.test(error)), '판정 요약 없는 링크가 원장에 들어간다')
+  for (const eventType of ['work-linked', 'work-completed', 'work-reopened']) {
+    assert.ok(validateWorkEvent({...base, eventType, planDigest, payload: {prUrl: PR}}).some(error => /eventType/.test(error)), `${eventType}가 원장에 들어간다`)
+  }
+})
+
+test('연결 기록: 가장 최근 코멘트가 이기고, 시각 없는 기록·끊긴 마커는 읽지 않는다', () => {
+  const records = parseWorkRecords([
+    {created: '2026-09-11T00:00:00.000Z', body: '<!-- web-harness:link pr=https://github.com/o/r/pull/2 base=main def=- accepted=incomplete -->'},
+    {created: '2026-09-10T00:00:00.000Z', body: '<!-- web-harness:link pr=https://github.com/o/r/pull/1 base=main def=- accepted=- -->'},
+    {created: 'c9', body: '<!-- web-harness:link pr=https://github.com/o/r/pull/9 base=main def=- accepted=- -->'},
+    {created: '2026-09-12T00:00:00.000Z', body: '<!-- web-harness:link pr=https://github.com/o/r/pull/3 -->'},
+    // 트래커가 저장소 밖 사람이라고 알려 준 코멘트는 기록이 아니다.
+    {created: '2026-09-13T00:00:00.000Z', trusted: false, body: '<!-- web-harness:link pr=https://github.com/o/r/pull/4 base=main def=- accepted=- -->'},
+  ])
+  assert.equal(records.link.prUrl, 'https://github.com/o/r/pull/2')
+  assert.equal(records.link.acceptedIncomplete, true, '인수 사실이 기록에서 사라졌다')
+  assert.equal(records.reopen, null)
 })
 
 test('닫는 줄은 트래커가 정한다 — 모르면 닫는다고 적지 않는다', () => {
@@ -132,6 +159,16 @@ const workspace = () => {
     workId: W(1), eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest, payload: {ticketKey: 'PF-101'}})
   return root
 }
+
+test('연결 기록 읽기: 코멘트를 다 받지 못했으면 읽은 것은 쓰되 알린다 — 최근 기록이 빠졌을 수 있다', async () => {
+  const provider = {name: 'jira', async resolveIssue(key) {
+    return {ticketKey: key, comments: [{created: '2026-09-10T00:00:00.000Z', body: '<!-- web-harness:link pr=https://github.com/o/r/pull/1 base=main def=- rev=- accepted=- -->'}], commentsOmitted: 3}
+  }}
+  const state = {works: new Map([[W(1), {status: 'published', ticketKey: 'PF-1'}]])}
+  const read = await readTrackerWorkState({provider, state, root: tmpdir(), io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'OPEN', baseRefName: 'main'}])), repoContext: async () => null}})
+  assert.equal(read.state.works.get(W(1)).link.prUrl, 'https://github.com/o/r/pull/1')
+  assert.ok(read.notes.some(note => /코멘트를 다 받지 못해/.test(note)), `덜 받은 코멘트를 완결로 접었다: ${JSON.stringify(read.notes)}`)
+})
 
 test('범위 밖 파일: 작업 범위·테스트 레이어·하네스 산출물 밖에서 고친 파일만 알린다', async () => {
   const {findOutsideScope} = await import('./ticket/work-link.mjs')
@@ -179,38 +216,41 @@ test('실행부: 범위도 등록도 없는 티켓을 연결하면 멈춘다 —
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('실행부: 기반 작업을 연결하면 원장에 판정과 함께 남고, 머지 관측 뒤에야 완료가 된다', async () => {
+test('실행부: 기반 작업을 연결하면 티켓에 판정과 함께 남고(원장엔 없다), 머지를 읽은 뒤에야 완료가 된다', async () => {
   const root = workspace()
+  const tracker = memoryTracker()
   try {
     writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
       plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
     // check 대상이 아직 없다 — 막힌다.
-    const blocked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
+    const blocked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {provider: tracker}})
     assert.equal(blocked.blocked, 'completion:check-targets-missing', JSON.stringify(blocked))
     // 대상을 만든다(작업 산출물).
     mkdirSync(join(root, 'src/entities/member'), {recursive: true})
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string}\n')
-    const linked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
+    // 트래커 없이는 연결을 남길 곳이 없다 — 원장으로 물러서지 않는다.
+    const nowhere = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
+    assert.equal(nowhere.blocked, 'tracker-required')
+    const ledgerBefore = readFileSync(join(root, WORK_EVENTS_PATH), 'utf8')
+    const linked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {provider: tracker}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     assert.equal(linked.staleCheck, 'verified')
-    let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
-    assert.equal(state.works.get(W(1)).link.prUrl, PR)
-    assert.equal(state.works.get(W(1)).completed, null, '링크를 완료로 기록했다')
-    // 조회 실패는 ok:false로 올린다 — 완료로도 침묵으로도 접지 않는다.
-    const failing = await runWorkMergeSync({root, io: {prStates: async () => new Map()}})
-    assert.equal(failing.ok, false)
-    assert.deepEqual(failing.completed, [])
-    assert.deepEqual(failing.unknown.map(item => item.workId), [W(1)])
-    // 머지 관측: 열린 PR은 완료가 아니다.
-    const open = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'OPEN'}]))}})
-    assert.deepEqual(open.completed, [])
-    const merged = await runWorkMergeSync({root, io: {prStates: async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'develop'}]))}})
-    assert.deepEqual(merged.completed, [W(1)])
-    state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
-    assert.equal(state.works.get(W(1)).completed.prUrl, PR)
-    // 이미 완료된 작업은 다시 조회하지 않는다(완료 이벤트가 중복으로 쌓이지 않게).
-    const again = await runWorkMergeSync({root, io: {prStates: async urls => { assert.deepEqual(urls, []); return new Map() }}})
-    assert.deepEqual(again.completed, [])
+    assert.equal(readFileSync(join(root, WORK_EVENTS_PATH), 'utf8'), ledgerBefore, '연결이 원장에 쓰였다')
+    assert.equal(parseWorkRecords(tracker.comments.get('PF-101')).link.baseRef, 'develop')
+    // 다시 연결하면 지나간 판정을 다시 심판하지 않는다 — 티켓의 기록을 읽는다.
+    const again = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {provider: tracker}})
+    assert.equal(again.idempotent, true, JSON.stringify(again))
+    assert.equal(tracker.comments.get('PF-101').length, 1, '같은 연결을 두 번 남겼다')
+    const read = prStates => readTrackerWorkState({provider: tracker, state: foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))), root, plan,
+      io: {prStates, repoContext: async () => null}})
+    // 조회 실패는 완료가 아니고, 알린다.
+    const failing = await read(async urls => new Map(urls.map(url => [url, {error: 'gh: auth'}])))
+    assert.equal(failing.state.works.get(W(1)).completed ?? null, null)
+    assert.ok(failing.notes.some(note => /PR 1건/.test(note)), JSON.stringify(failing.notes))
+    const open = await read(async urls => new Map(urls.map(url => [url, {state: 'OPEN', baseRefName: 'develop'}])))
+    assert.equal(open.state.works.get(W(1)).completed ?? null, null, '열린 PR을 완료로 읽었다')
+    const merged = await read(async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'develop', mergedAt: new Date().toISOString()}])))
+    assert.equal(merged.state.works.get(W(1)).completed?.prUrl, PR)
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
@@ -247,7 +287,7 @@ test('기반 작업: 이미 있던 대상을 적어 두고 아무것도 안 하�
     assert.match(untouched.guidance, /바뀌지 않았다/)
     // 작업이 대상을 바꾸면 통과한다.
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string; name: string}\n')
-    const changed = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}})
+    const changed = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {provider: memoryTracker()}})
     assert.equal(changed.ok, true, JSON.stringify(changed))
     assert.equal(changed.completion.checks.baselineCheck, 'verified')
   } finally {
@@ -315,16 +355,13 @@ test('기대 base: 모르면 링크하지 않고, 다른 브랜치에 머지된 
   assert.equal(unknown.blocked, 'pr-base-unknown')
   const linked = planWorkLink({baseRef: 'feature/members', plan, planDigest, state: published(W(4)), changeScope: scopeFor(W(4)), ticketKey: 'PF-104', prUrl: PR, completion})
   assert.equal(linked.event.payload.baseRef, 'feature/members')
-  // 머지 관측: 다른 브랜치에 머지됐다 — 완료가 아니다.
-  const state = {works: new Map([[W(4), {status: 'published', link: {prUrl: PR, baseRef: 'feature/members'}}]])}
-  const wrong = planMergeSync({plan, state, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'main'}]])})
-  assert.deepEqual(wrong.events, [])
-  assert.deepEqual(wrong.baseMismatch.map(item => [item.expected, item.observed]), [['feature/members', 'main']])
-  const right = planMergeSync({plan, state, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'feature/members'}]])})
-  assert.equal(right.events[0].payload.baseRef, 'feature/members')
-  // 기대 base가 없는 옛 링크도 완료로 쓰지 않는다.
-  const legacy = planMergeSync({plan, state: {works: new Map([[W(4), {status: 'published', link: {prUrl: PR}}]])}, prStates: new Map([[PR, {state: 'MERGED', baseRefName: 'main'}]])})
-  assert.equal(legacy.events.length, 0)
+  // 머지: 다른 브랜치에 머지됐다 — 완료가 아니다.
+  const state = {works: new Map([[W(4), {status: 'published', ticketKey: 'PF-104'}]])}
+  const records = new Map([['PF-104', {link: {prUrl: PR, baseRef: 'feature/members', at: '2026-09-10T00:00:00.000Z'}, reopen: null}]])
+  const mergedInto = baseRefName => withTrackerCompletion(state, [], {records,
+    prStates: new Map([[PR, {state: 'MERGED', baseRefName, mergedAt: '2026-09-11T00:00:00.000Z'}]])}).works.get(W(4)).completed ?? null
+  assert.equal(mergedInto('main'), null, '다른 브랜치 머지를 완료로 읽었다')
+  assert.equal(mergedInto('feature/members')?.via, 'merge')
 })
 
 test('실행부: `--base`가 없으면 PR을 읽어 기대 base를 정하고, 못 읽으면 막는다', async () => {
@@ -336,9 +373,10 @@ test('실행부: `--base`가 없으면 PR을 읽어 기대 base를 정하고, �
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string}\n')
     const unreadable = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: {prInfo: async () => ({error: 'gh: auth'})}})
     assert.equal(unreadable.blocked, 'pr-base-unknown')
-    const fromPr = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
+    const tracker = memoryTracker()
+    const fromPr = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: {provider: tracker, prInfo: async () => ({state: 'OPEN', baseRefName: 'feature/members'})}})
     assert.equal(fromPr.ok, true, JSON.stringify(fromPr))
-    assert.equal(foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))).works.get(W(1)).link.baseRef, 'feature/members')
+    assert.equal(parseWorkRecords(tracker.comments.get('PF-101')).link.baseRef, 'feature/members')
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

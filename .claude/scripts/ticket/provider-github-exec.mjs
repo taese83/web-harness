@@ -29,6 +29,8 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   })
 }
 
+/** 작업 기록 코멘트로 믿는 작성자 관계 — 저장소 소유자·조직 구성원·협업자. */
+export const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR']
 export const workViewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,labels,state,stateReason,closedAt,body,assignees']
 // gh가 「그 번호의 이슈가 없다」고 답한 경우만 부재다 — 권한·네트워크 실패를 부재로 접지 않는다.
 const isIssueNotFound = error => /Could not resolve to an? (issue|Issue)/.test(String(error?.message ?? error))
@@ -39,7 +41,7 @@ export const labelEditArgs = (repo, number, {add = [], remove = []}) => ['issue'
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
-export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state,baseRefName,title']
+export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state,baseRefName,title,mergedAt']
 
 // 범용 gh 러너(실행부 경계 재노출) — executor CLI가 assign/comment 등 argv를 실제 스폰할 때
 // 쓴다. side-effect이므로 caller(cli)의 --confirm 게이트 뒤에서만 호출된다.
@@ -223,7 +225,9 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
     revision: parsed.updatedAt ?? null,
     links: null, // GitHub 이슈에는 유형 있는 링크가 없다 — 「없다」가 아니라 「이 트래커가 주지 않는다」
     comments: Array.isArray(parsed.comments)
-      ? parsed.comments.map(item => ({author: item?.author?.login ?? null, created: item?.createdAt ?? null, body: item?.body ?? ''}))
+      ? parsed.comments.map(item => ({author: item?.author?.login ?? null, created: item?.createdAt ?? null, body: item?.body ?? '',
+        // 공개 저장소에서는 아무 계정이나 코멘트를 단다 — 저장소 관계자의 코멘트만 작업 기록으로 믿는다(work-records.mjs).
+        ...(item?.authorAssociation ? {trusted: TRUSTED_ASSOCIATIONS.includes(item.authorAssociation)} : {})}))
       : null,
     commentsOmitted: null, // gh는 총수를 주지 않는다 — 덜 받았는지 모른다(0이라고 적지 않는다)
   }

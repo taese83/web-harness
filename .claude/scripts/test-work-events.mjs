@@ -40,26 +40,30 @@ test('유효한 이벤트는 통과하고 상태로 접힌다 — 이하 거부 
   assert.equal(state.lastReviewed.planDigest, DIGEST)
 })
 
-test('완료를 거두면 연결·완료가 함께 사라지고 등록은 남는다 — 옛 PR의 머지 관측이 다시 완료로 쓰지 않는다', () => {
-  const pr = 'https://github.com/o/r/pull/1'
-  const lines = [
-    event({workId: WORK, eventType: 'publish-confirmed', operationId: randomUUID(), payload: {ticketKey: 'PF-1'}}),
-    event({workId: WORK, eventType: 'work-completed', planDigest: undefined, payload: {prUrl: pr, via: 'pr-merged'}}),
-    event({workId: WORK, eventType: 'work-reopened', planDigest: undefined, payload: {ticketKey: 'PF-1', prUrl: pr, reason: '머지를 되돌림'}}),
+test('완료를 거두면 거둔 뒤의 머지만 완료다 — 코멘트가 어떤 순서로 와도 시각으로 가린다', async () => {
+  const {withTrackerCompletion} = await import('./ticket/work-provider.mjs')
+  const {parseWorkRecords, renderLinkRecord, renderReopenRecord} = await import('./ticket/work-records.mjs')
+  const pr = n => `https://github.com/o/r/pull/${n}`
+  const comments = [
+    {created: '2026-09-10T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(1), baseRef: 'main'})},
+    {created: '2026-09-12T00:00:00.000Z', body: renderReopenRecord({prUrl: pr(1), reason: '머지를 되돌림'})},
   ]
-  const state = foldWorkState(parseWorkEvents(lines.map(line).join('')))
-  const item = state.works.get(WORK)
-  assert.equal(item.status, 'published')
-  assert.equal(item.completed, undefined, '거둔 완료가 남았다')
-  assert.equal(item.reopened.reason, '머지를 되돌림')
-  assert.ok(validateWorkEvent(event({workId: WORK, eventType: 'work-reopened', payload: {ticketKey: 'PF-1', prUrl: pr}})).length > 0, '이유 없는 되돌림을 받았다')
-  // 머지된 커밋·트래커로 끝난 작업은 원장에 PR이 없다 — 그래도 거둘 수 있다
-  assert.deepEqual(validateWorkEvent(event({workId: WORK, eventType: 'work-reopened', planDigest: undefined, payload: {ticketKey: 'PF-1', prUrl: null, reason: '되돌림'}})), [])
-  // union 병합에서 다른 클론의 같은 PR 완료 줄이 회수 뒤에 와도 완료로 접지 않는다(순서 독립)
-  const reversed = foldWorkState(parseWorkEvents([lines[0], lines[2], lines[1]].map(line).join('')))
-  assert.equal(reversed.works.get(WORK).completed, undefined, '회수 뒤에 온 옛 PR 완료 줄이 완료로 접혔다')
-  const relinked = event({workId: WORK, eventType: 'work-completed', planDigest: undefined, payload: {prUrl: 'https://github.com/o/r/pull/2', via: 'pr-merged'}})
-  assert.ok(foldWorkState(parseWorkEvents([...lines, relinked].map(line).join(''))).works.get(WORK).completed, '새 PR의 완료까지 무시했다')
+  const state = {works: new Map([[WORK, {status: 'published', ticketKey: 'PF-1'}]])}
+  const read = (list, prStates) => withTrackerCompletion(state, [], {records: new Map([['PF-1', parseWorkRecords(list)]]), prStates: new Map(prStates)}).works.get(WORK)
+  // 거두기 전에 머지된 옛 PR은 완료가 아니다 — 코멘트 순서를 뒤집어도 같다.
+  const old = [[pr(1), {state: 'MERGED', baseRefName: 'main', mergedAt: '2026-09-11T00:00:00.000Z'}]]
+  assert.equal(read(comments, old).completed ?? null, null, '거둔 완료가 남았다')
+  // 거둔 연결은 끝난 것이다 — 겹치지 않아야 다시 집은 뒤 새 PR을 연결할 수 있다.
+  assert.equal(read(comments, old).link ?? null, null, '거둔 연결이 남아 새 PR 연결을 멱등으로 막는다')
+  assert.equal(read([...comments].reverse(), old).completed ?? null, null, '코멘트 순서에 따라 거둔 완료가 되살아났다')
+  // 거둔 뒤 같은 옛 PR을 다시 연결해도, 그 PR의 머지가 거두기 전이면 완료가 아니다.
+  const sameAgain = [...comments, {created: '2026-09-13T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(1), baseRef: 'main'})}]
+  assert.equal(read(sameAgain, old).completed ?? null, null, '거두기 전의 머지를 다시 연결해 완료로 되살렸다')
+  // 머지 시각을 모르면 거둔 뒤의 머지라고 치지 않는다.
+  assert.equal(read(comments, [[pr(1), {state: 'MERGED', baseRefName: 'main'}]]).completed ?? null, null)
+  // 거둔 뒤 새 PR을 연결해 머지하면 완료다.
+  const relinked = [...comments, {created: '2026-09-13T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(2), baseRef: 'main'})}]
+  assert.equal(read(relinked, [...old, [pr(2), {state: 'MERGED', baseRefName: 'main', mergedAt: '2026-09-14T00:00:00.000Z'}]]).completed?.prUrl, pr(2))
 })
 
 test('파손·스키마 위반·모르는 종류를 조용히 버리지 않는다', () => {

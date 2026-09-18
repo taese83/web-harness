@@ -4,29 +4,12 @@
 // 그대로 집히던 시기가 있었다(2026-08-30) — 표시와 게이트가 갈라지면 표시는 장식이 된다.
 // 그래서 `pickupable`은 픽업이 실제로 막는 것(등록·미해결 결정·선행 등록·소유)과 같은 축이다.
 //
-// 선행이 끝났다는 것은 머지 관측(원장 `work-completed`) 또는 트래커의 끝남이다(계약 「완료」 절) — 링크는 완료의 주장이라 세지 않는다.
+// 선행이 끝났다는 것은 연결한 PR의 머지·머지된 커밋 또는 트래커의 끝남이다(계약 「완료」 절) — 링크는 완료의 주장이라 세지 않는다.
 const list = value => (Array.isArray(value) ? value : [])
-/** 완료의 근거 — merge(원장의 머지 관측) · commit(기대 base의 티켓 키 커밋) · tracker(트래커의 끝남). */
+/** 완료의 근거 — merge(연결한 PR의 머지) · commit(기대 base의 티켓 키 커밋) · tracker(트래커의 끝남). */
 const viaOf = completed => (completed ? (['tracker', 'commit'].includes(completed.via) ? completed.via : 'merge') : null)
 
-/**
- * 머지 근거를 읽는다(Jira Git Integration). 애드온이 없거나 저장소 문맥을 모르면 근거 없이 간다 — 막지 않고 알린다.
- * @returns {Promise<{evidence: Map, checked: boolean, note?: string}>}
- */
-export async function readMergeEvidence({provider, root, base, keys, io = {}}) {
-  if (typeof provider?.listMergeEvidence !== 'function' || keys.length === 0) return {evidence: new Map(), checked: false}
-  const {resolveRepoContext} = await import('./git-origin.mjs')
-  const context = await (io.repoContext ?? resolveRepoContext)({repoRoot: root, base})
-  if (!context) return {evidence: new Map(), checked: false, note: '저장소의 기본 브랜치를 알 수 없어 머지된 커밋을 확인하지 않았습니다.'}
-  try {
-    const result = await provider.listMergeEvidence({keys, ...context})
-    if (!result.available) return {evidence: new Map(), checked: false}
-    return {evidence: result.evidence, checked: true,
-      ...(result.errors?.length ? {note: `티켓 ${result.errors.length}건은 머지된 커밋을 확인하지 못했습니다.`} : {})}
-  } catch (error) {
-    return {evidence: new Map(), checked: false, note: `머지된 커밋을 확인하지 못했습니다: ${String(error?.message ?? error).slice(0, 120)}.`}
-  }
-}
+export {readMergeEvidence} from './work-state-run.mjs'
 
 /**
  * @param {{plan: object, view: object, state: object, issuesByWork?: Map<string, object>|null,
@@ -93,7 +76,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
   }
   const linkedNotMerged = rows.filter(row => row.linked && (!row.completed || row.completedVia === 'tracker')).length
   if (linkedNotMerged > 0) {
-    notes.push(`PR은 연결됐지만 아직 머지를 확인하지 못한 작업이 ${linkedNotMerged}건 있습니다. \`link --sync\`로 머지를 확인하세요.`)
+    notes.push(`PR은 연결됐지만 아직 머지를 확인하지 못한 작업이 ${linkedNotMerged}건 있습니다. PR이 기대 base에 머지되면 완료로 읽힙니다.`)
   }
   const unresolved = rows.filter(row => registrationOf(row.workId)?.trackerUnresolved).length
   if (unresolved > 0) notes.push(`트래커에서 끝났지만 해결 사유가 없는 작업 ${unresolved}건은 완료로 세지 않았습니다.`)
@@ -152,7 +135,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
             : shared ? 'multi-assigned'
             : takenByOther === null && lookupComplete ? 'ticket-not-found' : takenByOther === null ? 'assignment-unknown' : null
     const next = item.completed ? '끝났습니다.'
-      : item.link?.prUrl ? '연결한 PR이 머지되면 `link --sync`로 확인합니다.'
+      : item.link?.prUrl ? '연결한 PR이 머지되면 끝납니다.'
       : blockedReason === null ? `\`pickup ${item.ticketKey}\`로 이어서 개발합니다.`
         : blockedReason === 'dependency-incomplete' ? '먼저 끝나야 할 작업이 남아 있습니다.'
           : blockedReason === 'no-developer' ? '`--developer <내 아이디>`를 붙여 다시 보면 집을 수 있는지 알 수 있습니다.'
@@ -233,44 +216,34 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const trackerNotes = []
   // 사람 티켓 — **티켓이 등록 기록이다**. 개발 티켓을 읽어 등록(마커·본문)과 착수 불가 판정(라벨)을 메모리 상태에 겹친다.
   let devTickets = null
+  let readIssues = new Map()
   if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
     const {readTrackerTicketRegistrations, withTicketRegistrations} = await import('./ticket-work-run.mjs')
     const read = await readTrackerTicketRegistrations({provider, config: io.ticketConfig ?? {}, io, state})
     if (read.checked || read.items.length > 0) devTickets = read.items
     state = withTicketRegistrations(state, read.registrations, read.verdicts)
+    readIssues = read.issues ?? new Map()
     if (!read.checked) trackerNotes.push(read.items.length > 0 ? '개발 티켓 목록을 끝까지 읽지 못했습니다. 아직 판정하지 않은 티켓 일부가 빠졌을 수 있습니다.'
       : `개발 티켓 목록 조회 실패 — 사람이 만든 티켓은 보이지 않는다: ${read.reason ?? ''}`)
     const unreadable = read.registrations.filter(item => item.error).length
     if (unreadable > 0) trackerNotes.push(`등록된 티켓 ${unreadable}건은 본문 섹션을 읽지 못했습니다.`)
   }
   const keys = [...state.works.entries()].filter(([, item]) => item.status === 'published' && item.ticketKey).map(([, item]) => item.ticketKey)
-  if (provider && typeof provider.listWorkIssues === 'function' && keys.length > 0 && flags['no-tracker'] !== true) {
-    try {
-      // **커서를 따라간다.** 한 번만 부르고 「불완전」이라 적으면 원인이 절단인지 미순회인지 섞인다.
-      const items = []
-      let listed = await provider.listWorkIssues({keys})
-      items.push(...listed.items)
-      for (let guard = 0; listed.nextCursor && !listed.stalled && guard < 50; guard++) {
-        listed = await provider.listWorkIssues({keys, cursor: listed.nextCursor})
-        items.push(...listed.items)
-      }
-      lookupComplete = listed.complete === true
-      // 트래커에서 끝난 작업(완료·취소)을 겹친다 — 원장만 보면 Jira에서 끝낸 선행을 계속 기다린다.
-      const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
-      const merged = await readMergeEvidence({provider, root, base: plan?.baseBranch ?? null, keys, io})
-      if (merged.note) trackerNotes.push(merged.note)
-      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name), mergeEvidence: merged.evidence})
+  if (provider && keys.length > 0 && flags['no-tracker'] !== true) {
+    // 지금 상태는 트래커에 있다 — 배정·끝남·PR 연결 기록·머지(`work-state-run.mjs`). 원장에는 계획·발행만 있다.
+    const {readTrackerWorkState} = await import('./work-state-run.mjs')
+    // 방금 읽은 개발 티켓은 다시 부르지 않는다(코멘트 포함).
+    const read = await readTrackerWorkState({provider, state, root, plan, config: io.ticketConfig, io, keys, issues: readIssues})
+    state = read.state
+    trackerNotes.push(...read.notes)
+    lookupComplete = read.lookupComplete
+    if (read.items) {
       issuesByWork = new Map()
-      const byKey = new Map(items.map(item => [String(item.ticketKey), item]))
+      const byKey = new Map(read.items.map(item => [String(item.ticketKey), item]))
       for (const [workId, item] of state.works.entries()) {
         const found = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
         if (found) issuesByWork.set(workId, {ticketKey: found.ticketKey, assignees: found.assignees ?? null})
       }
-      if (listed.truncated) trackerNotes.push('트래커 목록이 최대 개수에 닿았습니다. 그 뒤 작업은 반영되지 않았습니다.')
-      if (listed.stalled) trackerNotes.push('트래커 목록을 더 읽지 못하고 멈췄습니다. 목록이 완전하지 않습니다.')
-    } catch (error) {
-      // 조회 실패를 「배정 없음」으로 접지 않는다 — 로컬 기준임을 적고 배정은 미상으로 둔다.
-      trackerNotes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)
     }
   }
   const board = plan && analysis ? buildWorkBoard({plan, view, state, planDigest: canonicalDigest(plan), issuesByWork, developer, lookupComplete})

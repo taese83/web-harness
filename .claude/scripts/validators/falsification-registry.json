@@ -1716,11 +1716,11 @@
     },
     {
       "id": "work-board-tracker-failure-honest",
-      "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      trackerNotes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)",
-      "replace": "      issuesByWork = new Map(); lookupComplete = true",
+      "file": ".claude/scripts/ticket/work-state-run.mjs",
+      "find": "      notes.push(`트래커 조회 실패 — 로컬 계획·원장 기준이다(배정 미상): ${String(error?.message ?? error).slice(0, 160)}`)",
+      "replace": "      void error",
       "test": ".claude/scripts/test-work-board.mjs",
-      "why": "조회 실패를 「완결 조회·전부 미배정」으로 접으면 남이 잡고 있는 작업을 집을 수 있다고 보여준다"
+      "why": "트래커 조회 실패를 알리지 않으면 비어 있는 담당자를 「담당자 없음」으로 읽는다"
     },
     {
       "id": "work-board-stale-plan-axis",
@@ -1803,30 +1803,6 @@
       "why": "재실행이 지나간 완료 주장을 다시 심판하면 결과가 소스 상태에 따라 달라진다(멱등 계약 위반)"
     },
     {
-      "id": "work-merge-observed-only",
-      "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "    if (observed.state !== 'MERGED') { open.push({workId, prUrl: item.link.prUrl, state: observed.state ?? null}); continue }",
-      "replace": "    if (false) { continue }",
-      "test": ".claude/scripts/test-work-link.mjs",
-      "why": "열린 PR을 완료로 기록하면 후속 작업이 끝나지 않은 선행 위에서 착수된다"
-    },
-    {
-      "id": "work-merge-unknown-not-complete",
-      "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "    if (!observed || observed.error) { unknown.push({workId, prUrl: item.link.prUrl, error: observed?.error ?? 'not-queried'}); continue }",
-      "replace": "    if (!observed) { unknown.push({workId, prUrl: item.link.prUrl, error: 'not-queried'}); continue }",
-      "test": ".claude/scripts/test-work-link.mjs",
-      "why": "조회 실패를 미상으로 따로 올리지 않으면 머지를 못 본 작업이 열린 PR과 섞여 사람이 확인해야 할 실패가 보이지 않는다"
-    },
-    {
-      "id": "work-completed-requires-merge",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "  if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-work-link.mjs",
-      "why": "머지 관측이 아닌 경로로 완료를 쓸 수 있으면 원장의 완료가 주장이 된다"
-    },
-    {
       "id": "work-link-registered-only",
       "file": ".claude/scripts/ticket/work-link.mjs",
       "find": "  if (found.error) return {ok: false, blocked: found.error, ...(found.workIds ? {workIds: found.workIds} : {})}",
@@ -1856,7 +1832,7 @@
       "find": "      states.set(url, {error: String(error?.message ?? error).slice(0, 160)})",
       "replace": "      states.set(url, {state: 'MERGED'})",
       "test": ".claude/scripts/test-work-link.mjs",
-      "why": "PR 상태 조회가 실패했는데 머지로 접으면 머지를 보지 않은 완료가 원장에 남는다"
+      "why": "PR 상태 조회기가 던진 실패를 머지로 접으면 머지되지 않은 작업이 완료로 읽힌다"
     },
     {
       "id": "work-link-baseline-unchanged",
@@ -2013,8 +1989,8 @@
     {
       "id": "cli-board-by-feature-dispatch",
       "file": ".claude/scripts/ticket/cli.mjs",
-      "find": "        if (flags['by-feature']) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags})",
-      "replace": "        if (false) return null",
+      "find": "        if (flags['by-feature']) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags,",
+      "replace": "        if (false) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags,",
       "test": ".claude/scripts/test-work-aggregate.mjs",
       "why": "집계 보기가 CLI에 배선되지 않으면 부모 FEAT 상태를 볼 입구가 없다"
     },
@@ -2043,38 +2019,6 @@
       "why": "feature-plan을 못 읽은 채 집계 티켓을 내면 트래커에 대조하지 않은 머지 요약이 남는다"
     },
     {
-      "id": "close-requires-expected-base",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey && reviewed.has(workId))",
-      "replace": "const bound = linked.filter(([workId, work]) => work.ticketKey && reviewed.has(workId))",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "기대 base를 대조하지 않으면 아무 브랜치에 머지된 PR로 작업 티켓이 닫힌다"
-    },
-    {
-      "id": "close-only-github",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "for (const [workId, work] of bound.filter(([, item]) => item.provider === 'github' && isIssueNumber(item.ticketKey))) {",
-      "replace": "for (const [workId, work] of bound.filter(([, item]) => item.provider !== 'jira' && isIssueNumber(item.ticketKey))) {",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "트래커를 모르는 발행을 GitHub으로 추측하면 없는 이슈 번호를 닫으려 하거나 남의 이슈를 닫는다"
-    },
-    {
-      "id": "close-stops-on-corrupt-ledger",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "    log(`stop: ${LEDGER} ${index + 1}번째 줄을 읽지 못했다 — 원장 파손 위에서 티켓을 닫지 않는다`)\n    process.exit(1)",
-      "replace": "    log(`stop: ${LEDGER} ${index + 1}번째 줄을 읽지 못했다 — 원장 파손 위에서 티켓을 닫지 않는다`)\n    continue",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "원장 파손 줄을 버리고 진행하면 지나간 상태로 티켓을 닫는다"
-    },
-    {
-      "id": "close-skips-closed",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "  if (state !== 'OPEN') {",
-      "replace": "  if (state === 'NEVER') {",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "이미 닫힌 이슈를 다시 닫으면 근거 코멘트가 중복으로 쌓인다(멱등 위반)"
-    },
-    {
       "id": "close-install-detects-outdated",
       "file": ".claude/scripts/ticket/cli.mjs",
       "find": "    if (readFileSync(target, 'utf8').includes(TICKET_CLOSE_VERSION_MARKER)) present.push(entry.target)",
@@ -2097,38 +2041,6 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "기대 base 없이 링크하면 아무 브랜치에 머지돼도 완료가 된다"
-    },
-    {
-      "id": "work-sync-requires-base-match",
-      "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "    if (!item.link.baseRef || observed.baseRefName !== item.link.baseRef) {",
-      "replace": "    if (false) {",
-      "test": ".claude/scripts/test-work-link.mjs",
-      "why": "다른 브랜치에 머지된 PR을 완료로 쓰면 후속 작업이 통합되지 않은 선행 위에서 열린다(T18)"
-    },
-    {
-      "id": "close-requires-reviewed-work",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey && reviewed.has(workId))",
-      "replace": "const bound = linked.filter(([workId, work]) => work.baseRef === baseRef && work.ticketKey)",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "검토 계보에 없는 작업을 닫으면 원장 줄 두 개만 끼워 넣은 PR이 아무 이슈나 닫는다"
-    },
-    {
-      "id": "close-requires-issue-number",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "const isIssueNumber = key => /^\\d+$/.test(String(key))",
-      "replace": "const isIssueNumber = key => String(key).length > 0",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "이슈 번호가 아닌 키(URL·다른 트래커 키)를 gh에 넘기면 엉뚱한 이슈를 닫을 수 있다"
-    },
-    {
-      "id": "close-collects-failures",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "    failures.push(`${workId} #${number}: ${String(error.message).split('\\n')[0]}`)\n    continue",
-      "replace": "    throw error",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "한 건 닫기 실패로 나머지를 버리면 한 PR에 묶인 다른 작업이 조용히 열린 채 남는다"
     },
     {
       "id": "work-link-relink-for-base",
@@ -2659,22 +2571,6 @@
       "why": "선언 없이 개발 티켓으로 추측하면 기획 티켓이 개발로 들어간다"
     },
     {
-      "id": "ticket-work-not-in-plan-lineage",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "  for (const workId of ticketWorkIds) knownWorkIds.delete(workId)",
-      "replace": "  // (removed)",
-      "test": ".claude/scripts/test-ticket-work.mjs",
-      "why": "티켓 작업이 계획 계보에 섞이면 계획 검증이 「검토한 작업이 사라졌다」로 막는다"
-    },
-    {
-      "id": "ticket-close-lineage-v3",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "    if (origin === 'ticket' && provider && ticketKey && event.workId === ticketWorkId(provider, ticketKey)) {",
-      "replace": "    if (false) {",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "확인해 등록한 사람 티켓 작업을 검토 계보로 보지 않으면 머지해도 닫히지 않는다"
-    },
-    {
       "id": "link-cites-ticket-test-items",
       "file": ".claude/scripts/ticket/work-link.mjs",
       "find": "const TC_ID = /\\b(?:TC-\\d+-\\d+|TT-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-\\d+)\\b/g",
@@ -2821,10 +2717,10 @@
     {
       "id": "ticket-assessment-removed-after-merge",
       "file": ".claude/scripts/ticket/work-link-run.mjs",
-      "find": "      if (ticketKey) rmSync(join(root, assessmentPath(ticketKey)), {force: true})",
-      "replace": "      void ticketKey",
+      "find": "  if (ticketWork) rmSync(join(root, (await import('./ticket-work.mjs')).assessmentPath(ticketKey)), {force: true})",
+      "replace": "  void ticketWork",
       "test": ".claude/scripts/test-work-routes-e2e.mjs",
-      "why": "머지로 끝난 작업의 판정서가 남으면 필요한 사실은 티켓에 있는데도 로컬 파일이 계속 쌓인다"
+      "why": "연결한 작업의 판정서가 남으면 필요한 사실은 티켓에 있는데도 로컬 파일이 계속 쌓인다"
     },
     {
       "id": "ticket-spec-approval-when-new-contract",
@@ -2871,8 +2767,8 @@
       "file": ".claude/scripts/validate-development-readiness.mjs",
       "find": "  attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],",
       "replace": "  attributes: [],",
-      "test": ".claude/scripts/test-team-e2e.mjs",
-      "why": "원장 병합 규칙이 없으면 여러 사람의 PR이 두 번째부터 원장에서 충돌한다"
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "원장 병합 규칙이 없으면 원장에 덧붙인 두 브랜치(병행 발행)가 머지에서 충돌한다"
     },
     {
       "id": "team-sharing-ignores-local-scope",
@@ -3019,19 +2915,11 @@
       "why": "fetch 없이 원격 참조를 보면 클론 뒤 한 번도 받지 않은 개정을 놓친다"
     },
     {
-      "id": "reopen-clears-completion",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "      const {link, completed, ...rest} = state",
-      "replace": "      const rest = state",
-      "test": ".claude/scripts/test-work-events.mjs",
-      "why": "되돌린 완료가 남으면 되돌린 코드 위의 사슬이 계속 열려 있다"
-    },
-    {
       "id": "reopen-requires-reason",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "    if (typeof event.payload?.reason !== 'string' || !event.payload.reason.trim()) errors.push('work-reopened에는 payload.reason이 필요하다 — 왜 완료를 거두는지')",
-      "replace": "    void 0",
-      "test": ".claude/scripts/test-work-events.mjs",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "  if (!reason) return {ok: false, mode: 'work', blocked: 'reason-required'",
+      "replace": "  if (false) return {ok: false, mode: 'work', blocked: 'reason-required'",
+      "test": ".claude/scripts/test-team-revision-e2e.mjs",
       "why": "이유 없는 완료 회수는 나중에 왜 다시 열렸는지 알 수 없다"
     },
     {
@@ -3051,14 +2939,6 @@
       "why": "대체된 작업의 티켓이 말없이 열려 있으면 트래커를 보고 집는 사람이 옛 작업을 한다"
     },
     {
-      "id": "reopen-fold-order-independent",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "&& state.reopened?.prUrl && state.reopened.prUrl === event.payload?.prUrl) {",
-      "replace": "&& false) {",
-      "test": ".claude/scripts/test-work-events.mjs",
-      "why": "회수 뒤에 병합된 옛 PR 완료 줄이 완료로 접히면 되돌린 작업이 다시 끝난 것으로 보인다"
-    },
-    {
       "id": "pickup-no-carry-after-reopen",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
       "find": " && !state?.works?.get(pick.changeScope.workId)?.reopened",
@@ -3069,8 +2949,8 @@
     {
       "id": "ticket-overlap-reads-tracker",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
-      "find": "    activeWorks: [...activeWorksFrom({plan, state, exceptWorkId: workId}), ...(remote?.works ?? [])],",
-      "replace": "    activeWorks: activeWorksFrom({plan, state, exceptWorkId: workId}),",
+      "find": "    activeWorks: [...activeWorksFrom({plan, state: active.local, exceptWorkId: workId}), ...active.remote],",
+      "replace": "    activeWorks: activeWorksFrom({plan, state: active.local, exceptWorkId: workId}),",
       "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
       "why": "원장은 브랜치마다 따로 자라 로컬 원장만 보면 남이 다른 클론에서 방금 집은 같은 파일을 못 본다"
     },
@@ -3100,9 +2980,9 @@
     },
     {
       "id": "board-reads-tracker-done",
-      "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name), mergeEvidence: merged.evidence})",
-      "replace": "      void withTrackerCompletion",
+      "file": ".claude/scripts/ticket/work-state-run.mjs",
+      "find": "  return {state: next, items, lookupComplete, notes, checked: items !== null && unread.length === 0 && typeof provider.resolveIssue === 'function'}",
+      "replace": "  void next; return {state, items, lookupComplete, notes, checked: items !== null && unread.length === 0 && typeof provider.resolveIssue === 'function'}",
       "test": ".claude/scripts/test-work-board.mjs",
       "why": "트래커에서 끝낸 선행을 보드가 모르면 사슬이 계속 막혀 있다"
     },
@@ -3117,8 +2997,8 @@
     {
       "id": "pickup-reads-tracker-done",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
-      "find": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})\n  state = trackerDone.apply(state)",
-      "replace": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})\n  void trackerDone",
+      "find": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io, issue})\n  state = trackerDone.state",
+      "replace": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io, issue})\n  void trackerDone.state",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "트래커에서 끝난 티켓을 픽업이 모르면 끝난 작업에 다시 배정한다"
     },
@@ -3141,8 +3021,8 @@
     {
       "id": "pickup-surfaces-tracker-read",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
-      "find": "read: {checked: false, reason, guidance: `트래커에서",
-      "replace": "read: {checked: true, reason, guidance: `트래커에서",
+      "find": "  return {state: read.state, read: {checked: read.checked,",
+      "replace": "  return {state: read.state, read: {checked: true,",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "트래커를 못 읽고 원장만 본 픽업이 조용하면 취소된 티켓을 집어도 기록이 없다"
     },
@@ -3172,9 +3052,9 @@
     },
     {
       "id": "board-reads-merge-evidence",
-      "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "mergeEvidence: merged.evidence})",
-      "replace": "mergeEvidence: new Map()})",
+      "file": ".claude/scripts/ticket/work-state-run.mjs",
+      "find": "    mergeEvidence: merged.evidence, records, prStates})",
+      "replace": "    mergeEvidence: new Map(), records, prStates})",
       "test": ".claude/scripts/test-work-board.mjs",
       "why": "머지된 커밋을 보드가 모르면 QA 대기 중인 선행 때문에 사슬이 막힌다"
     },
@@ -3209,22 +3089,6 @@
       "replace": "    const cancelledAfter = false",
       "test": ".claude/scripts/test-work-provider.mjs",
       "why": "취소 전에 머지된 커밋이 사람이 내린 취소를 조용히 덮는다"
-    },
-    {
-      "id": "reopen-allows-no-pr",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "    if (event.payload?.prUrl !== null && (typeof event.payload?.prUrl",
-      "replace": "    if ((typeof event.payload?.prUrl",
-      "test": ".claude/scripts/test-work-events.mjs",
-      "why": "원장에 PR이 없는 커밋·트래커 완료를 되돌림으로 거둘 수 없다"
-    },
-    {
-      "id": "ticket-close-ticket-id-bound",
-      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": " && event.workId === ticketWorkId(provider, ticketKey)) {",
-      "replace": ") {",
-      "test": ".claude/scripts/test-work-close.mjs",
-      "why": "연결 줄만 적어 남의 이슈를 닫을 수 있다 — 작업 ID가 그 트래커·키에서 나온 것인지 대조하지 않으면"
     },
     {
       "id": "ticket-registration-read-from-tracker",
@@ -3293,8 +3157,8 @@
     {
       "id": "ticket-overlap-excludes-completed",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
-      "find": " && !args.state?.works?.get(item.workId)?.completed)",
-      "replace": ")",
+      "find": "    works: registrations.filter(item => !args.state?.works?.get(item.workId)?.completed)",
+      "replace": "    works: registrations.filter(item => item)",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "머지로 끝났지만 트래커에 열린 작업이 수정 범위를 쥐어 겹치는 새 티켓을 거짓으로 막는다"
     },
@@ -3307,20 +3171,228 @@
       "why": "한 티켓을 못 읽으면 등록된 사람 티켓 작업 전부가 보드와 겹침 판정에서 사라진다"
     },
     {
-      "id": "ticket-link-not-in-lineage",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "    if (event.payload?.origin === 'ticket') ticketWorkIds.add(event.workId)",
-      "replace": "    void 0",
-      "test": ".claude/scripts/test-ticket-work.mjs",
-      "why": "사람 티켓 작업의 연결이 계획 계보에 섞이면 계획 검증이 「검토한 작업이 사라졌다」로 막는다"
-    },
-    {
       "id": "ticket-overlap-partial-read-loud",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
       "find": "  return {checked: read.checked && unreadable.length === 0,",
       "replace": "  return {checked: read.checked,",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "한 티켓을 못 읽고도 겹침을 대조했다고 말하면 그 티켓과 같은 파일을 쓰는 작업이 조용히 착수된다"
+    },
+    {
+      "id": "ledger-rejects-dev-records",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "  'work-retired', 'aggregate-attempted',",
+      "replace": "  'work-retired', 'work-linked', 'work-completed', 'work-reopened', 'aggregate-attempted',",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "개발 쪽 기록(연결·완료·회수)을 원장이 받으면 개발자 커밋마다 하네스 기록이 섞이고 티켓 기록과 둘이 된다"
+    },
+    {
+      "id": "link-writes-ticket-comment",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "    await io.provider.comment(String(decision.closes ?? ticketKey), record)",
+      "replace": "    void record",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "연결을 티켓에 남기지 않고 성공이라 하면 다른 클론·보드·자동 닫기가 그 연결을 모른다"
+    },
+    {
+      "id": "link-requires-tracker",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "  if (typeof io.provider?.comment !== 'function') {\n    return {ok: false, mode: 'work', blocked: 'tracker-required', completion",
+      "replace": "  if (false) {\n    return {ok: false, mode: 'work', blocked: 'tracker-required', completion",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "트래커 없이 연결을 받으면 남길 곳이 없는 연결이 성공처럼 보인다"
+    },
+    {
+      "id": "link-records-ticket-revision-comment",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "revision: payload.ticket?.revision ?? null,",
+      "replace": "revision: null,",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
+      "why": "어느 티켓 개정을 보고 개발했는지 연결 기록에서 사라지면 개정 뒤 끝난 작업을 가려낼 수 없다"
+    },
+    {
+      "id": "reopen-writes-ticket-comment",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "    try { await io.provider.comment(String(ticketKey), record) } catch (error) {",
+      "replace": "    try { void record } catch (error) {",
+      "test": ".claude/scripts/test-team-revision-e2e.mjs",
+      "why": "완료 회수를 티켓에 남기지 않으면 되돌린 머지가 계속 완료로 읽혀 그 위 사슬이 열린다"
+    },
+    {
+      "id": "overlay-applies-link-record",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (record?.link && !(record.reopen && !(Date.parse(record.link.at) > Date.parse(record.reopen.at)))) item = {...item, link: {...record.link}}",
+      "replace": "    void record",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "티켓의 연결 기록을 겹치지 않으면 재연결이 지나간 판정을 다시 심판하고 머지를 완료로 읽지 못한다"
+    },
+    {
+      "id": "pr-merge-requires-merged",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (pr?.state === 'MERGED' && pr.baseRefName === item.link.baseRef",
+      "replace": "    if (pr?.state !== 'NEVER' && pr?.baseRefName === item.link.baseRef",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "열린 PR을 완료로 읽으면 후속 작업이 끝나지 않은 선행 위에서 착수된다"
+    },
+    {
+      "id": "pr-merge-requires-base",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (pr?.state === 'MERGED' && pr.baseRefName === item.link.baseRef",
+      "replace": "    if (pr?.state === 'MERGED'",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "다른 브랜치에 머지된 PR을 완료로 읽으면 후속 작업이 통합되지 않은 선행 위에서 열린다(T18)"
+    },
+    {
+      "id": "pr-merge-after-reopen",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "      && !(item.reopened && !mergedAfter(item.reopened.at))) {",
+      "replace": ") {",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "거두기 전에 머지된 옛 PR이 완료로 읽히면 되돌린 작업이 다시 끝난 것으로 보인다"
+    },
+    {
+      "id": "records-latest-by-time",
+      "file": ".claude/scripts/ticket/work-records.mjs",
+      "find": "  const latest = list => list.filter(item => Number.isFinite(Date.parse(item.at))).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null",
+      "replace": "  const latest = list => list.at(-1) ?? null",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "코멘트 순서로 최신을 고르면 받은 순서에 따라 거둔 완료가 되살아나거나 옛 PR이 정본이 된다"
+    },
+    {
+      "id": "state-notes-pr-read-failure",
+      "file": ".claude/scripts/ticket/work-state-run.mjs",
+      "find": "      if (failed > 0) notes.push(",
+      "replace": "      if (false) notes.push(",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "PR 상태를 못 읽은 것을 알리지 않으면 머지를 못 본 작업이 조용히 미완료로 남는다"
+    },
+    {
+      "id": "state-notes-partial-comments",
+      "file": ".claude/scripts/ticket/work-state-run.mjs",
+      "find": "        if (outcome.value[1].commentsOmitted > 0) partial += 1",
+      "replace": "        void partial",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "코멘트를 다 받지 못한 것을 완결로 접으면 최근 연결·회수 기록이 빠진 채 판정한다"
+    },
+    {
+      "id": "ticket-overlap-merged-from-pr",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  if (remote) {\n    const {readTrackerWorkState}",
+      "replace": "  if (false) {\n    const {readTrackerWorkState}",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "머지됐지만 트래커에 열린 작업이 수정 범위를 쥐면 같은 파일의 새 티켓이 영영 착수되지 않는다"
+    },
+    {
+      "id": "pickup-scope-settled-by-ticket-record",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    settled = Boolean(parseWorkRecords(",
+      "replace": "    settled = false && Boolean(parseWorkRecords(",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "연결한 사람 티켓의 범위를 진행 중으로 보면 개발자마다 두 번째 픽업부터 막힌다"
+    },
+    {
+      "id": "close-requires-expected-base",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  if (link.base !== baseRef) { log(",
+      "replace": "  if (false) { log(",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "기대 base를 대조하지 않으면 아무 브랜치에 머지된 PR로 작업 이슈가 닫힌다"
+    },
+    {
+      "id": "close-requires-this-pr",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  if (link.pr !== prUrl) { log(",
+      "replace": "  if (false) { log(",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "이 PR의 연결인지 보지 않으면 본문에 남의 이슈 번호를 적은 PR이 그 이슈를 닫는다"
+    },
+    {
+      "id": "close-requires-link-record",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  const link = latestLink(Array.isArray(issue.comments) ? issue.comments : [])",
+      "replace": "  const link = latestLink(Array.isArray(issue.comments) ? issue.comments : []) ?? {pr: prUrl, base: baseRef}",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "연결 기록 없는 이슈를 닫으면 본문의 #N만으로 남의 이슈가 닫힌다"
+    },
+    {
+      "id": "close-requires-work-issue",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  if (!/<!--\\s*web-harness:work\\s/.test(body) || body.includes('web-harness:aggregate')) {",
+      "replace": "  if (body === null) {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "하네스 작업 이슈가 아닌 것(사람이 쓴 이슈·집계 티켓)을 닫으면 사람이 판단할 이슈가 닫힌다"
+    },
+    {
+      "id": "close-excludes-aggregate",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": " || body.includes('web-harness:aggregate')) {",
+      "replace": ") {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "집계 티켓을 닫으면 부모 FEAT가 인수 없이 끝난 것으로 보인다"
+    },
+    {
+      "id": "close-latest-link-wins",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  .sort((a, b) => b.at - a.at)[0] ?? null",
+      "replace": "  .find(record => record.pr === prUrl) ?? null",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "다른 PR로 다시 연결된 작업을 옛 PR 머지로 닫는다"
+    },
+    {
+      "id": "close-requires-dated-record",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  .filter(record => record.pr && record.base && Number.isFinite(record.at))",
+      "replace": "  .filter(record => record.pr && record.base)",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "시각 없는 기록을 세면 어느 연결이 최신인지 가릴 수 없다"
+    },
+    {
+      "id": "close-skips-closed",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  if (issue.state !== 'OPEN') {",
+      "replace": "  if (issue.state === 'NEVER') {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "이미 닫힌 이슈를 다시 닫으면 근거 코멘트가 중복으로 쌓인다(멱등 위반)"
+    },
+    {
+      "id": "close-collects-failures",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "    failures.push(`#${number}: ${String(error.message).split('\\n')[0]}`)\n    continue",
+      "replace": "    throw error",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "한 건 닫기 실패로 나머지를 버리면 한 PR에 연결된 다른 작업이 조용히 열린 채 남는다"
+    },
+    {
+      "id": "relink-after-reopen",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (record?.link && !(record.reopen && !(Date.parse(record.link.at) > Date.parse(record.reopen.at)))) item = {...item, link: {...record.link}}",
+      "replace": "    if (record?.link) item = {...item, link: {...record.link}}",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "거둔 연결이 남으면 다시 집은 뒤 새 PR 연결이 옛 PR로 멱등 처리돼 영영 완료되지 않는다"
+    },
+    {
+      "id": "close-trusts-members-only",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": "  .filter(comment => TRUSTED.includes(comment?.authorAssociation))",
+      "replace": "  .filter(comment => comment)",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "공개 저장소에서 외부인이 남긴 연결 코멘트로 남의 작업 이슈가 닫힌다"
+    },
+    {
+      "id": "records-skip-untrusted",
+      "file": ".claude/scripts/ticket/work-records.mjs",
+      "find": "    if (comment?.trusted === false) continue",
+      "replace": "    void comment",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "외부인이 남긴 연결 코멘트가 완료 판정·멱등의 근거가 된다"
+    },
+    {
+      "id": "github-maps-association",
+      "file": ".claude/scripts/ticket/provider-github-exec.mjs",
+      "find": "        ...(item?.authorAssociation ? {trusted: TRUSTED_ASSOCIATIONS.includes(item.authorAssociation)} : {})}))",
+      "replace": "        ...{}}))",
+      "test": ".claude/scripts/test-ticket-context.mjs",
+      "why": "작성자 관계를 옮기지 않으면 외부인 코멘트를 믿는 것으로 읽는다"
     }
   ]
 }

@@ -81,6 +81,14 @@ test('두 트래커가 같은 키를 돌려준다 — 런타임 중립 계약', 
   assert.equal(github.commentsOmitted, null, 'gh는 총수를 주지 않는다 — 0이라고 적으면 전부 받았다고 주장하는 것이다')
 })
 
+test('GitHub 코멘트의 작성자 관계를 옮긴다 — 저장소 밖 사람의 코멘트는 믿지 않는 것으로 표시한다', async () => {
+  const exec = async () => JSON.stringify({number: 7, title: 't', body: 'b', labels: [], assignees: [], updatedAt: '2026-09-11T00:00:00Z',
+    comments: [{author: {login: 'dev'}, authorAssociation: 'MEMBER', createdAt: '2026-09-10T00:00:00Z', body: 'a'},
+      {author: {login: 'stranger'}, authorAssociation: 'NONE', createdAt: '2026-09-10T00:00:01Z', body: 'b'}]})
+  const github = await resolveGithubIssue({repo: 'o/r', number: 7, exec})
+  assert.deepEqual(github.comments.map(item => item.trusted), [true, false])
+})
+
 test('가져오지 않은 맥락과 없는 맥락을 섞지 않는다 · 덜 받은 코멘트를 알린다', () => {
   const missing = ticketContextLines({})
   assert.ok(missing.some(line => line.includes('개정 시점: (가져오지 않음)')))

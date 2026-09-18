@@ -102,8 +102,10 @@ export async function readTrackerTicketRegistrations({provider, config, io = {},
     const items = list(listed.items)
     const candidates = items.filter(item => String(item.ticketKey) !== String(exceptKey) && (!onlyAssigned || list(item.assignees).length > 0))
     // 한 티켓을 못 읽었다고 나머지를 버리지 않는다 — 못 읽은 것은 건별로 알린다.
+    const issues = new Map()
     const registrations = (await Promise.allSettled(candidates.map(async item => {
       const issue = await (io.resolveIssue ? io.resolveIssue({number: item.ticketKey}) : provider.resolveIssue(item.ticketKey))
+      issues.set(String(item.ticketKey), issue)
       return readTicketRegistration({issue, providerName: provider.name, ticketKey: item.ticketKey, state})
     }))).map((outcome, index) => (outcome.status === 'fulfilled' ? outcome.value
       : {workId: ticketWorkId(provider.name, candidates[index].ticketKey), ticketKey: String(candidates[index].ticketKey), error: `티켓을 읽지 못했다: ${String(outcome.reason?.message ?? outcome.reason).slice(0, 120)}`}))
@@ -113,7 +115,7 @@ export async function readTrackerTicketRegistrations({provider, config, io = {},
       .map(item => ({ticketKey: String(item.ticketKey), verdict: VERDICT_LABELS.find(label => list(item.labels).includes(label)) ?? null,
         workId: ticketWorkId(provider.name, item.ticketKey)}))
       .filter(item => item.verdict)
-    return {checked: listed.complete !== false, ...(listed.complete === false ? {reason: '개발 티켓 목록이 잘렸다'} : {}), registrations, verdicts, items}
+    return {checked: listed.complete !== false, ...(listed.complete === false ? {reason: '개발 티켓 목록이 잘렸다'} : {}), registrations, verdicts, items, issues}
   } catch (error) {
     return {checked: false, reason: String(error?.message ?? error).slice(0, 120), registrations: [], verdicts: [], items: []}
   }
@@ -125,9 +127,10 @@ export async function trackerActiveTicketWorks(args) {
   // 못 읽은 티켓의 수정 범위는 대조하지 못했다 — 대조했다고 접지 않는다.
   const unreadable = read.registrations.filter(item => item.error).map(item => item.ticketKey)
   const reason = read.reason ?? (unreadable.length > 0 ? `티켓 ${unreadable.join(', ')}을(를) 읽지 못했다` : null)
+  const registrations = read.registrations.filter(item => !item.error && !item.withdrawn && item.definition.writePaths.length > 0)
   return {checked: read.checked && unreadable.length === 0, ...(reason ? {reason} : {}), ...(unreadable.length ? {unreadable} : {}),
-    // 머지로 끝난 작업은 트래커에 열려 있어도(하네스는 완료 전이를 하지 않는다) 수정 범위를 쥐지 않는다.
-    works: read.registrations.filter(item => !item.error && !item.withdrawn && item.definition.writePaths.length > 0 && !args.state?.works?.get(item.workId)?.completed)
+    registrations, issues: read.issues ?? new Map(),
+    works: registrations.filter(item => !args.state?.works?.get(item.workId)?.completed)
       .map(item => ({workId: item.workId, ticketKey: item.ticketKey, writePaths: item.definition.writePaths, source: 'tracker'}))}
 }
 
@@ -212,8 +215,18 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const spec = (() => { try { return readJson(root, '_workspace/03_dev/spec.json') } catch { return null } })()
   // 착수할 판정일 때만 트래커를 더 읽는다 — 남이 다른 클론에서 방금 등록한 작업과 경계가 겹치는지.
   const remote = assessment?.verdict === 'startable' ? await trackerActiveTicketWorks({provider, config, state, exceptKey: ticketKey, io}) : null
+  // 머지로 끝난 작업은 트래커에 열려 있어도(하네스는 완료 전이를 하지 않는다) 수정 범위를 쥐지 않는다 — 완료는 원장에 없으니
+  // 발행한 계획 작업과 남의 티켓 작업 전부에 트래커·PR에서 읽은 완료를 겹친다.
+  let active = {local: state, remote: remote?.works ?? []}
+  if (remote) {
+    const {readTrackerWorkState} = await import('./work-state-run.mjs')
+    const read = await readTrackerWorkState({provider, state: withTicketRegistrations(state, remote.registrations), root, plan,
+      config: io.ticketConfig ?? null, io, issues: remote.issues})
+    active = {local: {...read.state, works: new Map([...read.state.works].filter(([id]) => state?.works?.has(id)))},
+      remote: remote.works.filter(work => !read.state.works.get(work.workId)?.completed)}
+  }
   const checked = validateTicketAssessment({assessment, ticketKey, provider: providerName, originalBody, spec,
-    activeWorks: [...activeWorksFrom({plan, state, exceptWorkId: workId}), ...(remote?.works ?? [])], knownWorkIds: new Set([...planWorkIds, ...ticketIds])})
+    activeWorks: [...activeWorksFrom({plan, state: active.local, exceptWorkId: workId}), ...active.remote], knownWorkIds: new Set([...planWorkIds, ...ticketIds])})
   if (!checked.ok) return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_INVALID', ticketKey, path, errors: checked.errors}}
   // 격리 사본은 판정 한 번을 위한 것이다 — 판정서가 검증을 통과하면 지운다(실패하면 다시 판정해야 하므로 남긴다).
   if (!flags['dry-run']) rmSync(join(root, assessmentSnapshotPath(ticketKey)), {force: true})

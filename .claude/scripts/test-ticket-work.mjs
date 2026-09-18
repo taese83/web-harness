@@ -15,7 +15,7 @@ import {compareWorkDoc, parseWorkDocSections} from './ticket/work-ticket-doc.mjs
 import {parseWorkMarker, withWorkMarker, buildWorkMarker} from './ticket/work-refs.mjs'
 import {hasDevTicketAxis, isDevTicket} from './ticket/ticket-work-run.mjs'
 import {createGithubProvider} from './ticket/provider-github-exec.mjs'
-import {validateWorkEvent, foldWorkState} from './ticket/work-events.mjs'
+import {validateWorkEvent} from './ticket/work-events.mjs'
 
 const KEY = 'AOA-31'
 const original = '회원 목록에서 정지된 회원을 구분하고 싶습니다.\n\n완료 조건: 정지 회원은 목록에서 회색으로 보인다'
@@ -121,19 +121,15 @@ test('개발 티켓 분류는 팀이 선언한 것뿐이다 — Jira 컴포넌�
   assert.deepEqual((await gh.listDevTickets({config: {provider: 'github', github: {}}})).items, [], '선언 없이 조회했다')
 })
 
-test('원장: 사람 티켓 작업은 연결·완료만 원장에 오고 계획 계보(knownWorkIds)에 섞이지 않는다 — 등록 기록은 티켓이다', () => {
+test('원장: 사람 티켓 작업은 원장에 아무것도 쓰지 않는다 — 등록·연결·완료 기록은 티켓이다', () => {
   const planId = ticketPlanId('jira', KEY)
   const workId = ticketWorkId('jira', KEY)
-  assert.equal(validateWorkEvent({schemaVersion: 1, eventId: '11111111-1111-4111-8111-111111111111', operationId: '22222222-2222-4222-8222-222222222222',
-    planId, workId, eventType: 'ticket-work-registered', at: '2026-09-15T00:00:00Z', planDigest: 'b'.repeat(64), payload: {}}).some(error => /eventType/.test(error)), true,
-  '은퇴한 원장 등록 이벤트를 받았다 — 등록 기록이 둘이 된다')
-  const linked = {schemaVersion: 1, eventId: '33333333-3333-4333-8333-333333333333', planId, workId, eventType: 'work-linked', at: '2026-09-15T00:00:00Z',
-    planDigest: 'b'.repeat(64), payload: {prUrl: 'https://github.com/o/r/pull/1', ticketKey: KEY, origin: 'ticket', provider: 'jira', completion: {ok: true}, staleCheck: 'verified'}}
-  const state = foldWorkState([linked])
-  assert.equal(state.knownWorkIds.has(workId), false, '티켓 작업이 계획 계보에 섞였다 — 계획 검증이 「검토한 작업이 사라졌다」로 막는다')
-  assert.equal(state.works.get(workId).link.origin, 'ticket')
+  for (const eventType of ['ticket-work-registered', 'work-linked', 'work-completed', 'work-reopened']) {
+    assert.equal(validateWorkEvent({schemaVersion: 1, eventId: '11111111-1111-4111-8111-111111111111', operationId: '22222222-2222-4222-8222-222222222222',
+      planId, workId, eventType, at: '2026-09-15T00:00:00Z', planDigest: 'b'.repeat(64), payload: {}}).some(error => /eventType/.test(error)), true,
+    `은퇴한 원장 이벤트(${eventType})를 받았다 — 기록이 둘이 된다`)
+  }
 })
-
 
 // ── 픽업 실행부의 진입 가드(리뷰 2026-09-15) — 트래커·원장 쓰기 전에 멈추는 자리 ──
 const {mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync} = await import('node:fs')

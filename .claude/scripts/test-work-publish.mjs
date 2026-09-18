@@ -340,10 +340,9 @@ test('T47: 계획 개정 뒤 이미 발행한 티켓의 소비 메타데이터�
     const handOver = calls.find(call => call.kind === 'comment' && call.key === sharedKey)
     assert.ok(handOver && /TC-001-2/.test(handOver.text), `계획이 새로 요구한 항목을 사람에게 넘기지 않았다: ${handOver?.text}`)
 
-    // 머지로 끝난 작업은 라벨만 맞춘다 — 닫힌 티켓의 본문을 구현하지 않은 판본으로 바꾸지 않는다.
-    const planId = JSON.parse(readFileSync(planPath, 'utf8')).planId
-    appendWorkEvent(ledger, {schemaVersion: 1, eventId: randomUUID(), planId, workId: W(3), eventType: 'work-completed', at: new Date().toISOString(),
-      payload: {prUrl: 'https://github.com/o/r/pull/9', via: 'pr-merged'}})
+    // 끝난 작업은 라벨만 맞춘다 — 닫힌 티켓의 본문을 구현하지 않은 판본으로 바꾸지 않는다. 끝남은 원장이 아니라 트래커에서 읽는다.
+    provider.listWorkIssues = async ({keys}) => ({items: keys.filter(key => key === otherKey)
+      .map(ticketKey => ({ticketKey, statusCategory: 'done', resolution: 'Fixed', doneAt: new Date().toISOString()})), complete: true})
     revise(plan => { plan.workItems.find(work => work.workId === W(4)).title = '두 번째 개정' })
     await review(root)
     calls.length = 0

@@ -19,7 +19,7 @@ import {readChangeScopeFile} from './ticket/cli.mjs'
 import {runClaimWork} from './ticket/work-claim.mjs'
 import {runWorkPublish} from './ticket/work-publish-run.mjs'
 import {pickupOutcome, runWorkPickup} from './ticket/work-pickup-run.mjs'
-import {runWorkLink, runWorkMergeSync, runWorkReopen} from './ticket/work-link-run.mjs'
+import {runWorkLink, runWorkReopen} from './ticket/work-link-run.mjs'
 import {runWorkBoard} from './ticket/work-board.mjs'
 import {checkTeamSharing} from './validate-development-readiness.mjs'
 
@@ -31,7 +31,10 @@ const tryGit = (cwd, ...args) => { try { git(cwd, ...args); return true } catch 
 const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
   transitions: {'in-progress': '31', done: '41'}, workLink: {mode: 'issue-link', linkType: 'Relates'}, componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}
 const ticketConfig = {provider: 'jira', jira: jiraConfig}
-const merged = async urls => new Map(urls.map(url => [url, {state: 'MERGED', baseRefName: 'main'}]))
+// PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
+const prHost = new Map()
+const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
+const mergePr = url => prHost.set(url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
 const open = async () => ({state: 'OPEN', baseRefName: 'main'})
 const commitSplit = (dir, message) => {
   git(dir, 'add', '-A', '--', '.', ':(exclude)_workspace')
@@ -65,7 +68,7 @@ test('계획 개정 두 번과 머지 되돌림: 받지 않은 개정은 link가
     const editPlan = fn => { const plan = JSON.parse(readFileSync(planPath, 'utf8')); fn(plan); writeFileSync(planPath, JSON.stringify(plan, null, 2)) }
     const publish = async (ids, label) => {
       assert.equal((await runClaimWork({root: lead, flags: {}})).phase, 'P1_REVIEW', label)
-      const result = await runWorkPublish({root: lead, flags: {'work-ids': ids.join(','), confirm: true}, io: {provider: providerFor(), ticketConfig}})
+      const result = await runWorkPublish({root: lead, flags: {'work-ids': ids.join(','), confirm: true}, io: {prStates, provider: providerFor(), ticketConfig}})
       commitSplit(lead, label); git(lead, 'push', '-q', 'origin', 'main')
       return result
     }
@@ -78,14 +81,18 @@ test('계획 개정 두 번과 머지 되돌림: 받지 않은 개정은 link가
       devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name])
       git(devs[name], 'config', 'user.name', name); git(devs[name], 'config', 'user.email', `${name}@t`)
     }
-    const pickup = (name, workId) => runWorkPickup({root: devs[name], ticketKey: keys.get(workId), developer: name, flags: {}, io: {provider: providerFor(), ticketConfig}})
-    const link = (name, workId, pr) => runWorkLink({root: devs[name], ticketKey: keys.get(workId), prUrl: `https://github.com/acme/web/pull/${pr}`, flags: {}, io: {prInfo: open}})
-    const mergeAndSync = async (name, branch) => {
+    const pickup = (name, workId) => runWorkPickup({root: devs[name], ticketKey: keys.get(workId), developer: name, flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const lastPr = {}
+    const link = (name, workId, pr) => {
+      lastPr[name] = `https://github.com/acme/web/pull/${pr}`
+      return runWorkLink({root: devs[name], ticketKey: keys.get(workId), prUrl: lastPr[name], flags: {}, io: {prStates, prInfo: open, provider: providerFor()}})
+    }
+    const mergeAndRead = async (name, branch) => {
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', branch)
       git(lead, 'fetch', '-q', 'origin')
       assert.equal(tryGit(lead, 'merge', '--no-ff', '-m', `merge ${branch}`, `origin/${branch}`), true, `${branch} 머지 충돌`)
-      await runWorkMergeSync({root: lead, io: {prStates: merged}})
-      commitSplit(lead, `머지 ${branch}`); git(lead, 'push', '-q', 'origin', 'main')
+      mergePr(lastPr[name])
+      git(lead, 'push', '-q', 'origin', 'main')
     }
     const pull = name => { git(devs[name], 'checkout', '-q', 'main'); git(devs[name], 'pull', '-q', '--no-rebase', 'origin', 'main') }
 
@@ -104,11 +111,11 @@ test('계획 개정 두 번과 머지 되돌림: 받지 않은 개정은 link가
     assert.equal(pickupOutcome(await pickup('A', W(1))), 'started')
     const relinked = await link('A', W(1), 11)
     assert.equal(relinked.ok, true, `다시 집은 뒤 한 일이 사라졌다: ${JSON.stringify(relinked.blocked ?? relinked.completion)}`)
-    await mergeAndSync('A', 'feat/A')
+    await mergeAndRead('A', 'feat/A')
     pull('B'); assert.equal(pickupOutcome(await pickup('B', W(3))), 'started')
     git(devs.B, 'checkout', '-qb', 'feat/B'); develop(devs.B, 'B'); commitSplit(devs.B, 'B 작업')
     assert.equal((await link('B', W(3), 12)).ok, true)
-    await mergeAndSync('B', 'feat/B')
+    await mergeAndRead('B', 'feat/B')
     pull('C'); assert.equal(pickupOutcome(await pickup('C', W(4))), 'started')
     pull('D'); assert.equal((await pickup('D', W(4))).bounce?.reason, 'assigned-to-other')
 
@@ -141,21 +148,29 @@ test('계획 개정 두 번과 머지 되돌림: 받지 않은 개정은 link가
     pull('E')
     assert.equal((await pickup('E', W(5))).bounce?.reason, 'work-cancelled')
 
-    // (4) W1 머지를 되돌린다 — 원장은 모른다. reopen으로 완료를 거둔다
+    // (4) W1 머지를 되돌린다 — PR은 여전히 MERGED다. reopen으로 완료를 거둔다(티켓 코멘트)
     const w1Merge = git(lead, 'log', '--merges', '--format=%H %s').split('\n').find(line => line.endsWith('merge feat/A')).split(' ')[0]
     assert.equal(tryGit(lead, 'revert', '-m', '1', '--no-edit', w1Merge), true)
-    const noReason = await runWorkReopen({root: lead, ticketKey: keys.get(W(1)), flags: {}})
+    const noReason = await runWorkReopen({root: lead, ticketKey: keys.get(W(1)), flags: {}, io: {prStates, provider: providerFor()}})
     assert.equal(noReason.blocked, 'reason-required')
-    const reopened = await runWorkReopen({root: lead, ticketKey: keys.get(W(1)), flags: {reason: '회원 API 계약 오류로 되돌림'}})
+    const reopened = await runWorkReopen({root: lead, ticketKey: keys.get(W(1)), flags: {reason: '회원 API 계약 오류로 되돌림'}, io: {prStates, provider: providerFor()}})
     assert.equal(reopened.ok, true)
     assert.ok(reopened.affected.some(item => item.workId === W(4)), '이 작업을 선행으로 둔 작업을 알리지 않았다')
     commitSplit(lead, 'W1 되돌림'); git(lead, 'push', '-q', 'origin', 'main')
     pull('D')
-    const board = await runWorkBoard({root: devs.D, developer: 'D', flags: {}, io: {provider: providerFor(), ticketConfig}})
+    const board = await runWorkBoard({root: devs.D, developer: 'D', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
     assert.equal(board.rows.find(row => row.workId === W(1)).completed, false)
     assert.equal(board.rows.find(row => row.workId === W8).blockedReason, 'dependency-incomplete', '되돌린 작업 위의 사슬이 열려 있다')
     pull('A')
-    assert.equal(pickupOutcome(await runWorkPickup({root: devs.A, ticketKey: keys.get(W(1)), developer: 'A', flags: {}, io: {provider: providerFor(), ticketConfig}})), 'started')
+    assert.equal(pickupOutcome(await runWorkPickup({root: devs.A, ticketKey: keys.get(W(1)), developer: 'A', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})), 'started')
+    // (5) 고쳐서 새 PR로 다시 연결하고 머지하면 완료다 — 옛 PR 연결이 멱등으로 가로막지 않는다.
+    git(devs.A, 'checkout', '-qb', 'feat/A2'); develop(devs.A, 'A2'); commitSplit(devs.A, 'A 다시')
+    const again = await link('A', W(1), 21)
+    assert.equal(again.ok, true, JSON.stringify(again.blocked ?? again.completion))
+    assert.equal(again.idempotent, undefined, `거둔 뒤의 새 PR을 옛 연결로 돌려보냈다: ${again.existing}`)
+    await mergeAndRead('A', 'feat/A2')
+    const healed = await runWorkBoard({root: devs.D, developer: 'D', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    assert.equal(healed.rows.find(row => row.workId === W(1)).completed, true, JSON.stringify(healed.notes))
   } finally {
     rmSync(base, {recursive: true, force: true})
   }

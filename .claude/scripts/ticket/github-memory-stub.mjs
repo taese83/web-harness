@@ -13,6 +13,8 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
   let state = {next: 1, commentId: 1000, clock: 0, issues: {}}
   const load = () => { if (stateFile && existsSync(stateFile)) state = JSON.parse(readFileSync(stateFile, 'utf8')) }
   const save = () => { if (stateFile) writeFileSync(stateFile, JSON.stringify(state)) }
+  // 코멘트 시각은 실제 시각이다(뒤로 가지 않는다) — 기록 코멘트의 앞뒤를 시각으로 가린다. 파일을 나눠 쓰는 프로세스 사이에서도 잇는다.
+  const commentTime = () => { state.lastCommentAt = Math.max(Date.now(), (state.lastCommentAt ?? 0) + 1); return new Date(state.lastCommentAt).toISOString() }
   const touch = issue => { issue.updatedAt = new Date(Date.UTC(2026, 0, 1) + (state.clock += 1000)).toISOString() }
   const issueOf = number => {
     const issue = state.issues[String(number)]
@@ -22,7 +24,7 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
   const view = (issue, fields) => Object.fromEntries(fields.split(',').map(field => [field,
     field === 'labels' ? issue.labels.map(name => ({name}))
       : field === 'assignees' ? issue.assignees.map(login => ({login}))
-        : field === 'comments' ? issue.comments.map(item => ({author: {login: item.author}, body: item.body, createdAt: item.createdAt}))
+        : field === 'comments' ? issue.comments.map(item => ({author: {login: item.author}, authorAssociation: item.authorAssociation ?? 'MEMBER', body: item.body, createdAt: item.createdAt}))
           : issue[field] ?? null]))
   const create = ({title, body, labels = [], assignees = []}) => {
     const number = state.next++
@@ -67,14 +69,14 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
     }
     if (head === 'issue' && verb === 'comment') {
       const issue = issueOf(args[2])
-      issue.comments.push({id: state.commentId++, author: 'bot', body: flagValue(args, '--body'), createdAt: new Date().toISOString()})
+      issue.comments.push({id: state.commentId++, author: 'bot', body: flagValue(args, '--body'), createdAt: commentTime()})
       touch(issue)
       return ''
     }
     if (head === 'issue' && verb === 'close') {
       const issue = issueOf(args[2])
       const comment = flagValue(args, '--comment')
-      if (comment) issue.comments.push({id: state.commentId++, author: 'github-actions', body: comment, createdAt: new Date().toISOString()})
+      if (comment) issue.comments.push({id: state.commentId++, author: 'github-actions', body: comment, createdAt: commentTime()})
       issue.state = 'CLOSED'
       issue.stateReason = flagValue(args, '--reason') === 'not planned' ? 'NOT_PLANNED' : 'COMPLETED'
       issue.closedAt = new Date().toISOString()

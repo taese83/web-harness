@@ -20,7 +20,7 @@ const readJson = (root, relative) => {
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null
 }
 
-async function loadInputs(root, flags) {
+async function loadInputs(root, flags, io = {}) {
   const plan = readJson(root, WORK_PLAN_PATH)
   const analysis = readJson(root, WORK_ANALYSIS_PATH)
   if (!plan || !analysis) return null
@@ -29,16 +29,24 @@ async function loadInputs(root, flags) {
   let planText = ''
   // 계획 문서가 없으면 TC 대조를 **하지 못한다** — 빈 목록을 「책임 누락 없음」으로 읽지 않게 결과에 적는다.
   try { planUnits = loadUnits(root, flags); planText = loadPlanText(root, flags) } catch { planUnits = null }
-  const state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
-  return {plan, analysis, planUnits, planText, state, planDigest: canonicalDigest(plan)}
+  let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  // 머지·끝남은 원장이 아니라 트래커에서 계산한다(`work-state-run.mjs`) — provider가 없으면 원장만 보고 그렇게 적는다.
+  let trackerNotes = []
+  if (io.provider) {
+    const read = await (await import('./work-state-run.mjs')).readTrackerWorkState({provider: io.provider, state, root, plan, config: io.ticketConfig ?? null, io})
+    state = read.state
+    trackerNotes = read.notes
+  } else trackerNotes = ['트래커를 읽지 않아 머지·끝남을 모릅니다 — 모든 작업이 머지 전으로 보입니다.']
+  return {plan, analysis, planUnits, planText, state, planDigest: canonicalDigest(plan), trackerNotes}
 }
 
-export async function runFeatureBoard({root, flags = {}}) {
-  const inputs = await loadInputs(root, flags)
+export async function runFeatureBoard({root, flags = {}, io = {}}) {
+  const inputs = await loadInputs(root, flags, io)
   if (!inputs) return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: 'WORK 계획이 없다 — `claim`부터 한다'}
   const result = aggregateFeatures(inputs)
   return {ok: true, mode: 'work', view: 'by-feature', planId: inputs.plan.planId, ...result,
     notes: [
+      ...inputs.trackerNotes,
       '`works-merged`는 **인수 완료가 아니다** — 필수 작업이 머지됐다는 뜻이며 통합 revision의 TC 증거는 아직 연결되지 않았다',
       ...(inputs.planUnits === null ? ['feature-plan을 읽지 못해 TC 책임 대조를 하지 못했다 — 해당 FEAT는 `merged-tc-unchecked`로 남는다(누락 없음으로 읽지 않는다)'] : []),
       ...(result.denominator.excluded.length > 0 ? [`제품 유예로 분모에서 뺀 FEAT: ${result.denominator.excluded.join(', ')}`] : []),
@@ -50,7 +58,7 @@ export async function runFeatureBoard({root, flags = {}}) {
  *   flags: `--features a,b`(선택) · `--confirm`
  */
 export async function runAggregatePublish({root, flags = {}, io = {}}) {
-  const inputs = await loadInputs(root, flags)
+  const inputs = await loadInputs(root, flags, io)
   if (!inputs) return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', externalWrites: 0}
   const {plan, planDigest, state} = inputs
   // **확인한 판본만** — 검토 뒤 계획이 바뀌었으면 요약도 확인받지 않은 안의 것이다.

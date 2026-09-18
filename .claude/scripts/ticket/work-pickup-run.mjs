@@ -52,24 +52,17 @@ export function separateTestLayers(spec) {
     .filter(test => !sources.some(source => withinScope(source, test) || withinScope(test, source)))
 }
 
-/** 이 티켓과 그 선행 작업의 트래커 끝남을 읽는다. 못 읽으면 원장만으로 판정한다(막지 않는다). */
-async function readTrackerDone({provider, state, plan, ticketKey, config, root, io = {}}) {
-  const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
+/** 이 티켓과 그 선행 작업의 지금 상태를 트래커에서 읽는다(끝남·PR 연결·머지). 못 읽으면 원장만으로 판정한다(막지 않는다). */
+async function readTrackerDone({provider, state, plan, ticketKey, config, root, io = {}, issue = null}) {
   const entry = [...(state?.works?.entries() ?? [])].find(([, item]) => String(item.ticketKey) === String(ticketKey))
   const work = entry ? (plan?.workItems ?? []).find(item => item.workId === entry[0]) ?? entry[1].definition : null
   const keys = [ticketKey, ...(work?.dependsOn ?? []).map(dep => state.works.get(dep)?.ticketKey).filter(Boolean)].map(String)
-  if (typeof provider?.listWorkIssues !== 'function') return {apply: value => value, read: {checked: false, reason: 'provider가 목록 조회를 주지 않는다'}}
-  try {
-    const listed = await provider.listWorkIssues({keys})
-    const {readMergeEvidence} = await import('./work-board.mjs')
-    const merged = await readMergeEvidence({provider, root, base: plan?.baseBranch ?? null, keys, io})
-    const options = {completedResolutions: completedResolutionsOf(config, provider.name), mergeEvidence: merged.evidence}
-    return {apply: value => withTrackerCompletion(value, listed.items, options),
-      read: {checked: true, mergeEvidence: merged.checked, ...(merged.note ? {guidance: merged.note} : {})}}
-  } catch (error) {
-    const reason = String(error?.message ?? error).slice(0, 120)
-    return {apply: value => value, read: {checked: false, reason, guidance: `트래커에서 이 티켓과 선행 작업이 끝났는지 확인하지 못해 원장만 봤습니다: ${reason}.`}}
-  }
+  if (!provider) return {state, read: {checked: false, reason: 'provider가 없다'}}
+  const {readTrackerWorkState} = await import('./work-state-run.mjs')
+  const issues = new Map(issue ? [[String(ticketKey), issue]] : [])
+  const read = await readTrackerWorkState({provider, state, root, plan, config, io, keys, issues})
+  const guidance = read.notes.length ? `원장만 본 부분이 있습니다: ${read.notes.join(' ')}` : null
+  return {state: read.state, read: {checked: read.checked, ...(guidance ? {guidance} : {})}}
 }
 
 export async function runWorkPickup({root, ticketKey, developer, flags = {}, io = {}}) {
@@ -105,8 +98,8 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const early = readTicketRegistration({issue, providerName: provider?.name, ticketKey, state})
   if (early && !early.error) state = withTicketRegistrations(state, [early])
   // 트래커의 끝남(완료·취소)을 이 티켓과 선행 작업에 겹친다 — 원장만 보면 트래커에서 끝난 선행을 기다리거나 취소된 작업을 집는다.
-  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
-  state = trackerDone.apply(state)
+  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io, issue})
+  state = trackerDone.state
   // **사람이 만든 개발 티켓**이면 판정·확인·완성을 거쳐 같은 픽업으로 이어진다(ticket-work-run.mjs). 계획 WORK면 그대로 아래로 간다.
   const {resolveTicketPickup} = await import('./ticket-work-run.mjs')
   const ticket = await resolveTicketPickup({root, ticketKey, developer, issue, state, plan, flags, io})
@@ -131,9 +124,9 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   if (ticket.registration && !early) {
     // 방금 등록했다 — 선행 자리가 생겼으니 트래커 끝남을 다시 읽는다(등록 전 상태로 판정하면 선행을 모른다).
     state = withTicketRegistrations(state, [ticket.registration])
-    trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
-    state = trackerDone.apply(state)
-  } else if (ticket.registration) state = trackerDone.apply(withTicketRegistrations(state, [ticket.registration]))
+    trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io, issue: ticket.issue ?? issue})
+    state = trackerDone.state
+  } else if (ticket.registration) state = withTicketRegistrations(state, [ticket.registration])
   const planDigest = ticket.context?.planDigest ?? canonicalDigest(plan)
   // **기본값은 실물이다.** 주입이 없을 때 빈 값을 쓰면 컨플릭 게이트가 영원히 발화하지 않는다
   // (적대 리뷰 2026-09-14: 「같은 함수를 쓴다」가 참이어도 입력이 비면 게이트는 없는 것과 같다).
@@ -167,9 +160,13 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   // 진행 중인 다른 범위를 조용히 덮지 않는다 — 그 작업의 STALE 앵커가 사라진다(legacy와 같은 규율).
   const existing = cli.readChangeScopeFile(root)
   const existingId = existing?.workId ?? existing?.featureId ?? null
-  // PR을 연결했거나 머지로 끝난 작업의 범위는 더 지킬 것이 없다 — STALE 대조는 link 때 끝나 원장에 남았다.
-  // 이것을 「진행 중」으로 보면 개발자마다 두 번째 픽업부터 막힌다.
-  const settled = existingId ? Boolean(state?.works?.get(existingId)?.link?.prUrl || state?.works?.get(existingId)?.completed) : false
+  // PR을 연결했거나 머지로 끝난 작업의 범위는 더 지킬 것이 없다 — STALE 대조는 link 때 끝나 그 티켓에 남았다.
+  // 이것을 「진행 중」으로 보면 개발자마다 두 번째 픽업부터 막힌다. 사람 티켓 작업은 원장에 없으니 그 티켓의 연결 기록을 읽는다.
+  let settled = existingId ? Boolean(state?.works?.get(existingId)?.link?.prUrl || state?.works?.get(existingId)?.completed) : false
+  if (existing && existingId !== pick.changeScope.workId && !settled && existing.ticketKey && typeof provider?.resolveIssue === 'function') {
+    const {parseWorkRecords} = await import('./work-records.mjs')
+    settled = Boolean(parseWorkRecords((await provider.resolveIssue(String(existing.ticketKey)).catch(() => null))?.comments).link)
+  }
   if (existing && existingId !== pick.changeScope.workId && !settled && !flags['replace-scope']) {
     return {ok: false, mode: 'work', bounce: {reason: 'active-change-scope', active: existingId},
       guidance: `${existingId} 작업을 이미 집어 둔 상태입니다. 그 작업을 끝내거나, 바꾸려면 --replace-scope를 붙이세요.`}

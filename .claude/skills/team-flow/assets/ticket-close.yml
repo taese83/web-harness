@@ -1,11 +1,11 @@
-# web-harness:ticket-close v3 — PR이 기대 base에 머지되면 그 PR에 결속된 **WORK 티켓**을 닫는다.
+# web-harness:ticket-close v4 — PR이 기대 base에 머지되면 그 PR에 연결된 **하네스 작업 이슈**를 닫는다.
 #
 # 왜 필요한가: GitHub의 `Closes #N` 자동 닫힘은 **기본 브랜치 머지에서만** 발동한다. 팀 흐름은 작업을 통합
 # 브랜치에 모으므로 그 머지에서는 발동하지 않는다.
 #
-# 무엇을 근거로 닫는가: **WORK 원장(work-item-events.jsonl)만** 본다. PR 본문의 `#N`은 작성자가 아무 숫자나
-# 적을 수 있어 남의 티켓을 닫는 경로가 된다. `link`가 이 PR을 결속했고 그때 기록한 기대 base가 이 머지의
-# base와 같을 때만 닫는다. 부모 FEAT·집계 티켓은 닫지 않는다(사람이 판단한다).
+# 무엇을 근거로 닫는가: PR 본문의 `#N`은 **후보**일 뿐이다(작성자가 아무 숫자나 적을 수 있다). 후보 이슈가 하네스
+# 작업 이슈이고, 그 이슈의 가장 최근 연결 기록(`link`가 남긴 코멘트)이 이 PR과 이 머지의 base일 때만 닫는다.
+# 부모 FEAT·집계 티켓은 닫지 않는다(사람이 판단한다).
 #
 # 한계: fork에서 온 PR은 `github.token`이 읽기 전용이라 닫지 못한다(실패로 드러난다 — 사람이 닫는다).
 #
@@ -34,10 +34,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
-      - name: Close WORK tickets bound to this merged PR
+      - name: Close harness issues linked to this merged PR
         env:
           GH_TOKEN: ${{ github.token }}
           TICKET_REPO: ${{ github.repository }}
           TICKET_PR_URL: ${{ github.event.pull_request.html_url }}
           TICKET_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          TICKET_PR_BODY: ${{ github.event.pull_request.body }}
         run: node .github/scripts/close-merged-tickets.mjs
