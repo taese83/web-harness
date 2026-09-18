@@ -10,7 +10,7 @@
 import {createHash} from 'node:crypto'
 import {canonicalDigest, safeRelativeScope} from './work-analysis.mjs'
 import {pathsOverlap, ROLE} from './work-plan.mjs'
-import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES} from './work-ticket-doc.mjs'
+import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES, parseWorkDocSections, TESTS_PASS_SHAPES} from './work-ticket-doc.mjs'
 import {stripWorkMarker} from './work-refs.mjs'
 import {normalizeLayerPath} from '../agent-registry.mjs'
 
@@ -194,6 +194,59 @@ export function ticketWorkDefinition({assessment, ticketKey, provider, title}) {
     lifecycle: 'active',
   }
 }
+
+/** 착수 불가 판정의 라벨 — **트래커가 판정 기록이다**. 보드는 라벨로 「정해야 할 것이 있음」을 그린다. */
+export const VERDICT_LABELS = ['needs-planning', 'needs-design', 'undecidable']
+
+/**
+ * 등록된 사람 티켓 작업의 정의를 **본문에서** 되살린다(순수) — 티켓이 등록 기록이다(원장에 두지 않는다). 사람이 본문을 고치면
+ * 정의가 바뀌고, 그 변경은 트래커 이력에 남는다. 선행 줄에 티켓 키가 없으면(아직 발행되지 않은 선행) 풀 수 없는 선행으로 둔다 —
+ * 조용히 빼면 선행 없이 착수한다.
+ * @param {{body: string, ticketKey: string, provider: string, title?: string, depWorkIdOf: (key: string) => string|null}} args
+ * @returns {{definition: object, dependsOnKeys: (string|null)[]}|{error: string}}
+ */
+export function parseTicketWorkBody({body, ticketKey, provider, title = null, depWorkIdOf = () => null}) {
+  const sections = parseWorkDocSections(body)
+  if (sections.acceptance === null || sections.scope === null) return {error: '본문에 완료 조건·수정 범위 섹션이 없다'}
+  const field = names => {
+    for (const line of list(sections.references)) {
+      const match = line.match(/^([^:]+):\s*(.*)$/)
+      if (match && names.includes(match[1].trim())) return match[2].trim()
+    }
+    return null
+  }
+  const writePaths = list(sections.scope)
+  const dependsOnKeys = []
+  const dependsOn = list(sections.dependsOn).map(line => {
+    const key = line.split(/\s+/)[0].replace(/^#/, '')
+    const known = /^(?:[A-Za-z][A-Za-z0-9]*-\d+|\d+)$/.test(key)
+    dependsOnKeys.push(known ? key : null) // dependsOn과 같은 자리 — 키를 모르는 선행은 null
+    if (!known) return `UNRESOLVED:${line}`
+    return depWorkIdOf(key) ?? `UNRESOLVED:${key}`
+  })
+  const spec = field(['스팩 승인', 'Spec approval'])
+  const definition = {
+    workId: ticketWorkId(provider, ticketKey), title: title || String(ticketKey), kind: 'implementation', origin: 'ticket',
+    lane: field(['레인', 'Lane']), specApproval: spec === '필요 없음' || spec === 'not needed' ? 'not-needed' : 'required', // 모르면 받는다(fail-closed)
+    roles: (field(['역할', 'Roles']) ?? '').split(',').map(role => role.trim()).filter(Boolean),
+    objective: sections.lead ?? '', nonGoals: list(sections.nonGoals), dependsOn, readPaths: [], writePaths, contractRefs: [],
+    checks: list(sections.acceptance).filter(text => !TESTS_PASS_SHAPES.some(shape => shape.test(text)))
+      .map((text, index) => ({checkId: `ACC-${index + 1}`, kind: 'acceptance', expectedOutcome: text, targetRefs: writePaths, source: 'ticket'})),
+    testCases: list(sections.tests).map(text => text.match(/^(TT-\S+)\s+(.*)$/)).filter(Boolean).map(match => ({id: match[1], text: match[2], source: 'ticket'})),
+    designDebt: [], lifecycle: 'active',
+  }
+  return {definition, dependsOnKeys}
+}
+
+/**
+ * 사람 티켓 작업 정의의 지문(순수) — 본문에서 되읽히는 것만 잰다(판정서의 `source`·디자인 부채처럼 본문에 없는 것은 뺀다).
+ * 집을 때와 연결할 때 같은 값이어야 「그 뒤 본문을 고쳤다」를 가릴 수 있다.
+ */
+export const ticketDefinitionDigest = definition => canonicalDigest({
+  lane: definition?.lane ?? null, specApproval: definition?.specApproval ?? null, roles: list(definition?.roles), objective: definition?.objective ?? '',
+  nonGoals: list(definition?.nonGoals), dependsOn: list(definition?.dependsOn), writePaths: list(definition?.writePaths),
+  checks: list(definition?.checks).map(check => check.expectedOutcome), testCases: list(definition?.testCases).map(item => `${item.id} ${item.text}`),
+})
 
 /** 티켓 작업의 가상 계획(순수) — 픽업·링크·편집 대조가 계획 WORK와 같은 코드를 탄다. */
 export function ticketVirtualPlan(definition, planId) {

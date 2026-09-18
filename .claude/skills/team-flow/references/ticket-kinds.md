@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 기획 티켓(사람이 씀) | `intake` → ingestor → feature-planner | 스냅샷 · 인벤토리 행 | 쓰지 않는다 — 공급 원문이지 개발 대상이 아니다 |
 | WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행·링크·완료) |
-| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 판정(`ticket-work-contract.md`) → 확인 → 완성 | 착수 가능이면 WORK와 같은 모양(원문 보존) · 착수 불가면 요청 코멘트 | `ticket-assessed` · `ticket-work-registered` 뒤로는 WORK와 같다 |
+| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 판정(`ticket-work-contract.md`) → 확인 → 완성 | 착수 가능이면 WORK와 같은 모양(원문 보존) · 착수 불가면 판정 라벨과 요청 코멘트 | **티켓이 등록 기록**(원장에 없음) · 연결·완료부터 WORK와 같다 |
 | 옛 FEAT 개발 티켓(`web-harness:refs`) | 없음 | — | 픽업은 WORK로 안내하고 거부한다 |
 | 집계 티켓(`web-harness:aggregate`) | 아직 생산자 없음 | — | 판독 입구가 WORK로도 FEAT로도 읽지 않는다 |
 
@@ -43,6 +43,7 @@ brief를 대체하지 않는다.
 | `ALLOWED_PATHS` · `needsConfirmation` | 쓰기 경계(검토받은 계획의 `writePaths` — 확인 대기가 아니다) |
 | `PUBLIC_CONTRACTS_TO_PRESERVE` · `NON_GOALS` · `CHANGE_BUDGET` | `minimal-change-contract.md`의 같은 필드 |
 | `sourceDigest` | STALE 앵커(계획 digest) — 픽업 뒤 계획이 바뀌면 `link`가 막는다 |
+| `definitionDigest` (선택) | 사람 티켓 작업의 정의 지문(티켓 본문이 정의다) — 집은 뒤 본문이 바뀌면 `link`가 막는다 |
 <!-- /web-harness:change-scope-keys -->
 
 `link`는 대조한 change-scope의 `ticket`을 원장 링크 기록에 옮긴다 — **이 PR이 어느 티켓 개정을 보고

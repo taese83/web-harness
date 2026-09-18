@@ -100,8 +100,12 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   }
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
   let issue = await fetchIssue(ticketKey)
+  // 사람 티켓 작업은 **티켓이 등록 기록**이다 — 원장이 아니라 티켓에서 읽어 메모리 상태에 겹친다(선행 자리까지).
+  const {readTicketRegistration, withTicketRegistrations} = await import('./ticket-work-run.mjs')
+  const early = readTicketRegistration({issue, providerName: provider?.name, ticketKey, state})
+  if (early && !early.error) state = withTicketRegistrations(state, [early])
   // 트래커의 끝남(완료·취소)을 이 티켓과 선행 작업에 겹친다 — 원장만 보면 트래커에서 끝난 선행을 기다리거나 취소된 작업을 집는다.
-  const trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
+  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
   state = trackerDone.apply(state)
   // **사람이 만든 개발 티켓**이면 판정·확인·완성을 거쳐 같은 픽업으로 이어진다(ticket-work-run.mjs). 계획 WORK면 그대로 아래로 간다.
   const {resolveTicketPickup} = await import('./ticket-work-run.mjs')
@@ -124,7 +128,12 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   }
   if (ticket.issue) issue = ticket.issue
   // 방금 등록했으면 원장을 다시 접는다 — 등록 전 상태로 판정하면 「원장에 없는 작업」으로 되돌린다.
-  if (ticket.extra?.ticketWork?.registered) state = trackerDone.apply(foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))))
+  if (ticket.registration && !early) {
+    // 방금 등록했다 — 선행 자리가 생겼으니 트래커 끝남을 다시 읽는다(등록 전 상태로 판정하면 선행을 모른다).
+    state = withTicketRegistrations(state, [ticket.registration])
+    trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
+    state = trackerDone.apply(state)
+  } else if (ticket.registration) state = trackerDone.apply(withTicketRegistrations(state, [ticket.registration]))
   const planDigest = ticket.context?.planDigest ?? canonicalDigest(plan)
   // **기본값은 실물이다.** 주입이 없을 때 빈 값을 쓰면 컨플릭 게이트가 영원히 발화하지 않는다
   // (적대 리뷰 2026-09-14: 「같은 함수를 쓴다」가 참이어도 입력이 비면 게이트는 없는 것과 같다).
@@ -228,6 +237,9 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
     // 없던 대상의 지문은 null이다 — 「기록 없음」과 구별해 키가 있으면 그 값을 잇는다.
     baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, Object.hasOwn(earlier.get(check.checkId) ?? {}, ref) ? earlier.get(check.checkId)[ref] : digestOf(ref)]))}))
   pick.changeScope.ALLOWED_PATHS = [...new Set([...pick.changeScope.ALLOWED_PATHS, ...separateTestLayers(readSpecAt(root))])]
+  // 사람 티켓 작업은 **본문이 정의**다 — 집을 때의 정의 지문을 적어 두면, 그 뒤 본문을 고쳤을 때 link가 STALE로 알아본다.
+  const ticketDefinition = state?.works?.get(pick.changeScope.workId)?.origin === 'ticket' ? state.works.get(pick.changeScope.workId).definition : null
+  if (ticketDefinition) pick.changeScope.definitionDigest = (await import('./ticket-work.mjs')).ticketDefinitionDigest(ticketDefinition)
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
   return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, trackerRead: trackerDone.read, worktree: working, ...(ticket.extra ?? {})}

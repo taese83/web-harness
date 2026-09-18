@@ -124,7 +124,7 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
       develop(devs[name], name)
       commitSplit(devs[name], `${name} 작업`)
       prOf[name] = `https://github.com/acme/web/pull/${++pr}`
-      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: prOf[name], flags: {}, io: {prInfo: open}})
+      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: prOf[name], flags: {}, io: {prInfo: open, provider: providerFor()}})
       assert.equal(linked.ok, true, `${name}: ${JSON.stringify(linked.blocked ?? linked.completion)}`)
       assert.equal(linked.closeLine, `Closes #${work[name]}`)
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', `feat/${name}`)

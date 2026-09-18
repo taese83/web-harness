@@ -136,7 +136,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
   const rows = []
   const works = [...(state?.works?.entries() ?? [])]
   const seen = new Set()
-  for (const [workId, item] of works.filter(([, entry]) => entry.origin === 'ticket')) {
+  for (const [workId, item] of works.filter(([, entry]) => entry.origin === 'ticket' && !entry.placeholder)) {
     seen.add(String(item.ticketKey))
     const issue = issuesByKey?.get(String(item.ticketKey)) ?? null
     const assignees = issue?.assignees ?? null
@@ -231,6 +231,18 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   let issuesByWork = null
   let lookupComplete = false
   const trackerNotes = []
+  // 사람 티켓 — **티켓이 등록 기록이다**. 개발 티켓을 읽어 등록(마커·본문)과 착수 불가 판정(라벨)을 메모리 상태에 겹친다.
+  let devTickets = null
+  if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
+    const {readTrackerTicketRegistrations, withTicketRegistrations} = await import('./ticket-work-run.mjs')
+    const read = await readTrackerTicketRegistrations({provider, config: io.ticketConfig ?? {}, io, state})
+    if (read.checked || read.items.length > 0) devTickets = read.items
+    state = withTicketRegistrations(state, read.registrations, read.verdicts)
+    if (!read.checked) trackerNotes.push(read.items.length > 0 ? '개발 티켓 목록을 끝까지 읽지 못했습니다. 아직 판정하지 않은 티켓 일부가 빠졌을 수 있습니다.'
+      : `개발 티켓 목록 조회 실패 — 사람이 만든 티켓은 보이지 않는다: ${read.reason ?? ''}`)
+    const unreadable = read.registrations.filter(item => item.error).length
+    if (unreadable > 0) trackerNotes.push(`등록된 티켓 ${unreadable}건은 본문 섹션을 읽지 못했습니다.`)
+  }
   const keys = [...state.works.entries()].filter(([, item]) => item.status === 'published' && item.ticketKey).map(([, item]) => item.ticketKey)
   if (provider && typeof provider.listWorkIssues === 'function' && keys.length > 0 && flags['no-tracker'] !== true) {
     try {
@@ -264,16 +276,6 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const board = plan && analysis ? buildWorkBoard({plan, view, state, planDigest: canonicalDigest(plan), issuesByWork, developer, lookupComplete})
     : {rows: [], notes: ['개발 계획이 없어 사람이 만든 개발 티켓만 보여 줍니다. 이 티켓들을 집는 데 계획은 필요 없습니다.']}
   // 사람이 만든 개발 티켓 절 — 트래커의 개발 티켓 목록은 분류 설정과 조회 능력이 있을 때만 읽는다(못 읽으면 그렇게 적는다).
-  let devTickets = null
-  if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
-    try {
-      const listed = await provider.listDevTickets({config: io.ticketConfig ?? {}})
-      devTickets = listed.items
-      if (listed.complete !== true) trackerNotes.push('개발 티켓 목록을 끝까지 읽지 못했습니다. 아직 판정하지 않은 티켓 일부가 빠졌을 수 있습니다.')
-    } catch (error) {
-      trackerNotes.push(`개발 티켓 목록 조회 실패 — 판정 전 티켓은 보이지 않는다: ${String(error?.message ?? error).slice(0, 120)}`)
-    }
-  }
   const issuesByKey = issuesByWork ? new Map([...issuesByWork.values()].map(item => [String(item.ticketKey), item])) : null
   const specBoundary = (() => { const spec = readJson('_workspace/03_dev/spec.json'); return spec ? Boolean(spec.layerMap && Object.keys(spec.layerMap).length > 0) : false })()
   const tickets = ticketCapable ? buildTicketBoard({state, issuesByKey, devTickets, developer, lookupComplete, specBoundary}) : {rows: [], notes: []}

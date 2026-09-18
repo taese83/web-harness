@@ -121,21 +121,17 @@ test('개발 티켓 분류는 팀이 선언한 것뿐이다 — Jira 컴포넌�
   assert.deepEqual((await gh.listDevTickets({config: {provider: 'github', github: {}}})).items, [], '선언 없이 조회했다')
 })
 
-test('원장: 티켓 등록은 판정서 지문과 정의를 요구하고, 계획 계보(knownWorkIds)에 섞이지 않는다', () => {
+test('원장: 사람 티켓 작업은 연결·완료만 원장에 오고 계획 계보(knownWorkIds)에 섞이지 않는다 — 등록 기록은 티켓이다', () => {
   const planId = ticketPlanId('jira', KEY)
   const workId = ticketWorkId('jira', KEY)
-  const digest = 'b'.repeat(64)
-  const registered = {schemaVersion: 1, eventId: '11111111-1111-4111-8111-111111111111', operationId: '22222222-2222-4222-8222-222222222222', planId, workId,
-    eventType: 'ticket-work-registered', at: '2026-09-15T00:00:00Z', planDigest: digest,
-    payload: {ticketKey: KEY, provider: 'jira', assessmentDigest: digest, definition: {workId}}}
-  assert.deepEqual(validateWorkEvent(registered), [])
-  assert.ok(validateWorkEvent({...registered, planDigest: 'c'.repeat(64)}).some(error => /판정서 지문/.test(error)))
-  assert.ok(validateWorkEvent({...registered, payload: {...registered.payload, definition: {workId: 'WORK-00000001-0000-4000-8000-000000000001'}}}).some(error => /정의가 아니다/.test(error)))
-  const state = foldWorkState([registered, {...registered, eventId: '33333333-3333-4333-8333-333333333333', eventType: 'work-linked',
-    payload: {prUrl: 'https://github.com/o/r/pull/1', completion: {ok: true}, staleCheck: 'verified'}}])
-  assert.equal(state.works.get(workId).origin, 'ticket')
-  assert.equal(state.works.get(workId).status, 'published')
+  assert.equal(validateWorkEvent({schemaVersion: 1, eventId: '11111111-1111-4111-8111-111111111111', operationId: '22222222-2222-4222-8222-222222222222',
+    planId, workId, eventType: 'ticket-work-registered', at: '2026-09-15T00:00:00Z', planDigest: 'b'.repeat(64), payload: {}}).some(error => /eventType/.test(error)), true,
+  '은퇴한 원장 등록 이벤트를 받았다 — 등록 기록이 둘이 된다')
+  const linked = {schemaVersion: 1, eventId: '33333333-3333-4333-8333-333333333333', planId, workId, eventType: 'work-linked', at: '2026-09-15T00:00:00Z',
+    planDigest: 'b'.repeat(64), payload: {prUrl: 'https://github.com/o/r/pull/1', ticketKey: KEY, origin: 'ticket', provider: 'jira', completion: {ok: true}, staleCheck: 'verified'}}
+  const state = foldWorkState([linked])
   assert.equal(state.knownWorkIds.has(workId), false, '티켓 작업이 계획 계보에 섞였다 — 계획 검증이 「검토한 작업이 사라졌다」로 막는다')
+  assert.equal(state.works.get(workId).link.origin, 'ticket')
 })
 
 
@@ -218,9 +214,10 @@ test('재등록: 사람이 더한 항목이 새 판정서에 없으면 멈추고
   const edited = rendered.replace(/(### 완료 조건\n)/, '$1- 관리자는 정지 사유를 툴팁으로 본다\n')
   assert.notEqual(edited, rendered, '완료 조건 섹션을 찾지 못했다 — 이하 검사가 공허다')
   const workId = ticketWorkId('github', KEY)
-  const state = {works: new Map([[workId, {status: 'published', origin: 'ticket', ticketKey: KEY, planId: ticketPlanId('github', KEY),
-    planDigest: assessmentDigest(first), definition}]]), tickets: new Map([[KEY, {verdict: 'startable', assessmentDigest: assessmentDigest(first)}]])}
-  const issue = {number: KEY, title: '정지 회원 표시', body: edited, labels: ['dev', 'fe']}
+  // 티켓이 등록 기록이다 — 등록은 본문과 작업 마커에 있고 원장은 비어 있다.
+  const state = {works: new Map(), tickets: new Map()}
+  const marker = buildWorkMarker({planId: ticketPlanId('github', KEY), workId, testCaseIds: definition.testCases.map(item => item.id), planDigest: assessmentDigest(first)})
+  const issue = {number: KEY, title: '정지 회원 표시', body: withWorkMarker(edited, marker), labels: ['dev', 'fe']}
   const io = {provider: recordingProvider([]), ticketConfig: githubDev}
   await withRoot(startable({ticket: {key: KEY, provider: 'github'}, nonGoals: ['상세 화면', '일괄 정지']}), async root => {
     const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state, plan: null, flags: {}, io})
@@ -231,26 +228,20 @@ test('재등록: 사람이 더한 항목이 새 판정서에 없으면 멈추고
   await withRoot(carried, async root => {
     const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state, plan: null, flags: {}, io})
     assert.equal(out.result?.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(out))
-    assert.equal(out.result.carriedAdditions, 1)
+    assert.match(out.result.body, /관리자는 정지 사유를 툴팁으로 본다/)
   })
 })
 
-test('취소 경로: 등록된 티켓 작업을 다시 판정해 착수 불가면 원장이 거둔다 — 수정 범위를 놓고, 다시 등록하면 되살아난다', () => {
+test('취소 경로: 등록된 티켓에 착수 불가 판정 라벨이 붙으면 거둔 작업이다 — 수정 범위를 놓고, 라벨을 떼면 되살아난다', async () => {
+  const {withTicketRegistrations} = await import('./ticket/ticket-work-run.mjs')
   const workId = ticketWorkId('jira', KEY)
-  const planId = ticketPlanId('jira', KEY)
-  const digest = 'b'.repeat(64)
-  const base = {schemaVersion: 1, planId, workId, at: '2026-09-15T00:00:00Z'}
-  const registered = {...base, eventId: '11111111-1111-4111-8111-111111111111', operationId: '22222222-2222-4222-8222-222222222222',
-    eventType: 'ticket-work-registered', planDigest: digest,
-    payload: {ticketKey: KEY, provider: 'jira', assessmentDigest: digest, definition: {workId, writePaths: ['src/pages/']}}}
-  const withdrawnBy = {...base, eventId: '33333333-3333-4333-8333-333333333333', eventType: 'ticket-assessed',
-    payload: {ticketKey: KEY, verdict: 'needs-planning', assessmentDigest: 'c'.repeat(64), needs: [{what: '정책', why: ''}]}}
-  const withdrawn = foldWorkState([registered, withdrawnBy])
+  const definition = {workId, writePaths: ['src/pages/'], dependsOn: [], title: 't', checks: [], testCases: []}
+  const registration = {workId, ticketKey: KEY, provider: 'jira', planId: ticketPlanId('jira', KEY), planDigest: 'b'.repeat(64), definition, dependsOnKeys: []}
+  const withdrawn = withTicketRegistrations(emptyState(), [{...registration, withdrawn: {verdict: 'needs-planning'}}])
   assert.equal(withdrawn.works.get(workId).withdrawn?.verdict, 'needs-planning')
   assert.deepEqual(activeWorksFrom({plan: null, state: withdrawn}), [], '거둔 작업이 수정 범위를 계속 쥐고 있다')
   assert.equal(buildTicketBoard({state: withdrawn, developer: 'dev1'}).rows[0].blockedReason, 'ticket-needs-planning')
-  const again = foldWorkState([registered, withdrawnBy, {...registered, eventId: '44444444-4444-4444-8444-444444444444'}])
-  assert.equal(again.works.get(workId).withdrawn, null)
+  const again = withTicketRegistrations(emptyState(), [{...registration, withdrawn: null}])
   assert.equal(activeWorksFrom({plan: null, state: again}).length, 1)
   // 보드는 계획 작업 행과 같은 축이다 — 배정을 모르면 「집을 수 있다」가 아니다.
   const row = buildTicketBoard({state: again, developer: 'dev1', issuesByKey: new Map(), lookupComplete: false}).rows[0]
@@ -293,14 +284,14 @@ test('원문: 사람이 처음 쓴 본문의 「원문」 제목은 자르지 �
   const rendered = renderTicketWorkBody({definition, originalBody: original, format: 'markdown', lang: 'ko'})
   const edited = rendered.replace(/(### 테스트 항목\n)/, '$1- [ ] 정지 사유 툴팁이 보인다\n')
   assert.notEqual(edited, rendered, '테스트 항목 섹션을 찾지 못했다 — 이하 검사가 공허다')
-  const state = {works: new Map([[ticketWorkId('github', KEY), {status: 'published', origin: 'ticket', ticketKey: KEY, planId: ticketPlanId('github', KEY),
-    planDigest: assessmentDigest(first), definition}]]), tickets: new Map()}
+  const state = {works: new Map(), tickets: new Map()}
+  const marker = buildWorkMarker({planId: ticketPlanId('github', KEY), workId: ticketWorkId('github', KEY), testCaseIds: definition.testCases.map(item => item.id), planDigest: assessmentDigest(first)})
   const carried = startable({ticket: {key: KEY, provider: 'github'}, testItems: [...first.testItems, {id: 'TT-AOA-31-2', text: '정지 사유 툴팁이 보인다', source: 'proposed'}]})
   await withRoot(carried, async root => {
-    const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: edited, labels: ['dev', 'fe']},
+    const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: withWorkMarker(edited, marker), labels: ['dev', 'fe']},
       state, plan: null, flags: {}, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
     assert.equal(out.result?.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(out))
-    assert.equal(out.result.carriedAdditions, 1)
+    assert.match(out.result.body, /TT-AOA-31-2 정지 사유 툴팁이 보인다/)
   })
 })
 
@@ -419,3 +410,68 @@ test('확인 표면 = 승인 대상: 모름·누락은 스팩 승인 필요 · r
     assert.equal(pickupOutcome((await run({'dry-run': true})).result), 'dry-run', 'dry-run을 확인 질문으로 보고했다')
   })
 })
+
+test('티켓이 등록 기록이다: 본문에서 정의를 되살리고(두 서식), 판정 라벨이면 거둔 것이고, 스팩 승인 줄이 없으면 받는다', async () => {
+  const {parseTicketWorkBody} = await import('./ticket/ticket-work.mjs')
+  const {readTicketRegistration} = await import('./ticket/ticket-work-run.mjs')
+  const assessment = startable({ticket: {key: KEY, provider: 'jira'}, roles: ['fe', 'be'], writePaths: ['src/shared/ui/user_profile.tsx'],
+    acceptance: [{text: '빈 목록이면 [안내] 문구가 보인다', source: 'ticket'}]})
+  const definition = ticketWorkDefinition({assessment, ticketKey: KEY, provider: 'jira', title: '정지 회원 표시'})
+  const pick = work => ({lane: work.lane, specApproval: work.specApproval, roles: work.roles, objective: work.objective, nonGoals: work.nonGoals,
+    writePaths: work.writePaths, checks: work.checks.map(check => check.expectedOutcome), tests: work.testCases.map(item => `${item.id} ${item.text}`)})
+  for (const format of ['markdown', 'jira-wiki']) {
+    const body = renderTicketWorkBody({definition, originalBody: '원래 본문\n### 완료 조건\n- 원문 안의 줄', format, lang: 'ko'})
+    const parsed = parseTicketWorkBody({body, ticketKey: KEY, provider: 'jira', title: '정지 회원 표시'})
+    assert.deepEqual(pick(parsed.definition), pick(definition), format)
+  }
+  const marker = buildWorkMarker({planId: ticketPlanId('jira', KEY), workId: ticketWorkId('jira', KEY), testCaseIds: definition.testCases.map(item => item.id), planDigest: 'c'.repeat(64)})
+  const body = withWorkMarker(renderTicketWorkBody({definition, originalBody: 'x', format: 'markdown', lang: 'ko'}), marker)
+  const live = readTicketRegistration({issue: {title: 't', body, labels: ['fe']}, providerName: 'jira', ticketKey: KEY})
+  assert.equal(live.withdrawn, null)
+  assert.equal(live.planDigest, 'c'.repeat(64))
+  assert.equal(readTicketRegistration({issue: {title: 't', body, labels: ['needs-design']}, providerName: 'jira', ticketKey: KEY}).withdrawn.verdict, 'needs-design')
+  assert.equal(readTicketRegistration({issue: {title: 't', body: 'no marker', labels: []}, providerName: 'jira', ticketKey: KEY}), null)
+  const noSpecLine = body.replace(/- 스팩 승인: .*\n/, '')
+  assert.equal(readTicketRegistration({issue: {title: 't', body: noSpecLine, labels: []}, providerName: 'jira', ticketKey: KEY}).definition.specApproval, 'required', '스팩 승인 줄이 없는데 승인을 건너뛰었다')
+})
+
+test('거둠은 판정 라벨이다 — 라벨을 못 달면 거뒀다고 말하지 않는다 · 겹침 읽기는 끝난 작업을 빼고, 한 티켓을 못 읽어도 나머지를 쓴다', async () => {
+  const {readTrackerTicketRegistrations, trackerActiveTicketWorks} = await import('./ticket/ticket-work-run.mjs')
+  const first = startable({ticket: {key: KEY, provider: 'github'}})
+  const definition = ticketWorkDefinition({assessment: first, ticketKey: KEY, provider: 'github', title: '정지 회원 표시'})
+  const marker = buildWorkMarker({planId: ticketPlanId('github', KEY), workId: ticketWorkId('github', KEY), testCaseIds: definition.testCases.map(item => item.id), planDigest: assessmentDigest(first)})
+  const registeredBody = withWorkMarker(renderTicketWorkBody({definition, originalBody: original, format: 'markdown', lang: 'ko'}), marker)
+  const failing = {name: 'github', docFormat: 'markdown', async updateLabels() { throw new Error('could not add label: not found') }}
+  const needs = {...startable({ticket: {key: KEY, provider: 'github'}}), verdict: 'needs-planning', lane: null, writePaths: [], acceptance: [], testItems: [],
+    planningNeeds: [{what: '정지 기준', why: '정해지지 않았다'}]}
+  await withRoot(needs, async root => {
+    const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: registeredBody, labels: ['dev']},
+      state: emptyState(), plan: null, flags: {}, io: {provider: failing, ticketConfig: githubDev}})
+    assert.equal(out.result?.phase, 'TICKET_NOT_STARTABLE', JSON.stringify(out))
+    assert.equal(out.result.withdrawn, false, '라벨을 못 달았는데 거뒀다고 보고했다')
+    assert.match(out.result.labelNote, /판정 라벨/)
+  })
+  // 겹침: 다른 두 티켓 — 하나는 원장에서 머지로 끝났고 하나는 읽기 실패
+  const other = key => ({key, body: withWorkMarker(renderTicketWorkBody({definition: {...definition, workId: ticketWorkId('github', key)}, originalBody: 'x', format: 'markdown', lang: 'ko'}),
+    buildWorkMarker({planId: ticketPlanId('github', key), workId: ticketWorkId('github', key), testCaseIds: [], planDigest: 'd'.repeat(64)}))})
+  const issues = new Map([['41', other('41')], ['42', other('42')]])
+  const provider = {name: 'github', async listDevTickets() { return {items: ['41', '42', '43'].map(ticketKey => ({ticketKey, assignees: ['someone'], labels: []})), complete: true} },
+    async resolveIssue(key) { if (key === '43') throw new Error('timeout'); return {number: key, title: 't', body: issues.get(key).body, labels: []} }}
+  const state = {works: new Map([[ticketWorkId('github', '41'), {completed: {prUrl: 'pr/1'}}]]), tickets: new Map()}
+  const active = await trackerActiveTicketWorks({provider, config: githubDev, state, exceptKey: KEY})
+  assert.deepEqual(active.works.map(item => item.ticketKey), ['42'], '머지로 끝난 작업이 수정 범위를 쥐었거나, 한 티켓 실패로 나머지를 버렸다')
+  assert.equal(active.checked, false, '못 읽은 티켓이 있는데 겹침을 대조했다고 말했다')
+  assert.deepEqual(active.unreadable, ['43'])
+  const read = await readTrackerTicketRegistrations({provider, config: githubDev, state})
+  assert.match(read.registrations.find(item => item.ticketKey === '43')?.error ?? '', /읽지 못했다/)
+})
+
+test('보드: 남이 맡은 판정 전·판정된 사람 티켓은 집을 수 없다 — 담당자가 있으면 판정부터 막는다', () => {
+  const devTickets = [{ticketKey: 'AOA-40', summary: 'a', assignees: ['other']}, {ticketKey: 'AOA-41', summary: 'b', assignees: []}, {ticketKey: 'AOA-42', summary: 'c', assignees: ['other']}]
+  const state = {works: new Map(), tickets: new Map([['AOA-42', {verdict: 'startable'}]])}
+  const rows = new Map(buildTicketBoard({state, devTickets, developer: 'dev1'}).rows.map(row => [row.ticketKey, row]))
+  assert.equal(rows.get('AOA-40').blockedReason, 'assigned-to-other')
+  assert.equal(rows.get('AOA-41').blockedReason, null)
+  assert.equal(rows.get('AOA-42').blockedReason, 'assigned-to-other')
+})
+

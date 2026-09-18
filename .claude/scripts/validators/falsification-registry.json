@@ -2509,8 +2509,8 @@
     {
       "id": "doc-reports-raw-text",
       "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
-      "find": " : docItemText(raw)\n    if (item) found[current].push(item)",
-      "replace": " : normalizeDocItem(raw)\n    if (item) found[current].push(item)",
+      "find": " : docItemText(raw).replace(/\\\\([[\\]{}|])/g, '$1')",
+      "replace": " : normalizeDocItem(raw)",
       "test": ".claude/scripts/test-work-ticket-doc.mjs",
       "why": "대조 키로 보고하면 식별자의 밑줄·물결이 사라진 조건이 개발 에이전트에 간다"
     },
@@ -2669,10 +2669,10 @@
     {
       "id": "ticket-close-lineage-v3",
       "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
-      "find": "  if (event?.eventType === 'ticket-work-registered' && event.workId) {\n    reviewed.add(event.workId)",
-      "replace": "  if (event?.eventType === 'ticket-work-registered' && event.workId) {",
+      "find": "    if (origin === 'ticket' && provider && ticketKey && event.workId === ticketWorkId(provider, ticketKey)) {",
+      "replace": "    if (false) {",
       "test": ".claude/scripts/test-work-close.mjs",
-      "why": "확인해 등록한 티켓 작업을 검토 계보로 보지 않으면 머지해도 닫히지 않는다"
+      "why": "확인해 등록한 사람 티켓 작업을 검토 계보로 보지 않으면 머지해도 닫히지 않는다"
     },
     {
       "id": "link-cites-ticket-test-items",
@@ -2729,14 +2729,6 @@
       "replace": "&& !item.completed)",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "거둔 티켓 작업이 수정 범위를 영원히 쥐면 같은 경로의 다른 작업이 착수하지 못한다"
-    },
-    {
-      "id": "ticket-withdraw-on-not-startable",
-      "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "      if (event.payload.verdict !== 'startable' && registeredWork?.origin === 'ticket' && !registeredWork.completed) {",
-      "replace": "      if (false) {",
-      "test": ".claude/scripts/test-ticket-work.mjs",
-      "why": "티켓 작업에 취소 경로가 없으면 착수 불가로 다시 판정해도 작업이 살아 있다"
     },
     {
       "id": "ticket-notify-new-judgment-only",
@@ -2829,10 +2821,10 @@
     {
       "id": "ticket-assessment-removed-after-merge",
       "file": ".claude/scripts/ticket/work-link-run.mjs",
-      "find": "      if (done?.origin === 'ticket' && done.ticketKey) rmSync(join(root, assessmentPath(done.ticketKey)), {force: true})",
-      "replace": "      // (removed)",
+      "find": "      if (ticketKey) rmSync(join(root, assessmentPath(ticketKey)), {force: true})",
+      "replace": "      void ticketKey",
       "test": ".claude/scripts/test-work-routes-e2e.mjs",
-      "why": "머지로 끝난 작업의 판정서가 남으면 필요한 사실은 원장에 있는데도 로컬 파일이 계속 쌓인다"
+      "why": "머지로 끝난 작업의 판정서가 남으면 필요한 사실은 티켓에 있는데도 로컬 파일이 계속 쌓인다"
     },
     {
       "id": "ticket-spec-approval-when-new-contract",
@@ -2911,7 +2903,7 @@
       "file": ".claude/scripts/ticket/work-board.mjs",
       "find": "const takenBySomeoneElse = (assignees, developer) => Array.isArray(assignees) && assignees.length > 0 && !assignees.includes(developer)",
       "replace": "const takenBySomeoneElse = () => false",
-      "test": ".claude/scripts/test-team-e2e.mjs",
+      "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "남이 맡은 사람 티켓을 판정 전으로 보이면 다른 개발자가 판정 에이전트를 헛되이 띄운다"
     },
     {
@@ -3083,14 +3075,6 @@
       "why": "원장은 브랜치마다 따로 자라 로컬 원장만 보면 남이 다른 클론에서 방금 집은 같은 파일을 못 본다"
     },
     {
-      "id": "ticket-registered-elsewhere-not-plan",
-      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
-      "find": "  if (!registered && marker?.workId && marker.workId === ticketWorkId(providerName, ticketKey)) {",
-      "replace": "  if (false) {",
-      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
-      "why": "다른 클론이 등록한 사람 티켓을 계획 WORK로 흘려보내면 「계획이 없다」는 엉뚱한 이유로 멈춘다"
-    },
-    {
       "id": "doc-scope-keeps-path-chars",
       "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
       "find": "    const item = current === 'scope' ? docItemText(raw).replace(",
@@ -3133,8 +3117,8 @@
     {
       "id": "pickup-reads-tracker-done",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
-      "find": "  state = trackerDone.apply(state)",
-      "replace": "  void trackerDone",
+      "find": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})\n  state = trackerDone.apply(state)",
+      "replace": "  let trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})\n  void trackerDone",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "트래커에서 끝난 티켓을 픽업이 모르면 끝난 작업에 다시 배정한다"
     },
@@ -3233,6 +3217,110 @@
       "replace": "    if ((typeof event.payload?.prUrl",
       "test": ".claude/scripts/test-work-events.mjs",
       "why": "원장에 PR이 없는 커밋·트래커 완료를 되돌림으로 거둘 수 없다"
+    },
+    {
+      "id": "ticket-close-ticket-id-bound",
+      "file": ".claude/skills/team-flow/assets/close-merged-tickets.mjs",
+      "find": " && event.workId === ticketWorkId(provider, ticketKey)) {",
+      "replace": ") {",
+      "test": ".claude/scripts/test-work-close.mjs",
+      "why": "연결 줄만 적어 남의 이슈를 닫을 수 있다 — 작업 ID가 그 트래커·키에서 나온 것인지 대조하지 않으면"
+    },
+    {
+      "id": "ticket-registration-read-from-tracker",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  const registered = readTicketRegistration({issue, providerName, ticketKey, state})",
+      "replace": "  const registered = null",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "티켓이 등록 기록인데 픽업이 티켓을 읽지 않으면 등록된 작업을 처음부터 다시 판정하고 재등록 보호가 사라진다"
+    },
+    {
+      "id": "ticket-verdict-label-written",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "await provider.updateLabels(ticketKey, {add: [assessment.verdict], remove: staleLabels})",
+      "replace": "void staleLabels",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
+      "why": "착수 불가 판정이 티켓에 없으면 다른 클론의 보드는 그 판정을 모르고 다시 판정한다"
+    },
+    {
+      "id": "ticket-withdrawn-from-label",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  const verdict = VERDICT_LABELS.find(label => list(issue?.labels).includes(label)) ?? null",
+      "replace": "  const verdict = null",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "다시 판정해 거둔 작업을 등록된 채로 읽으면 수정 범위를 놓지 않고 link가 막지 않는다"
+    },
+    {
+      "id": "ticket-spec-approval-fail-closed",
+      "file": ".claude/scripts/ticket/ticket-work.mjs",
+      "find": "specApproval: spec === '필요 없음' || spec === 'not needed' ? 'not-needed' : 'required'",
+      "replace": "specApproval: spec === '필요' || spec === 'required' ? 'required' : 'not-needed'",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "본문의 스팩 승인 줄을 지우면 새 계약이 걸린 작업이 스팩 승인을 건너뛴다"
+    },
+    {
+      "id": "board-reads-ticket-registrations",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "    state = withTicketRegistrations(state, read.registrations, read.verdicts)",
+      "replace": "    void withTicketRegistrations",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "보드가 티켓의 등록·판정을 읽지 않으면 원장에 없는 사람 티켓 작업이 보이지 않는다"
+    },
+    {
+      "id": "ticket-bounce-comment-dedupe",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "    const newJudgment = !list(issue?.comments).some(comment => String(comment?.body ?? '').includes(`asm=${short}`))",
+      "replace": "    const newJudgment = true",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
+      "why": "같은 판정서로 다시 부를 때마다 요청 코멘트가 쌓인다"
+    },
+    {
+      "id": "link-ticket-definition-stale",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "  if (definitionChanged && !flags['accept-unverified-scope'] && !flags['dry-run']) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-work-routes-e2e.mjs",
+      "why": "사람 티켓은 본문이 정의라 집은 뒤 테스트 항목을 지우면 줄어든 정의로 끝났다고 기록된다"
+    },
+    {
+      "id": "ticket-withdrawn-needs-label",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "{withdrawn: !flags['dry-run'] && !labelNote}",
+      "replace": "{withdrawn: !flags['dry-run']}",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "라벨을 못 달았는데 거뒀다고 말하면 다른 클론은 그 작업을 계속 활성으로 본다"
+    },
+    {
+      "id": "ticket-overlap-excludes-completed",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": " && !args.state?.works?.get(item.workId)?.completed)",
+      "replace": ")",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "머지로 끝났지만 트래커에 열린 작업이 수정 범위를 쥐어 겹치는 새 티켓을 거짓으로 막는다"
+    },
+    {
+      "id": "ticket-registrations-settled",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "(await Promise.allSettled(candidates.map(",
+      "replace": "(await Promise.all(candidates.map(",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "한 티켓을 못 읽으면 등록된 사람 티켓 작업 전부가 보드와 겹침 판정에서 사라진다"
+    },
+    {
+      "id": "ticket-link-not-in-lineage",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    if (event.payload?.origin === 'ticket') ticketWorkIds.add(event.workId)",
+      "replace": "    void 0",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "사람 티켓 작업의 연결이 계획 계보에 섞이면 계획 검증이 「검토한 작업이 사라졌다」로 막는다"
+    },
+    {
+      "id": "ticket-overlap-partial-read-loud",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  return {checked: read.checked && unreadable.length === 0,",
+      "replace": "  return {checked: read.checked,",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "한 티켓을 못 읽고도 겹침을 대조했다고 말하면 그 티켓과 같은 파일을 쓰는 작업이 조용히 착수된다"
     }
   ]
 }

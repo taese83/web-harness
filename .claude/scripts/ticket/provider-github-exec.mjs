@@ -118,10 +118,11 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       const items = new Map()
       let complete = true
       for (const label of labels) {
-        const json = JSON.parse(await run(['issue', 'list', '--repo', repo, '--state', 'open', '--label', label, '--json', 'number,title,assignees', '--limit', '100']))
+        const json = JSON.parse(await run(['issue', 'list', '--repo', repo, '--state', 'open', '--label', label, '--json', 'number,title,assignees,labels', '--limit', '100']))
         if (Array.isArray(json) && json.length >= 100) complete = false
         for (const item of Array.isArray(json) ? json : []) {
-          items.set(String(item.number), {ticketKey: String(item.number), summary: item.title ?? null, assignees: (item.assignees ?? []).map(person => person?.login ?? person)})
+          items.set(String(item.number), {ticketKey: String(item.number), summary: item.title ?? null, assignees: (item.assignees ?? []).map(person => person?.login ?? person),
+            labels: (item.labels ?? []).map(label => label?.name ?? label)})
         }
       }
       return {items: [...items.values()], complete, ...(complete ? {} : {truncated: true})}

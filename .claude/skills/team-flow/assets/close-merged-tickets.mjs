@@ -14,6 +14,7 @@
 // 최소로 다시 한다: 깨진 줄은 **멈춘다**(버리고 진행하면 지나간 상태로 티켓을 닫을 수 있다).
 // 멱등: 이미 CLOSED면 건너뛴다.
 import {execFileSync} from 'node:child_process'
+import {createHash} from 'node:crypto'
 import {existsSync, readFileSync} from 'node:fs'
 
 const LEDGER = '_workspace/03_dev/work-item-events.jsonl'
@@ -21,6 +22,11 @@ const repo = process.env.TICKET_REPO ?? ''
 const prUrl = process.env.TICKET_PR_URL ?? ''
 const baseRef = process.env.TICKET_BASE_REF ?? ''
 const log = message => process.stdout.write(`${message}\n`)
+const derivedUuid = seed => {
+  const hex = createHash('sha256').update(seed).digest('hex')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
+}
+const ticketWorkId = (provider, ticketKey) => `WORK-${derivedUuid(`web-harness:ticket-work:${provider}:${ticketKey}`)}`
 const gh = args => execFileSync('gh', args, {encoding: 'utf8'})
 
 if (!repo || !prUrl || !baseRef) {
@@ -43,16 +49,19 @@ for (const [index, raw] of readFileSync(LEDGER, 'utf8').split('\n').entries()) {
     process.exit(1)
   }
   if (event?.eventType === 'plan-reviewed') { for (const id of event.payload?.workIds ?? []) reviewed.add(id); continue }
-  // 사람이 만든 개발 티켓을 개발자가 판정서 지문으로 확인해 등록한 작업도 검토 계보다(ticket-work.mjs).
-  if (event?.eventType === 'ticket-work-registered' && event.workId) {
-    reviewed.add(event.workId)
-    works.set(event.workId, {...(works.get(event.workId) ?? {}), ticketKey: String(event.payload?.ticketKey ?? ''), provider: event.payload?.provider ?? null})
-    continue
-  }
   if (!event?.workId) continue // 집계 이벤트는 작업이 아니다
   const current = works.get(event.workId) ?? {}
   if (event.eventType === 'publish-confirmed') works.set(event.workId, {...current, ticketKey: String(event.payload?.ticketKey ?? ''), provider: event.payload?.provider ?? null})
-  if (event.eventType === 'work-linked') works.set(event.workId, {...current, prUrl: event.payload?.prUrl ?? null, baseRef: event.payload?.baseRef ?? null})
+  if (event.eventType === 'work-linked') {
+    works.set(event.workId, {...current, prUrl: event.payload?.prUrl ?? null, baseRef: event.payload?.baseRef ?? null})
+    // 사람이 만든 개발 티켓 작업 — 티켓이 등록 기록이라 원장에는 연결만 있다. 작업 ID가 그 트래커·키에서 나온 것일 때만
+    // 검토 계보로 센다(판정서 확인을 거쳐 등록된 티켓만 이 ID를 갖는다 — ticket-work.mjs `ticketWorkId`와 같은 식).
+    const {origin, provider, ticketKey} = event.payload ?? {}
+    if (origin === 'ticket' && provider && ticketKey && event.workId === ticketWorkId(provider, ticketKey)) {
+      reviewed.add(event.workId)
+      works.set(event.workId, {...works.get(event.workId), ticketKey: String(ticketKey), provider})
+    }
+  }
 }
 
 const linked = [...works.entries()].filter(([, work]) => work.prUrl === prUrl)

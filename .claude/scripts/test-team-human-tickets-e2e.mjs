@@ -8,12 +8,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {execFileSync} from 'node:child_process'
-import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {createJiraStub} from './ticket/jira-memory-stub.mjs'
 import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
 import {pickupOutcome, runWorkPickup} from './ticket/work-pickup-run.mjs'
+import {runWorkBoard} from './ticket/work-board.mjs'
 import {assessmentDigest, assessmentPath} from './ticket/ticket-work.mjs'
 import {checkTeamSharing} from './validate-development-readiness.mjs'
 
@@ -77,9 +78,11 @@ test('사람 티켓만 쓰는 팀: 동시 확정은 한 사람만, 다른 클론
     const race = await Promise.all([
       pickup('A', empty, {assessment: assessmentDigest(judged)}),
       runWorkPickup({root: devs.B, ticketKey: empty, developer: 'B', flags: {assessment: assessmentDigest(judged)}, io: {provider: lateReader, ticketConfig}})])
-    assert.deepEqual(race.map(pickupOutcome), ['started', 'stopped'])
-    const lost = race[1]
-    assert.equal(lost.bounce?.reason, 'ticket-registered-elsewhere', `진 쪽이 엉뚱한 이유로 멈췄다: ${JSON.stringify(lost.bounce)}`)
+    // 누가 이기는지는 마지막 배정 순서에 달렸다 — 한 사람만 착수하는 것이 요체다.
+    assert.deepEqual(race.map(pickupOutcome).sort(), ['started', 'stopped'], JSON.stringify(race.map(item => item.bounce)))
+    const lost = race.find(result => pickupOutcome(result) === 'stopped')
+    // 티켓이 등록 기록이라 진 쪽도 등록을 본다 — 남이 배정했다는 이유로 멈춘다(「계획이 없다」가 아니다).
+    assert.ok(['assigned-to-other', 'assign-lost'].includes(lost.bounce?.reason), `진 쪽이 엉뚱한 이유로 멈췄다: ${JSON.stringify(lost.bounce)}`)
 
     // (2) C는 그 등록을 원장에 갖고 있지 않다 — 같은 파일을 쓰는 다른 티켓은 트래커의 수정 범위로 막힌다
     const overlapped = await confirm('C', sort, assessment(sort, {acceptance: '정렬 방향 아이콘'}))
@@ -93,6 +96,16 @@ test('사람 티켓만 쓰는 팀: 동시 확정은 한 사람만, 다른 클론
       planningNeeds: [{what: '붙일 결제 수단과 수수료 정책', why: '어떤 수단을 붙일지 정해지지 않았다'}]})
     assert.equal(blocked.bounce?.reason, 'ticket-needs-planning')
     assert.match((jira.issues.get(pay).fields.comment?.comments ?? []).map(comment => comment.body).join('\n'), /결제 수단과 수수료 정책/)
+    // 티켓이 등록 기록이다 — 원장을 받지 않은 다른 클론의 보드도 등록과 판정을 본다. 어느 클론의 원장에도 사람 티켓 기록이 없다.
+    const board = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {provider: providerFor(), ticketConfig}})
+    const row = key => board.tickets.find(item => item.ticketKey === key)
+    assert.equal(row(empty)?.stage, 'registered', JSON.stringify(board.tickets))
+    assert.equal(row(empty)?.blockedReason, 'assigned-to-other')
+    assert.equal(row(pay)?.verdict, 'needs-planning', '다른 클론의 착수 불가 판정이 보드에 없다')
+    for (const name of ['A', 'B', 'C']) {
+      const ledger = existsSync(join(devs[name], '_workspace/03_dev/work-item-events.jsonl')) ? readFileSync(join(devs[name], '_workspace/03_dev/work-item-events.jsonl'), 'utf8') : ''
+      assert.equal(/ticket-assessed|ticket-work-registered|context-attached/.test(ledger), false, `${name}의 원장에 사람 티켓 기록이 남았다`)
+    }
   } finally {
     rmSync(base, {recursive: true, force: true})
   }

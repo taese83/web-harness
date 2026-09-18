@@ -26,12 +26,27 @@ export function workCloseLine(providerName, ticketKey) {
   return `Relates to ${ticketKey}\n\n> ⚠️ ${providerName} 티켓은 PR 머지로 자동 닫히지 않는다 — 머지 뒤 상태 전이가 필요하다`
 }
 
-export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}}) {
-  const eventsPath = join(root, WORK_EVENTS_PATH)
-  const state = foldWorkState(readWorkEvents(eventsPath))
-  // 완료 판정은 원장이 이 키로 등록한 작업에 대해서만 의미가 있다 — 먼저 찾고, 없으면 판정 없이 막는다.
+/**
+ * 원장에 없는 키면 티켓에서 사람 티켓 작업의 등록을 읽어 메모리 상태에 겹친다 — **티켓이 등록 기록이다**. provider가 없거나
+ * 등록이 아니면 원장만으로 간다.
+ */
+async function withTicketFromTracker({state, ticketKey, io}) {
   const {workForTicket} = await import('./work-link.mjs')
   const found = workForTicket(state, ticketKey)
+  if (found.workId || !io.provider || typeof io.provider.resolveIssue !== 'function') return {state, found}
+  const {readTicketRegistration, withTicketRegistrations} = await import('./ticket-work-run.mjs')
+  const issue = await io.provider.resolveIssue(ticketKey)
+  const registration = readTicketRegistration({issue, providerName: io.provider.name, ticketKey, state})
+  if (!registration) return {state, found}
+  if (registration.error) return {state, found: {error: 'ticket-body-unreadable', detail: registration.error}}
+  const next = withTicketRegistrations(state, [registration])
+  return {state: next, found: workForTicket(next, ticketKey)}
+}
+
+export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}}) {
+  const eventsPath = join(root, WORK_EVENTS_PATH)
+  // 완료 판정은 등록된 작업에 대해서만 의미가 있다 — 먼저 찾고(원장, 없으면 티켓), 없으면 판정 없이 막는다.
+  const {state, found} = await withTicketFromTracker({state: foldWorkState(readWorkEvents(eventsPath)), ticketKey, io})
   // 사람 티켓 작업은 원장이 정의를 들고 있다 — 계획 파일 없이 같은 판정을 탄다(가상 계획).
   const ticketWork = found.registered?.origin === 'ticket' ? found.registered : null
   const {ticketVirtualPlan} = await import('./ticket-work.mjs')
@@ -74,7 +89,20 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
         guidance: `${remotePlan.ref}에 받지 않은 계획 개정이 있습니다. 브랜치에 받은 뒤 다시 집고 연결하세요.`}
     }
   }
+  // 사람 티켓 작업은 본문이 정의다 — 집은 뒤 본문(완료 조건·테스트 항목·수정 범위)이 바뀌었으면 그 정의로 끝났다고 말하지 않는다.
+  const {ticketDefinitionDigest} = await import('./ticket-work.mjs')
+  const definitionChanged = Boolean(ticketWork && changeScope?.workId === found.workId && changeScope.definitionDigest
+    && changeScope.definitionDigest !== ticketDefinitionDigest(ticketWork.definition))
+  if (definitionChanged && !flags['accept-unverified-scope'] && !flags['dry-run']) {
+    return {ok: false, mode: 'work', blocked: 'stale-change-scope', staleCheck: 'stale', workId: found.workId,
+      guidance: '집은 뒤 티켓의 작업 정의(완료 조건·테스트 항목·수정 범위)가 바뀌었습니다. 다시 집은 뒤 연결하세요.'}
+  }
   const decision = planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, baseRef, flags})
+  if (decision.ok && decision.event) {
+    // 어느 정의로 끝났다고 했는지 남긴다 — 사람 티켓은 정의가 트래커 본문이라 나중에 바뀔 수 있다.
+    if (ticketWork) decision.event.payload.definitionDigest = ticketDefinitionDigest(ticketWork.definition)
+    if (definitionChanged) decision.event.payload.acceptedDefinitionChange = true
+  }
   if (!decision.ok) return {mode: 'work', ...decision, ...(baseNote ? {baseSource: baseNote} : {})}
   if (decision.idempotent) {
     return {ok: true, mode: 'work', idempotent: true, workId: decision.workId, existing: decision.existing,
@@ -117,11 +145,9 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
  * 사람이 알린다. 완료·연결을 함께 거두므로 같은 작업을 다시 집을 수 있고, 이 작업을 선행으로 둔 작업은 다시 기다린다.
  * 트래커는 쓰지 않는다(닫힌 티켓을 다시 여는 것은 사람 몫이다).
  */
-export async function runWorkReopen({root, ticketKey, flags = {}}) {
+export async function runWorkReopen({root, ticketKey, flags = {}, io = {}}) {
   const eventsPath = join(root, WORK_EVENTS_PATH)
-  const state = foldWorkState(readWorkEvents(eventsPath))
-  const {workForTicket} = await import('./work-link.mjs')
-  const found = workForTicket(state, ticketKey)
+  const {state, found} = await withTicketFromTracker({state: foldWorkState(readWorkEvents(eventsPath)), ticketKey, io})
   if (!found.workId) return {ok: false, mode: 'work', blocked: found.error, guidance: '원장에 등록된 작업의 티켓이 아닙니다.'}
   const reason = typeof flags.reason === 'string' ? flags.reason.trim() : ''
   if (!reason) return {ok: false, mode: 'work', blocked: 'reason-required', guidance: '`--reason "<왜 되돌렸는지>"`를 붙여 다시 실행하세요.'}
@@ -138,7 +164,7 @@ export async function runWorkReopen({root, ticketKey, flags = {}}) {
     .map(work => ({workId: work.workId, ticketKey: state.works.get(work.workId)?.ticketKey ?? null}))
   const affected = [...planned, ...dependents].map(entry => ({...entry, completed: Boolean(state.works.get(entry.workId)?.completed)}))
   const event = {schemaVersion: 1, eventId: randomUUID(), planId, workId: found.workId, eventType: 'work-reopened', at: new Date().toISOString(),
-    payload: {ticketKey: String(ticketKey), prUrl, reason}}
+    payload: {ticketKey: String(ticketKey), prUrl, reason, ...(item.origin === 'ticket' ? {origin: 'ticket'} : {})}}
   if (!flags['dry-run']) appendWorkEvent(eventsPath, event)
   const done = affected.filter(entry => entry.completed).map(entry => entry.ticketKey ?? entry.workId)
   return {ok: true, mode: 'work', dryRun: Boolean(flags['dry-run']), workId: found.workId, reopened: {prUrl, reason}, affected,
@@ -167,18 +193,20 @@ export async function runWorkMergeSync({root, flags = {}, io = {}}) {
   const plan = readJson(root, WORK_PLAN_PATH)
   const eventsPath = join(root, WORK_EVENTS_PATH)
   const state = foldWorkState(readWorkEvents(eventsPath))
-  if (!plan && ![...state.works.values()].some(item => item.origin === 'ticket')) return {ok: false, mode: 'work', blocked: 'plan-required'}
+  // 계획이 없어도 연결된 작업(사람 티켓 작업)이 있으면 머지를 본다 — 사람 티켓의 등록은 원장이 아니라 티켓에 있다.
+  if (!plan && ![...state.works.values()].some(item => item.link?.prUrl)) return {ok: false, mode: 'work', blocked: 'plan-required'}
   const pending = [...state.works.values()].filter(item => item.link?.prUrl && !item.completed).map(item => item.link.prUrl)
   const prStates = io.prStates ? await io.prStates(pending) : await resolvePrStates(pending)
   const sync = planMergeSync({plan, state, prStates})
   if (!flags['dry-run']) for (const event of sync.events) appendWorkEvent(eventsPath, event)
-  // 머지로 끝난 사람 티켓 작업의 판정서는 더 읽을 곳이 없다 — 판정·정의·지문은 원장에 남아 있다.
+  // 머지로 끝난 사람 티켓 작업의 판정서는 더 읽을 곳이 없다 — 판정·정의는 티켓에 있다.
   // (착수 불가 판정서는 지우지 않는다: 지우면 같은 티켓을 부를 때마다 판정 에이전트를 다시 띄운다.)
   if (!flags['dry-run']) {
     const {assessmentPath} = await import('./ticket-work.mjs')
     for (const event of sync.events) {
       const done = state.works.get(event.workId)
-      if (done?.origin === 'ticket' && done.ticketKey) rmSync(join(root, assessmentPath(done.ticketKey)), {force: true})
+      const ticketKey = done?.origin === 'ticket' ? done.ticketKey : done?.link?.origin === 'ticket' ? done.link.ticketKey : null
+      if (ticketKey) rmSync(join(root, assessmentPath(ticketKey)), {force: true})
     }
   }
   return {ok: sync.unknown.length === 0 && sync.baseMismatch.length === 0, mode: 'work', dryRun: Boolean(flags['dry-run']),

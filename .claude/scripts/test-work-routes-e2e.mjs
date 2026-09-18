@@ -160,6 +160,7 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     assert.equal(needs.bounce.reason, 'ticket-needs-planning')
     assert.ok(jira.issues.get(key).fields.comment.comments.some(comment => /정해야 할 것이 있습니다[\s\S]*정지 기준/.test(comment.body)), '기획 요청이 티켓에 남지 않았다')
     assert.equal(jira.issues.get(key).fields.assignee, null, '착수 불가인데 배정했다')
+    assert.ok(jira.issues.get(key).fields.labels.includes('needs-planning'), '착수 불가 판정이 티켓에 표시되지 않았다 — 트래커가 판정 기록이다')
     // 같은 판정서로 다시 불러도 요청 코멘트를 또 달지 않는다 — 새 판정일 때만 알린다.
     const commentsBefore = jira.issues.get(key).fields.comment.comments.length
     const again = await runWorkPickup({root, ticketKey: key, developer: 'dev1', flags: {}, io})
@@ -185,10 +186,15 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     assert.equal(issue.fields.description.includes('web-harness:'), false, '설명에 기계 마커가 보인다')
     assert.match(issue.properties['web-harness.work']?.marker ?? '', /work=WORK-/)
     assert.deepEqual(issue.fields.labels, ['fe'])
-    assert.equal(issue.attachments.length, 1, 'AI 맥락이 첨부되지 않았다')
+    assert.equal(issue.attachments.length, 0, '사람 티켓에 AI 맥락을 첨부했다 — 티켓 본문이 등록 기록이다')
+    // 티켓이 등록 기록이다 — 사람 티켓 판정·등록은 원장에 남지 않는다(개발자 커밋에 하네스 기록이 섞이지 않는다).
+    const ledger = existsSync(join(root, WORK_EVENTS_PATH)) ? readFileSync(join(root, WORK_EVENTS_PATH), 'utf8') : ''
+    assert.equal(/"eventType":"(ticket-assessed|ticket-work-registered|context-attached)"/.test(ledger), false, '사람 티켓 판정·등록을 원장에 썼다')
     assert.equal(issue.fields.assignee?.name, 'dev1')
     const scope = readChangeScopeFile(root)
     assert.equal(scope.origin, 'ticket')
+    assert.match(scope.definitionDigest ?? '', /^[0-9a-f]{64}$/, '티켓 작업의 정의 지문을 적지 않았다 — 집은 뒤 편집을 link가 모른다')
+    assert.ok(readFileSync(new URL('../skills/team-flow/references/ticket-kinds.md', import.meta.url), 'utf8').includes('`definitionDigest`'), 'change-scope 키 표에 없는 키를 냈다')
     assert.equal(scope.lane, 'change')
     assert.deepEqual(scope.testCaseIds, [`TT-${key}-1`])
     assert.deepEqual(scope.ALLOWED_PATHS, ['src/members/'])
@@ -198,12 +204,20 @@ test('사람이 만든 개발 티켓: 판정 요구 → 기획 필요 요청 →
     write(join(root, 'src/members/list.test.tsx'), `// TT-${key}-1 정지 회원 회색 행\n`)
     // 비교할 커밋이 없으면 「깨끗함」이 아니라 점검하지 못했다고 적는다.
     const empty = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {'dry-run': true},
-      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => ''}})
+      io: {provider, prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => ''}})
     assert.equal(empty.commitSplit.checked, false)
     assert.match(empty.commitSplit.guidance, /점검하지 못했습니다/)
+    // 티켓이 정의다 — 집은 뒤 누가 테스트 항목을 지우면 그 정의로 끝났다고 말하지 않는다(STALE). 되돌리면 다시 연결된다.
+    const described = jira.issues.get(key).fields.description
+    jira.issues.get(key).fields.description = described.replace(/\n\* ☐ TT-[^\n]*/, '')
+    assert.notEqual(jira.issues.get(key).fields.description, described, '전제: 테스트 항목 줄을 지웠다')
+    const shrunk = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {},
+      io: {provider, prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => ''}})
+    assert.equal(shrunk.blocked, 'stale-change-scope', '집은 뒤 줄어든 정의로 연결했다')
+    jira.issues.get(key).fields.description = described
     const mixedLog = ['@@commit 0f9e8d7 한꺼번에 올림', 'src/members/list.tsx', '_workspace/03_dev/work-item-events.jsonl', ''].join('\n')
     const linked = await runWorkLink({root, ticketKey: key, prUrl: 'https://github.com/acme/web/pull/21', flags: {},
-      io: {prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => mixedLog}})
+      io: {provider, prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), commitLog: async () => mixedLog}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
     // 컨벤션 점검이라 연결을 막지 않지만, 섞인 커밋은 결과에 드러난다.
     assert.deepEqual(linked.commitSplit.mixed, [{commit: '0f9e8d7', subject: '한꺼번에 올림'}])

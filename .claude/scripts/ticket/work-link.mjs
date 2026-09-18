@@ -215,6 +215,8 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
     schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-linked', at: now, planDigest,
     payload: {
       prUrl, ticketKey: String(ticketKey), staleCheck, baseRef,
+      // 사람 티켓 작업은 원장에 등록 기록이 없다(티켓이 등록 기록) — 자동 닫기가 트래커를 알도록 싣는다.
+      ...(registered.origin === 'ticket' ? {origin: 'ticket', ...(registered.provider ? {provider: registered.provider} : {})} : {}),
       completion: {ok: completion.ok, ...(completion.reason ? {reason: completion.reason} : {}),
         testCases: {total: completion.testCases.total, cited: completion.testCases.cited.length, missing: completion.testCases.missing},
         checks: {total: completion.checks.total, satisfied: completion.checks.satisfied.length,
@@ -253,7 +255,7 @@ export function planMergeSync({plan, state, prStates, now = new Date().toISOStri
       baseMismatch.push({workId, prUrl: item.link.prUrl, expected: item.link.baseRef ?? null, observed: observed.baseRefName ?? null}); continue
     }
     // 사람 티켓 작업은 자기 계획 ID(티켓에서 만든 ID)를 쓴다 — 계획이 없는 프로젝트에서도 머지를 관측한다.
-    const planId = item.origin === 'ticket' ? item.planId : plan?.planId
+    const planId = item.planId ?? item.link?.planId ?? plan?.planId
     if (!planId) { unknown.push({workId, prUrl: item.link.prUrl, error: 'plan-unknown'}); continue }
     events.push({schemaVersion: 1, eventId: randomUUID(), planId, workId, eventType: 'work-completed', at: now,
       payload: {prUrl: item.link.prUrl, via: 'pr-merged', baseRef: observed.baseRefName}})

@@ -19,13 +19,17 @@ const COPY = {
   ko: {noTests: '이 작업이 확인하는 테스트 항목은 없습니다. 위 완료 조건으로 끝을 판단합니다', noDeps: '없습니다. 바로 시작할 수 있습니다',
     unpublished: '아직 발행되지 않음', workId: '작업 ID', features: '기능', design: '디자인 조건', contracts: '계약 문서',
     parent: '부모 티켓', parentLinkOnly: '본문 참조 — 트래커 관계 아님', context: 'AI 작업 맥락', target: '대상',
+    lane: '레인', specApproval: '스팩 승인', required: '필요', notNeeded: '필요 없음', roles: '역할',
     testsPass: n => `아래 테스트 항목 ${n}건이 모두 통과한다`,
-    editNote: '완료 조건과 테스트 항목에 **새 항목을 더하면** 개발에 그대로 반영됩니다. 이미 있는 항목을 지우거나 고치면 개발이 멈추고 계획 검토로 돌아갑니다.'},
+    editNote: '완료 조건과 테스트 항목에 **새 항목을 더하면** 개발에 그대로 반영됩니다. 이미 있는 항목을 지우거나 고치면 개발이 멈추고 계획 검토로 돌아갑니다.',
+    ticketNote: '이 티켓이 작업 정의입니다. 집은 뒤 완료 조건·테스트 항목·수정 범위를 고치면 다시 집은 뒤에 연결할 수 있습니다.'},
   en: {noTests: 'No test case is finally verified by this work — the acceptance checks close it', noDeps: 'None — ready to start',
     unpublished: 'not published yet', workId: 'Work ID', features: 'Features', design: 'Design conditions', contracts: 'Contracts',
     parent: 'Parent ticket', parentLinkOnly: 'body reference — not a tracker relation', context: 'AI work context', target: 'target',
+    lane: 'Lane', specApproval: 'Spec approval', required: 'required', notNeeded: 'not needed', roles: 'Roles',
     testsPass: n => `All ${n} test items below pass`,
-    editNote: 'Items you **add** to acceptance criteria or test items are carried into development at pickup. Removing or changing a plan item sends it back to plan review.'},
+    editNote: 'Items you **add** to acceptance criteria or test items are carried into development at pickup. Removing or changing a plan item sends it back to plan review.',
+    ticketNote: 'This ticket is the work definition. If acceptance criteria, test items or scope change after pickup, pick it up again before linking.'},
 }
 export const DOC_LANGUAGES = Object.keys(TITLES)
 /** 사람 티켓을 완성할 때 원문을 보존하는 섹션 제목 — 파서는 이 제목 아래를 읽지 않는다(원문 속 「완료 조건」이 섞이지 않게). */
@@ -61,7 +65,7 @@ export function buildWorkDoc({work, featureIds = [], features = new Map(), testC
     : []
   return {
     lang: title,
-    lead: [work.objective ?? '', c.editNote],
+    lead: [work.objective ?? '', work.origin === 'ticket' ? c.ticketNote : c.editNote],
     sections: [
       {id: 'acceptance', title: t.acceptance, checklist: true, items: items.acceptance},
       {id: 'tests', title: t.tests, checklist: true, items: items.tests.length > 0 ? items.tests : [], empty: c.noTests},
@@ -74,6 +78,9 @@ export function buildWorkDoc({work, featureIds = [], features = new Map(), testC
         ...design.map(value => `${c.design}: ${value}`),
         ...list(work.contractRefs).map(ref => `${c.contracts}: ${ref.path}${ref.anchor ? `#${ref.anchor}` : ''}`),
         ...(contextName ? [`${c.context}: ${contextName}`] : []),
+        // 사람 티켓 작업은 **티켓이 등록 기록**이다 — 픽업이 읽는 레인·스팩 승인·역할을 보이는 본문에 둔다(고치면 이력이 남는다).
+        ...(work.origin === 'ticket' ? [`${c.lane}: ${work.lane}`, `${c.specApproval}: ${work.specApproval === 'required' ? c.required : c.notNeeded}`,
+          `${c.roles}: ${list(work.roles).join(', ')}`] : []),
         `${c.workId}: ${work.workId}`,
       ]},
     ],
@@ -135,11 +142,13 @@ const headingOf = line => {
 const SECTION_BY_TITLE = new Map(DOC_LANGUAGES.flatMap(lang => Object.entries(TITLES[lang]).map(([id, title]) => [title, id])))
 
 /**
- * 사람이 고쳤을 수 있는 본문에서 완료 조건·테스트 항목을 되읽는다(순수). 두 서식(마크다운·Jira 위키)과 두 언어의 제목을 받는다.
- * @returns {{acceptance: string[]|null, tests: string[]|null, scope: string[]|null}} `null`은 「그 섹션이 본문에 없다」
+ * 본문의 섹션을 되읽는다(순수). 두 서식(마크다운·Jira 위키)과 두 언어의 제목을 받는다. `lead`는 첫 제목 앞의 첫 문장(목표)이다.
+ * @returns {{lead: string|null, acceptance: string[]|null, tests: string[]|null, scope: string[]|null, nonGoals: string[]|null,
+ *            dependsOn: string[]|null, references: string[]|null}} `null`은 「그 섹션이 본문에 없다」
  */
 export function parseWorkDocSections(body) {
-  const found = {acceptance: null, tests: null, scope: null}
+  const found = {lead: null, ...Object.fromEntries(SECTION_IDS.map(id => [id, null]))}
+  let seenHeading = false
   let current = null
   const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '')
   // Jira 위키 본문에서 `#`은 **번호 목록**이다 — 마크다운 제목으로 읽으면 섹션이 닫혀 계획 항목이 「빠짐」으로 오판된다.
@@ -148,15 +157,18 @@ export function parseWorkDocSections(body) {
     const title = wiki && /^\s*#/.test(raw) ? null : headingOf(raw)
     if (title !== null && ORIGINAL_TITLES.includes(title)) break
     if (title !== null) {
+      seenHeading = true
       const id = SECTION_BY_TITLE.get(title)
-      current = id === 'acceptance' || id === 'tests' || id === 'scope' ? id : null
+      current = SECTION_IDS.includes(id) ? id : null
       if (current && found[current] === null) found[current] = []
       continue
     }
+    if (!seenHeading && found.lead === null && raw.trim()) found.lead = raw.trim().replace(/\\([[\]{}|])/g, '$1')
     if (!current) continue
     if (!/^\s*(?:[-*+]|#+|\d+[.)])\s+/.test(raw)) continue // 목록 항목만 — 안내 문장·빈 줄은 항목이 아니다
     // 수정 범위는 **경로**다 — 대조 키(`normalizeDocItem`)는 `_`를 지우므로 쓰지 않고 렌더러가 씌운 코드 표지만 벗긴다.
-    const item = current === 'scope' ? docItemText(raw).replace(/^`([^`]*)`$/, '$1').replace(/^\{\{([^}]*)\}\}$/, '$1') : docItemText(raw)
+    // 다른 섹션은 Jira 위키 이스케이프(`\[`)만 벗긴다.
+    const item = current === 'scope' ? docItemText(raw).replace(/^`([^`]*)`$/, '$1').replace(/^\{\{([^}]*)\}\}$/, '$1') : docItemText(raw).replace(/\\([[\]{}|])/g, '$1')
     if (item) found[current].push(item)
   }
   return found
@@ -195,7 +207,7 @@ export function compareWorkDoc({body, work, testCases = [], lang = 'ko', foreign
   }
   return result
 }
-const TESTS_PASS_SHAPES = [/^아래 테스트 항목 \d+건이 모두 통과한다$/, /^All \d+ test items below pass$/]
+export const TESTS_PASS_SHAPES = [/^아래 테스트 항목 \d+건이 모두 통과한다$/, /^All \d+ test items below pass$/]
 
 /** 사람이 더한 항목의 상한 — 트래커 편집이 곧 범위 확장이므로 무한히 받지 않는다. */
 export const TICKET_ADDITIONS_LIMIT = {items: 20, chars: 300}

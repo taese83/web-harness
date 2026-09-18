@@ -118,7 +118,7 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
       git(devs[name], 'checkout', '-qb', `feat/${name}`)
       develop(devs[name], name)
       commitSplit(devs[name], `${name} 작업`)
-      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: `https://github.com/acme/web/pull/${++pr}`, flags: {}, io: {prInfo: open}})
+      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: `https://github.com/acme/web/pull/${++pr}`, flags: {}, io: {prInfo: open, provider: providers[name]}})
       assert.equal(linked.ok, true, `${name}: ${JSON.stringify(linked.blocked ?? linked.completion)}`)
       assert.deepEqual(linked.commitSplit?.mixed, [], `${name}: 산출물과 코드가 섞인 커밋`)
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', `feat/${name}`)

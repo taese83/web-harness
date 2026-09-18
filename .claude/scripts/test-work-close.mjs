@@ -14,6 +14,7 @@ import {tmpdir} from 'node:os'
 import {randomUUID} from 'node:crypto'
 import {spawnSync} from 'node:child_process'
 import {installTicketCloseAssets, planTicketCloseInstall, TICKET_CLOSE_VERSION_MARKER} from './ticket/cli.mjs'
+import {ticketWorkId} from './ticket/ticket-work.mjs'
 import {checkTicketAssets} from './validate-development-readiness.mjs'
 
 const repo = new URL('../..', import.meta.url).pathname
@@ -55,12 +56,16 @@ test('(1) 기대 base에 머지된 GitHub WORK 티켓만 닫는다 — 근거를
   assert.match(result.stdout, /closed WORK-00000001/)
 })
 
-test('(1-b) 사람이 만든 개발 티켓을 확인해 등록한 작업도 닫는다 — 검토 계보는 계획 검토 또는 티켓 등록이다(v3)', () => {
-  const registered = event('ticket-work-registered', {workId: W(3), operationId: randomUUID(),
-    payload: {ticketKey: '31', provider: 'github', assessmentDigest: DIGEST, definition: {workId: W(3)}}})
-  const result = run([registered, linked(W(3), 'feature/members')], {withReview: false})
+test('(1-b) 사람이 만든 개발 티켓 작업도 닫는다 — 티켓이 등록 기록이라 원장에는 연결만 있고, 작업 ID가 그 트래커·키에서 나온 것일 때만 센다', () => {
+  const workId = ticketWorkId('github', '31')
+  const ticketLinked = (id, extra = {}) => event('work-linked', {workId: id, payload: {prUrl: PR, ticketKey: '31', origin: 'ticket', provider: 'github',
+    staleCheck: 'verified', completion: {ok: true}, baseRef: 'feature/members', ...extra}})
+  const result = run([ticketLinked(workId)], {withReview: false})
   assert.equal(result.status, 0, result.stdout)
   assert.ok(result.ghCalls.some(call => call.startsWith('issue close 31 --repo acme/web --comment')), `${result.stdout}\n${result.ghCalls.join('\n')}`)
+  // 연결 줄만 적어 남의 이슈를 닫으려 해도 작업 ID가 그 키에서 나온 것이 아니면 닫지 않는다.
+  const forged = run([ticketLinked(W(3))], {withReview: false})
+  assert.equal(forged.ghCalls.filter(call => call.startsWith('issue close')).length, 0, '키에서 나오지 않은 작업 ID로 남의 이슈를 닫았다')
 })
 
 test('(2) 다른 base 머지·기대 base 없는 링크·GitHub이 아닌 트래커·결속 없는 PR은 닫지 않는다', () => {
