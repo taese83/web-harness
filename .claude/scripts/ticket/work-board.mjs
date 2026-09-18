@@ -200,6 +200,8 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   }
   const view = plan && analysis ? computeWorkView(plan, analysis) : {rows: []}
   const provider = io.provider ?? null
+  // 보드는 fetch하지 않는다 — 마지막으로 받은 원격 참조 기준으로 받지 않은 계획 개정을 알린다.
+  const remotePlan = plan ? await (io.planRemote ?? (await import('./git-origin.mjs')).planRevisionsOnRemote)({repoRoot: root, base: plan.baseBranch ?? null}) : null
   let issuesByWork = null
   let lookupComplete = false
   const trackerNotes = []
@@ -247,5 +249,6 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   return {ok: true, mode: 'work', planId: plan?.planId ?? null, planDigest: plan ? canonicalDigest(plan) : null,
     rows: board.rows, ready: board.rows.filter(row => row.pickupable).map(row => row.workId),
     ...(ticketCapable ? {tickets: tickets.rows, readyTickets: tickets.rows.filter(row => row.pickupable).map(row => row.ticketKey)} : {}),
-    notes: [...trackerNotes, ...board.notes, ...tickets.notes]}
+    notes: [...(remotePlan?.checked && remotePlan.commits.length > 0 ? [`${remotePlan.ref}에 받지 않은 계획 개정이 있습니다. 받은 뒤 다시 보세요.`] : []),
+      ...trackerNotes, ...board.notes, ...tickets.notes]}
 }

@@ -3,6 +3,7 @@
 // 트래커는 부르지 않는다 — 연결은 로컬 원장의 사실 기록이고(legacy와 같다), 머지 관측만 PR 호스트를
 // 읽는다(쓰기 없음). PR 호스트는 PR URL의 호스트다 — 트래커가 Jira여도 PR은 GitHub에 있다.
 import {existsSync, readFileSync, rmSync} from 'node:fs'
+import {randomUUID} from 'node:crypto'
 import {join} from 'node:path'
 import {canonicalDigest, WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {WORK_PLAN_PATH} from './work-plan.mjs'
@@ -60,6 +61,16 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
     baseRef = info?.baseRefName ?? null
     baseNote = baseRef ? 'pr' : `unreadable: ${info?.error ?? 'no base'}`
   }
+  // 받지 않은 계획 개정이 원격 base에 있으면 로컬 계획으로 STALE를 재지 않는다 — 대체된 작업을 끝낼 수 있다.
+  let freshness = null
+  if (!ticketWork) {
+    freshness = await cli.ensureRemoteFreshness({root, flags, io})
+    const remotePlan = await (io.planRemote ?? (await import('./git-origin.mjs')).planRevisionsOnRemote)({repoRoot: root, base: baseRef ?? plan.baseBranch ?? null})
+    if (remotePlan.checked && remotePlan.commits.length > 0) {
+      return {ok: false, mode: 'work', blocked: 'plan-behind-remote', ref: remotePlan.ref, commits: remotePlan.commits, freshness,
+        guidance: `${remotePlan.ref}에 받지 않은 계획 개정이 있습니다. 브랜치에 받은 뒤 다시 집고 연결하세요.`}
+    }
+  }
   const decision = planWorkLink({plan, planDigest, state, changeScope, ticketKey, prUrl, completion, baseRef, flags})
   if (!decision.ok) return {mode: 'work', ...decision, ...(baseNote ? {baseSource: baseNote} : {})}
   if (decision.idempotent) {
@@ -89,8 +100,42 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...ticketAcceptance}
   appendWorkEvent(eventsPath, decision.event)
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
-  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...ticketAcceptance,
+  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, freshness, ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
+}
+
+/**
+ * `link --reopen <키> --reason <이유>`: 머지를 되돌렸을 때 그 작업의 완료를 거둔다. 원장은 되돌림을 스스로 보지 못한다 —
+ * 사람이 알린다. 완료·연결을 함께 거두므로 같은 작업을 다시 집을 수 있고, 이 작업을 선행으로 둔 작업은 다시 기다린다.
+ * 트래커는 쓰지 않는다(닫힌 티켓을 다시 여는 것은 사람 몫이다).
+ */
+export async function runWorkReopen({root, ticketKey, flags = {}}) {
+  const eventsPath = join(root, WORK_EVENTS_PATH)
+  const state = foldWorkState(readWorkEvents(eventsPath))
+  const {workForTicket} = await import('./work-link.mjs')
+  const found = workForTicket(state, ticketKey)
+  if (!found.workId) return {ok: false, mode: 'work', blocked: found.error, guidance: '원장에 등록된 작업의 티켓이 아닙니다.'}
+  const reason = typeof flags.reason === 'string' ? flags.reason.trim() : ''
+  if (!reason) return {ok: false, mode: 'work', blocked: 'reason-required', guidance: '`--reason "<왜 되돌렸는지>"`를 붙여 다시 실행하세요.'}
+  const item = found.registered
+  const prUrl = item.completed?.prUrl ?? item.link?.prUrl ?? null
+  if (!prUrl) return {ok: false, mode: 'work', blocked: 'not-completed', guidance: '끝나거나 PR이 연결된 작업이 아니라 되돌릴 것이 없습니다.'}
+  const planId = item.origin === 'ticket' ? item.planId : readJson(root, WORK_PLAN_PATH)?.planId
+  if (!planId) return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없어 기록할 수 없습니다.'}
+  // 이 작업을 선행으로 둔 작업 — 이미 끝난 것은 되돌린 코드 위에서 끝났을 수 있다. 사람이 확인한다.
+  const dependents = [...state.works.entries()]
+    .filter(([, entry]) => list(entry.definition?.dependsOn).includes(found.workId))
+    .map(([workId, entry]) => ({workId, ticketKey: entry.ticketKey ?? null}))
+  const planned = list(readJson(root, WORK_PLAN_PATH)?.workItems).filter(work => list(work.dependsOn).includes(found.workId))
+    .map(work => ({workId: work.workId, ticketKey: state.works.get(work.workId)?.ticketKey ?? null}))
+  const affected = [...planned, ...dependents].map(entry => ({...entry, completed: Boolean(state.works.get(entry.workId)?.completed)}))
+  const event = {schemaVersion: 1, eventId: randomUUID(), planId, workId: found.workId, eventType: 'work-reopened', at: new Date().toISOString(),
+    payload: {ticketKey: String(ticketKey), prUrl, reason}}
+  if (!flags['dry-run']) appendWorkEvent(eventsPath, event)
+  const done = affected.filter(entry => entry.completed).map(entry => entry.ticketKey ?? entry.workId)
+  return {ok: true, mode: 'work', dryRun: Boolean(flags['dry-run']), workId: found.workId, reopened: {prUrl, reason}, affected,
+    guidance: `이제 ${ticketKey} 작업을 다시 집을 수 있습니다. 트래커에서 티켓이 닫혀 있으면 다시 여세요.`
+      + (done.length > 0 ? ` 이 작업 위에서 끝난 작업(${done.join(', ')})은 되돌린 코드에서도 맞는지 확인하세요.` : '')}
 }
 
 /** PR 상태 조회기 — PR URL의 호스트로 `gh pr view`를 부른다. 실패는 미상으로 돌려준다. */

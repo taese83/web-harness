@@ -38,6 +38,7 @@ cli.mjs claim --publish --resolve <WORK-ID|FEAT-ID> --ticket <키> [--confirm]  
 cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run] [--assessment <지문>]  # 게이트 → 배정 → change-scope 발급(사람 개발 티켓은 판정·완성부터)
 cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base)
 cli.mjs link --sync                                                     # 머지 관측 → 완료 기록
+cli.mjs link --reopen <티켓키> --reason "<이유>"                          # 머지를 되돌렸을 때 완료를 거둔다
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
 ```
@@ -55,6 +56,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 | "이 티켓 픽업할게", "PF-104 가져갈게", "이거 개발 착수" | `pickup <티켓키>` |
 | "PR 연결해줘", "이 작업 끝났어" | `link <티켓키> <pr-url>` |
 | "머지됐어", "완료 반영해줘" | `link --sync` |
+| "머지 되돌렸어", "그 작업 다시 열어줘" | `link --reopen <티켓키> --reason "<이유>"` |
 | "FEAT별로 어디까지 됐어", "기능 단위 진행" | `board --by-feature` |
 | "이 Jira 기획 티켓 읽어줘", "티켓에서 기획 가져와" | `intake <티켓키>` |
 
@@ -153,6 +155,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 `Closes`를 적지 않는다). `link --sync`는 PR 상태를 읽어 **기대 base에 머지로 확인된 것만** 완료로 기록한다 — 다른 브랜치 머지는
 `baseMismatch`로 남는다. 후속 작업은 완료가 있어야 열린다. 조회 실패는 완료로도 침묵으로도 접지 않는다.
 `link --sync`는 누가 어느 클론에서 돌려도 된다 — 보호된 main이면 각자 자기 브랜치로 올린다(같은 완료가 두 번 기록돼도 원장은 깨지지 않는다).
+`pickup`·`link`는 받지 않은 계획 개정이 원격에 있으면 멈춘다(`plan-behind-remote`) — 받은 뒤 다시 집는다. 머지를 되돌렸으면 `link --reopen`으로 완료를 거둔다.
 
 **여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
 `change-scope.md`·`ticket-assessments/`에 git 제외를 넣는다. 없으면 두 번째 PR부터 원장이 충돌하고 남의 작업 범위가 픽업을 막는다.
@@ -186,7 +189,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
-| `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`가 있으면 그 한 줄도 옮긴다 |
+| `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`가 있으면 그 한 줄도 옮긴다. `--reopen`은 `guidance` 그대로 |
 | `*_INVALID` 오류 | `errors`를 목록으로 옮긴다. 해설·우회 제안을 붙이지 않는다 |
 
 ## 비협상

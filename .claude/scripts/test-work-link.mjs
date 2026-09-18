@@ -142,6 +142,17 @@ test('범위 밖 파일: 작업 범위·테스트 레이어·하네스 산출물
   assert.deepEqual(findOutsideScope(log, ['src/pages/members/list/', 'tests/', 'src/app/routes.ts', 'package.json'], layerPattern), [])
 })
 
+test('실행부: 받지 않은 계획 개정이 원격 base에 있으면 연결하지 않는다 — 로컬 계획으로 STALE를 재지 않는다', async () => {
+  const root = workspace()
+  try {
+    writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
+      plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
+    const result = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'},
+      io: {refresh: async () => ({ok: true}), planRemote: async () => ({checked: true, ref: 'origin/develop', commits: ['abc1234']})}})
+    assert.equal(result.blocked, 'plan-behind-remote')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
 test('실행부: 범위도 등록도 없는 티켓을 연결하면 멈춘다 — 판정 전에 던지지 않는다', async () => {
   const root = workspace()
   try {

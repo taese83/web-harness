@@ -101,3 +101,26 @@ export async function resolveWorktreeStatus({repoRoot, exec = null}) {
 }
 
 
+
+export const planOnRemoteArgs = (ref, planPath) => ['log', '--format=%h', `HEAD..${ref}`, '--', planPath]
+
+/**
+ * 원격 기준 브랜치에 **로컬 HEAD가 모르는 계획 개정**이 있는가. 로컬 계획으로 판정하면 개정을 받지 않은 개발자가
+ * 대체된 작업을 집거나 끝낸다. 기준은 `base`(PR base·계획의 baseBranch)가 원격에 있으면 그것, 없으면 원격 HEAD다.
+ * 못 재면 `checked: false`와 이유 — 막지 않는다(git이 아닌 곳·원격 없음).
+ */
+export async function planRevisionsOnRemote({repoRoot, base = null, planPath = '_workspace/03_dev/work-plan.json', remote = 'origin', exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  for (const ref of [base ? `${remote}/${base}` : null, `${remote}/HEAD`].filter(Boolean)) {
+    try {
+      await run(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])
+    } catch { continue }
+    try {
+      const commits = (await run(planOnRemoteArgs(ref, planPath))).out.split('\n').map(line => line.trim()).filter(Boolean)
+      return {checked: true, ref, commits}
+    } catch (error) {
+      return {checked: false, ref, reason: error?.message?.split('\n')[0] ?? 'git log failed'}
+    }
+  }
+  return {checked: false, ref: null, reason: '원격 기준 브랜치를 찾지 못했습니다'}
+}

@@ -40,6 +40,26 @@ test('유효한 이벤트는 통과하고 상태로 접힌다 — 이하 거부 
   assert.equal(state.lastReviewed.planDigest, DIGEST)
 })
 
+test('완료를 거두면 연결·완료가 함께 사라지고 등록은 남는다 — 옛 PR의 머지 관측이 다시 완료로 쓰지 않는다', () => {
+  const pr = 'https://github.com/o/r/pull/1'
+  const lines = [
+    event({workId: WORK, eventType: 'publish-confirmed', operationId: randomUUID(), payload: {ticketKey: 'PF-1'}}),
+    event({workId: WORK, eventType: 'work-completed', planDigest: undefined, payload: {prUrl: pr, via: 'pr-merged'}}),
+    event({workId: WORK, eventType: 'work-reopened', planDigest: undefined, payload: {ticketKey: 'PF-1', prUrl: pr, reason: '머지를 되돌림'}}),
+  ]
+  const state = foldWorkState(parseWorkEvents(lines.map(line).join('')))
+  const item = state.works.get(WORK)
+  assert.equal(item.status, 'published')
+  assert.equal(item.completed, undefined, '거둔 완료가 남았다')
+  assert.equal(item.reopened.reason, '머지를 되돌림')
+  assert.ok(validateWorkEvent(event({workId: WORK, eventType: 'work-reopened', payload: {ticketKey: 'PF-1', prUrl: pr}})).length > 0, '이유 없는 되돌림을 받았다')
+  // union 병합에서 다른 클론의 같은 PR 완료 줄이 회수 뒤에 와도 완료로 접지 않는다(순서 독립)
+  const reversed = foldWorkState(parseWorkEvents([lines[0], lines[2], lines[1]].map(line).join('')))
+  assert.equal(reversed.works.get(WORK).completed, undefined, '회수 뒤에 온 옛 PR 완료 줄이 완료로 접혔다')
+  const relinked = event({workId: WORK, eventType: 'work-completed', planDigest: undefined, payload: {prUrl: 'https://github.com/o/r/pull/2', via: 'pr-merged'}})
+  assert.ok(foldWorkState(parseWorkEvents([...lines, relinked].map(line).join(''))).works.get(WORK).completed, '새 PR의 완료까지 무시했다')
+})
+
 test('파손·스키마 위반·모르는 종류를 조용히 버리지 않는다', () => {
   assert.throws(() => parseWorkEvents('{깨진 JSON\n'), /WORK_EVENTS_CORRUPT/)
   assert.throws(() => parseWorkEvents(line({...event(), schemaVersion: 2})), /WORK_EVENTS_INVALID/)

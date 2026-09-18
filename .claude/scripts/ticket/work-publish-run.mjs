@@ -24,6 +24,11 @@ const SYNC_NOTICE = {
   ko: '계획이 바뀌어 이 티켓의 소비 FEAT·책임 TC를 갱신했습니다(작업 내용은 그대로입니다). 이미 픽업했다면 다시 픽업하세요 — 옛 change-scope로는 link가 막힙니다. 이 코멘트는 하네스가 남깁니다.',
   en: 'The plan changed, so the consuming FEATs and owned TCs on this ticket were updated (the work itself is unchanged). If you already picked it up, pick it up again — link blocks the old change-scope. Posted by web-harness.',
 }
+// 계획에서 빠진(대체·취소) 작업의 티켓 — 트래커에서 보고 집는 사람이 없게 한 번 알린다.
+const RETIRE_NOTICE = {
+  ko: ({superseded, replacedBy}) => `이 작업은 계획에서 ${superseded ? '다른 작업으로 대체' : '취소'}됐습니다${replacedBy.length ? `(이어서 할 티켓: ${replacedBy.join(', ')})` : ''}. 이 티켓으로 개발하지 마세요. 이 코멘트는 하네스가 남깁니다.`,
+  en: ({superseded, replacedBy}) => `This work was ${superseded ? 'replaced by another work' : 'cancelled'} in the plan${replacedBy.length ? ` (continue in: ${replacedBy.join(', ')})` : ''}. Do not develop on this ticket. Posted by web-harness.`,
+}
 // 사람이 본문을 고쳐 덮어쓰지 않았을 때 — 계획이 요구하는 항목 중 본문에 없는 것을 사람에게 넘긴다.
 const PRESERVED_NOTICE = {
   ko: ({missing, stale}) => `계획이 바뀌었는데 이 티켓 본문은 사람이 고쳐서 덮어쓰지 않았습니다. 본문의 완료 조건·테스트 항목을 아래처럼 맞춰 주세요(맞추기 전에는 픽업이 계획 반영을 요구합니다).${missing.length ? `\n\n더할 항목:\n${missing.map(item => `- ${item.text}`).join('\n')}` : ''}${stale.length ? `\n\n지울 항목(이제 이 작업의 것이 아니다):\n${stale.map(item => `- ${item.text}`).join('\n')}` : ''}\n\n이 코멘트는 하네스가 남깁니다.`,
@@ -128,12 +133,18 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
       previousLabelsKnown: previous !== null}
   }).filter(Boolean) : []
 
+  // 발행했지만 계획에서 빠진 작업(끝나지 않은 것만) — 티켓에 한 번 알린다.
+  const retiring = list(plan.workItems).filter(work => ['cancelled', 'superseded'].includes(work.lifecycle))
+    .map(work => ({work, registered: state.works.get(work.workId)}))
+    .filter(({registered}) => registered?.status === 'published' && !registered.retired && !registered.completed)
+    .map(({work, registered}) => ({workId: work.workId, ticketKey: registered.ticketKey, lifecycle: work.lifecycle, supersededBy: list(work.supersededBy), title: work.title}))
   const preview = {
     mode: 'work', phase: 'PUBLISH_PREVIEW', externalWrites: 0, planDigest,
     provider: {name: provider?.name ?? null, ready: readiness.ok, missing: readiness.missing, relation: readiness.relation},
     publish: decision.publish.map(work => ({workId: work.workId, title: work.title, labels: [...list(work.roles), ...list(config.labels)]})),
     resume: decision.resume, reuse: decision.reuse, skipped: decision.skipped, errors: decision.errors,
     sync: syncs.map(({body, digest, contentDigest, consumerDigest, marker, docDigest, previousDocDigest, testCases, lang, work, context, previousContext, foreignTestCaseIds, ...rest}) => rest),
+    retire: retiring.map(({workId, ticketKey, lifecycle}) => ({workId, ticketKey, lifecycle})),
   }
   if (!decision.ok) return {...preview, ok: false, phase: 'PUBLISH_BLOCKED'}
   if (!readiness.ok) {
@@ -145,6 +156,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     return {...preview, ok: true,
       guidance: '이 목록으로 발행하려면 같은 요청에 --confirm을 붙인다'
         + (decision.resume.length > 0 ? ' · `resume` 항목은 조회 결과에 따라 확정되거나 새로 생성될 수 있다' : '')
+        + (retiring.length > 0 ? ` · \`retire\` ${retiring.length}건은 계획에서 빠진 작업의 티켓에 개발하지 말라고 알린다` : '')
         + (syncs.some(item => !item.refused) ? ` · \`sync\` ${syncs.filter(item => !item.refused).length}건은 이미 발행한 티켓의 본문·라벨·AI 맥락을 새 판본에 맞춘다(사람이 고친 본문은 덮어쓰지 않는다 · 소비 FEAT·TC가 바뀐 ${syncs.filter(item => item.notify).length}건만 코멘트로 알린다)` : '')}
   }
 
@@ -333,8 +345,41 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
         ...(item.previousLabelsKnown ? {} : {note: '이전 라벨 기록이 없어 떼지 않았다'})})
   }
 
+  // ── 계획에서 빠진 작업의 티켓에 알린다 — 대체 작업의 키는 이번 발행분까지 본다 ──
+  const keyAfter = workId => results.find(item => item.workId === workId && item.ticketKey && ['published', 'confirmed'].includes(item.outcome))?.ticketKey
+    ?? keysNow.get(workId) ?? null
+  for (const item of retiring) {
+    if (typeof provider.comment !== 'function') {
+      results.push({workId: item.workId, outcome: 'hold', ticketKey: item.ticketKey, reason: 'provider에 코멘트 능력이 없어 계획에서 빠진 사실을 티켓에 알리지 못했다'})
+      continue
+    }
+    const replacedBy = item.supersededBy.map(keyAfter).filter(Boolean).map(String)
+    // 대체 작업이 아직 발행되지 않았으면 알리지 않는다 — 한 번만 알리므로 「이어서 할 티켓」 없이 남기면 다시 못 알린다.
+    if (item.lifecycle === 'superseded' && replacedBy.length < item.supersededBy.length) {
+      results.push({workId: item.workId, outcome: 'hold', ticketKey: item.ticketKey, reason: '대체 작업을 아직 발행하지 않아 옛 티켓에 알리지 않았다 — 대체 작업을 함께 발행한다'})
+      continue
+    }
+    const lang = resolveCommentLanguage({declared: declaredLanguage, text: item.title})
+    externalWrites += 1
+    try {
+      await provider.comment(item.ticketKey, RETIRE_NOTICE[lang]({superseded: item.lifecycle === 'superseded', replacedBy}))
+    } catch (error) {
+      results.push({workId: item.workId, outcome: 'hold', ticketKey: item.ticketKey, reason: `계획에서 빠진 사실을 알리지 못했다: ${String(error?.message ?? error).slice(0, 120)}`})
+      continue
+    }
+    const failed = record({workId: item.workId, eventType: 'work-retired', payload: {ticketKey: String(item.ticketKey), lifecycle: item.lifecycle, replacedBy}})
+    results.push(failed ? {workId: item.workId, outcome: 'hold', ticketKey: item.ticketKey, reason: `알렸는데 원장에 남기지 못했다 — ${failed}`}
+      : {workId: item.workId, outcome: 'retired', ticketKey: item.ticketKey, replacedBy})
+  }
+
   const published = results.filter(item => item.outcome === 'published' || item.outcome === 'confirmed')
   const pending = results.filter(item => ['unknown', 'hold'].includes(item.outcome))
+  // 보류 사유에 맞는 안내 — 조회 대기와 대체 필요는 할 일이 다르다.
+  const supersede = pending.filter(item => item.refused === 'supersede-required')
+  const pendingGuidance = [
+    supersede.length > 0 ? `작업 내용이 바뀐 ${supersede.length}건은 제자리로 고치지 않습니다. 계획에서 옛 작업을 superseded로 두고 새 작업으로 대체하세요.` : null,
+    pending.length > supersede.length ? '나머지 보류는 다음 실행이 조회로 확인합니다(다시 발행하지 않습니다).' : null,
+  ].filter(Boolean).join(' ')
   return {
     ok: pending.length === 0, mode: 'work', phase: pending.length === 0 ? 'PUBLISHED' : 'PUBLISHED_WITH_PENDING',
     planDigest, externalWrites, results, reuse: decision.reuse, skipped: decision.skipped,
@@ -342,6 +387,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     published: published.map(item => ({workId: item.workId, ticketKey: item.ticketKey})),
     pending: pending.map(item => ({workId: item.workId, reason: item.reason})),
     events: WORK_EVENTS_PATH,
-    ...(pending.length > 0 ? {guidance: '불확실한 항목은 다음 실행이 조회로 확인한다 — 재발행하지 않는다(중복 방지)'} : {}),
+    retired: results.filter(item => item.outcome === 'retired').map(item => ({workId: item.workId, ticketKey: item.ticketKey, replacedBy: item.replacedBy})),
+    ...(pending.length > 0 ? {guidance: pendingGuidance} : {}),
   }
 }

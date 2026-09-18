@@ -20,7 +20,7 @@ import {DIGEST, UUID, WORK_ID} from './work-refs.mjs'
 export const WORK_EVENTS_PATH = '_workspace/03_dev/work-item-events.jsonl'
 // **소비자와 함께 늘린다.** 여기 있는 것은 지금 생산자와 소비자가 모두 있는 종류뿐이다.
 export const EVENT_TYPES = ['plan-reviewed', 'publish-attempted', 'publish-confirmed', 'publish-unknown', 'publish-synced', 'context-attached', 'ticket-assessed', 'ticket-work-registered', 'relation-linked',
-  'work-linked', 'work-completed', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
+  'work-linked', 'work-completed', 'work-reopened', 'work-retired', 'aggregate-attempted', 'aggregate-confirmed', 'aggregate-unknown', 'aggregate-refreshed']
 // 소비자가 있는 키만 둔다. `operationId`는 **외부 쓰기 시도의 단위**이며 발행 이벤트에서만 쓴다(P2-c).
 const KEYS = ['schemaVersion', 'eventId', 'operationId', 'planId', 'workId', 'featureId', 'eventType', 'at', 'planDigest', 'payload']
 
@@ -96,6 +96,18 @@ export function validateWorkEvent(event) {
       errors.push('work-linked에는 payload.completion(판정 요약)이 필요하다')
     }
     if (typeof event.payload?.staleCheck !== 'string') errors.push('work-linked에는 payload.staleCheck가 필요하다')
+  }
+  // 되돌린 완료 — 어느 PR의 완료를 왜 거뒀는지가 요체다(머지 되돌림은 원장이 스스로 보지 못한다).
+  if (event.eventType === 'work-reopened') {
+    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push('work-reopened에는 workId가 필요하다')
+    if (typeof event.payload?.reason !== 'string' || !event.payload.reason.trim()) errors.push('work-reopened에는 payload.reason이 필요하다 — 왜 완료를 거두는지')
+    if (typeof event.payload?.prUrl !== 'string' || !event.payload.prUrl) errors.push('work-reopened에는 payload.prUrl(거둔 완료의 PR)이 필요하다')
+  }
+  // 계획에서 빠진(대체·취소) 작업의 티켓에 그 사실을 알렸다 — 한 번만 알리기 위한 기록이다.
+  if (event.eventType === 'work-retired') {
+    if (!WORK_ID.test(String(event.workId ?? ''))) errors.push('work-retired에는 workId가 필요하다')
+    if (!event.payload?.ticketKey) errors.push('work-retired에는 payload.ticketKey가 필요하다')
+    if (!['cancelled', 'superseded'].includes(event.payload?.lifecycle)) errors.push('work-retired의 payload.lifecycle은 cancelled|superseded다')
   }
   if (event.eventType === 'work-completed' && event.payload?.via !== 'pr-merged') {
     errors.push('work-completed의 payload.via는 pr-merged여야 한다 — 머지를 관측하지 않은 완료를 기록하지 않는다')
@@ -239,6 +251,8 @@ export function foldWorkState(events) {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
         planDigest: event.planDigest, reason: event.payload?.reason ?? null})
+    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl === event.payload?.prUrl) {
+      // 되돌린 PR은 다시 머지될 수 없다 — 그 PR의 연결·완료 줄은 union 병합 순서와 무관하게 무시한다.
     } else if (event.eventType === 'work-linked') {
       // 완료 **주장**이다 — 머지를 본 것이 아니다. 선행 조건은 이것이 아니라 `completed`를 본다.
       works.set(event.workId, {...state, link: {prUrl: event.payload.prUrl, planDigest: event.planDigest,
@@ -246,6 +260,12 @@ export function foldWorkState(events) {
         acceptedIncomplete: event.payload.acceptedIncomplete === true, acceptedUnverifiedScope: event.payload.acceptedUnverifiedScope === true}})
     } else if (event.eventType === 'work-completed') {
       works.set(event.workId, {...state, completed: {prUrl: event.payload.prUrl, at: event.at}})
+    } else if (event.eventType === 'work-reopened') {
+      // 완료와 연결을 함께 거둔다 — 옛 PR의 머지 관측이 다시 완료로 쓰지 않게. 등록(발행)은 그대로다.
+      const {link, completed, ...rest} = state
+      works.set(event.workId, {...rest, reopened: {prUrl: event.payload.prUrl, reason: event.payload.reason, at: event.at}})
+    } else if (event.eventType === 'work-retired') {
+      works.set(event.workId, {...state, retired: {lifecycle: event.payload.lifecycle, at: event.at, replacedBy: event.payload.replacedBy ?? []}})
     } else if (event.eventType === 'relation-linked') {
       works.set(event.workId, {...state, relation: {mode: event.payload?.mode ?? null, applied: event.payload?.applied === true,
         parentKey: event.payload?.parentKey ?? null}})

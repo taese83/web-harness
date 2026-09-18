@@ -326,6 +326,40 @@ test('실행부: 소스와 따로 둔 테스트 레이어는 범위에 넣고, �
   })
 })
 
+test('실행부: 받지 않은 계획 개정이 원격에 있으면 집지 않는다 — 대체된 작업을 로컬 계획으로 집을 수 있다', async () => {
+  await within(workspace(), async root => {
+    const {provider, calls} = stubProvider()
+    const result = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {},
+      io: {provider, planRemote: async () => ({checked: true, ref: 'origin/main', commits: ['abc1234']})}})
+    assert.equal(result.bounce?.reason, 'plan-behind-remote')
+    assert.equal(calls.length, 0, '판정 전에 트래커를 불렀다')
+    const fresh = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {},
+      io: {provider, planRemote: async () => ({checked: true, ref: 'origin/main', commits: []})}})
+    assert.equal(fresh.ok, true)
+  })
+})
+
+test('실행부: 같은 작업을 다시 집으면 처음 찍은 대상 지문을 잇는다 — 이미 한 일이 「그대로」로 읽히지 않는다', async () => {
+  await within(workspace(), async root => {
+    const {provider} = stubProvider()
+    await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    const first = readChangeScopeFile(root).checks[0]
+    const target = first.targetRefs[0]
+    assert.equal(first.baseline[target], null, '전제: 대상이 없을 때 집었다')
+    const {mkdirSync} = await import('node:fs')
+    mkdirSync(join(root, target, '..'), {recursive: true})
+    writeFileSync(join(root, target), 'export const done = true\n')
+    const again = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.equal(again.ok, true, JSON.stringify(again.bounce))
+    assert.equal(readChangeScopeFile(root).checks[0].baseline[target], null, '다시 집으며 고친 대상을 새 기준선으로 찍었다')
+    // 머지를 되돌려 완료를 거둔 작업은 잇지 않는다 — 남은 대상 때문에 빈 PR이 「바뀌었다」로 읽히지 않게.
+    appendWorkEvent(join(root, WORK_EVENTS_PATH), {schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId: W(1), eventType: 'work-reopened',
+      at: new Date().toISOString(), payload: {ticketKey: 'PF-101', prUrl: 'https://github.com/o/r/pull/1', reason: '되돌림'}})
+    await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.notEqual(readChangeScopeFile(root).checks[0].baseline[target], null, '되돌린 작업에 옛 기준선을 이었다')
+  })
+})
+
 test('실행부: 미해결 컨플릭이면 착수하지 않는다 — 정렬이 먼저다', async () => {
   await within(workspace(), async root => {
     const {provider, calls} = stubProvider()

@@ -15,7 +15,7 @@ import {readDeclaredLanguage} from './ticket-config.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
 import {testCaseTexts} from './work-ticket-doc.mjs'
 import {providerCapabilities} from './ticket-provider.mjs'
-import {resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
+import {planRevisionsOnRemote, resolveCurrentBranch, resolveWorktreeStatus} from './git-origin.mjs'
 import {readSpecAt, withinScope} from '../validate-spawn-plan.mjs'
 import {normalizeLayerPath, testLayerPaths} from '../agent-registry.mjs'
 
@@ -61,6 +61,14 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   // **판정 전에 origin 스냅샷을 갱신한다** — 로컬 계획·로컬 원장만 보면 남이 고친 계획을 못 보고
   // 「최신」이라 판정한다. 못 가져오면 막지 않고 `basis: local-snapshot`으로 **적는다**(legacy와 같다).
   const freshness = await cli.ensureRemoteFreshness({root, flags, io})
+  // 받지 않은 계획 개정이 원격에 있으면 로컬 계획으로 판정하지 않는다 — 대체된 작업을 집을 수 있다.
+  if (plan) {
+    const remotePlan = await (io.planRemote ?? planRevisionsOnRemote)({repoRoot: root, base: plan.baseBranch ?? null})
+    if (remotePlan.checked && remotePlan.commits.length > 0) {
+      return {ok: false, mode: 'work', bounce: {reason: 'plan-behind-remote', ref: remotePlan.ref, commits: remotePlan.commits},
+        guidance: `${remotePlan.ref}에 받지 않은 계획 개정이 있습니다. 받은 뒤 다시 집으세요.`, freshness}
+    }
+  }
   let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
   const provider = io.provider
   // 계획이 없고 사람 티켓 경로도 쓸 수 없으면 **트래커를 부르기 전에** 멈춘다(읽기라도 부를 이유가 없다).
@@ -188,8 +196,14 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   // 이미 있던 경로를 대상으로 적은 기반 작업이 아무것도 하지 않고 통과하는 것을 막는 앵커다.
   const {projectRefDigest} = await import('./work-link.mjs')
   const digestOf = io.refDigest ?? projectRefDigest(root)
+  // 같은 작업을 다시 집으면(계획 개정 뒤 등) **처음 찍은 지문을 잇는다** — 이미 고친 대상을 새 기준선으로 찍으면
+  // 한 일이 「대상이 그대로다」로 읽혀 연결이 막힌다.
+  // 되돌린(reopen) 작업은 잇지 않는다 — 되돌림이 대상을 다 지우지 못했으면 옛 지문 때문에 빈 PR이 「바뀌었다」로 읽힌다.
+  const earlier = existing?.workId === pick.changeScope.workId && !state?.works?.get(pick.changeScope.workId)?.reopened
+    ? new Map((Array.isArray(existing.checks) ? existing.checks : []).filter(check => check.checkId && check.baseline).map(check => [check.checkId, check.baseline])) : new Map()
   pick.changeScope.checks = pick.changeScope.checks.map(check => ({...check,
-    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))
+    // 없던 대상의 지문은 null이다 — 「기록 없음」과 구별해 키가 있으면 그 값을 잇는다.
+    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, Object.hasOwn(earlier.get(check.checkId) ?? {}, ref) ? earlier.get(check.checkId)[ref] : digestOf(ref)]))}))
   pick.changeScope.ALLOWED_PATHS = [...new Set([...pick.changeScope.ALLOWED_PATHS, ...separateTestLayers(readSpecAt(root))])]
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.

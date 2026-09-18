@@ -1869,7 +1869,7 @@
     {
       "id": "work-pickup-baseline-recorded",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
-      "find": "    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, digestOf(ref)]))}))",
+      "find": "    baseline: Object.fromEntries(check.targetRefs.map(ref => [ref, Object.hasOwn(earlier.get(check.checkId) ?? {}, ref) ? earlier.get(check.checkId)[ref] : digestOf(ref)]))}))",
       "replace": "    baseline: null}))",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "픽업이 대상 지문을 남기지 않으면 링크가 「바뀌었는가」를 잴 기준이 없다"
@@ -3001,6 +3001,78 @@
       "replace": "  return []",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "범위 밖 손 편집을 알리지 않으면 병렬 작업끼리 머지에서야 충돌로 드러난다"
+    },
+    {
+      "id": "pickup-plan-behind-remote",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    if (remotePlan.checked && remotePlan.commits.length > 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "받지 않은 계획 개정을 모르고 로컬 계획으로 집으면 대체된 작업을 시작한다"
+    },
+    {
+      "id": "link-plan-behind-remote",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "    if (remotePlan.checked && remotePlan.commits.length > 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "받지 않은 계획 개정을 모르고 연결하면 대체된 작업을 끝냈다고 기록한다"
+    },
+    {
+      "id": "link-fetches-before-remote-plan",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "    freshness = await cli.ensureRemoteFreshness({root, flags, io})",
+      "replace": "    freshness = null",
+      "test": ".claude/scripts/test-team-revision-e2e.mjs",
+      "why": "fetch 없이 원격 참조를 보면 클론 뒤 한 번도 받지 않은 개정을 놓친다"
+    },
+    {
+      "id": "reopen-clears-completion",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "      const {link, completed, ...rest} = state",
+      "replace": "      const rest = state",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "되돌린 완료가 남으면 되돌린 코드 위의 사슬이 계속 열려 있다"
+    },
+    {
+      "id": "reopen-requires-reason",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    if (typeof event.payload?.reason !== 'string' || !event.payload.reason.trim()) errors.push('work-reopened에는 payload.reason이 필요하다 — 왜 완료를 거두는지')",
+      "replace": "    void 0",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "이유 없는 완료 회수는 나중에 왜 다시 열렸는지 알 수 없다"
+    },
+    {
+      "id": "pickup-baseline-carryover",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "Object.hasOwn(earlier.get(check.checkId) ?? {}, ref) ?",
+      "replace": "false ?",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "다시 집으며 고친 대상을 새 기준선으로 찍으면 한 일이 「대상이 그대로다」로 읽혀 연결이 막힌다"
+    },
+    {
+      "id": "publish-retire-notice",
+      "file": ".claude/scripts/ticket/work-publish-run.mjs",
+      "find": "    .filter(({registered}) => registered?.status === 'published' && !registered.retired && !registered.completed)",
+      "replace": "    .filter(() => false)",
+      "test": ".claude/scripts/test-team-revision-e2e.mjs",
+      "why": "대체된 작업의 티켓이 말없이 열려 있으면 트래커를 보고 집는 사람이 옛 작업을 한다"
+    },
+    {
+      "id": "reopen-fold-order-independent",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl === event.payload?.prUrl) {",
+      "replace": "    } else if (false) {",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "회수 뒤에 병합된 옛 PR 완료 줄이 완료로 접히면 되돌린 작업이 다시 끝난 것으로 보인다"
+    },
+    {
+      "id": "pickup-no-carry-after-reopen",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": " && !state?.works?.get(pick.changeScope.workId)?.reopened",
+      "replace": " && true",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "되돌린 작업에 옛 기준선을 이으면 되돌림이 남긴 대상 때문에 빈 PR이 「바뀌었다」로 통과한다"
     }
   ]
 }

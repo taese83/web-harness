@@ -463,6 +463,7 @@ if (invokedDirectly) {
       case 'link': {
         const linkRun = await import('./work-link-run.mjs')
         if (flags.sync) return linkRun.runWorkMergeSync({root, flags})
+        if (flags.reopen) return linkRun.runWorkReopen({root, ticketKey: typeof flags.reopen === 'string' ? flags.reopen : args[0], flags})
         return linkRun.runWorkLink({root, ticketKey: args[0], prUrl: args[1], flags})
       }
       // 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.
