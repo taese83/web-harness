@@ -87,6 +87,11 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     return {result: {ok: false, mode: 'work', phase: 'TICKET_IS_PLAN_WORK', ticketKey, externalWrites: 0,
       bounce: {reason: 'work-marker-missing', workId: planWork[0], ticketKey: String(ticketKey)}}}
   }
+  // 남이 맡은 티켓이면 판정부터 하지 않는다 — 판정 에이전트를 헛되이 띄우고 확인 단계에서야 막히던 것을 앞당긴다.
+  if (computeAssignmentPlan({issue, developer}).status === 'taken') {
+    return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSIGNED_TO_OTHER', ticketKey, externalWrites: 0,
+      bounce: {reason: 'assigned-to-other', by: issue?.assignees?.[0] ?? null}, guidance: '다른 개발자가 맡은 티켓입니다. 다른 작업을 고르세요.'}}
+  }
   // **비신뢰 원문 스캔이 먼저다** — 판정 요청 스냅샷·미리보기·트래커 쓰기·원장 기록 모두 이 뒤에 온다(fail-closed).
   const injection = scanUntrustedIssue(issue)
   if (injection.injectionSuspect) {

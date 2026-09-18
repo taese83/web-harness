@@ -152,6 +152,10 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 넘기면 그 사실이 원장에 남는다. 닫는 줄은 발행 원장의 트래커가 정한다(GitHub만 머지로 닫힌다 — Jira 키에
 `Closes`를 적지 않는다). `link --sync`는 PR 상태를 읽어 **기대 base에 머지로 확인된 것만** 완료로 기록한다 — 다른 브랜치 머지는
 `baseMismatch`로 남는다. 후속 작업은 완료가 있어야 열린다. 조회 실패는 완료로도 침묵으로도 접지 않는다.
+`link --sync`는 누가 어느 클론에서 돌려도 된다 — 보호된 main이면 각자 자기 브랜치로 올린다(같은 완료가 두 번 기록돼도 원장은 깨지지 않는다).
+
+**여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
+`change-scope.md`·`ticket-assessments/`에 git 제외를 넣는다. 없으면 두 번째 PR부터 원장이 충돌하고 남의 작업 범위가 픽업을 막는다.
 
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해
 개발 준비 검사가 `assets/ticket-close.yml`·`close-merged-tickets.mjs`(v3)를 설치한다 — **WORK 원장**에서 이

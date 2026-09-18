@@ -1637,7 +1637,7 @@
     {
       "id": "work-pickup-active-scope-guard",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
-      "find": "  if (existing && existingId !== pick.changeScope.workId && !flags['replace-scope']) {",
+      "find": "  if (existing && existingId !== pick.changeScope.workId && !settled && !flags['replace-scope']) {",
       "replace": "  if (existing && false) {",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "진행 중인 범위를 조용히 덮으면 그 작업의 STALE 앵커가 사라진다"
@@ -2797,8 +2797,8 @@
     {
       "id": "ticket-board-unassessed-not-blocked",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      blockedReason: null, next: `\\`pickup ${item.ticketKey}\\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})",
-      "replace": "      blockedReason: 'assessment-required', next: null, assignees: item.assignees ?? null})",
+      "find": "      blockedReason: othersTicket ? 'assigned-to-other' : null,",
+      "replace": "      blockedReason: othersTicket ? 'assigned-to-other' : 'assessment-required',",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "판정 전 티켓을 막힌 것으로 그리면 할 수 없는 일처럼 읽혀, 바로 시작할 수 있는 티켓을 아무도 집지 않는다"
     },
@@ -2873,6 +2873,70 @@
       "replace": "  const mixed = []",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "섞인 커밋을 알리지 않으면 산출물과 코드를 나눠 커밋한다는 컨벤션이 확인 없이 무너진다"
+    },
+    {
+      "id": "team-sharing-ledger-union-merge",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "  attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],",
+      "replace": "  attributes: [],",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "원장 병합 규칙이 없으면 여러 사람의 PR이 두 번째부터 원장에서 충돌한다"
+    },
+    {
+      "id": "team-sharing-ignores-local-scope",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/'],",
+      "replace": "  ignores: ['_workspace/03_dev/ticket-assessments/'],",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "한 개발자의 작업 범위가 커밋되면 머지마다 충돌하고 받은 사람의 픽업을 막는다"
+    },
+    {
+      "id": "pickup-settled-scope-not-active",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  if (existing && existingId !== pick.changeScope.workId && !settled && !flags['replace-scope']) {",
+      "replace": "  if (existing && existingId !== pick.changeScope.workId && !flags['replace-scope']) {",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "연결·완료된 작업의 범위를 진행 중으로 보면 개발자마다 두 번째 픽업부터 막힌다"
+    },
+    {
+      "id": "board-completed-not-pickupable",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      : registered?.completed ? 'completed'\n",
+      "replace": "\n",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "머지로 끝난 작업을 담당자에게 집을 수 있다고 보이면 끝난 일을 다시 잡는다"
+    },
+    {
+      "id": "board-others-human-ticket-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "const takenBySomeoneElse = (assignees, developer) => Array.isArray(assignees) && assignees.length > 0 && !assignees.includes(developer)",
+      "replace": "const takenBySomeoneElse = () => false",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "남이 맡은 사람 티켓을 판정 전으로 보이면 다른 개발자가 판정 에이전트를 헛되이 띄운다"
+    },
+    {
+      "id": "ticket-pickup-assignment-before-assessment",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  if (computeAssignmentPlan({issue, developer}).status === 'taken') {\n    return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSIGNED_TO_OTHER'",
+      "replace": "  if (false) {\n    return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSIGNED_TO_OTHER'",
+      "test": ".claude/scripts/test-team-e2e.mjs",
+      "why": "남의 티켓을 판정부터 시작하면 판정 비용을 쓴 뒤에야 확인 단계에서 막힌다"
+    },
+    {
+      "id": "pickup-refuses-completed-work",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "  if (registered.completed) return {ok: false, injection, bounce: {reason: 'work-completed', workId: work.workId}}",
+      "replace": "  // (removed)",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "머지로 끝난 작업을 다시 집으면 끝난 일에 두 번째 작업 범위가 생기고, 보드의 「끝남」과 픽업이 어긋난다"
+    },
+    {
+      "id": "team-sharing-tracked-local-file",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "  const untrack = tracked.length > 0",
+      "replace": "  const untrack = false && tracked.length > 0",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "무시 규칙은 이미 추적 중인 파일에 듣지 않는다 — 줄만 보고 통과시키면 충돌이 그대로 남는다"
     }
   ]
 }

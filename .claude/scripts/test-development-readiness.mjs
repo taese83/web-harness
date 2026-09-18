@@ -275,3 +275,33 @@ test('배선: 주입 없이 실제 훅을 돌려 허용과 차단이 모두 나�
     assert.ok(!unowned.detail.includes('배선이 죽었다'), '음성 컨트롤은 통과해야 한다(훅이 살아 있다)')
   })
 })
+
+test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 그대로 둔다', async () => {
+  const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
+  const {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} = await import('node:fs')
+  const {tmpdir} = await import('node:os')
+  const {join} = await import('node:path')
+  const root = mkdtempSync(join(tmpdir(), 'wh-team-sharing-'))
+  try {
+    assert.equal(checkTeamSharing(root).state, 'SKIPPED', '팀 흐름이 아닌 프로젝트에 요구했다')
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/work-item-events.jsonl'), '')
+    writeFileSync(join(root, '.gitignore'), 'node_modules/\n_workspace/03_dev/change-scope.md')
+    assert.equal(checkTeamSharing(root).state, 'FAIL')
+    assert.equal(checkTeamSharing(root, {install: true}).state, 'PASS')
+    const ignore = readFileSync(join(root, '.gitignore'), 'utf8').split('\n')
+    assert.equal(ignore[0], 'node_modules/', '사용자가 둔 규칙을 덮었다')
+    assert.equal(ignore.filter(line => line === '_workspace/03_dev/change-scope.md').length, 1, '이미 있는 줄을 또 넣었다')
+    for (const line of TEAM_SHARING.ignores) assert.ok(ignore.includes(line), line)
+    assert.ok(readFileSync(join(root, '.gitattributes'), 'utf8').includes(TEAM_SHARING.attributes[0]))
+    assert.equal(checkTeamSharing(root).state, 'PASS')
+    // 이미 커밋된 로컬 작업 파일은 무시 규칙이 있어도 FAIL이다.
+    const {execFileSync} = await import('node:child_process')
+    execFileSync('git', ['init', '-q'], {cwd: root})
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'x')
+    execFileSync('git', ['add', '-f', '_workspace/03_dev/change-scope.md'], {cwd: root})
+    const tracked = checkTeamSharing(root, {install: true})
+    assert.equal(tracked.state, 'FAIL', '추적 중인 change-scope를 통과시켰다')
+    assert.match(tracked.remedy ?? tracked.detail ?? JSON.stringify(tracked), /git rm -r --cached/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})

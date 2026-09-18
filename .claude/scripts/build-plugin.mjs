@@ -49,6 +49,7 @@ const DEV_ONLY_SCRIPTS = new Set([
   'run-golden-profile.mjs',
   'validate-harness.mjs',
   'validate-toolchain.mjs',
+  'ticket/jira-memory-stub.mjs',
 ])
 const DEV_ONLY_SCRIPT_DIRS = new Set(['validators'])
 const DEV_ONLY_SCRIPT_PATTERN = /^test-.*\.mjs$/
@@ -182,8 +183,9 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
   exclude: (relativePath, entry) => {
     const [head] = relativePath.split('/')
     if (entry.isDirectory()) return DEV_ONLY_SCRIPT_DIRS.has(head)
+    if (DEV_ONLY_SCRIPTS.has(relativePath)) return true
     if (relativePath.includes('/')) return false
-    return DEV_ONLY_SCRIPTS.has(relativePath) || DEV_ONLY_SCRIPT_PATTERN.test(relativePath)
+    return DEV_ONLY_SCRIPT_PATTERN.test(relativePath)
   },
 })
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))

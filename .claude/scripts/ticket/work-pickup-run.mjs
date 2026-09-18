@@ -108,7 +108,10 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   // 진행 중인 다른 범위를 조용히 덮지 않는다 — 그 작업의 STALE 앵커가 사라진다(legacy와 같은 규율).
   const existing = cli.readChangeScopeFile(root)
   const existingId = existing?.workId ?? existing?.featureId ?? null
-  if (existing && existingId !== pick.changeScope.workId && !flags['replace-scope']) {
+  // PR을 연결했거나 머지로 끝난 작업의 범위는 더 지킬 것이 없다 — STALE 대조는 link 때 끝나 원장에 남았다.
+  // 이것을 「진행 중」으로 보면 개발자마다 두 번째 픽업부터 막힌다.
+  const settled = existingId ? Boolean(state?.works?.get(existingId)?.link?.prUrl || state?.works?.get(existingId)?.completed) : false
+  if (existing && existingId !== pick.changeScope.workId && !settled && !flags['replace-scope']) {
     return {ok: false, mode: 'work', bounce: {reason: 'active-change-scope', active: existingId},
       guidance: `${existingId} 작업을 이미 집어 둔 상태입니다. 그 작업을 끝내거나, 바꾸려면 --replace-scope를 붙이세요.`}
   }

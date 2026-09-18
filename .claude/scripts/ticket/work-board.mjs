@@ -39,6 +39,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
       : publishedWith === null ? 'plan-digest-unknown'
         : planDigest && publishedWith !== planDigest ? 'stale-plan' : null
     const blockedReason = registration !== 'published' ? `not-registered:${registration}`
+      : registered?.completed ? 'completed'
       : staleness ? staleness
         : row.status === 'blocked-decision' ? 'decision-unresolved'
           : incompleteDeps.length > 0 ? 'dependency-incomplete'
@@ -101,6 +102,9 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
  *          lookupComplete?: boolean, specBoundary?: boolean|null}} args
  *   specBoundary: 스팩(layerMap)이 있는가 — 판정이 수정 범위를 대조할 경계다(기획·specTier는 이 경로의 조건이 아니다)
  */
+// 담당자가 있고 내가 아니면 남의 티켓이다. 담당자를 모르면(null) 막지 않는다 — 픽업이 배정 직전에 다시 본다.
+const takenBySomeoneElse = (assignees, developer) => Array.isArray(assignees) && assignees.length > 0 && !assignees.includes(developer)
+
 export function buildTicketBoard({state, issuesByKey = null, devTickets = null, developer = null, lookupComplete = false, specBoundary = null}) {
   const rows = []
   const works = [...(state?.works?.entries() ?? [])]
@@ -135,11 +139,14 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     if (seen.has(ticketKey)) continue
     seen.add(ticketKey)
     const startable = ticket.verdict === 'startable'
-    rows.push({ticketKey, workId: ticket.workId ?? null, title: devTickets?.find(item => String(item.ticketKey) === ticketKey)?.summary ?? null,
-      stage: 'assessed', verdict: ticket.verdict, pickupable: false,
+    const listed = devTickets?.find(item => String(item.ticketKey) === ticketKey) ?? null
+    const othersTicket = takenBySomeoneElse(listed?.assignees, developer)
+    rows.push({ticketKey, workId: ticket.workId ?? null, title: listed?.summary ?? null,
+      stage: 'assessed', verdict: ticket.verdict, pickupable: false, assignees: listed?.assignees ?? null,
       // 착수 가능 판정은 **막힌 것이 아니다** — 개발자가 미리보기를 확인하면 바로 시작한다.
-      blockedReason: startable ? null : `ticket-${ticket.verdict}`,
-      next: startable ? `\`pickup ${ticketKey}\`로 미리보기를 보고 확인하면 시작합니다.`
+      blockedReason: othersTicket ? 'assigned-to-other' : startable ? null : `ticket-${ticket.verdict}`,
+      next: othersTicket ? '다른 개발자가 맡고 있습니다.'
+        : startable ? `\`pickup ${ticketKey}\`로 미리보기를 보고 확인하면 시작합니다.`
         : ticket.verdict === 'needs-design' ? '디자인이 정해져야 시작할 수 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.'
           : '먼저 정해야 할 것이 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.',
       needs: ticket.needs ?? null})
@@ -147,11 +154,13 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
   for (const item of list(devTickets)) {
     if (seen.has(String(item.ticketKey))) continue
     // 판정 전은 **막힌 상태가 아니다.** `pickup`이 판정부터 시작하므로, 여기에 이유를 적으면 할 수 없는 일처럼 읽힌다.
+    const othersTicket = takenBySomeoneElse(item.assignees, developer)
     rows.push({ticketKey: String(item.ticketKey), workId: null, title: item.summary ?? null, stage: 'unassessed', pickupable: false,
-      blockedReason: null, next: `\`pickup ${item.ticketKey}\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})
+      blockedReason: othersTicket ? 'assigned-to-other' : null,
+      next: othersTicket ? '다른 개발자가 맡고 있습니다.' : `\`pickup ${item.ticketKey}\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})
   }
   const notes = []
-  const waiting = rows.filter(row => row.stage === 'unassessed').length
+  const waiting = rows.filter(row => row.stage === 'unassessed' && row.blockedReason === null).length
   if (waiting > 0) {
     notes.push(`아직 판정하지 않은 개발 티켓이 ${waiting}건 있습니다. \`pickup <티켓키>\`를 부르면 판정부터 시작합니다. 기획이 없어도 됩니다.`)
     // 판정은 수정 범위를 **스팩 소유 경계**로 대조한다 — 없으면 전부 undecidable로 돌아간다. 판정을 돌린 뒤에 알면 늦다.

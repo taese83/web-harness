@@ -117,6 +117,8 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   if (registered.ticketKey && registered.ticketKey !== ticketKey) {
     return {ok: false, injection, bounce: {reason: 'ticket-key-mismatch', registered: registered.ticketKey, picked: ticketKey}}
   }
+  // 머지로 끝난 작업은 다시 집지 않는다 — 보드가 「끝남」으로 보이는 것과 같은 축이다.
+  if (registered.completed) return {ok: false, injection, bounce: {reason: 'work-completed', workId: work.workId}}
   // STALE: 발행 시점 계획 ↔ 지금 계획. 브랜치·컨플릭 판정은 legacy와 **같은 함수**를 쓴다.
   const readiness = evaluatePickupReadiness({claimBranch: registered.branch ?? null, currentBranch,
     claimedHash: registered.planDigest ?? marker.planDigest ?? null, localHash: planDigest, working})

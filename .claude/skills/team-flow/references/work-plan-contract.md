@@ -245,6 +245,15 @@ PR은 연결됐는데 머지가 관측되지 않은 작업은 따로 센다 — 
 대조의 근거가 본문에서 사라졌다 — 본문을 복구한다), 인테이크는 원장이 발행한 키를 공급 원문으로 받지 않는다(원장이 깨졌으면 멈춘다).
 **전제: 발행 원장(`work-item-events.jsonl`)이 커밋·공유돼 있어야 한다** — 원장이 없는 체크아웃에서는 `unknown`으로 떨어진다.
 
+## 여러 사람이 쓸 때
+
+- 원장은 브랜치마다 끝에 줄을 덧붙이므로 `.gitattributes`에 `merge=union`이 있어야 PR끼리 충돌하지 않는다. `change-scope.md`와
+  `ticket-assessments/`는 한 개발자의 로컬 작업 상태라 커밋하지 않는다. 개발 준비 검사 `team-sharing`이 둘을 확인하고 `--fix`로 넣는다.
+- 연결·완료된 작업의 범위는 다음 픽업을 막지 않는다(STALE 대조는 link 때 끝났다).
+- 완료된 작업은 다시 집지 않는다. 되돌려야 하면 새 작업으로 계획에 올린다.
+- 머지 확인은 누구나 로컬에서 할 수 있다. 같은 완료가 여러 사람에게서 다른 eventId로 기록돼도 접기 결과는 같다.
+- 회귀: `test-team-e2e.mjs`(리드 1 + 개발자 3, 실제 git·메모리 Jira).
+
 ## 자동 닫기 (P3-c)
 
 `validate-development-readiness`의 `ticket-assets`가 WORK 원장이 있는 프로젝트에 `ticket-close.yml`·

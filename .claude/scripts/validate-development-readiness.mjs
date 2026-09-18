@@ -22,7 +22,7 @@
 // 사용법:
 //   node .claude/scripts/validate-development-readiness.mjs --project <root> [--json] [--fix]
 // 종료 코드: 0 = 착수 가능, 1 = 미해결 항목 있음, 2 = 사용법/입력 오류.
-import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
+import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
@@ -291,7 +291,53 @@ export function checkTicketAssets(root, {install = false} = {}) {
     '--fix로 설치한다. 없으면 청구 브랜치 머지에도 이슈가 열린 채 남아 보드와 어긋난다', {fixable: true})
 }
 
-export const CHECKS = ['spec', 'ownership', 'plans', 'environment', 'decisions', 'ticket-assets']
+// ── 7. 팀 공유 설정 ─────────────────────────────────────────────────────────
+// 여러 사람이 같은 저장소에서 쓰면 두 가지가 매번 부딪힌다:
+//   - 원장은 브랜치마다 끝에 줄을 덧붙인다 — 병합 규칙이 없으면 두 번째 PR부터 충돌한다(`merge=union`이면 양쪽 줄을 다 살린다)
+//   - change-scope·판정 파일은 한 개발자의 로컬 작업 상태다 — 커밋되면 머지마다 충돌하고, 받은 사람의 픽업을 막는다
+export const TEAM_SHARING = {
+  attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
+  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/'],
+}
+const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
+function trackedFiles(root, paths) {
+  try {
+    return execFileSync('git', ['ls-files', '--', ...paths], {cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})
+      .split('\n').filter(Boolean)
+  } catch { return [] }  // git 저장소가 아니면 추적 여부를 알 수 없다 — 줄 검사만 한다
+}
+export function checkTeamSharing(root, {install = false} = {}) {
+  if (!existsSync(join(root, '_workspace/03_dev/work-item-events.jsonl'))) {
+    return skip('team-sharing', '팀 흐름(WORK 원장)을 쓰지 않는 프로젝트다')
+  }
+  const missing = [
+    ...TEAM_SHARING.attributes.filter(line => !readLines(join(root, '.gitattributes')).includes(line)).map(line => ['.gitattributes', line]),
+    ...TEAM_SHARING.ignores.filter(line => !readLines(join(root, '.gitignore')).includes(line)).map(line => ['.gitignore', line]),
+  ]
+  // 무시 규칙은 이미 추적 중인 파일에는 듣지 않는다 — 줄이 있어도 추적 중이면 충돌은 그대로다.
+  const tracked = trackedFiles(root, TEAM_SHARING.ignores)
+  const untrack = tracked.length > 0
+    ? fail('team-sharing', `로컬 작업 파일이 커밋돼 있다: ${tracked.join(', ')}`,
+      `\`git rm -r --cached ${tracked.join(' ')}\`로 추적을 끊고 커밋한다`)
+    : null
+  if (missing.length === 0) return untrack ?? pass('team-sharing', '원장 병합 규칙과 로컬 작업 파일 제외가 설정돼 있다')
+  if (install) {
+    // 덮어쓰지 않고 **빠진 줄만 덧붙인다** — 사용자가 둔 규칙은 그대로 둔다.
+    for (const file of ['.gitattributes', '.gitignore']) {
+      const lines = missing.filter(([name]) => name === file).map(([, line]) => line)
+      if (lines.length === 0) continue
+      const path = join(root, file)
+      const current = existsSync(path) ? readFileSync(path, 'utf8') : ''
+      writeFileSync(path, `${current}${current && !current.endsWith('\n') ? '\n' : ''}${lines.join('\n')}\n`)
+    }
+    if (untrack) return untrack
+    return pass('team-sharing', `추가함: ${missing.map(([file, line]) => `${file} ← ${line}`).join(' · ')} — 커밋·push는 브랜치 소유자 몫이다`)
+  }
+  return fail('team-sharing', `여러 사람이 쓰면 충돌하는 설정이 빠졌다: ${missing.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
+    '--fix로 빠진 줄을 덧붙인다. 없으면 두 번째 PR부터 원장이 충돌하고, 받은 사람의 픽업이 남의 작업 범위에 막힌다', {fixable: true})
+}
+
+export const CHECKS = ['spec', 'ownership', 'plans', 'environment', 'decisions', 'ticket-assets', 'team-sharing']
 
 export function analyzeDevelopmentReadiness(root, {install = false, hookRun = null} = {}) {
   const specResult = checkSpec(root)
@@ -303,6 +349,7 @@ export function analyzeDevelopmentReadiness(root, {install = false, hookRun = nu
   results.push(checkEnvironment(root, spec))
   results.push(spec ? checkDecisionsApplied(root, spec) : skip('decisions', '스팩이 없어 대조할 수 없다'))
   results.push(checkTicketAssets(root, {install}))
+  results.push(checkTeamSharing(root, {install}))
   const failures = results.filter(r => r.state === 'FAIL')
   return {
     schemaVersion: 1,
