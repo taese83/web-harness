@@ -53,7 +53,7 @@ export function separateTestLayers(spec) {
 }
 
 /** 이 티켓과 그 선행 작업의 트래커 끝남을 읽는다. 못 읽으면 원장만으로 판정한다(막지 않는다). */
-async function readTrackerDone({provider, state, plan, ticketKey, config}) {
+async function readTrackerDone({provider, state, plan, ticketKey, config, root, io = {}}) {
   const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
   const entry = [...(state?.works?.entries() ?? [])].find(([, item]) => String(item.ticketKey) === String(ticketKey))
   const work = entry ? (plan?.workItems ?? []).find(item => item.workId === entry[0]) ?? entry[1].definition : null
@@ -61,8 +61,11 @@ async function readTrackerDone({provider, state, plan, ticketKey, config}) {
   if (typeof provider?.listWorkIssues !== 'function') return {apply: value => value, read: {checked: false, reason: 'provider가 목록 조회를 주지 않는다'}}
   try {
     const listed = await provider.listWorkIssues({keys})
-    const options = {completedResolutions: completedResolutionsOf(config, provider.name)}
-    return {apply: value => withTrackerCompletion(value, listed.items, options), read: {checked: true}}
+    const {readMergeEvidence} = await import('./work-board.mjs')
+    const merged = await readMergeEvidence({provider, root, base: plan?.baseBranch ?? null, keys, io})
+    const options = {completedResolutions: completedResolutionsOf(config, provider.name), mergeEvidence: merged.evidence}
+    return {apply: value => withTrackerCompletion(value, listed.items, options),
+      read: {checked: true, mergeEvidence: merged.checked, ...(merged.note ? {guidance: merged.note} : {})}}
   } catch (error) {
     const reason = String(error?.message ?? error).slice(0, 120)
     return {apply: value => value, read: {checked: false, reason, guidance: `트래커에서 이 티켓과 선행 작업이 끝났는지 확인하지 못해 원장만 봤습니다: ${reason}.`}}
@@ -98,7 +101,7 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
   let issue = await fetchIssue(ticketKey)
   // 트래커의 끝남(완료·취소)을 이 티켓과 선행 작업에 겹친다 — 원장만 보면 트래커에서 끝난 선행을 기다리거나 취소된 작업을 집는다.
-  const trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig})
+  const trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig, root, io})
   state = trackerDone.apply(state)
   // **사람이 만든 개발 티켓**이면 판정·확인·완성을 거쳐 같은 픽업으로 이어진다(ticket-work-run.mjs). 계획 WORK면 그대로 아래로 간다.
   const {resolveTicketPickup} = await import('./ticket-work-run.mjs')

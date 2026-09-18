@@ -153,6 +153,23 @@ test('실행부: 받지 않은 계획 개정이 원격 base에 있으면 연결�
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
+test('실행부: Jira 작업의 PR 제목에 티켓 키가 없으면 알린다 — 머지된 커밋이 티켓에 연결되는 근거다', async () => {
+  const root = workspace()
+  try {
+    writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
+      plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
+    for (const ref of work(W(1)).checks.flatMap(check => check.targetRefs)) { mkdirSync(join(root, ref, '..'), {recursive: true}); writeFileSync(join(root, ref), 'changed') }
+    const io = title => ({prInfo: async () => ({state: 'OPEN', baseRefName: 'develop', title}), refresh: async () => ({ok: true}), planRemote: async () => ({checked: false})})
+    const missing = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: io('feat: 회원 API')})
+    assert.equal(missing.prTitle?.ok, false, JSON.stringify(missing.blocked ?? missing.prTitle))
+    assert.match(missing.prTitle.guidance, /PF-101/)
+    const present = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: io('[PF-101] feat: 회원 API')})
+    assert.equal(present.prTitle?.ok, true)
+    const trailing = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: io('feat: 회원 API [PF-101]')})
+    assert.equal(trailing.prTitle?.ok, false, '근거로 세지 않을 제목을 통과시켰다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
 test('실행부: 범위도 등록도 없는 티켓을 연결하면 멈춘다 — 판정 전에 던지지 않는다', async () => {
   const root = workspace()
   try {

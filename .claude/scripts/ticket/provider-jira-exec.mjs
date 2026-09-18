@@ -35,7 +35,8 @@ async function call(config, path, {method = 'GET', body = null, fetchImpl = null
   const doFetch = fetchImpl ?? globalThis.fetch
   if (typeof doFetch !== 'function') throw new Error('JIRA_FETCH_UNAVAILABLE: fetch를 쓸 수 없다')
   const version = String(config.apiVersion ?? '3')
-  const url = `${String(config.baseUrl).replace(/\/+$/, '')}/rest/api/${version}${path}`
+  // 애드온 API(`/rest/gitplugin/…`)는 표준 API 판본 경로 밖에 있다 — `/rest/`로 시작하면 그대로 붙인다.
+  const url = `${String(config.baseUrl).replace(/\/+$/, '')}${path.startsWith('/rest/') ? path : `/rest/api/${version}${path}`}`
   const response = await doFetch(url, {
     method,
     headers: {Authorization: authHeader(env), 'Content-Type': 'application/json', Accept: 'application/json'},
@@ -157,6 +158,27 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       return {items, complete: false, truncated: true}
     },
     /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
+    /**
+     * 머지 근거 — Jira Git Integration 애드온이 티켓 키로 모은 커밋에서 기대 base의 커밋을 고른다(읽기 전용).
+     * 애드온이 없으면(모든 조회가 404) `available: false` — 호출자는 다른 근거로 간다. 키마다의 실패는 `errors`다.
+     */
+    async listMergeEvidence({keys, baseBranch, repoName = null}) {
+      const {mergeEvidenceFromCommits} = await import('./work-provider.mjs')
+      const settled = await Promise.all(keys.map(async key => {
+        try {
+          const payload = await call(config, `/rest/gitplugin/1.0/issues/${encodeURIComponent(key)}/commits`, options)
+          return {key: String(key), evidence: mergeEvidenceFromCommits(payload?.commits, {ticketKey: String(key), baseBranch, repoName})}
+        } catch (error) {
+          return {key: String(key), error: String(error?.message ?? error).slice(0, 120)}
+        }
+      }))
+      const failed = settled.filter(item => item.error)
+      if (settled.length > 0 && failed.length === settled.length && failed.every(item => /JIRA_HTTP_404/.test(item.error))) {
+        return {available: false, reason: 'Git Integration 애드온이 없다(커밋 조회 경로 404)', evidence: new Map()}
+      }
+      return {available: true, evidence: new Map(settled.filter(item => item.evidence).map(item => [item.key, item.evidence])),
+        errors: failed.map(item => ({ticketKey: item.key, error: item.error}))}
+    },
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
       const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
       const jql = workKeysJql(keys)

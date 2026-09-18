@@ -72,12 +72,20 @@ export function classifyTrackerDone(item, {completedResolutions = DEFAULT_COMPLE
  * 원장 상태에 트래커의 끝남을 겹친다(순수). **이관 중에는 둘 중 하나라도 완료면 완료다** — 지금까지 하네스가 Jira를
  * 완료로 전이하지 않아 원장만 완료인 작업이 많다. 트래커에서 취소로 끝난 작업은 `trackerCancelled`로 표시한다.
  */
-export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS} = {}) {
+export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS, mergeEvidence = new Map()} = {}) {
   const byKey = new Map((Array.isArray(items) ? items : []).map(item => [String(item.ticketKey),
     {done: classifyTrackerDone(item, {completedResolutions}), doneAt: item.doneAt ?? null}]))
   const works = new Map([...(state?.works?.entries() ?? [])].map(([workId, item]) => {
     const tracker = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
-    if (!tracker?.done || item.completed) return [workId, item]
+    if (item.completed) return [workId, item]
+    // 기대 base에 머지된 커밋이 먼저다 — 코드가 base에 있으면 선행은 끝났다(팀의 Done은 QA·배포를 기다릴 수 있다).
+    const evidence = item.ticketKey ? mergeEvidence.get(String(item.ticketKey)) : null
+    // 트래커에서 취소된 뒤의 커밋만 취소를 이긴다 — 취소 전에 머지된 커밋은 되돌림·폐기의 흔적일 수 있다(시각을 모르면 취소를 지킨다).
+    const cancelledAfter = tracker?.done === 'cancelled' && !(tracker.doneAt && Date.parse(evidence?.date) > Date.parse(tracker.doneAt))
+    if (evidence && !cancelledAfter && !(item.reopened && !(Date.parse(evidence.date) > Date.parse(item.reopened.at)))) {
+      return [workId, {...item, completed: {via: 'commit', at: evidence.date, commit: evidence.commit, pr: evidence.pr, branch: evidence.branch}}]
+    }
+    if (!tracker?.done) return [workId, item]
     // 완료를 거둔(reopen) 작업은 **거둔 뒤에** 트래커에서 다시 끝났을 때만 겹친다 — 하네스는 트래커를 다시 열지 않으므로
     // 되돌린 머지의 옛 Resolved가 거둔 완료를 되살린다. 끝난 시각을 모르면 겹치지 않는다.
     if (item.reopened && !(tracker.doneAt && Date.parse(tracker.doneAt) > Date.parse(item.reopened.at))) return [workId, item]
@@ -86,6 +94,29 @@ export function withTrackerCompletion(state, items, {completedResolutions = DEFA
     return [workId, {...item, trackerUnresolved: true}]
   }))
   return {...state, works}
+}
+
+const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** 제목이 티켓 키로 시작하는가(순수) — `[AOA-19] …`·`#AOA-19 …`·`AOA-19 …`. `AOA-1`은 `AOA-19`로 시작하는 제목에 맞지 않는다. */
+export const titleStartsWithKey = (subject, ticketKey) =>
+  new RegExp(`^(?:\\[${escapeRegex(ticketKey)}\\]|#?${escapeRegex(ticketKey)}(?![\\w-]))`).test(String(subject ?? '').trim())
+/**
+ * 머지 근거(순수) — 티켓에 연결된 커밋(Jira Git Integration) 중 **GitHub 스쿼시 머지 커밋**: 기대 base 브랜치에 있고,
+ * 제목이 티켓 키로 시작하고 `(#PR번호)`로 끝나며, 머지 커밋이 아닌 것(`[AOA-19] … (#17)`). base에 직접 푸시·체리픽한 커밋,
+ * 키를 본문에서 언급만 한 커밋, 다른 저장소의 커밋, 되돌림 커밋, 시각 없는 커밋은 세지 않는다. 머지 커밋 방식과 되돌림
+ * 판정은 실측 전이라 쓰지 않는다(protected-core §4).
+ * @returns {{commit: string, date: string, branch: string, pr: string|null}|null} 가장 최근 근거
+ */
+export function mergeEvidenceFromCommits(commits, {ticketKey, baseBranch, repoName = null}) {
+  if (!ticketKey || !baseBranch) return null
+  const hits = (Array.isArray(commits) ? commits : []).map(commit => ({commit, subject: String(commit?.message ?? '').split(/\r?\n/)[0].trim()}))
+    .filter(({commit, subject}) => !commit.mergeCommit && titleStartsWithKey(subject, ticketKey) && /\(#\d+\)$/.test(subject)
+      && !/^Revert "/.test(subject) && Number.isFinite(Date.parse(commit.date))
+      && (repoName === null || commit.repository?.name === repoName) && (commit.branches ?? []).includes(baseBranch))
+    .sort((a, b) => Date.parse(b.commit.date) - Date.parse(a.commit.date))
+  if (hits.length === 0) return null
+  const {commit, subject} = hits[0]
+  return {commit: commit.commitId ?? null, date: commit.date ?? null, branch: baseBranch, pr: subject.match(/\(#(\d+)\)\s*$/)?.[1] ?? null}
 }
 
 /** 설정에서 완료로 볼 해결 사유(순수) — provider 이름 아래 설정을 본다. */

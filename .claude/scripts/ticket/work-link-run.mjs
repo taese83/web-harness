@@ -11,6 +11,7 @@ import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from '
 import {layerPattern} from '../agent-registry.mjs'
 import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, planMergeSync, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
+import {titleStartsWithKey} from './work-provider.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 const readJson = (root, relative) => {
@@ -56,9 +57,11 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   // 기대 base: 운영자가 준 `--base`가 이긴다. 없으면 PR을 읽는다(쓰기 없음). 못 읽으면 판정이 막는다.
   let baseRef = typeof flags.base === 'string' ? flags.base : null
   let baseNote = baseRef ? 'operator' : null
+  let prTitle = null
   if (!baseRef && found.workId && typeof prUrl === 'string' && /^https?:\/\//.test(prUrl)) {
     const info = io.prInfo ? await io.prInfo(prUrl) : (await resolvePrStates([prUrl])).get(prUrl)
     baseRef = info?.baseRefName ?? null
+    prTitle = info?.title ?? null
     baseNote = baseRef ? 'pr' : `unreadable: ${info?.error ?? 'no base'}`
   }
   // 받지 않은 계획 개정이 원격 base에 있으면 로컬 계획으로 STALE를 재지 않는다 — 대체된 작업을 끝낼 수 있다.
@@ -78,6 +81,11 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
       staleCheck: decision.staleCheck, closeLine: workCloseLine(decision.provider, ticketKey)}
   }
   const closeLine = workCloseLine(decision.provider, decision.closes)
+  // 트래커가 머지를 티켓에 잇는 근거는 **커밋 제목의 티켓 키**다(스쿼시 머지면 PR 제목이 곧 커밋 제목). GitHub 이슈는 닫는 줄이 잇는다.
+  const prTitleCheck = !decision.provider || decision.provider === 'github' ? null
+    : prTitle === null ? {checked: false}
+      : titleStartsWithKey(prTitle, decision.closes ?? ticketKey) ? {checked: true, ok: true}
+        : {checked: true, ok: false, guidance: `PR 제목을 티켓 키로 시작하세요(예: [${decision.closes ?? ticketKey}] …). 스쿼시 머지 커밋이 티켓에 연결되는 근거입니다.`}
   const ticketAcceptance = decision.ticketAcceptance ? {ticketAcceptance: decision.ticketAcceptance} : {}
   // 형상 규율: 하네스 산출물(`_workspace/`)과 코드는 따로 커밋한다 — 섞였으면 알린다(막지 않는다).
   const logText = baseRef ? (io.commitLog ? await io.commitLog(baseRef) : readCommitLog(root, baseRef)) : null
@@ -97,10 +105,10 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const scopeDrift = outside === null ? {checked: false, reason: driftReason, guidance: `작업 범위 밖 파일을 점검하지 못했습니다: ${driftReason}.`}
     : outside.length > 0 ? {checked: true, outside, guidance: `작업 범위 밖 파일을 고쳤습니다(${outside.join(', ')}). 다른 작업과 충돌할 수 있으니 PR에 적어 두세요.`}
       : {checked: true, outside}
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...ticketAcceptance}
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, event: decision.event, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, ...(prTitleCheck ? {prTitle: prTitleCheck} : {}), ...ticketAcceptance}
   appendWorkEvent(eventsPath, decision.event)
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
-  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, freshness, ...ticketAcceptance,
+  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, freshness, ...(prTitleCheck ? {prTitle: prTitleCheck} : {}), ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
 }
 
@@ -118,8 +126,8 @@ export async function runWorkReopen({root, ticketKey, flags = {}}) {
   const reason = typeof flags.reason === 'string' ? flags.reason.trim() : ''
   if (!reason) return {ok: false, mode: 'work', blocked: 'reason-required', guidance: '`--reason "<왜 되돌렸는지>"`를 붙여 다시 실행하세요.'}
   const item = found.registered
+  // 원장에 PR이 없어도 거둔다 — 머지된 커밋·트래커로 끝난 작업은 원장에 링크가 없다. 거둔 뒤에는 거둔 시각 이후의 근거만 센다.
   const prUrl = item.completed?.prUrl ?? item.link?.prUrl ?? null
-  if (!prUrl) return {ok: false, mode: 'work', blocked: 'not-completed', guidance: '끝나거나 PR이 연결된 작업이 아니라 되돌릴 것이 없습니다.'}
   const planId = item.origin === 'ticket' ? item.planId : readJson(root, WORK_PLAN_PATH)?.planId
   if (!planId) return {ok: false, mode: 'work', blocked: 'plan-required', guidance: 'WORK 계획이 없어 기록할 수 없습니다.'}
   // 이 작업을 선행으로 둔 작업 — 이미 끝난 것은 되돌린 코드 위에서 끝났을 수 있다. 사람이 확인한다.
@@ -147,7 +155,7 @@ export async function resolvePrStates(prUrls, {exec = null} = {}) {
       const host = new URL(url).host
       const out = exec ? await exec(prStateArgs(url), {host}) : await runGh(prStateArgs(url), {host})
       const parsed = JSON.parse(typeof out === 'string' ? out : out?.out ?? '')
-      states.set(url, {state: parsed?.state ?? null, baseRefName: parsed?.baseRefName ?? null})
+      states.set(url, {state: parsed?.state ?? null, baseRefName: parsed?.baseRefName ?? null, title: parsed?.title ?? null})
     } catch (error) {
       states.set(url, {error: String(error?.message ?? error).slice(0, 160)})
     }

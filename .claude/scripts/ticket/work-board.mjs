@@ -6,6 +6,27 @@
 //
 // 선행이 끝났다는 것은 머지 관측(원장 `work-completed`) 또는 트래커의 끝남이다(계약 「완료」 절) — 링크는 완료의 주장이라 세지 않는다.
 const list = value => (Array.isArray(value) ? value : [])
+/** 완료의 근거 — merge(원장의 머지 관측) · commit(기대 base의 티켓 키 커밋) · tracker(트래커의 끝남). */
+const viaOf = completed => (completed ? (['tracker', 'commit'].includes(completed.via) ? completed.via : 'merge') : null)
+
+/**
+ * 머지 근거를 읽는다(Jira Git Integration). 애드온이 없거나 저장소 문맥을 모르면 근거 없이 간다 — 막지 않고 알린다.
+ * @returns {Promise<{evidence: Map, checked: boolean, note?: string}>}
+ */
+export async function readMergeEvidence({provider, root, base, keys, io = {}}) {
+  if (typeof provider?.listMergeEvidence !== 'function' || keys.length === 0) return {evidence: new Map(), checked: false}
+  const {resolveRepoContext} = await import('./git-origin.mjs')
+  const context = await (io.repoContext ?? resolveRepoContext)({repoRoot: root, base})
+  if (!context) return {evidence: new Map(), checked: false, note: '저장소의 기본 브랜치를 알 수 없어 머지된 커밋을 확인하지 않았습니다.'}
+  try {
+    const result = await provider.listMergeEvidence({keys, ...context})
+    if (!result.available) return {evidence: new Map(), checked: false}
+    return {evidence: result.evidence, checked: true,
+      ...(result.errors?.length ? {note: `티켓 ${result.errors.length}건은 머지된 커밋을 확인하지 못했습니다.`} : {})}
+  } catch (error) {
+    return {evidence: new Map(), checked: false, note: `머지된 커밋을 확인하지 못했습니다: ${String(error?.message ?? error).slice(0, 120)}.`}
+  }
+}
 
 /**
  * @param {{plan: object, view: object, state: object, issuesByWork?: Map<string, object>|null,
@@ -61,7 +82,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
       blockedReason,
       incompleteDeps,
       linked: registered?.link?.prUrl ?? null,
-      completed: Boolean(registered?.completed), completedVia: registered?.completed ? (registered.completed.via === 'tracker' ? 'tracker' : 'merge') : null,
+      completed: Boolean(registered?.completed), completedVia: viaOf(registered?.completed),
       unlocks: row.unlocks ?? 0,
     }
   })
@@ -142,7 +163,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
                   : '다시 판정해 착수할 수 있는지 확인합니다.'
     rows.push({ticketKey: item.ticketKey, workId, title: item.definition?.title ?? null, stage: 'registered', lane: item.definition?.lane ?? null,
       roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed),
-      completedVia: item.completed ? (item.completed.via === 'tracker' ? 'tracker' : 'merge') : null, assignees,
+      completedVia: viaOf(item.completed), assignees,
       // 계획 작업 행과 같은 축이다 — `assignment-unknown`은 재지 못한 표시이지 집을 수 있다는 뜻이 아니다.
       pickupable: blockedReason === null, blockedReason, next, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
   }
@@ -224,7 +245,9 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
       lookupComplete = listed.complete === true
       // 트래커에서 끝난 작업(완료·취소)을 겹친다 — 원장만 보면 Jira에서 끝낸 선행을 계속 기다린다.
       const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
-      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name)})
+      const merged = await readMergeEvidence({provider, root, base: plan?.baseBranch ?? null, keys, io})
+      if (merged.note) trackerNotes.push(merged.note)
+      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name), mergeEvidence: merged.evidence})
       issuesByWork = new Map()
       const byKey = new Map(items.map(item => [String(item.ticketKey), item]))
       for (const [workId, item] of state.works.entries()) {

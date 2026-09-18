@@ -39,7 +39,7 @@ export const labelEditArgs = (repo, number, {add = [], remove = []}) => ['issue'
 export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', repo]
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
-export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state,baseRefName']
+export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state,baseRefName,title']
 
 // 범용 gh 러너(실행부 경계 재노출) — executor CLI가 assign/comment 등 argv를 실제 스폰할 때
 // 쓴다. side-effect이므로 caller(cli)의 --confirm 게이트 뒤에서만 호출된다.

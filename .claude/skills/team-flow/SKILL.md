@@ -189,7 +189,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
-| `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`가 있으면 그 한 줄도 옮긴다. `--reopen`은 `guidance` 그대로 |
+| `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`·`prTitle.guidance`가 있으면 그 한 줄도 옮긴다. `--reopen`은 `guidance` 그대로 |
 | `*_INVALID` 오류 | `errors`를 목록으로 옮긴다. 해설·우회 제안을 붙이지 않는다 |
 
 ## 비협상

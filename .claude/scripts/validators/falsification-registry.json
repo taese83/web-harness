@@ -3061,8 +3061,8 @@
     {
       "id": "reopen-fold-order-independent",
       "file": ".claude/scripts/ticket/work-events.mjs",
-      "find": "    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl === event.payload?.prUrl) {",
-      "replace": "    } else if (false) {",
+      "find": "&& state.reopened?.prUrl && state.reopened.prUrl === event.payload?.prUrl) {",
+      "replace": "&& false) {",
       "test": ".claude/scripts/test-work-events.mjs",
       "why": "회수 뒤에 병합된 옛 PR 완료 줄이 완료로 접히면 되돌린 작업이 다시 끝난 것으로 보인다"
     },
@@ -3117,7 +3117,7 @@
     {
       "id": "board-reads-tracker-done",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name)})",
+      "find": "      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name), mergeEvidence: merged.evidence})",
       "replace": "      void withTrackerCompletion",
       "test": ".claude/scripts/test-work-board.mjs",
       "why": "트래커에서 끝낸 선행을 보드가 모르면 사슬이 계속 막혀 있다"
@@ -3161,6 +3161,78 @@
       "replace": "read: {checked: true, reason, guidance: `트래커에서",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "트래커를 못 읽고 원장만 본 픽업이 조용하면 취소된 티켓을 집어도 기록이 없다"
+    },
+    {
+      "id": "evidence-base-branch-only",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "      && (repoName === null || commit.repository?.name === repoName) && (commit.branches ?? []).includes(baseBranch))",
+      "replace": "      && (repoName === null || commit.repository?.name === repoName))",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "머지 전 feature 브랜치 커밋을 근거로 세면 끝나지 않은 선행이 사슬을 연다"
+    },
+    {
+      "id": "evidence-title-key-only",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "!commit.mergeCommit && titleStartsWithKey(subject, ticketKey) && /\\(#\\d+\\)$/.test(subject)",
+      "replace": "!commit.mergeCommit && /\\(#\\d+\\)$/.test(subject)",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "키를 본문에서 언급만 한 다른 작업의 커밋이 이 티켓의 완료가 된다"
+    },
+    {
+      "id": "evidence-no-merge-commit",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "(({commit, subject}) => !commit.mergeCommit && titleStartsWithKey",
+      "replace": "(({commit, subject}) => titleStartsWithKey",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "머지 커밋 방식의 브랜치 표시는 실측 전이다 — 근거로 쓰면 확인하지 않은 규칙으로 완료를 판정한다"
+    },
+    {
+      "id": "board-reads-merge-evidence",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "mergeEvidence: merged.evidence})",
+      "replace": "mergeEvidence: new Map()})",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "머지된 커밋을 보드가 모르면 QA 대기 중인 선행 때문에 사슬이 막힌다"
+    },
+    {
+      "id": "evidence-respects-reopen",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (evidence && !cancelledAfter && !(item.reopened && !(Date.parse(evidence.date) > Date.parse(item.reopened.at)))) {",
+      "replace": "    if (evidence && !cancelledAfter) {",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "되돌리기 전의 머지 커밋이 거둔 완료를 되살린다"
+    },
+    {
+      "id": "link-pr-title-key",
+      "file": ".claude/scripts/ticket/work-link-run.mjs",
+      "find": "      : titleStartsWithKey(prTitle, decision.closes ?? ticketKey) ? {checked: true, ok: true}",
+      "replace": "      : true ? {checked: true, ok: true}",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "PR 제목에 키가 없으면 스쿼시 커밋이 티켓에 안 붙어 머지가 완료로 읽히지 않는다"
+    },
+    {
+      "id": "evidence-squash-suffix",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": " && titleStartsWithKey(subject, ticketKey) && /\\(#\\d+\\)$/.test(subject)",
+      "replace": " && titleStartsWithKey(subject, ticketKey)",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "스쿼시 머지가 아닌 base 직접 푸시(작업 첫 커밋)를 세면 끝나지 않은 선행이 사슬을 연다"
+    },
+    {
+      "id": "evidence-after-cancel-only",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    const cancelledAfter = tracker?.done === 'cancelled' && !(tracker.doneAt && Date.parse(evidence?.date) > Date.parse(tracker.doneAt))",
+      "replace": "    const cancelledAfter = false",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "취소 전에 머지된 커밋이 사람이 내린 취소를 조용히 덮는다"
+    },
+    {
+      "id": "reopen-allows-no-pr",
+      "file": ".claude/scripts/ticket/work-events.mjs",
+      "find": "    if (event.payload?.prUrl !== null && (typeof event.payload?.prUrl",
+      "replace": "    if ((typeof event.payload?.prUrl",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "원장에 PR이 없는 커밋·트래커 완료를 되돌림으로 거둘 수 없다"
     }
   ]
 }

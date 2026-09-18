@@ -53,6 +53,8 @@ test('완료를 거두면 연결·완료가 함께 사라지고 등록은 남는
   assert.equal(item.completed, undefined, '거둔 완료가 남았다')
   assert.equal(item.reopened.reason, '머지를 되돌림')
   assert.ok(validateWorkEvent(event({workId: WORK, eventType: 'work-reopened', payload: {ticketKey: 'PF-1', prUrl: pr}})).length > 0, '이유 없는 되돌림을 받았다')
+  // 머지된 커밋·트래커로 끝난 작업은 원장에 PR이 없다 — 그래도 거둘 수 있다
+  assert.deepEqual(validateWorkEvent(event({workId: WORK, eventType: 'work-reopened', planDigest: undefined, payload: {ticketKey: 'PF-1', prUrl: null, reason: '되돌림'}})), [])
   // union 병합에서 다른 클론의 같은 PR 완료 줄이 회수 뒤에 와도 완료로 접지 않는다(순서 독립)
   const reversed = foldWorkState(parseWorkEvents([lines[0], lines[2], lines[1]].map(line).join('')))
   assert.equal(reversed.works.get(WORK).completed, undefined, '회수 뒤에 온 옛 PR 완료 줄이 완료로 접혔다')

@@ -1,6 +1,11 @@
 // jira-memory-stub.mjs — 메모리 Jira(REST v2의 쓰는 부분만). e2e 테스트들이 실제 `createJiraProvider`를 붙여 쓴다.
 // 모르는 요청은 던진다 — 조용히 200을 주면 회귀가 거짓 green이 된다. 테스트 전용이며 런타임 코드가 부르지 않는다.
-export function createJiraStub() {
+/**
+ * @param {{gitIntegration?: boolean}} [options] gitIntegration: Jira Git Integration 애드온이 있는 인스턴스처럼 티켓 키 커밋을 돌려준다.
+ *   없으면 그 경로는 404다(애드온 없는 인스턴스).
+ */
+export function createJiraStub({gitIntegration = false} = {}) {
+  const commits = new Map()
   const issues = new Map()
   const writes = []
   let clock = 0
@@ -23,6 +28,11 @@ export function createJiraStub() {
     const data = body && !multipart ? JSON.parse(body) : null
     if (method !== 'GET') writes.push({method, path, body: data})
     let match
+    if ((match = path.match(/^\/rest\/gitplugin\/1\.0\/issues\/([^/]+)\/commits$/))) {
+      if (!gitIntegration) return respond(404, {message: 'HTTP 404 Not Found'})
+      const list = commits.get(decodeURIComponent(match[1])) ?? []
+      return respond(200, {success: true, total: list.length, count: list.length, commits: structuredClone(list)})
+    }
     if (method === 'GET' && path === '/search') {
       const jql = parsed.searchParams.get('jql')
       const wanted = parsed.searchParams.get('fields')
@@ -114,5 +124,7 @@ export function createJiraStub() {
     issues.set(key, issue)
     return key
   }
-  return {issues, writes, humanComment, humanTicket, fetchImpl}
+  /** 애드온이 색인한 커밋처럼 — 메시지에 키가 든 커밋을 그 티켓에 붙인다. */
+  const indexCommit = (key, commit) => { commits.set(key, [...(commits.get(key) ?? []), {mergeCommit: false, notes: {}, ...commit}]) }
+  return {issues, writes, humanComment, humanTicket, indexCommit, fetchImpl}
 }

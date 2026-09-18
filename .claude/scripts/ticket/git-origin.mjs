@@ -124,3 +124,21 @@ export async function planRevisionsOnRemote({repoRoot, base = null, planPath = '
   }
   return {checked: false, ref: null, reason: '원격 기준 브랜치를 찾지 못했습니다'}
 }
+
+/**
+ * 머지 근거를 대조할 저장소 문맥 — origin의 저장소 이름과 기대 base 브랜치. base는 주어진 것(PR base·계획의 baseBranch)이
+ * 원격에 있으면 그것, 없으면 원격 HEAD가 가리키는 기본 브랜치다. git이 아니거나 원격이 없으면 `null`.
+ */
+export async function resolveRepoContext({repoRoot, base = null, remote = 'origin', exec = null}) {
+  const run = exec ?? (args => git(args, {cwd: repoRoot}))
+  try {
+    const url = (await run(['remote', 'get-url', remote])).out.trim()
+    const repoName = url.replace(/\/+$/, '').split(/[/:]/).pop().replace(/\.git$/, '')
+    let baseBranch = null
+    if (base) {
+      try { await run(['rev-parse', '--verify', '--quiet', `${remote}/${base}^{commit}`]); baseBranch = base } catch { /* 원격에 없다 — 기본 브랜치로 */ }
+    }
+    if (!baseBranch) baseBranch = (await run(['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`])).out.trim().replace(`${remote}/`, '') || null
+    return repoName && baseBranch ? {repoName, baseBranch} : null
+  } catch { return null }
+}

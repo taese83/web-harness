@@ -101,7 +101,8 @@ export function validateWorkEvent(event) {
   if (event.eventType === 'work-reopened') {
     if (!WORK_ID.test(String(event.workId ?? ''))) errors.push('work-reopened에는 workId가 필요하다')
     if (typeof event.payload?.reason !== 'string' || !event.payload.reason.trim()) errors.push('work-reopened에는 payload.reason이 필요하다 — 왜 완료를 거두는지')
-    if (typeof event.payload?.prUrl !== 'string' || !event.payload.prUrl) errors.push('work-reopened에는 payload.prUrl(거둔 완료의 PR)이 필요하다')
+    // 머지된 커밋·트래커로 끝난 작업은 원장에 PR이 없다 — 그때는 null이다(있으면 문자열).
+    if (event.payload?.prUrl !== null && (typeof event.payload?.prUrl !== 'string' || !event.payload.prUrl)) errors.push('work-reopened의 payload.prUrl은 거둔 완료의 PR이거나 null이다')
   }
   // 계획에서 빠진(대체·취소) 작업의 티켓에 그 사실을 알렸다 — 한 번만 알리기 위한 기록이다.
   if (event.eventType === 'work-retired') {
@@ -251,7 +252,7 @@ export function foldWorkState(events) {
       // 외부 결과를 모른다 — **부재로 읽지 않는다.** 재개가 조회로 확인할 자리다.
       works.set(event.workId, {...state, status: 'unknown', operationId: event.operationId,
         planDigest: event.planDigest, reason: event.payload?.reason ?? null})
-    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl === event.payload?.prUrl) {
+    } else if ((event.eventType === 'work-linked' || event.eventType === 'work-completed') && state.reopened?.prUrl && state.reopened.prUrl === event.payload?.prUrl) {
       // 되돌린 PR은 다시 머지될 수 없다 — 그 PR의 연결·완료 줄은 union 병합 순서와 무관하게 무시한다.
     } else if (event.eventType === 'work-linked') {
       // 완료 **주장**이다 — 머지를 본 것이 아니다. 선행 조건은 이것이 아니라 `completed`를 본다.

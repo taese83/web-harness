@@ -239,5 +239,49 @@ test('트래커 끝남 겹치기: 원장 완료가 앞서고, 거둔 완료는 �
   assert.equal(state.works.get('W-redone').completed.via, 'tracker')
   assert.equal(state.works.get('W-unresolved').completed, undefined)
   assert.equal(state.works.get('W-unresolved').trackerUnresolved, true)
+  // 머지 근거도 거둔 뒤의 것만 센다 — 되돌리기 전 커밋이 거둔 완료를 되살리지 않는다
+  const evidence = date => new Map([['K2', {commit: 'c', date, branch: 'main', pr: null}]])
+  assert.equal(withTrackerCompletion({works}, [], {mergeEvidence: evidence('2026-09-18T09:30:00Z')}).works.get('W-reopened').completed, undefined)
+  assert.equal(withTrackerCompletion({works}, [], {mergeEvidence: evidence('2026-09-18T12:00:00Z')}).works.get('W-reopened').completed.via, 'commit')
+  // 트래커 취소보다 뒤의 커밋만 취소를 이긴다
+  const open = new Map([['W-open', {ticketKey: 'K9', status: 'published'}]])
+  const cancelled = [{ticketKey: 'K9', statusCategory: 'done', resolution: "Won't Do", doneAt: '2026-09-18T10:00:00Z'}]
+  const at = date => new Map([['K9', {commit: 'c', date, branch: 'main', pr: '1'}]])
+  assert.equal(withTrackerCompletion({works: open}, cancelled, {mergeEvidence: at('2026-09-18T09:00:00Z')}).works.get('W-open').trackerCancelled, true, '취소 전 커밋이 취소를 덮었다')
+  assert.equal(withTrackerCompletion({works: open}, cancelled, {mergeEvidence: at('2026-09-18T11:00:00Z')}).works.get('W-open').completed.via, 'commit')
+})
+
+test('머지 근거: 기대 base에 있는, 제목이 티켓 키로 시작하는 커밋만 센다(사내 Git Integration 응답 모양)', async () => {
+  const {mergeEvidenceFromCommits} = await import('./ticket/work-provider.mjs')
+  const squash = {commitId: 'db68714', date: '2026-09-17T13:10:13+0900', mergeCommit: false, branches: ['develop'], repository: {id: 33834, name: 'aoa-web'},
+    message: '[AOA-19] feat: Tenth2 값을 인스턴스 단위로 가른다 (#17)\n\n* [AOA-19] feat: …'}
+  const ctx = {ticketKey: 'AOA-19', baseBranch: 'develop', repoName: 'aoa-web'}
+  assert.deepEqual(mergeEvidenceFromCommits([squash], ctx), {commit: 'db68714', date: '2026-09-17T13:10:13+0900', branch: 'develop', pr: '17'})
+  assert.equal(mergeEvidenceFromCommits([{...squash, branches: ['feature/AOA-19']}], ctx), null, '머지 전 브랜치 커밋을 근거로 셌다')
+  assert.equal(mergeEvidenceFromCommits([{...squash, repository: {name: 'other-service'}}], ctx), null, '다른 저장소의 커밋을 셌다')
+  assert.equal(mergeEvidenceFromCommits([{...squash, message: 'fix: 목록 정렬 — AOA-19 참고'}], ctx), null, '키를 언급만 한 커밋을 셌다')
+  assert.equal(mergeEvidenceFromCommits([{...squash, message: 'Revert "[AOA-19] feat: …"'}], ctx), null)
+  assert.equal(mergeEvidenceFromCommits([{...squash, mergeCommit: true}], ctx), null, '머지 커밋 방식은 실측 전이라 세지 않는다')
+  assert.equal(mergeEvidenceFromCommits([{...squash, message: '[AOA-1] 다른 티켓 (#2)'}], {...ctx, ticketKey: 'AOA-1'}) !== null, true)
+  assert.equal(mergeEvidenceFromCommits([squash], {...ctx, ticketKey: 'AOA-1'}), null, 'AOA-1이 AOA-19 커밋을 가져갔다')
+  assert.notEqual(mergeEvidenceFromCommits([{...squash, message: '#AOA-19 스레드 API (#5)'}], ctx), null)
+  assert.equal(mergeEvidenceFromCommits([{...squash, message: 'AOA-19 part 1'}], ctx), null, 'base에 직접 푸시한 커밋(스쿼시 머지가 아님)을 셌다')
+  assert.equal(mergeEvidenceFromCommits([{...squash, date: undefined}], ctx), null, '시각 없는 커밋을 근거로 셌다')
+  assert.equal(mergeEvidenceFromCommits([squash], {...ctx, baseBranch: null}), null, 'base를 모르는데 근거로 셌다')
+})
+
+test('Jira 머지 근거: Git Integration이 없으면 없다고 말하고, 있으면 기대 base의 커밋만 돌려준다', async () => {
+  const {createJiraStub} = await import('./ticket/jira-memory-stub.mjs')
+  const config = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name'}
+  const without = createJiraProvider({config, fetchImpl: createJiraStub().fetchImpl, env: {JIRA_TOKEN: 't'}})
+  assert.equal((await without.listMergeEvidence({keys: ['PF-1'], baseBranch: 'main', repoName: 'web'})).available, false)
+  const jira = createJiraStub({gitIntegration: true})
+  jira.indexCommit('PF-1', {commitId: 'a1', date: '2026-09-18T10:00:00+0900', branches: ['main'], repository: {name: 'web'}, message: '[PF-1] 목록 (#3)'})
+  jira.indexCommit('PF-2', {commitId: 'b2', date: '2026-09-18T10:00:00+0900', branches: ['feature/PF-2'], repository: {name: 'web'}, message: '[PF-2] 검색'})
+  const provider = createJiraProvider({config, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+  const result = await provider.listMergeEvidence({keys: ['PF-1', 'PF-2'], baseBranch: 'main', repoName: 'web'})
+  assert.equal(result.available, true)
+  assert.deepEqual([...result.evidence.keys()], ['PF-1'])
+  assert.equal(result.evidence.get('PF-1').pr, '3')
 })
 

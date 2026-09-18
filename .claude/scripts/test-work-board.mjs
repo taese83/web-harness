@@ -185,6 +185,19 @@ test('실행부: 트래커에서 끝난 선행은 원장에 완료가 없어도 
     const wontFix = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done("Won't Fix"), 'PF-103': done('Done'), 'PF-104': {statusCategory: 'new'}}), ticketConfig}})
     assert.equal(wontFix.rows.find(row => row.workId === W(1)).blockedReason, 'cancelled-in-tracker')
     assert.equal(wontFix.rows.find(row => row.workId === W(4)).blockedReason, 'dependency-incomplete', '취소된 선행을 완료로 읽었다')
+    // 기대 base에 머지된 커밋이 있으면 티켓이 아직 열려 있어도(QA 대기) 선행은 끝났다
+    const withEvidence = {...listed({'PF-101': {statusCategory: 'indeterminate'}, 'PF-103': done('Done'), 'PF-104': {statusCategory: 'new'}}),
+      async listMergeEvidence({keys, baseBranch}) {
+        assert.equal(baseBranch, 'develop')
+        return {available: true, evidence: new Map(keys.filter(key => key === 'PF-101').map(key => [key, {commit: 'c1', date: '2026-09-18T10:00:00Z', branch: 'develop', pr: '7'}])), errors: []}
+      }}
+    const byCommit = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: withEvidence, ticketConfig, repoContext: async () => ({repoName: 'web', baseBranch: 'develop'})}})
+    assert.equal(byCommit.rows.find(row => row.workId === W(1)).completedVia, 'commit')
+    assert.deepEqual(byCommit.ready, [W(4)], '머지된 커밋이 있는 선행을 기다렸다')
+    // 저장소 문맥을 모르면 근거 없이 가고 그렇게 적는다
+    const blind = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: withEvidence, ticketConfig, repoContext: async () => null}})
+    assert.equal(blind.rows.find(row => row.workId === W(1)).completed, false)
+    assert.ok(blind.notes.some(note => /기본 브랜치를 알 수 없어/.test(note)), JSON.stringify(blind.notes))
     // 팀이 완료로 볼 해결 사유를 바꾸면 그것을 따른다
     const custom = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done('Resolved OK'), 'PF-103': done('Resolved OK'), 'PF-104': {statusCategory: 'new'}}),
       ticketConfig: {provider: 'jira', jira: {completedResolutions: ['Resolved OK']}}}})

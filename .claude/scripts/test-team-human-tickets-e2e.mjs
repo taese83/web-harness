@@ -63,9 +63,22 @@ test('사람 티켓만 쓰는 팀: 동시 확정은 한 사람만, 다른 클론
     const judged = assessment(empty, {acceptance: '빈 목록이면 안내 문구'})
     assert.deepEqual((await Promise.all([pickup('A', empty), pickup('B', empty)])).map(pickupOutcome), ['assessing', 'assessing'])
     for (const name of ['A', 'B']) writeFileSync(join(devs[name], assessmentPath(empty)), JSON.stringify(judged))
-    const race = await Promise.all(['A', 'B'].map(name => pickup(name, empty, {assessment: assessmentDigest(judged)})))
-    assert.deepEqual(race.map(pickupOutcome).sort(), ['started', 'stopped'])
-    const lost = race.find(result => pickupOutcome(result) === 'stopped')
+    // 순서를 명시한다: B는 A가 티켓 본문을 완성한 뒤, A가 배정하기 전에 티켓을 읽는다(실제로 일어나는 창).
+    const plain = providerFor()
+    let firstRead = true
+    const lateReader = {...plain, async resolveIssue(key) {
+      if (firstRead) {
+        firstRead = false
+        while (!/web-harness:work|WORK-/.test(jira.issues.get(key).fields.description ?? '') && !Object.keys(jira.issues.get(key).properties ?? {}).length) await new Promise(resolve => setTimeout(resolve, 5))
+        return {...(await plain.resolveIssue(key)), assignees: []}
+      }
+      return plain.resolveIssue(key)
+    }}
+    const race = await Promise.all([
+      pickup('A', empty, {assessment: assessmentDigest(judged)}),
+      runWorkPickup({root: devs.B, ticketKey: empty, developer: 'B', flags: {assessment: assessmentDigest(judged)}, io: {provider: lateReader, ticketConfig}})])
+    assert.deepEqual(race.map(pickupOutcome), ['started', 'stopped'])
+    const lost = race[1]
     assert.equal(lost.bounce?.reason, 'ticket-registered-elsewhere', `진 쪽이 엉뚱한 이유로 멈췄다: ${JSON.stringify(lost.bounce)}`)
 
     // (2) C는 그 등록을 원장에 갖고 있지 않다 — 같은 파일을 쓰는 다른 티켓은 트래커의 수정 범위로 막힌다
