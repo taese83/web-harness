@@ -204,3 +204,40 @@ test('발행 전 판정은 WORK 전용 빌더가 있는지도 본다', () => {
   assert.deepEqual(workProviderReadiness(withoutBuilder, {workLink: {mode: 'issue-link', linkType: 'Relates'}}).missing,
     ['provider.buildWorkFields'])
 })
+
+test('트래커의 끝남: Jira는 해결 사유로, GitHub은 닫힌 이유로 완료와 취소를 가른다', async () => {
+  const {classifyTrackerDone} = await import('./ticket/work-provider.mjs')
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: 'Fixed'}), 'completed')
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: 'Done'}), 'completed')
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: "Won't Fix"}), 'cancelled', 'Won\'t Fix를 완료로 읽었다')
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: 'Duplicate'}), 'cancelled')
+  assert.equal(classifyTrackerDone({statusCategory: 'indeterminate', resolution: null}), null)
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: 'Shipped'}, {completedResolutions: ['Shipped']}), 'completed')
+  assert.equal(classifyTrackerDone({state: 'CLOSED', stateReason: 'COMPLETED'}), 'completed')
+  assert.equal(classifyTrackerDone({state: 'CLOSED', stateReason: 'NOT_PLANNED'}), 'cancelled')
+  assert.equal(classifyTrackerDone({state: 'CLOSED', stateReason: 'DUPLICATE'}), 'cancelled')
+  assert.equal(classifyTrackerDone({state: 'CLOSED', stateReason: ''}), 'completed', '닫힌 이유가 없는 옛 이슈는 GitHub 기본값(완료)이다')
+  assert.equal(classifyTrackerDone({state: 'OPEN'}), null)
+  assert.equal(classifyTrackerDone({statusCategory: 'done', resolution: null}), 'unresolved', '해결 사유 없는 끝남을 취소로 읽었다')
+})
+
+test('트래커 끝남 겹치기: 원장 완료가 앞서고, 거둔 완료는 거둔 뒤에 다시 끝났을 때만 되살아난다', async () => {
+  const {withTrackerCompletion} = await import('./ticket/work-provider.mjs')
+  const works = new Map([
+    ['W-merged', {ticketKey: 'K1', status: 'published', completed: {prUrl: 'pr/1'}}],
+    ['W-reopened', {ticketKey: 'K2', status: 'published', reopened: {at: '2026-09-18T10:00:00Z', prUrl: 'pr/2', reason: 'r'}}],
+    ['W-redone', {ticketKey: 'K3', status: 'published', reopened: {at: '2026-09-18T10:00:00Z', prUrl: 'pr/3', reason: 'r'}}],
+    ['W-unresolved', {ticketKey: 'K4', status: 'published'}],
+  ])
+  const done = (resolution, doneAt = '2026-09-18T09:00:00Z') => ({statusCategory: 'done', resolution, doneAt})
+  const state = withTrackerCompletion({works}, [
+    {ticketKey: 'K1', ...done("Won't Fix")}, {ticketKey: 'K2', ...done('Fixed')},
+    {ticketKey: 'K3', ...done('Fixed', '2026-09-18T11:00:00Z')}, {ticketKey: 'K4', statusCategory: 'done', resolution: null}])
+  assert.equal(state.works.get('W-merged').completed.prUrl, 'pr/1', '원장 완료를 트래커 취소가 덮었다')
+  assert.equal(state.works.get('W-merged').trackerCancelled, undefined)
+  assert.equal(state.works.get('W-reopened').completed, undefined, '되돌린 머지의 옛 Resolved가 거둔 완료를 되살렸다')
+  assert.equal(state.works.get('W-redone').completed.via, 'tracker')
+  assert.equal(state.works.get('W-unresolved').completed, undefined)
+  assert.equal(state.works.get('W-unresolved').trackerUnresolved, true)
+})
+

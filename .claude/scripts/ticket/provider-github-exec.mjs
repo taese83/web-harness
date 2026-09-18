@@ -29,7 +29,7 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   })
 }
 
-export const workViewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,labels,state,body,assignees']
+export const workViewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,labels,state,stateReason,closedAt,body,assignees']
 // gh가 「그 번호의 이슈가 없다」고 답한 경우만 부재다 — 권한·네트워크 실패를 부재로 접지 않는다.
 const isIssueNotFound = error => /Could not resolve to an? (issue|Issue)/.test(String(error?.message ?? error))
 export const viewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,body,labels,assignees,comments,updatedAt']

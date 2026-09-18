@@ -4,7 +4,7 @@
 // 그대로 집히던 시기가 있었다(2026-08-30) — 표시와 게이트가 갈라지면 표시는 장식이 된다.
 // 그래서 `pickupable`은 픽업이 실제로 막는 것(등록·미해결 결정·선행 등록·소유)과 같은 축이다.
 //
-// 선행은 **머지로 끝났을 때만** 끝난 것이다(원장 `work-completed`) — 링크는 완료의 주장이라 세지 않는다.
+// 선행이 끝났다는 것은 머지 관측(원장 `work-completed`) 또는 트래커의 끝남이다(계약 「완료」 절) — 링크는 완료의 주장이라 세지 않는다.
 const list = value => (Array.isArray(value) ? value : [])
 
 /**
@@ -42,6 +42,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
         : planDigest && publishedWith !== planDigest ? 'stale-plan' : null
     const blockedReason = registration !== 'published' ? `not-registered:${registration}`
       : registered?.completed ? 'completed'
+      : registered?.trackerCancelled ? 'cancelled-in-tracker'
       : staleness ? staleness
         : row.status === 'blocked-decision' ? 'decision-unresolved'
           : incompleteDeps.length > 0 ? 'dependency-incomplete'
@@ -60,7 +61,7 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
       blockedReason,
       incompleteDeps,
       linked: registered?.link?.prUrl ?? null,
-      completed: Boolean(registered?.completed),
+      completed: Boolean(registered?.completed), completedVia: registered?.completed ? (registered.completed.via === 'tracker' ? 'tracker' : 'merge') : null,
       unlocks: row.unlocks ?? 0,
     }
   })
@@ -69,10 +70,12 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
   } else if (!lookupComplete) {
     notes.push('트래커 목록을 끝까지 읽지 못했습니다. 못 읽은 작업의 담당자는 비어 있게 나오지만 담당자가 없다는 뜻은 아닙니다.')
   }
-  const linkedNotMerged = rows.filter(row => row.linked && !row.completed).length
+  const linkedNotMerged = rows.filter(row => row.linked && (!row.completed || row.completedVia === 'tracker')).length
   if (linkedNotMerged > 0) {
-    notes.push(`PR은 연결됐지만 아직 머지를 확인하지 못한 작업이 ${linkedNotMerged}건 있습니다. \`link --sync\`로 머지를 확인해야 다음 작업이 열립니다.`)
+    notes.push(`PR은 연결됐지만 아직 머지를 확인하지 못한 작업이 ${linkedNotMerged}건 있습니다. \`link --sync\`로 머지를 확인하세요.`)
   }
+  const unresolved = rows.filter(row => registrationOf(row.workId)?.trackerUnresolved).length
+  if (unresolved > 0) notes.push(`트래커에서 끝났지만 해결 사유가 없는 작업 ${unresolved}건은 완료로 세지 않았습니다.`)
   const stale = rows.filter(row => row.blockedReason === 'stale-plan').map(row => row.workId)
   if (stale.length > 0) {
     notes.push(`티켓을 만든 뒤 계획이 바뀐 작업이 ${stale.length}건 있습니다. 바뀐 계획을 검토하고 다시 발행해야 집을 수 있습니다.`)
@@ -120,6 +123,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     const shared = Boolean(assignees && assignees.length > 1 && assignees.includes(developer))
     const incompleteDeps = list(item.definition?.dependsOn).filter(dep => !state.works.get(dep)?.completed)
     const blockedReason = item.completed ? 'completed'
+      : item.trackerCancelled ? 'cancelled-in-tracker'
       : item.withdrawn ? `ticket-${item.withdrawn.verdict}`
       : incompleteDeps.length > 0 ? 'dependency-incomplete'
         : !developer ? 'no-developer'
@@ -137,7 +141,8 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
                 : blockedReason === 'ticket-not-found' ? '트래커에서 이 티켓을 찾지 못했습니다.'
                   : '다시 판정해 착수할 수 있는지 확인합니다.'
     rows.push({ticketKey: item.ticketKey, workId, title: item.definition?.title ?? null, stage: 'registered', lane: item.definition?.lane ?? null,
-      roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed), assignees,
+      roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed),
+      completedVia: item.completed ? (item.completed.via === 'tracker' ? 'tracker' : 'merge') : null, assignees,
       // 계획 작업 행과 같은 축이다 — `assignment-unknown`은 재지 못한 표시이지 집을 수 있다는 뜻이 아니다.
       pickupable: blockedReason === null, blockedReason, next, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
   }
@@ -192,7 +197,7 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   }
   const plan = readJson(WORK_PLAN_PATH)
   const analysis = readJson(WORK_ANALYSIS_PATH)
-  const state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
   const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
   const ticketCapable = hasDevTicketAxis(io.ticketConfig) || [...state.works.values()].some(item => item.origin === 'ticket')
   if ((!plan || !analysis) && !ticketCapable) {
@@ -217,6 +222,9 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
         items.push(...listed.items)
       }
       lookupComplete = listed.complete === true
+      // 트래커에서 끝난 작업(완료·취소)을 겹친다 — 원장만 보면 Jira에서 끝낸 선행을 계속 기다린다.
+      const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
+      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name)})
       issuesByWork = new Map()
       const byKey = new Map(items.map(item => [String(item.ticketKey), item]))
       for (const [workId, item] of state.works.entries()) {

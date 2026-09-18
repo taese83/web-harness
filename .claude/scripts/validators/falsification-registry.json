@@ -3097,6 +3097,70 @@
       "replace": "    const item = current === 'scope' ? normalizeDocItem(raw).replace(",
       "test": ".claude/scripts/test-work-ticket-doc.mjs",
       "why": "대조 키 정규화는 `_`를 지워 다른 클론의 수정 범위(__tests__·snake_case)가 겹치지 않는다고 읽힌다"
+    },
+    {
+      "id": "tracker-done-resolution-cancelled",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    return completedResolutions.includes(item.resolution) ? 'completed' : 'cancelled'",
+      "replace": "    return 'completed'",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "Jira는 Won't Fix·Duplicate도 상태 범주가 done이다 — 해결 사유를 안 보면 취소된 선행이 사슬을 연다"
+    },
+    {
+      "id": "tracker-done-github-not-planned",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  return reason === '' || reason === 'COMPLETED' ? 'completed' : 'cancelled'",
+      "replace": "  return 'completed'",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "not planned로 닫힌 이슈를 완료로 읽으면 하지 않기로 한 작업 위에서 후속을 시작한다"
+    },
+    {
+      "id": "board-reads-tracker-done",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      state = withTrackerCompletion(state, items, {completedResolutions: completedResolutionsOf(io.ticketConfig, provider.name)})",
+      "replace": "      void withTrackerCompletion",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "트래커에서 끝낸 선행을 보드가 모르면 사슬이 계속 막혀 있다"
+    },
+    {
+      "id": "board-tracker-cancelled-blocked",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "      : registered?.trackerCancelled ? 'cancelled-in-tracker'",
+      "replace": "      : false ? 'cancelled-in-tracker'",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "트래커에서 취소된 작업을 보드가 집을 수 있다고 보이면 하지 않기로 한 일을 시작한다"
+    },
+    {
+      "id": "pickup-reads-tracker-done",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  state = trackerDone.apply(state)",
+      "replace": "  void trackerDone",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "트래커에서 끝난 티켓을 픽업이 모르면 끝난 작업에 다시 배정한다"
+    },
+    {
+      "id": "tracker-overlay-respects-reopen",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (item.reopened && !(tracker.doneAt && Date.parse(tracker.doneAt) > Date.parse(item.reopened.at))) return [workId, item]",
+      "replace": "    void 0",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "하네스는 트래커를 다시 열지 않으므로 되돌린 머지의 옛 Resolved가 거둔 완료를 되살린다"
+    },
+    {
+      "id": "tracker-unresolved-not-cancelled",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "    if (!item.resolution) return 'unresolved'",
+      "replace": "    void 0",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "해결 화면 없는 워크플로우의 끝남을 취소로 읽으면 끝낸 작업이 Won't Fix와 구별되지 않는다"
+    },
+    {
+      "id": "pickup-surfaces-tracker-read",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "read: {checked: false, reason, guidance: `트래커에서",
+      "replace": "read: {checked: true, reason, guidance: `트래커에서",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "트래커를 못 읽고 원장만 본 픽업이 조용하면 취소된 티켓을 집어도 기록이 없다"
     }
   ]
 }

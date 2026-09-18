@@ -160,6 +160,40 @@ test('실행부: 트래커 조회가 실패해도 보드는 나오고 실패 사
   }
 })
 
+test('실행부: 트래커에서 끝난 선행은 원장에 완료가 없어도 사슬을 연다 — 취소로 끝난 것은 열지 않는다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-work-board-tracker-'))
+  try {
+    cpSync(join(repo, '.claude/evals/fixtures/work-plan/crud'), root, {recursive: true})
+    const events = join(root, WORK_EVENTS_PATH)
+    const keys = {[W(1)]: 'PF-101', [W(3)]: 'PF-103', [W(4)]: 'PF-104'}
+    for (const [workId, ticketKey] of Object.entries(keys)) {
+      appendWorkEvent(events, {schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: plan.planId,
+        workId, eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest, payload: {ticketKey}})
+    }
+    const done = resolution => ({statusCategory: 'done', resolution})
+    const listed = states => ({name: 'jira', async listWorkIssues() {
+      return {items: Object.entries(states).map(([ticketKey, value]) => ({ticketKey, assignees: [], ...value})), complete: true}
+    }})
+    const ticketConfig = {provider: 'jira', jira: {}}
+    const fixed = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done('Fixed'), 'PF-103': done('Done'), 'PF-104': {statusCategory: 'new'}}), ticketConfig}})
+    assert.equal(fixed.rows.find(row => row.workId === W(1)).blockedReason, 'completed')
+    assert.equal(fixed.rows.find(row => row.workId === W(1)).completedVia, 'tracker', '머지 관측 없이 끝난 것을 사람이 구별할 수 없다')
+    const unresolved = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': {statusCategory: 'done', resolution: null}, 'PF-103': done('Done'), 'PF-104': {statusCategory: 'new'}}), ticketConfig}})
+    assert.ok(unresolved.notes.some(note => /해결 사유가 없는 작업 1건/.test(note)), JSON.stringify(unresolved.notes))
+    assert.equal(unresolved.rows.find(row => row.workId === W(4)).blockedReason, 'dependency-incomplete')
+    assert.deepEqual(fixed.ready, [W(4)], '트래커에서 끝난 선행이 사슬을 열지 않았다')
+    const wontFix = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done("Won't Fix"), 'PF-103': done('Done'), 'PF-104': {statusCategory: 'new'}}), ticketConfig}})
+    assert.equal(wontFix.rows.find(row => row.workId === W(1)).blockedReason, 'cancelled-in-tracker')
+    assert.equal(wontFix.rows.find(row => row.workId === W(4)).blockedReason, 'dependency-incomplete', '취소된 선행을 완료로 읽었다')
+    // 팀이 완료로 볼 해결 사유를 바꾸면 그것을 따른다
+    const custom = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done('Resolved OK'), 'PF-103': done('Resolved OK'), 'PF-104': {statusCategory: 'new'}}),
+      ticketConfig: {provider: 'jira', jira: {completedResolutions: ['Resolved OK']}}}})
+    assert.deepEqual(custom.ready, [W(4)])
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
 test('실행부: 계획이 없으면 보드가 아니라 계획을 요구한다', async () => {
   const root = mkdtempSync(join(tmpdir(), 'wh-work-board-empty-'))
   try {

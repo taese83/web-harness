@@ -49,7 +49,7 @@ export function createJiraStub() {
     if (method === 'POST' && path === '/issue') {
       const key = `PF-${++sequence}`
       const issue = {key, fields: {labels: [], components: [], issuelinks: [], comment: {total: 0, comments: []},
-        assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, ...data.fields},
+        assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, resolution: null, ...data.fields},
         properties: Object.fromEntries((data.properties ?? []).map(item => [item.key, item.value])), attachments: []}
       touch(issue)
       issues.set(key, issue)
@@ -67,7 +67,11 @@ export function createJiraStub() {
     if ((match = path.match(/^\/issue\/([^/]+)\/transitions$/))) {
       const issue = issues.get(match[1])
       if (method === 'GET') return respond(200, {transitions: [{id: '31', name: '진행'}, {id: '41', name: '완료'}]})
-      issue.fields.status = {name: data.transition.id, statusCategory: {key: data.transition.id === '41' ? 'done' : 'indeterminate'}}
+      const done = data.transition.id === '41'
+      issue.fields.status = {name: data.transition.id, statusCategory: {key: done ? 'done' : 'indeterminate'}}
+      // 실측(DC 10.3): 해결 사유 필수 전이에서 사유를 빼면 Fixed가 채워지고, 완료가 아닌 전이는 사유를 비운다.
+      issue.fields.resolution = done ? {name: data.fields?.resolution?.name ?? 'Fixed'} : null
+      issue.fields.resolutiondate = done ? new Date().toISOString() : null
       touch(issue)
       return respond(204, null)
     }
@@ -105,7 +109,7 @@ export function createJiraStub() {
   const humanTicket = ({summary, description, components = []}) => {
     const key = `PF-${++sequence}`
     const issue = {key, fields: {summary, description, labels: [], components: components.map(name => ({name})), issuelinks: [],
-      comment: {total: 0, comments: []}, assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}}, properties: {}, attachments: []}
+      comment: {total: 0, comments: []}, assignee: null, status: {name: 'Open', statusCategory: {key: 'new'}}, resolution: null}, properties: {}, attachments: []}
     touch(issue)
     issues.set(key, issue)
     return key

@@ -36,6 +36,8 @@ export const JIRA_QUESTIONS = [
   {key: 'assigneeField', required: false, ask: 'assignee 표기 — Cloud는 accountId, 자체 호스팅은 name', default: 'accountId'},
   {key: 'components', required: false, ask: '이슈에 붙일 컴포넌트 (쉼표 구분, 그 프로젝트에 실재하는 이름). 비우면 안 붙입니다'},
   {key: 'labels', required: false, ask: '모든 티켓에 공통으로 붙일 라벨 (쉼표 구분). 하네스 라벨(feat-·branch-)에 더해집니다'},
+  // 해결 사유 이름은 인스턴스마다 다르다 — Won't Fix·Duplicate도 「완료 범주」라 상태만 보면 취소된 작업이 끝난 것으로 읽힌다.
+  {key: 'completedResolutions', required: false, ask: '작업이 끝났다고 볼 해결 사유 (쉼표 구분). 나머지 해결 사유(Won\'t Fix 등)는 취소로 봅니다', default: 'Fixed,Done'},
   // **컴포넌트 어휘는 팀이 정한다.** `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스가
   // 알 방법이 없다 — 팀마다 이름도 뜻도 다르다. 그래서 **매핑을 선언으로 받는다**(I3).
   // 예: `componentAxis.PLAN` = `기획 입력` · `componentAxis.DESIGN` = `디자인 입력`.
@@ -82,7 +84,7 @@ export const PROVIDER_QUESTIONS = {github: GITHUB_QUESTIONS, jira: JIRA_QUESTION
 export const JIRA_AUTH_ENV = ['JIRA_TOKEN', 'JIRA_EMAIL']
 
 /** 쉼표 구분 답을 배열로 받는 필드 — 값이 여럿인 것은 사용자가 한 줄로 적는다. */
-const LIST_FIELDS = new Set(['components', 'labels'])
+const LIST_FIELDS = new Set(['components', 'labels', 'completedResolutions'])
 
 /**
  * 설정 파일을 읽는다. 없으면 null(=아직 고르지 않았다).

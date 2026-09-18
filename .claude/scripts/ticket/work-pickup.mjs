@@ -117,8 +117,9 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   if (registered.ticketKey && registered.ticketKey !== ticketKey) {
     return {ok: false, injection, bounce: {reason: 'ticket-key-mismatch', registered: registered.ticketKey, picked: ticketKey}}
   }
-  // 머지로 끝난 작업은 다시 집지 않는다 — 보드가 「끝남」으로 보이는 것과 같은 축이다.
+  // 끝난 작업(머지 관측 또는 트래커 완료)은 다시 집지 않는다 — 보드가 「끝남」으로 보이는 것과 같은 축이다.
   if (registered.completed) return {ok: false, injection, bounce: {reason: 'work-completed', workId: work.workId}}
+  if (registered.trackerCancelled) return {ok: false, injection, bounce: {reason: 'work-cancelled-in-tracker', workId: work.workId}}
   // STALE: 발행 시점 계획 ↔ 지금 계획. 브랜치·컨플릭 판정은 legacy와 **같은 함수**를 쓴다.
   const readiness = evaluatePickupReadiness({claimBranch: registered.branch ?? null, currentBranch,
     claimedHash: registered.planDigest ?? marker.planDigest ?? null, localHash: planDigest, working})
@@ -130,8 +131,8 @@ export function pickupWorkTicket({issue, plan, planDigest, state, view = null, c
   if (row?.status === 'blocked-decision') {
     return {ok: false, injection, bounce: {reason: 'decision-unresolved', workId: work.workId}}
   }
-  // **선행이 머지로 끝나야 착수한다**(legacy `deps-incomplete`의 이관). 링크는 완료의 주장일 뿐이라
-  // 세지 않는다 — 원장의 `work-completed`(머지 관측)만 센다. 미완료 선행은 **등록 여부까지** 나눠 적는다.
+  // **선행이 끝나야 착수한다**(머지 관측 또는 트래커 완료 — 계약 「완료」 절). 링크는 완료의 주장일 뿐이라
+  // 세지 않는다. 미완료 선행은 **등록 여부까지** 나눠 적는다.
   const missingDeps = list(work.dependsOn).filter(dep => !state?.works?.get(dep)?.completed)
   if (missingDeps.length > 0) {
     const unregistered = missingDeps.filter(dep => (state?.works?.get(dep)?.status ?? 'unpublished') !== 'published')

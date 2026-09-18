@@ -360,6 +360,25 @@ test('실행부: 같은 작업을 다시 집으면 처음 찍은 대상 지문�
   })
 })
 
+test('실행부: 트래커에서 끝난 티켓은 집지 않는다 — 완료와 취소를 가른다', async () => {
+  await within(workspace(), async root => {
+    for (const [resolution, reason] of [['Fixed', 'work-completed'], ["Won't Do", 'work-cancelled-in-tracker']]) {
+      const {provider, calls} = stubProvider()
+      provider.listWorkIssues = async ({keys}) => ({items: keys.map(ticketKey => ({ticketKey, statusCategory: 'done', resolution})), complete: true})
+      const result = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+      assert.equal(result.bounce?.reason, reason, resolution)
+      assert.equal(calls.some(call => call.kind === 'assign'), false, '끝난 티켓에 배정했다')
+      assert.equal(result.trackerRead?.checked, true)
+    }
+    // 트래커를 못 읽으면 막지 않되 원장만 봤다고 적는다
+    const {provider} = stubProvider()
+    provider.listWorkIssues = async () => { throw new Error('tracker down') }
+    const blind = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
+    assert.equal(blind.trackerRead?.checked, false)
+    assert.match(blind.trackerRead.guidance, /원장만/)
+  })
+})
+
 test('실행부: 미해결 컨플릭이면 착수하지 않는다 — 정렬이 먼저다', async () => {
   await within(workspace(), async root => {
     const {provider, calls} = stubProvider()

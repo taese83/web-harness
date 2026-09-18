@@ -186,7 +186,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `board` | 표 하나(`키 · 제목 · 상태 · 담당 · 다음 할 일`) + `notes` 그대로 + 한 줄 질문. 다른 열·절을 만들지 않는다 |
 | `pickup` 미리보기(`outcome: confirm`) | `review`만 보여준다 — AI가 **제안한** 완료 조건·테스트 항목, 수정 범위, 레인, 추가될 라벨. 완성될 본문은 요청이 있을 때만. 끝에 확인을 묻는 한 줄 |
 | `pickup` 멈춤(`outcome: stopped`) | 「멈췄습니다」와 `guidance`·`bounce`의 이유·정해야 할 것을 그대로. 결과 코드(`TICKET_…`)를 보여주지 않고, 왜 막혔는지 따로 조사하지 않는다 |
-| `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다 |
+| `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
 | `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`가 있으면 그 한 줄도 옮긴다. `--reopen`은 `guidance` 그대로 |

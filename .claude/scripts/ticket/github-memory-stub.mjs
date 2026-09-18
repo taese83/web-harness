@@ -76,6 +76,8 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
       const comment = flagValue(args, '--comment')
       if (comment) issue.comments.push({id: state.commentId++, author: 'github-actions', body: comment, createdAt: new Date().toISOString()})
       issue.state = 'CLOSED'
+      issue.stateReason = flagValue(args, '--reason') === 'not planned' ? 'NOT_PLANNED' : 'COMPLETED'
+      issue.closedAt = new Date().toISOString()
       touch(issue)
       return ''
     }

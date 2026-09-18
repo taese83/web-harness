@@ -52,6 +52,23 @@ export function separateTestLayers(spec) {
     .filter(test => !sources.some(source => withinScope(source, test) || withinScope(test, source)))
 }
 
+/** 이 티켓과 그 선행 작업의 트래커 끝남을 읽는다. 못 읽으면 원장만으로 판정한다(막지 않는다). */
+async function readTrackerDone({provider, state, plan, ticketKey, config}) {
+  const {completedResolutionsOf, withTrackerCompletion} = await import('./work-provider.mjs')
+  const entry = [...(state?.works?.entries() ?? [])].find(([, item]) => String(item.ticketKey) === String(ticketKey))
+  const work = entry ? (plan?.workItems ?? []).find(item => item.workId === entry[0]) ?? entry[1].definition : null
+  const keys = [ticketKey, ...(work?.dependsOn ?? []).map(dep => state.works.get(dep)?.ticketKey).filter(Boolean)].map(String)
+  if (typeof provider?.listWorkIssues !== 'function') return {apply: value => value, read: {checked: false, reason: 'provider가 목록 조회를 주지 않는다'}}
+  try {
+    const listed = await provider.listWorkIssues({keys})
+    const options = {completedResolutions: completedResolutionsOf(config, provider.name)}
+    return {apply: value => withTrackerCompletion(value, listed.items, options), read: {checked: true}}
+  } catch (error) {
+    const reason = String(error?.message ?? error).slice(0, 120)
+    return {apply: value => value, read: {checked: false, reason, guidance: `트래커에서 이 티켓과 선행 작업이 끝났는지 확인하지 못해 원장만 봤습니다: ${reason}.`}}
+  }
+}
+
 export async function runWorkPickup({root, ticketKey, developer, flags = {}, io = {}}) {
   const cli = await import('./cli.mjs')
   if (!ticketKey) return {ok: false, mode: 'work', bounce: {reason: 'ticket-key-required'}, guidance: '어느 티켓인지 키가 필요합니다. `pickup <티켓키> --developer <내 아이디>`로 부르세요.'}
@@ -80,6 +97,9 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   }
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
   let issue = await fetchIssue(ticketKey)
+  // 트래커의 끝남(완료·취소)을 이 티켓과 선행 작업에 겹친다 — 원장만 보면 트래커에서 끝난 선행을 기다리거나 취소된 작업을 집는다.
+  const trackerDone = await readTrackerDone({provider, state, plan, ticketKey, config: io.ticketConfig})
+  state = trackerDone.apply(state)
   // **사람이 만든 개발 티켓**이면 판정·확인·완성을 거쳐 같은 픽업으로 이어진다(ticket-work-run.mjs). 계획 WORK면 그대로 아래로 간다.
   const {resolveTicketPickup} = await import('./ticket-work-run.mjs')
   const ticket = await resolveTicketPickup({root, ticketKey, developer, issue, state, plan, flags, io})
@@ -101,7 +121,7 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   }
   if (ticket.issue) issue = ticket.issue
   // 방금 등록했으면 원장을 다시 접는다 — 등록 전 상태로 판정하면 「원장에 없는 작업」으로 되돌린다.
-  if (ticket.extra?.ticketWork?.registered) state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  if (ticket.extra?.ticketWork?.registered) state = trackerDone.apply(foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH))))
   const planDigest = ticket.context?.planDigest ?? canonicalDigest(plan)
   // **기본값은 실물이다.** 주입이 없을 때 빈 값을 쓰면 컨플릭 게이트가 영원히 발화하지 않는다
   // (적대 리뷰 2026-09-14: 「같은 함수를 쓴다」가 참이어도 입력이 비면 게이트는 없는 것과 같다).
@@ -128,9 +148,9 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
     const notified = await notify({provider, ticketKey, featureId: pick.changeScope?.featureId ?? null,
       bounce: pick.bounce, io, dryRun: flags['dry-run'],
       readinessLanguage: resolveCommentLanguage({declared: readDeclaredLanguage(root), text: `${issue?.title ?? ''}\n${issue?.body ?? ''}`})})
-    return {...notified, ok: false, mode: 'work', bounce: pick.bounce, injection: pick.injection, assignment, freshness, ...(ticket.extra ?? {})}
+    return {...notified, ok: false, mode: 'work', bounce: pick.bounce, injection: pick.injection, assignment, freshness, trackerRead: trackerDone.read, ...(ticket.extra ?? {})}
   }
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, assignment, changeScope: pick.changeScope, freshness, ...(ticket.extra ?? {})}
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, assignment, changeScope: pick.changeScope, freshness, trackerRead: trackerDone.read, ...(ticket.extra ?? {})}
 
   // 진행 중인 다른 범위를 조용히 덮지 않는다 — 그 작업의 STALE 앵커가 사라진다(legacy와 같은 규율).
   const existing = cli.readChangeScopeFile(root)
@@ -207,5 +227,5 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   pick.changeScope.ALLOWED_PATHS = [...new Set([...pick.changeScope.ALLOWED_PATHS, ...separateTestLayers(readSpecAt(root))])]
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
-  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, worktree: working, ...(ticket.extra ?? {})}
+  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, trackerRead: trackerDone.read, worktree: working, ...(ticket.extra ?? {})}
 }

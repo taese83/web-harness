@@ -39,6 +39,7 @@ export function parseWorkSearch(payload, {fetched = null} = {}) {
       // **배정을 안 물었으면 `null`이다** — 「미배정」과 「안 물어봤다」를 섞으면 보드가 남이
       // 잡고 있는 작업을 「집을 수 있다」로 보여준다. 신원을 **무엇으로 부르는가**는 트래커의
       // 어휘라 여기서 고르지 않는다 — 실행부가 `assigneeIdentity`로 한 번만 고른다.
+      resolution: issue.fields?.resolution?.name ?? null, doneAt: issue.fields?.resolutiondate ?? null,
       assigneeRequested: Boolean(issue.fields && 'assignee' in issue.fields),
       assigneeUser: issue.fields?.assignee ?? null})),
     total,
@@ -46,6 +47,51 @@ export function parseWorkSearch(payload, {fetched = null} = {}) {
     nextCursor: total !== null && seen < total && !stalled ? String(seen) : null,
     ...(stalled ? {stalled: true} : {}),
   }
+}
+
+export const DEFAULT_COMPLETED_RESOLUTIONS = ['Fixed', 'Done']
+/**
+ * 트래커가 말하는 끝남(순수) — `completed`(한 일로 끝남) · `cancelled`(안 하기로 끝남) · `unresolved`(끝났는데 해결 사유가
+ * 없다 — 해결 화면 없는 워크플로우. 완료로도 취소로도 세지 않는다) · `null`(열려 있거나 모름).
+ * Jira는 상태 범주 `done`만으로는 모른다(Won't Fix·Duplicate도 done이다) — 해결 사유를 팀 설정과 대조한다.
+ * GitHub은 닫힌 이유로 가른다. 닫힌 이유가 없는 옛 이슈는 GitHub 기본값(완료)으로 본다.
+ */
+export function classifyTrackerDone(item, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS} = {}) {
+  if (!item) return null
+  if (item.statusCategory !== undefined && item.statusCategory !== null) {
+    if (item.statusCategory !== 'done') return null
+    if (!item.resolution) return 'unresolved'
+    return completedResolutions.includes(item.resolution) ? 'completed' : 'cancelled'
+  }
+  if (String(item.state ?? '').toUpperCase() !== 'CLOSED') return null
+  const reason = String(item.stateReason ?? '').toUpperCase()
+  return reason === '' || reason === 'COMPLETED' ? 'completed' : 'cancelled'
+}
+
+/**
+ * 원장 상태에 트래커의 끝남을 겹친다(순수). **이관 중에는 둘 중 하나라도 완료면 완료다** — 지금까지 하네스가 Jira를
+ * 완료로 전이하지 않아 원장만 완료인 작업이 많다. 트래커에서 취소로 끝난 작업은 `trackerCancelled`로 표시한다.
+ */
+export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS} = {}) {
+  const byKey = new Map((Array.isArray(items) ? items : []).map(item => [String(item.ticketKey),
+    {done: classifyTrackerDone(item, {completedResolutions}), doneAt: item.doneAt ?? null}]))
+  const works = new Map([...(state?.works?.entries() ?? [])].map(([workId, item]) => {
+    const tracker = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
+    if (!tracker?.done || item.completed) return [workId, item]
+    // 완료를 거둔(reopen) 작업은 **거둔 뒤에** 트래커에서 다시 끝났을 때만 겹친다 — 하네스는 트래커를 다시 열지 않으므로
+    // 되돌린 머지의 옛 Resolved가 거둔 완료를 되살린다. 끝난 시각을 모르면 겹치지 않는다.
+    if (item.reopened && !(tracker.doneAt && Date.parse(tracker.doneAt) > Date.parse(item.reopened.at))) return [workId, item]
+    if (tracker.done === 'completed') return [workId, {...item, completed: {via: 'tracker', at: tracker.doneAt}}]
+    if (tracker.done === 'cancelled') return [workId, {...item, trackerCancelled: true}]
+    return [workId, {...item, trackerUnresolved: true}]
+  }))
+  return {...state, works}
+}
+
+/** 설정에서 완료로 볼 해결 사유(순수) — provider 이름 아래 설정을 본다. */
+export const completedResolutionsOf = (config, providerName) => {
+  const value = config?.[providerName]?.completedResolutions
+  return Array.isArray(value) && value.length > 0 ? value : DEFAULT_COMPLETED_RESOLUTIONS
 }
 
 /** 커서 해석(순수). 손상된 커서를 0으로 접으면 1페이지를 다시 읽고 그 위에서 완결을 계산한다 — loud하게 막는다. */
@@ -103,14 +149,14 @@ export const workSearchArgs = (repo, workId, limit = GITHUB_PAGE_LIMIT) => {
 
 /** GitHub 목록 인자(순수). `limit`에 닿으면 잘렸을 수 있다 — 그 사실을 호출자가 받는다. */
 export const workListArgs = (repo, limit = GITHUB_PAGE_LIMIT) => ['issue', 'list', '--repo', repo, '--state', 'all',
-  '--json', 'number,title,labels,state,body,assignees', '--limit', String(limit)]
+  '--json', 'number,title,labels,state,stateReason,closedAt,body,assignees', '--limit', String(limit)]
 
 /** gh 결과 해석(순수). 반환 수가 상한과 같으면 `complete: false` — 「전부」라고 말하지 않는다. */
 export function parseGithubWorkList(json, {limit = GITHUB_PAGE_LIMIT, indexLag = false} = {}) {
   const items = Array.isArray(json) ? json : []
   return {
     matches: items.map(item => ({ticketKey: String(item.number), summary: item.title ?? null,
-      labels: (item.labels ?? []).map(label => label?.name ?? label), state: item.state ?? null, body: item.body ?? null,
+      labels: (item.labels ?? []).map(label => label?.name ?? label), state: item.state ?? null, stateReason: item.stateReason ?? null, doneAt: item.closedAt ?? null, body: item.body ?? null,
       assignees: 'assignees' in item ? (item.assignees ?? []).map(person => person?.login ?? person) : null})),
     complete: items.length < limit && !indexLag,
     truncated: items.length >= limit,

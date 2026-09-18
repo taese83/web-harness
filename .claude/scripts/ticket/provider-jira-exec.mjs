@@ -160,7 +160,7 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
       const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
       const jql = workKeysJql(keys)
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status,assignee`, options)
+      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status,resolution,resolutiondate,assignee`, options)
       const parsed = parseWorkSearch(payload, {fetched: startAt})
       // 요청한 키 중 **못 본 것**을 함께 돌려준다 — 「조회했는데 없다」와 「이 페이지에 없다」는 다르다.
       const observed = new Set(parsed.matches.map(item => item.ticketKey))
