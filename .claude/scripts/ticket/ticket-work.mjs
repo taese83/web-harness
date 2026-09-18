@@ -157,7 +157,8 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
     // 진행 중인 다른 작업과 수정 범위가 겹치면 착수시키지 않는다 — 계획 WORK의 경계를 사람 티켓이 가로지르지 않게.
     const overlaps = activeWorks.filter(work => pathsOverlap(list(work.writePaths), writePaths))
     if (errors.length === 0 && overlaps.length > 0) {
-      bounce = {reason: 'ticket-overlaps-active-work', overlaps: overlaps.map(work => ({workId: work.workId, writePaths: work.writePaths}))}
+      bounce = {reason: 'ticket-overlaps-active-work', overlaps: overlaps.map(work => ({workId: work.workId, writePaths: work.writePaths,
+        ...(work.ticketKey ? {ticketKey: work.ticketKey} : {}), ...(work.source ? {source: work.source} : {})}))}
     }
   }
   const ok = errors.length === 0

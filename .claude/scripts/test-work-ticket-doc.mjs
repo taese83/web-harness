@@ -7,7 +7,7 @@
 //   - 사람이 더한 항목은 additions, 계획 항목이 빠지거나 바뀌면 missing, 섹션이 없으면 absent — 두 서식·두 언어
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {buildWorkDoc, compareWorkDoc, formatWorkDoc, parseWorkDocSections, renderWorkContext, testCaseTexts, workContextName} from './ticket/work-ticket-doc.mjs'
+import {buildWorkDoc, compareWorkDoc, formatWorkDoc, parseWorkDocScope, parseWorkDocSections, renderWorkContext, testCaseTexts, workContextName} from './ticket/work-ticket-doc.mjs'
 
 const work = {
   workId: 'WORK-00000004-0000-4000-8000-000000000004', title: '목록 조회 연결', kind: 'implementation', roles: ['fe'],
@@ -71,6 +71,11 @@ test('사람 편집 대조: 더한 항목·빠진 항목·없는 섹션을 가�
   assert.deepEqual(compareWorkDoc({body: '요약만 있는 본문', work, testCases}).absent, ['acceptance', 'tests'])
   // 영어 제목으로 고친 본문도 읽는다.
   assert.deepEqual(parseWorkDocSections('### Acceptance criteria\n- [ ] A\n### Test items\n- B').tests, ['B'])
+  // 수정 범위는 경로 그대로 되읽는다 — `_`·`*`를 지우면 다른 클론의 겹침을 놓친다(두 서식 모두).
+  const scoped = {...work, writePaths: ['src/pages/__tests__/', 'src/shared/ui/user_profile.tsx']}
+  for (const format of ['markdown', 'jira-wiki']) {
+    assert.deepEqual(parseWorkDocScope(formatWorkDoc(buildWorkDoc({work: scoped, testCases}), format)), scoped.writePaths, format)
+  }
 })
 
 test('AI 맥락은 계획의 경로·근거를 빠짐없이 싣는다 · TC 문장은 feature-plan에서 줍는다', () => {

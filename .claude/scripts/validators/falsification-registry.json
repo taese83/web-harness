@@ -2509,8 +2509,8 @@
     {
       "id": "doc-reports-raw-text",
       "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
-      "find": "    const item = docItemText(raw)",
-      "replace": "    const item = normalizeDocItem(raw)",
+      "find": " : docItemText(raw)\n    if (item) found[current].push(item)",
+      "replace": " : normalizeDocItem(raw)\n    if (item) found[current].push(item)",
       "test": ".claude/scripts/test-work-ticket-doc.mjs",
       "why": "대조 키로 보고하면 식별자의 밑줄·물결이 사라진 조건이 개발 에이전트에 간다"
     },
@@ -3073,6 +3073,30 @@
       "replace": " && true",
       "test": ".claude/scripts/test-work-pickup.mjs",
       "why": "되돌린 작업에 옛 기준선을 이으면 되돌림이 남긴 대상 때문에 빈 PR이 「바뀌었다」로 통과한다"
+    },
+    {
+      "id": "ticket-overlap-reads-tracker",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "    activeWorks: [...activeWorksFrom({plan, state, exceptWorkId: workId}), ...(remote?.works ?? [])],",
+      "replace": "    activeWorks: activeWorksFrom({plan, state, exceptWorkId: workId}),",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "원장은 브랜치마다 따로 자라 로컬 원장만 보면 남이 다른 클론에서 방금 집은 같은 파일을 못 본다"
+    },
+    {
+      "id": "ticket-registered-elsewhere-not-plan",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  if (!registered && marker?.workId && marker.workId === ticketWorkId(providerName, ticketKey)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "다른 클론이 등록한 사람 티켓을 계획 WORK로 흘려보내면 「계획이 없다」는 엉뚱한 이유로 멈춘다"
+    },
+    {
+      "id": "doc-scope-keeps-path-chars",
+      "file": ".claude/scripts/ticket/work-ticket-doc.mjs",
+      "find": "    const item = current === 'scope' ? docItemText(raw).replace(",
+      "replace": "    const item = current === 'scope' ? normalizeDocItem(raw).replace(",
+      "test": ".claude/scripts/test-work-ticket-doc.mjs",
+      "why": "대조 키 정규화는 `_`를 지워 다른 클론의 수정 범위(__tests__·snake_case)가 겹치지 않는다고 읽힌다"
     }
   ]
 }

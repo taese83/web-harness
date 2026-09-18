@@ -57,6 +57,31 @@ export function activeWorksFrom({plan, state, exceptWorkId}) {
 }
 
 /**
+ * 다른 클론에서 등록해 내 원장에 아직 없는 진행 중 사람 티켓 작업 — 트래커의 배정된 개발 티켓 중 이 키에서 나온
+ * 마커를 단 것의 「수정 범위」를 되읽는다. 원장은 브랜치마다 따로 자라므로 로컬 원장만 보면 남이 방금 집은 같은 파일을 못 본다.
+ * 못 읽으면 `checked: false`와 이유 — 막지 않는다(로컬 겹침 판정은 그대로 돈다).
+ */
+export async function trackerActiveTicketWorks({provider, config, state, exceptKey, io = {}}) {
+  if (typeof provider?.listDevTickets !== 'function') return {checked: false, reason: 'provider가 개발 티켓 목록을 주지 않는다', works: []}
+  const {parseWorkDocScope} = await import('./work-ticket-doc.mjs')
+  const known = new Set([...(state?.works?.values() ?? [])].map(item => String(item.ticketKey ?? '')))
+  try {
+    const listed = await provider.listDevTickets({config})
+    const works = []
+    for (const item of list(listed.items).filter(entry => list(entry.assignees).length > 0 && String(entry.ticketKey) !== String(exceptKey) && !known.has(String(entry.ticketKey)))) {
+      const issue = await (io.resolveIssue ? io.resolveIssue({number: item.ticketKey}) : provider.resolveIssue(item.ticketKey))
+      const marker = parseWorkMarker(issue?.body ?? '')
+      if (marker?.workId !== ticketWorkId(provider.name, item.ticketKey)) continue
+      const writePaths = parseWorkDocScope(issue.body) ?? []
+      if (writePaths.length > 0) works.push({workId: marker.workId, ticketKey: String(item.ticketKey), writePaths, source: 'tracker'})
+    }
+    return {checked: listed.complete !== false, ...(listed.complete === false ? {reason: '개발 티켓 목록이 잘렸다'} : {}), works}
+  } catch (error) {
+    return {checked: false, reason: String(error?.message ?? error).slice(0, 120), works: []}
+  }
+}
+
+/**
  * @returns {Promise<{result?: object, context?: object, issue?: object, extra?: object}>}
  *   result: 여기서 끝났다(판정 요구·검증 실패·착수 불가·미리보기·쓰기 실패) · context: 계획 WORK 픽업으로 이어간다 · 둘 다 없으면 이 경로가 아니다
  */
@@ -69,6 +94,14 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const kind = classifyTicketKind(issue?.body ?? '')
   const marker = kind.kind === 'work' ? parseWorkMarker(issue.body) : null
   const registered = registeredEntry?.[1] ?? null
+  // 다른 클론에서 등록한 사람 티켓 작업 — 마커가 이 키에서 나온 작업을 가리키는데 내 원장은 모른다(그 등록은 아직 남의 브랜치에 있다).
+  // 계획 WORK로 흘려보내면 「계획이 없다」로 엉뚱하게 멈춘다.
+  if (!registered && marker?.workId && marker.workId === ticketWorkId(providerName, ticketKey)) {
+    const taken = computeAssignmentPlan({issue, developer}).status === 'taken'
+    return {result: {ok: false, mode: 'work', phase: taken ? 'TICKET_ASSIGNED_TO_OTHER' : 'TICKET_REGISTERED_ELSEWHERE', ticketKey, externalWrites: 0,
+      bounce: taken ? {reason: 'assigned-to-other', by: issue?.assignees?.[0] ?? null} : {reason: 'ticket-registered-elsewhere', workId: marker.workId},
+      guidance: taken ? '다른 개발자가 맡은 티켓입니다. 다른 작업을 고르세요.' : '다른 개발자가 방금 이 티켓을 등록했습니다. 다른 작업을 고르세요.'}}
+  }
   if (!registered && marker?.workId && state?.works?.get(marker.workId)?.origin !== 'ticket') return {} // 계획 WORK다
   const dev = isDevTicket(issue, config)
   if (!registered && !dev.dev) return {}
@@ -130,8 +163,10 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const ticketIds = works.filter(([, item]) => item.origin === 'ticket').map(([id]) => id)
   const originalBody = originalBodyOf(issue?.body ?? '', {completed: Boolean(registered) || kind.kind === 'work'})
   const spec = (() => { try { return readJson(root, '_workspace/03_dev/spec.json') } catch { return null } })()
+  // 착수할 판정일 때만 트래커를 더 읽는다 — 남이 다른 클론에서 방금 등록한 작업과 경계가 겹치는지.
+  const remote = assessment?.verdict === 'startable' && !registered ? await trackerActiveTicketWorks({provider, config, state, exceptKey: ticketKey, io}) : null
   const checked = validateTicketAssessment({assessment, ticketKey, provider: providerName, originalBody, spec,
-    activeWorks: activeWorksFrom({plan, state, exceptWorkId: workId}), knownWorkIds: new Set([...planWorkIds, ...ticketIds])})
+    activeWorks: [...activeWorksFrom({plan, state, exceptWorkId: workId}), ...(remote?.works ?? [])], knownWorkIds: new Set([...planWorkIds, ...ticketIds])})
   if (!checked.ok) return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_INVALID', ticketKey, path, errors: checked.errors}}
   // 격리 사본은 판정 한 번을 위한 것이다 — 판정서가 검증을 통과하면 지운다(실패하면 다시 판정해야 하므로 남긴다).
   if (!flags['dry-run']) rmSync(join(root, assessmentSnapshotPath(ticketKey)), {force: true})
@@ -201,6 +236,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     proposed: [...list(assessment.acceptance).filter(item => item?.source === 'proposed').map(item => ({kind: 'acceptance', text: item.text})),
       ...list(assessment.testItems).filter(item => item?.source === 'proposed').map(item => ({kind: 'test', id: item.id, text: item.text}))]}
   const preview = {mode: 'work', ticketKey, workId, lane: assessment.lane, assessmentDigest: digest, writePaths: definition.writePaths,
+    ...(remote && !remote.checked ? {overlapCheck: {tracker: false, reason: remote.reason, guidance: `다른 사람이 방금 집은 티켓과 겹치는지 트래커에서 확인하지 못했습니다: ${remote.reason}.`}} : {}),
     specApproval: definition.specApproval, review, confirmWith: {flag: '--assessment', value: digest},
     acceptance: assessment.acceptance, testItems: assessment.testItems, labels: {add: labelsToAdd},
     body: renderTicketWorkBody({definition, originalBody: withheld, format, lang, contextName, dependsOn}),
@@ -252,6 +288,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const registeredNow = {planId, planDigest: digest, definition}
   return {context: ticketPickupContext(registeredNow), issue: fresh,
     extra: {ticketWork: {registered: true, reregistered: Boolean(registered), workId, assessmentDigest: digest, lane: assessment.lane,
+      ...(remote && !remote.checked ? {overlapCheck: {tracker: false, reason: remote.reason}} : {}),
       externalWrites, ...(registered ? {carriedAdditions} : {}), ...(contextNote ? {note: contextNote} : {})}}}
 }
 

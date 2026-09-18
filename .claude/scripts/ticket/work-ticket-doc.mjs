@@ -136,10 +136,10 @@ const SECTION_BY_TITLE = new Map(DOC_LANGUAGES.flatMap(lang => Object.entries(TI
 
 /**
  * 사람이 고쳤을 수 있는 본문에서 완료 조건·테스트 항목을 되읽는다(순수). 두 서식(마크다운·Jira 위키)과 두 언어의 제목을 받는다.
- * @returns {{acceptance: string[]|null, tests: string[]|null}} `null`은 「그 섹션이 본문에 없다」
+ * @returns {{acceptance: string[]|null, tests: string[]|null, scope: string[]|null}} `null`은 「그 섹션이 본문에 없다」
  */
 export function parseWorkDocSections(body) {
-  const found = {acceptance: null, tests: null}
+  const found = {acceptance: null, tests: null, scope: null}
   let current = null
   const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '')
   // Jira 위키 본문에서 `#`은 **번호 목록**이다 — 마크다운 제목으로 읽으면 섹션이 닫혀 계획 항목이 「빠짐」으로 오판된다.
@@ -149,17 +149,24 @@ export function parseWorkDocSections(body) {
     if (title !== null && ORIGINAL_TITLES.includes(title)) break
     if (title !== null) {
       const id = SECTION_BY_TITLE.get(title)
-      current = id === 'acceptance' || id === 'tests' ? id : null
+      current = id === 'acceptance' || id === 'tests' || id === 'scope' ? id : null
       if (current && found[current] === null) found[current] = []
       continue
     }
     if (!current) continue
     if (!/^\s*(?:[-*+]|#+|\d+[.)])\s+/.test(raw)) continue // 목록 항목만 — 안내 문장·빈 줄은 항목이 아니다
-    const item = docItemText(raw)
+    // 수정 범위는 **경로**다 — 대조 키(`normalizeDocItem`)는 `_`를 지우므로 쓰지 않고 렌더러가 씌운 코드 표지만 벗긴다.
+    const item = current === 'scope' ? docItemText(raw).replace(/^`([^`]*)`$/, '$1').replace(/^\{\{([^}]*)\}\}$/, '$1') : docItemText(raw)
     if (item) found[current].push(item)
   }
   return found
 }
+
+/**
+ * 본문의 「수정 범위」 항목(순수) — 다른 클론에서 등록돼 내 원장에 없는 티켓 작업의 경계를 트래커에서 되읽는다.
+ * 사람이 고쳤을 수 있는 본문이다(겹침 판정의 보조 입력일 뿐, 정본은 그 작업의 원장이다). 섹션이 없으면 `null`.
+ */
+export const parseWorkDocScope = body => parseWorkDocSections(body).scope
 
 /**
  * 사람 편집 대조(순수). 더한 항목은 `additions`, 계획 항목이 본문에서 사라졌으면 `missing`이다.
