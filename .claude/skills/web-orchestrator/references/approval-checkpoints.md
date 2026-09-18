@@ -176,7 +176,8 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 ### ③ `unverifiable`은 사용자가 명시적으로 인수한다
 
 `spec: unverifiable` HOLE 하나만 남았으면 그것을 **없는 것처럼 넘기지 않는다.** `provenance-contract.md` §2의 대가를
-그대로 제시하고 인수 여부를 묻는다.
+그대로 제시하고 인수 여부를 묻는다. 예외: change-scope가 `origin: ticket`(사람 티켓을 판정해 완성한 작업)이면 묻지 않는다 —
+그 작업은 판정서의 완료 조건과 `TT-` 테스트 항목이 수용 기준이고, 개발자가 미리보기에서 이미 확인했다.
 
 ```
 ✋ 스팩 승인 — specTier: unverifiable
@@ -211,7 +212,8 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 ## change 레인 → 개발
 
 `change` 레인(`request-type-contract.md`)은 **동작을 새로 정의한다.** 정의가 맞는지 확인받기 전에
-구현하면 되돌림이 코드에서 일어난다. 아래 네 단계를 거친 뒤 사용자에게 보여주고 확인한다.
+구현하면 되돌림이 코드에서 일어난다. 사람 티켓 작업(change-scope `origin: ticket`)은 `specApproval: required`일 때만
+이 절을 거친다(`team-flow/references/ticket-work-contract.md` 흐름 6). 아래 네 단계를 거친 뒤 사용자에게 보여주고 확인한다.
 
 ### ① 기획 개정 — 항상
 

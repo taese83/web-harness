@@ -363,3 +363,59 @@ test('파일 수명: 격리 사본은 판정서가 검증을 통과하면 지우
     assert.equal(existsSync(join(root, assessmentPath(KEY))), true, '판정서는 작업이 끝날 때까지 남아야 한다')
   })
 })
+
+test('확인은 한 번: 스팩 승인은 새 계약이 걸린 change만 다시 받는다 · 미리보기는 판단할 것만 묶고 지문을 안내에 노출하지 않는다', async () => {
+  const {ticketSpecApproval} = await import('./ticket/ticket-work.mjs')
+  assert.equal(ticketSpecApproval(startable({lane: 'fix', testItems: []})), 'not-needed')
+  assert.equal(ticketSpecApproval(startable()), 'not-needed', '새 계약 없는 change에 스팩 승인을 또 요구했다')
+  assert.equal(ticketSpecApproval(startable({selfCheck: selfCheck({'public-contract-change': 'yes'})})), 'required', '공개 계약을 바꾸는데 스팩 승인을 건너뛴다')
+  await withRoot(startable({ticket: {key: KEY, provider: 'github'}}), async root => {
+    const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: original, labels: ['dev']},
+      state: emptyState(), plan: null, flags: {}, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
+    const preview = out.result
+    assert.equal(preview.phase, 'TICKET_WORK_PREVIEW')
+    assert.equal(preview.guidance.includes(preview.assessmentDigest), false, '안내 문구에 지문을 노출했다')
+    assert.deepEqual(preview.confirmWith, {flag: '--assessment', value: preview.assessmentDigest})
+    // 원문에서 옮긴 조건은 판단 대상이 아니다 — AI가 제안한 것만 review에 담는다.
+    assert.deepEqual(preview.review.proposed.map(item => item.text), ['정지 상태가 스크린리더에 읽힌다', '정지 회원을 불러오면 회색 행으로 보인다'])
+    assert.equal(preview.review.specApproval, 'not-needed')
+  })
+})
+
+test('보고 갈래: 결과 코드는 여럿이어도 사용자가 할 일은 시작·확인·멈춤(+ 판정 중)이다', async () => {
+  const {pickupOutcome} = await import('./ticket/work-pickup-run.mjs')
+  assert.equal(pickupOutcome({ok: false, phase: 'TICKET_ASSESSMENT_REQUIRED'}), 'assessing')
+  assert.equal(pickupOutcome({ok: true, phase: 'TICKET_WORK_PREVIEW'}), 'confirm')
+  assert.equal(pickupOutcome({ok: true}), 'started')
+  for (const phase of ['TICKET_NOT_STARTABLE', 'TICKET_INJECTION_SUSPECT', 'TICKET_ASSESSMENT_MISMATCH', 'TICKET_ASSESSMENT_INVALID']) {
+    assert.equal(pickupOutcome({ok: false, phase}), 'stopped', phase)
+  }
+})
+
+test('change-scope: 판정 기록이 없는 옛 티켓 등록은 스팩 승인이 필요한 것으로 본다(fail-closed)', async () => {
+  const {buildWorkChangeScope} = await import('./ticket/work-pickup.mjs')
+  const definition = ticketWorkDefinition({assessment: startable(), ticketKey: KEY, provider: 'jira', title: '정지 회원 표시'})
+  const plan = ticketVirtualPlan(definition, ticketPlanId('jira', KEY))
+  const issue = {key: KEY, title: 't', body: original}
+  const scope = work => buildWorkChangeScope({issue, plan, planDigest: 'a'.repeat(64), work, featureIds: [], testCaseIds: []})
+  assert.equal(scope(definition).specApproval, 'not-needed')
+  const {specApproval: _dropped, ...legacy} = definition
+  assert.equal(scope(legacy).specApproval, 'required', '옛 등록을 승인 불필요로 읽었다')
+  assert.equal(scope({...definition, origin: undefined}).specApproval, null, '계획 작업에 티켓 승인 필드를 실었다')
+})
+
+test('확인 표면 = 승인 대상: 모름·누락은 스팩 승인 필요 · review에 하지 않는 것과 디자인 부채 · dry-run은 확인 질문이 아니다', async () => {
+  const {ticketSpecApproval} = await import('./ticket/ticket-work.mjs')
+  const {pickupOutcome} = await import('./ticket/work-pickup-run.mjs')
+  assert.equal(ticketSpecApproval(startable({selfCheck: selfCheck({'new-auth-path': 'unknown'})})), 'required', '모름을 승인 불필요로 읽었다')
+  assert.equal(ticketSpecApproval(startable({selfCheck: selfCheck().slice(1)})), 'required', '빠진 항목을 승인 불필요로 읽었다')
+  const assessment = startable({ticket: {key: KEY, provider: 'github'}, designNeeds: [{what: '정지 배지 색', why: '토큰 없음', blocking: false}]})
+  await withRoot(assessment, async root => {
+    const run = flags => resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: original, labels: ['dev']},
+      state: emptyState(), plan: null, flags, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
+    const preview = (await run({})).result
+    assert.deepEqual(preview.review.nonGoals, ['상세 화면'])
+    assert.deepEqual(preview.review.designDebt, [{what: '정지 배지 색', why: '토큰 없음'}], '확인 화면에 디자인 부채가 없다 — 승인 대상보다 좁다')
+    assert.equal(pickupOutcome((await run({'dry-run': true})).result), 'dry-run', 'dry-run을 확인 질문으로 보고했다')
+  })
+})

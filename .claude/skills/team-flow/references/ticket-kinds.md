@@ -27,7 +27,7 @@ brief를 대체하지 않는다.
 | 키 | 뜻 |
 |---|---|
 | `ticketKey` | 트래커 키 |
-| `origin` · `lane` | 작업의 출처 — `plan`(검토한 계획) · `ticket`(사람이 만든 개발 티켓을 판정해 완성). 티켓 작업이면 `lane`이 `fix`·`change`(change면 구현 전 1-A 스팩 승인) |
+| `origin` · `lane` · `specApproval` | 작업의 출처 — `plan`(검토한 계획) · `ticket`(사람이 만든 개발 티켓을 판정해 완성). 티켓 작업이면 `lane`이 `fix`·`change`, `specApproval`이 1-A 스팩 승인을 다시 받는지(`ticket-work-contract.md` 흐름 6) |
 | `ticket.key` · `ticket.provider` | 어느 트래커의 어느 티켓인가 |
 | `ticket.revision` · `ticket.revisionStage` | 개발 기준 개정 — 픽업 끝에 다시 잰다(`settled-at-pickup`). 못 재면 `pre-pickup` 그대로 |
 | `ticket.revisionError` (선택) | 픽업 끝의 재조회가 실패했거나 빈 값을 줬을 때 그 이유 |

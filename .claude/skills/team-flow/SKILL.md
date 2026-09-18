@@ -106,10 +106,13 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 배정 감지) · 미해결 컨플릭을 지난 뒤 change-scope(`_workspace/03_dev/change-scope.md`)를 발급한다.
 쓰기 경계는 검토받은 계획의 `writePaths`다. 막히면 **되돌림 코멘트가 티켓으로 간다**.
 
-**사람이 만든 개발 티켓**(팀이 `개발 티켓`으로 선언한 Jira 컴포넌트 · GitHub 라벨)도 같은 `pickup`으로 받는다 — 판정서가
-없으면 `system-architect`를 티켓 판정 모드로 스폰하고, 착수 불가면 요청 코멘트로 끝나며, 착수 가능이면 **미리보기(완성될 본문·
-테스트 항목·수정 범위)를 사용자에게 보여주고 확인받은 뒤** `--assessment <지문>`으로 티켓을 WORK 모양으로 완성하고 착수한다.
-이 확인은 픽업 요청으로 대신하지 않는다(티켓 본문을 바꾸는 쓰기다). change 레인이면 구현 전 `/wh change` 1-A 스팩 승인.
+**사람이 만든 개발 티켓**(팀이 `개발 티켓`으로 선언한 Jira 컴포넌트 · GitHub 라벨)도 같은 `pickup`으로 받는다.
+사용자에게 묻는 것은 **미리보기 확인 한 번**이다:
+1. 결과의 `outcome`이 `assessing`이면 **같은 턴에서** `system-architect`를 티켓 판정 모드로 스폰하고, 끝나면 곧바로
+   `pickup`을 다시 부른다 — 중간 결과를 사용자에게 보고하지 않는다. 한 번 판정한 뒤에도 `assessing`이면 멈추고 알린다(재시도 1회).
+2. `confirm`이면 미리보기의 `review`만 보여주고 확인을 묻는다. 확인하면 결과의 `confirmWith`를 그대로 붙여 다시 부른다
+   (`--assessment <지문>` — 지문은 사용자에게 보이지 않는다). 이 확인은 픽업 요청으로 대신하지 않는다(티켓 본문을 바꾸는 쓰기다).
+3. 스팩 승인을 한 번 더 받는 조건은 `ticket-work-contract.md` 흐름 6이 정본이다(`specApproval: required`).
 정본: `references/ticket-work-contract.md`.
 
 **묻지 않고 실행한다 — 픽업 요청이 곧 승인이다.** 승인 범위는 셋이다: 본인 배정 · `in-progress` 전이
@@ -173,9 +176,9 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | 명령 | 답의 형태 |
 |---|---|
 | `board` | 표 하나(`키 · 제목 · 상태 · 담당 · 다음 할 일`) + `notes` 그대로 + 한 줄 질문. 다른 열·절을 만들지 않는다 |
-| `pickup` 미리보기 | 완성될 본문을 **그대로** 보여주고 요약하지 않는다. 끝에 확인을 묻는 한 줄 |
-| `pickup` 되돌림 | `bounce`의 이유와 정해야 할 것을 그대로. 왜 막혔는지 따로 조사하지 않는다 |
-| `pickup` 성공 | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다 |
+| `pickup` 미리보기(`outcome: confirm`) | `review`만 보여준다 — AI가 **제안한** 완료 조건·테스트 항목, 수정 범위, 레인, 추가될 라벨. 완성될 본문은 요청이 있을 때만. 끝에 확인을 묻는 한 줄 |
+| `pickup` 멈춤(`outcome: stopped`) | 「멈췄습니다」와 `guidance`·`bounce`의 이유·정해야 할 것을 그대로. 결과 코드(`TICKET_…`)를 보여주지 않고, 왜 막혔는지 따로 조사하지 않는다 |
+| `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·라벨·첨부)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
 | `link`·`link --sync` | 충족·미충족 항목 그대로. 미충족마다 해법을 지어내지 않는다 |

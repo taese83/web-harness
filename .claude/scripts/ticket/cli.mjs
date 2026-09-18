@@ -454,8 +454,10 @@ if (invokedDirectly) {
             questions: resolved.questions ?? null,
             guidance: missing === 'provider' ? '티켓 provider 설정이 없다 — `configure`로 먼저 정한다' : 'GitHub 티켓을 집으려면 `--repo <owner/name>`가 필요하다'}
         }
-        return (await import('./work-pickup-run.mjs')).runWorkPickup({root, ticketKey: args[0] ?? null,
+        const {pickupOutcome, runWorkPickup} = await import('./work-pickup-run.mjs')
+        const picked = await runWorkPickup({root, ticketKey: args[0] ?? null,
           developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
+        return {outcome: pickupOutcome(picked), ...picked}
       }
       // 완료 주장(PR 연결)·머지 관측(`--sync`). 트래커를 부르지 않는다.
       case 'link': {

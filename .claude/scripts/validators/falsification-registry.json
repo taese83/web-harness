@@ -2833,6 +2833,38 @@
       "replace": "      // (removed)",
       "test": ".claude/scripts/test-work-routes-e2e.mjs",
       "why": "머지로 끝난 작업의 판정서가 남으면 필요한 사실은 원장에 있는데도 로컬 파일이 계속 쌓인다"
+    },
+    {
+      "id": "ticket-spec-approval-when-new-contract",
+      "file": ".claude/scripts/ticket/ticket-work.mjs",
+      "find": "  return SELF_CHECK_IDS.every(id => answers.get(id) === 'no') ? 'not-needed' : 'required'",
+      "replace": "  return 'not-needed'",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "새 계약이 걸린 change까지 미리보기 확인만으로 넘기면 공개 계약 변경이 스팩 승인 없이 들어간다"
+    },
+    {
+      "id": "ticket-change-scope-spec-approval-fail-closed",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "    specApproval: work.origin === 'ticket' ? work.specApproval ?? 'required' : null,",
+      "replace": "    specApproval: work.origin === 'ticket' ? work.specApproval ?? 'not-needed' : null,",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "판정 기록이 없는 옛 등록을 승인 불필요로 읽으면 스팩 승인이 조용히 빠진다"
+    },
+    {
+      "id": "ticket-preview-review-only-proposed",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "    proposed: [...list(assessment.acceptance).filter(item => item?.source === 'proposed')",
+      "replace": "    proposed: [...list(assessment.acceptance)",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "원문에서 옮긴 조건까지 판단 대상으로 보여주면 사용자가 AI가 지어낸 조건을 가려내지 못한다"
+    },
+    {
+      "id": "ticket-review-carries-design-debt",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "    nonGoals: definition.nonGoals, designDebt: definition.designDebt.map(item => ({what: item.what, why: item.why ?? ''})),",
+      "replace": "    nonGoals: definition.nonGoals,",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "미리보기 확인이 스팩 승인을 대신하는데 디자인 부채가 빠지면 사용자가 승인하는 범위가 실제 승인 대상보다 좁다"
     }
   ]
 }

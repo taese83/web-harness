@@ -13,15 +13,20 @@
 1. `pickup <키> --developer <나>` → 판정서가 없으면 `TICKET_ASSESSMENT_REQUIRED`(외부 쓰기 0). CLI가 원문을 **격리 스냅샷**
    (`ticket-assessments/<키>.ticket.md` — 에이전트가 쓸 수 없는 자리)으로 남기고, 스킬이 `system-architect`를
    **티켓 판정 모드**로 스폰한다. 에이전트는 트래커 본문이 아니라 이 스냅샷을 읽는다.
-2. 에이전트가 `_workspace/03_dev/ticket-assessments/<키>.json`을 쓴다(아래 스키마). 다시 `pickup` → CLI가 검증한다.
+2. 에이전트가 `_workspace/03_dev/ticket-assessments/<키>.json`을 쓴다(아래 스키마). 스킬이 **같은 턴에서** 다시 `pickup` → CLI가 검증한다.
+   1~2는 사용자에게 보고하지 않는 중간 단계다(`outcome: assessing`).
 3. 판정이 `needs-planning`·`needs-design`·`undecidable`이면 원장에 `ticket-assessed`를 남기고 **티켓에 요청 코멘트**를 단다(exit 2).
    코멘트는 **새 판정서일 때만** 단다 — 같은 판정서로 다시 불러도 쌓이지 않는다.
-4. `startable`이면 `TICKET_WORK_PREVIEW` — 판정·레인·수정 범위·완료 조건·테스트 항목·**완성될 본문**·추가될 역할 라벨을 보여준다.
+4. `startable`이면 `TICKET_WORK_PREVIEW`(`outcome: confirm`) — 사용자에게는 `review`(AI가 제안한 완료 조건·테스트 항목, 수정 범위,
+   레인, 추가될 라벨, 하지 않는 것, 디자인 부채)만 보여준다 — 이 확인이 스팩 승인을 대신하므로 승인 대상을 빠짐없이 싣는다. 결과에는 판정·완료 조건·테스트 항목·**완성될 본문** 전체가 함께 실린다.
    트래커에 쓰지 않는다. 미리보기 본문의 「원문」 자리는 크기만 적는다(비신뢰 원문을 싣지 않는다 — 쓸 때 그대로 보존한다).
    진행 중 작업과 겹쳐 착수할 수 없으면 원장에 「착수 가능」을 남기지 않는다.
-5. 개발자가 확인하면 `pickup <키> --developer <나> --assessment <지문>`. 지문이 지금 판정서와 다르면 멈춘다.
+5. 개발자가 확인하면 스킬이 결과의 `confirmWith`(`--assessment <지문>`)를 붙여 다시 부른다 — 지문은 사용자에게 보이지 않는다.
+   지문이 지금 판정서와 다르면 멈춘다(미리보기 뒤에 판정서가 바뀌었다).
 6. 티켓 완성(본문 · 역할 라벨 · 보이지 않는 마커) → 원장 `ticket-work-registered` → AI 작업 맥락 첨부 → 기존 픽업(배정·전이·change-scope).
-   change-scope의 `origin: ticket`, `lane`. **change 레인이면 구현 전에 `/wh change`의 1-A 스팩 승인을 거친다.**
+   change-scope의 `origin: ticket`, `lane`, `specApproval`. **`specApproval: required`(change이면서 자기검사 다섯 항목이 모두
+   「아니오」가 아님)일 때만** 구현 전에 `/wh change`의 1-A 스팩 승인을 거친다. fix와 새 계약 없는 change는 미리보기 확인이 승인이다 —
+   판정서 검증이 수정 범위가 스팩 경계 안이고 새 route가 없음을 이미 확인했다.
 
 ## 판정 기준
 

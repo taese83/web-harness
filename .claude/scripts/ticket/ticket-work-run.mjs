@@ -190,14 +190,20 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   // 미리보기에는 **비신뢰 원문을 싣지 않는다** — 쓸 때 그대로 보존한다는 사실과 크기만 적는다.
   const withheld = lang === 'en' ? `(original description preserved verbatim on write — ${originalBody.length} chars, not shown: untrusted)`
     : `(원문 ${originalBody.length}자를 쓸 때 그대로 보존한다 — 비신뢰 원문이라 미리보기에 싣지 않는다)`
+  // 사용자가 판단할 것만 따로 묶는다 — AI가 **제안한** 항목·수정 범위·레인·추가될 라벨. 원문에서 옮긴 항목과 본문은 접는다.
+  const review = {lane: assessment.lane, specApproval: definition.specApproval, writePaths: definition.writePaths, labels: labelsToAdd,
+    nonGoals: definition.nonGoals, designDebt: definition.designDebt.map(item => ({what: item.what, why: item.why ?? ''})),
+    proposed: [...list(assessment.acceptance).filter(item => item?.source === 'proposed').map(item => ({kind: 'acceptance', text: item.text})),
+      ...list(assessment.testItems).filter(item => item?.source === 'proposed').map(item => ({kind: 'test', id: item.id, text: item.text}))]}
   const preview = {mode: 'work', ticketKey, workId, lane: assessment.lane, assessmentDigest: digest, writePaths: definition.writePaths,
+    specApproval: definition.specApproval, review, confirmWith: {flag: '--assessment', value: digest},
     acceptance: assessment.acceptance, testItems: assessment.testItems, labels: {add: labelsToAdd},
     body: renderTicketWorkBody({definition, originalBody: withheld, format, lang, contextName, dependsOn}),
     reregister: Boolean(registered), ...(registered ? {carriedAdditions} : {}), externalWrites: 0}
   if (!flags.assessment || flags['dry-run']) {
-    return {result: {...preview, ok: true, phase: 'TICKET_WORK_PREVIEW',
-      guidance: `이대로 진행하려면 --assessment ${digest}를 붙여 다시 부르세요. 확인 전에는 티켓을 고치지 않습니다.`
-        + (assessment.lane === 'change' ? ' 새 동작을 더하는 작업이라, 구현 전에 /wh change로 스팩 승인을 받습니다.' : '')}}
+    return {result: {...preview, ok: true, phase: 'TICKET_WORK_PREVIEW', ...(flags['dry-run'] ? {dryRun: true} : {}),
+      guidance: '확인하면 이 판정대로 티켓을 채우고 착수합니다. 확인 전에는 티켓을 고치지 않습니다.'
+        + (definition.specApproval === 'required' ? ' 새 계약이 걸린 작업이라 구현 전에 /wh change로 스팩 승인을 한 번 더 받습니다.' : '')}}
   }
   if (String(flags.assessment) !== digest) {
     return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_MISMATCH', ticketKey, expected: digest,

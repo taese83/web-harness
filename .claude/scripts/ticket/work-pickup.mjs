@@ -42,6 +42,8 @@ export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds,
     // 이 작업이 어디서 왔는가 — 검토한 계획(plan)인가, 사람이 만든 개발 티켓을 판정해 완성한 것(ticket)인가.
     origin: work.origin === 'ticket' ? 'ticket' : 'plan',
     lane: work.origin === 'ticket' ? work.lane ?? null : null,
+    // 미리보기 확인이 스팩 승인을 대신하는가 — 모르면(옛 등록) 승인을 요구한다(fail-closed).
+    specApproval: work.origin === 'ticket' ? work.specApproval ?? 'required' : null,
     ticket: {key: keyOf(issue), provider: issue?.provider ?? null, revision: issue?.revision ?? null, revisionStage: 'pre-pickup'},
     // 공유 작업은 소비 FEAT가 여럿이라 하나를 고를 수 없다 — 하나일 때만 싣고, 목록은 늘 싣는다.
     featureId: featureIds.length === 1 ? featureIds[0] : null,

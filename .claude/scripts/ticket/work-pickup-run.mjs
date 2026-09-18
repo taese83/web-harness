@@ -26,6 +26,18 @@ const readJson = (root, relative) => {
  * @param {{root: string, ticketKey: string, developer: string, flags: object,
  *          io: {provider: object, resolveIssue?: Function, currentBranch?: Function, worktree?: Function}}} args
  */
+/**
+ * 사용자에게 보고할 결과 한 갈래(순수) — 결과 코드는 여러 개지만 사용자가 할 일은 넷뿐이다.
+ * `assessing`은 스킬이 같은 턴에서 판정을 이어 가는 중간 상태라 사용자에게 보고하지 않는다.
+ * @returns {'started'|'confirm'|'stopped'|'assessing'|'dry-run'}
+ */
+export function pickupOutcome(result) {
+  if (result?.dryRun) return 'dry-run'
+  if (result?.phase === 'TICKET_ASSESSMENT_REQUIRED') return 'assessing'
+  if (result?.phase === 'TICKET_WORK_PREVIEW') return 'confirm'
+  return result?.ok ? 'started' : 'stopped'
+}
+
 export async function runWorkPickup({root, ticketKey, developer, flags = {}, io = {}}) {
   const cli = await import('./cli.mjs')
   if (!ticketKey) return {ok: false, mode: 'work', bounce: {reason: 'ticket-key-required'}, guidance: '어느 티켓인지 키가 필요합니다. `pickup <티켓키> --developer <내 아이디>`로 부르세요.'}

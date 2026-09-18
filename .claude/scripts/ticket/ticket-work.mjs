@@ -168,10 +168,22 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
  * 확정된 판정서 → WORK 정의(순수). 완료 조건은 check로 옮긴다(대상 = 수정 범위 — 픽업 뒤 바뀌었는가를 잰다),
  * 테스트 항목은 TC 자리에 둔다(링크가 테스트 코드 인용을 잰다).
  */
+/**
+ * 스팩 승인이 따로 필요한가(순수). 미리보기 확인이 수정 범위·완료 조건·테스트 항목을 이미 승인하므로,
+ * **새 계약이 걸린 change**(자기검사에 「예」가 하나라도 있음)만 `/wh change`의 스팩 승인을 다시 거친다.
+ * fix와 새 계약 없는 change는 미리보기 확인 한 번으로 충분하다.
+ */
+export function ticketSpecApproval(assessment) {  // 「예」·「모름」·누락은 모두 required(fail-closed)
+  if (assessment?.lane !== 'change') return 'not-needed'
+  const answers = new Map(list(assessment.selfCheck).map(item => [item?.id, item?.answer]))
+  return SELF_CHECK_IDS.every(id => answers.get(id) === 'no') ? 'not-needed' : 'required'
+}
+
 export function ticketWorkDefinition({assessment, ticketKey, provider, title}) {
   const workId = ticketWorkId(provider, ticketKey)
   return {
     workId, title: title || String(ticketKey), kind: 'implementation', origin: 'ticket', lane: assessment.lane,
+    specApproval: ticketSpecApproval(assessment),
     roles: list(assessment.roles), objective: assessment.objective, nonGoals: list(assessment.nonGoals),
     dependsOn: list(assessment.dependsOn), readPaths: [], writePaths: list(assessment.writePaths), contractRefs: [],
     checks: list(assessment.acceptance).map((item, index) => ({checkId: `ACC-${index + 1}`, kind: 'acceptance', expectedOutcome: item.text,
