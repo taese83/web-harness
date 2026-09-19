@@ -30,7 +30,8 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
 
 ## 형상 규율 — 이 단계의 커밋·브랜치
 
-개발 단계에 들어가면 **묻지 않고 진행한다**. 확인을 받는 지점은 **PR 직전 하나뿐**이다.
+개발 단계에 들어가면 **묻지 않고 진행한다**. 확인을 받는 지점은 **PR 직전**과 **스팩 변경**(아래
+「개발 중 스팩 변경」) 둘뿐이다.
 
 산출물끼리 어긋나 막히는 것도 예외가 아니다 — `interaction-contract.md`의 "묻지 않는 것"을
 그대로 따른다.
@@ -43,6 +44,7 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
   섰다는 뜻이고, 그 상태에서 묻는 것은 결정을 사용자에게 떠넘기는 것이다. 권장안으로 진행한 뒤
   **무엇을 왜 그렇게 정했는지 한 줄로 보고**한다 — 사용자는 그때 뒤집으면 된다. 아래 "묻는
   경우 넷"도 이 단서를 먼저 통과해야 한다: **문서로 답이 나오면 그 답으로 진행한다.**
+  **스팩 변경·추가만은 예외다** — 권장안이 있어도 먼저 묻는다(「개발 중 스팩 변경」).
 - **먼저 최신으로 맞춘다.** 분기 전에 base 브랜치를 `fetch`하고 최신 상태로 올린다. 오래된
   base에서 따면 충돌을 스스로 만들고, 이미 머지된 남의 작업을 되돌리는 diff를 낸다.
   `origin/<브랜치>` 참조는 **마지막 fetch 시점의 스냅샷**이라 fetch 없이는 "최신"을 알 수 없다.
@@ -53,7 +55,8 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
 - **확정 산출물은 자체 판단으로 따른다.** 기획·디자인·설계·스팩은 이미 승인된 입력이므로 해석
   여지는 스스로 정한다. 멈추고 묻는 경우는 넷뿐이다:
   스펙에 없는 동작을 만들어야 할 때(**TC 발명 금지** — feature-planner 되돌림) ·
-  `change-scope`의 `ALLOWED_PATHS` 밖을 고쳐야 할 때 · 확정된 계약·결정과 충돌할 때 ·
+  `change-scope`의 `ALLOWED_PATHS` 밖을 고쳐야 할 때 · 확정된 계약·결정과 충돌할 때(스팩이면
+  「개발 중 스팩 변경」) ·
   되돌리기 어렵거나 팀 전체에 영향이 가는 조치가 필요할 때.
   **`ALLOWED_PATHS`가 비어 있는 것은 질문거리가 아니라 계획 결함이다** — 자기 TC를 검증할 수
   없는 경로 선언(`paths=none` 등)은 성립하지 않는다. 같은 공백을 앞선 FEAT가 어떻게 갈랐는지
@@ -71,6 +74,36 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
 
 Gate A·B·C와 스폰 완결성 게이트는 이 규율과 무관하게 그대로 밟는다 — 커밋 자율은 게이트
 면제가 아니다.
+
+## 개발 중 스팩 변경 — 개발자에게 먼저 묻는다
+
+확정된 스팩(`spec.json`의 `libraries`·`layerMap`·`architecture`·`targetShapes`·`moduleBoundaries`·
+`nonGoals`·`testLayers`·`constitution.substrate`)을 바꾸거나 항목을 더해야 하면 **바꾸기 전에 실제
+개발자(세션 사용자)에게 묻고 그 판단대로 적용한다.** 권장안이 있어도 묻는다 — 스팩은 팀이 같은
+구조로 개발하기 위한 협업 계약이라 구현자 한 명이 정할 범위를 넘는다.
+
+대상이 아닌 것: 디자인 값(위 「디자인은 최대한 구현한다」) · 요구사항·TC(`feature-planner` 되돌림) ·
+스폰 범위(`minimal-change-contract.md` Scope Expansion).
+
+1. **`developer`는 멈추고 요청을 반환한다.** 스팩 밖 결정을 코드로 먼저 만들거나 우회 구현하지 않고,
+   `SPEC_CHANGE_REQUEST` 블록(`.claude/agents/developer.md`)을 싣고 `SPAWN_RESULT: blocked`로 끝낸다.
+2. **오케스트레이터가 분류하고 모은다.** 디자인·요구사항·범위면 위 경로로 보낸다. 같은 단계에서 나온
+   스팩 요청은 모아서 한 번에 묻는다(`interaction-contract.md` 질문 규칙).
+3. **개발자에게 묻는다.** 요청마다 무엇을 왜 바꾸려는지와 선택지 — ⓐ 스팩을 바꾼다(또는 다른 값으로)
+   ⓑ 스팩 안에서 구현한다(대안과 비용) ⓒ 보류한다 — 그리고 영향(재확정으로 receipt가 stale이 되고
+   다시 도는 스폰 범위)을 보인다. 필드명·digest 같은 내부 사정이 아니라 결과로 묻는다.
+4. **답대로 적용하고 `decision-log.md`에 남긴다** — 같은 요청을 다시 묻지 않는다.
+   - ⓐ → `system-architect`를 그 항목만 고치도록 재스폰(답이 근거이므로 `confirmed`) → `spec.mjs`
+     재확정 → 스팩은 코드와 따로 커밋 → 바뀐 스팩과 어긋나는 기작성 코드를 포함해 영향 범위의
+     `developer`를 다시 스폰한다. 이전 receipt는 재사용하지 않는다.
+   - ⓑ → 스팩은 그대로 두고 답을 제약으로 실어 `developer`를 재스폰한다. 스팩 안에서 풀리지 않으면
+     같은 요청을 다시 올리지 않고 `BLOCKED`로 보고한다.
+   - ⓒ → 그 범위만 `BLOCKED`로 두고 나머지 모듈 경계는 진행한다.
+5. **검사를 통과하려고 스팩을 바꾸지 않는다.** 요청 근거가 게이트 통과뿐이면 올리지 않는다 — 고칠 것은
+   구현이다(I2).
+
+기계 강제 범위: `developer`의 스팩 직접 수정은 소유권 훅이, 재확정은 원장이 잡는다. **묻고 나서
+재확정했는가**는 기계가 대조하지 않는다 — 규율이다.
 
 source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 결정한다. `existing-change`이면 첫 edit 전에 `_workspace/03_dev/change-scope.md`에 `TARGET_BEHAVIOR`, `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`, `TEST_EVIDENCE`, `CAPABILITY_ESCALATION`, `DOCS_TO_UPDATE`를 기록한다(스키마는 `minimal-change-contract.md`가 canonical). 모든 implementation/retry agent prompt에 이 필드를 전달하고 scope 확대가 필요하면 확대된 경로를 수정하기 전에 brief를 갱신한다. `CAPABILITY_ESCALATION: detected`이면 Phase 4에서 `security-reviewer` 재투입이 의무다.
 
