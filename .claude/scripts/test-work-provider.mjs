@@ -311,6 +311,8 @@ test('다시 연 시각: Jira는 해결 사유가 비워진 이력, GitHub은 re
 test('Jira 코멘트: 위키 서식(v2)에서는 인라인 코드를 {{…}}로, 대괄호·중괄호를 이스케이프해 사람이 읽는 그대로 보이게 한다', async () => {
   const {toJiraWikiText} = await import('./ticket/provider-jira.mjs')
   assert.equal(toJiraWikiText('이유 (`ticket-needs-planning`) · [실측] {조합}'), '이유 ({{ticket-needs-planning}}) · \\[실측\\] \\{조합\\}')
+  // 중괄호가 든 코드는 고정폭으로 감싸지 않는다 — Jira가 안쪽 `}`에서 고정폭을 끝낸다(AOA-26 실측).
+  assert.equal(toJiraWikiText('코드 `a{b}`'), '코드 a\\{b\\}')
   const sent = []
   const fetchImpl = async (url, {method = 'GET', body = null} = {}) => {
     if (method === 'POST') sent.push(JSON.parse(body).body)

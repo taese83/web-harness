@@ -228,6 +228,8 @@ export const closeReference = () => null
  * 하네스 문안은 마크다운 관습으로 쓰여 있어 Data Center(v2)에서 백틱이 글자로 남고 `[…]`가 깨진 링크로 그려진다.
  */
 export function toJiraWikiText(text) {
+  const escape = value => value.replace(/([[\]{}])/g, '\\$1')
+  // 중괄호가 든 코드는 고정폭(`{{…}}`)으로 감싸지 않는다 — Jira DC가 안쪽 `}`에서 고정폭을 끝낸다(실측). 이스케이프한 평문으로 둔다.
   return String(text ?? '').split(/(`[^`\n]+`)/).map(part => (/^`[^`\n]+`$/.test(part)
-    ? `{{${part.slice(1, -1).replace(/([{}])/g, '\\$1')}}}` : part.replace(/([[\]{}])/g, '\\$1'))).join('')
+    ? (/[{}]/.test(part) ? escape(part.slice(1, -1)) : `{{${part.slice(1, -1).replace(/([[\]])/g, '\\$1')}}}`) : escape(part))).join('')
 }

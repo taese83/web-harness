@@ -3385,6 +3385,14 @@
       "replace": "depth: byTitle.depth}",
       "test": ".claude/scripts/test-work-events.mjs",
       "why": "제목을 고친 되돌림 PR이 브랜치로 잡혀 되돌림 시각이 완료 시각이 된다"
+    },
+    {
+      "id": "jira-code-with-braces-plain",
+      "file": ".claude/scripts/ticket/provider-jira.mjs",
+      "find": "    ? (/[{}]/.test(part) ? escape(part.slice(1, -1)) :",
+      "replace": "    ? (false ? escape(part.slice(1, -1)) :",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "중괄호가 든 코드를 고정폭으로 감싸면 Jira가 안쪽 }에서 고정폭을 끝내 글자가 흩어진다"
     }
   ]
 }
