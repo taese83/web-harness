@@ -45,7 +45,7 @@ Secret이 유출되었거나 정기 회전이 필요한 경우 `references/secre
    - response interceptor: 401 → single-flight 세션 갱신 → 원 요청 1회 재시도 → 실패 시 session-expired event
 
 3. **Login feature 생성**
-   - `src/features/login/ui/LoginForm.tsx` — react-hook-form + Zod 유효성 검사
+   - `src/features/login/ui/LoginForm.tsx` — react-hook-form + Zod 유효성 검사. `autocomplete`(`username`·`current-password`, OTP면 `one-time-code`), 붙여넣기 허용, 라벨·오류 연결은 `lib-advisor/assets/setup-snippets.md` 「React Hook Form + Zod」를 따른다
    - `src/features/login/api/mutations.ts` — `useLogin`, `useLogout` mutation
 
 4. **Protected Route 래퍼**

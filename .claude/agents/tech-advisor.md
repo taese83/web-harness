@@ -84,6 +84,7 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 ## Harness Profile
 - WEB_PROFILE: react-vite-spa | next-app-fullstack
 - UI_LANE: mui | tailwind-shadcn — 선택 근거 1줄 필수(lib-catalog §UI 판단 축). 하류 빌더는 이 값을 따르며, 브라운필드는 integration-overlay `uiLane`(기존 앱 실측)이 우선한다
+- REACT_COMPILER: on | off — 기본 off. on은 호환되지 않는 라이브러리(RHF `watch`·TanStack Table 등)가 핵심 화면에 적고 빌드 시간 증가를 감수할 때 제안하고, 사용자가 고른다(`performance-patterns.md` §4)
 - PUBLIC_EXPOSURE: yes | no — 검색 노출·공유 URL이 요구되면 yes(`public-ssr`·`static-content` 등). yes면 `layout-designer`가 `seo-spec.md`를 쓰고 릴리스에 `qa-seo.md`가 필수가 된다
 - deployment provider: generic | vercel
 - deployment target:

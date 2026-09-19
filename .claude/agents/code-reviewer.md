@@ -132,6 +132,8 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - Grep 도구로 `autoFocus` 사용처를 `src/`에서 목록화
    - Menu/Popover 항목 클릭으로 트리거되는 인풋에 `autoFocus`만 있고 `useRef` + `requestAnimationFrame` 패턴이 없으면 WARN (포커스 충돌 위험)
 10. **a11y 정적 검사**: jsx-a11y lint 결과를 사용하고, 실제 keyboard/axe/viewport 판정은 `browser-verifier`에 위임
+   - Grep으로 `onPaste`를 찾아 붙여넣기를 **막는지** 본다 — `preventDefault` 뒤에 `clipboardData`를 읽어 칸에 채우면(분할 OTP의 정본 구현) 막은 것이 아니다. 값을 버리면 비밀번호·OTP·인증 필드는 **FAIL**(WCAG 3.3.8), 그 밖은 WARN
+   - Grep으로 `outline-none`·`outline: none`·`outline: 0`을 찾아 포커스를 받는 요소의 포커스 표시가 사라지는지 본다. 같은 파일·스타일시트에 `focus-visible`·`focus:` 대체(ring·outline)가 하나도 없으면 **FAIL**(2.4.7), 대체가 있는데 그 요소에 걸리는지 애매하면 WARN. 포커스를 받지 않는 요소(컨테이너·svg)는 제외한다. Tailwind v4는 forced-colors를 지키는 `outline-hidden`을 권한다
 10-1. **vendored 프리미티브 a11y 보존 검사** (`UI_LANE: tailwind-shadcn`일 때):
    - Grep으로 `src/shared/ui/` 내 `@radix-ui/`·`@base-ui/` import 파일을 목록화(shadcn은 두 기반을 모두 쓴다 — 한쪽만 보면 다른 쪽이 빈 집합으로 통과한다)
    - dialog·alertdialog·sheet에 접근 가능한 이름(Title)이 없으면 **FAIL**

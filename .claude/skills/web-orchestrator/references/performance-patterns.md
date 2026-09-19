@@ -116,6 +116,10 @@ export const VirtualList = ({items}: {items: Item[]}) => {
 
 ## 4. React 렌더링 최적화
 
+**순서: 측정 → 구조 → memo.** 느리다는 근거(React DevTools Profiler·Performance 패널의 trace)가 먼저다. 그다음
+구조로 푼다 — 자주 바뀌는 state를 쓰는 곳 가까이 내리고, 바뀌지 않는 내용은 `children`으로 받아 부모 리렌더에서 뺀다.
+memo는 그래도 남는 비용에만 쓴다.
+
 ```tsx
 // 비싼 계산은 useMemo로 메모이제이션
 const sortedItems = useMemo(
@@ -137,6 +141,29 @@ const handleDelete = useCallback((id: string) => {
 ```
 
 **적용 기준**: 부모 리렌더가 잦고 자식이 실제로 변하지 않는 경우에만 적용. 불필요한 memo는 오히려 비용을 높인다.
+
+### React Compiler (`tech-stack.md`의 `REACT_COMPILER: on | off`)
+
+켜면 컴파일러가 메모이제이션을 맡는다 — **새 코드에 수동 `useMemo`·`useCallback`·`memo`를 쓰지 않고**, 기존 것은
+지우지 않는다(지우면 컴파일 결과가 달라질 수 있다). 생성 템플릿의 `eslint-plugin-react-hooks` 7 recommended가 이미
+컴파일러 규칙(purity·refs·set-state-in-effect 등)을 강제하므로 코드는 준비돼 있다. RHF `watch`·TanStack Table처럼
+`incompatible-library`가 보고하는 라이브러리를 쓰는 컴포넌트는 최적화에서 빠진다. 성능 이득은 trace로 확인하기 전까지
+주장하지 않는다.
+
+vite 프로필(`react-vite-spa`·`vite-serverless-hybrid`)에서 `environment-scaffolder`가 설정한다(Next는 설정 경로가 달라 아직 검증하지 않았다. devDependencies `@rolldown/plugin-babel`·`babel-plugin-react-compiler`·`@babel/core`):
+
+```ts
+// vite.config.ts
+import babel from '@rolldown/plugin-babel'
+import react, {reactCompilerPreset} from '@vitejs/plugin-react'
+plugins: [react(), babel({presets: [reactCompilerPreset()]}), svgr()]
+
+// vitest.config.ts — preset은 브라우저(client) 환경에만 걸린다. jsdom 테스트는 서버 경로로 돌아
+// preset이 빠지므로 **플러그인을 직접** 건다 — 그래야 테스트가 배포될 코드와 같은 코드를 검증한다.
+import babel from '@rolldown/plugin-babel'
+import react from '@vitejs/plugin-react'
+plugins: [react(), babel({plugins: ['babel-plugin-react-compiler']})]
+```
 
 ---
 
