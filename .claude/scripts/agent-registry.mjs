@@ -232,6 +232,17 @@ export const findLayerOverlaps = layerMap => {
 // 대신 개발 에이전트 하나가 **스팩이 선언한 레이어 전부**를 소유하고, 병렬 격리는 에이전트
 // 정체성이 아니라 스폰별 범위(change-scope의 ALLOWED_PATHS = moduleBoundaries)가 공급한다.
 // 그것이 스팩이 moduleBoundaries를 담는 이유다.
+// 어떤 에이전트도 쓰지 않는 경로 — 소유권 패턴이 앞 세그먼트를 허용하므로(appPrefix) 레이어 `src/`가
+// `node_modules/…/src/`에도 맞는다. 의존성 트리·VCS 내부·하네스 자신·에이전트/IDE/MCP 설정(스스로 권한을 바꾸는
+// 채널)은 스팩·등록부보다 앞서 막는다.
+// 대소문자를 무시한다 — macOS·Windows 기본 파일시스템에서 `Node_Modules/`·`.VSCode/`는 같은 디렉터리다.
+// 깊이도 무시한다 — 패키지 하나가 프로젝트 루트일 수 있다(`apps/web/.claude/`).
+const PROTECTED_SEGMENTS = new Set(['node_modules', '.git', '.claude', '.vscode', '.idea', '.cursor'])
+export const isProtectedWritePath = path => {
+  const segments = String(path).replace(/^\.\//, '').toLowerCase().split('/').filter(Boolean)
+  return segments.some(segment => PROTECTED_SEGMENTS.has(segment)) || segments.at(-1) === '.mcp.json'
+}
+
 export const DEVELOPER_AGENT = 'developer'
 
 // 개발 에이전트는 layerMap의 모든 선언 경로를 소유한다. 테스트·문서처럼 다른 에이전트가

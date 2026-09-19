@@ -1,5 +1,6 @@
 import {realpathSync, statSync} from 'node:fs'
 import {extname, relative, resolve, sep} from 'node:path'
+import {scanDirectoryForSensitiveEntries} from './sensitive-access-policy-lib.mjs'
 
 const MAX_COMMAND_LENGTH = 8192
 const MAX_TOKENS = 128
@@ -31,65 +32,7 @@ const PNPM_NETWORK_SUBCOMMANDS = new Set([
   'patch-commit', 'store', 'link', 'unlink', 'rebuild', 'dlx', 'create', 'init',
   'exec', 'deploy',
 ])
-const PNPM_ALLOWED_SCRIPTS = new Set([
-  'build', 'dev', 'preview', 'typecheck', 'lint', 'test', 'coverage',
-  'start', 'serve', 'check', 'format',
-])
 
-// 값이 경로처럼 보이면 프로젝트 안인지 확인한다. 절대 경로와 상위 탈출을 막는다.
-// `--flag=value` 형태도 값 부분을 본다. 경로가 아닌 값(플래그·숫자·패턴)은 통과시킨다 —
-// 여기서 과하게 막으면 정당한 명령이 깨지고, 그러면 우회 유인이 생긴다.
-const assertInsideProject = (rawValue, label) => {
-  const value = rawValue.includes('=') ? rawValue.slice(rawValue.indexOf('=') + 1) : rawValue
-  if (value === '') return
-  if (value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)) {
-    fail('DENY_ARGUMENTS', `${label} must not use an absolute path: ${rawValue}`)
-  }
-  if (value === '..' || value.startsWith('../') || value.includes('/../') || value.endsWith('/..')) {
-    fail('DENY_ARGUMENTS', `${label} must not escape the project root: ${rawValue}`)
-  }
-  if (value.startsWith('~')) {
-    fail('DENY_ARGUMENTS', `${label} must not use a home-relative path: ${rawValue}`)
-  }
-}
-
-const validatePnpmCommand = (args, _context) => {
-  if (args.length === 0) fail('DENY_ARGUMENTS', 'pnpm requires a subcommand.')
-  // strip leading flags: --dir <path>, --filter <pattern>, -C <path>, --recursive/-r
-  let remaining = [...args]
-  while (remaining.length > 0 && remaining[0].startsWith('-')) {
-    const flag = remaining[0]
-    if (flag === '--dir' || flag === '--filter' || flag === '-C') {
-      // 종전에는 값을 검사 없이 건너뛰었다 — `pnpm --dir /etc run lint`와
-      // `pnpm --dir ../../.. run lint`가 통과했다(2026-08-26 실측). 그 디렉토리의
-      // package.json script가 실행되므로 **프로젝트 밖 코드 실행 경로**다.
-      const value = remaining[1]
-      if (typeof value !== 'string' || value === '') fail('DENY_ARGUMENTS', `pnpm ${flag} requires a value.`)
-      if (flag !== '--filter') assertInsideProject(value, `pnpm ${flag}`)
-      remaining = remaining.slice(2)
-    } else if (flag === '--recursive' || flag === '-r') {
-      remaining = remaining.slice(1)
-    } else {
-      fail('DENY_ARGUMENTS', `Unsupported pnpm flag: ${flag}`)
-    }
-  }
-  if (remaining.length === 0) fail('DENY_ARGUMENTS', 'pnpm requires a subcommand after flags.')
-  const sub = remaining[0]
-  if (PNPM_NETWORK_SUBCOMMANDS.has(sub)) {
-    fail('DENY_NETWORK', `pnpm ${sub} is blocked; only script execution is allowed.`)
-  }
-  // pnpm run <script> or pnpm <script> (shorthand)
-  const script = sub === 'run' ? remaining[1] : sub
-  if (!script) fail('DENY_ARGUMENTS', 'pnpm run requires a script name.')
-  if (!PNPM_ALLOWED_SCRIPTS.has(script)) {
-    fail('DENY_ARGUMENTS', `pnpm script not in allowlist: ${script}. Allowed: ${[...PNPM_ALLOWED_SCRIPTS].join(', ')}`)
-  }
-  // script 뒤 인자도 검사한다 — 종전에는 무검증이라 `pnpm run lint --reporter ../../../etc/passwd`·
-  // `--outDir /tmp/evil`이 통과했다. 러너가 그 경로를 파일로 읽거나 모듈로 로드한다.
-  for (const argument of remaining.slice(sub === 'run' ? 2 : 1)) {
-    assertInsideProject(argument, 'pnpm script argument')
-  }
-}
 const DESTRUCTIVE_COMMANDS = new Set([
   'rm', 'mv', 'cp', 'dd', 'chmod', 'chown', 'truncate', 'tee', 'touch', 'mkdir',
   'rmdir', 'install', 'ln', 'kill', 'pkill', 'killall', 'shutdown', 'reboot',
@@ -334,6 +277,15 @@ const GREP_RECURSIVE_EXCLUDES = [
   '--exclude-dir=.git', '--exclude-dir=node_modules',
 ]
 
+// 재귀 검색 대상 트리에 비밀 경로가 있으면 막는다 — Grep 도구(sensitive-access 훅)와 **같은 판정**이다.
+// exclude 패턴은 비밀 이름 전부를 덮지 못한다(.npmrc·.netrc·service-account.json 등). 출구는 비밀이 없는
+// 하위 디렉터리로 대상을 좁히는 것이다.
+const denySensitiveTree = (real, context) => {
+  if (scanDirectoryForSensitiveEntries(context.projectRoot, real)) {
+    fail('DENY_SENSITIVE_TREE_GREP', 'Recursive search target contains secret-bearing paths or symlinks; narrow it to a subdirectory without them.')
+  }
+}
+
 const validateGrep = (args, context) => {
   const booleanOptions = new Set([
     '-n', '--line-number', '-i', '--ignore-case', '-l', '--files-with-matches',
@@ -384,7 +336,10 @@ const validateGrep = (args, context) => {
   let hasDirectoryTarget = false
   for (const path of paths) {
     const real = readablePath(path, context)
-    if (statSync(real).isDirectory()) hasDirectoryTarget = true
+    if (statSync(real).isDirectory()) {
+      hasDirectoryTarget = true
+      denySensitiveTree(real, context)
+    }
   }
   if (!recursive && hasDirectoryTarget) {
     fail('DENY_ARGUMENTS', 'grep on a directory requires -r; otherwise pass regular files.')
@@ -442,7 +397,10 @@ const validateRg = (args, context) => {
   let hasDirectoryTarget = false
   for (const path of paths) {
     const real = readablePath(path, context)
-    if (statSync(real).isDirectory()) hasDirectoryTarget = true
+    if (statSync(real).isDirectory()) {
+      hasDirectoryTarget = true
+      denySensitiveTree(real, context)
+    }
   }
   if (hasDirectoryTarget) {
     const provided = new Set(globValues)
@@ -965,8 +923,10 @@ export const evaluateGlobalBashPolicy = (input, options = {}) => {
     const [command, ...args] = tokens
 
     if (command === 'pnpm') {
-      validatePnpmCommand(args, context)
-      return allow('ALLOW_PNPM_SCRIPT', `pnpm script execution allowed: ${args.join(' ')}`)
+      if (args.some(arg => PNPM_NETWORK_SUBCOMMANDS.has(arg))) fail('DENY_NETWORK', 'pnpm install/add/publish and similar are blocked; use the typed package broker.')
+      // 프로젝트 스크립트는 프로젝트 코드(설정·테스트)를 실행한다 — 서브에이전트는 env allowlist·격리 HOME을 갖춘
+      // quality runner로만 돌린다. 직접 `pnpm run`은 세션 env를 그대로 넘긴다.
+      fail('DENY_PNPM_DIRECT', 'Subagents run project scripts only through node .claude/scripts/run-quality-gates.mjs --check <id>.')
     }
     if (NETWORK_COMMANDS.has(command)) fail('DENY_NETWORK', `Network, remote, package-manager, and VCS command is blocked: ${command}`)
     if (command === 'mkdir') {

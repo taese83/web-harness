@@ -59,14 +59,6 @@
       "why": "파일 항목에 /를 붙이면 그 파일 자신과 안 맞아 실사용 스팩의 3분의 1이 무소유가 된다"
     },
     {
-      "id": "bash-path-escape",
-      "file": ".claude/scripts/global-bash-policy-lib.mjs",
-      "find": "      if (flag !== '--filter') assertInsideProject(value, `pnpm ${flag}`)",
-      "replace": "      void value",
-      "test": ".claude/scripts/test-global-bash-policy.mjs",
-      "why": "--dir 경로 검사를 끄면 verifier가 프로젝트 밖 package.json script를 실행할 수 있다"
-    },
-    {
       "id": "entry-cost-includes-skill-body",
       "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
       "find": "  return {bytes: bytes + skillBodyBytes, files: files + 1, missing};",
@@ -3417,6 +3409,38 @@
       "replace": "  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md')",
       "test": ".claude/scripts/test-release-report-policy.mjs",
       "why": "스펙 파일만 트리거로 쓰면 생산자가 빠졌을 때 공개 사이트의 SEO QA가 조용히 사라진다"
+    },
+    {
+      "id": "bash-recursive-search-sensitive-tree",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "  if (scanDirectoryForSensitiveEntries(context.projectRoot, real)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-global-bash-policy.mjs",
+      "why": "exclude 패턴은 비밀 이름 전부를 덮지 못한다 — 트리 판정이 빠지면 .npmrc 같은 토큰 파일이 재귀 grep으로 출력된다"
+    },
+    {
+      "id": "bash-pnpm-direct-blocked",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "      fail('DENY_PNPM_DIRECT', 'Subagents run project scripts only through node .claude/scripts/run-quality-gates.mjs --check <id>.')",
+      "replace": "      return allow('ALLOW_PNPM_SCRIPT', 'pnpm script execution allowed')",
+      "test": ".claude/scripts/test-global-bash-policy.mjs",
+      "why": "직접 pnpm run은 세션 env를 그대로 넘겨 프로젝트 코드(설정·테스트)를 실행한다 — quality runner의 env 격리를 우회한다"
+    },
+    {
+      "id": "ownership-protected-write-paths",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  if (isProtectedWritePath(ownershipPath)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "레이어 패턴이 앞 세그먼트를 허용해 src/ 레이어가 node_modules/…/src/에도 맞는다 — 의존성 변조·하네스 수정·IDE 설정으로 스스로 권한 변경"
+    },
+    {
+      "id": "verifier-bash-grep-read",
+      "file": ".claude/scripts/enforce-verifier-bash.mjs",
+      "find": "const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'grep'])",
+      "replace": "const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg'])",
+      "test": ".claude/scripts/test-verifier-bash.mjs",
+      "why": "리뷰어 지침의 재귀 grep이 런타임에 막히면 보안·코드 검색이 조용히 빠진다"
     }
   ]
 }

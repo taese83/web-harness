@@ -2,7 +2,7 @@
 
 import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
+import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
@@ -130,6 +130,10 @@ try {
   // 등록부는 bare 이름 기준이므로 자기 플러그인 접두만 벗겨 판정한다. 임의 접두를 벗기면
   // 이름이 겹치는 서드파티 플러그인 에이전트가 ownership을 상속받으므로 반드시 고정한다.
   const agentType = String(input.agent_type).replace(/^web-harness:/, '')
+
+  if (isProtectedWritePath(ownershipPath)) {
+    block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — dependency trees, VCS internals, the harness and agent/IDE/MCP settings are never agent-owned.`)
+  }
 
   // 오케스트레이터가 쓰는 산출물은 **어떤 스팩·범위보다 앞서** 막는다. 종전에는 "아무도
   // 소유하지 않는다"가 등록부의 부재로만 표현됐는데, layerMap은 `_workspace/`를 금지하지

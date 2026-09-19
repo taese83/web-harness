@@ -3,7 +3,7 @@
 import {VERIFIER_AGENTS} from './agent-registry.mjs'
 import {evaluateGlobalBashPolicy, tokenizeSimpleCommand} from './global-bash-policy-lib.mjs'
 
-const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg'])
+const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'grep'])
 const VERIFIER_BLOCKED_SCRIPTS = new Set([
   '.claude/scripts/deploy-harness.mjs',
   '.claude/scripts/run-package-operation.mjs',

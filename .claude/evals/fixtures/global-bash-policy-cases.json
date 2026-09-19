@@ -264,7 +264,7 @@
       "id": "recursive-content-search",
       "expect": "DENY",
       "code": "DENY_ARGUMENTS",
-      "command": "rg password ."
+      "command": "rg password .claude/skills"
     },
     {
       "id": "arbitrary-node",
@@ -661,6 +661,12 @@
       "expect": "DENY",
       "code": "DENY_VALIDATION_COMMAND",
       "command": "node .claude/scripts/validate-shape-checks.mjs --project-root . --shapes \"lib; rm -rf /\""
+    },
+    {
+      "id": "pnpm-script-direct-blocked",
+      "expect": "DENY",
+      "code": "DENY_PNPM_DIRECT",
+      "command": "pnpm run lint"
     }
   ]
 }

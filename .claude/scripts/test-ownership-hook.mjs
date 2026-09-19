@@ -265,3 +265,23 @@ test('범위 안 경로에 둔 symlink를 거쳐 범위 밖 파일에 쓰지 못
     assert.equal(runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/widgets/list/absent-link/x.ts')}).allowed, false)
   }, {scope: ['src/widgets/list']})
 })
+
+test('레이어 패턴이 앞 세그먼트를 허용해도 의존성 트리·하네스·에이전트/IDE 설정에는 쓰지 못한다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    for (const [agentType, relativePath] of [
+      ['developer', 'node_modules/.pnpm/x@1.0.0/node_modules/x/src/entities/a.ts'],
+      ['developer', '.vscode/settings.json'],
+      ['environment-scaffolder', '.claude/scripts/migrate.mjs'],
+      ['environment-scaffolder', '.mcp.json'],
+      ['developer', 'Node_Modules/x/src/entities/a.ts'],
+      ['developer', '.VSCode/settings.json'],
+      ['developer', 'src/.claude/settings.json'],
+    ]) {
+      const result = runHook({cwd: harnessRoot, agentType, filePath: join(projectRoot, relativePath)})
+      assert.equal(result.allowed, false, `${agentType}가 ${relativePath}에 쓸 수 있다`)
+      assert.match(result.message, /never agent-owned/)
+    }
+    const owned = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/entities/track/model/schema.ts')})
+    assert.equal(owned.allowed, true, owned.message)
+  })
+})

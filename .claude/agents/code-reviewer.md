@@ -95,7 +95,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 ## 검사 순서
 
-콘텐츠 검색은 **Grep/Glob 도구**로 수행한다. Bash는 typed runner(`node .claude/scripts/...`)와 bounded 파일 읽기 명령에만 사용한다 — 전역 Bash 정책이 `grep`과 디렉토리 재귀 `rg`를 차단한다.
+콘텐츠 검색은 **Grep/Glob 도구** 또는 아래 보호 exclude를 붙인 재귀 `grep`으로 한다(대상 트리에 비밀 경로가 있으면 하위 디렉터리로 좁힌다). Bash는 그 밖에 typed runner(`node .claude/scripts/...`)와 bounded 파일 읽기에만 쓴다.
 
 1. `_workspace/04_qa/evidence/typecheck.json`과 `lint.json`의 실제 command/exit/source fingerprint를 확인한다. receipt가 없거나 stale이면 `BLOCKED`다.
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.

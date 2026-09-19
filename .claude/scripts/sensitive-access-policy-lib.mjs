@@ -59,10 +59,13 @@ const isInside = (root, target) => {
   const offset = relative(root, target)
   return offset === '' || (offset !== '..' && !offset.startsWith(`..${sep}`))
 }
+// 비밀을 담지 않는 계약의 템플릿 — Bash 정책(hasSecretSegment)과 같은 예외다.
+const SAFE_ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template'])
 const isSecretPath = value => {
   const segments = value.replaceAll('\\', '/').split('/').filter(Boolean).map(segment => segment.toLowerCase())
   return segments.some(segment => SECRET_SEGMENTS.has(segment)) || segments.some((segment, index) => {
     if (index !== segments.length - 1) return false
+    if (SAFE_ENV_TEMPLATES.has(segment)) return false
     if (SECRET_NAMES.has(segment) || segment === '.env' || segment.startsWith('.env.')) return true
     return SECRET_EXTENSIONS.has(segment.slice(segment.lastIndexOf('.')))
   })
@@ -139,7 +142,7 @@ const globMaySelectGitConfig = patternValue => {
   }
   return visit(0, 0)
 }
-const scanDirectoryForSensitiveEntries = (projectRoot, start) => {
+export const scanDirectoryForSensitiveEntries = (projectRoot, start) => {
   const pending = [start]
   let visited = 0
   while (pending.length) {

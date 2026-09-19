@@ -52,7 +52,9 @@ export const validateAgentBoundaries = ({
         if (token.startsWith('-') || token === '') return token
         if (/^['"]/.test(token)) return token // 인용된 검색 패턴
         positionalIndex += 1
-        return positionalIndex === 1 ? token : '.claude'
+        // 대체 경로는 비밀 경로가 없는 트리여야 한다 — 재귀 검색은 대상 트리의 비밀 경로를 먼저 보므로(DENY_SENSITIVE_TREE_GREP)
+        // worktrees 링크가 있는 `.claude` 전체를 쓰면 문서 예시가 아니라 대체 경로 때문에 막힌다.
+        return positionalIndex === 1 ? token : '.claude/skills'
       })
       .join(' ')
   }

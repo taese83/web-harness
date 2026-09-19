@@ -51,20 +51,20 @@ test('회귀 반증: script 인자가 프로젝트를 벗어나면 막힌다', (
   }
 })
 
-test('오탐 확인: 프로젝트 안 경로와 값 인자는 통과한다', () => {
-  // 과하게 막으면 정당한 명령이 깨지고 그러면 우회 유인이 생긴다.
+test('서브에이전트는 pnpm 스크립트를 직접 실행하지 못한다 — 프로젝트 코드는 quality runner(env 격리)로만 돈다', () => {
   for (const command of [
     'pnpm run lint',
     'pnpm --dir packages/app run build',
     'pnpm --filter @scope/pkg run test',
     'pnpm run test --reporter=verbose',
-    'pnpm run build --outDir dist',
     'pnpm -r run lint',
   ]) {
     const decision = evaluateGlobalBashPolicy({agent_type: 'code-reviewer', tool_name: 'Bash', tool_input: {command}})
-    assert.equal(decision.allowed, true, `${command}가 막히면 정당한 검증이 불가능하다`)
+    assert.equal(decision.allowed, false, command)
+    assert.equal(decision.code, 'DENY_PNPM_DIRECT', command)
   }
 })
+
 
 test('재사용 목록: 프로젝트 안 root·이전 목록만 허용한다', () => {
   for (const command of [
@@ -87,4 +87,24 @@ test('레이어 방향 검사: --project-root(프로젝트 안)와 --json만 허
 test('품질 러너: 진단 전용 deadcode check를 고를 수 있다', () => {
   assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check deadcode').allowed, true)
   assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check knip').allowed, false)
+})
+
+test('반증: exclude 패턴이 덮지 못하는 비밀 파일(.npmrc)이 있는 트리는 막고, .env.example만 있으면 허용한다', async () => {
+  const {mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync} = await import('node:fs')
+  const {join} = await import('node:path')
+  const {tmpdir} = await import('node:os')
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'bash-sensitive-tree-')))
+  const guards = "'--exclude=.env*' '--exclude=*.pem' '--exclude=*.key' '--exclude=id_*' '--exclude=*secret*' '--exclude=*credential*' --exclude-dir=.git --exclude-dir=node_modules"
+  const run = command => evaluateGlobalBashPolicy({agent_type: 'code-reviewer', tool_name: 'Bash', cwd: root, tool_input: {command}},
+    {environment: {CLAUDE_PROJECT_DIR: root}, processCwd: root})
+  try {
+    mkdirSync(join(root, 'app/src'), {recursive: true})
+    writeFileSync(join(root, 'app/src/a.ts'), 'export const a = 1\n')
+    writeFileSync(join(root, 'app/.env.example'), 'VITE_API=\n')
+    assert.equal(run(`grep -rn token app ${guards}`).allowed, true, '.env.example은 비밀 계약 밖이다')
+    writeFileSync(join(root, 'app/.npmrc'), '//registry.npmjs.org/:_authToken=x\n')
+    assert.equal(run(`grep -rn _authToken app ${guards}`).code, 'DENY_SENSITIVE_TREE_GREP')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

@@ -23,9 +23,12 @@
 |---|---|---|
 | 비밀 경로(.env·.ssh·키·credential) 읽기·검색 금지 | `enforce-sensitive-access` | `sensitive-access-policy-lib.mjs` |
 | 서브에이전트 Bash는 승인된 명령 계약만(셸 재진입·네트워크·파괴 명령 금지) | `enforce-global-bash-policy` | `global-bash-policy-lib.mjs` |
+| 재귀 grep·rg는 대상 트리에 비밀 경로가 있으면 거부(Grep 도구와 같은 판정, `.env.example`류 제외) ★ — 트리 안의 심볼릭 링크·`.git` 파일·5만 항목 초과도 거부한다 | 같은 훅 | 출구: 비밀 없는 하위 디렉터리로 좁히기 |
+| 서브에이전트의 `pnpm` 직접 실행 금지 — 프로젝트 스크립트는 quality runner로만 ★ | 같은 훅 | 출구: `run-quality-gates.mjs --check <id>` |
 | 검증 에이전트는 읽기·검사 명령만 | `enforce-verifier-bash` | 같은 파일 |
 | 브라우저 코드에 모델 자격증명·provider SDK·직접 호출 금지, 부수효과 도구는 승인·멱등 필수 | `enforce-ai-safety` | 스크립트 본문 |
 | 쓰기는 스펙 `layerMap` ∩ 스폰 범위(`ALLOWED_PATHS`)만, developer 쓰기는 체크아웃당 한 스폰 | `enforce-agent-ownership` + write lease | `phase-3-development.md` |
+| `node_modules`·`.git`·`.claude`·`.vscode`·`.idea`·`.cursor` 세그먼트와 `.mcp.json`은 깊이·대소문자와 무관하게 어떤 에이전트도 쓰지 못함 ★ | 같은 훅 | `agent-registry.mjs` `isProtectedWritePath` |
 | `HANDOFF.md`는 릴리스 게이트 통과 뒤에만 | `enforce-release-gate` | `release-gate-lib.mjs` |
 
 ## 2. 단계 게이트
