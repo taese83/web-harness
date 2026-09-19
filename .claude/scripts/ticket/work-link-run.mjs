@@ -13,7 +13,7 @@ import {resolveCommentLanguage} from './readiness.mjs'
 import {readDeclaredLanguage} from './ticket-config.mjs'
 import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
-import {titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
+import {prNamesKey, titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
 import {linkRecordPath, readLocalLinks} from './work-state-run.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -83,10 +83,12 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   let baseRef = typeof flags.base === 'string' ? flags.base : null
   let baseNote = baseRef ? 'operator' : null
   let prTitle = null
-  // PR은 `--base`가 있어도 읽는다 — 제목의 티켓 키가 완료의 근거라 건너뛰면 키 없는 PR이 연결된다.
+  let prBranch = null
+  // PR은 `--base`가 있어도 읽는다 — 제목·브랜치의 티켓 키가 완료의 근거라 건너뛰면 키 없는 PR이 연결된다.
   if (found.workId && typeof prUrl === 'string' && /^https?:\/\//.test(prUrl)) {
     const info = io.prInfo ? await io.prInfo(prUrl) : (await resolvePrStates([prUrl])).get(prUrl)
     prTitle = info?.title ?? null
+    prBranch = info?.headRefName ?? null
     if (!baseRef) {
       baseRef = info?.baseRefName ?? null
       baseNote = baseRef ? 'pr' : `unreadable: ${info?.error ?? 'no base'}`
@@ -135,11 +137,11 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
       staleCheck: decision.staleCheck, closeLine: workCloseLine(decision.provider, ticketKey)}
   }
   const closeLine = workCloseLine(decision.provider, decision.closes)
-  // **완료의 근거는 PR 제목의 티켓 키다** — 보드·픽업·자동 닫기가 머지된 PR을 제목으로 찾는다. 키가 없으면 머지돼도 끝난 줄 모른다.
+  // **완료의 근거는 PR 제목이나 브랜치 이름의 티켓 키다** — 보드·픽업이 머지된 PR을 그 키로 찾는다. 둘 다 없으면 머지돼도 끝난 줄 모른다.
   const titleKey = decision.closes ?? ticketKey
-  const prTitleCheck = prTitle === null ? {checked: false, guidance: `PR 제목을 읽지 못했습니다. 제목이 티켓 키로 시작하는지 확인하세요(예: [${titleKey}] …).`}
-    : titleStartsWithKey(prTitle, titleKey) ? {checked: true, ok: true}
-      : {checked: true, ok: false, guidance: `PR 제목을 티켓 키로 시작하세요(예: [${titleKey}] …). 머지된 PR을 제목의 키로 찾아 완료로 봅니다.`}
+  const prTitleCheck = prTitle === null ? {checked: false, guidance: `PR을 읽지 못했습니다. 제목이 티켓 키로 시작하거나 브랜치 이름에 키가 있는지 확인하세요(예: [${titleKey}] … 또는 feature/${titleKey}-…).`}
+    : prNamesKey({title: prTitle, branch: prBranch}, titleKey) ? {checked: true, ok: true, by: titleStartsWithKey(prTitle, titleKey) ? 'title' : 'branch'}
+      : {checked: true, ok: false, guidance: `PR 제목을 티켓 키로 시작하거나 브랜치 이름에 키를 넣으세요(예: [${titleKey}] … 또는 feature/${titleKey}-…). 머지된 PR을 그 키로 찾아 완료로 봅니다.`}
   if (prTitleCheck.ok === false && !flags['dry-run']) {
     return {ok: false, mode: 'work', blocked: 'pr-title-key-required', workId: decision.workId, completion, prTitle: prTitleCheck, guidance: prTitleCheck.guidance}
   }
@@ -195,7 +197,7 @@ export async function resolvePrStates(prUrls, {exec = null} = {}) {
       const host = new URL(url).host
       const out = exec ? await exec(prStateArgs(url), {host}) : await runGh(prStateArgs(url), {host})
       const parsed = JSON.parse(typeof out === 'string' ? out : out?.out ?? '')
-      states.set(url, {state: parsed?.state ?? null, baseRefName: parsed?.baseRefName ?? null, title: parsed?.title ?? null, mergedAt: parsed?.mergedAt ?? null})
+      states.set(url, {state: parsed?.state ?? null, baseRefName: parsed?.baseRefName ?? null, headRefName: parsed?.headRefName ?? null, title: parsed?.title ?? null, mergedAt: parsed?.mergedAt ?? null})
     } catch (error) {
       states.set(url, {error: String(error?.message ?? error).slice(0, 160)})
     }

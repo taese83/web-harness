@@ -307,3 +307,19 @@ test('다시 연 시각: Jira는 해결 사유가 비워진 이력, GitHub은 re
   const githubRead = await github.listReopens({keys: [number]})
   assert.ok(Number.isFinite(Date.parse(githubRead.reopens.get(number))), JSON.stringify(githubRead))
 })
+
+test('Jira 코멘트: 위키 서식(v2)에서는 인라인 코드를 {{…}}로, 대괄호·중괄호를 이스케이프해 사람이 읽는 그대로 보이게 한다', async () => {
+  const {toJiraWikiText} = await import('./ticket/provider-jira.mjs')
+  assert.equal(toJiraWikiText('이유 (`ticket-needs-planning`) · [실측] {조합}'), '이유 ({{ticket-needs-planning}}) · \\[실측\\] \\{조합\\}')
+  const sent = []
+  const fetchImpl = async (url, {method = 'GET', body = null} = {}) => {
+    if (method === 'POST') sent.push(JSON.parse(body).body)
+    return {ok: true, status: 201, text: async () => '{}', json: async () => ({})}
+  }
+  const base = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', assigneeField: 'name'}
+  await createJiraProvider({config: {...base, apiVersion: '2'}, fetchImpl, env: {JIRA_TOKEN: 't'}}).comment('PF-1', '(`a`) [b]')
+  assert.equal(sent[0], '({{a}}) \\[b\\]', 'v2 코멘트를 서식 그대로 보냈다')
+  await createJiraProvider({config: {...base, apiVersion: '3'}, fetchImpl, env: {JIRA_TOKEN: 't'}}).comment('PF-1', '(`a`) [b]')
+  assert.equal(JSON.stringify(sent[1]).includes('{{a}}'), false, 'ADF(v3)에는 위키 이스케이프를 섞지 않는다')
+})
+

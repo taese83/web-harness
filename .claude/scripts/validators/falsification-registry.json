@@ -3021,10 +3021,10 @@
     {
       "id": "link-pr-title-key",
       "file": ".claude/scripts/ticket/work-link-run.mjs",
-      "find": "    : titleStartsWithKey(prTitle, titleKey) ? {checked: true, ok: true}",
-      "replace": "    : true ? {checked: true, ok: true}",
+      "find": "    : prNamesKey({title: prTitle, branch: prBranch}, titleKey) ? {checked: true, ok: true,",
+      "replace": "    : true ? {checked: true, ok: true,",
       "test": ".claude/scripts/test-work-link.mjs",
-      "why": "PR 제목에 티켓 키가 없으면 머지돼도 제목으로 찾지 못해 끝난 줄 모른다"
+      "why": "PR 제목·브랜치에 티켓 키가 없으면 머지돼도 그 키로 찾지 못해 끝난 줄 모른다"
     },
     {
       "id": "evidence-squash-suffix",
@@ -3277,10 +3277,10 @@
     {
       "id": "pr-evidence-requires-title-key",
       "file": ".claude/scripts/ticket/work-provider.mjs",
-      "find": "    .filter(item => titleStartsWithKey(item.text, ticketKey))",
+      "find": "    .filter(item => prNamesKey({title: item.text, branch: item.branch}, ticketKey))",
       "replace": "    .filter(item => item)",
       "test": ".claude/scripts/test-work-link.mjs",
-      "why": "제목에 키가 없는 PR을 근거로 세면 아무 머지가 아무 티켓의 완료가 된다"
+      "why": "제목·브랜치 어디에도 키가 없는 PR을 근거로 세면 아무 머지가 아무 티켓의 완료가 된다"
     },
     {
       "id": "jira-reopen-means-resolution-cleared",
@@ -3337,6 +3337,54 @@
       "replace": "if (false) {",
       "test": ".claude/scripts/test-work-close.mjs",
       "why": "되돌림 PR 머지로 되돌린 이슈를 닫으면 되돌린 작업이 끝난 것으로 보인다"
+    },
+    {
+      "id": "pr-branch-key-evidence",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  || (!TITLE_TRACKER_KEY.test(String(title ?? '').trim()) && branchHasKey(branch, ticketKey))",
+      "replace": "  || false",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "제목에 키를 달지 않는 팀은 브랜치 이름으로만 이을 수 있다 — 빼면 그런 팀의 머지가 끝난 줄 모른다"
+    },
+    {
+      "id": "branch-key-needs-letters",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "export const branchHasKey = (branch, ticketKey) => /[A-Za-z]/.test(String(ticketKey ?? ''))",
+      "replace": "export const branchHasKey = (branch, ticketKey) => true",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "숫자뿐인 이슈 번호를 브랜치에서 찾으면 release/12 같은 버전 브랜치가 남의 이슈를 끝낸다"
+    },
+    {
+      "id": "branch-key-token-boundary",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "${escapeRegex(ticketKey)}(?![0-9A-Za-z])`, 'i')",
+      "replace": "${escapeRegex(ticketKey)}`, 'i')",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "키 뒤 경계를 보지 않으면 AOA-190 브랜치가 AOA-19를 끝낸다"
+    },
+    {
+      "id": "jira-comment-wiki-escape",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "    const readable = String(config.apiVersion ?? '3') === '2' ? toJiraWikiText(text) : text",
+      "replace": "    const readable = text",
+      "test": ".claude/scripts/test-work-provider.mjs",
+      "why": "Jira 위키 서식에서 백틱이 글자로 남고 대괄호가 깨진 링크로 그려져 사람이 읽는 코멘트가 망가진다"
+    },
+    {
+      "id": "pr-title-key-wins-over-branch",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "  || (!TITLE_TRACKER_KEY.test(String(title ?? '').trim()) && branchHasKey(branch, ticketKey))",
+      "replace": "  || branchHasKey(branch, ticketKey)",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "재사용한 브랜치에서 다른 티켓 제목의 PR이 나오면 한 머지가 두 티켓을 끝낸다"
+    },
+    {
+      "id": "revert-branch-prefix-depth",
+      "file": ".claude/scripts/ticket/work-provider.mjs",
+      "find": "depth: Math.max(byTitle.depth, byBranch.depth)}",
+      "replace": "depth: byTitle.depth}",
+      "test": ".claude/scripts/test-work-events.mjs",
+      "why": "제목을 고친 되돌림 PR이 브랜치로 잡혀 되돌림 시각이 완료 시각이 된다"
     }
   ]
 }

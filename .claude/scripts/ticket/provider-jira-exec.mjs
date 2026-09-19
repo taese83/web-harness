@@ -7,7 +7,7 @@
 // `fetch`는 주입 가능하다 — 테스트가 네트워크 없이 전 경로를 돌 수 있어야 한다(GitHub provider의
 // `exec` 주입과 같은 규율).
 
-import {toAdf, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, fromAdf, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions, WORK_PROPERTY_KEY} from './provider-jira.mjs'
+import {toAdf, toJiraWikiText, assigneeIdentity, buildWorkIssueFieldsFor, classifyJiraError, closeReference, fromAdf, isClosed, parseCreateResponse, parseIssueResponse, requireJiraConfig, resolveTransitionId, supportedTransitions, WORK_PROPERTY_KEY} from './provider-jira.mjs'
 import {issueLinkBody, parseCursor, parseWorkSearch, workKeysJql, workRelationMode} from './work-provider.mjs'
 import {withWorkMarker} from './work-refs.mjs'
 import {DEV_TICKET} from './intake.mjs'
@@ -256,7 +256,9 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
   // 사내 배포가 DC(v2)라 파일럿에서는 드러나지 않는 형태다.
   const commentBody = text => (String(config.apiVersion ?? '3') === '2' ? String(text) : toAdf(String(text)))
   provider.comment = async (key, text) => {
-    await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: commentBody(text)}})
+    // 하네스 코멘트는 사람이 읽는 평문이다 — 위키 서식(v2)에서는 인라인 코드·대괄호가 깨지지 않게 옮긴다(본문 서식은 따로다).
+    const readable = String(config.apiVersion ?? '3') === '2' ? toJiraWikiText(text) : text
+    await call(config, `/issue/${encodeURIComponent(key)}/comment`, {...options, method: 'POST', body: {body: commentBody(readable)}})
     return {ticketKey: String(key), commented: true}
   }
 

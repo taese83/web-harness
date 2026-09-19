@@ -112,9 +112,9 @@ export function withTrackerCompletion(state, items, {completedResolutions = DEFA
 }
 
 /**
- * 머지된 PR에서 티켓의 근거를 고른다(순수). 제목이 티켓 키로 시작하는 PR(`[AOA-19] …`·`#12 …`)이고, 되돌림 PR
- * (`Revert "[AOA-19] …"`)이 머지됐으면 그 뒤의 PR만 센다. 제목에 키가 없는 PR은 어느 티켓의 것인지 모른다(세지 않는다).
- * @param {{number?: number, title: string, mergedAt: string, url?: string}[]} prs 기대 base에 머지된 PR
+ * 머지된 PR에서 티켓의 근거를 고른다(순수). 제목이 티켓 키로 시작하거나(`[AOA-19] …`·`#12 …`) 브랜치 이름에 키가 있는
+ * (`feature/AOA-19-login`) PR이고, 되돌림 PR(`Revert "…"`)이 머지됐으면 그 뒤의 PR만 센다. 둘 다 없으면 어느 티켓의 것인지 모른다.
+ * @param {{number?: number, title: string, headRefName?: string, mergedAt: string, url?: string}[]} prs 기대 base에 머지된 PR
  * @returns {{url: string|null, number: number|null, mergedAt: string|null, revertedAt: string|null}|null}
  */
 export function prEvidenceFromPrs(prs, {ticketKey}) {
@@ -125,8 +125,12 @@ export function prEvidenceFromPrs(prs, {ticketKey}) {
     for (let match = text.match(/^Revert "(.*)"\s*$/); match; match = text.match(/^Revert "(.*)"\s*$/)) { text = match[1]; depth += 1 }
     return {text, depth}
   }
-  const dated = (Array.isArray(prs) ? prs : []).filter(pr => Number.isFinite(Date.parse(pr?.mergedAt))).map(pr => ({pr, ...unwrap(pr.title)}))
-    .filter(item => titleStartsWithKey(item.text, ticketKey))
+  // 되돌림 PR의 브랜치(`revert-17-feature/AOA-19-login`)도 키를 품는다 — 겹 수는 제목이 정한다.
+  // 브랜치의 `revert-<번호>-` 접두도 겹으로 센다 — 되돌림 PR의 제목을 고쳐도 되돌림으로 읽는다(둘 중 큰 겹).
+  const branchDepth = branch => { let text = String(branch ?? ''); let depth = 0; while (/^revert-\d+-/.test(text)) { text = text.replace(/^revert-\d+-/, ''); depth += 1 } return {branch: text, depth} }
+  const dated = (Array.isArray(prs) ? prs : []).filter(pr => Number.isFinite(Date.parse(pr?.mergedAt)))
+    .map(pr => { const byTitle = unwrap(pr.title); const byBranch = branchDepth(pr.headRefName); return {pr, text: byTitle.text, branch: byBranch.branch, depth: Math.max(byTitle.depth, byBranch.depth)} })
+    .filter(item => prNamesKey({title: item.text, branch: item.branch}, ticketKey))
   const reverts = dated.filter(item => item.depth % 2 === 1).map(item => item.pr)
   const revertedAt = reverts.map(pr => pr.mergedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
   // 되돌림보다 앞선 머지를 세지 않는 것은 부르는 쪽(`withTrackerCompletion`)이 `revertedAt`으로 한 번만 가린다.
@@ -152,6 +156,20 @@ export const reopenedAtFromGithubEvents = events => (Array.isArray(events) ? eve
   .map(event => event.created_at).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
 
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/**
+ * 브랜치 이름에 티켓 키가 한 토큰으로 있는가(순수) — `feature/AOA-19-login`·`AOA-19`·`fix/aoa-19`. 문자가 있는 트래커 키만 본다 —
+ * 숫자뿐인 GitHub 이슈 번호는 브랜치의 버전·날짜 숫자와 구별되지 않아 세지 않는다(제목으로만 잇는다).
+ */
+export const branchHasKey = (branch, ticketKey) => /[A-Za-z]/.test(String(ticketKey ?? ''))
+  && new RegExp(`(?:^|[/_.-])${escapeRegex(ticketKey)}(?![0-9A-Za-z])`, 'i').test(String(branch ?? ''))
+/**
+ * PR이 이 티켓의 것인가(순수) — 제목이 키로 시작하거나 브랜치 이름에 키가 있다. **제목이 우선이다** — 제목이 다른 트래커 키로
+ * 시작하면 브랜치는 보지 않는다(오래 쓰는 브랜치를 다른 티켓에 재사용해도 한 PR이 두 티켓을 끝내지 않게). 브랜치는 대소문자를
+ * 가리지 않는다(`fix/aoa-19` 관습), 제목은 트래커 표기 그대로 본다.
+ */
+const TITLE_TRACKER_KEY = /^(?:\[#?)?[A-Za-z][A-Za-z0-9]*-\d+(?![0-9A-Za-z])/
+export const prNamesKey = ({title, branch}, ticketKey) => titleStartsWithKey(title, ticketKey)
+  || (!TITLE_TRACKER_KEY.test(String(title ?? '').trim()) && branchHasKey(branch, ticketKey))
 /** 제목이 티켓 키로 시작하는가(순수) — `[AOA-19] …`·`#AOA-19 …`·`AOA-19 …`. `AOA-1`은 `AOA-19`로 시작하는 제목에 맞지 않는다. */
 export const titleStartsWithKey = (subject, ticketKey) =>
   new RegExp(`^(?:\\[#?${escapeRegex(ticketKey)}\\]|#?${escapeRegex(ticketKey)}(?![\\w-]))`).test(String(subject ?? '').trim())

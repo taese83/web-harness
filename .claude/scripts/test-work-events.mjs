@@ -56,6 +56,15 @@ test('완료를 거두는 것은 트래커에서 다시 여는 것이다 — 다
   // 되돌림을 되돌린 PR은 재착륙이다 — 다시 완료다.
   const reland = pr(6, 'Revert "Revert "[PF-1] 회원 API""', '2026-09-13T00:00:00.000Z')
   assert.equal(read([first, pr(3, 'Revert "[PF-1] 회원 API"', '2026-09-12T00:00:00.000Z'), reland]).completed?.prUrl, 'https://github.com/o/r/pull/6', '재착륙을 완료로 읽지 않았다')
+  // 제목에 키가 없어도 브랜치 이름에 키가 있으면 근거다 — 그 브랜치의 되돌림 PR(`revert-…`)도 되돌림이다.
+  const byBranch = {...pr(7, '회원 API', '2026-09-11T00:00:00.000Z'), headRefName: 'feature/PF-1-member-api'}
+  assert.equal(read([byBranch]).completed?.prUrl, 'https://github.com/o/r/pull/7', '브랜치 이름의 티켓 키를 근거로 세지 않았다')
+  assert.equal(read([byBranch, {...pr(8, 'Revert "회원 API"', '2026-09-12T00:00:00.000Z'), headRefName: 'revert-7-feature/PF-1-member-api'}]).completed ?? null, null, '브랜치로 찾은 PR의 되돌림을 모른다')
+  assert.equal(read([{...pr(9, '회원 API', '2026-09-11T00:00:00.000Z'), headRefName: 'feature/PF-10-other'}]).completed ?? null, null, '다른 티켓의 브랜치를 근거로 셌다')
+  // 제목이 다른 티켓 키로 시작하면 브랜치는 보지 않는다 — 재사용한 브랜치 하나가 두 티켓을 끝내지 않는다.
+  assert.equal(read([{...pr(10, '[PF-2] 다른 일', '2026-09-11T00:00:00.000Z'), headRefName: 'feature/PF-1-member-api'}]).completed ?? null, null, '다른 티켓 제목의 PR을 브랜치로 셌다')
+  // 제목을 고친 되돌림 PR도 브랜치의 revert- 접두로 되돌림이다.
+  assert.equal(read([byBranch, {...pr(11, '롤백: 회원 API 장애', '2026-09-12T00:00:00.000Z'), headRefName: 'revert-7-feature/PF-1-member-api'}]).completed ?? null, null, '제목을 고친 되돌림 PR을 완료로 셌다')
   // 제목에 키가 없거나 다른 키로 시작하는 PR은 이 티켓의 근거가 아니다.
   assert.equal(read([pr(4, '회원 API (PF-1)', '2026-09-11T00:00:00.000Z'), pr(5, '[PF-10] 다른 일', '2026-09-11T00:00:00.000Z')]).completed ?? null, null)
   // 트래커 이력에서 다시 연 시각을 읽는다 — Jira는 해결 사유가 비워진 때, GitHub은 reopened 이벤트.
@@ -64,6 +73,11 @@ test('완료를 거두는 것은 트래커에서 다시 여는 것이다 — 다
     {created: '2026-09-12T00:00:00.000Z', items: [{field: 'resolution', fromString: 'Fixed', toString: null}]}]}}), '2026-09-12T00:00:00.000Z')
   assert.equal(reopenedAtFromJiraChangelog({changelog: {histories: [{created: '2026-09-10T00:00:00.000Z', items: [{field: 'status', fromString: 'Done', toString: 'Open'}]}]}}), null)
   assert.equal(reopenedAtFromJiraChangelog({changelog: {histories: [{created: '2026-09-10T00:00:00.000Z', items: [{field: 'resolution', fromString: null, toString: 'Fixed'}]}]}}), null, '해결한 것을 다시 연 것으로 읽었다')
+  // 숫자뿐인 GitHub 이슈 번호는 브랜치 이름으로 잇지 않는다 — 버전·날짜 숫자와 구별되지 않는다.
+  const {branchHasKey} = await import('./ticket/work-provider.mjs')
+  assert.equal(branchHasKey('release/12', '12'), false)
+  assert.equal(branchHasKey('fix/aoa-19-login', 'AOA-19'), true)
+  assert.equal(branchHasKey('feature/AOA-190', 'AOA-19'), false)
   assert.equal(reopenedAtFromGithubEvents([{event: 'closed', created_at: '2026-09-10T00:00:00Z'}, {event: 'reopened', created_at: '2026-09-12T00:00:00Z'}]), '2026-09-12T00:00:00Z')
 })
 

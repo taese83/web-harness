@@ -174,7 +174,7 @@ test('실행부: PR 제목이 티켓 키로 시작하지 않으면 연결하지 
     writeChangeScopeFile(root, buildWorkChangeScope({issue: {ticketKey: 'PF-101', provider: 'jira', title: 't', body: 'b', revision: 'r1'},
       plan, planDigest, work: work(W(1)), featureIds: ['FEAT-001'], testCaseIds: []}))
     for (const ref of work(W(1)).checks.flatMap(check => check.targetRefs)) { mkdirSync(join(root, ref, '..'), {recursive: true}); writeFileSync(join(root, ref), 'changed') }
-    const io = title => ({prInfo: async () => ({state: 'OPEN', baseRefName: 'develop', title}), refresh: async () => ({ok: true}), planRemote: async () => ({checked: false}), commitLog: async () => ''})
+    const io = (title, headRefName = 'feature/login') => ({prInfo: async () => ({state: 'OPEN', baseRefName: 'develop', title, headRefName}), refresh: async () => ({ok: true}), planRemote: async () => ({checked: false}), commitLog: async () => ''})
     const missing = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: io('feat: 회원 API')})
     assert.equal(missing.blocked, 'pr-title-key-required', JSON.stringify(missing.blocked ?? missing.prTitle))
     assert.match(missing.guidance, /PF-101/)
@@ -183,6 +183,10 @@ test('실행부: PR 제목이 티켓 키로 시작하지 않으면 연결하지 
     // `--base`를 줘도 제목은 읽는다 — 기대 base만 운영자가 정한다.
     const withBase = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: io('feat: 회원 API')})
     assert.equal(withBase.blocked, 'pr-title-key-required', '`--base`로 제목 키 검사를 건너뛰었다')
+    // 제목에 키가 없어도 브랜치 이름에 키가 있으면 연결한다(미리보기로 확인).
+    const branched = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: io('feat: 회원 API', 'feature/PF-101-member-api')})
+    assert.equal(branched.prTitle?.ok, true, JSON.stringify(branched.prTitle))
+    assert.equal(branched.prTitle.by, 'branch')
     const present = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: io('[PF-101] feat: 회원 API')})
     assert.equal(present.ok, true, JSON.stringify(present))
     assert.equal(present.prTitle?.ok, true)
