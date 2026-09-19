@@ -33,10 +33,10 @@ const tryGit = (cwd, ...args) => { try { git(cwd, ...args); return true } catch 
 const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
   transitions: {'in-progress': '31', done: '41'}, workLink: {mode: 'issue-link', linkType: 'Relates'}, componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}
 const ticketConfig = {provider: 'jira', jira: jiraConfig}
-// PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
-const prHost = new Map()
-const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
-const mergePr = url => prHost.set(url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
+// PR 호스트(메모리) — 기대 base에 머지된 PR 목록. 하네스는 머지를 기록하지 않고 제목의 티켓 키로 읽는다.
+const merged = []
+const mergedPrs = async () => merged
+const mergePr = (url, ticketKey) => merged.push({number: Number(url.split('/').pop()), title: `[${ticketKey}] 작업`, mergedAt: new Date().toISOString(), url})
 const open = async () => ({state: 'OPEN', baseRefName: 'main'})
 const commitSplit = (dir, message) => {
   git(dir, 'add', '-A', '--', '.', ':(exclude)_workspace')
@@ -88,7 +88,7 @@ test('모노레포 팀 흐름: be·fe가 앱 접두 범위로 나눠 집고, 테
     git(lead, 'add', '-A'); git(lead, 'commit', '-qm', 'init'); git(lead, 'remote', 'add', 'origin', origin); git(lead, 'push', '-q', 'origin', 'main')
 
     assert.equal((await runClaimWork({root: lead, flags: {}})).phase, 'P1_REVIEW')
-    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published.guidance ?? published.errors))
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
     // (1) 역할은 라벨과 보드에 실린다
@@ -102,8 +102,8 @@ test('모노레포 팀 흐름: be·fe가 앱 접두 범위로 나눠 집고, 테
       devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name])
       git(devs[name], 'config', 'user.name', name); git(devs[name], 'config', 'user.email', `${name}@t`)
     }
-    const pickup = (name, key, flags = {}) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: {prStates, provider: providerFor(), ticketConfig}})
-    const board = await runWorkBoard({root: devs.be, developer: 'be', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const pickup = (name, key, flags = {}) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: {mergedPrs, provider: providerFor(), ticketConfig}})
+    const board = await runWorkBoard({root: devs.be, developer: 'be', flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.deepEqual(board.rows.find(row => row.workId === W(1)).roles, ['be'])
     assert.equal(pickupOutcome(await pickup('be', keyOf(W(1)))), 'started')
     assert.equal(pickupOutcome(await pickup('fe', keyOf(W(3)))), 'started')
@@ -130,7 +130,7 @@ test('모노레포 팀 흐름: be·fe가 앱 접두 범위로 나눠 집고, 테
     const overlapped = await pickup('third', humanKey, {assessment: assessmentDigest(assessment)})
     assert.equal(overlapped.bounce?.reason, 'ticket-overlaps-active-work', JSON.stringify(overlapped.bounce))
     assert.equal(readChangeScopeFile(devs.third), null)
-    const stray = await runWorkLink({root: devs.third, ticketKey: humanKey, prUrl: 'https://github.com/acme/mono/pull/9', flags: {}, io: {prStates, prInfo: open}})
+    const stray = await runWorkLink({root: devs.third, ticketKey: humanKey, prUrl: 'https://github.com/acme/mono/pull/9', flags: {}, io: {mergedPrs, prInfo: open}})
     assert.equal(stray.blocked, 'work-not-registered')
 
     // 두 PR이 충돌 없이 머지되고, 기록 없이 완료로 읽힌다
@@ -140,15 +140,15 @@ test('모노레포 팀 흐름: be·fe가 앱 접두 범위로 나눠 집고, 테
       git(devs[name], 'checkout', '-qb', `feat/${name}`)
       commitSplit(devs[name], `${name} 작업`)
       const prUrl = `https://github.com/acme/mono/pull/${++pr}`
-      prs.push(prUrl)
-      const linked = await runWorkLink({root: devs[name], ticketKey: keyOf(name === 'be' ? W(1) : W(3)), prUrl, flags: {}, io: {prStates, prInfo: open, provider: providerFor()}})
+      prs.push([prUrl, keyOf(name === 'be' ? W(1) : W(3))])
+      const linked = await runWorkLink({root: devs[name], ticketKey: keyOf(name === 'be' ? W(1) : W(3)), prUrl, flags: {}, io: {mergedPrs, prInfo: open, provider: providerFor()}})
       assert.equal(linked.ok, true, `${name}: ${JSON.stringify(linked.blocked ?? linked.completion)}`)
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', `feat/${name}`)
     }
     git(lead, 'fetch', '-q', 'origin')
     for (const name of ['be', 'fe']) assert.equal(tryGit(lead, 'merge', '--no-ff', '-m', `merge ${name}`, `origin/feat/${name}`), true, `${name} 머지 충돌`)
-    for (const url of prs) mergePr(url)
-    const done = await runWorkBoard({root: lead, developer: 'lead', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    for (const [url, key] of prs) mergePr(url, key)
+    const done = await runWorkBoard({root: lead, developer: 'lead', flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.deepEqual(done.rows.filter(row => row.completed).map(row => row.workId).sort(), [W(1), W(3)].sort(), JSON.stringify(done.notes))
   } finally {
     rmSync(base, {recursive: true, force: true})

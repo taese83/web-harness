@@ -71,7 +71,7 @@ const COMMENT = {
  * 필요한 것이 여러 건이면 `items`로 받아 **번호 목록**으로 적는다 — 한 줄에 쉼표로 붙이면 어디서 끊기는지 보이지 않는다.
  * @param {{featureId?, reason, detail?, items?: {what: string, why?: string}[], outputLanguage?}} args
  */
-export function bounceComment({featureId = null, reason, detail = null, items = null, outputLanguage = null, assessment = null} = {}) {
+export function bounceComment({featureId = null, reason, detail = null, items = null, outputLanguage = null} = {}) {
   const requested = String(outputLanguage ?? '').trim()
   const lang = Object.prototype.hasOwnProperty.call(REASONS, requested) ? requested : FALLBACK_LANG
   const reasons = REASONS[lang] ?? REASONS[FALLBACK_LANG]
@@ -82,10 +82,8 @@ export function bounceComment({featureId = null, reason, detail = null, items = 
     `${index + 1}. ${item.what}`,
     ...(item.why ? [`   ${copy.why}: ${item.why}`] : []),
   ])
+  // 사람이 읽는 글만 남긴다 — 기계 마커는 Jira(위키 서식)에서 글자 그대로 보인다. 중복을 가리는 기록은 개발자 로컬에 둔다.
   return [
-    // 기계 마커 — 중복 코멘트를 나중에 걷어내려면 **그때** 근거가 있어야 한다(§4 등록).
-    // `asm=`은 사람 티켓 판정서의 지문 — 같은 판정으로 다시 부를 때 코멘트를 쌓지 않는 근거다.
-    `<!-- web-harness:bounce reason=${reason}${featureId ? ` feat=${featureId}` : ''}${/^[0-9a-f]{12}$/.test(String(assessment)) ? ` asm=${assessment}` : ''} -->`,
     copy.lead,
     '',
     `- ${copy.reason}: ${reasons[reason]} (\`${reason}\`)`,

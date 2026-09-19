@@ -294,10 +294,10 @@ export function checkTicketAssets(root, {install = false} = {}) {
 // ── 7. 팀 공유 설정 ─────────────────────────────────────────────────────────
 // 여러 사람이 같은 저장소에서 쓰면 두 가지가 매번 부딪힌다:
 //   - 원장은 브랜치마다 끝에 줄을 덧붙인다 — 병합 규칙이 없으면 두 번째 PR부터 충돌한다(`merge=union`이면 양쪽 줄을 다 살린다)
-//   - change-scope·판정 파일은 한 개발자의 로컬 작업 상태다 — 커밋되면 머지마다 충돌하고, 받은 사람의 픽업을 막는다
+//   - change-scope·판정·연결 기록은 한 개발자의 로컬 작업 상태다 — 커밋되면 머지마다 충돌하고, 받은 사람의 픽업을 막는다
 export const TEAM_SHARING = {
   attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
-  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/'],
+  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/'],
 }
 const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
 function trackedFiles(root, paths) {

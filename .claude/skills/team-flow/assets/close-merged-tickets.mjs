@@ -1,79 +1,76 @@
 #!/usr/bin/env node
-// web-harness:ticket-close v4 — 티켓의 연결 기록 기반. 머지된 PR에 연결된 **하네스 작업 이슈**를 닫는다. ticket-close.yml이 실행한다.
+// web-harness:ticket-close v5 — 머지된 PR의 **제목에 적힌 티켓**을 닫는다. ticket-close.yml이 실행한다.
 //
-// **근거는 이슈의 연결 기록 코멘트다**(`link`가 남긴 `web-harness:link pr=… base=…`). PR 본문의 `#N`은 작성자가 아무
-// 숫자나 적을 수 있어 **후보일 뿐**이다 — 후보 이슈가 하네스 작업 이슈(`web-harness:work` 표지)이고, 그 이슈의 **가장 최근**
-// 연결 기록이 바로 이 PR과 이 머지의 base일 때만 닫는다. 기대 base가 다르거나 기록이 없으면 닫지 않는다(fail-closed).
-// 신뢰 경계: 저장소 관계자(OWNER·MEMBER·COLLABORATOR)의 코멘트만 센다 — 작성자·시각이 이슈 이력에 남는다(protected-core §4).
+// **근거는 PR 제목의 티켓 키**(`[#12] …`·`#12 …`)와 **기대 base**다 — 하네스는 티켓에 연결 기록을 쓰지 않는다. 제목은 PR과 함께
+// 리뷰되고 머지 승인을 거친다(신뢰 경계는 머지 승인). 기대 base는 커밋된 계획의 `baseBranch`, 없으면 저장소 기본 브랜치다 —
+// 다른 브랜치로의 머지는 닫지 않는다(fail-closed). 되돌림 PR(`Revert "…"`)·키 없는 제목은 닫지 않는다.
 //
-// 닫지 않는 것: 집계 티켓(부모 자동 닫기는 기본 비활성 — 사람이 판단한다) · GitHub이 아닌 트래커(본문에 `#N`이 없다).
+// 닫지 않는 것: 집계 티켓(부모 자동 닫기는 기본 비활성 — 사람이 판단한다) · GitHub이 아닌 트래커(제목의 키가 이슈 번호가 아니다).
 //
 // 이 파일은 대상 프로젝트의 CI에서 **단독으로** 돈다 — 하네스 모듈을 import하지 않는다. 멱등: 이미 CLOSED면 건너뛴다.
 import {execFileSync} from 'node:child_process'
+import {existsSync, readFileSync} from 'node:fs'
 
+const PLAN = '_workspace/03_dev/work-plan.json'
 const repo = process.env.TICKET_REPO ?? ''
 const prUrl = process.env.TICKET_PR_URL ?? ''
 const baseRef = process.env.TICKET_BASE_REF ?? ''
-const prBody = process.env.TICKET_PR_BODY ?? ''
-const MAX_CANDIDATES = 20
+const title = process.env.TICKET_PR_TITLE ?? ''
+const defaultBranch = process.env.TICKET_DEFAULT_BRANCH ?? ''
 const log = message => process.stdout.write(`${message}\n`)
 const gh = args => execFileSync('gh', args, {encoding: 'utf8'})
-const field = (name, text) => text.match(new RegExp(`\\b${name}=(\\S+)`))?.[1] ?? null
 
 if (!repo || !prUrl || !baseRef) {
   log(`skip: 필수 입력 누락 (repo=${repo || '-'} pr=${prUrl || '-'} base=${baseRef || '-'})`)
   process.exit(0)
 }
-const candidates = [...new Set([...prBody.matchAll(/(?<![\w/])#(\d+)\b/g)].map(match => match[1]))]
-if (candidates.length === 0) {
-  log('skip: PR 본문에 이슈 번호(#N)가 없다 — 닫을 후보가 없다')
+// `Revert "…"`를 벗긴다 — 홀수 겹은 되돌림(닫지 않는다), 짝수 겹은 되돌림을 되돌린 재착륙(닫는다).
+let subject = title.trim()
+let depth = 0
+for (let match = subject.match(/^Revert "(.*)"\s*$/); match; match = subject.match(/^Revert "(.*)"\s*$/)) { subject = match[1]; depth += 1 }
+if (depth % 2 === 1) {
+  log('skip: 되돌림 PR이다 — 닫지 않는다(완료는 되돌림 뒤의 머지로 다시 센다)')
   process.exit(0)
 }
-if (candidates.length > MAX_CANDIDATES) log(`⚠️ 후보 ${candidates.length}건 중 앞 ${MAX_CANDIDATES}건만 확인한다.`)
-
-/** 가장 최근 연결 기록(시각은 GitHub이 붙인 코멘트 작성 시각). 시각 없는 기록은 세지 않는다. */
-const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR']
-const latestLink = comments => comments
-  // 공개 저장소에서는 아무 계정이나 코멘트를 단다 — 저장소 관계자가 남긴 기록만 센다.
-  .filter(comment => TRUSTED.includes(comment?.authorAssociation))
-  .flatMap(comment => [...String(comment?.body ?? '').matchAll(/<!--\s*web-harness:link\b([^>]*?)-->/g)]
-    .map(match => ({pr: field('pr', match[1]), base: field('base', match[1]), at: Date.parse(comment?.createdAt)})))
-  .filter(record => record.pr && record.base && Number.isFinite(record.at))
-  .sort((a, b) => b.at - a.at)[0] ?? null
-
-let closed = 0
-let bound = 0
-const failures = []
-for (const number of candidates.slice(0, MAX_CANDIDATES)) {
-  let issue
-  try {
-    issue = JSON.parse(gh(['issue', 'view', number, '--repo', repo, '--json', 'state,body,comments']))
-  } catch (error) {
-    log(`skip #${number}: 조회 실패 — ${String(error.message).split('\n')[0]}`)
-    continue
-  }
-  const body = String(issue.body ?? '')
-  if (!/<!--\s*web-harness:work\s/.test(body) || body.includes('web-harness:aggregate')) { log(`skip #${number}: 하네스 작업 이슈가 아니다 — 닫지 않는다`); continue }
-  const link = latestLink(Array.isArray(issue.comments) ? issue.comments : [])
-  if (!link) { log(`skip #${number}: 연결 기록이 없다 — link를 거치지 않았다`); continue }
-  if (link.pr !== prUrl) { log(`skip #${number}: 가장 최근 연결은 다른 PR(${link.pr})이다 — 닫지 않는다`); continue }
-  if (link.base !== baseRef) { log(`skip #${number}: 기대 base ${link.base} ≠ 머지 base ${baseRef} — 닫지 않는다`); continue }
-  bound += 1
-  if (issue.state !== 'OPEN') { log(`skip #${number}: 이미 ${issue.state}`); continue }
-  // 왜 닫혔는지 되짚을 수 있어야 한다 — 근거를 코멘트로 남긴다.
-  const comment = `${prUrl} 이(가) 기대 base \`${baseRef}\`에 머지됐습니다. 이 이슈의 연결 기록을 근거로 \`ticket-close\` 워크플로우가 닫았습니다.`
-  // 한 건 실패로 나머지를 버리지 않는다 — 모아서 끝에 알린다(fork PR은 토큰이 읽기 전용이라 여기서 실패한다).
-  try {
-    gh(['issue', 'close', number, '--repo', repo, '--comment', comment])
-  } catch (error) {
-    failures.push(`#${number}: ${String(error.message).split('\n')[0]}`)
-    continue
-  }
-  log(`closed #${number}`)
-  closed += 1
+const number = subject.match(/^(?:\[#?(\d+)\]|#?(\d+)(?![\w-]))/)?.slice(1).find(Boolean) ?? null
+if (!number) {
+  log('skip: PR 제목이 이슈 번호로 시작하지 않는다 — 어느 티켓의 작업인지 모른다')
+  process.exit(0)
 }
-log(`done: ${closed}/${bound} closed`)
-if (failures.length > 0) {
-  log(`failed ${failures.length}: ${failures.join(' · ')}`)
+let expected = defaultBranch
+if (existsSync(PLAN)) {
+  try { expected = JSON.parse(readFileSync(PLAN, 'utf8'))?.baseBranch || defaultBranch } catch {
+    log(`stop: ${PLAN}을 읽지 못했다 — 기대 base를 모른 채 닫지 않는다`)
+    process.exit(1)
+  }
+}
+if (!expected || expected !== baseRef) {
+  log(`skip #${number}: 기대 base ${expected || '(모름)'} ≠ 머지 base ${baseRef} — 닫지 않는다`)
+  process.exit(0)
+}
+let issue
+try {
+  issue = JSON.parse(gh(['issue', 'view', number, '--repo', repo, '--json', 'state,body']))
+} catch (error) {
+  log(`skip #${number}: 조회 실패 — ${String(error.message).split('\n')[0]}`)
+  process.exit(0)
+}
+if (String(issue.body ?? '').includes('web-harness:aggregate')) {
+  log(`skip #${number}: 집계 티켓이다 — 닫지 않는다`)
+  process.exit(0)
+}
+if (issue.state !== 'OPEN') {
+  log(`skip #${number}: 이미 ${issue.state}`)
+  process.exit(0)
+}
+// 왜 닫혔는지 되짚을 수 있어야 한다 — 근거를 코멘트로 남긴다. 한 PR은 한 티켓이다(제목의 키 하나).
+const comment = `${prUrl} 이(가) \`${baseRef}\`에 머지됐습니다. PR 제목의 티켓 키를 근거로 \`ticket-close\` 워크플로우가 닫았습니다.`
+try {
+  gh(['issue', 'close', number, '--repo', repo, '--comment', comment])
+} catch (error) {
+  // fork PR은 토큰이 읽기 전용이라 여기서 실패한다 — 사람이 닫는다.
+  log(`failed #${number}: ${String(error.message).split('\n')[0]}`)
   process.exit(1)
 }
+log(`closed #${number}`)
+log('done: 1/1 closed')

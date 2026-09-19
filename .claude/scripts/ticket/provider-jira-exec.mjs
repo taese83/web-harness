@@ -179,6 +179,20 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       return {available: true, evidence: new Map(settled.filter(item => item.evidence).map(item => [item.key, item.evidence])),
         errors: failed.map(item => ({ticketKey: item.key, error: item.error}))}
     },
+    /** 사람이 다시 연 시각 — 변경 이력에서 해결 사유가 비워진 가장 최근 때. 키마다 한 번 읽는다(머지 근거가 있고 열린 티켓만 부른다). */
+    async listReopens({keys}) {
+      const {reopenedAtFromJiraChangelog} = await import('./work-provider.mjs')
+      const settled = await Promise.all(keys.map(async key => {
+        try {
+          const payload = await call(config, `/issue/${encodeURIComponent(key)}?fields=resolution&expand=changelog`, options)
+          return {key: String(key), at: reopenedAtFromJiraChangelog(payload)}
+        } catch (error) {
+          return {key: String(key), error: String(error?.message ?? error).slice(0, 120)}
+        }
+      }))
+      return {reopens: new Map(settled.filter(item => item.at).map(item => [item.key, item.at])),
+        errors: settled.filter(item => item.error).map(item => ({ticketKey: item.key, error: item.error}))}
+    },
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
       const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
       const jql = workKeysJql(keys)

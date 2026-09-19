@@ -139,6 +139,13 @@ export async function resolveRepoContext({repoRoot, base = null, remote = 'origi
       try { await run(['rev-parse', '--verify', '--quiet', `${remote}/${base}^{commit}`]); baseBranch = base } catch { /* 원격에 없다 — 기본 브랜치로 */ }
     }
     if (!baseBranch) baseBranch = (await run(['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`])).out.trim().replace(`${remote}/`, '') || null
-    return repoName && baseBranch ? {repoName, baseBranch} : null
+    return repoName && baseBranch ? {repoName, baseBranch, ...parseRemoteUrl(url)} : null
   } catch { return null }
+}
+
+/** origin URL → PR 호스트와 `owner/name`(순수). ssh(`git@host:o/r.git`)·https만 안다 — 로컬 경로 등은 `{host: null, slug: null}`. */
+export function parseRemoteUrl(url) {
+  const text = String(url ?? '').trim()
+  const match = text.match(/^(?:ssh:\/\/)?git@([^:/]+)[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/) ?? text.match(/^https?:\/\/(?:[^@/]+@)?([^/]+)\/([^/]+\/[^/]+?)(?:\.git)?\/?$/)
+  return match ? {host: match[1], slug: match[2]} : {host: null, slug: null}
 }

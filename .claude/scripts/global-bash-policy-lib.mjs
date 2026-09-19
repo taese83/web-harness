@@ -742,9 +742,7 @@ const validationScriptContract = (script, args, context) => {
     const VALUED = new Set(['--repo', '--root', '--units', '--developer',
       '--ticket-provider', '--as', '--set',
       // `--features`는 WORK 준비 범위(쉼표 FEAT 목록)다 — 스크립트가 계획의 FEAT와 대조한다.
-      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment',
-      // `--reopen <키> --reason <이유>`는 완료를 **거두는** 쪽이다(게이트를 끄지 않는다) — 이유는 티켓에 남는다.
-      '--reopen', '--reason'])
+      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment'])
     // `--work`는 이제 기본 모델이라 붙여도 같다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
     // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — 확인 없이는 미리보기라 여기서 막지 않는다.
     const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--aggregate', '--by-feature'])

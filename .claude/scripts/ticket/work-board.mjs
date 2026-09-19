@@ -9,7 +9,6 @@ const list = value => (Array.isArray(value) ? value : [])
 /** 완료의 근거 — merge(연결한 PR의 머지) · commit(기대 base의 티켓 키 커밋) · tracker(트래커의 끝남). */
 const viaOf = completed => (completed ? (['tracker', 'commit'].includes(completed.via) ? completed.via : 'merge') : null)
 
-export {readMergeEvidence} from './work-state-run.mjs'
 
 /**
  * @param {{plan: object, view: object, state: object, issuesByWork?: Map<string, object>|null,
@@ -128,7 +127,6 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     const incompleteDeps = list(item.definition?.dependsOn).filter(dep => !state.works.get(dep)?.completed)
     const blockedReason = item.completed ? 'completed'
       : item.trackerCancelled ? 'cancelled-in-tracker'
-      : item.withdrawn ? `ticket-${item.withdrawn.verdict}`
       : incompleteDeps.length > 0 ? 'dependency-incomplete'
         : !developer ? 'no-developer'
           : takenByOther === true ? 'assigned-to-other'
@@ -148,7 +146,7 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
       roles: list(item.definition?.roles), linked: item.link?.prUrl ?? null, completed: Boolean(item.completed),
       completedVia: viaOf(item.completed), assignees,
       // 계획 작업 행과 같은 축이다 — `assignment-unknown`은 재지 못한 표시이지 집을 수 있다는 뜻이 아니다.
-      pickupable: blockedReason === null, blockedReason, next, incompleteDeps, ...(item.withdrawn ? {withdrawn: item.withdrawn} : {})})
+      pickupable: blockedReason === null, blockedReason, next, incompleteDeps})
   }
   for (const [ticketKey, ticket] of state?.tickets?.entries() ?? []) {
     if (seen.has(ticketKey)) continue
@@ -162,8 +160,8 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
       blockedReason: othersTicket ? 'assigned-to-other' : startable ? null : `ticket-${ticket.verdict}`,
       next: othersTicket ? '다른 개발자가 맡고 있습니다.'
         : startable ? `\`pickup ${ticketKey}\`로 미리보기를 보고 확인하면 시작합니다.`
-        : ticket.verdict === 'needs-design' ? '디자인이 정해져야 시작할 수 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.'
-          : '먼저 정해야 할 것이 있습니다. 필요한 것은 티켓 코멘트에 적혀 있습니다.',
+        : ticket.verdict === 'needs-design' ? '디자인이 정해져야 시작할 수 있습니다. 확인한 요청은 티켓 코멘트에 남깁니다.'
+          : '먼저 정해야 할 것이 있습니다. 확인한 요청은 티켓 코멘트에 남깁니다.',
       needs: ticket.needs ?? null})
   }
   for (const item of list(devTickets)) {
@@ -203,7 +201,8 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const analysis = readJson(WORK_ANALYSIS_PATH)
   let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
   const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')
-  const ticketCapable = hasDevTicketAxis(io.ticketConfig) || [...state.works.values()].some(item => item.origin === 'ticket')
+  const {existsSync: exists} = await import('node:fs')
+  const ticketCapable = hasDevTicketAxis(io.ticketConfig) || exists(join(root, '_workspace/03_dev/ticket-assessments'))
   if ((!plan || !analysis) && !ticketCapable) {
     return {ok: false, mode: 'work', phase: 'PLAN_REQUIRED', guidance: '개발 계획이 없습니다. `claim`으로 계획을 만드세요. 사람이 만든 개발 티켓을 보려면 트래커 설정에서 어떤 분류가 개발 티켓인지 정하세요.'}
   }
@@ -214,26 +213,24 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   let issuesByWork = null
   let lookupComplete = false
   const trackerNotes = []
-  // 사람 티켓 — **티켓이 등록 기록이다**. 개발 티켓을 읽어 등록(마커·본문)과 착수 불가 판정(라벨)을 메모리 상태에 겹친다.
+  // 사람 티켓 — 내 판정·등록은 **내 로컬 기록**이고, 남의 티켓은 트래커의 개발 티켓 목록(분류·배정)으로만 안다.
   let devTickets = null
-  let readIssues = new Map()
+  const {readDevTickets, readLocalTicketWork, withTicketRegistrations} = await import('./ticket-work-run.mjs')
+  const local = readLocalTicketWork(root)
+  state = withTicketRegistrations(state, local.registrations, local.verdicts)
+  const unreadable = local.registrations.filter(item => item.error).length
+  if (unreadable > 0) trackerNotes.push(`내 등록 기록 ${unreadable}건을 읽지 못했습니다. 그 티켓은 다시 판정하세요.`)
   if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {
-    const {readTrackerTicketRegistrations, withTicketRegistrations} = await import('./ticket-work-run.mjs')
-    const read = await readTrackerTicketRegistrations({provider, config: io.ticketConfig ?? {}, io, state})
+    const read = await readDevTickets({provider, config: io.ticketConfig ?? {}})
     if (read.checked || read.items.length > 0) devTickets = read.items
-    state = withTicketRegistrations(state, read.registrations, read.verdicts)
-    readIssues = read.issues ?? new Map()
     if (!read.checked) trackerNotes.push(read.items.length > 0 ? '개발 티켓 목록을 끝까지 읽지 못했습니다. 아직 판정하지 않은 티켓 일부가 빠졌을 수 있습니다.'
       : `개발 티켓 목록 조회 실패 — 사람이 만든 티켓은 보이지 않는다: ${read.reason ?? ''}`)
-    const unreadable = read.registrations.filter(item => item.error).length
-    if (unreadable > 0) trackerNotes.push(`등록된 티켓 ${unreadable}건은 본문 섹션을 읽지 못했습니다.`)
   }
   const keys = [...state.works.entries()].filter(([, item]) => item.status === 'published' && item.ticketKey).map(([, item]) => item.ticketKey)
   if (provider && keys.length > 0 && flags['no-tracker'] !== true) {
-    // 지금 상태는 트래커에 있다 — 배정·끝남·PR 연결 기록·머지(`work-state-run.mjs`). 원장에는 계획·발행만 있다.
+    // 지금 상태는 트래커와 PR에 있다 — 배정·끝남·다시 연 시각·머지(`work-state-run.mjs`). 원장에는 계획·발행만 있다.
     const {readTrackerWorkState} = await import('./work-state-run.mjs')
-    // 방금 읽은 개발 티켓은 다시 부르지 않는다(코멘트 포함).
-    const read = await readTrackerWorkState({provider, state, root, plan, config: io.ticketConfig, io, keys, issues: readIssues})
+    const read = await readTrackerWorkState({provider, state, root, plan, config: io.ticketConfig, io, keys})
     state = read.state
     trackerNotes.push(...read.notes)
     lookupComplete = read.lookupComplete

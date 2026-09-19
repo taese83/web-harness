@@ -3,7 +3,7 @@
 //
 // 모델은 **WORK 하나**다(FEAT 개발 티켓의 claim·pickup·board·link·bind·adopt는 2026-09-14 제거 —
 // 게이트는 WORK 경로로 이관됐고 대응표는 `references/work-plan-contract.md`에 있다).
-//   claim [--publish [--confirm]] · pickup <키> · link <키> <PR> | link --reopen <키> · board · intake <키> · configure
+//   claim [--publish [--confirm]] · pickup <키> · link <키> <PR> · board · intake <키> · configure
 //
 // 실행 환경(정직 경계): **플러그인 배포판 전용**이다 — 하네스 저장소 자체 세션은 global bash
 // policy가 gh/git·미등재 스크립트를 차단하며, 등재하지 않기로 결정했다(repo 안전 정책 비약화).
@@ -60,7 +60,7 @@ export function parseArgs(argv) {
 
 // 티켓 이슈 자동 닫기 자산 — WORK 원장 기반(v2). 개발 준비 검사(`validate-development-readiness`)가 설치한다.
 // 설치본에는 판본 표지가 있다 — 옛 청구 원장을 읽는 v1 사본이 남아 있으면 **덮지 않고 알린다**(손본 사본일 수 있다).
-export const TICKET_CLOSE_VERSION_MARKER = 'web-harness:ticket-close v4'
+export const TICKET_CLOSE_VERSION_MARKER = 'web-harness:ticket-close v5'
 const ASSETS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills', 'team-flow', 'assets')
 export const TICKET_CLOSE_ASSETS = [
   {asset: 'ticket-close.yml', target: '.github/workflows/ticket-close.yml'},
@@ -308,7 +308,7 @@ export async function notifyPlanner({provider, ticketKey, featureId, bounce, io 
   // 상세는 **ID 목록**이라 언어 중립이다 — 문장으로 감싸면 그 문장이 하드코딩된 언어가 된다.
   // 되돌림의 대상 목록(선행 작업 ID 등)은 **상세**다 — 체크리스트로 그리면 「채울 칸」처럼 읽힌다.
   const detail = bounce?.missing?.length ? bounce.missing.join(', ') : bounce?.workId ?? null
-  const text = bounceComment({featureId, reason: bounce?.reason, detail, items: bounce?.needs ?? null, assessment: bounce?.assessment ?? null,
+  const text = bounceComment({featureId, reason: bounce?.reason, detail, items: bounce?.needs ?? null,
     outputLanguage: bounce?.outputLanguage ?? readinessLanguage})
   if (!text) return {}
   // **미리보기는 트래커에 쓰지 않는다.** 코멘트는 지울 수 없는 부작용이고, 이 파일 머리말이
@@ -459,13 +459,12 @@ if (invokedDirectly) {
           developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
         return {outcome: pickupOutcome(picked), ...picked}
       }
-      // 완료 주장(PR 연결)·완료 회수(`--reopen`) — 티켓 코멘트로 남긴다. 머지는 기록하지 않는다(보드·픽업이 읽는다).
+      // 완료 주장(PR 연결) — 내 로컬에 기록하고 PR 본문 문단을 돌려준다. 머지는 기록하지 않는다(보드·픽업이 PR에서 읽는다).
       case 'link': {
         const linkRun = await import('./work-link-run.mjs')
-        // 연결 기록이 티켓에 있으므로 트래커 설정이 필요하다 — 없으면 실행부가 `tracker-required`로 막는다.
+        // 트래커는 끝남·다시 연 시각과 사람 티켓의 원문 대조에 쓴다 — 설정이 없으면 로컬 기록만으로 간다.
         const linked = (() => { try { return resolveTicketProvider({root, repo: flags.repo, flags}) } catch { return {} } })()
         const io = linked.provider ? {provider: linked.provider, ticketConfig: linked.config} : {}
-        if (flags.reopen) return linkRun.runWorkReopen({root, ticketKey: typeof flags.reopen === 'string' ? flags.reopen : args[0], flags, io})
         return linkRun.runWorkLink({root, ticketKey: args[0], prUrl: args[1], flags, io})
       }
       // 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.

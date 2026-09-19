@@ -1,4 +1,4 @@
-// work-link.mjs — WORK의 PR 연결(완료 주장)을 판정한다(순수에 가깝다). 기록은 티켓 코멘트다(work-records.mjs).
+// work-link.mjs — WORK의 PR 연결(완료 주장)을 판정한다(순수에 가깝다). 기록은 개발자 로컬이다(work-link-run.mjs).
 //
 // legacy `link`의 게이트를 **옮긴다**(I2):
 //   STALE 대조      → change-scope가 이 작업의 것이면 계획 digest로 대조, 아니면 미수행을 loud하게
@@ -215,7 +215,7 @@ export function planWorkLink({plan, planDigest, state, changeScope, ticketKey, p
     schemaVersion: 1, eventId: randomUUID(), planId: plan.planId, workId, eventType: 'work-linked', at: now, planDigest,
     payload: {
       prUrl, ticketKey: String(ticketKey), staleCheck, baseRef,
-      // 사람 티켓 작업은 원장에 등록 기록이 없다(티켓이 등록 기록) — 자동 닫기가 트래커를 알도록 싣는다.
+      // 사람 티켓 작업은 원장에 발행 기록이 없다(개발자 로컬 등록) — 닫는 줄이 트래커를 알도록 싣는다.
       ...(registered.origin === 'ticket' ? {origin: 'ticket', ...(registered.provider ? {provider: registered.provider} : {})} : {}),
       completion: {ok: completion.ok, ...(completion.reason ? {reason: completion.reason} : {}),
         testCases: {total: completion.testCases.total, cited: completion.testCases.cited.length, missing: completion.testCases.missing},

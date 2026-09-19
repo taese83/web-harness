@@ -5,12 +5,13 @@
 //   - **판단은 에이전트, 검증은 CLI** — 에이전트가 판정서를 쓰고 여기서 형식·근거·일관성을 잰다(claim P0/P1과 같은 분업)
 //   - **지어내지 않는다** — 티켓 출처 완료 조건은 원문에 그 문장이 있어야 하고, AI 제안은 개발자 확인 전에는 기준이 아니다.
 //     테스트 항목은 기획 TC(`TC-…`)와 섞이지 않게 `TT-<티켓키>-<n>`로 따로 센다. 기획 없는 프로젝트의 specTier는 그대로다
-//   - **계획 WORK와 같은 모양** — 확정된 판정서를 WORK 정의로 옮겨 픽업·편집 대조·링크·머지 관측을 그대로 재사용한다
-//   - **원문 보존** — 완성한 본문 맨 아래 「원문」 섹션에 사람 본문을 그대로 두고, 파서는 그 아래를 읽지 않는다
+//   - **계획 WORK와 같은 모양** — 확정된 판정서를 WORK 정의로 옮겨 픽업·링크·머지 판정을 그대로 재사용한다
+//   - **티켓 원본은 그대로** — 확정한 판정은 개발자 로컬의 등록 기록이다(`registrationPath`, git 제외). 티켓에는 배정·상태 전이와
+//     사람이 읽는 코멘트(착수 불가 요청·임의 디자인 알림)만 남는다
 import {createHash} from 'node:crypto'
 import {canonicalDigest, safeRelativeScope} from './work-analysis.mjs'
 import {pathsOverlap, ROLE} from './work-plan.mjs'
-import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES, parseWorkDocSections, TESTS_PASS_SHAPES} from './work-ticket-doc.mjs'
+import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES} from './work-ticket-doc.mjs'
 import {stripWorkMarker} from './work-refs.mjs'
 import {normalizeLayerPath} from '../agent-registry.mjs'
 
@@ -23,12 +24,20 @@ export const LANES = ['fix', 'change']
 export const SELF_CHECK_IDS = ['new-route', 'new-data-contract', 'new-auth-path', 'new-external-dependency', 'public-contract-change']
 const ANSWERS = ['yes', 'no', 'unknown']
 const ASSESSMENT_KEYS = ['schemaVersion', 'ticket', 'verdict', 'lane', 'objective', 'roles', 'selfCheck', 'planningNeeds', 'designNeeds',
-  'reasons', 'writePaths', 'nonGoals', 'acceptance', 'testItems', 'dependsOn']
+  'reasons', 'writePaths', 'nonGoals', 'acceptance', 'testItems', 'dependsOn', 'designByImplementer']
+// 디자인 없이 기능 먼저(임의 디자인)의 근거 — 티켓 본문의 지시(원문 인용) 또는 개발자의 지시(미리보기 확인이 승인한다).
+const DESIGN_SOURCES = ['ticket', 'developer']
 
 /** 판정서 파일 경로(순수). 키는 파일 이름으로 쓸 수 있게만 바꾼다. */
 export const assessmentPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.json`
 /** 판정할 에이전트가 읽는 격리 스냅샷 — CLI만 쓴다(에이전트 소유 패턴은 `.json`뿐이다). */
 export const assessmentSnapshotPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.ticket.md`
+/** 확인한 판정 = 이 개발자의 등록 기록(로컬, git 제외). 티켓에는 쓰지 않는다 — 다른 클론은 배정·상태로만 안다. */
+export const registrationPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.registered.json`
+/** 요청 코멘트를 남긴 판정서 지문(로컬) — 같은 판정으로 다시 확인해도 코멘트를 쌓지 않는다. */
+export const notifiedPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.notified.json`
+/** 티켓 원문 지문(순수) — 확인한 뒤 사람이 원문을 고쳤는지 link가 가린다. */
+export const ticketBodyDigest = body => createHash('sha256').update(normalizeDocItem(stripWorkMarker(String(body ?? '')))).digest('hex')
 
 /** 티켓에서 결정적으로 만든 UUID 모양 ID(순수) — 쓰기 도중 실패해도 재시도가 같은 ID를 쓴다. */
 const derivedUuid = seed => {
@@ -99,6 +108,21 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
     errors.push('undecidable이면 reasons가 하나 이상이어야 한다')
   }
 
+  // 임의 디자인 — 근거가 있어야 하고(티켓 출처면 원문 인용), 무엇을 임의로 정하는지 비차단 부채로 적는다. 기획 필요에는 쓰지 않는다.
+  if (a.designByImplementer !== undefined && a.designByImplementer !== null) {
+    const design = a.designByImplementer
+    if (a.verdict !== 'startable') errors.push('designByImplementer는 착수 가능 판정에만 쓴다 — 기획 필요는 임의로 정하지 않는다')
+    if (!DESIGN_SOURCES.includes(design?.source)) errors.push(`designByImplementer.source는 ${DESIGN_SOURCES.join('|')}`)
+    if (design?.source === 'ticket') {
+      const quote = normalizeDocItem(String(design?.quote ?? '')).toLowerCase()
+      if (!quote) errors.push('티켓 출처 임의 디자인이면 designByImplementer.quote에 원문 문장을 그대로 옮긴다')
+      else if (!normalizeDocItem(originalBody).toLowerCase().includes(quote)) errors.push(`임의 디자인 지시가 원문에 없다: ${JSON.stringify(design.quote)} — 개발자 지시면 source:developer로 적는다`)
+    }
+    if (list(a.designNeeds).filter(item => item?.what && item?.blocking === false).length === 0) {
+      errors.push('임의 디자인이면 무엇을 임의로 정하는지 designNeeds에 비차단(blocking:false) 부채로 적는다')
+    }
+  }
+
   let bounce = null
   if (a.verdict === 'startable') {
     if (!LANES.includes(a.lane)) errors.push(`착수 가능이면 lane은 ${LANES.join('|')}`)
@@ -108,8 +132,8 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
       const yes = SELF_CHECK_IDS.filter(id => answer(id) === 'yes')
       if (yes.length > 0) errors.push(`fix인데 자기검사에 「예」가 있다: ${yes.join(', ')} — change로 승격한다(재량이 아니다)`)
     }
-    // 새 화면·route는 모양이 정해져야 한다 — 티켓만으로 착수시키지 않는다(결정 3).
-    if (answer('new-route') === 'yes') errors.push('새 route·화면이면 착수 가능이 아니다 — needs-design으로 둔다')
+    // 새 화면·route는 모양이 정해져야 한다 — 티켓만으로 착수시키지 않는다(결정 3). 임의 디자인 지시가 있으면 예외다.
+    if (answer('new-route') === 'yes' && !a.designByImplementer) errors.push('새 route·화면이면 착수 가능이 아니다 — needs-design으로 두거나 임의 디자인 지시(designByImplementer)를 근거와 함께 적는다')
     if (list(a.planningNeeds).length > 0 || list(a.designNeeds).some(item => item?.blocking !== false)) {
       errors.push('착수 가능인데 막는 기획·디자인 필요가 남아 있다 — verdict를 고치거나 비차단(blocking:false) 부채로 적는다')
     }
@@ -191,56 +215,13 @@ export function ticketWorkDefinition({assessment, ticketKey, provider, title}) {
       targetRefs: list(assessment.writePaths), source: item.source})),
     testCases: list(assessment.testItems).map(item => ({id: item.id, text: item.text, source: item.source})),
     designDebt: list(assessment.designNeeds).filter(item => item?.blocking === false),
+    ...(assessment.designByImplementer ? {designByImplementer: {source: assessment.designByImplementer.source}} : {}),
     lifecycle: 'active',
   }
 }
 
-/** 착수 불가 판정의 라벨 — **트래커가 판정 기록이다**. 보드는 라벨로 「정해야 할 것이 있음」을 그린다. */
-export const VERDICT_LABELS = ['needs-planning', 'needs-design', 'undecidable']
-
 /**
- * 등록된 사람 티켓 작업의 정의를 **본문에서** 되살린다(순수) — 티켓이 등록 기록이다(원장에 두지 않는다). 사람이 본문을 고치면
- * 정의가 바뀌고, 그 변경은 트래커 이력에 남는다. 선행 줄에 티켓 키가 없으면(아직 발행되지 않은 선행) 풀 수 없는 선행으로 둔다 —
- * 조용히 빼면 선행 없이 착수한다.
- * @param {{body: string, ticketKey: string, provider: string, title?: string, depWorkIdOf: (key: string) => string|null}} args
- * @returns {{definition: object, dependsOnKeys: (string|null)[]}|{error: string}}
- */
-export function parseTicketWorkBody({body, ticketKey, provider, title = null, depWorkIdOf = () => null}) {
-  const sections = parseWorkDocSections(body)
-  if (sections.acceptance === null || sections.scope === null) return {error: '본문에 완료 조건·수정 범위 섹션이 없다'}
-  const field = names => {
-    for (const line of list(sections.references)) {
-      const match = line.match(/^([^:]+):\s*(.*)$/)
-      if (match && names.includes(match[1].trim())) return match[2].trim()
-    }
-    return null
-  }
-  const writePaths = list(sections.scope)
-  const dependsOnKeys = []
-  const dependsOn = list(sections.dependsOn).map(line => {
-    const key = line.split(/\s+/)[0].replace(/^#/, '')
-    const known = /^(?:[A-Za-z][A-Za-z0-9]*-\d+|\d+)$/.test(key)
-    dependsOnKeys.push(known ? key : null) // dependsOn과 같은 자리 — 키를 모르는 선행은 null
-    if (!known) return `UNRESOLVED:${line}`
-    return depWorkIdOf(key) ?? `UNRESOLVED:${key}`
-  })
-  const spec = field(['스팩 승인', 'Spec approval'])
-  const definition = {
-    workId: ticketWorkId(provider, ticketKey), title: title || String(ticketKey), kind: 'implementation', origin: 'ticket',
-    lane: field(['레인', 'Lane']), specApproval: spec === '필요 없음' || spec === 'not needed' ? 'not-needed' : 'required', // 모르면 받는다(fail-closed)
-    roles: (field(['역할', 'Roles']) ?? '').split(',').map(role => role.trim()).filter(Boolean),
-    objective: sections.lead ?? '', nonGoals: list(sections.nonGoals), dependsOn, readPaths: [], writePaths, contractRefs: [],
-    checks: list(sections.acceptance).filter(text => !TESTS_PASS_SHAPES.some(shape => shape.test(text)))
-      .map((text, index) => ({checkId: `ACC-${index + 1}`, kind: 'acceptance', expectedOutcome: text, targetRefs: writePaths, source: 'ticket'})),
-    testCases: list(sections.tests).map(text => text.match(/^(TT-\S+)\s+(.*)$/)).filter(Boolean).map(match => ({id: match[1], text: match[2], source: 'ticket'})),
-    designDebt: [], lifecycle: 'active',
-  }
-  return {definition, dependsOnKeys}
-}
-
-/**
- * 사람 티켓 작업 정의의 지문(순수) — 본문에서 되읽히는 것만 잰다(판정서의 `source`·디자인 부채처럼 본문에 없는 것은 뺀다).
- * 집을 때와 연결할 때 같은 값이어야 「그 뒤 본문을 고쳤다」를 가릴 수 있다.
+ * 사람 티켓 작업 정의의 지문(순수) — 집을 때와 연결할 때 같은 값이어야 「그 사이 판정을 다시 확인해 정의가 바뀌었다」를 가린다.
  */
 export const ticketDefinitionDigest = definition => canonicalDigest({
   lane: definition?.lane ?? null, specApproval: definition?.specApproval ?? null, roles: list(definition?.roles), objective: definition?.objective ?? '',

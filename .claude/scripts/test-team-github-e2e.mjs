@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // test-team-github-e2e.mjs — 3인 팀이 **GitHub Issues**를 트래커로 쓸 때. 실제 git clone, 메모리 GitHub(`gh` 대역),
-// 대상 프로젝트 CI에서 도는 자동 닫기 v3 스크립트를 **실제 프로세스로** 돌린다.
+// 대상 프로젝트 CI에서 도는 자동 닫기 v5 스크립트를 **실제 프로세스로** 돌린다.
 //
 // Jira와 다른 곳만 고정한다:
 //   (1) 배정이 덧붙이기다 — 동시에 집어도 둘이 「내 배정」으로 남지 않는다(남을 본 쪽이 물러난다)
 //   (2) PR 본문의 닫는 줄은 `Closes #N`이다 — 계획 작업도 사람 티켓(라벨 축)도
-//   (3) 머지마다 자동 닫기 v4가 이슈의 연결 기록만 근거로 그 PR의 이슈를 닫고, 다시 돌아도 한 번만 닫는다
+//   (3) 머지마다 자동 닫기 v5가 PR 제목의 티켓 키와 기대 base만 근거로 그 이슈를 닫고, 다시 돌아도 한 번만 닫는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {execFileSync} from 'node:child_process'
-import {chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
@@ -31,10 +31,10 @@ const git = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], {encodin
 const tryGit = (cwd, ...args) => { try { git(cwd, ...args); return true } catch { return false } }
 const ticketConfig = {provider: 'github', github: {labelAxis: {dev: '개발 티켓'}, workLink: {mode: 'link-only'}}}
 const open = async () => ({state: 'OPEN', baseRefName: 'main'})
-// PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
-const prHost = new Map()
-const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
-const mergePr = url => prHost.set(url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
+// PR 호스트(메모리) — 기대 base에 머지된 PR 목록. 하네스는 머지를 기록하지 않고 제목의 티켓 키로 읽는다.
+const merged = []
+const mergedPrs = async () => merged
+const mergePr = (url, ticketKey) => merged.push({number: Number(url.split('/').pop()), title: `[${ticketKey}] 작업`, mergedAt: new Date().toISOString(), url})
 const commitSplit = (dir, message) => {
   git(dir, 'add', '-A', '--', '.', ':(exclude)_workspace')
   if (!tryGit(dir, 'diff', '--cached', '--quiet')) git(dir, 'commit', '-qm', `code: ${message}`)
@@ -50,7 +50,7 @@ const develop = (dir, name) => {
   writeFileSync(join(dir, `tests/${name}.test.ts`), `// ${(scope.testCaseIds ?? []).join(' ')}\n`)
 }
 
-test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자동 닫기 v4가 그 이슈만 한 번 닫는다', async () => {
+test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자동 닫기 v5가 그 이슈만 한 번 닫는다', async () => {
   const base = mkdtempSync(join(tmpdir(), 'wh-team-github-'))
   const stateFile = join(base, 'gh-state.json')
   const gh = createGithubStub({stateFile})
@@ -71,13 +71,16 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
     const lead = join(base, 'lead')
     mkdirSync(lead)
     cpSync(join(repoRoot, '.claude/evals/fixtures/work-plan/crud'), lead, {recursive: true})
+    // 이 팀은 main에 모은다 — 자동 닫기의 기대 base는 커밋된 계획의 baseBranch다.
+    const planFile = join(lead, '_workspace/03_dev/work-plan.json')
+    writeFileSync(planFile, JSON.stringify({...JSON.parse(readFileSync(planFile, 'utf8')), baseBranch: 'main'}, null, 2))
     writeFileSync(join(lead, '_workspace/03_dev/spec.json'), JSON.stringify({schemaVersion: 2, specTier: 'unverifiable',
       layerMap: {entities: 'src/entities', pages: 'src/pages', shared: 'src/shared', tests: 'tests'}}))
     git(lead, 'init', '-q', '-b', 'main'); git(lead, 'config', 'user.name', 'lead'); git(lead, 'config', 'user.email', 'lead@t')
     git(lead, 'add', '-A'); git(lead, 'commit', '-qm', 'init'); git(lead, 'remote', 'add', 'origin', origin); git(lead, 'push', '-q', 'origin', 'main')
 
     await runClaimWork({root: lead, flags: {}})
-    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published.guidance ?? published.errors))
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
     assert.equal(checkTeamSharing(lead, {install: true}).state, 'PASS')
@@ -89,7 +92,7 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
       devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name])
       git(devs[name], 'config', 'user.name', name); git(devs[name], 'config', 'user.email', `${name}@t`)
     }
-    const pickup = (name, key, flags = {}, exec) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: {prStates, provider: providerFor(exec), ticketConfig}})
+    const pickup = (name, key, flags = {}, exec) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: {mergedPrs, provider: providerFor(exec), ticketConfig}})
 
     // (1) 둘 다 비어 있음을 보고 배정한다 — 둘 다 물러나고 배정이 비워진다. 그 뒤 먼저 집은 한 사람만 시작한다.
     const w1 = keyOf(W(1))
@@ -99,14 +102,14 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
     assert.equal(readChangeScopeFile(devs.A), null)
     assert.equal(pickupOutcome(await pickup('A', w1)), 'started')
     assert.equal((await pickup('B', w1)).bounce?.reason, 'assigned-to-other')
-    const boardB = await runWorkBoard({root: devs.B, developer: 'B', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const boardB = await runWorkBoard({root: devs.B, developer: 'B', flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(boardB.ready.includes(W(1)), false, '남이 시작한 작업을 집을 수 있다고 보였다')
     assert.equal(pickupOutcome(await pickup('B', keyOf(W(3)))), 'started')
 
     // C: 라벨로 분류된 사람 티켓
     const humanKey = gh.humanIssue({title: '표 빈 상태 문구', labels: ['dev'],
       body: '데이터가 없을 때 표에 아무것도 안 보입니다.\n\n완료 조건: 데이터가 없으면 "표시할 항목이 없습니다"가 보인다'})
-    const boardC = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const boardC = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(boardC.tickets.find(row => row.ticketKey === humanKey)?.stage, 'unassessed')
     assert.equal(pickupOutcome(await pickup('C', humanKey)), 'assessing')
     const assessment = {schemaVersion: 1, ticket: {key: humanKey, provider: 'github'}, verdict: 'startable', lane: 'change', objective: '빈 상태 문구',
@@ -128,20 +131,20 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
       develop(devs[name], name)
       commitSplit(devs[name], `${name} 작업`)
       prOf[name] = `https://github.com/acme/web/pull/${++pr}`
-      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: prOf[name], flags: {}, io: {prStates, prInfo: open, provider: providerFor()}})
+      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl: prOf[name], flags: {}, io: {mergedPrs, prInfo: open, provider: providerFor()}})
       assert.equal(linked.ok, true, `${name}: ${JSON.stringify(linked.blocked ?? linked.completion)}`)
       assert.equal(linked.closeLine, `Closes #${work[name]}`)
       closeLineOf[name] = linked.closeLine
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', `feat/${name}`)
     }
 
-    // (3) 머지마다 ticket-close.yml이 하는 일 — 머지된 트리에서 v4 스크립트를 실제 프로세스로 돈다(PR 본문은 닫는 줄)
+    // (3) 머지마다 ticket-close.yml이 하는 일 — 머지된 트리에서 v5 스크립트를 실제 프로세스로 돈다(근거는 PR 제목의 티켓 키)
     const closeRun = name => execFileSync(process.execPath, ['.github/scripts/close-merged-tickets.mjs'], {cwd: lead, encoding: 'utf8',
-      env: {...process.env, PATH: `${bin}:${process.env.PATH}`, GH_STUB_STATE: stateFile, TICKET_REPO: 'acme/web', TICKET_PR_URL: prOf[name], TICKET_BASE_REF: 'main', TICKET_PR_BODY: `요약\n\n${closeLineOf[name]}`}})
+      env: {...process.env, PATH: `${bin}:${process.env.PATH}`, GH_STUB_STATE: stateFile, TICKET_REPO: 'acme/web', TICKET_PR_URL: prOf[name], TICKET_BASE_REF: 'main', TICKET_PR_TITLE: `[${work[name]}] ${name} 작업`, TICKET_DEFAULT_BRANCH: 'main'}})
     git(lead, 'fetch', '-q', 'origin')
     for (const name of ['A', 'B', 'C']) {
       assert.equal(tryGit(lead, 'merge', '--no-ff', '-m', `merge ${name}`, `origin/feat/${name}`), true, `${name} 머지 충돌`)
-      mergePr(prOf[name])
+      mergePr(prOf[name], work[name])
       assert.match(closeRun(name), /done: 1\/1 closed/, `${name}의 이슈를 닫지 않았다`)
       assert.equal(gh.issue(work[name]).state, 'CLOSED')
     }
@@ -150,7 +153,7 @@ test('GitHub 팀 흐름: 동시 배정 정리 → Closes #N → 머지마다 자
 
     git(lead, 'push', '-q', 'origin', 'main')
     git(devs.C, 'checkout', '-q', 'main'); git(devs.C, 'pull', '-q', '--no-rebase', 'origin', 'main')
-    const next = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const next = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.deepEqual(next.ready, [W(4)])
     assert.equal(pickupOutcome(await pickup('C', keyOf(W(4)))), 'started')
   } finally {

@@ -259,7 +259,6 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
     `${base} claim --publish --work-ids WORK-1 --repo o/r --confirm`,
     `${base} pickup PF-101 --repo o/r --developer me`,
     `${base} link PF-101 https://x/pull/1`,
-    `${base} link --reopen PF-101 --reason "머지를 되돌림"`,
     `${base} intake PF-1 --repo o/r`,
     `${base} configure --provider jira --set projectKey=PFFE --set issueType=Task`,
   ]) assert.equal(decide(command).allowed, true, `계약이 부르는 명령이 막힌다: ${command}`)
@@ -279,7 +278,7 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
   assert.equal(decide(`${base} claim --units /etc/passwd`).code, 'DENY_PATH_OUTSIDE')
   // 값을 받는 플래그에 값이 없으면 거부한다 — 다음 플래그를 값으로 삼키면 계약이 흐려진다.
   assert.equal(decide(`${base} pickup PF-101 --repo --developer me`).allowed, false)
-  assert.equal(decide(`${base} link --reopen PF-101 --reason`).allowed, false, '이유 없는 되돌림이 열렸다')
+  assert.equal(decide(`${base} pickup PF-101 --developer me --assessment`).allowed, false, '값 없는 확인 플래그가 열렸다')
 })
 
 // 자동 닫기 자산(v2 — WORK 원장 기반)은 개발 준비 검사가 설치한다 — 설치는 덮어쓰지 않는다(판본 판정은 test-work-close).

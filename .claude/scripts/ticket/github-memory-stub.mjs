@@ -24,7 +24,7 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
   const view = (issue, fields) => Object.fromEntries(fields.split(',').map(field => [field,
     field === 'labels' ? issue.labels.map(name => ({name}))
       : field === 'assignees' ? issue.assignees.map(login => ({login}))
-        : field === 'comments' ? issue.comments.map(item => ({author: {login: item.author}, authorAssociation: item.authorAssociation ?? 'MEMBER', body: item.body, createdAt: item.createdAt}))
+        : field === 'comments' ? issue.comments.map(item => ({author: {login: item.author}, body: item.body, createdAt: item.createdAt}))
           : issue[field] ?? null]))
   const create = ({title, body, labels = [], assignees = []}) => {
     const number = state.next++
@@ -80,6 +80,16 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
       issue.state = 'CLOSED'
       issue.stateReason = flagValue(args, '--reason') === 'not planned' ? 'NOT_PLANNED' : 'COMPLETED'
       issue.closedAt = new Date().toISOString()
+      issue.events = [...(issue.events ?? []), {event: 'closed', created_at: commentTime()}]
+      touch(issue)
+      return ''
+    }
+    if (head === 'issue' && verb === 'reopen') {
+      const issue = issueOf(args[2])
+      issue.state = 'OPEN'
+      issue.stateReason = 'REOPENED'
+      issue.closedAt = null
+      issue.events = [...(issue.events ?? []), {event: 'reopened', created_at: commentTime()}]
       touch(issue)
       return ''
     }
@@ -100,6 +110,8 @@ export function createGithubStub({stateFile = null, repo = 'acme/web'} = {}) {
         issue.comments.push(item)
         return JSON.stringify({id: item.id})
       }
+      const eventsOf = path.match(/issues\/(\d+)\/events$/)
+      if (method === 'GET' && eventsOf) return JSON.stringify(issueOf(eventsOf[1]).events ?? [])
       if (method === 'GET' && /\/issues\?state=all/.test(path)) {
         return Object.values(state.issues).map(issue => JSON.stringify({number: issue.number, title: issue.title, body: issue.body})).join('\n')
       }

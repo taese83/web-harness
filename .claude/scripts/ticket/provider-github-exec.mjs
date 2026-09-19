@@ -29,8 +29,6 @@ function gh(args, {host = 'github.com', timeoutMs = 30000, stdin = null} = {}) {
   })
 }
 
-/** 작업 기록 코멘트로 믿는 작성자 관계 — 저장소 소유자·조직 구성원·협업자. */
-export const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR']
 export const workViewArgs = (repo, number) => ['issue', 'view', String(number), '--repo', repo, '--json', 'number,title,labels,state,stateReason,closedAt,body,assignees']
 // gh가 「그 번호의 이슈가 없다」고 답한 경우만 부재다 — 권한·네트워크 실패를 부재로 접지 않는다.
 const isIssueNotFound = error => /Could not resolve to an? (issue|Issue)/.test(String(error?.message ?? error))
@@ -42,6 +40,9 @@ export const createArgs = (repo, fields) => [...ghCreateArgs(fields), '--repo', 
 // 픽업 시 개발 소유권 self-assign(청구≠픽업 분리) — 실행은 confirm 게이트 뒤 caller.
 export const assignArgs = (repo, number, login) => ['issue', 'edit', String(number), '--repo', repo, '--add-assignee', login]
 export const prStateArgs = prUrl => ['pr', 'view', prUrl, '--json', 'state,baseRefName,title,mergedAt']
+/** 기대 base에 머지된 PR 목록 — 완료 판정의 근거(제목의 티켓 키). 상한에 닿으면 잘렸다고 알린다. */
+export const mergedPrListArgs = (repo, base, limit) => ['pr', 'list', '--repo', repo, '--base', base, '--state', 'merged', '--limit', String(limit),
+  '--json', 'number,title,mergedAt,url']
 
 // 범용 gh 러너(실행부 경계 재노출) — executor CLI가 assign/comment 등 argv를 실제 스폰할 때
 // 쓴다. side-effect이므로 caller(cli)의 --confirm 게이트 뒤에서만 호출된다.
@@ -84,6 +85,24 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
      * 목록. gh는 커서를 주지 않으므로 상한에 닿으면 잘렸을 수 있다고 표시한다. **키를 주면** 잘린 목록에서 못 본
      * 키를 하나씩 직접 조회한다 — 이슈가 많은 저장소에서 보드가 오래된 WORK를 늘 「미상」으로 두지 않게.
      */
+    /** 사람이 다시 연 시각 — 이슈 이벤트의 가장 최근 `reopened`. 키마다 한 번 읽는다(머지 근거가 있고 열린 이슈만 부른다). */
+    async listReopens({keys}) {
+      const {reopenedAtFromGithubEvents} = await import('./work-provider.mjs')
+      const reopens = new Map()
+      const errors = []
+      for (const key of keys.map(String)) {
+        try {
+          // --paginate는 페이지마다 배열을 이어 붙인다(`][`) — 한 배열로 편다.
+          const out = String(await run(['api', '--paginate', `repos/${repo}/issues/${key}/events`])).trim()
+          const events = out ? JSON.parse(`[${out.replace(/^\[|\]$/g, '').replace(/\]\s*\[/g, ',')}]`) : []
+          const at = reopenedAtFromGithubEvents(events)
+          if (at) reopens.set(key, at)
+        } catch (error) {
+          errors.push({ticketKey: key, error: String(error?.message ?? error).slice(0, 120)})
+        }
+      }
+      return {reopens, errors}
+    },
     async listWorkIssues({keys = null, pageSize = 100}) {
       const json = JSON.parse(await run(workListArgs(repo, pageSize)))
       const parsed = parseGithubWorkList(json, {limit: pageSize})
@@ -225,9 +244,7 @@ export async function resolveIssue({repo, number, host = 'github.com', exec = nu
     revision: parsed.updatedAt ?? null,
     links: null, // GitHub 이슈에는 유형 있는 링크가 없다 — 「없다」가 아니라 「이 트래커가 주지 않는다」
     comments: Array.isArray(parsed.comments)
-      ? parsed.comments.map(item => ({author: item?.author?.login ?? null, created: item?.createdAt ?? null, body: item?.body ?? '',
-        // 공개 저장소에서는 아무 계정이나 코멘트를 단다 — 저장소 관계자의 코멘트만 작업 기록으로 믿는다(work-records.mjs).
-        ...(item?.authorAssociation ? {trusted: TRUSTED_ASSOCIATIONS.includes(item.authorAssociation)} : {})}))
+      ? parsed.comments.map(item => ({author: item?.author?.login ?? null, created: item?.createdAt ?? null, body: item?.body ?? ''}))
       : null,
     commentsOmitted: null, // gh는 총수를 주지 않는다 — 덜 받았는지 모른다(0이라고 적지 않는다)
   }

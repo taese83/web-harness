@@ -26,10 +26,10 @@ const tryGit = (cwd, ...args) => { try { git(cwd, ...args); return true } catch 
 const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
   transitions: {'in-progress': '31', done: '41'}, workLink: {mode: 'issue-link', linkType: 'Relates'}, componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}
 const ticketConfig = {provider: 'jira', jira: jiraConfig}
-// PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
-const prHost = new Map()
-const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
-const mergePr = url => prHost.set(url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
+// PR 호스트(메모리) — 기대 base에 머지된 PR 목록. 하네스는 머지를 기록하지 않고 제목의 티켓 키로 읽는다.
+const merged = []
+const mergedPrs = async () => merged
+const mergePr = (url, ticketKey) => merged.push({number: Number(url.split('/').pop()), title: `[${ticketKey}] 작업`, mergedAt: new Date().toISOString(), url})
 const open = async () => ({state: 'OPEN', baseRefName: 'main'})
 const commitSplit = (dir, message) => {
   git(dir, 'add', '-A', '--', '.', ':(exclude)_workspace')
@@ -78,7 +78,7 @@ test('같은 파일: 순서 없는 공유 선언은 계획에서 막고, 순서�
     assert.equal((await runClaimWork({root: lead, flags: {}})).phase, 'P1_REVIEW')
     const jira = createJiraStub()
     const providerFor = () => createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
-    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(published.phase, 'PUBLISHED')
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
     checkTeamSharing(lead, {install: true})
@@ -91,7 +91,7 @@ test('같은 파일: 순서 없는 공유 선언은 계획에서 막고, 순서�
       devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name])
       git(devs[name], 'config', 'user.name', name); git(devs[name], 'config', 'user.email', `${name}@t`)
     }
-    const pickup = (name, key) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const pickup = (name, key) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags: {}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(pickupOutcome(await pickup('A', keyOf(W(1)))), 'started')
     assert.equal((await pickup('B', keyOf(W(3)))).bounce?.reason, 'dependency-incomplete', '앞 작업이 머지되기 전에 같은 등록부를 집었다')
 
@@ -100,13 +100,13 @@ test('같은 파일: 순서 없는 공유 선언은 계획에서 막고, 순서�
     write(devs.A, 'src/entities/member/api.ts', 'export const MemberApi = {}\n')
     write(devs.A, 'tests/member-api.test.ts', '// A-1\n')
     commitSplit(devs.A, 'A')
-    const linkedA = await runWorkLink({root: devs.A, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/1', flags: {}, io: {prStates, prInfo: open, provider: providerFor()}})
+    const linkedA = await runWorkLink({root: devs.A, ticketKey: keyOf(W(1)), prUrl: 'https://github.com/acme/web/pull/1', flags: {}, io: {mergedPrs, prInfo: open, provider: providerFor()}})
     assert.equal(linkedA.ok, true, JSON.stringify(linkedA.blocked ?? linkedA.completion))
     assert.deepEqual(linkedA.scopeDrift, {checked: true, outside: []}, '선언한 등록부·테스트를 범위 밖으로 읽었다')
     commitSplit(devs.A, 'A 연결'); git(devs.A, 'push', '-q', 'origin', 'feat/A')
     git(lead, 'fetch', '-q', 'origin')
     assert.equal(tryGit(lead, 'merge', '--no-ff', '-m', 'merge A', 'origin/feat/A'), true)
-    mergePr('https://github.com/acme/web/pull/1')
+    mergePr('https://github.com/acme/web/pull/1', keyOf(W(1)))
     git(lead, 'push', '-q', 'origin', 'main')
 
     git(devs.B, 'pull', '-q', '--no-rebase', 'origin', 'main')
@@ -118,11 +118,11 @@ test('같은 파일: 순서 없는 공유 선언은 계획에서 막고, 순서�
     write(devs.B, 'src/pages/members/MembersPage.tsx', 'export const MembersPage = null\n')
     write(devs.B, 'tests/members-page.test.ts', '// C-1\n')
     commitSplit(devs.B, 'B')
-    assert.equal((await runWorkLink({root: devs.B, ticketKey: keyOf(W(3)), prUrl: 'https://github.com/acme/web/pull/2', flags: {}, io: {prStates, prInfo: open, provider: providerFor()}})).ok, true)
+    assert.equal((await runWorkLink({root: devs.B, ticketKey: keyOf(W(3)), prUrl: 'https://github.com/acme/web/pull/2', flags: {}, io: {mergedPrs, prInfo: open, provider: providerFor()}})).ok, true)
     commitSplit(devs.B, 'B 연결'); git(devs.B, 'push', '-q', 'origin', 'feat/B')
     git(lead, 'fetch', '-q', 'origin')
     assert.equal(tryGit(lead, 'merge', '--no-ff', '-m', 'merge B', 'origin/feat/B'), true, '순서가 있는 등록부 공유가 충돌했다')
-    mergePr('https://github.com/acme/web/pull/2')
+    mergePr('https://github.com/acme/web/pull/2', keyOf(W(3)))
     git(lead, 'push', '-q', 'origin', 'main')
 
     // (3) 선언하지 않은 package.json — A는 다음 작업(W4)에서, B는 다른 브랜치에서 같은 때 손으로 고친다
@@ -136,7 +136,7 @@ test('같은 파일: 순서 없는 공유 선언은 계획에서 막고, 순서�
       commitSplit(devs[name], `${name} deps`)
       git(devs[name], 'push', '-q', 'origin', `deps/${name}`)
     }
-    drift.A = (await runWorkLink({root: devs.A, ticketKey: keyOf(W(4)), prUrl: 'https://github.com/acme/web/pull/3', flags: {'dry-run': true}, io: {prStates, prInfo: open}})).scopeDrift
+    drift.A = (await runWorkLink({root: devs.A, ticketKey: keyOf(W(4)), prUrl: 'https://github.com/acme/web/pull/3', flags: {'dry-run': true}, io: {mergedPrs, prInfo: open}})).scopeDrift
     assert.deepEqual(drift.A?.outside, ['package.json'], JSON.stringify(drift.A))
     assert.match(drift.A.guidance, /package\.json/)
     git(lead, 'fetch', '-q', 'origin')

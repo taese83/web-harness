@@ -352,12 +352,10 @@ test('실행부: 같은 작업을 다시 집으면 처음 찍은 대상 지문�
     const again = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider}})
     assert.equal(again.ok, true, JSON.stringify(again.bounce))
     assert.equal(readChangeScopeFile(root).checks[0].baseline[target], null, '다시 집으며 고친 대상을 새 기준선으로 찍었다')
-    // 머지를 되돌려 완료를 거둔 작업은 잇지 않는다 — 남은 대상 때문에 빈 PR이 「바뀌었다」로 읽히지 않게.
-    // 거둔 기록은 티켓 코멘트다.
-    const {renderReopenRecord} = await import('./ticket/work-records.mjs')
-    const reopened = {...provider, async resolveIssue(key) {
-      return {...(await provider.resolveIssue(key)), comments: [{author: 'me', created: new Date().toISOString(),
-        body: renderReopenRecord({prUrl: 'https://github.com/o/r/pull/1', reason: '되돌림'})}]}
+    // 머지를 되돌려 다시 연 작업은 잇지 않는다 — 남은 대상 때문에 빈 PR이 「바뀌었다」로 읽히지 않게.
+    // 완료를 거두는 것은 트래커에서 다시 여는 것이다 — 트래커가 다시 연 시각을 준다.
+    const reopened = {...provider, async listWorkIssues({keys}) {
+      return {items: keys.map(ticketKey => ({ticketKey, statusCategory: 'indeterminate', reopenedAt: new Date().toISOString()})), complete: true}
     }}
     await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: {provider: reopened}})
     assert.notEqual(readChangeScopeFile(root).checks[0].baseline[target], null, '되돌린 작업에 옛 기준선을 이었다')

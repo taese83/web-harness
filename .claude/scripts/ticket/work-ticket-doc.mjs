@@ -78,7 +78,7 @@ export function buildWorkDoc({work, featureIds = [], features = new Map(), testC
         ...design.map(value => `${c.design}: ${value}`),
         ...list(work.contractRefs).map(ref => `${c.contracts}: ${ref.path}${ref.anchor ? `#${ref.anchor}` : ''}`),
         ...(contextName ? [`${c.context}: ${contextName}`] : []),
-        // 사람 티켓 작업은 **티켓이 등록 기록**이다 — 픽업이 읽는 레인·스팩 승인·역할을 보이는 본문에 둔다(고치면 이력이 남는다).
+        // 사람 티켓 작업은 레인·스팩 승인·역할도 적는다 — 픽업에 넘기는 티켓 모양(메모리 전용)이 정의를 다 싣게.
         ...(work.origin === 'ticket' ? [`${c.lane}: ${work.lane}`, `${c.specApproval}: ${work.specApproval === 'required' ? c.required : c.notNeeded}`,
           `${c.roles}: ${list(work.roles).join(', ')}`] : []),
         `${c.workId}: ${work.workId}`,

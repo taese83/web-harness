@@ -69,43 +69,41 @@ export function classifyTrackerDone(item, {completedResolutions = DEFAULT_COMPLE
 }
 
 /**
- * 원장 상태에 트래커의 끝남을 겹친다(순수). **이관 중에는 둘 중 하나라도 완료면 완료다** — 지금까지 하네스가 Jira를
- * 완료로 전이하지 않아 원장만 완료인 작업이 많다. 트래커에서 취소로 끝난 작업은 `trackerCancelled`로 표시한다.
+ * 계획·등록 상태에 **지금의 끝남**을 겹친다(순수). 완료는 기록하지 않고 여기서 계산한다 — 기대 base에 머지된 PR(제목의 티켓 키)
+ * · 머지된 커밋(Jira Git Integration) · 트래커의 끝남 중 하나. 사람이 트래커에서 티켓을 **다시 열면**(`reopenedAt`) 그 뒤의
+ * 근거만 센다. 되돌림 PR(`Revert "[키] …"`)이 머지됐으면 그 전의 머지·커밋은 세지 않는다. 트래커에서 취소된 작업은
+ * 취소 뒤의 머지만 취소를 이긴다(시각을 모르면 취소를 지킨다). `links`는 이 클론의 연결 기록(로컬) — 멱등·표시용이다.
  */
 export function withTrackerCompletion(state, items, {completedResolutions = DEFAULT_COMPLETED_RESOLUTIONS, mergeEvidence = new Map(),
-  records = new Map(), prStates = new Map()} = {}) {
+  prEvidence = new Map(), links = new Map()} = {}) {
   const byKey = new Map((Array.isArray(items) ? items : []).map(item => [String(item.ticketKey),
-    {done: classifyTrackerDone(item, {completedResolutions}), doneAt: item.doneAt ?? null}]))
+    {done: classifyTrackerDone(item, {completedResolutions}), doneAt: item.doneAt ?? null, reopenedAt: item.reopenedAt ?? null}]))
+  const after = (date, at) => Boolean(date) && Date.parse(date) > Date.parse(at)
   const works = new Map([...(state?.works?.entries() ?? [])].map(([workId, entry]) => {
+    const key = entry.ticketKey ? String(entry.ticketKey) : null
     let item = entry
-    // 티켓 코멘트의 작업 기록 — 가장 최근 PR 연결과 완료 회수(`work-records.mjs`). 원장에는 없다.
-    const record = item.ticketKey ? records.get(String(item.ticketKey)) : null
-    // 회수가 연결보다 뒤면 그 연결은 끝난 것이다 — 겹치지 않아야 다시 집은 뒤 새 PR을 연결할 수 있다(멱등이 옛 PR을 돌려주지 않게).
-    if (record?.link && !(record.reopen && !(Date.parse(record.link.at) > Date.parse(record.reopen.at)))) item = {...item, link: {...record.link}}
-    if (record?.reopen && !(item.reopened && Date.parse(item.reopened.at) >= Date.parse(record.reopen.at))) {
-      item = {...item, reopened: {at: record.reopen.at, prUrl: record.reopen.prUrl}}
-    }
-    const tracker = item.ticketKey ? byKey.get(String(item.ticketKey)) : null
+    const tracker = key ? byKey.get(key) : null
+    const pr = key ? prEvidence.get(key) : null
+    // 내 연결 기록 — 그 뒤에 다시 열었거나 되돌림 PR이 머지됐으면 끝난 연결이다(다시 집은 뒤 새 PR을 연결할 수 있게).
+    const link = key ? links.get(key) : null
+    if (link && !after(tracker?.reopenedAt, link.at) && !after(pr?.revertedAt, link.at)) item = {...item, link: {...link}}
+    // 사람이 트래커에서 다시 연 작업 — 그 뒤의 근거만 센다(되돌린 머지 위에서 후속이 열리지 않게).
+    if (tracker?.reopenedAt) item = {...item, reopened: {at: tracker.reopenedAt}}
+    if (pr?.revertedAt) item = {...item, reverted: {at: pr.revertedAt}}
     if (item.completed) return [workId, item]
-    // 기대 base에 머지된 커밋이 먼저다 — 코드가 base에 있으면 선행은 끝났다(팀의 Done은 QA·배포를 기다릴 수 있다).
-    const evidence = item.ticketKey ? mergeEvidence.get(String(item.ticketKey)) : null
-    // 트래커에서 취소된 뒤의 커밋만 취소를 이긴다 — 취소 전에 머지된 커밋은 되돌림·폐기의 흔적일 수 있다(시각을 모르면 취소를 지킨다).
-    const cancelledAfter = tracker?.done === 'cancelled' && !(tracker.doneAt && Date.parse(evidence?.date) > Date.parse(tracker.doneAt))
-    if (evidence && !cancelledAfter && !(item.reopened && !(Date.parse(evidence.date) > Date.parse(item.reopened.at)))) {
+    // 근거가 유효한가 — 재오픈·되돌림 뒤, 취소면 취소 뒤여야 한다.
+    const counts = date => Boolean(date) && !(item.reopened && !after(date, item.reopened.at)) && !(pr?.revertedAt && !after(date, pr.revertedAt))
+      && !(tracker?.done === 'cancelled' && !(tracker.doneAt && after(date, tracker.doneAt)))
+    // 기대 base에 머지된 PR이 먼저다 — 코드가 base에 있으면 선행은 끝났다(팀의 Done은 QA·배포를 기다릴 수 있다).
+    if (pr?.mergedAt && counts(pr.mergedAt)) {
+      return [workId, {...item, completed: {via: 'merge', prUrl: pr.url ?? null, at: pr.mergedAt}}]
+    }
+    const evidence = key ? mergeEvidence.get(key) : null
+    if (evidence && counts(evidence.date)) {
       return [workId, {...item, completed: {via: 'commit', at: evidence.date, commit: evidence.commit, pr: evidence.pr, branch: evidence.branch}}]
     }
-    // 연결한 PR이 **기대 base에** 머지됐다 — 다른 브랜치 머지·거두기 전 머지·취소 전 머지는 세지 않는다.
-    const pr = item.link?.prUrl ? prStates.get(item.link.prUrl) : null
-    const mergedAfter = at => Boolean(pr?.mergedAt) && Date.parse(pr.mergedAt) > Date.parse(at)
-    if (pr?.state === 'MERGED' && pr.baseRefName === item.link.baseRef
-      && !(tracker?.done === 'cancelled' && !(tracker.doneAt && mergedAfter(tracker.doneAt)))
-      && !(item.reopened && !mergedAfter(item.reopened.at))) {
-      return [workId, {...item, completed: {via: 'merge', prUrl: item.link.prUrl, at: pr.mergedAt ?? null}}]
-    }
     if (!tracker?.done) return [workId, item]
-    // 완료를 거둔(reopen) 작업은 **거둔 뒤에** 트래커에서 다시 끝났을 때만 겹친다 — 하네스는 트래커를 다시 열지 않으므로
-    // 되돌린 머지의 옛 Resolved가 거둔 완료를 되살린다. 끝난 시각을 모르면 겹치지 않는다.
-    if (item.reopened && !(tracker.doneAt && Date.parse(tracker.doneAt) > Date.parse(item.reopened.at))) return [workId, item]
+    if (item.reopened && !(tracker.doneAt && after(tracker.doneAt, item.reopened.at))) return [workId, item]
     if (tracker.done === 'completed') return [workId, {...item, completed: {via: 'tracker', at: tracker.doneAt}}]
     if (tracker.done === 'cancelled') return [workId, {...item, trackerCancelled: true}]
     return [workId, {...item, trackerUnresolved: true}]
@@ -113,10 +111,50 @@ export function withTrackerCompletion(state, items, {completedResolutions = DEFA
   return {...state, works}
 }
 
+/**
+ * 머지된 PR에서 티켓의 근거를 고른다(순수). 제목이 티켓 키로 시작하는 PR(`[AOA-19] …`·`#12 …`)이고, 되돌림 PR
+ * (`Revert "[AOA-19] …"`)이 머지됐으면 그 뒤의 PR만 센다. 제목에 키가 없는 PR은 어느 티켓의 것인지 모른다(세지 않는다).
+ * @param {{number?: number, title: string, mergedAt: string, url?: string}[]} prs 기대 base에 머지된 PR
+ * @returns {{url: string|null, number: number|null, mergedAt: string|null, revertedAt: string|null}|null}
+ */
+export function prEvidenceFromPrs(prs, {ticketKey}) {
+  // `Revert "…"`를 벗겨 몇 겹인지 센다 — 홀수 겹은 되돌림, 짝수 겹(`Revert "Revert "…""`)은 되돌림을 되돌린 재착륙이다.
+  const unwrap = title => {
+    let text = String(title ?? '').trim()
+    let depth = 0
+    for (let match = text.match(/^Revert "(.*)"\s*$/); match; match = text.match(/^Revert "(.*)"\s*$/)) { text = match[1]; depth += 1 }
+    return {text, depth}
+  }
+  const dated = (Array.isArray(prs) ? prs : []).filter(pr => Number.isFinite(Date.parse(pr?.mergedAt))).map(pr => ({pr, ...unwrap(pr.title)}))
+    .filter(item => titleStartsWithKey(item.text, ticketKey))
+  const reverts = dated.filter(item => item.depth % 2 === 1).map(item => item.pr)
+  const revertedAt = reverts.map(pr => pr.mergedAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
+  // 되돌림보다 앞선 머지를 세지 않는 것은 부르는 쪽(`withTrackerCompletion`)이 `revertedAt`으로 한 번만 가린다.
+  const hits = dated.filter(item => item.depth % 2 === 0).map(item => item.pr)
+    .sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt))
+  if (hits.length === 0 && !revertedAt) return null
+  const hit = hits[0] ?? null
+  return {url: hit?.url ?? null, number: hit?.number ?? null, mergedAt: hit?.mergedAt ?? null, revertedAt}
+}
+
+/** Jira 변경 이력에서 **다시 연** 가장 최근 시각(순수) — 해결 사유가 있다가 비워진 때(워크플로우가 재오픈에서 해결을 지운다). */
+export function reopenedAtFromJiraChangelog(payload) {
+  const histories = Array.isArray(payload?.changelog?.histories) ? payload.changelog.histories : []
+  return histories.filter(history => (Array.isArray(history?.items) ? history.items : [])
+    .some(item => item?.field === 'resolution' && (item.from || item.fromString) && !(item.to || item.toString)))
+    .map(history => history.created).filter(at => Number.isFinite(Date.parse(at)))
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
+}
+
+/** GitHub 이슈 이벤트에서 다시 연 가장 최근 시각(순수). */
+export const reopenedAtFromGithubEvents = events => (Array.isArray(events) ? events : [])
+  .filter(event => event?.event === 'reopened' && Number.isFinite(Date.parse(event.created_at)))
+  .map(event => event.created_at).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null
+
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** 제목이 티켓 키로 시작하는가(순수) — `[AOA-19] …`·`#AOA-19 …`·`AOA-19 …`. `AOA-1`은 `AOA-19`로 시작하는 제목에 맞지 않는다. */
 export const titleStartsWithKey = (subject, ticketKey) =>
-  new RegExp(`^(?:\\[${escapeRegex(ticketKey)}\\]|#?${escapeRegex(ticketKey)}(?![\\w-]))`).test(String(subject ?? '').trim())
+  new RegExp(`^(?:\\[#?${escapeRegex(ticketKey)}\\]|#?${escapeRegex(ticketKey)}(?![\\w-]))`).test(String(subject ?? '').trim())
 /**
  * 머지 근거(순수) — 티켓에 연결된 커밋(Jira Git Integration) 중 **GitHub 스쿼시 머지 커밋**: 기대 base 브랜치에 있고,
  * 제목이 티켓 키로 시작하고 `(#PR번호)`로 끝나며, 머지 커밋이 아닌 것(`[AOA-19] … (#17)`). base에 직접 푸시·체리픽한 커밋,

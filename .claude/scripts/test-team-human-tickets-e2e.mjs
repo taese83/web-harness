@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // test-team-human-tickets-e2e.mjs — 계획 없이 사람이 만든 개발 티켓만 쓰는 3인 팀. 실제 git clone·메모리 Jira.
 //
-// 원장은 브랜치마다 따로 자라므로, 한 사람의 판정·등록은 머지되기 전까지 다른 클론에 없다. 고정하는 사실:
-//   (1) 같은 티켓을 둘이 동시에 확정하면 한 사람만 착수하고, 진 쪽은 「계획이 없다」가 아니라 남이 등록했다고 듣는다
-//   (2) 남이 다른 클론에서 방금 등록한 티켓과 수정 범위가 겹치면 착수하지 않는다(트래커 본문의 수정 범위로 잰다)
-//   (3) 겹치지 않는 티켓은 그대로 착수하고, 착수 불가 판정은 티켓에 필요한 것을 남긴다
-//   (4) 먼저 집은 티켓의 PR이 머지되면(티켓은 열려 있어도) 같은 파일의 티켓을 착수한다 — 완료는 원장이 아니라 PR에서 읽는다
+// 티켓 원본은 고치지 않고, 판정·등록·연결은 개발자 로컬(git 제외)에 둔다. 고정하는 사실:
+//   (1) 판정 전에 배정한다 — 같은 티켓을 둘이 동시에 집으면 한 사람만 판정하고, 남이 맡은 티켓은 판정하지 않는다
+//   (2) 착수 불가 판정은 요청 코멘트를 먼저 보여 주고, 확인한 뒤에만 남긴다(라벨 없음, 배정은 그대로)
+//   (3) 티켓 본문의 「디자인은 임의로」 지시가 있으면 새 화면도 착수하고, 임의 디자인 알림을 코멘트로 남긴다
+//   (4) 내 클론의 진행 중 작업과 수정 범위가 겹치면 착수하지 않고, 그 PR이 머지되면(티켓이 열려 있어도) 착수한다
+//   (5) 어느 티켓의 설명·속성·라벨도 바뀌지 않고, 어느 클론의 원장·커밋에도 개발자 기록이 없다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {execFileSync} from 'node:child_process'
-import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {createJiraStub} from './ticket/jira-memory-stub.mjs'
@@ -17,24 +18,27 @@ import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
 import {pickupOutcome, runWorkPickup} from './ticket/work-pickup-run.mjs'
 import {runWorkLink} from './ticket/work-link-run.mjs'
 import {runWorkBoard} from './ticket/work-board.mjs'
-import {assessmentDigest, assessmentPath} from './ticket/ticket-work.mjs'
+import {assessmentDigest, assessmentPath, registrationPath} from './ticket/ticket-work.mjs'
 import {checkTeamSharing} from './validate-development-readiness.mjs'
 
 const git = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim()
 const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
   transitions: {'in-progress': '31', done: '41'}, workLink: {mode: 'issue-link', linkType: 'Relates'}, componentAxis: {DEVELOP: '개발 티켓'}}
 const ticketConfig = {provider: 'jira', jira: jiraConfig}
+const selfCheck = (newRoute = 'no') => ['new-route', 'new-data-contract', 'new-auth-path', 'new-external-dependency', 'public-contract-change']
+  .map(id => ({id, answer: id === 'new-route' ? newRoute : 'no', evidence: ['src/shared/ui/Table.tsx:1']}))
 const assessment = (key, {acceptance, writePaths = ['src/shared/ui/Table.tsx'], ...over} = {}) => ({schemaVersion: 1, ticket: {key, provider: 'jira'},
-  verdict: 'startable', lane: 'change', objective: '표 개선', roles: ['fe'],
-  selfCheck: ['new-route', 'new-data-contract', 'new-auth-path', 'new-external-dependency', 'public-contract-change']
-    .map(id => ({id, answer: 'no', evidence: ['src/shared/ui/Table.tsx:1']})),
+  verdict: 'startable', lane: 'change', objective: '표 개선', roles: ['fe'], selfCheck: selfCheck(),
   planningNeeds: [], designNeeds: [], reasons: [], writePaths, nonGoals: [], dependsOn: [],
   acceptance: [{text: acceptance, source: 'ticket'}], testItems: [{id: `TT-${key}-1`, text: acceptance, source: 'proposed'}], ...over})
 
-test('사람 티켓만 쓰는 팀: 동시 확정은 한 사람만, 다른 클론이 방금 집은 같은 파일은 막고, 착수 불가는 티켓에 남긴다', async () => {
+test('사람 티켓만 쓰는 팀: 배정이 먼저, 요청은 확인 뒤, 임의 디자인은 알리고, 티켓 원본과 원장은 그대로다', async () => {
   const base = mkdtempSync(join(tmpdir(), 'wh-team-human-'))
   const jira = createJiraStub()
   const providerFor = () => createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+  // PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
+  const merged = []
+  const mergedPrs = async () => merged
   try {
     const origin = join(base, 'origin.git')
     git(base, 'init', '-q', '--bare', '-b', 'main', origin)
@@ -50,83 +54,108 @@ test('사람 티켓만 쓰는 팀: 동시 확정은 한 사람만, 다른 클론
     git(lead, 'add', '-A'); git(lead, 'commit', '-qm', 'init'); git(lead, 'remote', 'add', 'origin', origin); git(lead, 'push', '-q', 'origin', 'main')
     const devs = {}
     for (const name of ['A', 'B', 'C']) { devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name]) }
-    // PR 호스트(메모리) — 머지는 여기에만 있다.
-    const prHost = new Map()
-    const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
-    const pickup = (name, key, flags = {}) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: {prStates, provider: providerFor(), ticketConfig}})
+    const io = () => ({provider: providerFor(), ticketConfig, mergedPrs})
+    const pickup = (name, key, flags = {}) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: io()})
+    const judge = (name, key, judged) => writeFileSync(join(devs[name], assessmentPath(key)), JSON.stringify(judged))
     const confirm = async (name, key, judged) => {
       assert.equal(pickupOutcome(await pickup(name, key)), 'assessing')
-      writeFileSync(join(devs[name], assessmentPath(key)), JSON.stringify(judged))
+      judge(name, key, judged)
       return pickup(name, key, {assessment: assessmentDigest(judged)})
     }
 
     const empty = jira.humanTicket({summary: '표 빈 상태', components: ['DEVELOP'], description: '완료 조건: 빈 목록이면 안내 문구'})
     const sort = jira.humanTicket({summary: '표 정렬 아이콘', components: ['DEVELOP'], description: '완료 조건: 정렬 방향 아이콘'})
-    const badge = jira.humanTicket({summary: '페이지 제목 배지', components: ['DEVELOP'], description: '완료 조건: 제목 옆에 개수 배지'})
     const pay = jira.humanTicket({summary: '결제 수단 추가', components: ['DEVELOP'], description: '카카오페이를 붙여 주세요'})
+    const stats = jira.humanTicket({summary: '회원 통계 화면', components: ['DEVELOP'],
+      description: '완료 조건: 가입자 수를 날짜별로 보여 준다\n디자인은 임의로 해 주세요. 기능 먼저 봅니다.'})
+    const originals = new Map([empty, sort, pay, stats].map(key => [key, structuredClone(jira.issues.get(key).fields.description)]))
 
-    // (1) A·B가 같은 티켓을 동시에 판정하고 확정한다
-    const judged = assessment(empty, {acceptance: '빈 목록이면 안내 문구'})
-    assert.deepEqual((await Promise.all([pickup('A', empty), pickup('B', empty)])).map(pickupOutcome), ['assessing', 'assessing'])
-    for (const name of ['A', 'B']) writeFileSync(join(devs[name], assessmentPath(empty)), JSON.stringify(judged))
-    // 순서를 명시한다: B는 A가 티켓 본문을 완성한 뒤, A가 배정하기 전에 티켓을 읽는다(실제로 일어나는 창).
-    const plain = providerFor()
-    let firstRead = true
-    const lateReader = {...plain, async resolveIssue(key) {
-      if (firstRead) {
-        firstRead = false
-        while (!/web-harness:work|WORK-/.test(jira.issues.get(key).fields.description ?? '') && !Object.keys(jira.issues.get(key).properties ?? {}).length) await new Promise(resolve => setTimeout(resolve, 5))
-        return {...(await plain.resolveIssue(key)), assignees: []}
-      }
-      return plain.resolveIssue(key)
-    }}
-    const race = await Promise.all([
-      pickup('A', empty, {assessment: assessmentDigest(judged)}),
-      runWorkPickup({root: devs.B, ticketKey: empty, developer: 'B', flags: {assessment: assessmentDigest(judged)}, io: {provider: lateReader, ticketConfig}})])
-    // 누가 이기는지는 마지막 배정 순서에 달렸다 — 한 사람만 착수하는 것이 요체다.
-    assert.deepEqual(race.map(pickupOutcome).sort(), ['started', 'stopped'], JSON.stringify(race.map(item => item.bounce)))
-    const lost = race.find(result => pickupOutcome(result) === 'stopped')
-    // 티켓이 등록 기록이라 진 쪽도 등록을 본다 — 남이 배정했다는 이유로 멈춘다(「계획이 없다」가 아니다).
-    assert.ok(['assigned-to-other', 'assign-lost'].includes(lost.bounce?.reason), `진 쪽이 엉뚱한 이유로 멈췄다: ${JSON.stringify(lost.bounce)}`)
+    // (1) A·B가 같은 티켓을 동시에 집는다 — 판정 전에 배정하므로 한 사람만 판정으로 간다.
+    const race = await Promise.all([pickup('A', empty), pickup('B', empty)])
+    assert.deepEqual(race.map(pickupOutcome).sort(), ['assessing', 'stopped'], JSON.stringify(race.map(item => item.bounce)))
+    const owner = pickupOutcome(race[0]) === 'assessing' ? 'A' : 'B'
+    assert.equal(jira.issues.get(empty).fields.assignee?.name, owner, '판정하는 사람이 배정돼 있지 않다')
+    const late = await pickup('C', empty)
+    assert.equal(late.bounce?.reason, 'assigned-to-other', '남이 맡은 티켓을 판정하려 했다')
+    const started = await pickup(owner, empty, {assessment: assessmentDigest((judge(owner, empty, assessment(empty, {acceptance: '빈 목록이면 안내 문구'})),
+      assessment(empty, {acceptance: '빈 목록이면 안내 문구'})))})
+    assert.equal(pickupOutcome(started), 'started', JSON.stringify(started.bounce ?? started.errors))
 
-    // (2) C는 그 등록을 원장에 갖고 있지 않다 — 같은 파일을 쓰는 다른 티켓은 트래커의 수정 범위로 막힌다
-    const overlapped = await confirm('C', sort, assessment(sort, {acceptance: '정렬 방향 아이콘'}))
+    // (2) 착수 불가 — 요청 코멘트를 먼저 보여 주고(쓰기 0), 확인한 뒤에만 남긴다. 배정은 그대로다.
+    const blocked = {...assessment(pay, {acceptance: '-'}), verdict: 'needs-planning', writePaths: [], acceptance: [], testItems: [],
+      planningNeeds: [{what: '붙일 결제 수단과 수수료 정책', why: '어떤 수단을 붙일지 정해지지 않았다'}]}
+    assert.equal(pickupOutcome(await pickup('C', pay)), 'assessing')
+    judge('C', pay, blocked)
+    const preview = await pickup('C', pay)
+    assert.equal(preview.bounce?.reason, 'ticket-needs-planning')
+    assert.match(preview.requestComment, /결제 수단과 수수료 정책/)
+    assert.equal((jira.issues.get(pay).fields.comment?.comments ?? []).length, 0, '확인 전에 요청 코멘트를 남겼다')
+    const sent = await pickup('C', pay, {assessment: assessmentDigest(blocked)})
+    assert.equal(sent.notified?.done, true, JSON.stringify(sent))
+    const comments = (jira.issues.get(pay).fields.comment?.comments ?? []).map(comment => comment.body)
+    assert.equal(comments.length, 1)
+    assert.match(comments[0], /결제 수단과 수수료 정책/)
+    assert.doesNotMatch(comments[0], /<!--|web-harness:/, '사람이 읽는 코멘트에 기계 문자열이 섞였다')
+    await pickup('C', pay, {assessment: assessmentDigest(blocked)})
+    assert.equal((jira.issues.get(pay).fields.comment?.comments ?? []).length, 1, '같은 판정으로 코멘트를 또 남겼다')
+    assert.equal(jira.issues.get(pay).fields.assignee?.name, 'C', '착수 불가로 판정한 사람의 배정을 풀었다')
+
+    // 판정한 사람은 이미 진행 중인 범위가 있다 — 이어지는 단계는 A·B 중 판정하지 않은 사람이 맡는다(누가 이기는지는 경합이 정한다).
+    const spare = owner === 'A' ? 'B' : 'A'
+    // (3) 본문에 「디자인은 임의로」가 있으면 새 화면도 착수한다 — 원문 인용이 근거이고, 알림 코멘트를 남긴다.
+    const free = assessment(stats, {acceptance: '가입자 수를 날짜별로 보여 준다', writePaths: ['src/pages/stats/'], selfCheck: selfCheck('yes'),
+      designNeeds: [{what: '차트 모양과 색', why: '디자인이 없다', blocking: false}],
+      designByImplementer: {source: 'ticket', quote: '디자인은 임의로 해 주세요.'}})
+    const invented = {...free, designByImplementer: {source: 'ticket', quote: '디자인은 알아서'}}
+    assert.equal(pickupOutcome(await pickup(spare, stats)), 'assessing')
+    judge(spare, stats, invented)
+    assert.equal((await pickup(spare, stats)).phase, 'TICKET_ASSESSMENT_INVALID', '원문에 없는 임의 디자인 지시를 받았다')
+    judge(spare, stats, free)
+    const freeStart = await pickup(spare, stats, {assessment: assessmentDigest(free)})
+    assert.equal(pickupOutcome(freeStart), 'started', JSON.stringify(freeStart.bounce ?? freeStart.errors))
+    const notice = (jira.issues.get(stats).fields.comment?.comments ?? []).map(comment => comment.body).join('\n')
+    assert.match(notice, /디자인 없이 기능을 먼저 구현합니다/)
+    assert.match(notice, /차트 모양과 색/)
+
+    // (4) 내 클론의 진행 중 작업과 겹치면 착수하지 않는다 — 그 PR이 머지되면 티켓이 열려 있어도 착수한다.
+    const sortJudged = assessment(sort, {acceptance: '정렬 방향 아이콘'})
+    const overlapped = await confirm(owner, sort, sortJudged)
     assert.equal(overlapped.bounce?.reason, 'ticket-overlaps-active-work', JSON.stringify(overlapped.bounce ?? overlapped.errors))
-    assert.equal(overlapped.bounce.overlaps[0].ticketKey, empty, '겹친 상대 티켓을 알려주지 않았다')
-    // (3) 겹치지 않는 티켓은 착수한다
-    const separate = await confirm('C', badge, assessment(badge, {acceptance: '제목 옆에 개수 배지', writePaths: ['src/pages/members/']}))
-    assert.equal(pickupOutcome(separate), 'started', JSON.stringify(separate.bounce ?? separate.errors))
-    // 착수 불가 판정은 티켓에 필요한 것을 남긴다
-    const blocked = await confirm('B', pay, {...assessment(pay, {acceptance: '-'}), verdict: 'needs-planning', writePaths: [], acceptance: [], testItems: [],
-      planningNeeds: [{what: '붙일 결제 수단과 수수료 정책', why: '어떤 수단을 붙일지 정해지지 않았다'}]})
-    assert.equal(blocked.bounce?.reason, 'ticket-needs-planning')
-    assert.match((jira.issues.get(pay).fields.comment?.comments ?? []).map(comment => comment.body).join('\n'), /결제 수단과 수수료 정책/)
-    // 티켓이 등록 기록이다 — 원장을 받지 않은 다른 클론의 보드도 등록과 판정을 본다. 어느 클론의 원장에도 사람 티켓 기록이 없다.
-    const board = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {prStates, provider: providerFor(), ticketConfig}})
-    const row = key => board.tickets.find(item => item.ticketKey === key)
-    assert.equal(row(empty)?.stage, 'registered', JSON.stringify(board.tickets))
-    assert.equal(row(empty)?.blockedReason, 'assigned-to-other')
-    assert.equal(row(pay)?.verdict, 'needs-planning', '다른 클론의 착수 불가 판정이 보드에 없다')
-    for (const name of ['A', 'B', 'C']) {
-      const ledger = existsSync(join(devs[name], '_workspace/03_dev/work-item-events.jsonl')) ? readFileSync(join(devs[name], '_workspace/03_dev/work-item-events.jsonl'), 'utf8') : ''
-      assert.equal(/ticket-assessed|ticket-work-registered|context-attached/.test(ledger), false, `${name}의 원장에 사람 티켓 기록이 남았다`)
-    }
-
-    // (4) 이긴 쪽이 연결하고 PR이 머지된다 — 티켓은 열린 채다. C의 같은 파일 티켓은 이제 착수한다(아무도 머지를 기록하지 않았다).
-    const winner = pickupOutcome(race[0]) === 'started' ? 'A' : 'B'
-    writeFileSync(join(devs[winner], 'src/shared/ui/Table.tsx'), 'export const Table = () => "빈 목록"\n')
-    mkdirSync(join(devs[winner], 'tests'), {recursive: true})
-    writeFileSync(join(devs[winner], 'tests/table.test.ts'), `// TT-${empty}-1\n`)
+    writeFileSync(join(devs[owner], 'src/shared/ui/Table.tsx'), 'export const Table = () => "빈 목록"\n')
+    mkdirSync(join(devs[owner], 'tests'), {recursive: true})
+    writeFileSync(join(devs[owner], 'tests/table.test.ts'), `// TT-${empty}-1\n`)
     const prUrl = 'https://github.com/acme/web/pull/5'
-    const linked = await runWorkLink({root: devs[winner], ticketKey: empty, prUrl, flags: {},
-      io: {prStates, prInfo: async () => ({state: 'OPEN', baseRefName: 'main'}), provider: providerFor(), ticketConfig, commitLog: async () => ''}})
+    const linked = await runWorkLink({root: devs[owner], ticketKey: empty, prUrl, flags: {},
+      io: {...io(), prInfo: async () => ({state: 'OPEN', baseRefName: 'main', title: `[${empty}] 빈 상태 문구`}), commitLog: async () => ''}})
     assert.equal(linked.ok, true, JSON.stringify(linked.blocked ?? linked.completion))
-    assert.equal((await pickup('C', sort, {assessment: assessmentDigest(assessment(sort, {acceptance: '정렬 방향 아이콘'})), 'replace-scope': true})).bounce?.reason,
-      'ticket-overlaps-active-work', '연결만 한(머지 전) 작업의 수정 범위를 놓았다')
-    prHost.set(prUrl, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
+    assert.match(linked.prBody, new RegExp(`Relates to ${empty}`))
+    merged.push({number: 5, title: `[${empty}] 빈 상태 문구`, mergedAt: new Date().toISOString(), url: prUrl})
     assert.equal(jira.issues.get(empty).fields.status?.statusCategory?.key === 'done', false, '전제: 티켓은 열려 있다')
-    const after = await pickup('C', sort, {assessment: assessmentDigest(assessment(sort, {acceptance: '정렬 방향 아이콘'})), 'replace-scope': true})
+    const after = await pickup(owner, sort, {assessment: assessmentDigest(sortJudged), 'replace-scope': true})
     assert.equal(pickupOutcome(after), 'started', `머지된 작업이 아직 수정 범위를 쥐었다: ${JSON.stringify(after.bounce)}`)
+
+    // 다른 클론의 보드 — 남의 사람 티켓은 배정으로만 안다(판정·등록은 그 사람의 로컬에 있다).
+    const other = spare
+    const board = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: io()})
+    const row = key => board.tickets.find(item => item.ticketKey === key)
+    assert.equal(row(empty)?.blockedReason, 'assigned-to-other', JSON.stringify(board.tickets))
+    assert.equal(row(pay)?.verdict, 'needs-planning', '내 착수 불가 판정이 내 보드에 없다')
+    const ownBoard = await runWorkBoard({root: devs[other], developer: other, flags: {}, io: io()})
+    assert.equal(ownBoard.tickets.find(item => item.ticketKey === empty)?.stage, 'unassessed', '다른 클론의 로컬 등록이 보였다')
+
+    // (5) 티켓 원본은 그대로 — 설명·속성·라벨. 개발자 기록은 로컬에만 있고 커밋되지 않는다.
+    for (const [key, description] of originals) {
+      assert.deepEqual(jira.issues.get(key).fields.description, description, `${key}의 본문을 고쳤다`)
+      assert.deepEqual(Object.keys(jira.issues.get(key).properties ?? {}), [], `${key}에 속성을 썼다`)
+      assert.deepEqual(jira.issues.get(key).fields.labels ?? [], [], `${key}에 라벨을 달았다`)
+    }
+    for (const name of ['A', 'B', 'C']) {
+      assert.equal(readFileSync(join(devs[name], '_workspace/03_dev/work-item-events.jsonl'), 'utf8'), '', `${name}의 원장에 기록이 생겼다`)
+      git(devs[name], 'add', '-A')
+      const staged = git(devs[name], 'diff', '--cached', '--name-only')
+      assert.doesNotMatch(staged, /ticket-assessments|work-links|change-scope/, `${name}의 로컬 기록이 커밋에 올라간다: ${staged}`)
+    }
+    assert.ok(readFileSync(join(devs[owner], registrationPath(empty)), 'utf8').includes(empty), '전제: 등록은 로컬에 있다')
   } finally {
     rmSync(base, {recursive: true, force: true})
   }

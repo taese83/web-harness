@@ -6,8 +6,8 @@
 | 티켓 | 문 | 남기는 것 | 원장 |
 |---|---|---|---|
 | 기획 티켓(사람이 씀) | `intake` → ingestor → feature-planner | 스냅샷 · 인벤토리 행 | 쓰지 않는다 — 공급 원문이지 개발 대상이 아니다 |
-| WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행) · 연결·회수는 티켓 코멘트 |
-| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 판정(`ticket-work-contract.md`) → 확인 → 완성 | 착수 가능이면 WORK와 같은 모양(원문 보존) · 착수 불가면 판정 라벨과 요청 코멘트 | **티켓이 등록 기록**(원장에 없음) · 연결·완료부터 WORK와 같다 |
+| WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행) · 개발자의 연결은 로컬(`work-links/`) |
+| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 배정 → 판정(`ticket-work-contract.md`) → 확인 | 티켓 원본은 그대로 · 확인한 착수 불가 요청·임의 디자인 알림 코멘트만 | **개발자 로컬 등록**(`ticket-assessments/`, 원장·티켓에 없음) · 연결·완료부터 WORK와 같다 |
 | 옛 FEAT 개발 티켓(`web-harness:refs`) | 없음 | — | 픽업은 WORK로 안내하고 거부한다 |
 | 집계 티켓(`web-harness:aggregate`) | 아직 생산자 없음 | — | 판독 입구가 WORK로도 FEAT로도 읽지 않는다 |
 
@@ -46,12 +46,12 @@ brief를 대체하지 않는다.
 | `definitionDigest` (선택) | 사람 티켓 작업의 정의 지문(티켓 본문이 정의다) — 집은 뒤 본문이 바뀌면 `link`가 막는다 |
 <!-- /web-harness:change-scope-keys -->
 
-`link`는 대조한 change-scope의 티켓 개정을 연결 기록(티켓 코멘트의 `rev=`)에 옮긴다 — **이 PR이 어느 티켓 개정을 보고
-개발됐는지**가 티켓에 남는다(티켓 → change-scope → PR).
+`link`는 대조한 change-scope의 티켓 개정을 내 연결 기록(`ticketRevision`)에 옮긴다 — **이 PR이 어느 티켓 개정을 보고
+개발됐는지**가 남는다(티켓 → change-scope → PR).
 
 흐름 전체를 **실제 Jira provider 코드**로 처음부터 끝까지 도는 회귀가 `test-work-routes-e2e.mjs`다(메모리
 Jira · 분석·계획 작성 단계는 fixture로 대신 · git·PR 상태 주입) — 발행 필드의 WORK 라벨, 기획자 코멘트의
-도달, 트래커 쓰기가 발행·배정·in-progress 전이·연결·되돌림 코멘트뿐임(`done`이 매핑돼 있어도 부르지 않는다),
+도달, 트래커 쓰기가 발행·배정·in-progress 전이·되돌림 코멘트뿐임(`done`이 매핑돼 있어도 부르지 않는다),
 연결의 개정 기록, 머지 뒤의 후속 선행 게이트를 잰다. **누가 했는가는 트래커 배정자까지다** — 원장은
 Claude 세션·에이전트 id를 잇지 않는다.
 

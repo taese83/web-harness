@@ -12,7 +12,7 @@ export function createJiraStub({gitIntegration = false} = {}) {
   let sequence = 100
   const touch = issue => { issue.fields.updated = `2026-09-14T00:00:${String(++clock).padStart(2, '0')}.000+0000` }
   const respond = (status, json) => ({ok: status < 400, status, json: async () => json, text: async () => JSON.stringify(json ?? '')})
-  // 코멘트 시각은 실제 시각이다(뒤로 가지 않는다) — 기록 코멘트의 앞뒤를 시각으로 가린다.
+  // 코멘트·이력 시각은 실제 시각이다(뒤로 가지 않는다) — 머지·재오픈의 앞뒤를 시각으로 가린다.
   let lastCommentAt = 0
   const commentTime = () => { lastCommentAt = Math.max(Date.now(), lastCommentAt + 1); return new Date(lastCommentAt).toISOString() }
   const humanComment = (key, author, body) => {
@@ -71,7 +71,9 @@ export function createJiraStub({gitIntegration = false} = {}) {
     if ((match = path.match(/^\/issue\/([^/]+)$/)) && method === 'GET') {
       const issue = issues.get(decodeURIComponent(match[1]))
       if (!issue) return respond(404, {errorMessages: ['없는 이슈']})
-      return respond(200, select(issue, parsed.searchParams.get('fields')))
+      const selected = select(issue, parsed.searchParams.get('fields'))
+      // `expand=changelog` — 해결 사유가 바뀐 이력(실 Jira처럼 전이마다 한 줄).
+      return respond(200, parsed.searchParams.get('expand') === 'changelog' ? {...selected, changelog: {histories: structuredClone(issue.histories ?? [])}} : selected)
     }
     if ((match = path.match(/^\/issue\/([^/]+)\/assignee$/)) && method === 'PUT') {
       if (typeof data?.name !== 'string') return respond(400, {errorMessages: ['assignee에는 name이 필요하다(DC)']})
@@ -83,7 +85,13 @@ export function createJiraStub({gitIntegration = false} = {}) {
       const done = data.transition.id === '41'
       issue.fields.status = {name: data.transition.id, statusCategory: {key: done ? 'done' : 'indeterminate'}}
       // 실측(DC 10.3): 해결 사유 필수 전이에서 사유를 빼면 Fixed가 채워지고, 완료가 아닌 전이는 사유를 비운다.
+      const before = issue.fields.resolution?.name ?? null
       issue.fields.resolution = done ? {name: data.fields?.resolution?.name ?? 'Fixed'} : null
+      const afterName = issue.fields.resolution?.name ?? null
+      if (before !== afterName) {
+        issue.histories = [...(issue.histories ?? []), {created: commentTime(),
+          items: [{field: 'resolution', fromString: before, toString: afterName}]}]
+      }
       issue.fields.resolutiondate = done ? new Date().toISOString() : null
       touch(issue)
       return respond(204, null)

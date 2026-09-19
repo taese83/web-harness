@@ -34,10 +34,10 @@ const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: '
   componentAxis: {PLAN: '기획 입력', DEVELOP: '개발 티켓'}}
 const ticketConfig = {provider: 'jira', jira: jiraConfig}
 const open = async () => ({state: 'OPEN', baseRefName: 'main'})
-// PR 호스트(메모리) — 머지는 여기에만 있고, 하네스는 기록하지 않고 읽는다.
-const prHost = new Map()
-const prStates = async urls => new Map(urls.map(url => [url, prHost.get(url) ?? {state: 'OPEN', baseRefName: 'main'}]))
-const mergePr = url => prHost.set(url, {state: 'MERGED', baseRefName: 'main', mergedAt: new Date().toISOString()})
+// PR 호스트(메모리) — 기대 base에 머지된 PR 목록. 하네스는 머지를 기록하지 않고 제목의 티켓 키로 읽는다.
+const merged = []
+const mergedPrs = async () => merged
+const mergePr = (url, ticketKey) => merged.push({number: Number(url.split('/').pop()), title: `[${ticketKey}] 작업`, mergedAt: new Date().toISOString(), url})
 
 /** 하네스 컨벤션대로 코드와 하네스 산출물을 따로 커밋한다. */
 const commitSplit = (dir, message) => {
@@ -73,7 +73,7 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
     git(lead, 'add', '-A'); git(lead, 'commit', '-qm', 'init'); git(lead, 'remote', 'add', 'origin', origin); git(lead, 'push', '-q', 'origin', 'main')
 
     assert.equal((await runClaimWork({root: lead, flags: {}})).phase, 'P1_REVIEW')
-    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {prStates, provider: providerFor(), ticketConfig}})
+    const published = await runWorkPublish({root: lead, flags: {'work-ids': [1, 3, 4, 5].map(W).join(','), confirm: true}, io: {mergedPrs, provider: providerFor(), ticketConfig}})
     assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published))
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
     // (2) 여러 사람이 쓰기 전에 공유 설정을 넣는다
@@ -88,7 +88,7 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
       git(devs[name], 'config', 'user.name', name); git(devs[name], 'config', 'user.email', `${name}@t`)
       providers[name] = providerFor()
     }
-    const pickup = (name, ticketKey, flags = {}) => runWorkPickup({root: devs[name], ticketKey, developer: name, flags, io: {prStates, provider: providers[name], ticketConfig}})
+    const pickup = (name, ticketKey, flags = {}) => runWorkPickup({root: devs[name], ticketKey, developer: name, flags, io: {mergedPrs, provider: providers[name], ticketConfig}})
 
     // (1) A와 B가 같은 W1을 동시에 집는다 — 한 사람만 착수한다
     const race = await Promise.all([pickup('A', keyOf(W(1))), pickup('B', keyOf(W(1)))])
@@ -123,8 +123,8 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
       develop(devs[name], name)
       commitSplit(devs[name], `${name} 작업`)
       const prUrl = `https://github.com/acme/web/pull/${++pr}`
-      prs.push(prUrl)
-      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl, flags: {}, io: {prStates, prInfo: open, provider: providers[name]}})
+      prs.push([prUrl, work[name]])
+      const linked = await runWorkLink({root: devs[name], ticketKey: work[name], prUrl, flags: {}, io: {mergedPrs, prInfo: open, provider: providers[name]}})
       assert.equal(linked.ok, true, `${name}: ${JSON.stringify(linked.blocked ?? linked.completion)}`)
       assert.deepEqual(linked.commitSplit?.mixed, [], `${name}: 산출물과 코드가 섞인 커밋`)
       commitSplit(devs[name], `${name} 연결`); git(devs[name], 'push', '-q', 'origin', `feat/${name}`)
@@ -138,10 +138,10 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
     assert.equal(existsSync(join(lead, '_workspace/03_dev/change-scope.md')), false, '개발자 한 명의 작업 범위가 main에 올라왔다')
 
     // ── 완료 확인 → 다음 작업 ──
-    for (const url of prs) mergePr(url)
+    for (const [url, key] of prs) mergePr(url, key)
     git(lead, 'push', '-q', 'origin', 'main')
     git(devs.C, 'checkout', '-q', 'main'); git(devs.C, 'pull', '-q', '--no-rebase', 'origin', 'main')
-    const boardC = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {prStates, provider: providers.C, ticketConfig}})
+    const boardC = await runWorkBoard({root: devs.C, developer: 'C', flags: {}, io: {mergedPrs, provider: providers.C, ticketConfig}})
     assert.deepEqual(boardC.ready, [W(4)])
     // (3) C의 끝난 작업 범위가 로컬에 남아 있어도 다음 픽업을 막지 않는다
     assert.equal(readChangeScopeFile(devs.C)?.ticketKey, humanKey, '전제: 끝난 작업의 범위가 남아 있어야 이 검사가 의미 있다')
@@ -150,21 +150,21 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
     // (4) 보호된 main: 머지를 기록하는 커밋이 없다 — 받지 않은 클론도 트래커·PR에서 끝난 것을 본다. 원장엔 개발 기록이 없다.
     for (const name of ['A', 'B']) {
       git(devs[name], 'checkout', '-q', `feat/${name}`)
-      const own = await runWorkBoard({root: devs[name], developer: name, flags: {}, io: {prStates, provider: providers[name], ticketConfig}})
+      const own = await runWorkBoard({root: devs[name], developer: name, flags: {}, io: {mergedPrs, provider: providers[name], ticketConfig}})
       assert.deepEqual(own.rows.filter(row => row.completed).map(row => row.workId).sort(), [W(1), W(3)].sort(), `${name}: ${JSON.stringify(own.notes)}`)
-      assert.equal(own.tickets.find(row => row.ticketKey === humanKey)?.completed, true, `${name}: 사람 티켓의 머지를 보지 못했다`)
+      // 남의 사람 티켓은 배정으로만 안다 — 판정·등록은 그 개발자의 로컬에 있다.
+      assert.equal(own.tickets.find(row => row.ticketKey === humanKey)?.blockedReason, 'assigned-to-other', `${name}: ${JSON.stringify(own.tickets)}`)
     }
     assert.equal(readWorkEvents(join(lead, WORK_EVENTS_PATH)).some(event => /^work-(linked|completed|reopened)$/.test(event.eventType)), false, '개발 기록이 원장에 남았다')
 
     // (5) 보드: 끝난 작업은 담당자에게도 집을 수 있는 작업이 아니다 · 남이 맡은 사람 티켓은 막힌다
-    const boardWinner = await runWorkBoard({root: devs[winner], developer: winner, flags: {}, io: {prStates, provider: providers[winner], ticketConfig}})
+    const boardWinner = await runWorkBoard({root: devs[winner], developer: winner, flags: {}, io: {mergedPrs, provider: providers[winner], ticketConfig}})
     assert.equal(boardWinner.rows.find(row => row.workId === W(1)).blockedReason, 'completed')
     assert.equal(boardWinner.ready.includes(W(1)), false, '머지로 끝난 작업을 집을 수 있다고 보였다')
-    // 머지된 사람 티켓은 남의 것이기 전에 끝난 것이다 — 다른 클론도 그 머지를 본다.
     const humanRow = boardWinner.tickets.find(row => row.ticketKey === humanKey)
-    assert.equal(humanRow.blockedReason, 'completed')
+    assert.equal(humanRow.blockedReason, 'assigned-to-other')
     const steal = await pickup(winner, humanKey)
-    assert.equal(pickupOutcome(steal), 'stopped', JSON.stringify(steal.bounce))
+    assert.equal(steal.bounce?.reason, 'assigned-to-other', JSON.stringify(steal.bounce))
     // PM이 담당자를 먼저 정해 둔, 아직 아무도 판정하지 않은 사람 티켓 — 판정 에이전트를 띄우기 전에 멈춘다.
     const assignedKey = jira.humanTicket({summary: '검색창 자리표시 문구', components: ['DEVELOP'], description: '검색창에 안내 문구를 넣어 주세요.'})
     jira.issues.get(assignedKey).fields.assignee = {name: 'C'}

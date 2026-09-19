@@ -40,30 +40,31 @@ test('유효한 이벤트는 통과하고 상태로 접힌다 — 이하 거부 
   assert.equal(state.lastReviewed.planDigest, DIGEST)
 })
 
-test('완료를 거두면 거둔 뒤의 머지만 완료다 — 코멘트가 어떤 순서로 와도 시각으로 가린다', async () => {
-  const {withTrackerCompletion} = await import('./ticket/work-provider.mjs')
-  const {parseWorkRecords, renderLinkRecord, renderReopenRecord} = await import('./ticket/work-records.mjs')
-  const pr = n => `https://github.com/o/r/pull/${n}`
-  const comments = [
-    {created: '2026-09-10T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(1), baseRef: 'main'})},
-    {created: '2026-09-12T00:00:00.000Z', body: renderReopenRecord({prUrl: pr(1), reason: '머지를 되돌림'})},
-  ]
+test('완료를 거두는 것은 트래커에서 다시 여는 것이다 — 다시 연 뒤·되돌림 PR 뒤의 머지만 완료다', async () => {
+  const {prEvidenceFromPrs, reopenedAtFromGithubEvents, reopenedAtFromJiraChangelog, withTrackerCompletion} = await import('./ticket/work-provider.mjs')
   const state = {works: new Map([[WORK, {status: 'published', ticketKey: 'PF-1'}]])}
-  const read = (list, prStates) => withTrackerCompletion(state, [], {records: new Map([['PF-1', parseWorkRecords(list)]]), prStates: new Map(prStates)}).works.get(WORK)
-  // 거두기 전에 머지된 옛 PR은 완료가 아니다 — 코멘트 순서를 뒤집어도 같다.
-  const old = [[pr(1), {state: 'MERGED', baseRefName: 'main', mergedAt: '2026-09-11T00:00:00.000Z'}]]
-  assert.equal(read(comments, old).completed ?? null, null, '거둔 완료가 남았다')
-  // 거둔 연결은 끝난 것이다 — 겹치지 않아야 다시 집은 뒤 새 PR을 연결할 수 있다.
-  assert.equal(read(comments, old).link ?? null, null, '거둔 연결이 남아 새 PR 연결을 멱등으로 막는다')
-  assert.equal(read([...comments].reverse(), old).completed ?? null, null, '코멘트 순서에 따라 거둔 완료가 되살아났다')
-  // 거둔 뒤 같은 옛 PR을 다시 연결해도, 그 PR의 머지가 거두기 전이면 완료가 아니다.
-  const sameAgain = [...comments, {created: '2026-09-13T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(1), baseRef: 'main'})}]
-  assert.equal(read(sameAgain, old).completed ?? null, null, '거두기 전의 머지를 다시 연결해 완료로 되살렸다')
-  // 머지 시각을 모르면 거둔 뒤의 머지라고 치지 않는다.
-  assert.equal(read(comments, [[pr(1), {state: 'MERGED', baseRefName: 'main'}]]).completed ?? null, null)
-  // 거둔 뒤 새 PR을 연결해 머지하면 완료다.
-  const relinked = [...comments, {created: '2026-09-13T00:00:00.000Z', body: renderLinkRecord({prUrl: pr(2), baseRef: 'main'})}]
-  assert.equal(read(relinked, [...old, [pr(2), {state: 'MERGED', baseRefName: 'main', mergedAt: '2026-09-14T00:00:00.000Z'}]]).completed?.prUrl, pr(2))
+  const pr = (n, title, mergedAt) => ({number: n, title, mergedAt, url: `https://github.com/o/r/pull/${n}`})
+  const read = (prs, items = []) => withTrackerCompletion(state, items, {prEvidence: new Map([['PF-1', prEvidenceFromPrs(prs, {ticketKey: 'PF-1'})]])}).works.get(WORK)
+  const first = pr(1, '[PF-1] 회원 API', '2026-09-11T00:00:00.000Z')
+  assert.equal(read([first]).completed?.via, 'merge')
+  // 사람이 트래커에서 다시 열었다 — 그 전의 머지는 완료가 아니다.
+  const reopened = [{ticketKey: 'PF-1', statusCategory: 'indeterminate', reopenedAt: '2026-09-12T00:00:00.000Z'}]
+  assert.equal(read([first], reopened).completed ?? null, null, '다시 연 뒤에도 옛 머지를 완료로 읽었다')
+  assert.equal(read([first, pr(2, '[PF-1] 회원 API 고침', '2026-09-13T00:00:00.000Z')], reopened).completed?.prUrl, 'https://github.com/o/r/pull/2')
+  // 되돌림 PR이 머지됐다 — 트래커를 다시 열지 않아도 그 전 머지는 세지 않는다.
+  assert.equal(read([first, pr(3, 'Revert "[PF-1] 회원 API"', '2026-09-12T00:00:00.000Z')]).completed ?? null, null, '되돌린 머지를 완료로 읽었다')
+  // 되돌림을 되돌린 PR은 재착륙이다 — 다시 완료다.
+  const reland = pr(6, 'Revert "Revert "[PF-1] 회원 API""', '2026-09-13T00:00:00.000Z')
+  assert.equal(read([first, pr(3, 'Revert "[PF-1] 회원 API"', '2026-09-12T00:00:00.000Z'), reland]).completed?.prUrl, 'https://github.com/o/r/pull/6', '재착륙을 완료로 읽지 않았다')
+  // 제목에 키가 없거나 다른 키로 시작하는 PR은 이 티켓의 근거가 아니다.
+  assert.equal(read([pr(4, '회원 API (PF-1)', '2026-09-11T00:00:00.000Z'), pr(5, '[PF-10] 다른 일', '2026-09-11T00:00:00.000Z')]).completed ?? null, null)
+  // 트래커 이력에서 다시 연 시각을 읽는다 — Jira는 해결 사유가 비워진 때, GitHub은 reopened 이벤트.
+  assert.equal(reopenedAtFromJiraChangelog({changelog: {histories: [
+    {created: '2026-09-10T00:00:00.000Z', items: [{field: 'resolution', fromString: null, toString: 'Fixed'}]},
+    {created: '2026-09-12T00:00:00.000Z', items: [{field: 'resolution', fromString: 'Fixed', toString: null}]}]}}), '2026-09-12T00:00:00.000Z')
+  assert.equal(reopenedAtFromJiraChangelog({changelog: {histories: [{created: '2026-09-10T00:00:00.000Z', items: [{field: 'status', fromString: 'Done', toString: 'Open'}]}]}}), null)
+  assert.equal(reopenedAtFromJiraChangelog({changelog: {histories: [{created: '2026-09-10T00:00:00.000Z', items: [{field: 'resolution', fromString: null, toString: 'Fixed'}]}]}}), null, '해결한 것을 다시 연 것으로 읽었다')
+  assert.equal(reopenedAtFromGithubEvents([{event: 'closed', created_at: '2026-09-10T00:00:00Z'}, {event: 'reopened', created_at: '2026-09-12T00:00:00Z'}]), '2026-09-12T00:00:00Z')
 })
 
 test('파손·스키마 위반·모르는 종류를 조용히 버리지 않는다', () => {

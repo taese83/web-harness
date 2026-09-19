@@ -285,3 +285,25 @@ test('Jira 머지 근거: Git Integration이 없으면 없다고 말하고, 있�
   assert.equal(result.evidence.get('PF-1').pr, '3')
 })
 
+
+test('다시 연 시각: Jira는 해결 사유가 비워진 이력, GitHub은 reopened 이벤트에서 읽는다 — 실제 provider 코드로', async () => {
+  const {createJiraStub} = await import('./ticket/jira-memory-stub.mjs')
+  const {createGithubStub} = await import('./ticket/github-memory-stub.mjs')
+  const jira = createJiraStub()
+  const config = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name', transitions: {'in-progress': '31', done: '41'}}
+  const provider = createJiraProvider({config, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+  const key = jira.humanTicket({summary: 't', description: 'd'})
+  const never = jira.humanTicket({summary: 'u', description: 'd'})
+  await jira.fetchImpl(`https://jira.test/rest/api/2/issue/${key}/transitions`, {method: 'POST', body: JSON.stringify({transition: {id: '41'}})})
+  await jira.fetchImpl(`https://jira.test/rest/api/2/issue/${key}/transitions`, {method: 'POST', body: JSON.stringify({transition: {id: '31'}})})
+  const jiraRead = await provider.listReopens({keys: [key, never]})
+  assert.ok(Number.isFinite(Date.parse(jiraRead.reopens.get(key))), '해결 뒤 다시 연 티켓의 시각을 읽지 못했다')
+  assert.equal(jiraRead.reopens.has(never), false, '해결한 적 없는 티켓을 다시 열었다고 읽었다')
+  const gh = createGithubStub()
+  const github = createGithubProvider({repo: 'acme/web', exec: gh.exec})
+  const number = gh.humanIssue({title: 't', body: 'b'})
+  await gh.exec(['issue', 'close', number, '--repo', 'acme/web'])
+  await gh.exec(['issue', 'reopen', number, '--repo', 'acme/web'])
+  const githubRead = await github.listReopens({keys: [number]})
+  assert.ok(Number.isFinite(Date.parse(githubRead.reopens.get(number))), JSON.stringify(githubRead))
+})
