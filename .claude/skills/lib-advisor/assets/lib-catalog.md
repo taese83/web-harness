@@ -24,7 +24,7 @@
 
 ### 쇼핑몰 / 이커머스
 ```
-필수: React Query + Axios, Zustand (장바구니), MUI or Tailwind + Radix UI
+필수: React Query + Axios, Zustand (장바구니), MUI or Tailwind + 헤드리스 프리미티브(Radix 또는 Base UI)
 결제: Toss Payments / 포트원(아임포트) / Stripe
 이미지: react-image / next/image (Next.js 사용 시)
 무한스크롤: TanStack Virtual

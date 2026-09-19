@@ -54,7 +54,7 @@ const isPerformanceProject = projectRoot =>
 // 공개 노출은 tech-stack.md의 `PUBLIC_EXPOSURE: yes` 선언으로도 켠다. 스펙 파일만 트리거로 쓰면 생산자가
 // 빠졌을 때 SEO QA가 조용히 사라진다 — 선언이 있으면 qa-seo가 필수이고, 스펙이 없으면 seo-verifier가 BLOCKED다.
 // 분할 산출물(`tech-stack/`)도 읽는다. 템플릿 그대로의 `yes | no`는 선언이 아니다.
-const PUBLIC_EXPOSURE_YES = /^[\s>*-]*\**PUBLIC_EXPOSURE\**:\s*[`*]*yes\b(?![`*]*\s*\|)/im
+const PUBLIC_EXPOSURE_YES = /^[\s>*-]*\**PUBLIC_EXPOSURE\**:\s*[`*]*yes\b(?![`*]*[ \t]*\|)/im
 export const declaresPublicExposure = projectRoot => {
   const plan = join(projectRoot, '_workspace/01_plan')
   const shard = join(plan, 'tech-stack')

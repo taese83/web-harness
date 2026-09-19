@@ -142,6 +142,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
    - 확정된 계약·결정과 충돌한다.
    - 되돌리기 어렵거나 팀 전체에 영향이 가는 조치가 필요하다.
 3. **커밋은 묻지 않고 계속한다.** 한 커밋 = 한 가지 변화. 무엇을·왜 바꿨는지 본문에 남긴다.
+   테스트 코드와 기능 코드는 따로 커밋한다(green 기준은 PR 단위).
    하네스 산출물(`_workspace/`)과 코드는 따로 커밋한다 — `link`가 섞인 커밋을 `commitSplit`으로, 작업 범위 밖에서 고쳐 커밋한 파일을 `scopeDrift`로 알린다.
    **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
 4. **커밋 후 dev 브랜치에 푸시한다** — 그 작업 전용이고 공유 base가 아니다.

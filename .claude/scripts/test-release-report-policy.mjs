@@ -58,6 +58,8 @@ test('공개 노출 선언만 있어도 qa-seo를 요구한다 — seo-spec 생�
     assert.equal(requiresSeo(root), false, '자리표시자는 선언이 아니다')
     writeFileSync(join(root, '_workspace/01_plan/tech-stack.md'), '- **PUBLIC_EXPOSURE**: **yes**\n')
     assert.equal(requiresSeo(root), true, '굵은 표기도 선언이다')
+    writeFileSync(join(root, '_workspace/01_plan/tech-stack.md'), '- PUBLIC_EXPOSURE: yes\n| Component | Choice |\n')
+    assert.equal(requiresSeo(root), true, '다음 줄의 표 행은 자리표시자가 아니다')
   })
 })
 
