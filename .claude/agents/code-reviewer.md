@@ -35,6 +35,9 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 비협상으로 정한 하한이라 "사소함"으로 버리지 않는다(I6). 다만 이것도 **변경점 범위 안**에서만
 본다 — 이번 변경이 만들거나 건드린 것만이며, 기존 코드의 오래된 위반을 캐러 가지 않는다.
 
+**예외 — 중복·재사용(검사 18)**은 결함 목록에 섞지 않고 「Duplication & Reuse」 절에 따로 적는다.
+그 절은 리팩토링 제안 전용이며 이번 변경점 안에서만 본다.
+
 발견이 없으면 "없음"이라고 적는다. 채우지 않는다.
 
 ## 핵심 역할
@@ -167,6 +170,9 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
      무시됨) 이 정적 대조가 유일한 사전 방어선이다
    - theme에 존재하지 않는 경로는 FAIL (시각 결함이 컴파일·빌드를 통과하는 유형)
 18. **중복·재사용성 검사** (리팩토링 제안 전용 — 결함 검사가 아님):
+   - 오케스트레이터가 넘긴 `reuse-inventory.mjs --since` 결과(`UNUSED_NEW_EXPORT`·`DUPLICATE_NAME`)가
+     있으면 그것부터 확인한다 — 이름 수준 신호이므로 실제로 같은 책임인지 코드를 열어 판정한다.
+     없으면 `node .claude/scripts/reuse-inventory.mjs --project-root {project-root}`(텍스트)로 목록을 얻어 변경점만 대조한다
    - 신규·변경 코드가 기존 코드베이스의 유틸/훅/컴포넌트/상수/정책과 중복되는지, 기존 자산을 재사용할 수
      있었는데 새로 만든 부분이 있는지 확인한다 (유사 이름·시그니처·패턴을 Grep 도구로 탐색해 근거를 남긴다)
    - 같은 diff 안에서 동일 스펙(치수, 키 목록, 정책 값 등)이 여러 곳에 하드코딩되어 한쪽만 수정하면

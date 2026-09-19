@@ -232,6 +232,16 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    어느 순서로 만들지 지시하지 않는다** — 스팩이 정한 `architecture`·`layerMap`·`libraries` 안에서
    모델이 정한다.
 
+   **재사용 목록 — 스폰마다 앞뒤로 한 번씩.** 스폰 직전에
+   `node .claude/scripts/reuse-inventory.mjs --project-root {root} --json`의 stdout을
+   `_workspace/03_dev/reuse-inventory.json`에 저장하고 그 경로를 스폰 프롬프트에 넣는다 — 앞 스폰이
+   만든 훅·함수·컴포넌트를 뒤 스폰이 모르고 다시 만들지 않게 한다. 스폰이 끝나면 같은 명령에
+   `--since _workspace/03_dev/reuse-inventory.json`을 붙여 새 export를 대조하고, `since.findings`
+   (`UNUSED_NEW_EXPORT`·`DUPLICATE_NAME`)는 막지 않고 Phase 3 체크포인트 보고와 `code-reviewer`에
+   넘긴다. 그 출력이 다음 스폰의 목록이 된다(developer는 `entries`만 읽는다 — `since`는 직전 스폰의
+   경고다). 이 파일을 스폰 매니페스트의 `reads`에 넣는다(`execution-budget-contract.md`). 스폰마다
+   덮어쓰는 로컬 산출물이라 커밋하지 않는다(개발 준비 검사의 `team-sharing`이 무시 줄을 요구한다).
+
    **병렬 안전의 조건(2026-09-10 정정)**: 경계가 겹치지 않는 것은 필요조건일 뿐이다. 범위를
    집행하는 훅은 모든 스폰이 공유하는 `change-scope.md` **하나**를 읽는다 — 같은 체크아웃에서
    병렬로 쓰면 **마지막에 기록된 범위가 다른 스폰에도 적용**된다(감사 FINDING-003).

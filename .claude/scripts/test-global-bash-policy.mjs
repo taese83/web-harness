@@ -65,3 +65,15 @@ test('오탐 확인: 프로젝트 안 경로와 값 인자는 통과한다', () 
     assert.equal(decision.allowed, true, `${command}가 막히면 정당한 검증이 불가능하다`)
   }
 })
+
+test('재사용 목록: 프로젝트 안 root·이전 목록만 허용한다', () => {
+  for (const command of [
+    'node .claude/scripts/reuse-inventory.mjs --project-root . --json',
+    'node .claude/scripts/reuse-inventory.mjs --project-root . --since package.json --json',
+  ]) assert.equal(decide(command).allowed, true, command)
+  for (const command of [
+    'node .claude/scripts/reuse-inventory.mjs --project-root /etc --json',
+    'node .claude/scripts/reuse-inventory.mjs --project-root . --since /etc/passwd',
+    'node .claude/scripts/reuse-inventory.mjs --project-root . --out x.json',
+  ]) assert.equal(decide(command).allowed, false, command)
+})

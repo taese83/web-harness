@@ -601,6 +601,20 @@ const specConformanceContract = (args, context) => {
   return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
 }
 
+// 재사용 목록: --project-root 필수, --since <이전 목록 파일>과 --json은 선택. 출력은 stdout뿐이다.
+const reuseInventoryContract = (args, context) => {
+  if (args[0] !== '--project-root' || args.length < 2) return false
+  readablePath(args[1], context, 'directory')
+  const rest = args.slice(2)
+  const sinceIndex = rest.indexOf('--since')
+  if (sinceIndex !== -1) {
+    if (!rest[sinceIndex + 1]) return false
+    readablePath(rest[sinceIndex + 1], context, 'file')
+    rest.splice(sinceIndex, 2)
+  }
+  return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
+}
+
 // shape checks는 --project-root와 --shapes(쉼표 구분)를 요구한다.
 const shapeChecksContract = (args, context) => {
   if (args.length !== 4) return false
@@ -912,6 +926,7 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
   if (script === '.claude/scripts/spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
+  if (script === '.claude/scripts/reuse-inventory.mjs') return reuseInventoryContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)
   if (script === '.claude/scripts/web-core/compile-execution-plan.mjs') return executionPlanContract(args, context)

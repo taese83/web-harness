@@ -298,7 +298,7 @@ export function checkTicketAssets(root, {install = false} = {}) {
 //   - change-scope·판정·연결 기록은 한 개발자의 로컬 작업 상태다 — 커밋되면 머지마다 충돌하고, 받은 사람의 픽업을 막는다
 export const TEAM_SHARING = {
   attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
-  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/'],
+  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json'],
 }
 const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
 function trackedFiles(root, paths) {
