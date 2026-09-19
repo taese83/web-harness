@@ -79,6 +79,7 @@ maxTurns: 45
   **유효한 인수 기록을 무시하고 멈추면 사용자가 고른 경로가 완결되지 않는다**
   (`phase-3-development.md` 「디자인 부채 청구」 ③, 교차 모델 리뷰 2026-09-04).
 - **`nonGoals`를 만들지 않는다.**
+- HTML 문자열·사용자 URL은 출구로만 넣는다 — `<SafeHtml>`·`<JsonLd>`·`toSafeHref()`(템플릿 `SAFE_HTML`·`JSON_LD`·`SAFE_URL`, `security-headers.md`). `dompurify`가 없으면 스팩 변경으로 요청한다.
 - `tech-stack.md`가 `REACT_COMPILER: on`이면 새 코드에 수동 `useMemo`·`useCallback`·`memo`를 쓰지 않는다 — 기존 것은 지우지 않는다(`performance-patterns.md` §4).
 - **만들기 전에 재사용 목록을 본다.** 프롬프트로 받은 `_workspace/03_dev/reuse-inventory.json`의 `entries`에 같은
   책임의 훅·함수·컴포넌트가 있으면 그것을 쓴다. 공통화는 **두 번째 사용처가 생길 때** 한다 —

@@ -2,6 +2,7 @@
 import {spawnSync} from 'node:child_process'
 import {validateGoldenSpecDrift} from './golden-spec-drift-lib.mjs'
 import {validateEntryPoints} from './validators/validate-entry-points.mjs'
+import {validateProjectTemplate} from './validators/validate-project-template.mjs'
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -238,32 +239,7 @@ const templateSource = read('.claude/skills/project-init/assets/templates.md')
 // "실질 해소는 validator 모듈 추출"에 따름 — UI 레인 2종 대칭 검사 포함).
 validateSectionReaders({claudeDirectory, repositoryRoot, read, pass, fail})
 
-const requiredPackages = [
-  '@axe-core/playwright',
-  '@hookform/resolvers',
-  '@playwright/test',
-  '@tanstack/eslint-plugin-query',
-  'eslint-plugin-jsx-a11y',
-  'eslint-plugin-playwright',
-  'eslint-plugin-testing-library',
-  'web-vitals',
-  'zod',
-]
-for (const packageName of requiredPackages) {
-  if (!templateSource.includes(`"${packageName}"`)) fail(`project template is missing ${packageName}`)
-}
-// knip은 config 키(`"knip": {`)와 이름이 같다 — 버전 pin(`"knip": "`)으로 본다.
-if (!/"knip": "\d/.test(templateSource)) fail('project template is missing knip devDependency pin')
-// 재시도로 통과한 flaky 테스트가 browser receipt에서 green이 되지 않게 한다.
-if (!templateSource.includes('failOnFlakyTests: Boolean(process.env.CI)')) fail('project template Playwright config does not fail flaky tests in CI')
-// axe 기본 실행은 WCAG 2.2 target-size(2.5.8)를 끈다 — 켜지 않으면 2.2 점검 주장이 증명되지 않는다.
-if (!templateSource.includes("'target-size': {enabled: true}")) fail('project template axe scan does not enable target-size')
-// 라우터 안 오류는 App 경계에 오지 않는다 — 라우트 ErrorBoundary가 없으면 기본 화면이 stack을 노출한다.
-if (!templateSource.includes('## ROUTE_ERROR_BOUNDARY') || !templateSource.includes('ErrorBoundary: RouteErrorBoundary')) fail('project template routes lack a route ErrorBoundary')
-for (const requiredTemplate of ['## ESLINT_CONFIG', '## PLAYWRIGHT_CONFIG', '## ERROR_FALLBACK', '## NOT_FOUND_PAGE', '## RENOVATE_CONFIG']) {
-  if (!templateSource.includes(requiredTemplate)) fail(`project template is missing ${requiredTemplate}`)
-}
-pass('project template dependencies and sections checked')
+validateProjectTemplate({templateSource, pass, fail})
 
 if (templateSource.includes('react-router-dom')) fail('project template uses removed React Router v8 react-router-dom package')
 if (!/"react-router":\s*"(?:\^|~)?8\./.test(templateSource)) fail('project template does not use a React Router v8-compatible package')

@@ -56,6 +56,7 @@
 | testing-library `flat/react` + `prefer-user-event` ★ | `src/**/*.{test,spec}` | `testing.md` |
 | playwright `flat/recommended` + 고정 대기·조건 없는 skip error ★ | `e2e/**` | `testing.md` |
 | TanStack Query `flat/recommended`(쿼리 키 누락 등) ★ | `ts·tsx` | `performance-patterns.md` §9 |
+| XSS 싱크: `dangerouslySetInnerHTML`·`javascript:` 리터럴(출구: `SafeHtml`·`JsonLd` 파일, 테스트), DOM 싱크(`no-unsanitized`) ★ | `ts·tsx` | 템플릿 `ESLINT_CONFIG` · `SAFE_HTML` · `JSON_LD` |
 
 다른 형태(Next·하이브리드·기존 프로젝트)에서는 같은 규칙이 산문이다.
 
@@ -70,6 +71,7 @@
 | 복사한 프리미티브의 접근성 배선 제거, dialog·sheet 이름 없음 ★ | code-reviewer 10-1 |
 | 인증 필드 붙여넣기 차단 ★, 대체 없는 포커스 표시 제거 ★ | code-reviewer 10 |
 | 추적된 비밀 파일(프로필별) ★, 의존성 high·critical, 레지스트리 밖 소스 | security-reviewer |
+| `SafeHtml` 밖 HTML 싱크, 스킴 검사 없는 사용자 URL ★ | code-reviewer 6 |
 | 서버 엔드포인트 방어 불균질, 클라이언트 신뢰 저장 | security-reviewer |
 
 ## 5. 멈추고 묻기
@@ -88,6 +90,7 @@
 | 신호 | 근거 |
 |---|---|
 | 재사용 목록 대조 — 새 export 미사용·이름 중복 ★ | `reuse-inventory.mjs` |
+| CSP Report-Only 위반(preview에서 e2e가 수집) ★ | `security-headers.md` |
 | 미사용 파일·export·의존성(knip, 있음/없음) ★ | `run-quality-gates --check deadcode` |
 | 레이어 방향 `NOT_DECLARED`·`INCOMPLETE` ★ | `validate-layer-boundaries.mjs` |
 | 디자인 부채 청구, 스펙 정합 note, 중복·재사용 리팩토링 제안 | 각 문서 |

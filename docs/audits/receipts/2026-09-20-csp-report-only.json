@@ -1,0 +1,79 @@
+{
+  "kind": "csp-report-only-receipt",
+  "measuredAt": "2026-09-20",
+  "host": "local (darwin arm64), Chromium via @playwright/test 1.61.0",
+  "versions": {
+    "vite": "8.1.4",
+    "@vitejs/plugin-react": "6.0.3",
+    "react": "19.2.7",
+    "@mui/material": "7.3.0",
+    "@emotion/react": "11.14.0",
+    "tailwindcss": "4.1.0",
+    "@tailwindcss/vite": "4.1.0"
+  },
+  "procedure": [
+    "vite build of a one-button app per UI lane (MUI <Button variant=contained>, Tailwind bg-blue-600 button)",
+    "serve dist with a node http server that adds exactly one header: Content-Security-Policy OR Content-Security-Policy-Report-Only",
+    "policy: default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'",
+    "Playwright: addInitScript collects securitypolicyviolation events; page console 'error' messages collected; computed background-color of the button"
+  ],
+  "observations": {
+    "mui": [
+      {
+        "mode": "content-security-policy",
+        "buttonBackground": "rgb(239, 239, 239)",
+        "violations": [
+          {
+            "directive": "style-src-elem",
+            "disposition": "enforce"
+          }
+        ],
+        "consoleErrors": [
+          "Applying inline style violates the following Content Security Policy directive 'style-src 'self''. Either the 'unsafe-in…"
+        ]
+      },
+      {
+        "mode": "content-security-policy-report-only",
+        "buttonBackground": "rgb(25, 118, 210)",
+        "violations": [
+          {
+            "directive": "style-src-elem",
+            "disposition": "report"
+          }
+        ],
+        "consoleErrors": []
+      }
+    ],
+    "tailwind": [
+      {
+        "mode": "content-security-policy",
+        "buttonBackground": "oklch(0.546 0.245 262.881)",
+        "violations": [],
+        "consoleErrors": []
+      },
+      {
+        "mode": "content-security-policy-report-only",
+        "buttonBackground": "oklch(0.546 0.245 262.881)",
+        "violations": [],
+        "consoleErrors": []
+      }
+    ]
+  },
+  "alsoObserved": [
+    "vite build index.html contains no inline <script> (one <script type=module src>) — script-src 'self' suffices",
+    "vite preview with preview.headers {'Content-Security-Policy-Report-Only': ...} serves the header and securitypolicyviolation fires with disposition 'report' (MUI lane, style-src-elem)",
+    "React 19.2.7 renderToString: href='javascript:…' (incl. case/space variants) is replaced by a throwing javascript: URL; href='data:text/html,…' is passed through",
+    "template VITE_CONFIG extracted verbatim with .env.production VITE_API_URL=https://api.production.example.com: vite preview served Content-Security-Policy-Report-Only with connect-src 'self' https://api.production.example.com plus X-Frame-Options: DENY",
+    "vite preview without --mode used .env.production (connect-src … api.production…); with --mode dev it used .env.dev (connect-src … api.dev…) — the e2e webServer now passes the build mode"
+  ],
+  "conclusions": [
+    "MUI (Emotion) needs style-src 'unsafe-inline' (or a per-request nonce) — strict style-src leaves components unstyled when enforced",
+    "Tailwind v4 lane works under strict style-src",
+    "Report-Only violations are events, not console errors — a smoke test asserting no console errors does not fail on them",
+    "an empty violation list without the header in the response is 'not measured', so the smoke attachment records the applied header"
+  ],
+  "limits": [
+    "one page, one component per lane; not a crawl of a real app",
+    "Next.js nonce path not measured"
+  ]
+}

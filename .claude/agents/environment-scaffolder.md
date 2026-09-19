@@ -60,7 +60,7 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
 4. 테스트 설정은 MSW `src/mocks/server.ts`를 재사용할 수 있게 둔다.
 5. 기본 code splitting은 Vite에 맡기고, bundle analyzer 근거가 있을 때만 `manualChunks`를 추가한다.
 6. `chunkSizeWarningLimit`를 높여 경고를 숨기지 않는다. 경고가 발생하면 route/library 단위 원인을 측정한다.
-7. 개발 서버에 가짜 CSP를 넣지 않는다. 프로덕션 CSP와 보안 헤더는 배포 계층의 설정과 브라우저 테스트로 검증한다.
+7. 개발 서버에 가짜 CSP를 넣지 않는다. 프로덕션 CSP와 보안 헤더는 배포 계층의 설정과 브라우저 테스트로 검증한다 — 정책 문자열은 `web-orchestrator/references/security-headers.md`(UI 레인·배포 대상별, Report-Only로 시작)를 따르고 **preview와 배포 헤더를 같은 함수·같은 env로** 만든다.
 8. 기존 repository가 Husky/lint-staged를 사용하거나 사용자가 Git hook을 요구할 때만 기존 정책을 보존·설정한다. greenfield 기본 품질은 package script와 CI이며 hook 도입·초기화는 사용자 확인 없이는 하지 않는다.
 9. `tech-stack.md` compatibility matrix에서 검증된 ESLint major의 Flat Config를 생성한다. 필수 plugin peer가 지원하지 않는 major로 올리지 않고 `.eslintrc*`는 생성하지 않는다.
 10. TypeScript 7은 선택한 plugin과 framework의 공식 호환성이 확인된 경우에만 사용하고, 기본 호환 프로필은 TypeScript 6으로 둔다.

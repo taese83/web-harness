@@ -104,6 +104,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 `node .claude/scripts/validate-layer-boundaries.mjs --project-root {project-root}`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`은 통과가 아니라 "확인 불가"로 적는다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
+   - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — React는 `javascript:`만 막고 `data:`는 통과시킨다
    - 최종 위협 판정과 dependency/CI 검사는 `security-reviewer`에 위임
 7. **hook dependency 검사**:
    - hooks lint receipt와 `useCallback|useMemo|useEffect` 사용처를 확인한다.
@@ -238,7 +239,7 @@ PASS | WARN | FAIL | BLOCKED
 
 ## Security Warnings
 || File:Line | Detail | Severity ||
-|| src/foo.tsx:42 | dangerouslySetInnerHTML used | FAIL ||
+|| src/foo.tsx:42 | dangerouslySetInnerHTML outside SafeHtml | FAIL ||
 || src/bar.ts:10 | credential stored in browser storage | FAIL ||
 
 ## Accessibility (a11y) Warnings

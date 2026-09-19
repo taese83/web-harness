@@ -3441,6 +3441,22 @@
       "replace": "const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg'])",
       "test": ".claude/scripts/test-verifier-bash.mjs",
       "why": "리뷰어 지침의 재귀 grep이 런타임에 막히면 보안·코드 검색이 조용히 빠진다"
+    },
+    {
+      "id": "template-smoke-records-applied-csp",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "  const policy = response?.headers()['content-security-policy-report-only'] ?? null",
+      "replace": "  const policy = null",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "적용된 정책을 남기지 않으면 헤더 없는 서버의 빈 위반 목록이 \"위반 0\"으로 읽힌다"
+    },
+    {
+      "id": "template-xss-lint-selector",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "    selector: \"JSXAttribute[name.name='dangerouslySetInnerHTML']\",",
+      "replace": "    selector: \"JSXAttribute[name.name='__disabled__']\",",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "dangerouslySetInnerHTML 셀렉터가 빠지면 SafeHtml·JsonLd 출구 설계가 공허해진다"
     }
   ]
 }

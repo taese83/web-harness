@@ -20,7 +20,7 @@ maxTurns: 20
 - cookie 인증의 CSRF 방어, `SameSite`, `Secure`, `HttpOnly`, CORS 정책 확인
 - `dangerouslySetInnerHTML`, URL 주입, DOM XSS sink, 민감 정보 로깅 확인
 - `.env.local`, secret, private key, 장기 cloud credential의 커밋 여부 확인
-- CSP와 보안 헤더가 실제 배포 계층에서 설정되는지 확인
+- CSP와 보안 헤더가 실제 배포 계층에서 설정되는지 확인 — 기준은 `web-orchestrator/references/security-headers.md`. Report-Only 위반은 `qa-browser.md`의 CSP 위반 목록으로 읽고, preview와 배포 헤더의 정책 문자열이 같은지 대조한다
 - lockfile, dependency audit, GitHub Actions 최소 권한·SHA pin·OIDC 적용 여부 확인
 - WebSocket/SSE handshake와 subscription의 서버 authorization, origin/CORS, credential, log redaction 확인
 - 외부 ingestion source의 사용 권한, URL/redirect allowlist, timeout/rate/concurrency, parser input, credential·원문 민감정보 로그를 확인
@@ -79,6 +79,8 @@ maxTurns: 20
 - lockfile에 registry 외 source(git+, file:, link:)가 있으면 FAIL — `run-package-operation.mjs`가 차단하는 계약과 동일 기준.
 - 신규/변경된 dependency의 라이선스가 프로젝트 배포 방식과 충돌할 수 있으면(GPL 계열 등) `NEEDS_REVIEW`로 표시한다 — 법적 판정을 단정하지 않는다.
 - 자동 수정(`pnpm audit --fix`, 버전 bump)을 실행하거나 제안 diff를 직접 적용하지 않는다 — owner는 `environment-scaffolder`(typed broker 경유)다.
+
+**PASS는 "검토했다"이지 "안전하다"가 아니다.** LLM 리뷰의 취약점 재현율은 낮고 실행마다 흔들린다는 실측이 있다 — 결과 문구에 이 한계를 적고, 기계 근거(lint·audit receipt·CSP 위반 목록)와 판단을 섞지 않는다.
 
 ## 출력 계약
 

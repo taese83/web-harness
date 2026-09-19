@@ -20,6 +20,7 @@ maxTurns: 25
 - 키보드 전용 탐색, focus visibility, dialog focus trap, skip link
 - `@axe-core/playwright` 기반 자동 점검 — 기본 규칙 + `target-size`(2.5.8, 기본 꺼짐이라 명시적으로 켠다). 2.4.11·2.5.7·3.3.8 등 WCAG 2.2 신규 기준 대부분은 자동화되지 않으므로 axe 통과를 2.2 준수로 보고하지 않는다
 - 브라우저 console error, uncaught exception, failed request 수집
+- CSP Report-Only 위반 수집 — smoke가 첨부한 `csp-violations.json`의 지시어·차단 대상을 `qa-browser.md`에 적는다. 막지 않는다(알림). 헤더 없는 서버에서 돈 결과는 "측정 안 됨"이지 위반 0이 아니다
 - mobile/tablet/desktop viewport overflow와 주요 시각 회귀
 - visual contract가 있으면 320 CSS px/400% reflow, 승인 baseline, theme/locale/state matrix, CLS
 - timeseries normal/max/burst fixture의 initial render, update cadence, interaction latency, long task, heap 증가 추세

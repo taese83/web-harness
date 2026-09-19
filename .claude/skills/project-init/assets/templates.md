@@ -33,6 +33,7 @@
     "eslint": "9.39.5",
     "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-no-unsanitized": "4.1.5",
     "eslint-plugin-playwright": "2.12.0",
     "eslint-plugin-react-hooks": "7.0.1",
     "eslint-plugin-testing-library": "7.16.2",
@@ -189,6 +190,7 @@ _workspace/04_qa/receipts/
 
 ```js
 import js from '@eslint/js'
+import noUnsanitized from 'eslint-plugin-no-unsanitized'
 import pluginQuery from '@tanstack/eslint-plugin-query'
 import playwright from 'eslint-plugin-playwright'
 import testingLibrary from 'eslint-plugin-testing-library'
@@ -197,6 +199,38 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import unicorn from 'eslint-plugin-unicorn'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
+
+const BASE_RESTRICTED_SYNTAX = [
+  {
+    selector: 'TSEnumDeclaration',
+    message: 'enum·const enum 금지 — isolatedModules에서 삭제 불가 구문이다. `as const` 객체 + 파생 union을 쓴다.',
+  },
+  {
+    selector: 'ExportAllDeclaration',
+    message: 'barrel에서 `export *` 금지 — named export만 선택적으로 재노출한다(트리쉐이킹·API 변경 안전성).',
+  },
+  {
+    selector: 'TSTypeReference > TSQualifiedName[left.name="React"][right.name="FC"]',
+    message: 'React.FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
+  },
+  {
+    selector: 'TSTypeReference > Identifier[name="FC"]',
+    message: 'FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
+  },
+]
+// XSS 싱크 — HTML 문자열을 DOM으로 넣는 길은 SafeHtml 한 곳만 연다(template SAFE_HTML, DOMPurify 경유).
+const XSS_RESTRICTED_SYNTAX = [
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message: 'dangerouslySetInnerHTML 금지 — HTML 문자열은 공통 레이어의 <SafeHtml>(DOMPurify)로만 렌더한다.',
+  },
+  {
+    selector: 'Literal[value=/^\\s*javascript:/i]',
+    message: 'javascript: URL 금지 — 사용자 URL은 toSafeHref()로 http·https·mailto만 통과시킨다.',
+  },
+]
+// 출구: SafeHtml(DOMPurify)과 JsonLd(구조화 데이터) 두 파일, 그리고 공격 문자열을 입력으로 쓰는 테스트.
+const XSS_EXIT_FILES = ['src/shared/lib/safe-html.tsx', 'src/shared/lib/json-ld.tsx', '**/*.{test,spec}.{ts,tsx}', 'e2e/**']
 
 export default tseslint.config(
   {ignores: ['**/dist/**', '**/coverage/**', '**/playwright-report/**', '**/test-results/**']},
@@ -246,25 +280,7 @@ export default tseslint.config(
       // `openDecisions`로 올라가 스팩 왕복으로 닫힌다 — 코드에 남기면 아무도 묻지 않는다.
       // 주석 규약 전체는 `developer` 에이전트가 canonical이며, 그중 기계가 잡는 것은 이것뿐이다.
       'no-warning-comments': ['error', {terms: ['todo', 'fixme', 'xxx'], location: 'anywhere'}],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'TSEnumDeclaration',
-          message: 'enum·const enum 금지 — isolatedModules에서 삭제 불가 구문이다. `as const` 객체 + 파생 union을 쓴다.',
-        },
-        {
-          selector: 'ExportAllDeclaration',
-          message: 'barrel에서 `export *` 금지 — named export만 선택적으로 재노출한다(트리쉐이킹·API 변경 안전성).',
-        },
-        {
-          selector: 'TSTypeReference > TSQualifiedName[left.name="React"][right.name="FC"]',
-          message: 'React.FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
-        },
-        {
-          selector: 'TSTypeReference > Identifier[name="FC"]',
-          message: 'FC 금지(React 19 비권장) — 함수 선언 + props 타입으로 쓴다.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX, ...XSS_RESTRICTED_SYNTAX],
     },
   },
   // 파일명 케이스 — **kebab-case만 규칙이다**. eslint 9와 맞는 마지막 unicorn(65.0.1)은
@@ -296,6 +312,9 @@ export default tseslint.config(
       ...reactHooks.configs.flat.recommended.rules,
     },
   },
+  // DOM 싱크(innerHTML·insertAdjacentHTML·document.write 등) — Mozilla no-unsanitized.
+  {files: ['**/*.{ts,tsx}'], ...noUnsanitized.configs.recommended},
+  {files: XSS_EXIT_FILES, rules: {'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX]}},
   // 테스트 작성 규약(`component-gen/references/testing.md`)은 테스트 파일에만 건다.
   {
     files: ['src/**/*.{test,spec}.{ts,tsx}'],
@@ -377,6 +396,7 @@ export default tseslint.config(
     "eslint": "9.39.5",
     "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-no-unsanitized": "4.1.5",
     "eslint-plugin-playwright": "2.12.0",
     "eslint-plugin-react-hooks": "7.0.1",
     "eslint-plugin-testing-library": "7.16.2",
@@ -460,19 +480,37 @@ export default tseslint.config(
 ## VITE_CONFIG
 
 ```ts
-import {defineConfig} from 'vite'
+import {defineConfig, loadEnv} from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 
-export default defineConfig({
+// mui 레인: Emotion이 런타임에 <style>을 넣으므로 style-src 'unsafe-inline'은 선언된 예외다.
+// Report-Only로 시작한다 — preview에 걸어 e2e가 위반을 측정한다(security-headers.md). API 출처는 env에서 읽어
+// connect-src에 넣는다 — 환경마다 API 주소가 다르므로 배포 헤더도 같은 함수·같은 env로 만든다.
+const contentSecurityPolicy = (apiUrl: string | undefined) => {
+  const apiOrigin = /^https?:\/\//.test(apiUrl ?? '') ? ` ${new URL(apiUrl as string).origin}` : ''
+  return [
+    "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", `connect-src 'self'${apiOrigin}`,
+    "img-src 'self' data: blob:", "font-src 'self' data:", "worker-src 'self' blob:",
+    "object-src 'none'", "base-uri 'none'", "form-action 'self'",
+  ].join('; ')
+}
+
+export default defineConfig(({mode}) => ({
   plugins: [react(), svgr()],
   resolve: {tsconfigPaths: true},
   server: {
     port: 8080,
     host: '127.0.0.1',
   },
+  preview: {
+    headers: {
+      'Content-Security-Policy-Report-Only': contentSecurityPolicy(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_URL),
+      'X-Frame-Options': 'DENY',
+    },
+  },
   build: {assetsInlineLimit: 4096},
-})
+}))
 ```
 
 ---
@@ -554,7 +592,8 @@ export default defineConfig({
     {name: 'reflow-320', use: {browserName: 'chromium', viewport: {width: 320, height: 800}}},
   ],
   webServer: {
-    command: 'pnpm build:dev && pnpm preview --host 127.0.0.1',
+    // preview는 빌드와 같은 모드로 띄운다 — 기본 production 모드면 CSP connect-src가 번들과 다른 env의 API를 담는다.
+    command: 'pnpm build:dev && pnpm preview --host 127.0.0.1 --mode dev',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
@@ -570,16 +609,24 @@ export default defineConfig({
 import AxeBuilder from '@axe-core/playwright'
 import {expect, test} from '@playwright/test'
 
-test('핵심 화면이 오류 없이 접근 가능하다', async ({page}) => {
+test('핵심 화면이 오류 없이 접근 가능하다', async ({page}, testInfo) => {
   const consoleErrors: string[] = []
   const failedRequests: string[] = []
+  // CSP Report-Only 위반은 막지 않고 증거로 남긴다(알림) — browser-verifier가 qa-browser.md에 적는다.
+  await page.addInitScript(() => {
+    const violations: {directive: string; blocked: string}[] = []
+    Object.assign(window, {__cspViolations: violations})
+    document.addEventListener('securitypolicyviolation', event => {
+      violations.push({directive: event.violatedDirective, blocked: event.blockedURI})
+    })
+  })
 
   page.on('console', message => {
     if (message.type() === 'error') consoleErrors.push(message.text())
   })
   page.on('requestfailed', request => failedRequests.push(request.url()))
 
-  await page.goto('/home')
+  const response = await page.goto('/home')
   await expect(page.getByRole('heading', {level: 1})).toBeVisible()
   await page.keyboard.press('Tab')
   await expect(page.locator(':focus-visible')).toBeVisible()
@@ -589,6 +636,10 @@ test('핵심 화면이 오류 없이 접근 가능하다', async ({page}) => {
   expect(accessibility.violations).toEqual([])
   expect(consoleErrors).toEqual([])
   expect(failedRequests).toEqual([])
+  const cspViolations = await page.evaluate(() => (window as unknown as {__cspViolations?: unknown[]}).__cspViolations ?? [])
+  // 적용된 정책을 함께 남긴다 — 헤더가 없으면 빈 목록은 "위반 0"이 아니라 "측정 안 됨"이다.
+  const policy = response?.headers()['content-security-policy-report-only'] ?? null
+  await testInfo.attach('csp-violations.json', {body: JSON.stringify({policy, violations: cspViolations}, null, 2), contentType: 'application/json'})
 })
 ```
 
@@ -901,6 +952,60 @@ export const ROUTES: RouteObject[] = [
 
 ---
 
+## SAFE_URL
+
+필요할 때 만든다 — 사용자·외부 데이터의 URL을 `href`·`src`에 넣을 때. React 19는 `javascript:`를 막지만 `data:`는 통과시킨다.
+
+```ts
+// src/shared/lib/safe-url.ts
+const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'mailto:'])
+
+export function toSafeHref(value: string): string | undefined {
+  try {
+    const url = new URL(value, window.location.origin)
+    return ALLOWED_PROTOCOLS.has(url.protocol) ? url.href : undefined
+  } catch {
+    return undefined
+  }
+}
+```
+
+---
+
+## SAFE_HTML
+
+필요할 때만 만든다 — CMS·마크다운처럼 HTML 문자열을 렌더해야 할 때(`dompurify`를 typed broker로 추가). lint는 이 파일에서만
+`dangerouslySetInnerHTML`을 허용한다. 설정 객체는 고정하고, `setConfig`·hook·IN_PLACE 모드를 쓰지 않는다.
+
+```tsx
+// src/shared/lib/safe-html.tsx
+import DOMPurify from 'dompurify'
+
+const CONFIG = {USE_PROFILES: {html: true}} as const
+
+export function SafeHtml({html}: {html: string}) {
+  return <div dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(html, CONFIG)}} />
+}
+```
+
+---
+
+## JSON_LD
+
+필요할 때만 만든다 — 공개 페이지의 구조화 데이터(`seo-spec.md`). lint는 이 파일에서만 JSON-LD `<script>`를 허용한다.
+
+```tsx
+// src/shared/lib/json-ld.tsx
+type JsonLdProps = {data: Record<string, unknown>}
+
+// JSON.stringify 결과의 '<'를 이스케이프해 문자열 안의 </script>로 태그를 벗어나지 못하게 한다.
+export function JsonLd({data}: JsonLdProps) {
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(data).replace(/</g, '\\u003c')}} />
+}
+```
+
+---
+
 ## ROUTE_ERROR_BOUNDARY
 
 ```tsx
@@ -1024,20 +1129,37 @@ APP_PACKAGE_JSON에서 dependencies의 `@emotion/react`·`@emotion/styled`·`@mu
 ## VITE_CONFIG_TAILWIND
 
 ```ts
-import {defineConfig} from 'vite'
+import {defineConfig, loadEnv} from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+// Report-Only로 시작한다 — preview에 걸어 e2e가 위반을 측정한다(security-headers.md). API 출처는 env에서 읽어
+// connect-src에 넣는다 — 환경마다 API 주소가 다르므로 배포 헤더도 같은 함수·같은 env로 만든다.
+const contentSecurityPolicy = (apiUrl: string | undefined) => {
+  const apiOrigin = /^https?:\/\//.test(apiUrl ?? '') ? ` ${new URL(apiUrl as string).origin}` : ''
+  return [
+    "default-src 'self'", "script-src 'self'", "style-src 'self'", `connect-src 'self'${apiOrigin}`,
+    "img-src 'self' data: blob:", "font-src 'self' data:", "worker-src 'self' blob:",
+    "object-src 'none'", "base-uri 'none'", "form-action 'self'",
+  ].join('; ')
+}
+
+export default defineConfig(({mode}) => ({
   plugins: [react(), svgr(), tailwindcss()],
   resolve: {tsconfigPaths: true},
   server: {
     port: 8080,
     host: '127.0.0.1',
   },
+  preview: {
+    headers: {
+      'Content-Security-Policy-Report-Only': contentSecurityPolicy(loadEnv(mode, process.cwd(), 'VITE_').VITE_API_URL),
+      'X-Frame-Options': 'DENY',
+    },
+  },
   build: {assetsInlineLimit: 4096},
-})
+}))
 ```
 
 Tailwind v4는 `@tailwindcss/vite` 플러그인만 쓴다 — `postcss.config.*`·`tailwind.config.*`를
