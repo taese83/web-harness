@@ -16,6 +16,7 @@ Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격된다.
   "concurrency": ["web-worker|service-worker|worker-thread"],
   "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},
   "layerMap": {"<논리 레이어>": "<실제 경로>"},
+  "layerDependencies": {"<레이어>": ["<import를 허용하는 레이어>"]},   // 선택 — 없으면 방향을 대조하지 않는다
   "designPreview": {                     // 선택 — 없으면 프리뷰를 기본 실행한다
     "policy": "required|skip",
     "rationale": "<skip이면 필수 — 기본을 끄는 것은 판단이다>"

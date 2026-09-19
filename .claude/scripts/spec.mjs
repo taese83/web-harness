@@ -27,7 +27,7 @@ import {createHash} from 'node:crypto'
 import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
-import {findLayerOverlaps} from './agent-registry.mjs'
+import {findLayerOverlaps, isLayerPathDeclared} from './agent-registry.mjs'
 import {pathToFileURL} from 'node:url'
 import {readShapeChecks} from './validate-shape-checks.mjs'
 
@@ -405,6 +405,32 @@ export const validateLayerMap = decision => {
   return layerMap
 }
 
+// 레이어 간 import 허용 방향(선택). 키·값 모두 layerMap의 레이어 이름이어야 한다 — 방향을 이름으로
+// 적어 두면 validate-layer-boundaries가 실제 import와 대조한다. 자기 레이어를 목록에 넣으면 같은 레이어의
+// 하위 디렉터리(슬라이스·세그먼트)끼리 import를 허용하고, 빼면 금지한다. 없으면 대조하지 않는다(NOT_DECLARED).
+export const validateLayerDependencies = (decision, layerMap) => {
+  const dependencies = decision?.layerDependencies
+  if (dependencies === undefined) return undefined
+  if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) {
+    throw new LockError('LAYER_DEPENDENCIES_INVALID', 'layerDependencies는 {레이어: [허용 레이어...]} 객체여야 한다')
+  }
+  const known = new Set(Object.keys(layerMap ?? {}))
+  for (const [layer, allowed] of Object.entries(dependencies)) {
+    if (!known.has(layer)) {
+      throw new LockError('LAYER_DEPENDENCIES_UNKNOWN_LAYER', `layerDependencies의 키 ${layer}가 layerMap에 없다`)
+    }
+    if (!Array.isArray(allowed) || allowed.some(item => typeof item !== 'string' || !known.has(item))) {
+      throw new LockError('LAYER_DEPENDENCIES_UNKNOWN_LAYER', `layerDependencies.${layer}는 layerMap 레이어 이름의 배열이어야 한다`)
+    }
+  }
+  // 부분 선언은 빠진 레이어를 「아무것도 import 못 함」으로 만든다 — 선언하려면 전부 적는다.
+  const missing = [...known].filter(layer => isLayerPathDeclared(layerMap[layer]) && !(layer in dependencies))
+  if (missing.length > 0) {
+    throw new LockError('LAYER_DEPENDENCIES_INCOMPLETE', `layerDependencies에 빠진 레이어가 있다: ${missing.join(', ')} — 아래로 import하지 않는 레이어는 []로 적는다`)
+  }
+  return dependencies
+}
+
 export const validateTestLayers = (decision, catalog = readShapeChecks()) => {
   const testLayers = decision?.testLayers ?? {}
   if (typeof testLayers !== 'object' || Array.isArray(testLayers)) {
@@ -550,6 +576,7 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
     communication: Array.isArray(decision.communication) ? decision.communication : [],
     concurrency: Array.isArray(decision.concurrency) ? decision.concurrency : [],
     layerMap: validateLayerMap(decision),
+    ...(decision.layerDependencies === undefined ? {} : {layerDependencies: validateLayerDependencies(decision, decision.layerMap)}),
     designSource: validateDesignSource(decision),
     designPreview: validateDesignPreview(decision),
     testLayers,

@@ -3393,6 +3393,22 @@
       "replace": "    ? (false ? escape(part.slice(1, -1)) :",
       "test": ".claude/scripts/test-work-provider.mjs",
       "why": "중괄호가 든 코드를 고정폭으로 감싸면 Jira가 안쪽 }에서 고정폭을 끝내 글자가 흩어진다"
+    },
+    {
+      "id": "layer-boundaries-relative-import",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "  if (specifier.startsWith('.')) return resolve(dirname(fromFile), specifier)",
+      "replace": "  if (specifier.startsWith('.')) return null",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "상대경로 import를 해석하지 않으면 별칭만 보는 lint와 같아져 `../../features/x` 같은 역방향 import가 통과한다"
+    },
+    {
+      "id": "layer-boundaries-unresolved-not-pass",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "  const status = violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'",
+      "replace": "  const status = violations.length > 0 ? 'FAIL' : 'PASS'",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "해석 못 한 별칭을 PASS로 세면 번들러 전용 별칭만 두는 것으로 방향 검사를 통째로 벗어난다"
     }
   ]
 }

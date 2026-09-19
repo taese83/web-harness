@@ -94,6 +94,17 @@
         "minLength": 1
       }
     },
+    "layerDependencies": {
+      "type": "object",
+      "description": "레이어 → import를 허용하는 레이어 이름 목록(선택). 자기 레이어를 넣으면 같은 레이어 슬라이스 간 import를 허용한다.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "testLayers": {
       "type": "object",
       "description": "테스트가 놓일 경로. 개발 에이전트의 쓰기 소유권이 여기서 나온다. unit은 항상 필요하고(유닛 테스트는 형태와 무관하게 항상 수행한다), e2e는 targetShapes에 UI를 가진 형태가 있으면 필요하다(형태 카탈로그 shapes.<name>.userInterface에서 도출). layerMap과 별도인 이유: layerMap은 레이어 이름을 프로젝트가 정하므로 어느 레이어가 테스트인지 이름으로 맞히면 프록시가 된다. 경로가 layerMap 값과 겹쳐도 된다 — 유닛 테스트를 소스 옆에 두는 것이 정상이다.",

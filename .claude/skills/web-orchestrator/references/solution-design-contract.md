@@ -84,6 +84,7 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 |---|---|
 | 아키텍처 패턴 | FSD · 레이어드 · 도메인 모듈 · 기존 관례 준수 중 무엇이며 **왜** |
 | 레이어 맵 | 논리 레이어 → 실제 경로. 브라운필드는 `integration-overlay.json` 실측이 우선 |
+| 레이어 방향 | `layerDependencies` — 레이어마다 import를 허용하는 레이어. 자기 레이어를 넣으면 그 안의 슬라이스·세그먼트끼리 import를 허용한다. `validate-layer-boundaries.mjs`가 실제 import와 대조한다 |
 | 라이브러리 결정 | 데이터 계층·상태·폼·mock·UI 레인. 각 항목에 대안과 선택 사유. **확인된 부재도 결정이다**(§5 `measured-absent`) |
 | 모듈 경계 | 병렬 작업이 서로 침범하지 않을 쓰기 범위 후보 |
 | 수용 기준 참조 | `feature-plan.md`의 FEAT/TC ID — **여기서 새로 만들지 않는다**. 부재하면 §5 `acceptanceSource`로 그 사실을 명시한다 |

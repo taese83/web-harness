@@ -101,7 +101,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.
 3. Grep 도구로 `export \*` 패턴을 `src/`에서 검색 — wildcard export 검사
 4. Grep 도구로 `class\*=|css-[a-zA-Z0-9]` 패턴을 `src/`에서 검색 — substring/generated selector 검사
-5. FSD import 방향: shared→features→entities import 있으면 위반
+5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 `node .claude/scripts/validate-layer-boundaries.mjs --project-root {project-root}`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`은 통과가 아니라 "확인 불가"로 적는다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
    - 최종 위협 판정과 dependency/CI 검사는 `security-reviewer`에 위임

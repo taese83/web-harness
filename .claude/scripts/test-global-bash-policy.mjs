@@ -77,3 +77,9 @@ test('재사용 목록: 프로젝트 안 root·이전 목록만 허용한다', (
     'node .claude/scripts/reuse-inventory.mjs --project-root . --out x.json',
   ]) assert.equal(decide(command).allowed, false, command)
 })
+
+test('레이어 방향 검사: --project-root(프로젝트 안)와 --json만 허용한다', () => {
+  assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root . --json').allowed, true)
+  assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root /etc').allowed, false)
+  assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root . --fix').allowed, false)
+})

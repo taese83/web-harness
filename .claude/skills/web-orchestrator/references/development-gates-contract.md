@@ -146,7 +146,7 @@ API contract/auth, route, Mock, component가 완료된 뒤:
    미구현인지 개명인지 보고, 미구현이면 만들고 개명이면 `layout-spec`을 고친다.
    실행 시점은 **Phase 4 릴리스**다 — 이 게이트 시점에는 여전히 사람·에이전트가 본다
 3. production build에서 Mock activation이 가능한 구조인지 정적 확인
-4. `typecheck`, `lint`
+4. `typecheck`, `lint`, 레이어 방향(`node .claude/scripts/validate-layer-boundaries.mjs --project-root {root} --json`)
 
 TIMESERIES_MODE에서 Mock이 의도적으로 뒤로 미뤄졌으면 transport interface와 지연 근거를 기록하고 Mock 항목만 `DEFERRED`로 둔다.
 
@@ -156,7 +156,9 @@ entity query, mutation/form/domain/realtime owner와 `developer`가 완료된 �
 
 1. requirement/UX risk → screen → owner → source trace
 2. loading/error/empty/partial/permission/destructive 연결
-3. `typecheck`, `lint`, `build`
+3. `typecheck`, `lint`, `build`, 레이어 방향 — 출력을 `_workspace/04_qa/evidence/layer-boundaries.json`에 저장한다.
+   `FAIL`이면 developer로 되돌린다. 미판정(`NOT_DECLARED`·`INCOMPLETE`, exit 3)은 선택 필드가 없거나 별칭을
+   못 읽은 것이라 막지 않고 체크포인트 보고에 적는다 — 통과로 세지 않는다
 4. source mutation, unexpected lockfile/config change, production Mock boundary
 
 Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.

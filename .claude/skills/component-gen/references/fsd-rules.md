@@ -19,6 +19,7 @@ shared/     레이어 없음 — 세그먼트만 존재 (api, ui, hooks, utils �
 
 ### 1. 단방향 import
 모듈은 자신보다 **아래 레이어**에서만 import할 수 있다. 위 방향 import는 무조건 금지다.
+스팩 `layerDependencies`가 이 방향을 담고, `validate-layer-boundaries.mjs`가 상대경로까지 대조한다.
 
 ```
 ✅ features → entities → shared
@@ -45,7 +46,7 @@ export * from './ui/FeatureComponent'
 ### 3. 같은 레이어 간 cross-import
 같은 레이어의 슬라이스끼리 직접 import는 기본적으로 피한다.
 
-- **Entities 레이어만** 예외적으로 `@x` 표기법 허용 (최소한으로만):
+- **Entities 레이어만** 예외적으로 `@x` 표기법 허용 (최소한으로만 — 레이어 방향 검사는 `@x`를 따로 구분하지 못한다):
   ```
   entities/chartA/@x/chartB.ts  ← chartB에서만 쓰는 별도 공개 API
   ```

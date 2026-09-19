@@ -927,6 +927,7 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/reuse-inventory.mjs') return reuseInventoryContract(args, context)
+  if (script === '.claude/scripts/validate-layer-boundaries.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)
   if (script === '.claude/scripts/web-core/compile-execution-plan.mjs') return executionPlanContract(args, context)

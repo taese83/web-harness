@@ -68,7 +68,7 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
 12. local dev/preview는 `127.0.0.1`을 기본으로 하고 container/LAN 접근 요구가 있을 때만 `0.0.0.0`을 명시적으로 선택한다.
 13. Playwright `webServer`는 build 후 loopback preview를 사용하고 dev server를 release browser QA에 사용하지 않는다.
 14. 생성 직후 `eslint.config.*`, `playwright.config.*`, critical E2E bootstrap, package scripts의 파일/명령 closure를 대조한다. 하나라도 빠지면 완료하지 않는다.
-15. FSD import 경계(`no-restricted-imports`)는 `app → pages → widgets → features → entities → shared` 의존 방향으로 생성한다. `widgets`는 layout/component 설계가 cross-cutting UI 슬라이스(여러 화면 공용 헤더 클러스터 등)를 명세한 경우에만 **활성 레이어**로 포함하고, 미사용이면 경계 규칙과 alias에서 함께 제외해 죽은 레이어를 만들지 않는다. 활성화하면 pages는 widgets를, widgets는 features/shared를 import할 수 있고 shared는 어떤 상위도 import할 수 없다.
+15. FSD import 경계(`no-restricted-imports`)는 `app → pages → widgets → features → entities → shared` 의존 방향으로 생성한다. `widgets`는 layout/component 설계가 cross-cutting UI 슬라이스(여러 화면 공용 헤더 클러스터 등)를 명세한 경우에만 **활성 레이어**로 포함하고, 미사용이면 경계 규칙과 alias에서 함께 제외해 죽은 레이어를 만들지 않는다. 활성화하면 pages는 widgets를, widgets는 features/shared를 import할 수 있고 shared는 어떤 상위도 import할 수 없다. 스팩에 `layerDependencies`가 있으면 이 방향 대신 그것으로 규칙을 만든다 — 이 lint는 별칭만 보고, 상대경로까지는 `validate-layer-boundaries.mjs`가 대조한다.
 
 1. `package.json`에 `@playwright/test`, `@axe-core/playwright`를 포함한 test dependency가 없으면 추가 필요성을 보고하고 사용자 확인을 받는다.
 2. product test file은 생성하지 않는다.
