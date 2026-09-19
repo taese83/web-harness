@@ -108,7 +108,8 @@
 | 주석 최소화, TODO 대신 스펙 왕복 | `developer.md` |
 | 한 커밋 = 한 변화, 테스트·기능 분리 커밋 ★, 하네스 산출물·코드 분리 | `phase-3-development.md` |
 | 스타일 우선순위(레인 공개 API → 토큰 → 국소 조정) | `mui-styling.md` · `tailwind-shadcn-styling.md` |
-| 측정 후 최적화(memo·분할·prefetch) | `performance-patterns.md` |
+| 측정 후 최적화(memo·분할·prefetch), loader 라우트는 `route.lazy` ★, INP는 attribution으로 단계를 보고 처방 ★ | `performance-patterns.md` |
+| 상태 배치(서버=Query·공유=URL·폼=RHF·지역=useState·나머지=Zustand, 기존 관례 우선) ★ | `fsd-rules.md` |
 
 ## 새 규칙을 넣을 때
 

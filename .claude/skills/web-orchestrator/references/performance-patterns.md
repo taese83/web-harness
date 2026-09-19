@@ -19,6 +19,22 @@ const SettingsPage  = lazy(() => import('@pages/settings/ui/SettingsPage'))
 
 모든 페이지를 기계적으로 분할하지 않는다. 초기 route와 작은 페이지는 정적 import가 더 빠를 수 있다. route 크기, 이동 빈도, waterfall을 bundle report와 브라우저 trace로 측정한 뒤 분할하고 `<Suspense fallback={<PageSkeleton />}>`으로 감싼다.
 
+Data mode에서 **loader를 쓰는 라우트**는 `route.lazy`로 코드와 loader를 함께 당긴다 — 정적 loader + `React.lazy`면 loader가
+먼저 돌고 청크는 렌더할 때에야 받아 데이터 → 청크가 직렬이 된다. loader가 없는 라우트는 `React.lazy`로 충분하다
+(react-router 8.2.0에서 아래 함수형 `lazy` 타입 검사 확인).
+
+```tsx
+{
+  path: '/items/:id',
+  lazy: async () => {
+    const {ItemDetailPage, itemLoader} = await import('@pages/item-detail')
+    return {Component: ItemDetailPage, loader: itemLoader}
+  },
+}
+```
+
+배포가 이전 청크를 지우면 lazy import가 실패한다 — 템플릿 `MAIN_TSX`의 `vite:preloadError` 처리가 세션당 한 번 새로고침한다.
+
 ### 컴포넌트 레벨 — 조건부 적용 (developer 책임)
 
 조건부로 렌더링되는 무거운 컴포넌트(모달, 드로어, 차트, 에디터 등)는 컴포넌트 레벨에서도 분할한다.
@@ -205,22 +221,65 @@ preload/prefetch는 사용 확률, 데이터 비용, mobile network를 측정하
 
 ## 6. Web Vitals 측정 (developer 책임)
 
-```ts
-// src/shared/utils/webVitals.ts
-import {onCLS, onFCP, onINP, onLCP, onTTFB} from 'web-vitals'
+원인까지 보낸다 — 값만으로는 어느 요소·어느 단계가 느린지 알 수 없다(`web-vitals/attribution`).
 
-export const reportWebVitals = (onReport: (metric: {name: string; value: number}) => void) => {
-  onCLS(onReport)
-  onFCP(onReport)
-  onINP(onReport)
-  onLCP(onReport)
-  onTTFB(onReport)
+```ts
+// src/shared/utils/web-vitals.ts
+import {onCLS, onFCP, onINP, onLCP, onTTFB} from 'web-vitals/attribution'
+import type {MetricWithAttribution} from 'web-vitals/attribution'
+
+export type VitalReport = {
+  name: string
+  value: number
+  rating: string
+  id: string
+  navigationType: string
+  detail: Record<string, string | number | undefined>
+}
+
+const detailOf = (metric: MetricWithAttribution): VitalReport['detail'] => {
+  switch (metric.name) {
+    case 'INP':
+      return {
+        target: metric.attribution.interactionTarget,
+        inputDelay: metric.attribution.inputDelay,
+        processingDuration: metric.attribution.processingDuration,
+        presentationDelay: metric.attribution.presentationDelay,
+      }
+    case 'LCP':
+      return {
+        target: metric.attribution.target,
+        resourceLoadDelay: metric.attribution.resourceLoadDelay,
+        elementRenderDelay: metric.attribution.elementRenderDelay,
+      }
+    case 'CLS':
+      return {target: metric.attribution.largestShiftTarget}
+    default:
+      return {}
+  }
+}
+
+export const reportWebVitals = (send: (report: VitalReport) => void) => {
+  const handle = (metric: MetricWithAttribution) =>
+    send({
+      name: metric.name,
+      value: metric.value,
+      rating: metric.rating,
+      id: metric.id,
+      navigationType: metric.navigationType,
+      detail: detailOf(metric),
+    })
+  onCLS(handle)
+  onFCP(handle)
+  onINP(handle)
+  onLCP(handle)
+  onTTFB(handle)
 }
 ```
 
 ```tsx
 // src/main.tsx — consent와 sampling 정책을 적용한 RUM adapter로 전송
-import('@shared/utils/webVitals').then(({reportWebVitals}) =>
+import('@shared/utils/web-vitals').then(({reportWebVitals}) =>
   reportWebVitals(metric => rumClient.send(metric)),
 )
 ```
@@ -284,3 +343,25 @@ React Query가 queryKey가 바뀌면 이전 요청에 abort signal을 보내므�
 
 판정은 측정으로 한다 — Playwright trace(`trace: 'on-first-retry'` 또는 `--trace on`)나 브라우저 개발자 도구의
 Network 탭에서 같은 화면의 요청이 앞 요청 완료 직후에만 시작하면 waterfall이다. 추측으로 병렬화하지 않는다.
+
+---
+
+## 10. 입력 반응성 — INP (developer 책임)
+
+측정이 먼저다 — §6의 attribution이 느린 상호작용의 요소와 단계(`inputDelay`·`processingDuration`·`presentationDelay`)를 알려 준다.
+단계에 맞는 처방을 쓴다.
+
+- **처리가 길다**(`processingDuration`) — 급하지 않은 갱신은 `startTransition`으로 넘겨 입력 반응을 먼저 그린다. 제어 입력의
+  값 자체에는 쓰지 않는다(타이핑이 밀린다).
+- **느린 목록·검색 결과** — `useDeferredValue`로 이전 결과를 보여 주며 다시 그린다. 느린 자식은 `memo`로 감싸야 효과가 있다.
+- **React 밖의 긴 작업**(대량 파싱·정렬) — 약 50ms마다 메인 스레드에 양보한다. `scheduler.yield`는 Safari에 없으므로 폴백을 둔다.
+- **표시가 늦다**(`presentationDelay`) — 한 번에 그리는 DOM이 크다. 가상화(§3)나 단계적 렌더를 쓴다.
+
+```ts
+type SchedulerWithYield = {yield?: () => Promise<void>}
+
+export const yieldToMain = (): Promise<void> => {
+  const scheduler = (globalThis as {scheduler?: SchedulerWithYield}).scheduler
+  return scheduler?.yield ? scheduler.yield() : new Promise(resolve => setTimeout(resolve, 0))
+}
+```

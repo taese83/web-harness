@@ -55,7 +55,7 @@ src/shared/lang/
 ```
 
 - catalog는 JSON — 코드 로직을 넣지 않는다
-- 모든 locale이 동일한 key 집합을 가진다 — 누락은 완료 조건 위반
+- 기준 locale의 기본 key(복수형 접미사를 뗀 key)가 모든 locale에 있다(누락은 FAIL). 복수형 접미사(`_one`·`_other` 등)는 그 locale의 CLDR 범주(`new Intl.PluralRules(locale).resolvedOptions().pluralCategories`)로 대조한다 — 한국어는 `other`만 있어 `_one`이 없는 게 정상이다. ICU MessageFormat이면 복수형이 한 key 안에 있으므로 key 집합이 같아야 한다
 - lazy namespace 로딩은 측정된 필요가 있을 때만 (소규모 catalog에 기계적 분할 금지)
 
 ### 3. 구현 규칙
@@ -68,7 +68,7 @@ src/shared/lang/
 
 ### 4. 검증
 
-- `ux-validator`가 i18n-spec 존재 시 translation completeness(전체 locale 동일 key)와 하드코딩 문자열을 검사한다
+- `ux-validator`가 i18n-spec 존재 시 translation completeness(§2의 key 대조 규칙)와 하드코딩 문자열을 검사한다
 - `VISUAL_QA_MODE`이면 visual contract의 locale matrix에 이 스킬의 locale 목록을 사용한다 — 두 목록이 다르면 계약 위반
 - 텍스트 길이 팽창(독일어 등 +30%)으로 인한 레이아웃 깨짐은 browser/visual QA의 대상 locale로 확인한다
 
@@ -81,6 +81,6 @@ src/shared/lang/
 ## 완료 조건
 
 - `i18n-spec.md`의 locale·routing·fallback 정책이 구현과 일치한다
-- 모든 locale catalog가 동일 key 집합을 가진다
+- locale catalog의 key가 위 대조 규칙(기본 key 전부, 복수형은 locale별 CLDR 범주)을 만족한다
 - 대상 화면의 사용자 노출 문자열이 catalog를 통과한다 (하드코딩 잔존 목록 0 또는 승인된 예외)
 - 언어 전환이 상태 유실 없이 동작한다 (`/run` 또는 browser QA로 확인)

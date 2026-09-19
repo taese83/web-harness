@@ -3457,6 +3457,14 @@
       "replace": "    selector: \"JSXAttribute[name.name='__disabled__']\",",
       "test": ".claude/scripts/test-entry-points.mjs",
       "why": "dangerouslySetInnerHTML 셀렉터가 빠지면 SafeHtml·JsonLd 출구 설계가 공허해진다"
+    },
+    {
+      "id": "template-main-preload-error-recovery",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "window.addEventListener('vite:preloadError', event => {",
+      "replace": "window.addEventListener('vite:__disabled__', event => {",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "배포 뒤 이전 청크를 못 받으면 lazy 화면이 빈 화면으로 멈춘다 — 복구 리스너가 빠지면 가드가 잡아야 한다"
     }
   ]
 }

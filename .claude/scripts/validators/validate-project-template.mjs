@@ -17,6 +17,8 @@ const TEMPLATE_GUARDS = [
   ["JSXAttribute[name.name='dangerouslySetInnerHTML']", 'ESLint lacks the dangerouslySetInnerHTML restriction'],
   // 라우터 안 오류는 App 경계에 오지 않는다 — 경계가 없으면 기본 화면이 stack을 노출한다.
   ['ErrorBoundary: RouteErrorBoundary', 'routes lack a route ErrorBoundary'],
+  // 새 배포가 이전 청크를 지우면 lazy import가 실패해 빈 화면이 된다.
+  ["window.addEventListener('vite:preloadError'", 'main entry does not recover from stale chunks after a deploy'],
   // smoke 첨부물이 적용된 정책을 담지 않으면 빈 위반 목록이 "측정 안 됨"과 구별되지 않는다.
   ["headers()['content-security-policy-report-only']", 'E2E smoke does not record the applied CSP header'],
 ]

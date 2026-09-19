@@ -722,6 +722,19 @@ import {StrictMode} from 'react'
 import {createRoot} from 'react-dom/client'
 import App from './app/App'
 
+// 새 배포가 이전 청크를 지우면 lazy import가 실패한다 — 세션당 한 번만 새로고침한다. 그래도 실패하면(청크가 정말 없다)
+// 오류가 라우트 오류 경계로 간다. 저장소를 못 쓰면 반복을 막을 수 없으므로 새로고침하지 않는다.
+window.addEventListener('vite:preloadError', event => {
+  try {
+    if (sessionStorage.getItem('vite-preload-reloaded')) return
+    sessionStorage.setItem('vite-preload-reloaded', '1')
+  } catch {
+    return
+  }
+  event.preventDefault()
+  window.location.reload()
+})
+
 async function enableMocking() {
   if (import.meta.env.VITE_PHASE !== 'dev') return
   const {worker} = await import('./mocks/browser')

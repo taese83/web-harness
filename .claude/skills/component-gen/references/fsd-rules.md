@@ -75,6 +75,19 @@ export * from './ui/FeatureComponent'
 내릴 때는 옮기고 **원래 자리에서 import**한다 — 두 벌을 두지 않는다. 레이어를 새로 만들어야 하면
 스팩 `layerMap`이 바뀌는 것이므로 스팩 변경 절차를 따른다(`phase-3-development.md` 「개발 중 스팩 변경」).
 
+## 상태는 어디에 두는가
+
+기본 안내다 — 기존 프로젝트의 관례(`architecture.pattern: existing`)가 있으면 그것이 우선한다.
+
+| 상태 | 둘 곳 | 주의 |
+|---|---|---|
+| 서버에서 온 데이터 | TanStack Query 캐시 | `useState`로 복사하지 않는다 |
+| 공유·북마크·뒤로가기가 되어야 하는 화면 상태(필터·정렬·탭·페이지) | URL search params | 읽을 때 스키마로 파싱한다 — URL은 사용자가 고칠 수 있는 입력이다. 검색어 입력은 `input-focus-ime.md`(IME 조합 중 URL 갱신 금지) |
+| 브라우저가 정본인 도메인 데이터(서버 없이 저장·복원) | 도메인 스토어 + 상태 계약 | `local-domain-state.md`를 따른다 — 명령·불변식·영속 마이그레이션이 필요하다 |
+| 폼 입력 | react-hook-form | 제출 전 값은 폼이 소유한다 |
+| 한 컴포넌트 안의 UI 상태 | `useState`·`useReducer` | 쓰는 곳 가까이 둔다 |
+| 위에 없는데 여러 화면이 함께 쓰는 클라이언트 상태 | Zustand 스토어 | 셀렉터는 원자 값이나 `useShallow`로 — 매번 새 객체를 돌려주면 무한 재렌더가 난다 |
+
 ## web-harness 슬라이스 구조 (세그먼트)
 
 각 슬라이스는 필요한 세그먼트만 포함한다:
