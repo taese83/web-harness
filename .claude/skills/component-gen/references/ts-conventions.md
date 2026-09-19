@@ -86,6 +86,10 @@ export function Panel({title, children, className, ref}: PanelProps) {
 `UI_LANE: tailwind-shadcn`에서 벤더링한 Radix 프리미티브에 `forwardRef`가 남아 있을 수 있다 —
 벤더링 시점에 확인하고, 남아 있으면 그대로 두되 신규 컴포넌트에는 쓰지 않는다.
 
+## 커스텀 훅
+
+- `use` 접두사는 안에서 훅을 부를 때만 붙인다. 수명주기 래퍼 훅(`useMount`)을 만들지 않고 구체적 용도로 이름 짓는다. Effect는 외부 시스템 동기화에만 쓴다. 추출은 두 번째 사용처가 생길 때다(`fsd-rules.md`).
+
 ## 쿼리·뮤테이션 타입
 
 - 도메인 응답 타입은 `entities/{entity}/model/types.ts`에 둔다.

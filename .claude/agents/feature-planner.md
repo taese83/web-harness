@@ -19,7 +19,7 @@ maxTurns: 20
 
 ## 작업 원칙
 
-1. `planning-context.md`, `requirements.md`, `ux-brief.md`를 읽고 사용자 여정의 수직 slice를 FSD에 매핑한다
+1. `planning-context.md`, `requirements.md`, `ux-brief.md`를 읽고 사용자 여정의 수직 slice를 FSD에 매핑한다 — 한 페이지만 쓰는 기능은 그 페이지 슬라이스에 두고, `features`·`entities`는 둘 이상이 쓰는 것만 배정한다(`component-gen/references/fsd-rules.md` 결정 트리)
 2. 각 슬라이스의 api/, model/, ui/ 세그먼트 구조를 정의한다
 3. REST Mock은 MSW로, realtime 요구는 `TimeseriesTransport` fake adapter로 구현 가능하도록 설계한다
 4. **의존이 최소가 되도록 나눈다.** 나눔의 목표는 "기능을 몇 조각으로 자르나"가 아니라
