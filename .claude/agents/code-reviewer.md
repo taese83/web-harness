@@ -133,8 +133,9 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - Menu/Popover 항목 클릭으로 트리거되는 인풋에 `autoFocus`만 있고 `useRef` + `requestAnimationFrame` 패턴이 없으면 WARN (포커스 충돌 위험)
 10. **a11y 정적 검사**: jsx-a11y lint 결과를 사용하고, 실제 keyboard/axe/viewport 판정은 `browser-verifier`에 위임
 10-1. **vendored 프리미티브 a11y 보존 검사** (`UI_LANE: tailwind-shadcn`일 때):
-   - Grep으로 `src/shared/ui/` 내 `@radix-ui/` import 파일을 목록화
-   - 해당 파일에서 Radix 구조 요소(`Portal`, `aria-*`/`role` props, focus 관련 배선)가 upstream 형상 대비 제거됐는데 한 줄 사유 주석이 없으면 **FAIL** — a11y가 수정 가능한 repo 소스로 이동한 레인의 안전 하한(I6, `component-gen/references/tailwind-shadcn-styling.md`의 보존 규칙)
+   - Grep으로 `src/shared/ui/` 내 `@radix-ui/`·`@base-ui/` import 파일을 목록화(shadcn은 두 기반을 모두 쓴다 — 한쪽만 보면 다른 쪽이 빈 집합으로 통과한다)
+   - dialog·alertdialog·sheet에 접근 가능한 이름(Title)이 없으면 **FAIL**
+   - 해당 파일에서 기반 프리미티브 구조 요소(`Portal`, `aria-*`/`role` props, focus 관련 배선)가 upstream 형상 대비 제거됐는데 한 줄 사유 주석이 없으면 **FAIL** — a11y가 수정 가능한 repo 소스로 이동한 레인의 안전 하한(I6, `component-gen/references/tailwind-shadcn-styling.md`의 보존 규칙)
    - `cn()` 병합 순서 역전(`cn(className, variants(...))` — 호출부 override가 무시됨)은 WARN
 11. **로컬 도메인 상태 정적 검사** (`state-contract.md`가 있을 때):
    - entity mutation에 `Partial<Entity>`가 사용되며 ID/reference/order/version/createdAt을 제외하지 않으면 FAIL

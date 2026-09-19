@@ -41,6 +41,7 @@
 - `page.waitForTimeout`을 쓰지 않는다 **[lint]**. `test.only`와 조건 없는 `test.skip`을 남기지 않는다 **[lint]**.
 - `await`를 빠뜨린 단언은 조용히 통과한다 — `playwright/missing-playwright-await`가 잡는다 **[lint]**.
 - 테스트끼리 상태를 공유하지 않는다. 각 테스트는 자기 데이터로 시작한다.
+- CI에서 재시도로 통과한 테스트는 실패다(템플릿 `failOnFlakyTests`). 재시도 횟수를 늘려 넘기지 않는다.
 
 ## 하지 않는 것
 

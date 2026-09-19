@@ -75,6 +75,7 @@
 - `{app}/src/app/providers/RouterProvider.tsx` (template section: ROUTER_PROVIDER)
 - `{app}/src/app/routes/index.ts` (template section: ROUTES_INDEX)
 - `{app}/src/app/routes/Routes.tsx` (template section: ROUTES_TSX)
+- `{app}/src/app/routes/RouteErrorBoundary.tsx` (template section: ROUTE_ERROR_BOUNDARY)
 - `{app}/src/shared/ui/ErrorFallback/ErrorFallback.tsx`와 `index.ts` (template section: ERROR_FALLBACK)
 - `{app}/src/pages/home/index.ts` (template section: HOME_INDEX)
 - `{app}/src/pages/not-found/ui/NotFoundPage.tsx`와 `index.ts` (template section: NOT_FOUND_PAGE)

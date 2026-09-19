@@ -87,37 +87,60 @@ Dependency metadata: runtime `react-hook-form`, `zod`, `@hookform/resolvers`. �
 
 ### 기본 사용 패턴
 ```tsx
-import {useForm} from 'react-hook-form'
 import {zodResolver} from '@hookform/resolvers/zod'
+import {useForm} from 'react-hook-form'
 import {z} from 'zod'
 
 const schema = z.object({
-  email: z.string().email('올바른 이메일을 입력해주세요'),
+  email: z.email('올바른 이메일을 입력해주세요'),
   password: z.string().min(8, '8자 이상 입력해주세요'),
 })
 
 type FormValues = z.infer<typeof schema>
 
-export const LoginForm = () => {
-  const {register, handleSubmit, formState: {errors}} = useForm<FormValues>({
+type LoginFormProps = {
+  onSubmit: (values: FormValues) => Promise<void>
+}
+
+export function LoginForm({onSubmit}: LoginFormProps) {
+  const {register, handleSubmit, formState: {errors, isSubmitting}} = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
   })
 
-  const onSubmit = (data: FormValues) => {
-    console.log(data)
-  }
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('email')} />
-      {errors.email && <span>{errors.email.message}</span>}
-      <input type="password" {...register('password')} />
-      {errors.password && <span>{errors.password.message}</span>}
-      <button type="submit">로그인</button>
+    <form noValidate onSubmit={event => void handleSubmit(onSubmit)(event)}>
+      <label htmlFor="login-email">이메일</label>
+      <input
+        id="login-email"
+        type="email"
+        autoComplete="username"
+        aria-invalid={errors.email ? true : undefined}
+        aria-describedby={errors.email ? 'login-email-error' : undefined}
+        {...register('email')}
+      />
+      {errors.email && <p id="login-email-error">{errors.email.message}</p>}
+
+      <label htmlFor="login-password">비밀번호</label>
+      <input
+        id="login-password"
+        type="password"
+        autoComplete="current-password"
+        aria-invalid={errors.password ? true : undefined}
+        aria-describedby={errors.password ? 'login-password-error' : undefined}
+        {...register('password')}
+      />
+      {errors.password && <p id="login-password-error">{errors.password.message}</p>}
+
+      <button type="submit" disabled={isSubmitting}>로그인</button>
     </form>
   )
 }
 ```
+
+- 검증 시점은 `mode: 'onTouched'` — 첫 blur 뒤에 검증하고 이후 입력마다 다시 본다(`design-principles-interaction-controls.md`).
+- 라벨·`aria-invalid`·`aria-describedby`·`autocomplete`는 접근성 하한이다(`component-gen/references/accessibility.md`). 비밀번호·OTP 필드에서 붙여넣기를 막지 않는다.
+- Zod 4는 `z.email()`을 쓴다(`z.string().email()`은 deprecated). async 제출은 `event => void handleSubmit(fn)(event)`로 넘긴다(`no-misused-promises`).
 
 ---
 
@@ -152,9 +175,9 @@ function App() {
 
 ## Tailwind CSS + shadcn/ui
 
-Dependency metadata: runtime `tailwindcss`, `@tailwindcss/vite`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot`(+ 프리미티브별 `@radix-ui/react-*`). 적용 시 공식 metadata에서 확인한 exact version을 기록하고 typed package broker를 사용한다.
+Dependency metadata: runtime `tailwindcss`, `@tailwindcss/vite`, `class-variance-authority`, `clsx`, `tailwind-merge`, 기반 프리미티브 — Radix(`@radix-ui/react-slot` + 프리미티브별 `@radix-ui/react-*`) 또는 Base UI(`@base-ui/react`) 중 하나. 적용 시 공식 metadata에서 확인한 exact version을 기록하고 typed package broker를 사용한다.
 
-shadcn CLI는 사용하지 않는다 — 프리미티브를 **`src/shared/ui/`에 수동 vendoring**한다(CLI 기본 경로 `src/components/ui/`·`components.json`은 이 하네스의 FSD 규칙·에이전트 소유권과 충돌). vendored 파일은 upstream-파생물이다: 스타일·구성은 바꿔도 **Radix a11y props(`aria-*`·`role`)·Portal·focus 구조는 보존**하고, 이탈 시 한 줄 사유를 남긴다.
+shadcn CLI의 쓰기 명령은 사용하지 않는다 — 프리미티브를 **`src/shared/ui/`에 수동 vendoring**한다(`add`가 의존성을 자동 설치해 typed package broker를 우회한다). vendored 파일은 upstream-파생물이다: 스타일·구성은 바꿔도 **기반 프리미티브(Radix·Base UI)의 a11y props(`aria-*`·`role`)·Portal·focus 구조는 보존**하고, 이탈 시 한 줄 사유를 남긴다.
 
 ### `vite.config.ts` (Tailwind v4 — PostCSS 불필요)
 ```ts

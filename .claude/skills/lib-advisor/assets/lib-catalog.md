@@ -83,7 +83,7 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 
 ### 폼 상태 관리
 - **추천:** `react-hook-form v7`
-- **이유:** 비제어 컴포넌트 방식으로 리렌더 최소화. 기본 mode: 'onSubmit' — 제출 후 개별 onChange 재검증.
+- **이유:** 비제어 컴포넌트 방식으로 리렌더 최소화. 하네스 기본 mode는 `onTouched` — 첫 blur 뒤 검증하고 이후 입력마다 재검증(design-principles-interaction-controls).
 - **대안:** `formik` — 제어 컴포넌트, 리렌더 많음. 레거시 코드베이스에서나 선택.
 - **피할 것:** 복잡한 폼에 `useState` 직접 관리 — 유효성 로직 파편화됨.
 
@@ -102,7 +102,7 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 | 레인 | 언제 | 트레이드오프 |
 |---|---|---|
 | `mui` — `@mui/material` | 어드민·대시보드·폼 밀도 높은 내부 도구, 빠른 완성 우선 | a11y가 node_modules에 있어 **불변·업그레이드 가능**. Material 형태 언어가 강해 브랜드-포워드 디자인엔 천장 |
-| `tailwind-shadcn` — `tailwindcss` + vendored Radix 프리미티브 | 브랜드-포워드·소비자 제품·디자인 자유도 우선 | 디자인 완전 제어(토큰=CSS 변수=@theme). 단 a11y가 **vendored 소스(수정 가능 표면)**로 이동 — 보존 규칙 필수(setup-snippets 참조) |
+| `tailwind-shadcn` — `tailwindcss` + vendored 헤드리스 프리미티브(Radix 또는 Base UI) | 브랜드-포워드·소비자 제품·디자인 자유도 우선 | 디자인 완전 제어(토큰=CSS 변수=@theme). 단 a11y가 **vendored 소스(수정 가능 표면)**로 이동 — 보존 규칙 필수(setup-snippets 참조) |
 
 - **판단 축:** "이 서비스의 디자인이 차별점인가?" 예 → `tailwind-shadcn`. "밀도·속도가 차별점인가?" 예 → `mui`.
 - **대안 (어드민/대시보드):** `Ant Design` — 테이블·폼·레이아웃 풍부하나 번들 크고 레인 계약 밖.
@@ -113,7 +113,7 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
   스캐폴드는 `*_TAILWIND` 템플릿 섹션으로 레인 분기한다(project-init checklist).
 
 ### 헤드리스 컴포넌트 (레인 밖 개별 조합 시)
-- **추천:** `@radix-ui/react-*`
+- **추천:** `@radix-ui/react-*` 또는 `@base-ui/react` — shadcn은 2026-07부터 Base UI가 기본이고 Radix도 지원한다. 한 앱에 하나만 쓴다
 - **이유:** 접근성(WAI-ARIA) 내장, 비스타일 컴포넌트로 커스터마이징 완전 자유.
 - **함께 사용:** `tailwindcss` + `class-variance-authority(cva)` + `clsx` + `tailwind-merge`
 

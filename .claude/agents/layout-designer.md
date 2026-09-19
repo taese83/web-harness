@@ -139,6 +139,9 @@ eval fixture 미등록 — 명명 수준이다.
 
 출력 파일:
 - `_workspace/02_design/layout-spec.md`
+- `_workspace/02_design/seo-spec.md` — `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`일 때만. 라우팅 맵의 공개 라우트마다
+  title·description·canonical·OG·robots(noindex 여부)와 sitemap 포함 여부를 적고, CSR이면 초기 HTML에 없는 메타는
+  JS 비실행 크롤러·소셜 미리보기에 보이지 않는다는 한계와 SSR 전환 조건을 함께 적는다(`seo-verifier`가 대조한다).
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘거나 페이지가 8개를 넘으면 `_workspace/02_design/layout-spec/`으로 분할하고 글로벌 레이아웃·(라우팅 맵 또는 서피스 맵) 절 1개 + 페이지별 절 + `INDEX.md`를 만든다.
 

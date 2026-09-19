@@ -104,7 +104,7 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/02_design\/runtime-data-contract\.json$/,
     /^_workspace\/02_design\/build-environment\.json$/,
   ],
-  'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/],
+  'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/, /^_workspace\/02_design\/seo-spec\.md$/],
   'lib-api-designer': [/^_workspace\/02_design\/api-design\.md$/],
   'next-contract-designer': [
     /^_workspace\/02_design\/next-contract-matrices\.md$/,

@@ -420,8 +420,8 @@
     ],
     "prompt": "검색 유입이 중요한 공개 행사 안내 사이트를 만들어줘. 행사 목록과 상세 페이지가 검색엔진과 소셜 공유에 잘 노출돼야 해.",
     "assertions": [
-      "seo-meta-builder produces _workspace/02_design/seo-spec.md with per-route title, description, canonical, and OG rows matching the actual route inventory",
-      "robots.txt and sitemap ownership stays with seo-meta-builder and noindex routes are excluded from the sitemap",
+      "tech-stack.md declares PUBLIC_EXPOSURE: yes and layout-designer produces _workspace/02_design/seo-spec.md with per-route title, description, canonical, and OG rows matching the actual route inventory",
+      "robots.txt and sitemap rules are specified in seo-spec.md and noindex routes are excluded from the sitemap",
       "the CSR SEO limitation and SSR migration trigger are recorded in the spec instead of silently promising crawler visibility",
       "seo-verifier returns qa-seo.md and a missing seo-spec with a public-exposure requirement is reported as BLOCKED, not PASS",
       "once seo-spec.md exists, qa-seo.md is a required release report and its absence or non-passing result blocks the release manifest"
@@ -435,7 +435,7 @@
     ],
     "prompt": "사내 관리자만 로그인해서 쓰는 재고 관리 도구를 만들어줘. 외부 공개나 검색 노출은 없어.",
     "assertions": [
-      "seo-meta-builder and seo-verifier are not invoked for an authenticated internal tool",
+      "tech-stack.md declares PUBLIC_EXPOSURE: no, no seo-spec.md is produced, and seo-verifier is not invoked for an authenticated internal tool",
       "no robots.txt/sitemap/OG scaffolding is generated without a public-exposure requirement"
     ]
   },
@@ -581,7 +581,7 @@
     "assertions": [
       "tech-stack.md records UI_LANE: tailwind-shadcn with a one-line rationale tied to the lib-catalog decision axis (design as differentiator)",
       "vendored primitives land under src/shared/ui with explicit named exports, and no src/components/ui or components.json appears",
-      "vendored Radix-based files preserve aria/role/Portal/focus wiring, with a one-line rationale on any deviation",
+      "vendored Radix- or Base UI-based files preserve aria/role/Portal/focus wiring, with a one-line rationale on any deviation",
       "node .claude/scripts/validate-ui-lane.mjs --project reports PASS with no @mui or @emotion imports in src",
       "tokens live in src/app/style.css @theme derived from the design-system output, with no feature-local palettes or arbitrary color values"
     ]

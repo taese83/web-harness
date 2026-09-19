@@ -83,7 +83,7 @@ export function Panel({title, children, className, ref}: PanelProps) {
 }
 ```
 
-`UI_LANE: tailwind-shadcn`에서 벤더링한 Radix 프리미티브에 `forwardRef`가 남아 있을 수 있다 —
+`UI_LANE: tailwind-shadcn`에서 벤더링한 Radix 기반 프리미티브에 `forwardRef`가 남아 있을 수 있다 —
 벤더링 시점에 확인하고, 남아 있으면 그대로 두되 신규 컴포넌트에는 쓰지 않는다.
 
 ## 커스텀 훅

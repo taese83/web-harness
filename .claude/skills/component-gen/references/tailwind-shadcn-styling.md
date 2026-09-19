@@ -22,13 +22,14 @@ mui-styling.md와 같은 형상 원칙("공개 API 우선, 내부 selector 금�
 
 ## 프리미티브 vendoring 규칙
 
-- 위치는 **`src/shared/ui/{primitive}/`** — shadcn CLI 기본 경로(`src/components/ui/`,
-  `components.json`)는 이 하네스의 FSD 레이어 규칙·에이전트 소유권과 충돌하므로 CLI를 쓰지 않고
-  수동 vendoring한다. `cn()`은 `src/shared/lib/utils.ts`(developer 소유).
+- 위치는 **`src/shared/ui/{primitive}/`**. shadcn CLI의 쓰기 명령(`add` 등)은 쓰지 않고 수동 vendoring한다 —
+  설치 경로는 `components.json`의 `aliases.ui`로 맞출 수 있지만, `add`가 의존성을 **자동 설치**해 typed package
+  broker를 우회하고 프리미티브별 `index.ts` 구조와도 맞지 않는다. `cn()`은 `src/shared/lib/utils.ts`(developer 소유).
 - 각 프리미티브는 `index.ts`에서 **명시 named export**만 한다(`export *` 금지 — fsd-rules).
 - vendored 파일은 **upstream-파생물**이다: 스타일(클래스·variants)·구성은 자유롭게 바꾸되,
-  **Radix가 공급하는 a11y 구조는 보존한다** — `aria-*`·`role` props, `Portal`, focus trap /
-  roving tabindex 배선. 이탈이 필요하면 해당 줄에 한 줄 사유 주석을 남긴다.
+  **기반 프리미티브(Radix `@radix-ui/react-*` 또는 Base UI `@base-ui/react`)가 공급하는 a11y 구조는 보존한다** —
+  `aria-*`·`role` props, `Portal`, focus trap / roving tabindex 배선. dialog·alertdialog·sheet는 접근 가능한 이름(Title,
+  시각적으로 숨겨도 된다)을 반드시 가진다 — Base UI는 빠져도 경고하지 않는다. 이탈이 필요하면 해당 줄에 한 줄 사유 주석을 남긴다.
   (근거: mui 레인은 a11y가 node_modules(불변)에 있지만 이 레인은 수정 가능한 repo 소스로
   이동한다 — 보존 규칙 없이는 I6 안전 하한이 조용히 약화된다.)
 

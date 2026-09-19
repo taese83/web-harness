@@ -3409,6 +3409,14 @@
       "replace": "  const status = violations.length > 0 ? 'FAIL' : 'PASS'",
       "test": ".claude/scripts/test-layer-boundaries.mjs",
       "why": "해석 못 한 별칭을 PASS로 세면 번들러 전용 별칭만 두는 것으로 방향 검사를 통째로 벗어난다"
+    },
+    {
+      "id": "seo-report-public-exposure-trigger",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md') || declaresPublicExposure(projectRoot)",
+      "replace": "  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md')",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "스펙 파일만 트리거로 쓰면 생산자가 빠졌을 때 공개 사이트의 SEO QA가 조용히 사라진다"
     }
   ]
 }

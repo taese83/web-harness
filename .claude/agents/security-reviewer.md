@@ -44,10 +44,16 @@ maxTurns: 20
 
 - `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation ls-files`로 **추적 중인 비밀 파일**을 확인한다.
   이 연산은 다른 연산과 달리 secret 경로를 숨기지 않고 이름을 보고한다 — 추적 사실 자체가 finding이기 때문이다(내용은 읽지 않는다).
-  `tracked secret-bearing paths: none`이 아니면 그 목록이 곧 증거다. 이어서 `.gitignore`가 `.env`·`.env.*`(`.env.example`류 제외)를
-  실제로 차단하는지 대조한다.
-- `.env.development`·`.env.production`처럼 환경별 파일이 저장소에 존재하는데 `.gitignore`에 없으면,
-  내용 열람 없이도(파일명 근거만으로) `HIGH — 커밋 여부·내용 확인 및 rotate는 사용자 액션 필요`로 보고한다.
+  `tracked secret-bearing paths: none`이 아니면 그 목록을 아래 규칙으로 판정한다 — 어느 규칙이 서는지는 프로젝트가 정한다.
+- **서버를 가진 프로젝트**(프로필 `vite-serverless-hybrid`·`next-app-fullstack`, 또는 `api/`·`migrations/` 보유)는
+  `.env.example`류를 뺀 **모든 `.env*` 추적이 `HIGH`**다(`vite-serverless-hybrid/references/env-management-hybrid.md` —
+  서버 비밀이 같은 파일 체계에 들어온다). `.gitignore`가 `.env`·`.env.*`를 차단하는지도 대조한다.
+- **서버 없는 SPA**(`react-vite-spa`, `env-management.md`)는 공개값 파일(`.env.dev`·`.env.staging`·`.env.production`)
+  추적이 규약이다. 비공개 파일(`.env`·`.env.local`·`.env.*.local`)이 **추적되면** 파일명만으로 `HIGH`다. 공개값 파일은
+  Grep 도구의 **count 모드**로 값을 출력하지 않고 두 수를 대조한다 — 변수 줄(`^[A-Za-z_][A-Za-z0-9_]*=`)과 공개 접두사 줄
+  (`^(VITE_|NEXT_PUBLIC_|PUBLIC_)[A-Za-z0-9_]*=`). 다르면 비공개 이름이 섞인 것이므로 `HIGH`다. 이 파일들은 줄 내용을 출력하는
+  모드로 검색하지 않는다.
+- 보고 문구는 `HIGH — 커밋 여부·내용 확인 및 rotate는 사용자 액션 필요`다.
 - 이 검사는 secret 값을 읽는 것이 목적이 아니다 — **추적 여부**가 finding이며, 값 확인·rotate는 사용자에게 위임한다.
 
 ## 실행 규칙

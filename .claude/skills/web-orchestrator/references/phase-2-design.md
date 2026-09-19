@@ -18,7 +18,7 @@ Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽
 
 **Wave 1** — 병렬 실행 (활성화된 Wave 0/0-A 완료 후):
 - `design-system-architect` → `_workspace/02_design/design-system.md`
-- `layout-designer` → `_workspace/02_design/layout-spec.md`
+- `layout-designer` → `_workspace/02_design/layout-spec.md`(+ `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 `seo-spec.md`)
 - `api-schema-designer` → `_workspace/02_design/api-schema.md`
 - `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract-designer` → `_workspace/02_design/state-contract.md`. 성능 예산 요구·`TIMESERIES_MODE`·공개 서비스이면 `performance-budget-designer` → `_workspace/02_design/performance-budget.md`
 

@@ -162,6 +162,8 @@ import {ErrorBoundary} from 'react-error-boundary'
 
 `ErrorFallback`은 `src/shared/ui/ErrorFallback/`에 한 번만 구현한다. production UI에 raw `error.message`, stack, API body를 노출하지 않는다. "다시 시도"는 QueryErrorResetBoundary를 재설정해야 한다.
 
+**라우터 안의 오류는 이 경계에 오지 않는다.** data router(`createBrowserRouter`)는 라우트 렌더·loader 오류를 먼저 잡고, 라우트에 `ErrorBoundary`가 없으면 기본 화면이 message와 stack을 그대로 보인다. 모든 라우트를 `ErrorBoundary`를 가진 상위 라우트의 `children`에 두고(템플릿 `ROUTE_ERROR_BOUNDARY`), 그 경계도 같은 `ErrorFallback`을 쓰며 상세는 `reportError`로 넘긴다. 위 App 경계는 라우터 밖 오류용으로 남긴다. Next App Router는 같은 역할을 라우트 세그먼트의 `error.tsx`·`global-error.tsx`가 맡는다 — 같은 규칙(상세 비노출·보고)을 적용한다.
+
 ## Observability Adapter
 
 제품 코드가 특정 vendor SDK를 직접 호출하지 않도록 `src/shared/observability/` adapter를 둔다.

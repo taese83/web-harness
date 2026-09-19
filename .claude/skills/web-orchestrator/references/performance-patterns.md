@@ -128,10 +128,12 @@ export const StatCard = memo(({title, value, trend}: StatCardProps) => (
   <Card>...</Card>
 ))
 
-// 자식에게 전달하는 콜백은 useCallback으로 안정화
+// 자식에게 전달하는 콜백은 useCallback으로 안정화 — useMutation 반환 객체는 참조가 매번 바뀌므로
+// 의존성에는 안정적인 mutate만 넣는다(@tanstack/query/no-unstable-deps)
+const {mutate: deleteItem} = useDeleteItem()
 const handleDelete = useCallback((id: string) => {
-  deleteMutation.mutate(id)
-}, [deleteMutation])
+  deleteItem(id)
+}, [deleteItem])
 ```
 
 **적용 기준**: 부모 리렌더가 잦고 자식이 실제로 변하지 않는 경우에만 적용. 불필요한 memo는 오히려 비용을 높인다.
@@ -152,13 +154,25 @@ const handleDelete = useCallback((id: string) => {
 </head>
 ```
 
-React Router Framework/Data mode에서 해당 API가 실제 지원되는 경우의 다음 route prefetch:
+React Router **Framework mode**에서만 `<Link prefetch>`가 동작한다 — Data mode(`createBrowserRouter`, 이 하네스
+템플릿)·Declarative mode에서는 아무것도 하지 않는다(react-router 8 소스: framework context가 없으면 prefetch 비활성).
+Data mode에서는 진입 의도 시점(hover·focus)에 데이터와 코드를 직접 당긴다:
 ```tsx
-import {Link} from 'react-router'
-<Link to="/dashboard" prefetch="intent">대시보드</Link>
+const prefetchDetail = () => {
+  void queryClient.prefetchQuery(itemQueries.detail(id))
+  void import('@pages/item-detail/ui/ItemDetailPage')
+}
+
+<Link
+  to={`/items/${id}`}
+  onMouseEnter={prefetchDetail}
+  onFocus={prefetchDetail}
+>
+  상세
+</Link>
 ```
 
-Declarative mode의 일반 `<Link>`에 `prefetch`를 붙이지 않는다. preload/prefetch는 사용 확률, 데이터 비용, mobile network를 측정하고 적용한다.
+preload/prefetch는 사용 확률, 데이터 비용, mobile network를 측정하고 적용한다.
 
 ---
 

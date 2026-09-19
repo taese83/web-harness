@@ -18,7 +18,7 @@ maxTurns: 25
 - loading, error, empty, populated 상태의 사용자 피드백
 - Chromium 기준 핵심 흐름 smoke test
 - 키보드 전용 탐색, focus visibility, dialog focus trap, skip link
-- `@axe-core/playwright` 기반 WCAG 2.2 A/AA 자동 점검
+- `@axe-core/playwright` 기반 자동 점검 — 기본 규칙 + `target-size`(2.5.8, 기본 꺼짐이라 명시적으로 켠다). 2.4.11·2.5.7·3.3.8 등 WCAG 2.2 신규 기준 대부분은 자동화되지 않으므로 axe 통과를 2.2 준수로 보고하지 않는다
 - 브라우저 console error, uncaught exception, failed request 수집
 - mobile/tablet/desktop viewport overflow와 주요 시각 회귀
 - visual contract가 있으면 320 CSS px/400% reflow, 승인 baseline, theme/locale/state matrix, CLS

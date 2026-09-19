@@ -268,26 +268,31 @@ const queryClient = new QueryClient({
 ```tsx
 import {useForm} from 'react-hook-form'
 
-interface FormValues {
-  fieldName: string
+type FormValues = {
+  title: string
 }
 
-export function FeatureForm() {
-  const {register, handleSubmit, formState: {errors}} = useForm<FormValues>({
-    // 기본 mode: 'onSubmit' — 제출 후 각 필드가 onChange로 재검증
-    // mode: 'onBlur' 로 변경 가능하나 기본값 유지 권장
-  })
+type FeatureFormProps = {
+  onSubmit: (values: FormValues) => Promise<void>
+}
 
-  const onSubmit = (data: FormValues) => {
-    // 처리
-  }
+export function FeatureForm({onSubmit}: FeatureFormProps) {
+  const {register, handleSubmit, formState: {errors}} = useForm<FormValues>({mode: 'onTouched'})
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('fieldName', {required: true})} />
-      {errors.fieldName && <span>필수 입력입니다</span>}
+    <form noValidate onSubmit={event => void handleSubmit(onSubmit)(event)}>
+      <label htmlFor="feature-title">제목</label>
+      <input
+        id="feature-title"
+        aria-invalid={errors.title ? true : undefined}
+        aria-describedby={errors.title ? 'feature-title-error' : undefined}
+        {...register('title', {required: '제목을 입력해주세요'})}
+      />
+      {errors.title && <p id="feature-title-error">{errors.title.message}</p>}
       <button type="submit">제출</button>
     </form>
   )
 }
 ```
+
+검증 시점·접근성 배선·Zod 스키마 연결은 `lib-advisor/assets/setup-snippets.md` 「React Hook Form + Zod」가 정본이다.

@@ -1,4 +1,4 @@
-import {existsSync, readdirSync} from 'node:fs'
+import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
 import {profileReportRequirements} from './release-profile-lib.mjs'
 
@@ -51,8 +51,29 @@ export const isVisualProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
 const isPerformanceProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/performance-budget.md')
+// 공개 노출은 tech-stack.md의 `PUBLIC_EXPOSURE: yes` 선언으로도 켠다. 스펙 파일만 트리거로 쓰면 생산자가
+// 빠졌을 때 SEO QA가 조용히 사라진다 — 선언이 있으면 qa-seo가 필수이고, 스펙이 없으면 seo-verifier가 BLOCKED다.
+// 분할 산출물(`tech-stack/`)도 읽는다. 템플릿 그대로의 `yes | no`는 선언이 아니다.
+const PUBLIC_EXPOSURE_YES = /^[\s>*-]*\**PUBLIC_EXPOSURE\**:\s*[`*]*yes\b(?![`*]*\s*\|)/im
+export const declaresPublicExposure = projectRoot => {
+  const plan = join(projectRoot, '_workspace/01_plan')
+  const shard = join(plan, 'tech-stack')
+  const files = [join(plan, 'tech-stack.md')]
+  try {
+    if (existsSync(shard)) files.push(...readdirSync(shard).filter(name => name.endsWith('.md')).map(name => join(shard, name)))
+  } catch {
+    // 읽지 못한 분할 디렉터리는 선언이 없는 것과 같게 본다 — 스펙 파일 트리거는 그대로 남는다
+  }
+  return files.some(file => {
+    try {
+      return existsSync(file) && PUBLIC_EXPOSURE_YES.test(readFileSync(file, 'utf8'))
+    } catch {
+      return false
+    }
+  })
+}
 const isSeoProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md')
+  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md') || declaresPublicExposure(projectRoot)
 const isTimeseriesProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/timeseries-architecture.md')
 

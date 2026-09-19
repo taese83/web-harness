@@ -151,6 +151,7 @@ cache
 *.tsbuildinfo
 
 # local env overrides
+.env
 .env.local
 .env.*.local
 
@@ -528,6 +529,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  // 재시도로 통과한 테스트를 green으로 세지 않는다 — flaky는 CI에서 실패다.
+  failOnFlakyTests: Boolean(process.env.CI),
   reporter: process.env.CI ? [['html', {open: 'never'}], ['github']] : 'list',
   expect: {
     toHaveScreenshot: {
@@ -581,7 +584,8 @@ test('핵심 화면이 오류 없이 접근 가능하다', async ({page}) => {
   await page.keyboard.press('Tab')
   await expect(page.locator(':focus-visible')).toBeVisible()
 
-  const accessibility = await new AxeBuilder({page}).analyze()
+  // @axe-core/playwright 4.11 기본 실행은 WCAG 2.2 target-size(2.5.8)를 끈다 — 다른 규칙은 그대로 두고 이 규칙만 더 켠다.
+  const accessibility = await new AxeBuilder({page}).options({rules: {'target-size': {enabled: true}}}).analyze()
   expect(accessibility.violations).toEqual([])
   expect(consoleErrors).toEqual([])
   expect(failedRequests).toEqual([])
@@ -857,35 +861,66 @@ export {ROUTES} from './Routes'
 ```tsx
 import {lazy, Suspense} from 'react'
 import {Navigate} from 'react-router'
+import type {RouteObject} from 'react-router'
+import {RouteErrorBoundary} from './RouteErrorBoundary'
 
 const HomePage = lazy(() => import('@pages/home/ui/HomePage'))
 const NotFoundPage = lazy(() => import('@pages/not-found/ui/NotFoundPage'))
 
-export const ROUTES = [
+export const ROUTES: RouteObject[] = [
   {
-    path: '/',
-    element: <Navigate to="/home" replace />,
-  },
-  {
-    path: '/home',
-    element: (
-      <Suspense fallback={<div role="status">로딩 중...</div>}>
-        <HomePage />
-      </Suspense>
-    ),
-  },
-  {
-    path: '*',
-    element: (
-      <Suspense fallback={<div role="status">로딩 중...</div>}>
-        <NotFoundPage />
-      </Suspense>
-    ),
+    // 라우트 렌더·loader 오류는 라우터가 먼저 잡는다 — 경계가 없으면 기본 화면이 message·stack을 그대로 보인다.
+    ErrorBoundary: RouteErrorBoundary,
+    children: [
+      {
+        path: '/',
+        element: <Navigate to="/home" replace />,
+      },
+      {
+        path: '/home',
+        element: (
+          <Suspense fallback={<div role="status">로딩 중...</div>}>
+            <HomePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '*',
+        element: (
+          <Suspense fallback={<div role="status">로딩 중...</div>}>
+            <NotFoundPage />
+          </Suspense>
+        ),
+      },
+    ],
   },
 ]
 ```
 
 모든 route를 무조건 lazy-load하지 않는다. 초기 route와 작은 화면은 bundle 측정 결과에 따라 정적 import를 사용한다. 공개 콘텐츠/SEO 요구가 있으면 CSR router를 전제로 하지 말고 `tech-stack.md`의 rendering profile을 따른다.
+
+---
+
+## ROUTE_ERROR_BOUNDARY
+
+```tsx
+import {useEffect} from 'react'
+import {useRouteError} from 'react-router'
+import {ErrorFallback} from '@shared/ui/ErrorFallback'
+
+export function RouteErrorBoundary() {
+  const error = useRouteError()
+
+  useEffect(() => {
+    // 상세는 화면이 아니라 전역 error 이벤트로 — observability adapter가 여기서 받는다.
+    reportError(error)
+  }, [error])
+
+  return <ErrorFallback error={error} resetErrorBoundary={() => window.location.reload()} />
+}
+```
+
+라우터 안의 오류는 App의 `ErrorBoundary`까지 올라가지 않는다. 라우트를 추가할 때 이 경계 아래 `children`에 둔다.
 
 ---
 
