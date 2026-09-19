@@ -86,7 +86,7 @@ maxTurns: 45
 - `layerMap`이 덮지 않는 경로에는 쓸 수 없다 — 훅이 막는다. 그 경로가 필요하면 스팩이
   낡은 것이며 위 블록으로 요청한다.
 - 기존 코드 변경은 `minimal-change-contract.md`가 canonical이다.
-- 코드 작성 규약은 `component-gen/references/ts-conventions.md`.
+- 코드 작성 규약은 `component-gen/references/ts-conventions.md`, 테스트 작성 규약은 같은 폴더의 `testing.md`.
 
 ## 주석
 

@@ -83,3 +83,8 @@ test('레이어 방향 검사: --project-root(프로젝트 안)와 --json만 허
   assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root /etc').allowed, false)
   assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root . --fix').allowed, false)
 })
+
+test('품질 러너: 진단 전용 deadcode check를 고를 수 있다', () => {
+  assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check deadcode').allowed, true)
+  assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check knip').allowed, false)
+})

@@ -18,7 +18,7 @@ import {delimiter, dirname, isAbsolute, join, relative, resolve, sep} from 'node
 import {sha256} from './evidence-lib.mjs'
 
 const PACKAGE_EXECUTABLES = new Set([
-  'cypress', 'eslint', 'jest', 'next', 'playwright', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
+  'cypress', 'eslint', 'jest', 'knip', 'next', 'playwright', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
 ])
 const SYSTEM_EXECUTABLES = new Set(['docker', 'node'])
 const SAFE_EXECUTABLES = new Set([...PACKAGE_EXECUTABLES, ...SYSTEM_EXECUTABLES])
@@ -173,6 +173,11 @@ export const hasMeaningfulProfileScript = (id, definition, source, suppliedAnaly
     return allCommandsMatch(commands, command => isTsc(command) || (command.executable === 'turbo' && turboTask(command.args) === 'typecheck'))
   }
   if (id === 'quality.unit') return allCommandsMatch(commands, isUnit)
+  // 진단은 읽기 전용이어야 한다 — knip --fix 계열은 파일을 지우고 package.json 의존성을 뺀다.
+  if (id === 'deadcode') {
+    return allCommandsMatch(commands, command => command.executable === 'knip' &&
+      !command.args.some(arg => /^--(?:fix|fix-type|allow-remove-files|format)(?:=|$)/.test(arg)))
+  }
   if (id === 'vite.build') {
     return commands.some(command => command.executable === 'vite' && command.args[0] === 'build') &&
       allCommandsMatch(commands, command => isTsc(command) || (command.executable === 'vite' && command.args[0] === 'build')) ||

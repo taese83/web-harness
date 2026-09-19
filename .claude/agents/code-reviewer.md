@@ -149,6 +149,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - production 코드의 Mock transport import
    - runtime schema를 우회한 message assertion
 13. **미사용·고아 파일 검사** (리팩토링 후 잔재 감지):
+   - `_workspace/04_qa/evidence/deadcode.json`(knip receipt)이 `FAIL`이면 미사용 항목이 **있다** — 목록은 receipt에 없으므로 아래 grep과 재사용 목록으로 변경점 안의 후보를 찾는다. `BLOCKED`(스크립트 부재·의존성 드리프트)는 「확인 불가」다
    - `src/` 아래의 모든 `.tsx`/`.ts` 파일을 수집한 뒤 다른 소스 파일에서 단 한 번도 import되지 않는 파일을 WARN으로 기록한다
    - 단, `index.ts`, `main.tsx`, `App.tsx`, `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`는 제외한다
    - Grep 도구로 `from '.*{파일명}'` 패턴의 역참조 여부를 확인한다

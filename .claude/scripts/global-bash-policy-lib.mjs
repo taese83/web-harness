@@ -8,7 +8,7 @@ const CAPABILITY_ID = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/
 const POSITIVE_INTEGER = /^[1-9]\d{0,5}$/
 
 const QUALITY_CHECKS = new Set([
-  'build', 'typecheck', 'lint', 'test', 'coverage', 'browser', 'audit',
+  'build', 'typecheck', 'lint', 'test', 'coverage', 'browser', 'audit', 'deadcode',
   'quality.lint', 'quality.typecheck', 'quality.unit',
   'vite.build', 'vite.browser', 'vite.production-mock-boundary', 'api.unit', 'api.guards',
   'next.build', 'next.route-contract', 'next.client-boundary', 'next.secret-boundary',

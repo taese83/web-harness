@@ -159,7 +159,10 @@ entity query, mutation/form/domain/realtime owner와 `developer`가 완료된 �
 3. `typecheck`, `lint`, `build`, 레이어 방향 — 출력을 `_workspace/04_qa/evidence/layer-boundaries.json`에 저장한다.
    `FAIL`이면 developer로 되돌린다. 미판정(`NOT_DECLARED`·`INCOMPLETE`, exit 3)은 선택 필드가 없거나 별칭을
    못 읽은 것이라 막지 않고 체크포인트 보고에 적는다 — 통과로 세지 않는다
-4. source mutation, unexpected lockfile/config change, production Mock boundary
+4. 미사용 코드(진단 전용): `deadcode` 스크립트가 있으면 `run-quality-gates.mjs --check deadcode`로 receipt를 남긴다.
+   `FAIL`은 knip이 미사용 파일·export·의존성을 찾았다는 뜻이며 막지 않는다. receipt는 출력을 저장하지 않으므로
+   (비밀 유출 방지) 체크포인트 보고에 「미사용 코드 있음」으로 적고, 목록은 사람이 `pnpm deadcode`로 본다
+5. source mutation, unexpected lockfile/config change, production Mock boundary
 
 Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.
 

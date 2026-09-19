@@ -61,6 +61,11 @@ const BASE_CHECKS = new Map([
   ['browser', {scripts: ['test:e2e', 'e2e'], testKind: 'browser', timeoutMs: 900_000}],
   ['audit', {command: ['pnpm', 'audit', '--prod', '--registry=https://registry.npmjs.org'], timeoutMs: 180_000}],
 ])
+// 진단 전용 — `--check`로만 고른다. `--all`·릴리스 증거에 들지 않는다(스크립트가 없는 프로젝트를 막지 않는다).
+// 미사용 파일·export·의존성은 보고이며, 수정 여부는 사람이 정한다.
+const DIAGNOSTIC_CHECKS = new Map([
+  ['deadcode', {scripts: ['deadcode'], timeoutMs: 300_000}],
+])
 const FALLBACK_INGESTION_CHECK = {
   scripts: ['validate:ingestion'],
   requiredScript: 'validate:ingestion',
@@ -348,7 +353,7 @@ if (workflowPolicyErrors.length) {
   process.stderr.write(`Workflow security validation failed: ${workflowPolicyErrors.join('; ')}\n`)
   process.exit(2)
 }
-const checks = new Map([...BASE_CHECKS, ...adapterChecks])
+const checks = new Map([...BASE_CHECKS, ...DIAGNOSTIC_CHECKS, ...adapterChecks])
 if (runtimeDataContract && !checks.has(INGESTION_RECEIPT_ID)) {
   checks.set(INGESTION_RECEIPT_ID, FALLBACK_INGESTION_CHECK)
 }
@@ -529,7 +534,7 @@ const executeCheck = (id, definition) => {
   } else if (requiresExternallyIsolatedDocker && !externallyIsolated) {
     status = 'BLOCKED'
     blockedReason = 'Docker quality commands require externally isolated CI execution'
-  } else if (lockedProfile && packageScriptSource && !hasMeaningfulProfileScript(id, definition, packageScriptSource, packageScriptAnalysis)) {
+  } else if ((lockedProfile || DIAGNOSTIC_CHECKS.has(id)) && packageScriptSource && !hasMeaningfulProfileScript(id, definition, packageScriptSource, packageScriptAnalysis)) {
     status = 'BLOCKED'
     blockedReason = `Profile-bound package script does not satisfy its semantic command contract: ${packageScriptName}`
   } else if (command[0] === 'pnpm' && !dependencyBindingBefore.satisfied) {

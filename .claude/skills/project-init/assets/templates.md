@@ -31,8 +31,11 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "eslint": "9.39.5",
+    "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-playwright": "2.12.0",
     "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-testing-library": "7.16.2",
     "eslint-plugin-unicorn": "65.0.1",
     "globals": "16.5.0",
     "husky": "9.1.7",
@@ -185,6 +188,9 @@ _workspace/04_qa/receipts/
 
 ```js
 import js from '@eslint/js'
+import pluginQuery from '@tanstack/eslint-plugin-query'
+import playwright from 'eslint-plugin-playwright'
+import testingLibrary from 'eslint-plugin-testing-library'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactHooks from 'eslint-plugin-react-hooks'
 import unicorn from 'eslint-plugin-unicorn'
@@ -289,6 +295,24 @@ export default tseslint.config(
       ...reactHooks.configs.flat.recommended.rules,
     },
   },
+  // 테스트 작성 규약(`component-gen/references/testing.md`)은 테스트 파일에만 건다.
+  {
+    files: ['src/**/*.{test,spec}.{ts,tsx}'],
+    ...testingLibrary.configs['flat/react'],
+    rules: {...testingLibrary.configs['flat/react'].rules, 'testing-library/prefer-user-event': 'error'},
+  },
+  {
+    files: ['e2e/**/*.ts'],
+    ...playwright.configs['flat/recommended'],
+    rules: {
+      ...playwright.configs['flat/recommended'].rules,
+      // 기본은 warn이라 lint를 막지 않는다 — 고정 대기와 남겨진 skip은 조용히 쌓이므로 올린다.
+      'playwright/no-wait-for-timeout': 'error',
+      'playwright/no-skipped-test': ['error', {allowConditional: true}],
+    },
+  },
+  // TanStack Query — 쿼리 키 누락(exhaustive-deps)·렌더마다 새 QueryClient(stable-query-client) 등.
+  ...pluginQuery.configs['flat/recommended'].map(config => ({...config, files: ['**/*.{ts,tsx}']})),
 )
 ```
 
@@ -305,6 +329,7 @@ export default tseslint.config(
   "packageManager": "pnpm@11.18.0",
   "engines": {"node": ">=22.22.0"},
   "msw": {"workerDirectory": "./public"},
+  "knip": {"ignore": ["_workspace/**", ".claude/**"]},
   "scripts": {
     "dev": "vite --host=127.0.0.1 --port=8080 --mode dev",
     "build": "tsc -b && vite build",
@@ -317,7 +342,8 @@ export default tseslint.config(
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deadcode": "knip"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -348,12 +374,16 @@ export default tseslint.config(
     "@vitejs/plugin-react": "6.0.3",
     "@vitest/coverage-v8": "4.1.0",
     "eslint": "9.39.5",
+    "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-playwright": "2.12.0",
     "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-testing-library": "7.16.2",
     "eslint-plugin-unicorn": "65.0.1",
     "globals": "16.5.0",
     "husky": "9.1.7",
     "jsdom": "29.0.0",
+    "knip": "6.37.0",
     "msw": "2.12.0",
     "prettier": "3.8.1",
     "typescript": "6.0.2",

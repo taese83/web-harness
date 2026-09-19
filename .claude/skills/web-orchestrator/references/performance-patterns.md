@@ -223,3 +223,23 @@ export const itemQueries = {
 ```
 
 React Query가 queryKey가 바뀌면 이전 요청에 abort signal을 보내므로, `api.get`에 `signal`을 전달하면 자동으로 취소된다.
+
+---
+
+## 9. 데이터 요청 waterfall (developer 책임)
+
+서로 기다릴 이유가 없는 요청이 **차례로** 나가면 화면이 요청 수만큼 늦게 뜬다. 번들 waterfall(§1)과
+별개이며 대개 더 크다.
+
+- **독립 쿼리는 같은 컴포넌트(또는 라우트)에서 함께 시작한다.** 부모가 A를 받아 렌더한 뒤에야 자식이
+  B를 시작하는 구조(부모 쿼리 → 자식 컴포넌트 쿼리)면 B를 부모로 끌어올리거나 부모에서 prefetch한다.
+  suspense 쿼리 여러 개는 `useSuspenseQueries`로 묶는다 — 연달아 `useSuspenseQuery`를 쓰면 직렬이 된다.
+- **lazy 라우트는 코드와 데이터를 함께 당긴다.** 라우트 loader나 링크 hover·진입 시점에
+  `queryClient.prefetchQuery(xxxQueries.detail(id))`를 부른다 — 코드 청크를 받은 뒤 렌더 중에 fetch가
+  시작되면 청크 → 요청이 직렬이 된다.
+- **정말 앞 결과가 필요한 요청만** 직렬로 둔다(`enabled: Boolean(user?.id)`). 그 의존은 쿼리 키에 드러난다.
+- 쿼리 키는 `queryFn`이 읽는 값을 전부 담는다 — 빠지면 필터를 바꿔도 캐시가 갱신되지 않는다. `QueryClient`는
+  렌더마다 만들지 않는다. 생성 템플릿은 둘 다 lint로 막는다(`@tanstack/eslint-plugin-query` `flat/recommended`).
+
+판정은 측정으로 한다 — Playwright trace(`trace: 'on-first-retry'` 또는 `--trace on`)나 브라우저 개발자 도구의
+Network 탭에서 같은 화면의 요청이 앞 요청 완료 직후에만 시작하면 waterfall이다. 추측으로 병렬화하지 않는다.

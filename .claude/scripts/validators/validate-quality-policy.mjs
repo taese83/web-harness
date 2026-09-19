@@ -49,6 +49,13 @@ expectProfile('vite.production-mock-boundary', {kind: 'security'}, 'vitest run t
 if (hasMeaningfulProfileScript('vite.production-mock-boundary', {kind: 'security'}, 'node scripts/noop.mjs')) {
   fail('Vite production boundary accepted an unstructured Node script')
 }
+expectProfile('deadcode', {}, 'knip')
+if (hasMeaningfulProfileScript('deadcode', {}, 'eslint .')) {
+  fail('deadcode check accepted a non-knip script')
+}
+for (const source of ['knip --fix', 'knip --fix-type exports', 'knip --allow-remove-files --fix']) {
+  if (hasMeaningfulProfileScript('deadcode', {}, source)) fail(`deadcode check accepted a mutating script: ${source}`)
+}
 if (hasMeaningfulProfileScript('quality.typecheck', {kind: 'contract'}, 'tsc --version')) {
   fail('diagnostic-only tsc script was accepted')
 }

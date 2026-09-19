@@ -12,6 +12,7 @@
 - `responsive-layout.md` (레인 공용 — 예시는 MUI): 구조적 breakpoint, AppBar, tabs, grid, transform clipping
 - `accessibility.md` (레인 공용): semantic element, keyboard/focus, form error, status, dialog, contrast
 - `ts-conventions.md` (레인 공용): strict TypeScript와 public props/export 규칙
+- `testing.md` (레인 공용): 무엇을 테스트하는가, 쿼리 우선순위, user-event, Playwright locator·단언
 
 ## 공통 금지 (레인 무관)
 
@@ -32,3 +33,4 @@
 3. 모바일 구조 또는 grid/scale 효과가 있으면 `responsive-layout.md`
 4. 사용자 interaction이 있으면 `accessibility.md`
 5. 모든 TypeScript 컴포넌트는 `ts-conventions.md`
+6. 테스트를 쓰면 `testing.md`

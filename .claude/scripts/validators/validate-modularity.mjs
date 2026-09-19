@@ -41,6 +41,7 @@ export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, acti
     '.claude/skills/component-gen/references/responsive-layout.md',
     '.claude/skills/component-gen/references/accessibility.md',
     '.claude/skills/component-gen/references/ts-conventions.md',
+    '.claude/skills/component-gen/references/testing.md',
   ]
   for (const relativePath of focusedMuiReferences) {
     if (!existsSync(join(repositoryRoot, relativePath))) {
