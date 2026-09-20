@@ -29,7 +29,8 @@
 T2 미만이면 `release-manager`가 HANDOFF.md 대신 `_workspace/RELEASE/release-readiness.md`를 작성한다:
 
 - 판정 tier와 근거 (receipt cohort ID, fingerprint, gate error 요약)
-- QA report별 상태 표
+- **막힌 QA report의 이름과 사유만.** 상태 표를 다시 그리지 않는다 — 같은 값이 각 `qa-*.md`의
+  `## Result`와 `evidence/*.json`에 이미 있고, 세 번째 사본은 소비자 없이 드리프트만 만든다
 - **설계→코드 결속 한 줄** — `_workspace/04_qa/qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다. 이 줄은 QA report 자기 신고와 달리 기계가 센 것이다
   - 상태 라벨을 요약·완화하지 않는다. 매니페스트가 없으면 「미생성」이라고 적는다 — 생략하지 않는다
   - `symbolBinding.state`가 `NOT_MEASURED`면 **통과가 아니다**(프로젝트에 파서가 없어 측정하지 못했다)

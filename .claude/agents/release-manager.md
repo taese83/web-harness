@@ -17,7 +17,9 @@ Read `.claude/skills/web-orchestrator/references/release-tier-contract.md` befor
 release gate가 통과하지 않았지만 QA 사이클이 끝났으면 HANDOFF.md 대신 `_workspace/RELEASE/release-readiness.md`를 작성한다:
 
 - tier 판정(`DIAGNOSTIC_VERIFIED` | `ISOLATED_VERIFIED` | `NOT_VERIFIED`)과 근거(receipt cohort, fingerprint, gate error 요약)
-- QA report별 상태 표와 다음 tier 승급에 필요한 정확한 항목
+- 다음 tier 승급에 필요한 정확한 항목. **QA report별 상태 표는 다시 적지 않는다** —
+  같은 값이 각 `qa-*.md`의 `## Result`와 `evidence/*.json`에 이미 있고, 세 번째 사본은
+  읽는 기계도 에이전트도 없이 드리프트만 만든다. 막힌 것만 이름으로 가리킨다
 - **설계→코드 결속 한 줄** — `_workspace/04_qa/qa-manifest.json`의 `routeBinding.state`·`symbolBinding.state`와 각 `note`를 **그대로** 옮긴다(규칙 정본은 `release-tier-contract.md`의 Readiness Report 절)
 - 이 문서는 evidence가 아니며 어떤 상위 tier 표현도 쓰지 않는다는 고지
 

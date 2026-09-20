@@ -17,7 +17,7 @@ web-harness PR 작성 가이드. `/pr-drafter`에서 초안 작성 시 사용한
 ## 체크리스트
 - [ ] 테스트 통과 (`pnpm test`)
 - [ ] 정상 동작 확인
-- [ ] 코드 수정에 따른 주석, 문서 수정
+- [ ] 이번 변경으로 어긋난 정본 문서 갱신 (코드 주석의 기본값은 **없음** — `developer.md` 「주석」)
 
 ## 기타
 ```
@@ -95,6 +95,5 @@ EOF
 
 ## 브랜치 및 커밋 컨벤션
 
-- 브랜치명: `feat/JIRA-000-short-description` 또는 `fix/JIRA-000-short-description`
-- 커밋 메시지: `[JIRA-000] 작업 내용 요약 #깃헙이슈번호`
-- develop 브랜치가 base 브랜치다
+정본은 `web-orchestrator/references/phase-3-development.md`의 「형상 규율」이다 — 여기서 다시 정의하지 않는다.
+이름 형식은 **그 저장소의 관례가 이긴다**(티켓 접두를 쓰는 팀이면 그것을 따른다).
