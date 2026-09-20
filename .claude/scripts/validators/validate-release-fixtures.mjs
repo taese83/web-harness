@@ -1348,6 +1348,9 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   qualityPackage.devDependencies = {vite: '7.0.4'}
   qualityPackage.scripts['test:production-boundary'] = 'true'
   writeFileSync(join(qualityFixtureRoot, 'package.json'), `${JSON.stringify(qualityPackage)}\n`)
+  // script 집합이 바뀌었으므로 기존 host 실행 승인은 낡았다 — flag로는 덮어쓸 수 없고 사람이
+  // 승인 파일을 지워야 한다(`host-execution-grant.mjs`). 픽스처도 그 계약을 그대로 따른다.
+  rmSync(join(qualityFixtureRoot, '_workspace/03_dev/host-execution-grant.json'), {force: true})
   mkdirSync(join(qualityFixtureRoot, '_workspace/01_plan'), {recursive: true})
   const qualityProfile = resolveProjectProfile({projectRoot: qualityFixtureRoot, requested: 'react-vite-spa'})
   writeFileSync(
