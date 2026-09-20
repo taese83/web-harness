@@ -38,6 +38,8 @@ Production은 provider dashboard에 등록. `BASE_URL`은 redirect_uri 계산에
 
 ```ts
 // api/_lib/oauth.ts
+import {createRemoteJWKSet, jwtVerify} from 'jose'
+
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 export const GOOGLE_SCOPES = ['openid', 'email', 'profile']
@@ -71,6 +73,23 @@ export async function exchangeCodeForTokens(params: {
   if (!res.ok) throw new Error(`google token exchange failed: ${res.status}`)
   return res.json() as Promise<{access_token: string; id_token: string; expires_in: number}>
 }
+
+// id_token은 사용자 신원 주장이다 — 서명·발급자·수신자를 검증한 것만 신뢰한다.
+// decode만 하면 누구나 만든 JWT로 임의 계정에 로그인할 수 있다.
+const GOOGLE_JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'))
+
+export type IdTokenClaims = {sub: string; email: string; name: string; picture?: string}
+
+export async function verifyIdToken(idToken: string, clientId: string): Promise<IdTokenClaims> {
+  const {payload} = await jwtVerify(idToken, GOOGLE_JWKS, {
+    issuer: ['https://accounts.google.com', 'accounts.google.com'],  // Google은 두 형태를 모두 낸다
+    audience: clientId,
+  })
+  if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
+    throw new Error('id_token is missing required claims')
+  }
+  return payload as IdTokenClaims
+}
 ```
 
 ## `_lib/session.ts` (JWT with jose)
@@ -93,7 +112,10 @@ function key() {
   return enc.encode(s)
 }
 
-const SESSION_COOKIE = 'session'
+// `__Host-` 접두사는 브라우저가 강제한다 — Secure·Path=/·Domain 없음. 하위 도메인이나
+// 평문 페이지가 세션 cookie를 덮어쓰는 fixation을 막는다. http dev에서는 쓸 수 없다.
+const SECURE_ORIGIN = (process.env.BASE_URL ?? '').startsWith('https://')
+export const SESSION_COOKIE = SECURE_ORIGIN ? '__Host-session' : 'session'
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7  // 7 days
 
 export async function createSessionJwt(payload: SessionPayload): Promise<string> {
@@ -113,23 +135,18 @@ export async function verifySessionJwt(token: string): Promise<SessionPayload | 
   }
 }
 
-export function sessionCookieHeader(token: string, secure: boolean): string {
-  const parts = [
-    `${SESSION_COOKIE}=${token}`,
-    'HttpOnly',
-    'Path=/',
-    'SameSite=Lax',
-    `Max-Age=${SESSION_TTL_SECONDS}`,
-  ]
-  if (secure) parts.push('Secure')
+// 이름과 `Secure`를 같은 값 하나로 정한다 — 호출자가 따로 정하면 `__Host-` without `Secure`가
+// 만들어지고, 브라우저는 그 cookie를 **조용히 버린다**(302는 성공하고 세션만 없다).
+const cookieAttributes = (value: string, maxAge: number): string => {
+  const parts = [`${SESSION_COOKIE}=${value}`, 'HttpOnly', 'Path=/', 'SameSite=Lax', `Max-Age=${maxAge}`]
+  if (SECURE_ORIGIN) parts.push('Secure')
   return parts.join('; ')
 }
 
-export function clearSessionCookieHeader(secure: boolean): string {
-  const parts = ['session=', 'HttpOnly', 'Path=/', 'SameSite=Lax', 'Max-Age=0']
-  if (secure) parts.push('Secure')
-  return parts.join('; ')
-}
+export const sessionCookieHeader = (token: string): string =>
+  cookieAttributes(token, SESSION_TTL_SECONDS)
+
+export const clearSessionCookieHeader = (): string => cookieAttributes('', 0)
 
 export function readCookie(req: {headers: {cookie?: string}}, name: string): string | null {
   const raw = req.headers.cookie
@@ -147,13 +164,13 @@ export function readCookie(req: {headers: {cookie?: string}}, name: string): str
 ```ts
 // api/_lib/authGuard.ts
 import type {VercelRequest, VercelResponse} from '@vercel/node'
-import {readCookie, verifySessionJwt, type SessionPayload} from './session.js'
+import {readCookie, verifySessionJwt, SESSION_COOKIE, type SessionPayload} from './session.js'
 
 /** handler 상단에서 호출. 세션 없으면 401 응답하고 null 반환. */
 export async function requireSession(
   req: VercelRequest, res: VercelResponse
 ): Promise<SessionPayload | null> {
-  const token = readCookie(req, 'session')
+  const token = readCookie(req, SESSION_COOKIE)
   if (!token) {
     res.status(401).json({error: 'unauthenticated'})
     return null
@@ -209,10 +226,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
 ```ts
 import type {VercelRequest, VercelResponse} from '@vercel/node'
-import {exchangeCodeForTokens} from '../../_lib/oauth.js'
+import {exchangeCodeForTokens, verifyIdToken} from '../../_lib/oauth.js'
 import {createSessionJwt, sessionCookieHeader, readCookie} from '../../_lib/session.js'
 import {upsertUser, ensureDefaultProfile} from '../../_lib/db.js'
-import {decodeJwt} from 'jose'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const state = req.query.state as string | undefined
@@ -235,10 +251,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     redirectUri: `${baseUrl}/api/auth/google/callback`,
   })
 
-  // id_token은 이미 Google이 서명. decode만 (서명 검증은 openid-client 등 별도)
-  // Production은 반드시 signature verification 추가
-  const claims = decodeJwt(tokens.id_token) as {
-    sub: string; email: string; name: string; picture?: string
+  // 서명·issuer·audience를 검증한 claim만 신원으로 쓴다. 실패하면 로그인시키지 않는다.
+  let claims
+  try {
+    claims = await verifyIdToken(tokens.id_token, process.env.GOOGLE_CLIENT_ID!)
+  } catch {
+    res.status(401).json({error: 'invalid id_token'})
+    return
   }
 
   await upsertUser({id: claims.sub, email: claims.email, name: claims.name, picture: claims.picture})
@@ -247,30 +266,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = await createSessionJwt({
     sub: claims.sub, email: claims.email, name: claims.name, picture: claims.picture,
   })
-  const secure = baseUrl.startsWith('https://')
   res.setHeader('Set-Cookie', [
-    sessionCookieHeader(session, secure),
+    sessionCookieHeader(session),
     'oauth_state=; Path=/api/auth; Max-Age=0',  // state cookie 삭제
   ])
   res.setHeader('Location', '/')
   res.status(302).end()
 }
 ```
-
-## id_token 서명 검증 (Production 필수)
-
-`decodeJwt`만 쓰면 위조 가능. Production은:
-
-```ts
-import {jwtVerify, createRemoteJWKSet} from 'jose'
-const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'))
-const {payload} = await jwtVerify(tokens.id_token, JWKS, {
-  issuer: 'https://accounts.google.com',
-  audience: process.env.GOOGLE_CLIENT_ID!,
-})
-```
-
-이 검증 없이 서비스 배포하지 않는다.
 
 Provider endpoint, CSRF, logout, 운영 점검을 구현할 때
 `references/oauth-provider-operations.md`를 읽는다.

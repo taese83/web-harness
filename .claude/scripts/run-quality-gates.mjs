@@ -2,7 +2,7 @@
 
 import {spawnSync} from 'node:child_process'
 import {resolveProfileCommands} from './resolve-commands.mjs'
-import {evaluateHostExecutionGrant, recordHostExecutionGrant} from './host-execution-grant.mjs'
+import {GRANT_RELATIVE, evaluateHostExecutionGrant, recordHostExecutionGrant} from './host-execution-grant.mjs'
 import {randomUUID} from 'node:crypto'
 import {
   existsSync,
@@ -108,9 +108,20 @@ const externallyIsolated = process.env.WEB_HARNESS_ISOLATED_EXECUTION === '1'
 const projectRoot = realpathSync(resolve(projectValue))
 // **한 번 승인하면 다시 묻지 않는다.** 이 러너는 생성된 프로젝트의 package script를 사용자
 // 머신에서 실행하므로 처음 한 번은 반드시 승인이 필요하다 — 그러나 매번 묻는 것은 판단이
-// 아니라 의식이다(Gate A·B·C·재시도마다 반복). 승인은 프로젝트+호스트에 결박해 기록되고,
-// 되돌리려면 `_workspace/03_dev/host-execution-grant.json`을 지운다.
+// 아니라 의식이다(Gate A·B·C·재시도마다 반복). 승인은 프로젝트+호스트+승인 당시의 package
+// script에 결박해 기록되고, 되돌리려면 `_workspace/03_dev/host-execution-grant.json`을 지운다.
 const standing = evaluateHostExecutionGrant(projectRoot)
+// **낡은 승인은 flag로 덮어쓸 수 없다.** script를 바꾼 주체가 같은 호출에서 flag를 붙이면 자기가
+// 바꾼 명령을 자기가 재승인하게 된다 — 그 경로만 사람의 행위(승인 파일 삭제)를 요구한다.
+// 승인이 아예 없는 첫 실행은 종전대로 flag로 성립한다(오케스트레이터가 사용자에게 받아 온다).
+const staleCommands = standing.reason === 'grant-stale-commands'
+if (!externallyIsolated && staleCommands) {
+  process.stderr.write(
+    '승인 이후 package script가 바뀌었다 — 승인한 명령이 더는 실행될 명령이 아니다.\n' +
+      `다시 승인하려면 사람이 ${GRANT_RELATIVE}를 지우고 --allow-host-execution으로 재실행한다(flag만으로는 덮어쓰지 않는다).\n`,
+  )
+  process.exit(2)
+}
 if (!externallyIsolated && !hostExecutionApproved && !standing.granted) {
   process.stderr.write('Quality runner executes project code; rerun after approval with --allow-host-execution or in isolated CI.\n')
   if (standing.reason !== 'no-grant') process.stderr.write(`(기존 승인 무효: ${standing.reason})\n`)
@@ -119,7 +130,7 @@ if (!externallyIsolated && !hostExecutionApproved && !standing.granted) {
 // 명시 승인으로 들어왔으면 그 사실을 남긴다 — 다음 게이트부터는 묻지 않는다.
 if (!externallyIsolated && hostExecutionApproved && !standing.granted) {
   recordHostExecutionGrant(projectRoot)
-  process.stderr.write(`host 실행 승인을 기록했다 — 이 프로젝트에서는 다시 묻지 않는다(${GRANT_NOTE}).\n`)
+  process.stderr.write(`host 실행 승인을 기록했다 — script가 그대로인 동안은 다시 묻지 않는다(${GRANT_NOTE}).\n`)
 }
 // Toolchain pin preflight (development-gates-contract §toolchain pin): this runner spawns the
 // project's package scripts under the Node that launched it. If that Node is older than the

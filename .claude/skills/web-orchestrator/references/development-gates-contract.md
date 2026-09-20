@@ -7,10 +7,11 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
 - 각 gate 전에 실제 changed paths와 스폰의 `SPAWN_RESULT FILES`·resume-manifest를 확인한다.
 - **host 실행 승인은 프로젝트당 한 번이다.** 러너가 생성 프로젝트의 package script를 사용자
   머신에서 실행하므로 처음 한 번은 `--allow-host-execution`으로 승인받는다. 그 승인은
-  `_workspace/03_dev/host-execution-grant.json`에 **프로젝트·호스트 결박**으로 기록되고,
-  이후 게이트는 다시 묻지 않는다. 매 게이트·매 재시도마다 묻는 것은 판단이 아니라 의식이며
+  `_workspace/03_dev/host-execution-grant.json`에 **프로젝트·호스트·승인 당시 package script 결박**으로
+  기록되고, 이후 게이트는 다시 묻지 않는다. 매 게이트·매 재시도마다 묻는 것은 판단이 아니라 의식이며
   개발 단계 규율("확인 지점은 PR 직전과 스팩 변경뿐")과 정면으로 어긋난다(2026-08-30). 되돌리려면
-  그 파일을 지운다. 승인이 깨졌거나 다른 머신·다른 프로젝트의 것이면 **다시 묻는다**.
+  그 파일을 지운다. 승인이 깨졌거나 다른 머신·다른 프로젝트의 것이거나 **승인 뒤 `scripts`가 바뀌었으면
+  다시 묻는다** — 승인한 것은 "이 프로젝트"가 아니라 "이 명령들"이다.
 - raw package-manager 명령을 사용하지 않는다. 승인된 host에서는 `run-quality-gates.mjs --check {id} --allow-host-execution`, 격리 CI에서는 `WEB_HARNESS_ISOLATED_EXECUTION=1`을 사용한다.
 - gate 뒤 source가 바뀌면 이전 receipt는 진단 기록일 뿐이며 release evidence로 재사용하지 않는다.
 - 실패하면 다음 wave를 계속 생성하지 않고 가장 작은 owning agent로 되돌린다.

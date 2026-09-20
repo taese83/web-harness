@@ -12,7 +12,11 @@ Route Handler·Server Action의 실전 백엔드 패턴 계약이다. `app-route
 | 인증·인가 | handler 내부에서 session 재확인 + role/resource/tenant 검사 (미들웨어 검사만으로 통과 금지) | action 시작점에서 fresh session + resource authorization |
 | body 캡 | `request.json()` 전에 `Content-Length` 검사 + 스트림 캡 (기본 1MB, 업로드 route만 별도 상한) | 입력 DTO 크기를 schema에서 제한 (배열 max, 문자열 max) |
 | 스키마 검증 | 모든 input(body·query·params)을 runtime schema로 검증 — 실패는 400 + 필드 단위 사유 | 모든 argument를 runtime schema로 검증 |
-| rate limit | IP/사용자 단위 — 인증·mutation endpoint 필수, read는 표면 성격에 따라 | mutation action 필수 |
+| rate limit | 인증 **전** 진입 한도 + 인증 후 주체 한도 — 인증·mutation endpoint 필수, read는 표면 성격에 따라 | mutation action 필수 |
+
+- **한도는 인증보다 먼저다.** 한도가 인증 뒤에만 있으면 401로 끝난 요청이 계측되지 않아 자격증명 추측이 무제한이 된다.
+  진입 한도의 key는 플랫폼이 세운 client 식별자이며, 배포 대상이 그 헤더를 덮어쓴다고 문서로 확인되지 않으면 경로 단위 총량으로 건다
+  (클라이언트가 보낸 `x-forwarded-for`를 검증 없이 key로 쓰면 헤더를 바꿔 우회한다). 인증 후 주체 단위 한도는 이와 별개다.
 
 - **표면 균질성**: 한 endpoint라도 가드가 비면 그 표면 전체가 뚫린 것이다 — `api-schema.md`의 endpoint × 5종 가드 매트릭스에 공백이 없어야 완료다.
 - serverless/다중 인스턴스에서 in-memory rate limit은 인스턴스당 soft limit이다 — 이 한계를 코드 주석과 QA 보고에 명시하고, 정식 한도가 요구면 외부 store(Upstash 등) 기반을 선택한다 (이 결정은 tech-stack 몫).

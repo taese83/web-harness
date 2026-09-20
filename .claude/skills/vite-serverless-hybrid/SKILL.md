@@ -170,7 +170,31 @@ serverless handler는 파일 하나가 곧 공개 HTTP 표면이다. `api/` 아�
 | 인증 가드 | 공개 의도가 명시된 endpoint 외 전부 세션/토큰 검증 후 진행 | 무인증 mutation·서버 키 소모 |
 | body 크기 캡 | JSON 파싱 **전에** byte 상한(기본 32KB)으로 절단, 초과는 413 | 입력 토큰 증폭·메모리 소모 |
 | 입력 스키마 검증 | 필드 allowlist + 타입·범위·배열 길이 상한. 미지 키는 구조적 드롭 | 클라이언트 신뢰 저장·타입 불일치 500 |
-| rate limit | 사용자/IP 단위 window 상한. 외부 유료 API·LLM·메일 호출 경로는 필수 | denial-of-wallet |
+| rate limit | 인증 전 진입 한도 + 인증 후 주체 한도(아래 **순서**). 외부 유료 API·LLM·메일 호출 경로는 필수 | 자격증명 추측 · denial-of-wallet |
+
+**순서**: method → **진입 한도** → 인증 → body 캡 → 스키마 → (인증된) 주체 한도.
+한도가 인증 뒤에만 있으면 401로 끝난 요청이 계측되지 않아 자격증명 추측이 무제한이 된다.
+그래서 한도는 **둘**이다 — 인증 전 진입 한도와 인증 후 주체 한도. 하나로 합치려 하면 인증 전에
+주체를 모른다는 모순에 빠진다.
+
+| | key | 무엇을 막나 |
+|---|---|---|
+| 진입 한도(인증 전) | 플랫폼이 세운 client 식별자 + 경로. 배포 대상이 그 헤더를 **덮어쓴다고 문서로 확인**되지 않으면 경로 단위 총량으로 건다 | 자격증명 추측, 무인증 폭주 |
+| 주체 한도(인증 후) | 인증된 주체 + 경로 | 정상 사용자의 과다 호출, denial-of-wallet |
+
+클라이언트가 보낸 `x-forwarded-for`를 검증 없이 key로 쓰지 않는다 — 헤더를 바꿔 가며 우회한다.
+경로 단위 총량은 무딘 backstop이라 진입 한도는 넉넉히, 주체 한도는 실제 쓰임에 맞게 잡는다.
+
+```ts
+// 실패한 인증도 같은 버킷을 소모한다 — 그것이 이 순서의 이유다.
+if (!consume(entryKey(request, config), config.entryLimit)) return errorResponse(429, 'rate_limited')
+const subject = await authenticate(request, config)       // 'public' | 주체 | null
+if (subject === null) return errorResponse(401, 'unauthorized')
+// … body 캡 · 스키마 …
+if (subject !== 'public' && !consume(`${subject}:${path}`, config.subjectLimit)) {
+  return errorResponse(429, 'rate_limited')
+}
+```
 
 **표면 균질성 원칙**: 한 endpoint에 있는 가드가 형제 endpoint에 없으면 그 **부재 자체가 결함**이다.
 "선례를 따랐다"는 주석은 이행 증거가 아니다 — 실제 코드에 가드가 있어야 한다. 신규 handler를 추가할 때는
@@ -194,6 +218,8 @@ env 미설정 시 **fail-closed**(503)로 막는다. 편의를 위한 fail-open�
 ```bash
 node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --allow-host-execution --write-evidence
 ```
+
+골든의 `api/_lib/guard.ts`는 §7 순서 규칙보다 앞선 판이다 — 가드 순서의 정본은 위 §7 스니펫이며 골든이 아니다(receipt와 트리의 일치를 유지하려 T1 재dispatch까지 그대로 둔다 — `docs/protected-core.md` §4).
 <!-- repo-only:end -->
 
 host 실행은 T0 진단이다. T1은 실제 격리 CI와 필수 QA 보고서, T2는 checkout 외부 trust root와 Ed25519 attestation이 추가로 필요하다. registry audit은 dependency graph를 외부 registry에 전송하므로 사용자/조직 정책이 허용한 CI에서만 실행한다.
