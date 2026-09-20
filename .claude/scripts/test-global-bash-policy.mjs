@@ -84,6 +84,17 @@ test('레이어 방향 검사: --project-root(프로젝트 안)와 --json만 허
   assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root . --fix').allowed, false)
 })
 
+// exclude는 트리를 걸어 들어갈 때만 방어한다. 대상이 정규 파일이면 경로 검증이 이미 끝났고,
+// 같은 명령을 rg로 쓰면 통과한다 — 두 검색기가 갈리면 사용자는 우회로를 배운다.
+test('정규 파일 대상 grep -r는 디렉터리 exclude를 요구하지 않는다', () => {
+  const file = 'node .claude/scripts/global-bash-policy-lib.mjs'.split(' ')[1]
+  assert.equal(decide(`grep -rn token ${file}`).allowed, true, '파일 하나에는 exclude가 막을 것이 없다')
+  assert.equal(decide(`rg -n token ${file}`).allowed, true, 'rg와 같은 판정이어야 한다')
+  const guarded = decide('grep -rn token .claude/scripts')
+  assert.equal(guarded.allowed, false, '디렉터리에는 여전히 exclude를 요구한다')
+  assert.equal(guarded.code, 'DENY_ARGUMENTS')
+})
+
 test('품질 러너: 진단 전용 deadcode check를 고를 수 있다', () => {
   assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check deadcode').allowed, true)
   assert.equal(decide('node .claude/scripts/run-quality-gates.mjs --check knip').allowed, false)
