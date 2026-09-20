@@ -104,7 +104,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 `node .claude/scripts/validate-layer-boundaries.mjs --project-root {project-root}`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`은 통과가 아니라 "확인 불가"로 적는다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
-   - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — React는 `javascript:`만 막고 `data:`는 통과시킨다
+   - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL과 **서버·모델·호스트가 준 payload의 URL**을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — 네이티브 스킴이 필요한 앱은 allowlist를 그 스킴까지 넓히고 사유를 한 줄 적는다(없애는 것이 아니다) — React는 `javascript:`만 막고 `data:`는 통과시킨다
    - 최종 위협 판정과 dependency/CI 검사는 `security-reviewer`에 위임. 템플릿 `main.tsx`의 `vite-preload-reloaded` 세션 표식은 비밀이 아니다
 7. **hook dependency 검사**:
    - hooks lint receipt와 `useCallback|useMemo|useEffect` 사용처를 확인한다.
@@ -191,6 +191,11 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - `-- 사유` 없이 끈 줄, 파일 전체를 끄는 `/* eslint-disable */`, 한 줄에 여러 규칙을 뭉뚱그려 끈 것은
      **되돌림 대상**으로 적는다(WARN) — 출구는 판단을 적는 자리이지 규칙을 없애는 자리가 아니다
    - XSS 싱크를 끈 것은 사유가 있어도 **FAIL**이다(검사 6)
+20. **호스트 경계 검사** (호스트 앱 안에서 도는 앱 — 전역 네이티브 인터페이스·호스트 스킴·앱 버전 분기가 보이면):
+   기준은 `web-orchestrator/references/webview-host-contract.md`
+   - 파사드 밖의 호스트 전역·스킴 문자열 접근을 목록화한다(WARN, 호출부 수와 함께)
+   - 네이티브 반환값을 정규화 없이 쓰는 곳(JSON 문자열·`"true"`), 폴백 없는 호스트 호출
+   - 기능별 최소 버전을 전역 하한으로 끌어올린 게이트 — 그 기능을 안 쓰는 사용자까지 막는다
 
 ## 판정 신뢰 규약 (적대적 검증)
 

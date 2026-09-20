@@ -88,6 +88,9 @@ maxTurns: 45
 - `layerMap`이 덮지 않는 경로에는 쓸 수 없다 — 훅이 막는다. 그 경로가 필요하면 스팩이
   낡은 것이며 위 블록으로 요청한다.
 - 기존 코드 변경은 `minimal-change-contract.md`가 canonical이다.
+- 호스트 앱 안에서 도는 앱이면(전역 네이티브 인터페이스·호스트 전용 스킴 이동·앱 버전 분기 중 하나라도
+  있으면) 첫 줄 전에 `web-orchestrator/references/webview-host-contract.md`를 읽는다 — 호스트 경계는
+  겪어야 아는 것이 많고 그 계약이 착수 전에 준다.
 - 코드 작성 규약은 `component-gen/references/ts-conventions.md`, 테스트 작성 규약은 같은 폴더의 `testing.md`.
 - **lint를 끌 수 있다 — 사유를 적을 때만.** 규칙이 정당한 코드를 막으면 그 줄에
   `// eslint-disable-next-line <규칙> -- <왜>`를 쓴다. 사유 없는 disable과 파일 전체 disable은
