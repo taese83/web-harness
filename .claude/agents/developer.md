@@ -89,6 +89,11 @@ maxTurns: 45
   낡은 것이며 위 블록으로 요청한다.
 - 기존 코드 변경은 `minimal-change-contract.md`가 canonical이다.
 - 코드 작성 규약은 `component-gen/references/ts-conventions.md`, 테스트 작성 규약은 같은 폴더의 `testing.md`.
+- **lint를 끌 수 있다 — 사유를 적을 때만.** 규칙이 정당한 코드를 막으면 그 줄에
+  `// eslint-disable-next-line <규칙> -- <왜>`를 쓴다. 사유 없는 disable과 파일 전체 disable은
+  리뷰에서 되돌린다. **XSS 싱크(`dangerouslySetInnerHTML`·`javascript:`)에는 이 출구가 없다** —
+  sanitize를 거치지 않으면 사유를 적어도 FAIL이다(`code-reviewer` 6). 규칙 자체가 틀렸다고
+  판단되면 disable로 덮지 말고 스팩 변경과 같은 경로로 묻는다.
 
 ## 주석
 

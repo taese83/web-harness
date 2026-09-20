@@ -45,8 +45,8 @@ React·TypeScript 코드를 생성하기 전에 읽는다. 근거·미결 항목
   요구하고 jsx-a11y는 9까지다 — 접근성 lint를 버리지 않는다. 지원되면 옮긴다.
 - props 타입은 `{ComponentName}Props`(컴포넌트 이름과의 대응은 규칙으로 표현 불가 — 산문).
   제네릭은 단일이면 `T`, 복수면 `TData`/`TError` **[lint]**.
-- 불리언 변수는 `is`/`has`/`should`/`can` 접두사 **[lint]** — 타입이 boolean인 **변수**에만 걸려
-  DOM·라이브러리 prop(`disabled`·`open`)은 잡지 않는다(실측: 오탐 0).
+- 불리언 변수는 `is`/`has`/`should`/`can` 접두사 — 산문이다(lint로 걸면 `useState`·props 구조분해의
+  `open` 같은 정본 이름이 막히고 예외 설정이 듣지 않는다 — `docs/audits/receipts/2026-09-20-boolean-naming-lint.json`).
 - 의도적으로 쓰지 않는 파라미터·변수·catch 인자는 `_` 접두사 **[lint]**.
 
 ## 에러

@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1. 도구 차단 | 에이전트 도구 호출 순간(훅) | 즉시 거부 | 없음 — 사람이 직접 하거나 정책을 고친다 |
 | 2. 단계 게이트 | 단계 진입·통과 시 | 다음 단계로 못 감 | 원인을 고친다. 일부는 선언으로 적용 대상에서 빠진다 |
-| 3. lint | 생성 프로젝트의 `pnpm lint`(Gate A·B·C·릴리스) | 게이트를 통해 막음 | 사유를 적은 `eslint-disable` 한 줄 |
+| 3. lint | 생성 프로젝트의 `pnpm lint`(Gate A·B·C·릴리스) | 게이트를 통해 막음 | 사유를 적은 `eslint-disable` 한 줄(`developer.md`, 사유·범위는 `code-reviewer` 19가 본다) — **XSS 싱크는 예외 없음** |
 | 4. 리뷰 FAIL | QA 리뷰어 판단 | 릴리스 보고에서 막음 | 근거를 들어 반박하거나 사용자가 예외 승인 |
 | 5. 멈추고 묻기 | 개발 중 특정 상황 | 사람 결정까지 대기 | 사용자의 답 |
 | 6. 알림 | 진단·WARN | 막지 않음 | — |
@@ -30,6 +30,7 @@
 | 쓰기는 스펙 `layerMap` ∩ 스폰 범위(`ALLOWED_PATHS`)만, developer 쓰기는 체크아웃당 한 스폰 | `enforce-agent-ownership` + write lease | `phase-3-development.md` |
 | `node_modules`·`.git`·`.claude`·`.vscode`·`.idea`·`.cursor` 세그먼트와 `.mcp.json`은 깊이·대소문자와 무관하게 어떤 에이전트도 쓰지 못함 ★ | 같은 훅 | `agent-registry.mjs` `isProtectedWritePath` |
 | `HANDOFF.md`는 릴리스 게이트 통과 뒤에만 | `enforce-release-gate` | `release-gate-lib.mjs` |
+| `_workspace/04_qa/evidence/**`와 `qa-manifest.json`은 러너·게이트만 쓴다 — Write·Edit 도구로는 메인 스레드도 못 씀 | 같은 훅 | 같은 파일 |
 
 ## 2. 단계 게이트
 
@@ -50,9 +51,9 @@
 
 | 규칙 | 대상 | 근거 |
 |---|---|---|
-| enum·`export *`·`React.FC` 금지, TODO 금지, 타입 import, 불리언·제네릭 명명, 미사용 `_`, 파일명 kebab | `ts·tsx` | `ts-conventions.md` |
+| enum·`export *`·`React.FC` 금지, TODO 마커 금지, 타입 import, 제네릭 `T` 명명, 미사용 `_`, 파일명 kebab | `ts·tsx` | `ts-conventions.md` |
 | jsx-a11y recommended, react-hooks 7 recommended(컴파일러 규칙 포함) | `tsx` | 템플릿 `ESLINT_CONFIG` |
-| FSD 경계(별칭 import) | 레이어 | `environment-scaffolder.md` 15 |
+| FSD 경계(별칭 import) — 셀렉터는 `environment-scaffolder`가 스펙의 `layerDependencies`로 **생성**한다(내용은 프로젝트마다 다름) | 레이어 | `environment-scaffolder.md` 15 |
 | testing-library `flat/react` + `prefer-user-event` ★ | `src/**/*.{test,spec}` | `testing.md` |
 | playwright `flat/recommended` + 고정 대기·조건 없는 skip error ★ | `e2e/**` | `testing.md` |
 | TanStack Query `flat/recommended`(쿼리 키 누락 등) ★ | `ts·tsx` | `performance-patterns.md` §9 |
@@ -73,6 +74,7 @@
 | 추적된 비밀 파일(프로필별) ★, 의존성 high·critical, 레지스트리 밖 소스 | security-reviewer |
 | `SafeHtml` 밖 HTML 싱크, 스킴 검사 없는 사용자 URL ★ | code-reviewer 6 |
 | 서버 엔드포인트 방어 불균질, 클라이언트 신뢰 저장 | security-reviewer |
+| 가드 순서 — 진입 한도가 인증 뒤(인증 실패 무계측), 버킷 key를 클라이언트 헤더에서 취득 ★ | security-reviewer |
 
 ## 5. 멈추고 묻기
 
@@ -83,7 +85,7 @@
 | 스펙에 없는 동작(TC)을 만들어야 할 때 | `phase-3-development.md` |
 | `ALLOWED_PATHS` 밖, 확정 계약과 충돌, 되돌리기 어렵거나 팀 전체 영향 | 같은 문서 |
 | PR 생성 직전 | 같은 문서 |
-| 호스트에서 프로젝트 스크립트 첫 실행(프로젝트당 1회) | `host-execution-grant.mjs` |
+| 호스트에서 프로젝트 스크립트 첫 실행, 그리고 승인 뒤 `scripts`가 바뀐 첫 실행 ★ | `host-execution-grant.mjs` |
 
 ## 6. 알림 (막지 않음)
 
@@ -105,6 +107,8 @@
 | 커스텀 훅 기준(훅을 부를 때만 `use`, 수명주기 래퍼 금지) ★ | `ts-conventions.md` |
 | 테스트 작성 규약(관찰 가능한 동작, 접근성 쿼리 우선) ★ | `testing.md` |
 | 컴파일러 on이면 새 수동 memo 금지 ★ | `developer.md` |
+| OAuth `id_token`은 서명·issuer·audience를 검증한 claim만 신원으로 사용 ★ | `oauth-server-flow.md` |
+| 불리언 변수 `is`/`has` 접두 ★ — lint에서 내렸다(정본 이름을 막고 예외가 듣지 않음) | `ts-conventions.md` |
 | 주석 최소화, TODO 대신 스펙 왕복 | `developer.md` |
 | 한 커밋 = 한 변화, 테스트·기능 분리 커밋 ★, 하네스 산출물·코드 분리 | `phase-3-development.md` |
 | 스타일 우선순위(레인 공개 API → 토큰 → 국소 조정) | `mui-styling.md` · `tailwind-shadcn-styling.md` |
@@ -117,3 +121,6 @@
 2. 막는 규칙에는 **출구**를 함께 둔다(선언으로 빠지기, 사유 있는 disable, 사용자 승인).
 3. 막음으로 올리는 근거는 실측이다 — 하네스 자기 산출물이 아니라 실제 프로젝트에서 놓친 사례.
 4. 이 표에 한 줄을 더한다.
+5. **내릴 때도 같은 무게다.** 막는 규칙을 산문으로 내리려면 ① 정당한 코드(프레임워크 정본 이름·도메인
+   어휘)를 막는다는 실측 ② 규칙 옵션으로 못 푼다는 확인 ③ 규칙 주석 한 줄이 있어야 하고,
+   **이 표의 §3 행에서 빼고 §7에 넣는다** — 색인이 실제 층을 거짓으로 말하면 표가 아니라 소문이다.

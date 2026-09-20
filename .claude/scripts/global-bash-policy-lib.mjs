@@ -344,7 +344,10 @@ const validateGrep = (args, context) => {
   if (!recursive && hasDirectoryTarget) {
     fail('DENY_ARGUMENTS', 'grep on a directory requires -r; otherwise pass regular files.')
   }
-  if (recursive) {
+  // exclude가 방어하는 것은 **트리를 걸어 들어가며 만나는 파일**이다. 대상이 정규 파일뿐이면
+  // `readablePath`가 이미 비밀 경로·루트 밖·크기를 전부 검증했으므로 exclude가 막을 것이 없다.
+  // rg 쪽은 이미 `hasDirectoryTarget`으로 좁혀 있었다 — 두 검색기를 같은 판정으로 맞춘다.
+  if (recursive && hasDirectoryTarget) {
     const missing = GREP_RECURSIVE_EXCLUDES.filter(flag => !provided.has(flag))
     if (missing.length > 0) {
       fail('DENY_ARGUMENTS', `Recursive grep requires protective exclusions: ${missing.join(' ')}`)

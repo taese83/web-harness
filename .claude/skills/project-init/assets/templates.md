@@ -263,13 +263,13 @@ export default tseslint.config(
       // `import type {X}` 분리 구문(tsconfig `verbatimModuleSyntax`와 짝).
       // recommendedTypeChecked에 없는 opt-in 규칙이라 명시해야 한다.
       '@typescript-eslint/consistent-type-imports': ['error', {fixStyle: 'separate-type-imports'}],
-      // 명명 규약 — 제네릭 T 접두, 불리언 is/has/should/can 접두, 미사용은 `_` 접두.
-      // 실측(2026-08-28): 규약을 지킨 코드에 오탐 0, 위반은 전부 검출. `types: ['boolean']`이
-      // 타입 정보를 쓰므로 `disabled` 같은 라이브러리 prop 파라미터는 잡히지 않는다.
+      // 명명 규약 — 제네릭 T 접두, 미사용은 `_` 접두. `T`·`TData`는 통과하고 `K`·`tData`만 막힌다.
+      // 불리언 is/has 접두는 **뺐다**(2026-09-20 실측): `const [open, setOpen] = useState(false)`와
+      // `const {open} = props`가 막히는데 `modifiers: ['destructured']` 예외가 발화를 못 막는다.
+      // 이름 취향을 error로 걸면 프레임워크 정본 코드가 막히므로 `ts-conventions.md`의 산문으로 둔다.
       '@typescript-eslint/naming-convention': [
         'error',
         {selector: 'typeParameter', format: ['PascalCase'], prefix: ['T']},
-        {selector: 'variable', types: ['boolean'], format: ['PascalCase'], prefix: ['is', 'has', 'should', 'can']},
       ],
       // `_` 접두 = 의도적 미사용. 기본 옵션은 이 관례를 모르므로 명시해야 규약이 성립한다.
       '@typescript-eslint/no-unused-vars': [
@@ -279,7 +279,11 @@ export default tseslint.config(
       // TODO/FIXME는 **미결정이 코드에 눌러앉은 것**이다. 이 하네스에서 미결정은
       // `openDecisions`로 올라가 스팩 왕복으로 닫힌다 — 코드에 남기면 아무도 묻지 않는다.
       // 주석 규약 전체는 `developer` 에이전트가 canonical이며, 그중 기계가 잡는 것은 이것뿐이다.
-      'no-warning-comments': ['error', {terms: ['todo', 'fixme', 'xxx'], location: 'anywhere'}],
+      // `location: 'start'`는 **마커**만 잡는다. `anywhere`는 도메인 어휘까지 잡아
+      // `/** Toggle a todo item */`이 막혔다 — 할 일 앱이 자기 도메인을 못 적는다(2026-09-20 실측).
+      // `decoration`이 없으면 `/** TODO: x */`가 빠져나간다. 여러 줄 블록의 중간 줄 `* TODO:`는
+      // 이 규칙이 구조적으로 못 잡는다 — 그 잔여는 `developer.md`의 산문이 진다.
+      'no-warning-comments': ['error', {terms: ['todo', 'fixme', 'xxx'], location: 'start', decoration: ['*']}],
       'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX, ...XSS_RESTRICTED_SYNTAX],
     },
   },

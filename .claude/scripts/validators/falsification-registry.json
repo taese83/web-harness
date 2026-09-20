@@ -3465,6 +3465,38 @@
       "replace": "window.addEventListener('vite:__disabled__', event => {",
       "test": ".claude/scripts/test-entry-points.mjs",
       "why": "배포 뒤 이전 청크를 못 받으면 lazy 화면이 빈 화면으로 멈춘다 — 복구 리스너가 빠지면 가드가 잡아야 한다"
+    },
+    {
+      "id": "grep-directory-excludes-still-required",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "  if (recursive && hasDirectoryTarget) {",
+      "replace": "  if (recursive && false) {",
+      "test": ".claude/scripts/test-global-bash-policy.mjs",
+      "why": "디렉터리 재귀 검색의 보호 exclude 요구가 사라지면 비밀 파일이 결과에 실린다"
+    },
+    {
+      "id": "host-grant-flag-cannot-overwrite-stale",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (!externallyIsolated && staleCommands) {",
+      "replace": "if (false && staleCommands) {",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "flag로 낡은 승인을 덮어쓸 수 있으면 script를 바꾼 주체가 같은 호출에서 자기 명령을 재승인한다"
+    },
+    {
+      "id": "host-grant-command-binding",
+      "file": ".claude/scripts/host-execution-grant.mjs",
+      "find": "  if (record?.commandSetDigest !== commandSetDigest(projectRoot, {read: readPackage})) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "명령 결박이 풀리면 한 번의 host 실행 승인이 이후 어떤 script로 바뀌든 실행 허가가 된다"
+    },
+    {
+      "id": "host-grant-schema-binding",
+      "file": ".claude/scripts/host-execution-grant.mjs",
+      "find": "  if (record?.schemaVersion !== GRANT_SCHEMA_VERSION) return {granted: false, reason: 'grant-schema-outdated'}",
+      "replace": "  if (false) return {granted: false, reason: 'grant-schema-outdated'}",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "명령 집합을 담지 않은 이전 판 승인이 통과하면 결박이 없는 것과 같다"
     }
   ]
 }
