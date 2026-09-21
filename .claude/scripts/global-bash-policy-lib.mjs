@@ -711,26 +711,27 @@ const validationScriptContract = (script, args, context) => {
     // `--replace-scope`, `--replace`, `--accept-incomplete`, `--foundation-complete`는
     // 전부 「사람이 판단해 우회한다」는 뜻이고, 에이전트가 스스로 켜면 그 게이트는 없는 것과 같다.
     const [mode, ...rest] = args
-    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'configure'])
+    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'configure', 'create'])
     if (!COMMANDS.has(mode)) return false
     // 값을 받는 플래그(그 다음 토큰이 값이다)와 스위치를 가른다.
     const VALUED = new Set(['--repo', '--root', '--units', '--developer',
       '--ticket-provider', '--as', '--set',
       // `--features`는 WORK 준비 범위(쉼표 FEAT 목록)다 — 스크립트가 계획의 FEAT와 대조한다.
-      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment'])
+      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment', '--digest'])
     // `--work`는 이제 기본 모델이라 붙여도 같다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
     // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — 확인 없이는 미리보기라 여기서 막지 않는다.
     const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--aggregate', '--by-feature'])
     // `--provider`는 configure에서만 받는다 — 다른 명령에서는 `--ticket-provider`가 정본이다.
     if (mode === 'configure') VALUED.add('--provider')
     let commandArgs = withoutDirectoryOption(rest, '--root', context)
-    // `--units`는 파일이다. 프로젝트 루트 안이어야 하고 실재해야 한다.
-    const unitsAt = commandArgs.indexOf('--units')
-    if (unitsAt >= 0) {
-      const value = commandArgs[unitsAt + 1]
+    // `--units`·`--draft`(create의 개발 티켓 초안)는 파일이다. 프로젝트 루트 안이어야 하고 실재해야 한다.
+    for (const fileFlag of ['--units', '--draft']) {
+      const at = commandArgs.indexOf(fileFlag)
+      if (at < 0) continue
+      const value = commandArgs[at + 1]
       if (!value || value.startsWith('--')) return false
       readablePath(value, context, 'file')
-      commandArgs = [...commandArgs.slice(0, unitsAt), ...commandArgs.slice(unitsAt + 2)]
+      commandArgs = [...commandArgs.slice(0, at), ...commandArgs.slice(at + 2)]
     }
     for (let index = 0; index < commandArgs.length; index++) {
       const arg = commandArgs[index]

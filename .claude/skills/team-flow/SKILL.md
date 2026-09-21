@@ -3,7 +3,7 @@ name: team-flow
 description: Ticket-based team development flow for web-harness — 검토한 계획의 FEAT 전체를 WORK(공통 기반·기능별·통합 작업)로 분해·검토해 트래커(GitHub Issues·Jira)에 발행하고, 개발자가 WORK를 하나씩 픽업해 PR로 완료한다. 계획/디자인이 끝나 여러 개발자가 나눠 개발할 때 쓴다. "개발 준비해줘"·"WORK로 분해"(claim), "티켓 발행"(claim --publish), "뭐 개발할 수 있어"·"보드"(board), "이 티켓 픽업"(pickup), "PR 연결"(link)로 요청. FEAT/TC는 요구사항, WORK는 실행 단위다.
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
-argument-hint: "[claim | claim --publish | board | pickup <티켓키> | link <티켓키> <pr-url>] (또는 자연어)"
+argument-hint: "[claim | claim --publish | create | board | pickup <티켓키> | link <티켓키> <pr-url>] (또는 자연어)"
 metadata:
   version: 1.0.0
   maturity: contract-only
@@ -39,6 +39,7 @@ cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run] [--assessment
 cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base) → 로컬 기록 + PR 본문 문단
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
+cli.mjs create --draft <초안.md> [--repo o/r] [--confirm --digest <지문>]  # 기획 없이 기능만 구현하는 개발 티켓 생성(손 티켓과 같다)
 ```
 
 `claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
@@ -57,6 +58,7 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 | "머지 되돌렸어", "그 작업 다시 열어줘" | 되돌림 PR(`Revert "[키] …"`)을 머지하거나 트래커에서 티켓을 다시 열라고 안내한다(하네스가 기록하지 않는다) |
 | "FEAT별로 어디까지 됐어", "기능 단위 진행" | `board --by-feature` |
 | "이 Jira 기획 티켓 읽어줘", "티켓에서 기획 가져와" | `intake <티켓키>` |
+| "개발 티켓 만들어줘", "공통 로직을 티켓으로 나눠줘", "기획 없이 기능 티켓" | `create` (초안 → 미리보기 → 확인 → `--confirm`) |
 
 **티켓 종류마다 문이 다르다** — 기획 티켓은 `intake`로 **공급 원문**이 되고(개발 티켓이 아니다), 개발은
 계획이 발행한 **WORK 티켓**과, 팀이 선언한 분류의 **사람 개발 티켓**(판정·확인을 거쳐 로컬에 등록한 뒤)만 집는다. 분해된 FEAT를 집으려 하면 어느 WORK로 가야 하는지 돌려준다.
@@ -89,6 +91,15 @@ cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm
 `unknown`으로 두어 다음 실행이 **조회로 확인**한다(부재를 단정해 재발행하지 않는다). 트래커가 정해지지
 않았으면 먼저 묻고 `configure`로 기록한다 — 항목·GitHub Enterprise `host`·공유 여부는
 `references/tracker-config.md`. Jira 토큰은 설정 파일이 아니라 환경변수(`JIRA_TOKEN`, Cloud는 `JIRA_EMAIL`)다.
+
+### `create` — 기획 없이 기능만 구현하는 개발 티켓
+
+계획(FEAT/TC) 없이 기능만 구현할 티켓을 만든다. `system-architect`를 **티켓 초안 모드**로 스폰해 요청과 코드를 분석한
+초안을 `_workspace/03_dev/ticket-drafts/<이름>.md`에 쓰게 한다(양식은 `references/ticket-work-contract.md` 「개발 티켓 양식」).
+`create --draft <파일>`은 쓰기 0의 미리보기이고, 사용자가 확인하면 미리보기의 `confirmWith`(`--confirm --digest <지문>`)로 만든다 —
+미리보기 뒤 초안이 바뀌면 멈춘다. 완료 조건은 이후 판정에서 티켓 출처가 되므로 미리보기에서 빠짐없이 보여 준다. 만든 티켓은 WORK 마커 없이 팀의
+개발 티켓 분류만 붙어 **손으로 만든 티켓과 같다** — 다음은 티켓마다 `pickup`의 판정이다. 같은 제목의 열린 개발 티켓은 만들지 않고
+그 키를 돌려준다(다시 실행해도 두 번 만들지 않는다).
 
 ### `board` — 지금 집을 수 있는 것 (읽기 전용)
 
@@ -190,6 +201,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `board` | 표 하나(`키 · 제목 · 상태 · 담당 · 다음 할 일`) + `notes` 그대로 + 한 줄 질문. 다른 열·절을 만들지 않는다 |
 | `pickup` 확인(`outcome: confirm`) | 착수 가능이면 `review`만 — AI가 **제안한** 완료 조건·테스트 항목, 수정 범위, 레인, 임의 디자인·기획 미정 가정(알림 문구 포함), 겹치는 진행 중 작업과 동료 진행 티켓(있으면). 착수 불가면 `requestComment`를 그대로. 끝에 확인을 묻는 한 줄 |
 | `pickup` 멈춤(`outcome: stopped`) | 「멈췄습니다」와 `guidance`·`bounce`의 이유·정해야 할 것을 그대로. 결과 코드(`TICKET_…`)를 보여주지 않고, 왜 막혔는지 따로 조사하지 않는다 |
+| `create` 미리보기·결과 | 만들 티켓 제목 목록과 이미 있는 것(키). 결과면 만든 키와 「다음은 pickup」 한 줄. `errors`는 그대로 |
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·코멘트)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`·`ticketWork.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |

@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 기획 티켓(사람이 씀) | `intake` → ingestor → feature-planner | 스냅샷 · 인벤토리 행 | 쓰지 않는다 — 공급 원문이지 개발 대상이 아니다 |
 | WORK 티켓(계획이 발행) | `claim --publish` → `pickup` → `link` | **WORK 마커**(`web-harness:work` — GitHub 본문 주석 · Jira 이슈 속성) · 역할(`fe`·`be`)·팀 라벨 · AI 맥락 첨부 | `work-item-events.jsonl`(발행) · 개발자의 연결은 로컬(`work-links/`) |
-| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류) | `pickup` → 배정 → 판정(`ticket-work-contract.md`) → 확인 | 티켓 원본은 그대로 · 확인한 착수 불가 요청·임의 디자인 알림 코멘트만 | **개발자 로컬 등록**(`ticket-assessments/`, 원장·티켓에 없음) · 연결·완료부터 WORK와 같다 |
+| 사람이 만든 개발 티켓(팀이 `개발 티켓`으로 분류 — 트래커에서 직접 또는 `create`로 만든 것) | `pickup` → 배정 → 판정(`ticket-work-contract.md`) → 확인 | 티켓 원본은 그대로 · 확인한 착수 불가 요청·임의 디자인 알림 코멘트만 | **개발자 로컬 등록**(`ticket-assessments/`, 원장·티켓에 없음) · 연결·완료부터 WORK와 같다 |
 | 옛 FEAT 개발 티켓(`web-harness:refs`) | 없음 | — | 픽업은 WORK로 안내하고 거부한다 |
 | 집계 티켓(`web-harness:aggregate`) | 아직 생산자 없음 | — | 판독 입구가 WORK로도 FEAT로도 읽지 않는다 |
 

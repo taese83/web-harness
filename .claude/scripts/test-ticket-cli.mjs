@@ -261,7 +261,10 @@ test('배선: bash 정책이 티켓 CLI를 명령별로 연다 — 게이트를 
     `${base} link PF-101 https://x/pull/1`,
     `${base} intake PF-1 --repo o/r`,
     `${base} configure --provider jira --set projectKey=PFFE --set issueType=Task`,
+    `${base} create --draft package.json`,
+    `${base} create --draft package.json --confirm --digest abc`,
   ]) assert.equal(decide(command).allowed, true, `계약이 부르는 명령이 막힌다: ${command}`)
+  assert.equal(decide(`${base} create --draft /etc/passwd`).code, 'DENY_PATH_OUTSIDE', '프로젝트 밖 초안을 받았다')
   // 제거된 FEAT 경로의 명령은 열리지 않는다 — 스크립트에 없는 모드를 정책이 통과시키면 오해를 부른다.
   for (const removed of [`${base} bind FEAT-001 PF-1 --repo o/r`, `${base} adopt FEAT-001 PF-5 --repo o/r --normalize`]) {
     assert.equal(decide(removed).allowed, false, `제거된 명령이 열렸다: ${removed}`)

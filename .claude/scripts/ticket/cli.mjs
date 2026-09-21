@@ -136,7 +136,7 @@ export function loadUnits(root, flags) {
     return parsed
   }
   const location = resolvePlanLocation(root)
-  if (!location) throw new Error(`MISSING_PLAN: ${PLAN_RELATIVE} 또는 ${PLAN_DIR_RELATIVE}/ 없음(--units로 지정 가능)`)
+  if (!location) throw new Error(`MISSING_PLAN: ${PLAN_RELATIVE} 또는 ${PLAN_DIR_RELATIVE}/ 없음(--units로 지정 가능) — 기획 없이 기능만 구현하려면 개발 티켓을 만들어(create 또는 트래커에서 직접) pickup한다`)
   return location.shards.flatMap(relative => parseFeaturePlanUnits(readFileSync(join(root, relative), 'utf8')))
 }
 
@@ -478,7 +478,16 @@ if (invokedDirectly) {
       }
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'configure': return runConfigure({root, flags})
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure`)
+      // 기획 없이 기능만 구현하는 개발 티켓을 초안에서 만든다 — 손 티켓과 같은 것이라 다음은 pickup의 판정이다.
+      case 'create': {
+        const {resolved, missing} = tracker()
+        if (missing) {
+          return {ok: false, mode: 'create', phase: 'PROVIDER_NOT_READY', externalWrites: 0, questions: resolved.questions ?? null,
+            guidance: missing === 'provider' ? '어느 트래커에 만들지 정한다 — `configure`로 기록한다' : 'GitHub에 만들려면 `--repo <owner/name>`가 필요하다'}
+        }
+        return (await import('./ticket-create-run.mjs')).runTicketCreate({root, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
+      }
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure|create`)
     }
   }
   run().then(result => {

@@ -119,7 +119,9 @@ export const AGENT_OWNERSHIP = {
   // 이미 맡고 사용자 설계 원문을 우선 입력으로 읽는다. FEAT(feature-planner)와 WORK의 작성 책임을 가른다.
   'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/,
     /^_workspace\/03_dev\/work-analysis\.json$/, /^_workspace\/03_dev\/work-plan\.json$/,
-    /^_workspace\/03_dev\/ticket-assessments\/[A-Za-z0-9_-]+\.json$/],
+    /^_workspace\/03_dev\/ticket-assessments\/[A-Za-z0-9_-]+\.json$/,
+    // 기획 없이 기능만 구현하는 개발 티켓 초안 — CLI(`create`)가 검사해 트래커에 만든다.
+    /^_workspace\/03_dev\/ticket-drafts\/[A-Za-z0-9_-]+\.md$/],
   'source-artifact-ingestor': [/^_workspace\/(?:00_source|01_plan|02_design)\//],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],

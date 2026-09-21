@@ -3,6 +3,62 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "ticket-create-confirm-binds-preview",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "  if (String(flags.digest ?? '') !== digest) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "확인이 미리본 판본에 묶이지 않으면 미리보기 뒤 고친 완료 조건이 사람 확인 없이 티켓 출처가 된다"
+    },
+    {
+      "id": "ticket-create-refuses-unread-list",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "  if (!open.checked) {\n    return {ok: false, mode: 'create', phase: 'DEV_TICKETS_UNREADABLE'",
+      "replace": "  if (false) {\n    return {ok: false, mode: 'create', phase: 'DEV_TICKETS_UNREADABLE'",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "열린 개발 티켓을 다 못 읽고 만들면 같은 제목 검사가 비어 중복 티켓이 생긴다"
+    },
+    {
+      "id": "ticket-create-scans-injection",
+      "file": ".claude/scripts/ticket/ticket-create.mjs",
+      "find": "    if (injection.injectionSuspect) errors.push(",
+      "replace": "    if (false) errors.push(",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "초안의 지시문을 트래커에 실으면 pickup이 잡기 전에 팀 전체가 보는 티켓이 된다"
+    },
+    {
+      "id": "ticket-create-no-marker",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components})",
+      "replace": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components, marker: 'x'})",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "하네스가 만든 티켓에 WORK 마커를 달면 손 티켓과 다른 경로(계획 WORK)를 타서 판정을 건너뛴다"
+    },
+    {
+      "id": "ticket-create-skips-existing-title",
+      "file": ".claude/scripts/ticket/ticket-create.mjs",
+      "find": "    if (openByTitle.has(key)) existing.push(",
+      "replace": "    if (false) existing.push(",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "같은 제목의 열린 개발 티켓을 건너뛰지 않으면 다시 실행·응답 유실이 중복 티켓을 만든다"
+    },
+    {
+      "id": "ticket-create-requires-confirm",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "  if (!flags.confirm) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "확인 없이 트래커에 쓰면 미리보기가 승인이 아니게 된다"
+    },
+    {
+      "id": "ticket-create-dev-classification",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "    labels, ...(provider.name === 'github' ? {} : {components})}))",
+      "replace": "    labels}))",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "개발 티켓 분류 없이 만들면 pickup이 그 티켓을 개발 티켓으로 알아보지 못한다"
+    },
+    {
       "id": "pickup-wires-external-dependencies",
       "file": ".claude/scripts/ticket/work-pickup-run.mjs",
       "find": "  if (plan) state = (await import('./ticket-work-run.mjs')).withExternalDependencies(state, plan)",
