@@ -34,7 +34,7 @@ import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
-import {inspectSpecLedger, isSpecStale, readSubstrateDefaults} from './spec.mjs'
+import {harnessVersion, inspectSpecLedger, isSpecStale, readSubstrateDefaults} from './spec.mjs'
 import {pathToFileURL} from 'node:url'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
@@ -363,7 +363,7 @@ export const checkToolchainAlignment = (spec, toolchain) => {
     : [{key: 'packageManager', reason: `스팩은 ${declared}인데 하네스 toolchain은 ${toolchain.packageManager}를 강제한다`}]
 }
 
-export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchain()}) => {
+export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchain(), runningVersion = harnessVersion()}) => {
   const root = resolve(projectRoot)
   const lockPath = join(root, SPEC_LOCK_PATH)
   // 부재와 손상을 구분한다(적대 리뷰 2026-08-26). 이전 구현은 파싱 실패를 null로 삼켜
@@ -404,6 +404,10 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
   const ledgerNotes = ledger.state === 'NO_LEDGER'
     ? ['스팩 원장이 없다 — 이 스팩은 삭제·사후 수정 탐지에 결박되지 않는다']
     : []
+  // 판정 버전이 확정 버전과 다르면 알린다 — 사람마다 판정이 갈릴 때 먼저 볼 원인이다. 실패는 아니다.
+  if (ledger.state === 'OK' && ledger.harnessVersion && runningVersion && ledger.harnessVersion !== runningVersion) {
+    ledgerNotes.push(`스팩은 web-harness ${ledger.harnessVersion}로 확정됐고 지금은 ${runningVersion}로 판정한다 — 판정이 갈리면 재확정하거나 버전을 맞춘다`)
+  }
   const unverifiable = []
   const notes = [...ledgerNotes]
 

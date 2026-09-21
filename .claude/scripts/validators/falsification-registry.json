@@ -21,8 +21,8 @@
     {
       "id": "spec-ledger-tampered",
       "file": ".claude/scripts/spec.mjs",
-      "find": "  const known = rows.some(row => row.digest === current)",
-      "replace": "  const known = true",
+      "find": "  const match = rows.findLast(row => row.digest === current)",
+      "replace": "  const match = rows[rows.length - 1]",
       "test": ".claude/scripts/test-spec-ledger.mjs",
       "why": "TAMPERED 판정을 끄면 확정 스팩을 사후에 고쳐 써도 잡히지 않는다"
     },

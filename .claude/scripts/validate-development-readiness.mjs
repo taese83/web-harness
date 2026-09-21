@@ -102,7 +102,7 @@ export function checkSpec(root) {
   if (ledger.state === 'TAMPERED') {
     return fail('spec', '스팩이 원장 기록과 다르다 — 확정 뒤 수정됐다', '원장에 남은 확정으로 되돌리거나 정식으로 재확정한다')
   }
-  return pass('spec', `확정됨 · ${spec.specTier ?? 'tier 미상'} · layerMap ${Object.keys(spec.layerMap ?? {}).length}개`)
+  return pass('spec', `확정됨 · ${spec.specTier ?? 'tier 미상'} · layerMap ${Object.keys(spec.layerMap ?? {}).length}개 · web-harness ${ledger.harnessVersion ?? '미상'}`)
 }
 
 // ── 2. 소유권 예행 ──────────────────────────────────────────────────────────

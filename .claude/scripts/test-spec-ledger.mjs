@@ -11,13 +11,14 @@
 //   (3) 삭제 → DELETED (NO_SPEC로 강등되지 않는다)
 //   (4) 원장 없음은 실패가 아니라 결박 부재로 보고된다
 //   (5) 재확정은 정상이다 — 원장의 어느 기록과든 맞으면 OK
+//   (6) 원장이 확정 버전을 남기고, 판정 버전이 다르면 알린다(모르면 지어내지 않는다)
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  inspectSpecLedger, lockSpec, recordSpec, SPEC_LEDGER, specDigest,
+  harnessVersion, inspectSpecLedger, lockSpec, recordSpec, SPEC_LEDGER, specDigest,
 } from './spec.mjs'
 import {inspectSpecConformance} from './validate-spec-conformance.mjs'
 
@@ -29,7 +30,7 @@ const decision = {
   acceptanceSource: 'absent', acceptanceRefs: [], nonGoals: [], openDecisions: [],
 }
 
-const withLocked = (run, {record = true} = {}) => {
+const withLocked = (run, {record = true, version = '0.35.0'} = {}) => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-lock-ledger-'))
   try {
     mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
@@ -38,7 +39,7 @@ const withLocked = (run, {record = true} = {}) => {
     writeFileSync(join(root, '_workspace/02_design/solution-design.md'),
       ['```json web-harness:solution-design', JSON.stringify(decision, null, 2), '```', ''].join('\n'))
     const spec = lockSpec(root)
-    if (record) recordSpec(root, spec)
+    if (record) recordSpec(root, spec, {version})
     writeFileSync(join(root, '_workspace/03_dev/spec.json'), `${JSON.stringify(spec, null, 2)}\n`)
     return run(root, spec)
   } finally {
@@ -109,4 +110,67 @@ test('재확정은 정상이다 — 원장의 어느 기록과든 맞으면 OK',
     assert.equal(inspectSpecLedger(root, second).state, 'OK', '새 스팩 확정')
     assert.equal(inspectSpecLedger(root, first).state, 'OK', '이전 스팩도 원장에 있다')
   })
+})
+
+// ── (6) 확정 버전 ───────────────────────────────────────────────────────────
+test('원장이 스팩을 확정한 하네스 버전을 남긴다', () => {
+  withLocked(root => {
+    const row = JSON.parse(readFileSync(join(root, SPEC_LEDGER), 'utf8').trim().split('\n')[0])
+    assert.equal(row.harnessVersion, '0.35.0')
+  })
+})
+
+test('판정 버전이 확정 버전과 다르면 note로 알리고, 실패로 만들지 않는다', () => {
+  withLocked(root => {
+    const differ = inspectSpecConformance({projectRoot: root, runningVersion: '0.36.0'})
+    assert.ok(differ.notes.some(n => n.includes('0.35.0') && n.includes('0.36.0')),
+      '버전이 갈린 사실을 숨기면 판정 차이의 원인을 원장에서 읽을 수 없다')
+    assert.ok(!differ.failures.some(f => f.reason.includes('0.36.0')), '버전 차이는 결함이 아니다')
+    const same = inspectSpecConformance({projectRoot: root, runningVersion: '0.35.0'})
+    assert.ok(!same.notes.some(n => n.includes('로 확정됐고')))
+  })
+})
+
+test('기본값은 실행 중인 하네스 버전을 기록한다', () => {
+  withLocked((root, spec) => {
+    assert.equal(recordSpec(root, spec).harnessVersion, harnessVersion())
+  }, {record: false})
+})
+
+test('버전을 모르면 null로 남기고 비교하지 않는다', () => {
+  withLocked(root => {
+    assert.equal(inspectSpecLedger(root, JSON.parse(readFileSync(join(root, '_workspace/03_dev/spec.json'), 'utf8'))).harnessVersion, null)
+    const result = inspectSpecConformance({projectRoot: root, runningVersion: '0.36.0'})
+    assert.ok(!result.notes.some(n => n.includes('로 확정됐고')))
+  }, {version: null})
+})
+
+test('버전 키가 없는 옛 원장 기록도 OK이고 비교하지 않는다', () => {
+  withLocked((root, spec) => {
+    const legacy = {at: new Date().toISOString(), digest: specDigest(spec), sourceDigest: spec.sourceDigest.combined, specTier: spec.specTier, targetShapes: spec.targetShapes}
+    writeFileSync(join(root, SPEC_LEDGER), `${JSON.stringify(legacy)}\n`)
+    const ledger = inspectSpecLedger(root, spec)
+    assert.equal(ledger.state, 'OK')
+    assert.equal(ledger.harnessVersion, null)
+    assert.ok(!inspectSpecConformance({projectRoot: root, runningVersion: '0.36.0'}).notes.some(n => n.includes('로 확정됐고')))
+  }, {record: false})
+})
+
+test('harnessVersion은 web-harness 매니페스트만 읽고, 아니면 null이다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-plugin-root-'))
+  try {
+    assert.equal(harnessVersion(root), null, '소스 checkout에는 매니페스트가 없다')
+    mkdirSync(join(root, '.claude-plugin'))
+    const manifest = join(root, '.claude-plugin/plugin.json')
+    writeFileSync(manifest, JSON.stringify({name: 'web-harness', version: '1.2.3'}))
+    assert.equal(harnessVersion(root), '1.2.3')
+    writeFileSync(manifest, JSON.stringify({name: 'consumer-plugin', version: '9.9.9'}))
+    assert.equal(harnessVersion(root), null, 'deploy 사본 위치에서 소비자 플러그인 버전을 하네스 버전으로 적으면 안 된다')
+    writeFileSync(manifest, JSON.stringify({name: 'web-harness', version: 3}))
+    assert.equal(harnessVersion(root), null)
+    writeFileSync(manifest, '{broken')
+    assert.equal(harnessVersion(root), null)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })
