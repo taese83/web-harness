@@ -3467,6 +3467,14 @@
       "why": "배포 뒤 이전 청크를 못 받으면 lazy 화면이 빈 화면으로 멈춘다 — 복구 리스너가 빠지면 가드가 잡아야 한다"
     },
     {
+      "id": "quality-runner-honors-project-pnpm-pin",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "    if (version !== null && version !== undefined && compare(version, pinnedVersion) === 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-quality-runner-pnpm.mjs",
+      "why": "핀 해석이 사라지면 러너가 자기 환경의 pnpm으로 남의 프로젝트를 판정한다(브라운필드 관례 무시)"
+    },
+    {
       "id": "grep-directory-excludes-still-required",
       "file": ".claude/scripts/global-bash-policy-lib.mjs",
       "find": "  if (recursive && hasDirectoryTarget) {",
