@@ -23,12 +23,17 @@
 ```json
 {"schemaVersion": 1, "spawns": [
   {"run": "2026-08-04T09:00+fresh", "phase": "P2", "agent": "layout-designer",
-   "retry": false, "tokens": 51234, "toolUses": 18, "durationMs": 195912,
-   "outcome": "complete"}
+   "retry": false, "mode": "fresh", "tokens": 51234, "toolUses": 18, "durationMs": 195912,
+   "outcome": "complete", "returnTruncated": false}
 ]}
 ```
 
 - `run`은 실행 시작 시각+모드(fresh/iterate/resume)로 한 번 정해 같은 실행의 모든 spawn에 동일하게 쓴다. retry 스폰은 `retry: true`로 같은 파일에 append한다.
+- `mode`는 `fresh` | `resume`다 — 새 스폰인지 이전 컨텍스트를 이어받은 재개인지. `resume`이면 `resumeOf`에 이어받은
+  스폰의 인덱스를 적는다. **이 둘이 없으면 재개 체인의 비용을 사후에 셀 수 없다** — `retry: true`는 실패 재스폰·
+  컨텍스트 재개·피드백 라운드·후속 작업을 전부 섞는다(2026-08 파일럿 34건이 그랬다).
+- `returnTruncated`는 반환 서사가 끊겼는지다. `outcome`과 독립이며, 산출물이 완결이면 `outcome: complete` + 
+  `returnTruncated: true`가 정상 조합이다.
 - `outcome`은 "스폰 완결성 게이트" 판정 결과다: `complete` | `truncated` | `crashed` | `incomplete`. 값을 지어내지 않는다 — 게이트를 돌리지 않았으면 `outcome`을 생략한다(누락은 미판정이지 complete가 아니다).
 - 실행 환경이 usage를 제공하지 않으면 해당 필드를 `null`로 기록한다 — **값을 추정하거나 지어내지 않는다.** `tokens: null` 행도 스폰 수 집계에는 유효하다.
 - 이 파일은 QA receipt가 아니다. `evidence/` 디렉토리에 두지 않고(receipt 검증과 분리) `_workspace/04_qa/` 직하에 둔다 — release fingerprint 제외 경로라서 Phase 4 중 append가 source hash를 stale로 만들지 않는다.
@@ -63,6 +68,19 @@ SELF_CHECK: <자체 확인 요약 또는 none>
 - 실행 환경이 조기 종료를 보고("terminated early", "API error", "connection closed")
 
 `outcome`은 truncation 계열이면 `truncated`, 환경 crash면 `crashed`, 그 외 미완이면 `incomplete`로 telemetry에 기록한다.
+
+**반환 서사의 절단과 산출물의 미완은 다른 일이다.** 아래를 **모두** 만족하면 `complete`로 적고 절단 사실은
+`returnTruncated: true`로 남긴다 — 반환 서사는 산출물이 아니다(규칙 5의 보고서형 스폰은 반대로 텍스트가 산출물이다).
+
+- `verify-spawn-completion --paths/--expect`가 전건 OK
+- 잠금 매니페스트가 있으면 `resume-manifest`의 remaining 0
+- **비-scannable 산출물**(md·json 등)은 위 둘이 존재·비어있지 않음만 보므로, 그 형태의 도메인 검사
+  (sharding·INDEX 등)가 PASS여야 한다. 절 중간에서 끊긴 문서는 두 게이트를 통과한다
+
+셋 중 하나라도 없으면 종전대로 `truncated`다. 조건을 낮춰 `complete`로 적으면 미완이 숨는다.
+
+관측(2026-08 파일럿, 오케스트레이터 `note` 판독 — 기계 receipt는 8건 중 4건): `truncated` 9건 중 8건(1,299k)이
+산출물 완결이라고 기록돼 있고 진짜 절단은 1건이었다. 성공을 실패로 세면 미완률이 부풀고 진짜 낭비를 못 본다.
 
 ### Layer 2 — 산출물·구문 기계 검증
 
