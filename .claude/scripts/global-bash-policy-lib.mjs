@@ -711,13 +711,13 @@ const validationScriptContract = (script, args, context) => {
     // `--replace-scope`, `--replace`, `--accept-incomplete`, `--foundation-complete`는
     // 전부 「사람이 판단해 우회한다」는 뜻이고, 에이전트가 스스로 켜면 그 게이트는 없는 것과 같다.
     const [mode, ...rest] = args
-    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'configure', 'create'])
+    const COMMANDS = new Set(['claim', 'pickup', 'link', 'board', 'intake', 'configure', 'create', 'pilot-report'])
     if (!COMMANDS.has(mode)) return false
     // 값을 받는 플래그(그 다음 토큰이 값이다)와 스위치를 가른다.
     const VALUED = new Set(['--repo', '--root', '--units', '--developer',
       '--ticket-provider', '--as', '--set',
       // `--features`는 WORK 준비 범위(쉼표 FEAT 목록)다 — 스크립트가 계획의 FEAT와 대조한다.
-      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment', '--digest'])
+      '--features', '--work-ids', '--parent', '--base', '--resolve', '--ticket', '--assessment', '--digest', '--keys'])
     // `--work`는 이제 기본 모델이라 붙여도 같다 — 그 자체로는 외부 쓰기가 없다. `--publish`는
     // 발행 입구이며 `--confirm`이 함께 와야 실제로 쓴다 — 확인 없이는 미리보기라 여기서 막지 않는다.
     const SWITCHES = new Set(['--confirm', '--dry-run', '--json', '--no-fetch', '--no-tracker', '--work', '--publish', '--aggregate', '--by-feature'])

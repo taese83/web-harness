@@ -3,6 +3,46 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "flow-log-requires-gitignore",
+      "file": ".claude/scripts/ticket/flow-log.mjs",
+      "find": "  if (!ignoredByGit(root)) return {recorded: false, reason: 'not-gitignored'}",
+      "replace": "  if (false) return {recorded: false, reason: 'not-gitignored'}",
+      "test": ".claude/scripts/test-pilot-report.mjs",
+      "why": "git 제외 전에 로그를 만들면 로컬 기록이 다음 커밋에 딸려 가 「전송 없음」이 깨진다"
+    },
+    {
+      "id": "pilot-reply-rate-measured-only",
+      "file": ".claude/scripts/ticket/pilot-report.mjs",
+      "find": "  const measured = withAssumptions.filter(row => row.repliesAfterAssumption !== null)",
+      "replace": "  const measured = withAssumptions",
+      "test": ".claude/scripts/test-pilot-report.mjs",
+      "why": "못 잰 답글을 0으로 접으면 사전 규칙이 「정정 없음」으로 읽어 하네스에 유리하게 오독한다"
+    },
+    {
+      "id": "flow-log-cli-records-link",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "        return {...linkedResult, ...flowRecordNote(recordFlow(root, flowEntry({command: 'link', ticketKey: args[0], result: linkedResult})))}",
+      "replace": "        return linkedResult",
+      "test": ".claude/scripts/test-pilot-report.mjs",
+      "why": "CLI가 결과를 기록하지 않으면 실측이 조용히 비고 「막힌 곳이 없다」로 읽힌다"
+    },
+    {
+      "id": "flow-log-no-ticket-content",
+      "file": ".claude/scripts/ticket/flow-log.mjs",
+      "find": "    phase: text(result?.phase), reason: text(reason),",
+      "replace": "    phase: text(result?.phase), reason: text(reason), body: result?.body ?? null,",
+      "test": ".claude/scripts/test-pilot-report.mjs",
+      "why": "흐름 로그에 티켓 내용이 실리면 로컬 기록이 비신뢰 원문의 사본이 된다"
+    },
+    {
+      "id": "pilot-replies-exclude-notifier",
+      "file": ".claude/scripts/ticket/pilot-report.mjs",
+      "find": "filter(comment => comment?.author && comment.author !== notifier && !BOT_AUTHOR.test(comment.author))",
+      "replace": "filter(comment => comment?.author && !BOT_AUTHOR.test(comment.author))",
+      "test": ".claude/scripts/test-pilot-report.mjs",
+      "why": "알림을 단 사람의 보충 코멘트까지 세면 가정 정정 비율이 부풀어 가정 출구를 잘못 좁힌다"
+    },
+    {
       "id": "team-sharing-covers-human-ticket-teams",
       "file": ".claude/scripts/validate-development-readiness.mjs",
       "find": "  const teamFlow = ['_workspace/03_dev/work-item-events.jsonl', '_workspace/03_dev/ticket-provider.json', '_workspace/03_dev/ticket-assessments']",
@@ -2941,8 +2981,8 @@
     {
       "id": "team-sharing-ignores-local-scope",
       "file": ".claude/scripts/validate-development-readiness.mjs",
-      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/'],",
-      "replace": "  ignores: ['_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/'],",
+      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
+      "replace": "  ignores: ['_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
       "test": ".claude/scripts/test-team-e2e.mjs",
       "why": "한 개발자의 작업 범위가 커밋되면 머지마다 충돌하고 받은 사람의 픽업을 막는다"
     },

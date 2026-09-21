@@ -40,6 +40,7 @@ cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
 cli.mjs create --draft <초안.md> [--repo o/r] [--confirm --digest <지문>]  # 기획 없이 기능만 구현하는 개발 티켓 생성(손 티켓과 같다)
+cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # 실측 집계(읽기만) — 흐름 로그·판정·등록·연결 + 트래커·PR
 ```
 
 `claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
@@ -59,6 +60,7 @@ cli.mjs create --draft <초안.md> [--repo o/r] [--confirm --digest <지문>]  #
 | "FEAT별로 어디까지 됐어", "기능 단위 진행" | `board --by-feature` |
 | "이 Jira 기획 티켓 읽어줘", "티켓에서 기획 가져와" | `intake <티켓키>` |
 | "개발 티켓 만들어줘", "공통 로직을 티켓으로 나눠줘", "기획 없이 기능 티켓" | `create` (초안 → 미리보기 → 확인 → `--confirm`) |
+| "실측 집계해줘", "파일럿 결과 보여줘" | `pilot-report` (결과의 `markdown`을 그대로 보여 준다) |
 
 **티켓 종류마다 문이 다르다** — 기획 티켓은 `intake`로 **공급 원문**이 되고(개발 티켓이 아니다), 개발은
 계획이 발행한 **WORK 티켓**과, 팀이 선언한 분류의 **사람 개발 티켓**(판정·확인을 거쳐 로컬에 등록한 뒤)만 집는다. 분해된 FEAT를 집으려 하면 어느 WORK로 가야 하는지 돌려준다.
@@ -173,7 +175,7 @@ PR 본문에 넣게 한다. 닫는 줄은 발행 원장의 트래커가 정한�
 `pickup`·`link`는 받지 않은 계획 개정이 원격에 있으면 멈춘다(`plan-behind-remote`) — 받은 뒤 다시 집는다.
 
 **여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
-`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`(개발자 로컬 기록)에 git 제외를 넣는다.
+`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`·`flow-log.jsonl`(개발자 로컬 기록)에 git 제외를 넣는다.
 사람이 만든 개발 티켓만 쓰는 팀(원장 없이 트래커 설정만)도 같은 검사를 받는다. 없으면 원장이 충돌하고 남의 로컬 기록이 픽업을 막는다.
 
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해

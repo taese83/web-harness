@@ -10,6 +10,7 @@
 //
 // side-effect 규율: `claim --publish`·`configure`는 `--confirm` 없이 미리보기다. `pickup`·`link`·`intake`는
 // **사용자의 요청이 곧 승인**이며 `--dry-run`으로 미리본다.
+import {flowEntry, flowRecordNote, recordFlow} from './flow-log.mjs'
 import {DEV_TICKET, appendInventory, classifyByComponent, planIntake} from './intake.mjs'
 import {scanUntrustedIssue, ticketContextLines} from './pickup.mjs'
 import {bounceComment} from './readiness.mjs'
@@ -457,7 +458,10 @@ if (invokedDirectly) {
         const {pickupOutcome, runWorkPickup} = await import('./work-pickup-run.mjs')
         const picked = await runWorkPickup({root, ticketKey: args[0] ?? null,
           developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
-        return {outcome: pickupOutcome(picked), ...picked}
+        const result = {outcome: pickupOutcome(picked), ...picked}
+        // 실측 기록(로컬, 게이트 아님) — dry-run은 흐름이 아니다.
+        if (flags['dry-run']) return result
+        return {...result, ...flowRecordNote(recordFlow(root, flowEntry({command: 'pickup', ticketKey: args[0] ?? null, developer: flags.developer, result})))}
       }
       // 완료 주장(PR 연결) — 내 로컬에 기록하고 PR 본문 문단을 돌려준다. 머지는 기록하지 않는다(보드·픽업이 PR에서 읽는다).
       case 'link': {
@@ -465,7 +469,9 @@ if (invokedDirectly) {
         // 트래커는 끝남·다시 연 시각과 사람 티켓의 원문 대조에 쓴다 — 설정이 없으면 로컬 기록만으로 간다.
         const linked = (() => { try { return resolveTicketProvider({root, repo: flags.repo, flags}) } catch { return {} } })()
         const io = linked.provider ? {provider: linked.provider, ticketConfig: linked.config} : {}
-        return linkRun.runWorkLink({root, ticketKey: args[0], prUrl: args[1], flags, io})
+        const linkedResult = await linkRun.runWorkLink({root, ticketKey: args[0], prUrl: args[1], flags, io})
+        if (flags['dry-run']) return linkedResult
+        return {...linkedResult, ...flowRecordNote(recordFlow(root, flowEntry({command: 'link', ticketKey: args[0], result: linkedResult})))}
       }
       // 트래커 조회는 선택이며, 못 하면 로컬 기준임을 **적는다**.
       case 'board': {
@@ -485,9 +491,17 @@ if (invokedDirectly) {
           return {ok: false, mode: 'create', phase: 'PROVIDER_NOT_READY', externalWrites: 0, questions: resolved.questions ?? null,
             guidance: missing === 'provider' ? '어느 트래커에 만들지 정한다 — `configure`로 기록한다' : 'GitHub에 만들려면 `--repo <owner/name>`가 필요하다'}
         }
-        return (await import('./ticket-create-run.mjs')).runTicketCreate({root, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
+        const createdResult = await (await import('./ticket-create-run.mjs')).runTicketCreate({root, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
+        if (!flags.confirm) return createdResult
+        return {...createdResult, ...flowRecordNote(recordFlow(root, flowEntry({command: 'create', result: createdResult})))}
       }
-      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure|create`)
+      // 실측 집계 — 흐름 로그·판정·등록·연결 기록과 트래커·PR을 티켓별 표로 잇는다(읽기만).
+      case 'pilot-report': {
+        const {resolved, missing} = tracker()
+        return (await import('./pilot-report.mjs')).runPilotReport({root, flags,
+          io: missing ? {} : {provider: resolved.provider, ticketConfig: resolved.config}})
+      }
+      default: throw new Error(`UNKNOWN_COMMAND: ${command ?? '(없음)'} — claim|pickup|link|board|intake|configure|create|pilot-report`)
     }
   }
   run().then(result => {

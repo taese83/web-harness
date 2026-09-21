@@ -300,7 +300,7 @@ export const TEAM_SHARING = {
   attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
   // 개발자 로컬 기록 — 커밋하면 PR마다 충돌하고 남의 기록이 픽업·범위를 막는다. 초안은 트래커에 만든 뒤에는 티켓이 정본이다.
   ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',
-    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/'],
+    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],
 }
 const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
 function trackedFiles(root, paths) {
