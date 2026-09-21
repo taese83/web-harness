@@ -215,9 +215,10 @@ export async function runWorkBoard({root, developer = null, flags = {}, io = {}}
   const trackerNotes = []
   // 사람 티켓 — 내 판정·등록은 **내 로컬 기록**이고, 남의 티켓은 트래커의 개발 티켓 목록(분류·배정)으로만 안다.
   let devTickets = null
-  const {readDevTickets, readLocalTicketWork, withTicketRegistrations} = await import('./ticket-work-run.mjs')
+  const {readDevTickets, readLocalTicketWork, withExternalDependencies, withTicketRegistrations} = await import('./ticket-work-run.mjs')
   const local = readLocalTicketWork(root)
   state = withTicketRegistrations(state, local.registrations, local.verdicts)
+  if (plan) state = withExternalDependencies(state, plan)
   const unreadable = local.registrations.filter(item => item.error).length
   if (unreadable > 0) trackerNotes.push(`내 등록 기록 ${unreadable}건을 읽지 못했습니다. 그 티켓은 다시 판정하세요.`)
   if (ticketCapable && provider && typeof provider.listDevTickets === 'function' && flags['no-tracker'] !== true) {

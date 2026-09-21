@@ -71,7 +71,7 @@ export function buildWorkDoc({work, featureIds = [], features = new Map(), testC
       {id: 'tests', title: t.tests, checklist: true, items: items.tests.length > 0 ? items.tests : [], empty: c.noTests},
       {id: 'scope', title: t.scope, code: true, items: list(work.writePaths)},
       {id: 'nonGoals', title: t.nonGoals, items: list(work.nonGoals)},
-      {id: 'dependsOn', title: t.dependsOn, items: dependsOn.map(dep => `${dep.ticketKey ?? c.unpublished} ${dep.title ?? dep.workId}`), empty: c.noDeps},
+      {id: 'dependsOn', title: t.dependsOn, items: dependsOn.map(dep => `${dep.ticketKey ?? c.unpublished}${dep.title ? ` ${dep.title}` : String(dep.workId).startsWith('WORK-') ? ` ${dep.workId}` : ''}`), empty: c.noDeps},
       {id: 'references', title: t.references, items: [
         ...featureIds.map(id => `${c.features}: ${id}${features.get(id) ? ` ${features.get(id)}` : ''}`),
         ...(parentKey ? [`${c.parent}: ${parentKey}${relationMode === 'link-only' ? ` (${c.parentLinkOnly})` : ''}`] : []),

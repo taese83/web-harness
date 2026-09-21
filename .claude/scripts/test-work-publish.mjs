@@ -158,6 +158,20 @@ test('T45: 선행이 이번 발행에도 없고 등록되지도 않았으면 막
   })
 })
 
+test('T45: 사람이 만든 개발 티켓 키 선행은 발행을 막지 않는다 — 트래커에 이미 있고, 착수 때 완료를 잰다', async () => {
+  const root = fixture('crud')
+  await within(root, async () => {
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'))
+    plan.workItems.find(item => item.workId === W(1)).dependsOn = ['AOA-47']
+    writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`)
+    await review(root)
+    const {provider} = tracker()
+    const alone = await runWorkPublish({root, flags: {'work-ids': W(1)}, io: {provider, ticketConfig}})
+    assert.equal(alone.errors?.some(error => /선행이 이번 발행에도 없고/.test(error)) ?? false, false, JSON.stringify(alone.errors))
+  })
+})
+
 test('T12·T13: 일부 실패는 성공분을 유지하고 불확실로 남으며, 재개는 조회로 확인한다(재발행 없음)', async () => {
   const root = fixture('crud')
   await within(root, async () => {

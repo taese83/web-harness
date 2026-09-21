@@ -89,3 +89,10 @@ export function classifyTicketKind(body) {
   if (hasRefs) return {kind: 'legacy'}
   return {kind: 'unknown'}
 }
+
+// 선행을 **티켓 키**로 적는 자리(사람이 만든 개발 티켓) — Jira 키 · GitHub 번호(`#` 생략 가능). WORK ID와 겹치지 않는다.
+const TICKET_KEY_REF = /^(?:[A-Za-z][A-Za-z0-9_]*-\d+|#?\d+)$/
+// 하네스 내부 ID(기획 FEAT·TC)는 티켓 키 모양이어도 키가 아니다 — 받으면 「계획에 없다」가 무기한 선행 대기로 바뀐다.
+const INTERNAL_ID = /^(?:WORK|FEAT|TC)-/
+export const isTicketKeyRef = dep => typeof dep === 'string' && !INTERNAL_ID.test(dep) && TICKET_KEY_REF.test(dep)
+export const normalizeTicketKeyRef = dep => String(dep).replace(/^#/, '')

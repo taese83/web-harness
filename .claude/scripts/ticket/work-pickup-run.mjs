@@ -54,11 +54,20 @@ export function separateTestLayers(spec) {
     .filter(test => !sources.some(source => withinScope(source, test) || withinScope(test, source)))
 }
 
+/**
+ * 픽업이 트래커에서 읽을 키(순수) — 이 티켓과 그 선행들. 같은 키의 선행 자리표시가 먼저 잡히면 정의가 없어 그 작업의
+ * 선행을 읽지 못한다(끝난 선행을 「머지 안 됨」으로 되돌린다) — 실제 작업을 먼저 찾는다.
+ */
+export function trackerKeysFor({state, plan, ticketKey}) {
+  const sameKey = [...(state?.works?.entries() ?? [])].filter(([, item]) => String(item.ticketKey) === String(ticketKey))
+  const entry = sameKey.find(([, item]) => !item.placeholder) ?? sameKey[0]
+  const work = entry ? (plan?.workItems ?? []).find(item => item.workId === entry[0]) ?? entry[1].definition : null
+  return [ticketKey, ...(work?.dependsOn ?? []).map(dep => state.works.get(dep)?.ticketKey).filter(Boolean)].map(String)
+}
+
 /** 이 티켓과 그 선행 작업의 지금 상태를 트래커·PR에서 읽는다(끝남·머지·다시 연 시각). 못 읽으면 원장만으로 판정한다(막지 않는다). */
 async function readTrackerDone({provider, state, plan, ticketKey, config, root, io = {}}) {
-  const entry = [...(state?.works?.entries() ?? [])].find(([, item]) => String(item.ticketKey) === String(ticketKey))
-  const work = entry ? (plan?.workItems ?? []).find(item => item.workId === entry[0]) ?? entry[1].definition : null
-  const keys = [ticketKey, ...(work?.dependsOn ?? []).map(dep => state.works.get(dep)?.ticketKey).filter(Boolean)].map(String)
+  const keys = trackerKeysFor({state, plan, ticketKey})
   if (!provider) return {state, read: {checked: false, reason: 'provider가 없다'}}
   const {readTrackerWorkState} = await import('./work-state-run.mjs')
   const read = await readTrackerWorkState({provider, state, root, plan, config, io, keys})
@@ -84,6 +93,7 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
     }
   }
   let state = foldWorkState(readWorkEvents(join(root, WORK_EVENTS_PATH)))
+  if (plan) state = (await import('./ticket-work-run.mjs')).withExternalDependencies(state, plan)
   const provider = io.provider
   // 계획이 없고 사람 티켓 경로도 쓸 수 없으면 **트래커를 부르기 전에** 멈춘다(읽기라도 부를 이유가 없다).
   const {hasDevTicketAxis} = await import('./ticket-work-run.mjs')

@@ -13,7 +13,7 @@ import {cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {spawnSync} from 'node:child_process'
-import {runWorkPickup} from './ticket/work-pickup-run.mjs'
+import {runWorkPickup, trackerKeysFor} from './ticket/work-pickup-run.mjs'
 import {readChangeScopeFile} from './ticket/cli.mjs'
 import {appendWorkEvent, WORK_EVENTS_PATH} from './ticket/work-events.mjs'
 import {randomUUID} from 'node:crypto'
@@ -459,4 +459,68 @@ test('T09: WORK 픽업이 발급한 범위가 developer 쓰기를 계획의 writ
     symlinkSync(join(root, 'src/entities/member'), join(root, 'src/pages/members/list/shared'))
     assert.equal(write('src/pages/members/list/shared/api.ts'), false, 'symlink를 거쳐 경계 밖에 썼다')
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('계획 WORK의 선행이 사람 티켓 키면 그 티켓이 끝나야 착수한다 — 키에 자리를 두고 트래커·PR 완료를 겹친다', async () => {
+  const {withExternalDependencies} = await import('./ticket/ticket-work-run.mjs')
+  const external = structuredClone(plan)
+  external.workItems.find(work => work.workId === W(1)).dependsOn = ['AOA-47']
+  const digest = canonicalDigest(external)
+  const externalView = computeWorkView(external, fixture('crud').analysis)
+  const stateWith = extra => withExternalDependencies({works: new Map([[W(1), {status: 'published', ticketKey: 'PF-101', planDigest: digest}], ...extra])}, external)
+  const run = state => pickupWorkTicket({issue: ticket(W(1), {digest}), plan: external, planDigest: digest, state, view: externalView, testCaseTexts: tcTexts})
+  const state = stateWith([])
+  assert.equal(state.works.get('AOA-47')?.ticketKey, 'AOA-47', '키에 자리가 없으면 트래커 완료를 겹칠 곳이 없다')
+  const waiting = run(state)
+  assert.equal(waiting.bounce?.reason, 'dependency-incomplete', JSON.stringify(waiting.bounce))
+  assert.deepEqual(waiting.bounce.missing, ['AOA-47'])
+  state.works.set('AOA-47', {...state.works.get('AOA-47'), completed: {via: 'merge'}})
+  const started = run(state)
+  assert.equal(started.ok, true, `사람 티켓이 끝났는데 착수하지 못했다: ${JSON.stringify(started.bounce)}`)
+})
+
+test('트래커 키: 같은 키의 선행 자리표시가 등록된 사람 티켓 작업을 가리지 않는다 — 그 작업의 선행까지 읽는다', async () => {
+  const {withExternalDependencies, withTicketRegistrations} = await import('./ticket/ticket-work-run.mjs')
+  const {ticketWorkId} = await import('./ticket/ticket-work.mjs')
+  const registration = {ticketKey: 'AOA-48', provider: 'jira', workId: ticketWorkId('jira', 'AOA-48'), planId: 'p', planDigest: 'd',
+    definition: {dependsOn: [ticketWorkId('jira', 'AOA-47')]}, dependsOnKeys: ['AOA-47']}
+  const external = {workItems: [{workId: W(9), dependsOn: ['AOA-48']}]}
+  // 픽업 실행부와 같은 순서 — 원장 → 계획의 사람 티켓 선행 자리 → 내 등록
+  const state = withTicketRegistrations(withExternalDependencies({works: new Map()}, external), [registration])
+  assert.deepEqual(trackerKeysFor({state, plan: external, ticketKey: 'AOA-48'}), ['AOA-48', 'AOA-47'],
+    '자리표시를 먼저 잡으면 선행 AOA-47을 읽지 않아 끝났어도 「머지 안 됨」 코멘트를 남긴다')
+})
+
+test('실행부: 계획 WORK의 사람 티켓 선행은 픽업이 트래커에서 읽는다 — 끝나기 전엔 막고, 끝나면 집는다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-work-pickup-external-'))
+  try {
+    cpSync(join(repo, '.claude/evals/fixtures/work-plan/crud'), root, {recursive: true})
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const external = JSON.parse(readFileSync(planPath, 'utf8'))
+    external.workItems.find(item => item.workId === W(1)).dependsOn = ['PF-900']
+    writeFileSync(planPath, `${JSON.stringify(external, null, 2)}\n`)
+    const digest = canonicalDigest(external)
+    appendWorkEvent(join(root, WORK_EVENTS_PATH), {schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: external.planId,
+      workId: W(1), eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest: digest, payload: {ticketKey: 'PF-101'}})
+    const asked = []
+    const providerWith = foundation => {
+      let assignees = []
+      return {
+      name: 'jira',
+      async resolveIssue(key) { return {...ticket(W(1), {key, digest}), assignees: [...assignees]} },
+      async listWorkIssues({keys} = {}) { asked.push(...(keys ?? [])); return {items: [{ticketKey: 'PF-900', assignees: [], ...foundation}], complete: true} },
+      async assign(key, who) { assignees = [who] }, async transition() { return {transitioned: true} }, async comment() { return {ok: true} },
+      supportedPhases: ['in-progress'],
+      }
+    }
+    const io = foundation => ({provider: providerWith(foundation), mergedPrs: async () => [], repoContext: async () => null})
+    const waiting = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: io({statusCategory: 'indeterminate'})})
+    assert.equal(waiting.bounce?.reason, 'dependency-incomplete', JSON.stringify(waiting.bounce ?? waiting))
+    assert.deepEqual(waiting.bounce.missing, ['PF-900'])
+    assert.ok(asked.includes('PF-900'), '픽업이 사람 티켓 선행을 트래커에서 읽지 않았다')
+    const started = await runWorkPickup({root, ticketKey: 'PF-101', developer: 'me', flags: {}, io: io({statusCategory: 'done', resolution: 'Done'})})
+    assert.equal(started.ok, true, `사람 티켓이 끝났는데 착수하지 못했다: ${JSON.stringify(started.bounce)}`)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

@@ -6,7 +6,7 @@
 // **티켓 원본은 고치지 않는다** — 확인한 판정은 이 개발자의 로컬 등록 기록이다(git 제외). 다른 클론은 배정·상태로 안다.
 import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
-import {buildWorkMarker, classifyTicketKind, parseWorkMarker, stripWorkMarker, withWorkMarker} from './work-refs.mjs'
+import {buildWorkMarker, classifyTicketKind, isTicketKeyRef, normalizeTicketKeyRef, parseWorkMarker, stripWorkMarker, withWorkMarker} from './work-refs.mjs'
 import {quarantineExcerpt, scanUntrustedIssue} from './pickup.mjs'
 import {classifyByComponent, DEV_TICKET} from './intake.mjs'
 import {computeAssignmentPlan} from './assign.mjs'
@@ -103,6 +103,20 @@ export function withTicketRegistrations(state, registrations = [], verdicts = []
   }
   for (const {ticketKey, verdict, workId} of verdicts) if (!tickets.has(String(ticketKey))) tickets.set(String(ticketKey), {verdict, workId})
   return {...(state ?? {}), works, tickets}
+}
+
+/**
+ * 계획 WORK가 선행으로 적은 **사람 티켓 키**에 자리를 둔다(순수) — 그 키로 트래커·PR 완료를 겹쳐 선행 대기를 잰다.
+ * 자리는 계획이 적은 문자열 그대로를 키로 쓴다(픽업·보드가 `dependsOn` 값으로 찾는다).
+ */
+export function withExternalDependencies(state, plan) {
+  const works = new Map(state?.works ?? [])
+  for (const work of list(plan?.workItems)) {
+    for (const dep of list(work.dependsOn)) {
+      if (isTicketKeyRef(dep) && !works.has(dep)) works.set(dep, {status: 'published', origin: 'ticket', ticketKey: normalizeTicketKeyRef(dep), placeholder: true, external: true})
+    }
+  }
+  return {...(state ?? {}), works}
 }
 
 /** 수정 범위가 겹치는지 볼 진행 중 작업(순수) — 발행·등록됐고 머지로 끝나지 않은 계획·티켓 작업. */

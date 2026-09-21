@@ -3,6 +3,62 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "pickup-wires-external-dependencies",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  if (plan) state = (await import('./ticket-work-run.mjs')).withExternalDependencies(state, plan)",
+      "replace": "  if (false) state = (await import('./ticket-work-run.mjs')).withExternalDependencies(state, plan)",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "픽업이 사람 티켓 선행에 자리를 두지 않으면 그 티켓이 끝나도 영영 선행 대기로 막힌다"
+    },
+    {
+      "id": "tracker-keys-prefer-real-work",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "  const entry = sameKey.find(([, item]) => !item.placeholder) ?? sameKey[0]",
+      "replace": "  const entry = sameKey[0]",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "자리표시가 등록된 작업을 가리면 그 작업의 선행을 읽지 않아 끝난 선행을 「머지 안 됨」으로 트래커에 되돌린다"
+    },
+    {
+      "id": "ticket-key-excludes-internal-ids",
+      "file": ".claude/scripts/ticket/work-refs.mjs",
+      "find": "export const isTicketKeyRef = dep => typeof dep === 'string' && !INTERNAL_ID.test(dep) && TICKET_KEY_REF.test(dep)",
+      "replace": "export const isTicketKeyRef = dep => typeof dep === 'string' && TICKET_KEY_REF.test(dep)",
+      "test": ".claude/scripts/test-work-plan.mjs",
+      "why": "FEAT·TC를 사람 티켓 키로 받으면 계획 오류가 즉시 실패하지 않고 무기한 선행 대기가 된다"
+    },
+    {
+      "id": "plan-dependency-ticket-key-accepted",
+      "file": ".claude/scripts/ticket/work-plan.mjs",
+      "find": "      else if (isTicketKeyRef(dep) && !Object.values(analysisIds ?? {}).some(ids => ids?.has?.(dep))) continue",
+      "replace": "      else if (false) continue",
+      "test": ".claude/scripts/test-work-plan.mjs",
+      "why": "계획이 사람 티켓 키 선행을 거부하면 손으로 먼저 만든 공통 기반을 화면 WORK가 기다릴 방법이 없다"
+    },
+    {
+      "id": "publish-closure-skips-ticket-keys",
+      "file": ".claude/scripts/ticket/work-publish.mjs",
+      "find": "filter(dep => !isTicketKeyRef(dep) && !exists.has(dep)",
+      "replace": "filter(dep => !exists.has(dep)",
+      "test": ".claude/scripts/test-work-publish.mjs",
+      "why": "발행 닫힘이 사람 티켓 키를 미등록 선행으로 세면 그 작업은 영영 발행되지 않는다"
+    },
+    {
+      "id": "external-dependency-placeholder",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "      if (isTicketKeyRef(dep) && !works.has(dep)) works.set(dep,",
+      "replace": "      if (false) works.set(dep,",
+      "test": ".claude/scripts/test-work-pickup.mjs",
+      "why": "사람 티켓 키에 자리가 없으면 트래커 완료를 겹칠 곳이 없어 선행 대기가 풀리지 않는다"
+    },
+    {
+      "id": "board-wires-external-dependencies",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "  if (plan) state = withExternalDependencies(state, plan)",
+      "replace": "  if (false) state = withExternalDependencies(state, plan)",
+      "test": ".claude/scripts/test-work-board.mjs",
+      "why": "보드가 사람 티켓 선행을 트래커에서 읽지 않으면 끝난 공통 기반 뒤의 화면 WORK를 집을 수 있다고 알리지 못한다"
+    },
+    {
       "id": "ticket-placeholder-never-covers-registration",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
       "find": "      if (key && !works.has(dep)) works.set(dep, {status: 'published', origin: 'ticket', ticketKey: key, placeholder: true})",
@@ -1525,7 +1581,7 @@
     {
       "id": "work-publish-dependency-closure",
       "file": ".claude/scripts/ticket/work-publish.mjs",
-      "find": "  const missingDeps = (work, exists) => list(work.dependsOn).filter(dep => !exists.has(dep) && stateOf(dep).status !== 'published')",
+      "find": "  const missingDeps = (work, exists) => list(work.dependsOn).filter(dep => !isTicketKeyRef(dep) && !exists.has(dep) && stateOf(dep).status !== 'published')",
       "replace": "  const missingDeps = () => []",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "등록되지 않은 선행을 완료로 치면 착수할 수 없는 작업이 준비된 것처럼 배포된다"

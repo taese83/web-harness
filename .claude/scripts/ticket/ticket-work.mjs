@@ -12,7 +12,7 @@ import {createHash} from 'node:crypto'
 import {canonicalDigest, safeRelativeScope} from './work-analysis.mjs'
 import {pathsOverlap, ROLE} from './work-plan.mjs'
 import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES} from './work-ticket-doc.mjs'
-import {stripWorkMarker} from './work-refs.mjs'
+import {isTicketKeyRef, normalizeTicketKeyRef as normalizeKeyRef, stripWorkMarker} from './work-refs.mjs'
 import {normalizeLayerPath} from '../agent-registry.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -51,9 +51,7 @@ export const testItemPrefix = ticketKey => `TT-${String(ticketKey).replace(/[^A-
 export const TEST_ITEM_ID = /\bTT-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-\d+\b/g
 
 // 선행은 WORK ID 또는 **티켓 키**로 적는다 — 사람 티켓은 키에서 작업 ID가 결정되므로 등록 전이어도 선언할 수 있다.
-const TICKET_KEY_REF = /^(?:[A-Za-z][A-Za-z0-9_]*-\d+|#?\d+)$/
-export const isTicketKeyRef = dep => typeof dep === 'string' && !dep.startsWith('WORK-') && TICKET_KEY_REF.test(dep)
-const normalizeKeyRef = dep => String(dep).replace(/^#/, '')
+export {isTicketKeyRef}
 
 /** 선행 → `{workId, ticketKey}`(순수). 키면 이미 아는 작업(발행된 계획 WORK 등)의 ID를, 없으면 키에서 결정한 ID를 쓴다. */
 export function resolveTicketDependencies({dependsOn, provider, keyedWorks = new Map()}) {

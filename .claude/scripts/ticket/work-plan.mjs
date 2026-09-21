@@ -10,6 +10,7 @@
 // 계획(T42) · 근거 없는 작업(분석→WORK 연결) · 제공 계약을 쓰는데 선행 의존이 없음 · 디자인 참조의
 // 부재·오대응(T50·T52·T54). **우선순위는 실행 가능 집합 안에서만** 순서를 정한다(T37).
 import {canonicalDigest, safeRelativePath, safeRelativeScope} from './work-analysis.mjs'
+import {isTicketKeyRef} from './work-refs.mjs'
 import {conditionKey} from '../design-binding-lib.mjs'
 
 /** 경로 a가 경로/디렉터리 b를 포함하는가(경계 안전 — `src/feature` ≠ `src/features`). */
@@ -186,7 +187,9 @@ export function validateWorkPlan(plan, context) {
     if (!Array.isArray(work.dependsOn)) errors.push(`${label}: dependsOn이 없다 — 미선언은 「의존 없음」이 아니다. 없으면 []로 명시한다(T07)`)
     for (const dep of list(work.dependsOn)) {
       if (dep === work.workId) errors.push(`${label}: 자기 자신에 의존한다`)
-      else if (!byId.has(dep)) errors.push(`${label}: 의존 ${dep}가 계획에 없다`)
+      // 사람이 만든 개발 티켓(계획 밖 공통 기반 등)은 티켓 키로 기다린다 — 착수는 그 티켓이 머지·완료된 뒤다.
+      else if (isTicketKeyRef(dep) && !Object.values(analysisIds ?? {}).some(ids => ids?.has?.(dep))) continue
+      else if (!byId.has(dep)) errors.push(`${label}: 의존 ${dep}가 계획에 없다 — 사람이 만든 개발 티켓이면 티켓 키로 적는다`)
       else if (!activeIds.has(dep)) errors.push(`${label}: 취소·대체된 작업 ${dep}에 의존한다`)
     }
     for (const key of ['readPaths', 'writePaths']) {

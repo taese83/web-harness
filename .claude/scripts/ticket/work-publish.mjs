@@ -9,7 +9,7 @@
 //   - **불확실을 부재로 읽지 않는다.** 시도했는데 결과를 모르면 조회로 확인하고, 조회가 불완전하면
 //     재발행하지 않고 사람에게 조정을 맡긴다(§8-5).
 import {createHash} from 'node:crypto'
-import {WORK_ID} from './work-refs.mjs'
+import {isTicketKeyRef, WORK_ID} from './work-refs.mjs'
 import {canonicalDigest} from './work-analysis.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -59,7 +59,8 @@ export function planPublish({plan, planDigest, state, selection = null, blockedW
   // 2) **선행 닫힘.** 이번 발행 집합 ∪ 이미 등록된 집합이 의존에 대해 닫혀 있어야 한다.
   const willExist = () => new Set([...publish, ...resume.map(item => byId.get(item.workId)), ...reuse.map(item => byId.get(item.workId))]
     .filter(Boolean).map(work => work.workId))
-  const missingDeps = (work, exists) => list(work.dependsOn).filter(dep => !exists.has(dep) && stateOf(dep).status !== 'published')
+  // 티켓 키 선행(사람이 만든 개발 티켓)은 발행 대상이 아니다 — 이미 트래커에 있고, 착수 시점에 완료를 잰다.
+  const missingDeps = (work, exists) => list(work.dependsOn).filter(dep => !isTicketKeyRef(dep) && !exists.has(dep) && stateOf(dep).status !== 'published')
   if (selection) {
     // **고른 것은 거절로 답한다.** 사람이 이름을 대고 요청했는데 조용히 빼면 「등록됐다」고 오해한다.
     const exists = willExist()

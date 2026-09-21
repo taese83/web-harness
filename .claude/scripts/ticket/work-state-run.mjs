@@ -113,6 +113,12 @@ export async function readTrackerWorkState({provider, state, root, plan = null, 
       notes.push(`다시 연 기록을 확인하지 못했습니다: ${String(error?.message ?? error).slice(0, 120)}.`)
     }
   }
+  // 선행으로만 아는 티켓(자리표시)이 조회를 끝까지 했는데도 없으면 키가 틀렸을 수 있다 — 「아직 안 끝남」과 구별해 알린다.
+  if (lookupComplete) {
+    const unknownKeys = [...new Set([...(state?.works?.values() ?? [])].filter(item => item.placeholder && item.ticketKey && wanted.includes(String(item.ticketKey))
+      && !byKey.has(String(item.ticketKey))).map(item => String(item.ticketKey)))]
+    if (unknownKeys.length > 0) notes.push(`선행 티켓 ${unknownKeys.length}건을 트래커에서 찾지 못했습니다(${unknownKeys.join(', ')}) — 키가 맞는지 확인하세요. 찾을 때까지 선행 대기로 둡니다.`)
+  }
   const next = withTrackerCompletion(state, [...byKey.values()], {completedResolutions, mergeEvidence: commits.evidence, prEvidence, links})
   // `checked`는 트래커를 읽었는가다 — 머지 근거를 못 읽은 것은 `notes`가 따로 말한다(섞지 않는다).
   return {state: next, items, lookupComplete, notes, checked: items !== null}

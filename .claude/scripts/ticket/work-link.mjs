@@ -144,7 +144,7 @@ export function evaluateWorkCompletion({work, ownedTestCaseIds, citedIds, pathEx
 /** 원장에서 티켓 키로 작업을 찾는다(순수). 둘 이상이면 모호하다 — 고르지 않는다. */
 export function workForTicket(state, ticketKey) {
   const hits = [...(state?.works?.entries() ?? [])]
-    .filter(([, item]) => item.status === 'published' && String(item.ticketKey) === String(ticketKey))
+    .filter(([, item]) => item.status === 'published' && !item.placeholder && String(item.ticketKey) === String(ticketKey))
   if (hits.length === 1) return {workId: hits[0][0], registered: hits[0][1]}
   return hits.length === 0 ? {error: 'work-not-registered'} : {error: 'ticket-registered-twice', workIds: hits.map(([id]) => id)}
 }

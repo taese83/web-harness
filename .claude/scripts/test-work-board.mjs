@@ -7,7 +7,7 @@
 //   (3) 통합 대기는 정보다 — 선행의 완료는 아직 기록되지 않는다(P3), 착수 조건은 선행의 등록까지다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {cpSync, mkdtempSync, readFileSync, rmSync} from 'node:fs'
+import {cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {randomUUID} from 'node:crypto'
@@ -223,4 +223,39 @@ test('원장은 발행됐다는데 트래커에 없으면 「배정 미상」이
   const row = rows.find(entry => entry.workId === W(1))
   assert.equal(row.blockedReason, 'ticket-not-found')
   assert.ok(notes.some(note => /트래커에서 찾을 수 없는 작업/.test(note)), JSON.stringify(notes))
+})
+
+test('실행부: 계획 WORK가 사람 티켓 키를 선행으로 적으면 그 티켓이 끝날 때까지 선행 대기다(보드·트래커 조회 배선)', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-work-board-external-'))
+  try {
+    cpSync(join(repo, '.claude/evals/fixtures/work-plan/crud'), root, {recursive: true})
+    const planPath = join(root, '_workspace/03_dev/work-plan.json')
+    const external = JSON.parse(readFileSync(planPath, 'utf8'))
+    const target = external.workItems.find(item => item.workId === W(4))
+    target.dependsOn = [...target.dependsOn, 'AOA-47']
+    writeFileSync(planPath, `${JSON.stringify(external, null, 2)}\n`)
+    const digest = canonicalDigest(external)
+    const events = join(root, WORK_EVENTS_PATH)
+    for (const [workId, ticketKey] of Object.entries({[W(1)]: 'PF-101', [W(3)]: 'PF-103', [W(4)]: 'PF-104'})) {
+      appendWorkEvent(events, {schemaVersion: 1, eventId: randomUUID(), operationId: randomUUID(), planId: external.planId,
+        workId, eventType: 'publish-confirmed', at: new Date().toISOString(), planDigest: digest, payload: {ticketKey}})
+    }
+    const asked = []
+    const listed = states => ({name: 'jira', async listWorkIssues({keys} = {}) {
+      asked.push(...(keys ?? []))
+      return {items: Object.entries(states).map(([ticketKey, value]) => ({ticketKey, assignees: [], ...value})), complete: true}
+    }})
+    const done = {statusCategory: 'done', resolution: 'Done'}
+    const ticketConfig = {provider: 'jira', jira: {}}
+    const waiting = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done, 'PF-103': done, 'PF-104': {statusCategory: 'new'}, 'AOA-47': {statusCategory: 'indeterminate'}}), ticketConfig}})
+    assert.equal(waiting.rows.find(row => row.workId === W(4)).blockedReason, 'dependency-incomplete', '끝나지 않은 사람 티켓을 선행 완료로 읽었다')
+    assert.ok(asked.includes('AOA-47'), '사람 티켓 선행을 트래커에서 읽지 않았다')
+    const ready = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done, 'PF-103': done, 'PF-104': {statusCategory: 'new'}, 'AOA-47': done}), ticketConfig}})
+    assert.deepEqual(ready.ready, [W(4)], '사람 티켓이 끝났는데 사슬을 열지 않았다')
+    const typo = await runWorkBoard({root, developer: 'me', flags: {}, io: {provider: listed({'PF-101': done, 'PF-103': done, 'PF-104': {statusCategory: 'new'}}), ticketConfig}})
+    assert.ok(typo.notes.some(note => /선행 티켓 1건을 트래커에서 찾지 못했습니다\(AOA-47\)/.test(note)), `키 오타와 미완을 구별하지 못한다: ${JSON.stringify(typo.notes)}`)
+    assert.equal(typo.rows.find(row => row.workId === W(4)).blockedReason, 'dependency-incomplete', '찾지 못한 선행을 끝난 것으로 읽었다')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

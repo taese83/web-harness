@@ -10,7 +10,7 @@ import {canonicalDigest} from './work-analysis.mjs'
 import {computeWorkView, WORK_PLAN_PATH} from './work-plan.mjs'
 import {WORK_ANALYSIS_PATH} from './work-analysis.mjs'
 import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
-import {buildWorkMarker, normalizeDocBody} from './work-refs.mjs'
+import {buildWorkMarker, isTicketKeyRef, normalizeDocBody, normalizeTicketKeyRef} from './work-refs.mjs'
 import {planPublish, payloadDigest, reconcileAttempt, workContentDigest, workIssueFields} from './work-publish.mjs'
 import {workProviderReadiness, workRelationMode} from './work-provider.mjs'
 import {buildWorkDoc, compareWorkDoc, formatWorkDoc, renderWorkContext, testCaseTexts, workContextName} from './work-ticket-doc.mjs'
@@ -81,7 +81,8 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     const featureIds = featuresOf(work.workId)
     const testCases = ownedTcs(work.workId).map(id => ({id, text: tcTexts.get(id) ?? ''}))
     const lang = resolveCommentLanguage({declared: declaredLanguage, text: work.title})
-    const dependsOn = list(work.dependsOn).map(dep => ({workId: dep, title: byWorkId.get(dep)?.title ?? null, ticketKey: keysNow.get(dep) ?? null}))
+    const dependsOn = list(work.dependsOn).map(dep => ({workId: dep, title: byWorkId.get(dep)?.title ?? null,
+      ticketKey: keysNow.get(dep) ?? (isTicketKeyRef(dep) ? normalizeTicketKeyRef(dep) : null)}))
     const contextName = workContextName(work.workId)
     const doc = buildWorkDoc({work, featureIds, features: featureTitles, testCases, dependsOn, parentKey, relationMode: relation.mode, contextName, lang})
     const body = formatWorkDoc(doc, provider.docFormat ?? 'markdown')

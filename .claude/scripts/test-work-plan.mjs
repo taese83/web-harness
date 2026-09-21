@@ -211,3 +211,19 @@ test('계약 문서의 키 표와 검증기의 키 집합이 양방향으로 같
   assert.deepEqual([...rows.keys()].sort(), [...code.keys()].sort(), '문서와 코드의 객체 목록이 다르다')
   for (const [name, keys] of code) assert.deepEqual(rows.get(name), keys, `${name}: 문서와 코드의 키가 다르다`)
 })
+
+test('선행은 계획 안의 WORK이거나 사람이 만든 개발 티켓의 키다 — 모르는 WORK ID는 여전히 막는다', () => {
+  const accepted = evaluate('crud', (analysis, plan) => { work(plan, 1).dependsOn = [...work(plan, 1).dependsOn, 'AOA-47', '#12'] })
+  assert.equal(accepted.errors.some(error => /AOA-47|#12/.test(error)), false, JSON.stringify(accepted.errors))
+  expectError(evaluate('crud', (analysis, plan) => { work(plan, 1).dependsOn = ['WORK-99999999-0000-4000-8000-999999999999'] }),
+    /계획에 없다 — 사람이 만든 개발 티켓이면 티켓 키로/, '모르는 WORK를 선행으로 받았다')
+})
+
+test('하네스 내부 ID(FEAT·TC·분석 항목)는 티켓 키 모양이어도 선행 키로 받지 않는다 — 무기한 대기가 아니라 즉시 오류다', async () => {
+  const {isTicketKeyRef} = await import('./ticket/work-refs.mjs')
+  for (const id of ['FEAT-001', 'TC-001-1', 'WORK-12']) assert.equal(isTicketKeyRef(id), false, id)
+  for (const key of ['AOA-47', '#12', '12']) assert.equal(isTicketKeyRef(key), true, key)
+  expectError(evaluate('crud', (analysis, plan) => { work(plan, 1).dependsOn = ['FEAT-001'] }), /의존 FEAT-001가 계획에 없다/, 'FEAT를 사람 티켓 키로 받았다')
+  const finding = [...evaluate('crud').a.ids.findingIds].find(id => isTicketKeyRef(id))
+  if (finding) expectError(evaluate('crud', (analysis, plan) => { work(plan, 1).dependsOn = [finding] }), /계획에 없다/, '분석 항목 ID를 사람 티켓 키로 받았다')
+})
