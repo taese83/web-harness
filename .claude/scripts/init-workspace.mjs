@@ -14,6 +14,7 @@
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {basename, join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {syncContracts} from './sync-plugin-contracts.mjs'
 
 export const WORKSPACE_DIRS = ['00_source', '01_plan', '02_design', '03_dev', '04_qa', 'RELEASE']
 export const MARKER = '_workspace/web-harness.md'
@@ -90,4 +91,11 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   const result = initWorkspace({projectRoot, at, force: argv.includes('--force')})
   for (const dir of result.created) process.stdout.write(`created ${dir}\n`)
   process.stdout.write(`${MARKER}: ${result.marker}\n`)
+  // 새 프로젝트는 세션 시작 훅이 돌 때 `_workspace`가 없었다 — 서브에이전트가 읽을 계약 사본을 여기서 만든다.
+  try {
+    const sync = syncContracts({projectRoot})
+    if (sync.state !== 'not-plugin') process.stdout.write(`${sync.path}: ${sync.state} (web-harness ${sync.version})\n`)
+  } catch (error) {
+    process.stdout.write(`_workspace/.contracts: 만들지 못했다(${error instanceof Error ? error.message : String(error)}) — 다시: web-harness-script sync-plugin-contracts --project-root .\n`)
+  }
 }

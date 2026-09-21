@@ -25,10 +25,11 @@
 //     이 tier를 게이트가 어떻게 다룰지는 Stage 2의 결정이며 여기서 정하지 않는다.
 import {createHash} from 'node:crypto'
 import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
-import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
+import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
+import {harnessVersion} from './harness-version.mjs'
 import {findLayerOverlaps, isLayerPathDeclared} from './agent-registry.mjs'
-import {fileURLToPath, pathToFileURL} from 'node:url'
+import {pathToFileURL} from 'node:url'
 import {readShapeChecks} from './validate-shape-checks.mjs'
 
 const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
@@ -592,19 +593,8 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
 export const isSpecStale = (spec, projectRoot) =>
   digestInputs(projectRoot).combined !== spec?.sourceDigest?.combined
 
-// 이 스크립트를 실행 중인 플러그인의 버전. 버전마다 검사 규칙이 달라 같은 스팩이 사람마다
-// 다르게 판정될 수 있으므로 원장이 확정 버전을 남긴다. 플러그인 밖이면 null — 모르는 것을 지어내지 않는다.
-// 이름을 확인하는 이유: deploy-harness 사본에서 `../..`는 소비자 repo 루트라 남의 매니페스트일 수 있다.
-// 릴리스 라벨이지 코드 digest가 아니다 — 같은 버전이 같은 규칙을 보장하지 않는다.
-export const harnessVersion = (pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')) => {
-  try {
-    const manifest = JSON.parse(readFileSync(join(pluginRoot, '.claude-plugin/plugin.json'), 'utf8'))
-    const version = manifest?.name === 'web-harness' ? manifest.version : null
-    return typeof version === 'string' && version.trim() ? version : null
-  } catch {
-    return null
-  }
-}
+// 원장이 확정 버전을 남긴다 — 버전마다 검사 규칙이 달라 같은 스팩이 사람마다 다르게 판정될 수 있다.
+export {harnessVersion}
 
 // 스팩을 원장에 기록한다. 스팩이 stdout으로 나가 저장되는 시점과 같은 시점에 호출한다.
 export const recordSpec = (projectRoot, spec, {version = harnessVersion()} = {}) => {

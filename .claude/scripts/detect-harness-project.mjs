@@ -13,12 +13,27 @@ import {existsSync, statSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
+const REENTRY_MAP = join('skills', 'web-orchestrator', 'references', 'reentry-map.md')
+
 try {
   const projectDir = resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd())
   const workspaceDir = join(projectDir, '_workspace')
   if (existsSync(workspaceDir) && statSync(workspaceDir).isDirectory()) {
-    const scriptDir = dirname(fileURLToPath(import.meta.url))
-    const reentryMap = join(scriptDir, '..', 'skills', 'web-orchestrator', 'references', 'reentry-map.md')
+    // 플러그인이면 계약 사본을 먼저 맞춘다 — 서브에이전트가 읽는 참조가 그 사본을 가리킨다.
+    // 동적 import다 — 정적 import가 실패하면 try 밖에서 죽어 세션을 깬다.
+    const CONTRACTS_DIR = '_workspace/.contracts'
+    let sync
+    try {
+      const {syncContracts} = await import('./sync-plugin-contracts.mjs')
+      sync = syncContracts({projectRoot: projectDir})
+    } catch (error) {
+      sync = {state: 'failed'}
+      process.stdout.write(`[web-harness] Could not refresh ${CONTRACTS_DIR}/ (${error instanceof Error ? error.message : String(error)}) — ` +
+        `subagents may read stale or missing contracts. Run: web-harness-script sync-plugin-contracts --project-root .\n`)
+    }
+    const reentryMap = sync.state === 'not-plugin'
+      ? join(dirname(fileURLToPath(import.meta.url)), '..', REENTRY_MAP)
+      : join(projectDir, CONTRACTS_DIR, REENTRY_MAP)
     if (existsSync(reentryMap)) {
       process.stdout.write(
         `[web-harness] Harness-managed project detected (_workspace/ at project root).\n` +

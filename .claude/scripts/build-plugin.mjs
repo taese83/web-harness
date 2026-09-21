@@ -89,6 +89,7 @@ const REPO_ONLY_PLACEHOLDER = '_(저장소 모드 전용 단계 — 플러그인
 
 const transformStats = {files: 0, replacements: 0, documentReferences: 0}
 const referencedScripts = new Set()
+const referencedDocuments = new Set()
 const residuals = []
 
 const transformMarkdown = (source, relativePath) => {
@@ -99,9 +100,12 @@ const transformMarkdown = (source, relativePath) => {
     referencedScripts.add(scriptPath)
     return `web-harness-script ${scriptPath.replace(/\.mjs$/, '')}`
   })
+  // 문서 참조는 프로젝트 안 계약 사본을 가리킨다 — 서브에이전트는 플러그인 캐시 경로를 모르고 Bash가 없을 수도
+  // 있어서 Read로 닿는 자리여야 한다. 사본은 sync-plugin-contracts가 세션 시작·진입 때 만든다.
   transformed = transformed.replace(DOCUMENT_REFERENCE, (_match, documentPath) => {
     transformStats.documentReferences += 1
-    return `web-harness-read ${documentPath}`
+    referencedDocuments.add(documentPath)
+    return `_workspace/.contracts/${documentPath}`
   })
   if (replacements > 0) {
     transformStats.files += 1
@@ -191,6 +195,9 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
 })
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
 copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, '.claude', 'schemas'))
+// 문서 루트(skills·agents와 같은 층) — 계약 사본과 web-harness-read가 이 자리를 읽는다.
+copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, 'adapters'), {transform: true})
+copyTree(join(repositoryRoot, '.claude', 'schemas'), join(outputRoot, 'schemas'))
 // 스크립트가 런타임에 import.meta.url 상대 경로로 읽는 .claude 루트 카탈로그는
 // 전부 배포본에 있어야 한다. 손으로 유지하던 목록이 두 번 연속 누락을 냈다 —
 // substrate-defaults.json(0.3.x), shape-checks.json(0.4.0~0.4.1, 형태 층 전체가 배포본에서
@@ -353,7 +360,7 @@ const {files, bytes} = countTree(outputRoot)
 process.stdout.write(`Plugin built: ${relative(repositoryRoot, outputRoot)}\n`)
 process.stdout.write(`  files: ${files}, bytes: ${(bytes / 1024 / 1024).toFixed(2)} MiB\n`)
 process.stdout.write(`  script invocations rewritten: ${transformStats.replacements} across ${transformStats.files} markdown files\n`)
-process.stdout.write(`  document references rewritten to web-harness-read: ${transformStats.documentReferences}\n`)
+process.stdout.write(`  document references rewritten to _workspace/.contracts/: ${transformStats.documentReferences}\n`)
 process.stdout.write(`  distinct scripts referenced by skills/agents: ${referencedScripts.size}\n`)
 if (knownMissing.length > 0) {
   process.stdout.write(`  known stage-2 TODO (dev-only scripts still referenced by shipped text):\n`)
@@ -368,4 +375,10 @@ if (residuals.length > 0) {
   for (const {path, count} of residuals.slice(0, 40)) process.stdout.write(`    - ${path} (${count})\n`)
   if (residuals.length > 40) process.stdout.write(`    ... and ${residuals.length - 40} more\n`)
 }
-if (unexpectedMissing.length > 0) process.exitCode = 1
+// 참조한 문서가 payload 문서 루트에 없으면 사본에도 없다 — 읽을 수 없는 지시를 싣지 않는다.
+const missingDocuments = [...referencedDocuments].filter(documentPath => !existsSync(join(outputRoot, documentPath))).sort()
+if (missingDocuments.length > 0) {
+  process.stdout.write(`  document references with no file in the payload (fix before shipping):\n`)
+  for (const documentPath of missingDocuments) process.stdout.write(`    - ${documentPath}\n`)
+}
+if (unexpectedMissing.length > 0 || missingDocuments.length > 0) process.exitCode = 1

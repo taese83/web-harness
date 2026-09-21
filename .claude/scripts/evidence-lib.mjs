@@ -36,7 +36,9 @@ const SOURCE_IGNORED_DIRECTORIES = new Set([
   'secrets',
   'test-results',
 ])
-const SOURCE_IGNORED_PREFIXES = ['_workspace/04_qa/', '_workspace/RELEASE/']
+// `_workspace/.contracts`(와 동기화 중의 형제 임시 폴더)는 플러그인 문서 사본이지 프로젝트 소스가 아니다 —
+// 넣으면 플러그인 버전·설치 여부마다 지문이 달라져 receipt가 세션마다 stale이 된다.
+const SOURCE_IGNORED_PREFIXES = ['_workspace/04_qa/', '_workspace/RELEASE/', '_workspace/.contracts']
 const SAFE_ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template'])
 const SECRET_BASENAMES = new Set([
   '.dev.vars', '.git-credentials', '.netrc', '.npmrc', '.pypirc', 'credentials.json', 'service-account.json',

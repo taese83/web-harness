@@ -1,6 +1,7 @@
 import {existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {homedir} from 'node:os'
 import {join, relative, resolve, sep} from 'node:path'
+import {DEFAULT_PAYLOAD_ROOT, harnessVersion} from './harness-version.mjs'
 
 // 워크스페이스가 repo 하나로 끝나지 않는다 — 프론트 repo 옆에 API 서버 repo가 있는 구성이
 // 흔하고, 그 스키마·라우트·DTO를 읽지 못하면 계약 설계가 추측이 된다(2026-08-27 사용자 지적).
@@ -44,6 +45,22 @@ const readDeclaredRoots = projectRoot => {
     roots.push(real)
   }
   return roots
+}
+
+// 플러그인으로 돌 때 자기 문서 루트는 읽기 전용으로 연다. 스킬이 가리키는 계약은 플러그인 캐시(프로젝트 밖)에 있어서
+// 막으면 메인 스레드도 계약을 못 읽는다. 스크립트 폴더는 열지 않고, 비밀 검사는 이 안에서도 그대로다.
+export const PAYLOAD_DOCUMENT_ROOTS = ['skills', 'agents', 'adapters', 'schemas']
+const readPayloadRoots = payloadRoot => {
+  if (harnessVersion(payloadRoot) === null) return []
+  // 표기 경로와 실제 경로를 둘 다 둔다 — 대상은 표기 경로로, 링크 해석 뒤에는 실제 경로로 대조한다.
+  return PAYLOAD_DOCUMENT_ROOTS.flatMap(name => {
+    const lexical = resolve(payloadRoot, name)
+    try {
+      return [...new Set([lexical, realpathSync(lexical)])]
+    } catch {
+      return []
+    }
+  })
 }
 
 const SECRET_SEGMENTS = new Set([
@@ -160,7 +177,7 @@ export const scanDirectoryForSensitiveEntries = (projectRoot, start) => {
   return false
 }
 
-export const evaluateSensitiveAccess = (input, environment = process.env) => {
+export const evaluateSensitiveAccess = (input, environment = process.env, {payloadRoot = DEFAULT_PAYLOAD_ROOT} = {}) => {
   if (!['Read', 'Grep', 'Glob'].includes(input?.tool_name)) return {allowed: true, code: 'ALLOW_NOT_APPLICABLE'}
   let projectRoot
   try {
@@ -171,7 +188,7 @@ export const evaluateSensitiveAccess = (input, environment = process.env) => {
   const toolInput = input.tool_input ?? {}
   const rawPath = input.tool_name === 'Read' ? toolInput.file_path : toolInput.path
   if (input.tool_name === 'Grep' && (!rawPath || rawPath === '.')) return {allowed: false, code: 'DENY_RECURSIVE_ROOT_GREP'}
-  const declaredRoots = readDeclaredRoots(projectRoot)
+  const declaredRoots = [...readDeclaredRoots(projectRoot), ...readPayloadRoots(payloadRoot)]
   // 어느 루트 안인가. 프로젝트 루트가 항상 첫 번째다(선언 없이도 성립).
   const containingRoot = target => [projectRoot, ...declaredRoots].find(root => isInside(root, target)) ?? null
   if (typeof rawPath === 'string') {

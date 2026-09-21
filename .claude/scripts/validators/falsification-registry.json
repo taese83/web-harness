@@ -3,6 +3,38 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "contracts-mirror-outside-fingerprint",
+      "file": ".claude/scripts/evidence-lib.mjs",
+      "find": "const SOURCE_IGNORED_PREFIXES = ['_workspace/04_qa/', '_workspace/RELEASE/', '_workspace/.contracts']",
+      "replace": "const SOURCE_IGNORED_PREFIXES = ['_workspace/04_qa/', '_workspace/RELEASE/']",
+      "test": ".claude/scripts/test-sync-plugin-contracts.mjs",
+      "why": "계약 사본이 소스 지문에 들어가면 플러그인 버전·설치 여부마다 receipt가 stale이 되어 게이트 완화를 유도한다"
+    },
+    {
+      "id": "contracts-mirror-tamper",
+      "file": ".claude/scripts/sync-plugin-contracts.mjs",
+      "find": "readStamp(join(target, STAMP))?.digest === digest && payloadDigest(target) === digest",
+      "replace": "readStamp(join(target, STAMP))?.digest === digest",
+      "test": ".claude/scripts/test-sync-plugin-contracts.mjs",
+      "why": "사본 내용을 다시 재지 않으면 손으로 고친 계약이 이후 모든 세션의 서브에이전트에게 그대로 간다"
+    },
+    {
+      "id": "payload-document-roots-read",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  const declaredRoots = [...readDeclaredRoots(projectRoot), ...readPayloadRoots(payloadRoot)]",
+      "replace": "  const declaredRoots = readDeclaredRoots(projectRoot)",
+      "test": ".claude/scripts/test-sync-plugin-contracts.mjs",
+      "why": "플러그인 문서 루트를 막으면 메인 스레드가 스킬이 가리키는 계약을 DENY_PATH_OUTSIDE로 못 읽는다"
+    },
+    {
+      "id": "contracts-sync-stale-files",
+      "file": ".claude/scripts/sync-plugin-contracts.mjs",
+      "find": "    if (existsSync(target)) renameSync(target, retired)\n",
+      "replace": "    cpSync(staging, target, {recursive: true})\n    return {state: 'synced', version, path: CONTRACTS_DIR}\n",
+      "test": ".claude/scripts/test-sync-plugin-contracts.mjs",
+      "why": "덮어쓰기로 바꾸면 옛 판본에만 있던 계약 파일이 사본에 남아 없는 계약을 읽는다"
+    },
+    {
       "id": "git-inspection-log-range",
       "file": ".claude/scripts/run-git-inspection.mjs",
       "find": "  finish(runGit(['log', ...(base ? [`${base}..HEAD`] : []), '--oneline', '--no-decorate', '--max-count=200']))",
