@@ -300,6 +300,25 @@ test('팀 공유 설정: 두 브랜치가 원장에 각자 덧붙여도 병합�
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
+test('팀 공유 설정: 사람 티켓만 쓰는 팀(원장 없이 트래커 설정만)도 검사하고 로컬 기록 제외를 넣는다', async () => {
+  const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
+  const {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} = await import('node:fs')
+  const {tmpdir} = await import('node:os')
+  const {join} = await import('node:path')
+  const root = mkdtempSync(join(tmpdir(), 'wh-team-sharing-human-'))
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/ticket-provider.json'), '{"provider":"jira"}')
+    assert.equal(checkTeamSharing(root).state, 'FAIL', '원장이 없다는 이유로 사람 티켓 팀의 로컬 기록 제외를 건너뛰었다')
+    assert.equal(checkTeamSharing(root, {install: true}).state, 'PASS')
+    const ignore = readFileSync(join(root, '.gitignore'), 'utf8').split('\n')
+    for (const line of ['_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/change-journal/']) {
+      assert.ok(ignore.includes(line), line)
+    }
+    for (const line of TEAM_SHARING.ignores) assert.ok(ignore.includes(line), line)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
 test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 그대로 둔다', async () => {
   const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
   const {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} = await import('node:fs')

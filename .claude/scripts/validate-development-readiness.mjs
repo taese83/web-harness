@@ -298,7 +298,9 @@ export function checkTicketAssets(root, {install = false} = {}) {
 //   - change-scope·판정·연결 기록은 한 개발자의 로컬 작업 상태다 — 커밋되면 머지마다 충돌하고, 받은 사람의 픽업을 막는다
 export const TEAM_SHARING = {
   attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
-  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json'],
+  // 개발자 로컬 기록 — 커밋하면 PR마다 충돌하고 남의 기록이 픽업·범위를 막는다. 초안은 트래커에 만든 뒤에는 티켓이 정본이다.
+  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',
+    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/'],
 }
 const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
 function trackedFiles(root, paths) {
@@ -308,9 +310,10 @@ function trackedFiles(root, paths) {
   } catch { return [] }  // git 저장소가 아니면 추적 여부를 알 수 없다 — 줄 검사만 한다
 }
 export function checkTeamSharing(root, {install = false} = {}) {
-  if (!existsSync(join(root, '_workspace/03_dev/work-item-events.jsonl'))) {
-    return skip('team-sharing', '팀 흐름(WORK 원장)을 쓰지 않는 프로젝트다')
-  }
+  // 팀 흐름은 WORK 원장만이 아니다 — 사람이 만든 개발 티켓만 쓰는 팀도 트래커 설정과 로컬 판정 기록을 갖는다.
+  const teamFlow = ['_workspace/03_dev/work-item-events.jsonl', '_workspace/03_dev/ticket-provider.json', '_workspace/03_dev/ticket-assessments']
+    .some(relative => existsSync(join(root, relative)))
+  if (!teamFlow) return skip('team-sharing', '팀 흐름(WORK 원장·트래커 설정)을 쓰지 않는 프로젝트다')
   const missing = [
     ...TEAM_SHARING.attributes.filter(line => !readLines(join(root, '.gitattributes')).includes(line)).map(line => ['.gitattributes', line]),
     ...TEAM_SHARING.ignores.filter(line => !readLines(join(root, '.gitignore')).includes(line)).map(line => ['.gitignore', line]),

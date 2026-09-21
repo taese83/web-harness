@@ -173,7 +173,8 @@ PR 본문에 넣게 한다. 닫는 줄은 발행 원장의 트래커가 정한�
 `pickup`·`link`는 받지 않은 계획 개정이 원격에 있으면 멈춘다(`plan-behind-remote`) — 받은 뒤 다시 집는다.
 
 **여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
-`change-scope.md`·`ticket-assessments/`·`work-links/`(개발자 로컬 기록)에 git 제외를 넣는다. 없으면 원장이 충돌하고 남의 로컬 기록이 픽업을 막는다.
+`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`(개발자 로컬 기록)에 git 제외를 넣는다.
+사람이 만든 개발 티켓만 쓰는 팀(원장 없이 트래커 설정만)도 같은 검사를 받는다. 없으면 원장이 충돌하고 남의 로컬 기록이 픽업을 막는다.
 
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해
 개발 준비 검사가 `assets/ticket-close.yml`·`close-merged-tickets.mjs`(v5)를 설치한다 — **PR 제목의 이슈 번호**를, 그 PR이
