@@ -6,6 +6,7 @@ import {GRANT_RELATIVE, evaluateHostExecutionGrant, recordHostExecutionGrant} fr
 import {randomUUID} from 'node:crypto'
 import {
   existsSync,
+  readdirSync,
   closeSync,
   lstatSync,
   mkdirSync,
@@ -35,6 +36,7 @@ import {
   findUnsafePackageConfig,
   hasMeaningfulProfileScript,
   readDependencyBinding,
+  resolvePinnedPackageManager,
   readExecutionTargetBinding,
   resolvePackageExecutionTarget,
 } from './quality-policy-lib.mjs'
@@ -237,11 +239,6 @@ const publicEnvironmentSha256 = sha256(JSON.stringify(Object.fromEntries(
   [...declaredPublicEnvironment].sort().map(name => [name, commandEnvironment[name] ?? null]),
 )))
 const packageJsonPath = join(projectRoot, 'package.json')
-const pnpmExecutable = join(dirname(process.execPath), process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-if (!existsSync(pnpmExecutable)) {
-  process.stderr.write('Pinned pnpm must be installed beside the active Node runtime.\n')
-  process.exit(2)
-}
 let packageJson
 try {
   packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
@@ -460,24 +457,72 @@ const executeVerifiedPackageScript = ({analysis, timeoutMs}) => {
   }
   return {status: 0, signal: null, stdout, stderr, error: null}
 }
-const pnpmVersionResult = spawnSync(pnpmExecutable, ['--version'], {
-  cwd: projectRoot,
-  encoding: 'utf8',
-  env: commandEnvironment,
+// **프로젝트가 핀한 pnpm으로 돈다.** 브라운필드 계약("기존 관례 실측이 제안보다 우선한다 …
+// package manager를 임의 기본값으로 덮어쓰지 않는다")이 여기에도 선다 — `packageManager`는
+// 감지할 필요도 없는 기존 관례의 기계 선언이다. 종전에는 실행 Node 옆의 pnpm이 그 핀과 다르면
+// 전부 BLOCKED였다: 자기 환경을 기준으로 남의 프로젝트를 판정한 것이다.
+//
+// 찾기만 하고 **받아오지는 않는다.** pnpm은 프로젝트 안에서 실행되면 `packageManager` 핀과 다를 때
+// 그 버전을 **registry에서 스스로 받아온다** — 게이트 시점에 무엇이 실행될지 사전에 알 수 없게 된다
+// (실사고: pnpm 11.13.0 broken release). 여기서 미리 해석해 두는 것이 그 다운로드를 막는다.
+// 없으면 처방을 적고 막는다 — 받아올지는 사람이 정한다.
+const pnpmBinaryName = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+/**
+ * 원문 버전 문자열(비교는 호출부에서 normalize).
+ * **프로젝트 밖에서 잰다** — 프로젝트 안에서 부르면 pnpm이 `packageManager` 핀을 보고 그 버전을
+ * registry에서 받아와 실행한다(실측). 재는 순간 막으려던 다운로드가 일어난다.
+ */
+const pnpmVersionOf = executable => {
+  const probe = spawnSync(executable, ['--version'], {
+    cwd: tmpdir(),
+    encoding: 'utf8',
+    env: commandEnvironment,
+    timeout: 60_000,
+  })
+  return probe.status === 0 ? probe.stdout.trim() : null
+}
+/** 실행 Node 옆 → 형제 Node 설치(nvm 등). 경로는 `process.execPath`에서 도출한다(하드코딩 없음). */
+const pnpmCandidates = () => {
+  const activeDirectory = dirname(process.execPath)
+  const found = [join(activeDirectory, pnpmBinaryName)]
+  const siblingRoot = dirname(dirname(activeDirectory))
+  let entries = []
+  try {
+    entries = readdirSync(siblingRoot).sort()
+  } catch {
+    entries = []
+  }
+  for (const entry of entries) {
+    const candidate = join(siblingRoot, entry, 'bin', pnpmBinaryName)
+    if (!found.includes(candidate)) found.push(candidate)
+  }
+  return found.filter(candidate => existsSync(candidate))
+}
+const pinnedPnpmMatch = packageJson.packageManager?.match(/^pnpm@([^+]+)(?:\+.+)?$/)
+const pinnedPnpmVersion = pinnedPnpmMatch ? normalizeVersion(pinnedPnpmMatch[1]) : null
+const available = pnpmCandidates()
+if (available.length === 0) {
+  process.stderr.write('pnpm must be installed beside the active Node runtime.\n')
+  process.exit(2)
+}
+const pinnedResolution = resolvePinnedPackageManager({
+  candidates: available,
+  versionOf: candidate => {
+    const version = pnpmVersionOf(candidate)
+    return version === null ? null : normalizeVersion(version)
+  },
+  pinnedVersion: pinnedPnpmVersion,
+  compare: compareVersions,
 })
-const pnpmVersion = pnpmVersionResult.status === 0 ? pnpmVersionResult.stdout.trim() : null
+const pnpmExecutable = pinnedResolution.executable
+// 핀을 못 찾으면 **프로젝트 안에서 pnpm을 한 번도 부르지 않는다.** 한 번이라도 부르면 pnpm이
+// 핀한 버전을 받아와 실행하고, 그때 무엇이 도는지는 이 러너가 정한 것이 아니게 된다.
+const ambientPnpmVersion = pnpmVersionOf(available[0])
+const pnpmVersion = pnpmVersionOf(pnpmExecutable)
 const nodeVersion = process.version.replace(/^v/, '')
 const engineSatisfied = satisfiesNodeEngine(packageJson.engines?.node, nodeVersion)
-const declaredPackageManagerMatch = packageJson.packageManager?.match(/^pnpm@([^+]+)(?:\+.+)?$/)
-const declaredPackageManagerVersion = declaredPackageManagerMatch ? normalizeVersion(declaredPackageManagerMatch[1]) : null
-const installedPackageManagerVersion = pnpmVersion ? normalizeVersion(pnpmVersion) : null
-const packageManagerSatisfied = packageJson.packageManager
-  ? Boolean(
-      declaredPackageManagerVersion &&
-      installedPackageManagerVersion &&
-      compareVersions(declaredPackageManagerVersion, installedPackageManagerVersion) === 0
-    )
-  : null
+// 판정은 **해석 결과**다 — 프로젝트 안에서 실행해 본 결과가 아니다(그 실행이 곧 다운로드다).
+const packageManagerSatisfied = packageJson.packageManager ? pinnedResolution.matched : null
 const gitCommit = null
 const discoveredTests = kind => {
   if (!kind) return []
@@ -532,7 +577,12 @@ const executeCheck = (id, definition) => {
     blockedReason = `Current Node ${nodeVersion} does not satisfy engines.node ${packageJson.engines.node}`
   } else if (packageManagerSatisfied === false) {
     status = 'BLOCKED'
-    blockedReason = `Current pnpm ${pnpmVersion ?? 'unavailable'} does not match packageManager ${packageJson.packageManager}`
+    blockedReason = pinnedPnpmVersion
+      ? `Project pins ${packageJson.packageManager} but that version is not on this machine ` +
+        `(searched: ${available.join(', ')}; available: ${ambientPnpmVersion ?? 'none'}). ` +
+        `Install it — e.g. \`corepack prepare ${packageJson.packageManager} --activate\` — and rerun. ` +
+        `The runner blocks here rather than let pnpm fetch the pinned version at gate time.`
+      : `Project pins ${packageJson.packageManager}; this runner executes pnpm only.`
   } else if (definition.requiredScript && typeof packageJson.scripts?.[definition.requiredScript] !== 'string') {
     status = 'BLOCKED'
     blockedReason = `Missing package script: ${definition.requiredScript}`

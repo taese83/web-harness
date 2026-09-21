@@ -12,7 +12,17 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
   개발 단계 규율("확인 지점은 PR 직전과 스팩 변경뿐")과 정면으로 어긋난다(2026-08-30). 되돌리려면
   그 파일을 지운다. 승인이 깨졌거나 다른 머신·다른 프로젝트의 것이거나 **승인 뒤 `scripts`가 바뀌었으면
   다시 묻는다** — 승인한 것은 "이 프로젝트"가 아니라 "이 명령들"이다.
-- raw package-manager 명령을 사용하지 않는다. 승인된 host에서는 `run-quality-gates.mjs --check {id} --allow-host-execution`, 격리 CI에서는 `WEB_HARNESS_ISOLATED_EXECUTION=1`을 사용한다.
+- **에이전트는** raw package-manager 명령을 사용하지 않는다. 승인된 host에서는 `run-quality-gates.mjs --check {id} --allow-host-execution`, 격리 CI에서는 `WEB_HARNESS_ISOLATED_EXECUTION=1`을 사용한다.
+- **의존성 설치는 팀이 해도 된다.** 브로커(`run-package-operation.mjs`)를 거치지 않고 설치해도
+  하네스의 증거는 선다 — 품질 러너의 `dependencyBinding`이 `pnpm-lock.yaml`과
+  `node_modules/.pnpm/lock.yaml`의 해시를 대조하므로 설치 주체와 무관하고(단 pnpm 기본 linker 전제),
+  릴리스 필수 영수증 7종에 설치는 없다. `pnpm.overrides`·workspace 커스터마이즈는 브로커만 막는다.
+- **`.npmrc`·pnpm hook은 브로커와 러너가 **둘 다** 막는다**(공개 registry 전제). 사내 registry를 쓰는
+  프로젝트는 지금 품질 러너를 돌릴 수 없다 — 브라운필드 도입의 남은 장벽이며 `docs/protected-core.md` §4에 등록돼 있다.
+- **패키지 매니저는 pnpm만 실행한다.** 프로젝트가 핀한 pnpm 버전을 머신에서 찾아 쓰고, 없으면 처방과
+  함께 막는다 — **게이트 시점에 받아오지 않는다.** pnpm은 프로젝트 안에서 호출되면 핀한 버전을 registry에서
+  받아와 실행하므로, 러너는 핀을 못 찾으면 프로젝트 안에서 pnpm을 한 번도 부르지 않는다.
+  pnpm이 아닌 핀(`yarn@…`·`npm@…`)은 그 사유로 막는다.
 - gate 뒤 source가 바뀌면 이전 receipt는 진단 기록일 뿐이며 release evidence로 재사용하지 않는다.
 - 실패하면 다음 wave를 계속 생성하지 않고 가장 작은 owning agent로 되돌린다.
 - **toolchain pin**: 게이트는 프로젝트 pin(`.nvmrc`) 버전으로 실행한다. 세션 기본 Node가 pin보다 낮으면

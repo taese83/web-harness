@@ -703,3 +703,22 @@ export const findUnsafePackageConfig = projectRoot => {
   }
   return null
 }
+
+/**
+ * 프로젝트가 핀한 package manager를 **머신에 있는 후보 중에서** 고른다.
+ * 브라운필드 계약: 기존 관례(`packageManager` 선언)가 러너 환경보다 우선한다.
+ * 후보와 버전 조회를 주입받는 순수 함수다 — 실행 환경에 같은 버전만 있으면 이 판정이
+ * 무력해진 것을 알 수 없어, 회귀는 서로 다른 버전을 주입해 고정한다.
+ * @returns {{executable: string | null, matched: boolean}}
+ */
+export const resolvePinnedPackageManager = ({candidates, versionOf, pinnedVersion, compare}) => {
+  if (!Array.isArray(candidates) || candidates.length === 0) return {executable: null, matched: false}
+  if (!pinnedVersion) return {executable: candidates[0], matched: false}
+  for (const candidate of candidates) {
+    const version = versionOf(candidate)
+    if (version !== null && version !== undefined && compare(version, pinnedVersion) === 0) {
+      return {executable: candidate, matched: true}
+    }
+  }
+  return {executable: candidates[0], matched: false}
+}
