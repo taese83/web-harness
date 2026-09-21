@@ -7,7 +7,7 @@
 //     테스트 항목은 기획 TC(`TC-…`)와 섞이지 않게 `TT-<티켓키>-<n>`로 따로 센다. 기획 없는 프로젝트의 specTier는 그대로다
 //   - **계획 WORK와 같은 모양** — 확정된 판정서를 WORK 정의로 옮겨 픽업·링크·머지 판정을 그대로 재사용한다
 //   - **티켓 원본은 그대로** — 확정한 판정은 개발자 로컬의 등록 기록이다(`registrationPath`, git 제외). 티켓에는 배정·상태 전이와
-//     사람이 읽는 코멘트(착수 불가 요청·임의 디자인 알림)만 남는다
+//     사람이 읽는 코멘트(착수 불가 요청·임의 디자인·가정 알림)만 남는다
 import {createHash} from 'node:crypto'
 import {canonicalDigest, safeRelativeScope} from './work-analysis.mjs'
 import {pathsOverlap, ROLE} from './work-plan.mjs'
@@ -24,7 +24,7 @@ export const LANES = ['fix', 'change']
 export const SELF_CHECK_IDS = ['new-route', 'new-data-contract', 'new-auth-path', 'new-external-dependency', 'public-contract-change']
 const ANSWERS = ['yes', 'no', 'unknown']
 const ASSESSMENT_KEYS = ['schemaVersion', 'ticket', 'verdict', 'lane', 'objective', 'roles', 'selfCheck', 'planningNeeds', 'designNeeds',
-  'reasons', 'writePaths', 'nonGoals', 'acceptance', 'testItems', 'dependsOn', 'designByImplementer']
+  'reasons', 'writePaths', 'nonGoals', 'acceptance', 'testItems', 'dependsOn', 'designByImplementer', 'assumptions']
 // 디자인 없이 기능 먼저(임의 디자인)의 근거 — 티켓 본문의 지시(원문 인용) 또는 개발자의 지시(미리보기 확인이 승인한다).
 const DESIGN_SOURCES = ['ticket', 'developer']
 
@@ -123,6 +123,19 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
     }
   }
 
+  // 기획 미정을 가정으로 두고 진행한다(임의 디자인과 대칭) — 세부 미정만이다. 새 사용자 흐름·정책은 가정으로 정하지 않는다(needs-planning).
+  if (a.assumptions !== undefined) {
+    if (!Array.isArray(a.assumptions)) errors.push('assumptions는 배열이다')
+    else {
+      if (a.verdict !== 'startable' && a.assumptions.length > 0) errors.push('assumptions는 착수 가능 판정에만 쓴다 — 착수 불가면 planningNeeds로 요청한다')
+      a.assumptions.forEach((item, index) => {
+        for (const key of ['what', 'assumed', 'why']) {
+          if (typeof item?.[key] !== 'string' || !item[key].trim()) errors.push(`assumptions[${index}].${key}가 없다 — 무엇이 미정이고, 어떻게 가정하고, 왜 그래도 되는지`)
+        }
+      })
+    }
+  }
+
   let bounce = null
   if (a.verdict === 'startable') {
     if (!LANES.includes(a.lane)) errors.push(`착수 가능이면 lane은 ${LANES.join('|')}`)
@@ -216,6 +229,8 @@ export function ticketWorkDefinition({assessment, ticketKey, provider, title}) {
     testCases: list(assessment.testItems).map(item => ({id: item.id, text: item.text, source: item.source})),
     designDebt: list(assessment.designNeeds).filter(item => item?.blocking === false),
     ...(assessment.designByImplementer ? {designByImplementer: {source: assessment.designByImplementer.source}} : {}),
+    ...(list(assessment.assumptions).length > 0
+      ? {assumptions: list(assessment.assumptions).map(({what, assumed, why}) => ({what, assumed, why}))} : {}),
     lifecycle: 'active',
   }
 }
@@ -227,6 +242,8 @@ export const ticketDefinitionDigest = definition => canonicalDigest({
   lane: definition?.lane ?? null, specApproval: definition?.specApproval ?? null, roles: list(definition?.roles), objective: definition?.objective ?? '',
   nonGoals: list(definition?.nonGoals), dependsOn: list(definition?.dependsOn), writePaths: list(definition?.writePaths),
   checks: list(definition?.checks).map(check => check.expectedOutcome), testCases: list(definition?.testCases).map(item => `${item.id} ${item.text}`),
+  // 가정이 없던 정의의 지문은 그대로다 — 이미 집은 작업이 이 필드 추가만으로 STALE이 되지 않는다.
+  ...(list(definition?.assumptions).length > 0 ? {assumptions: list(definition.assumptions).map(item => `${item.what} → ${item.assumed}`)} : {}),
 })
 
 /** 티켓 작업의 가상 계획(순수) — 픽업·링크·편집 대조가 계획 WORK와 같은 코드를 탄다. */

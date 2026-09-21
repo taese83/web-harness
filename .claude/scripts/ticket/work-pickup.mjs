@@ -65,6 +65,10 @@ export function buildWorkChangeScope({issue, plan, planDigest, work, featureIds,
     NON_GOALS: list(work.nonGoals),
     CHANGE_BUDGET: null,
     sourceDigest: planDigest,
+    // 사람 티켓 작업에서 구현이 따라야 할 결정 — 기획 미정을 어떻게 가정했는가, 디자인 없이 무엇을 임의로 정하는가.
+    // 티켓에는 알림 코멘트로만 가므로 여기 싣지 않으면 개발자는 원문의 「미정」만 보고 다른 가정을 한다.
+    ...(list(work.assumptions).length > 0 ? {assumptions: list(work.assumptions).map(({what, assumed}) => ({what, assumed}))} : {}),
+    ...(list(work.designDebt).length > 0 ? {designDebt: list(work.designDebt).map(({what}) => ({what}))} : {}),
   }
 }
 

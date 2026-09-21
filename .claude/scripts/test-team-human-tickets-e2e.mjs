@@ -117,6 +117,21 @@ test('사람 티켓만 쓰는 팀: 배정이 먼저, 요청은 확인 뒤, 임�
     assert.match(notice, /디자인 없이 기능을 먼저 구현합니다/)
     assert.match(notice, /차트 모양과 색/)
 
+    // (3-1) 기획이 정하지 않은 세부는 가정하고 진행한다 — 확인한 뒤 가정 알림 코멘트를 남긴다.
+    const entry = jira.humanTicket({summary: '진입 컨텍스트', components: ['DEVELOP'],
+      description: '완료 조건: 진입점을 한 곳에서 판정한다\n착수 전 확인: 톡이 진입점을 어떻게 전달하는지 미정이다'})
+    originals.set(entry, structuredClone(jira.issues.get(entry).fields.description))
+    const assumed = assessment(entry, {acceptance: '진입점을 한 곳에서 판정한다', writePaths: ['src/shared/entry/'],
+      assumptions: [{what: '진입점 전달 방식', assumed: '쿼리 파라미터 entry로 받는다', why: '톡 전달 방식이 미정이다'}]})
+    const assumedPreview = await confirm('C', entry, assumed)
+    assert.equal(pickupOutcome(assumedPreview), 'started', JSON.stringify(assumedPreview.bounce ?? assumedPreview.errors))
+    const assumeNotice = (jira.issues.get(entry).fields.comment?.comments ?? []).map(comment => comment.body).join('\n')
+    assert.match(assumeNotice, /미정 사항을 가정하고 진행합니다/)
+    assert.match(assumeNotice, /쿼리 파라미터 entry로 받는다/)
+    assert.doesNotMatch(assumeNotice, /<!--|web-harness:/, '사람이 읽는 코멘트에 기계 문자열이 섞였다')
+    const scopeText = readFileSync(join(devs.C, '_workspace/03_dev/change-scope.md'), 'utf8')
+    assert.match(scopeText, /쿼리 파라미터 entry로 받는다/, '가정이 개발자의 change-scope에 없으면 원문의 「미정」만 보고 다른 가정을 한다')
+
     // (4) 내 클론의 진행 중 작업과 겹치면 착수하지 않는다 — 그 PR이 머지되면 티켓이 열려 있어도 착수한다.
     const sortJudged = assessment(sort, {acceptance: '정렬 방향 아이콘'})
     const overlapped = await confirm(owner, sort, sortJudged)

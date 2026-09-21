@@ -3,6 +3,30 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "ticket-assumptions-reach-developer",
+      "file": ".claude/scripts/ticket/work-pickup.mjs",
+      "find": "    ...(list(work.assumptions).length > 0 ? {assumptions:",
+      "replace": "    ...(false ? {assumptions:",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "가정이 change-scope에 실리지 않으면 개발자는 원문의 미정만 보고 기획자에게 알린 것과 다른 가정으로 구현한다"
+    },
+    {
+      "id": "ticket-assumptions-startable-only",
+      "file": ".claude/scripts/ticket/ticket-work.mjs",
+      "find": "      if (a.verdict !== 'startable' && a.assumptions.length > 0) errors.push(",
+      "replace": "      if (false) errors.push(",
+      "test": ".claude/scripts/test-ticket-work.mjs",
+      "why": "착수 불가 판정에 가정을 붙이면 기획 필요를 가정으로 덮는 길이 열린다"
+    },
+    {
+      "id": "ticket-assumptions-notice",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "  const assumptionNotified = assumptionNotice ? await postOnce(",
+      "replace": "  const assumptionNotified = null && assumptionNotice ? await postOnce(",
+      "test": ".claude/scripts/test-team-human-tickets-e2e.mjs",
+      "why": "가정 알림을 남기지 않으면 기획자가 모르는 가정 위에 구현이 쌓인다"
+    },
+    {
       "id": "contracts-mirror-outside-fingerprint",
       "file": ".claude/scripts/evidence-lib.mjs",
       "find": "const SOURCE_IGNORED_PREFIXES = ['_workspace/04_qa/', '_workspace/RELEASE/', '_workspace/.contracts']",

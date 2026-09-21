@@ -30,7 +30,7 @@ maxTurns: 45
    - `architecture.pattern` — `existing`이면 기존 관례를 따른다
    - `moduleBoundaries` — 병렬 작업이 침범하지 않을 범위
    - `nonGoals` — 범위 밖으로 기록된 것
-2. **`_workspace/03_dev/change-scope.md`의 `ALLOWED_PATHS`** — 이번 스폰의 범위.
+2. **`_workspace/03_dev/change-scope.md`의 `ALLOWED_PATHS`** — 이번 스폰의 범위. `assumptions`·`designDebt`가 있으면 그 가정과 임의로 정할 것을 따른다.
    소유권과 **교집합**이다. 범위가 소유권을 넓히지 못하고 그 반대도 아니다.
 3. 기획·디자인 산출물 — 무엇을 만드는가의 근거. 화면의 **조건별 내용**은
    `_workspace/01_plan/ux-brief.md`(또는 `ux-brief/`) 「화면별 정보 위계」 표가 정본이다 —

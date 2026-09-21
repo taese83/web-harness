@@ -9,7 +9,7 @@
 //   - 완성한 본문은 원문을 보존하고, 편집 대조 파서는 「원문」 아래를 읽지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {assessmentDigest, originalBodyOf, renderTicketWorkBody, testItemPrefix, ticketPlanId, ticketVirtualPlan,
+import {assessmentDigest, originalBodyOf, renderTicketWorkBody, testItemPrefix, ticketDefinitionDigest, ticketPlanId, ticketVirtualPlan,
   ticketWorkDefinition, ticketWorkId, validateTicketAssessment} from './ticket/ticket-work.mjs'
 import {compareWorkDoc, parseWorkDocSections} from './ticket/work-ticket-doc.mjs'
 import {parseWorkMarker, withWorkMarker, buildWorkMarker} from './ticket/work-refs.mjs'
@@ -49,6 +49,22 @@ test('자기검사: 누락·근거 없음·fix인데 예·모름인데 착수·�
   expectError(check(startable({selfCheck: selfCheck({'new-route': 'yes'})})), /새 route·화면이면 착수 가능이 아니다/)
   expectError(check(startable({designNeeds: [{what: '빈 상태', why: '미정'}]})), /막는 기획·디자인 필요가 남아 있다/)
   assert.equal(check(startable({designNeeds: [{what: '정지 배지 색', why: '토큰 없음', blocking: false}]})).ok, true, '비차단 디자인 부채는 진행한다')
+})
+
+test('기획 미정 가정: 착수 가능에만 쓰고, 무엇·어떻게·왜가 있어야 하며, 정의에 실리고 가정 없는 정의의 지문은 그대로다', () => {
+  const assumptions = [{what: '진입점 전달 방식', assumed: '쿼리 파라미터 entry로 받는다', why: '톡 전달 방식이 상세기획에 없다'}]
+  assert.equal(check(startable({assumptions})).ok, true, check(startable({assumptions})).errors.join('\n'))
+  expectError(check(startable({assumptions: [{what: '진입점 전달 방식', why: '미정'}]})), /assumptions\[0\]\.assumed가 없다/)
+  expectError(check(startable({assumptions: 'x'})), /assumptions는 배열이다/)
+  expectError(check({...startable({assumptions}), verdict: 'needs-planning', planningNeeds: [{what: '결제 정책', why: '미정'}]}),
+    /assumptions는 착수 가능 판정에만 쓴다/)
+  expectError(check(startable({assumptions, planningNeeds: [{what: '결제 정책', why: '미정'}]})), /막는 기획·디자인 필요가 남아 있다/)
+  const withAssumptions = ticketWorkDefinition({assessment: startable({assumptions}), ticketKey: KEY, provider: 'jira', title: 't'})
+  const without = ticketWorkDefinition({assessment: startable(), ticketKey: KEY, provider: 'jira', title: 't'})
+  assert.deepEqual(withAssumptions.assumptions, assumptions)
+  assert.equal('assumptions' in without, false)
+  assert.equal(ticketDefinitionDigest(without), ticketDefinitionDigest({...without, assumptions: []}), '가정이 없던 등록의 지문이 바뀌면 이미 집은 작업이 STALE이 된다')
+  assert.notEqual(ticketDefinitionDigest(withAssumptions), ticketDefinitionDigest(without), '가정을 바꿔도 link가 모른다')
 })
 
 test('임의 디자인: 티켓 지시는 원문 인용이 근거이고, 개발자 지시도 받는다 — 새 화면도 착수하되 무엇을 임의로 정하는지 적는다', () => {

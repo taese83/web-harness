@@ -2,7 +2,7 @@
 //
 // 순서: 개발 티켓인가(팀이 선언한 분류) → 계획 WORK가 아닌가 → 인젝션 스캔(fail-closed) → **배정 먼저**(남이 맡았으면 멈춘다) →
 // 판정서가 있는가 → CLI 검증 → 착수 불가면 요청 코멘트 미리보기 → 확인하면 코멘트 → 착수 가능이면 미리보기 → 확인하면 로컬 등록
-// (임의 디자인이면 알림 코멘트) → 기존 WORK 픽업으로 이어진다.
+// (임의 디자인·기획 미정 가정이면 알림 코멘트) → 기존 WORK 픽업으로 이어진다.
 // **티켓 원본은 고치지 않는다** — 확인한 판정은 이 개발자의 로컬 등록 기록이다(git 제외). 다른 클론은 배정·상태로 안다.
 import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
@@ -127,6 +127,14 @@ function designNoticeComment({designDebt, lang}) {
   return lang === 'en'
     ? ['Implementing the feature first without a design (implementer-decided design). Once a design is ready, align it in a separate ticket.', '', 'Decided by the implementer:', ...items].join('\n')
     : ['디자인 없이 기능을 먼저 구현합니다(임의 디자인). 디자인이 나오면 별도 티켓으로 맞춥니다.', '', '임의로 정하는 것:', ...items].join('\n')
+}
+
+/** 기획 미정을 가정으로 두고 진행한다는 알림 — 기획자가 가정을 보고 바로잡을 수 있게 한다. */
+function assumptionNoticeComment({assumptions, lang}) {
+  const items = assumptions.map((item, index) => `${index + 1}. ${item.what} → ${item.assumed}${item.why ? ` (${item.why})` : ''}`)
+  return lang === 'en'
+    ? ['Proceeding with the following undecided details assumed. If an assumption is wrong, say so here and it will be corrected in a follow-up.', '', 'Assumptions:', ...items].join('\n')
+    : ['아래 미정 사항을 가정하고 진행합니다. 가정이 틀렸으면 여기에 알려 주세요 — 후속으로 바로잡습니다.', '', '가정:', ...items].join('\n')
 }
 
 /** 이미 남긴 코멘트인가(로컬) — 같은 판정으로 다시 확인해도 코멘트를 쌓지 않는다. */
@@ -332,11 +340,13 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const dependsOn = definition.dependsOn.map(dep => ({workId: dep, ticketKey: keys.get(dep) ?? null,
     title: list(plan?.workItems).find(work => work.workId === dep)?.title ?? activeState.works.get(dep)?.definition?.title ?? null}))
   const designNotice = assessment.designByImplementer ? designNoticeComment({designDebt: definition.designDebt, lang}) : null
+  const assumptionNotice = list(definition.assumptions).length > 0 ? assumptionNoticeComment({assumptions: definition.assumptions, lang}) : null
   // 사용자가 판단할 것만 묶는다 — AI가 **제안한** 항목·수정 범위·레인·임의 디자인. 티켓에는 임의 디자인 알림 외에는 쓰지 않는다.
   const review = {lane: assessment.lane, specApproval: definition.specApproval, writePaths: definition.writePaths,
     nonGoals: definition.nonGoals, designDebt: definition.designDebt.map(item => ({what: item.what, why: item.why ?? ''})),
     ...(assessment.designByImplementer ? {designByImplementer: {source: assessment.designByImplementer.source,
       ...(assessment.designByImplementer.quote ? {quote: assessment.designByImplementer.quote} : {}), comment: designNotice}} : {}),
+    ...(assumptionNotice ? {assumptions: {items: definition.assumptions, comment: assumptionNotice}} : {}),
     proposed: [...list(assessment.acceptance).filter(item => item?.source === 'proposed').map(item => ({kind: 'acceptance', text: item.text})),
       ...list(assessment.testItems).filter(item => item?.source === 'proposed').map(item => ({kind: 'test', id: item.id, text: item.text}))]}
   if (!confirmed) {
@@ -346,6 +356,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       ...(overlapNote ? {overlapCheck: {guidance: `끝난 작업을 모두 확인하지 못했습니다: ${overlapNote}`}} : {}), ...(flags['dry-run'] ? {dryRun: true} : {}),
       guidance: '확인하면 이 판정으로 착수합니다. 판정은 내 컴퓨터에만 기록하고 티켓 본문은 고치지 않습니다.'
         + (designNotice ? ' 임의 디자인으로 진행한다는 코멘트를 티켓에 남깁니다.' : '')
+        + (assumptionNotice ? ' 미정 사항을 가정하고 진행한다는 코멘트를 티켓에 남깁니다.' : '')
         + (definition.specApproval === 'required' ? ' 새 계약이 걸린 작업이라 구현 전에 /wh change로 스팩 승인을 한 번 더 받습니다.' : '')}}
   }
   // ── 확인 = 로컬 등록 ──
@@ -354,11 +365,16 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     confirmedAt: new Date().toISOString()}
   writeJson(root, registrationPath(ticketKey), registration)
   const designNotified = designNotice ? await postOnce({root, provider, ticketKey, id: `design:${digest}`, text: designNotice, io}) : null
+  const assumptionNotified = assumptionNotice ? await postOnce({root, provider, ticketKey, id: `assume:${digest}`, text: assumptionNotice, io}) : null
+  const unposted = [
+    ...(designNotified && !designNotified.done && designNotified.reason !== 'already-posted' ? ['임의 디자인으로 진행한다는 코멘트'] : []),
+    ...(assumptionNotified && !assumptionNotified.done && assumptionNotified.reason !== 'already-posted' ? ['미정 사항을 가정한다는 코멘트'] : []),
+  ]
   return {registration, context: ticketPickupContext(registration), issue: virtualTicketIssue(current, registration, {format: provider?.docFormat, lang}),
     extra: {ticketWork: {registered: true, reregistered: Boolean(registered), workId, assessmentDigest: digest, lane: assessment.lane, ...claimedNote,
-      ...(designNotified ? {designNotice: designNotified} : {}), externalWrites: (claimed.assigned ? 1 : 0) + (designNotified?.done ? 1 : 0),
-      ...(designNotified && !designNotified.done && designNotified.reason !== 'already-posted'
-        ? {guidance: '임의 디자인으로 진행한다는 코멘트를 티켓에 남기지 못했습니다. 디자이너·기획자에게 직접 알리세요.'} : {})}}}
+      ...(designNotified ? {designNotice: designNotified} : {}), ...(assumptionNotified ? {assumptionNotice: assumptionNotified} : {}),
+      externalWrites: (claimed.assigned ? 1 : 0) + (designNotified?.done ? 1 : 0) + (assumptionNotified?.done ? 1 : 0),
+      ...(unposted.length > 0 ? {guidance: `${unposted.join('·')}를 티켓에 남기지 못했습니다. 디자이너·기획자에게 직접 알리세요.`} : {})}}}
 }
 
 export {keyOf}

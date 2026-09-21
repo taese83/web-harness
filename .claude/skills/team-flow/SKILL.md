@@ -188,7 +188,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | 명령 | 답의 형태 |
 |---|---|
 | `board` | 표 하나(`키 · 제목 · 상태 · 담당 · 다음 할 일`) + `notes` 그대로 + 한 줄 질문. 다른 열·절을 만들지 않는다 |
-| `pickup` 확인(`outcome: confirm`) | 착수 가능이면 `review`만 — AI가 **제안한** 완료 조건·테스트 항목, 수정 범위, 레인, 임의 디자인(알림 문구 포함). 착수 불가면 `requestComment`를 그대로. 끝에 확인을 묻는 한 줄 |
+| `pickup` 확인(`outcome: confirm`) | 착수 가능이면 `review`만 — AI가 **제안한** 완료 조건·테스트 항목, 수정 범위, 레인, 임의 디자인·기획 미정 가정(알림 문구 포함). 착수 불가면 `requestComment`를 그대로. 끝에 확인을 묻는 한 줄 |
 | `pickup` 멈춤(`outcome: stopped`) | 「멈췄습니다」와 `guidance`·`bounce`의 이유·정해야 할 것을 그대로. 결과 코드(`TICKET_…`)를 보여주지 않고, 왜 막혔는지 따로 조사하지 않는다 |
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·코멘트)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`·`ticketWork.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |

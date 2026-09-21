@@ -31,6 +31,8 @@ brief를 대체하지 않는다.
 | `ticket.key` · `ticket.provider` | 어느 트래커의 어느 티켓인가 |
 | `ticket.revision` · `ticket.revisionStage` | 개발 기준 개정 — 픽업 끝에 다시 잰다(`settled-at-pickup`). 못 재면 `pre-pickup` 그대로 |
 | `ticket.revisionError` (선택) | 픽업 끝의 재조회가 실패했거나 빈 값을 줬을 때 그 이유 |
+| `assumptions` (선택) | 사람 티켓 작업에서 기획 미정을 어떻게 가정했는가(`what`·`assumed`) — 구현이 따른다 |
+| `designDebt` (선택) | 사람 티켓 작업에서 디자인 없이 임의로 정하는 것(`what`) |
 | `featureId` | 소비 FEAT가 **하나일 때만** 값이 있고 공유 작업이면 `null`이다(하나를 고르지 않는다) |
 | `featureIds` | 이 작업을 소비하는 FEAT 전부 |
 | `workId` · `planId` | 어느 계획의 어느 작업인가 |
