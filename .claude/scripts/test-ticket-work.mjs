@@ -9,11 +9,11 @@
 //   - 완성한 본문은 원문을 보존하고, 편집 대조 파서는 「원문」 아래를 읽지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {assessmentDigest, originalBodyOf, renderTicketWorkBody, testItemPrefix, ticketDefinitionDigest, ticketPlanId, ticketVirtualPlan,
-  ticketWorkDefinition, ticketWorkId, validateTicketAssessment} from './ticket/ticket-work.mjs'
+import {assessmentDigest, originalBodyOf, overlapConfirmToken, renderTicketWorkBody, resolveTicketDependencies, testItemPrefix, ticketDefinitionDigest,
+  ticketPlanId, ticketVirtualPlan, ticketWorkDefinition, ticketWorkId, validateTicketAssessment} from './ticket/ticket-work.mjs'
 import {compareWorkDoc, parseWorkDocSections} from './ticket/work-ticket-doc.mjs'
 import {parseWorkMarker, withWorkMarker, buildWorkMarker} from './ticket/work-refs.mjs'
-import {hasDevTicketAxis, isDevTicket} from './ticket/ticket-work-run.mjs'
+import {hasDevTicketAxis, isDevTicket, withTicketRegistrations} from './ticket/ticket-work-run.mjs'
 import {createGithubProvider} from './ticket/provider-github-exec.mjs'
 import {validateWorkEvent} from './ticket/work-events.mjs'
 
@@ -98,13 +98,29 @@ test('완료 조건·테스트 항목: 원문에 없는 티켓 출처 조건·�
   assert.equal(testItemPrefix('42'), 'TT-42-')
 })
 
-test('착수 불가 판정은 무엇이 왜 필요한지를 요구한다 · 진행 중 작업과 겹치면 착수시키지 않는다', () => {
+test('착수 불가 판정은 무엇이 왜 필요한지를 요구한다 · 진행 중 작업과 겹치면 막지 않고 겹침을 돌려준다', () => {
   expectError(check({...startable(), verdict: 'needs-planning', planningNeeds: []}), /planningNeeds\(what·why\)/)
   assert.equal(check({...startable(), verdict: 'needs-planning', planningNeeds: [{what: '정지 기준', why: '정책 미정'}]}).ok, true)
   expectError(check({...startable(), verdict: 'undecidable', reasons: []}), /reasons가 하나 이상/)
   const overlapped = check(startable(), {activeWorks: [{workId: 'WORK-00000004-0000-4000-8000-000000000004', writePaths: ['src/pages/members/']}]})
   assert.equal(overlapped.ok, true)
-  assert.equal(overlapped.bounce?.reason, 'ticket-overlaps-active-work', '겹치는데 착수시켰다')
+  assert.deepEqual(overlapped.overlaps.map(work => work.workId), ['WORK-00000004-0000-4000-8000-000000000004'], '겹침을 숨기면 확인할 수 없다')
+  assert.equal('overlaps' in check(startable()), false)
+  assert.equal(overlapConfirmToken('d', []), 'd', '겹침이 없으면 확인 지문은 판정서 지문 그대로다')
+  assert.notEqual(overlapConfirmToken('d', overlapped.overlaps), 'd', '겹침을 확인 지문에 묶지 않으면 모르고 확인한 것과 구분되지 않는다')
+})
+
+test('선행은 티켓 키로도 적는다 — 등록 전이어도 키에서 작업 ID가 정해지고, 발행된 작업이면 그 ID를 쓴다', () => {
+  assert.equal(check(startable({dependsOn: ['AOA-47', '#12']})).ok, true, check(startable({dependsOn: ['AOA-47']})).errors.join('\n'))
+  expectError(check(startable({dependsOn: [KEY]})), /이 티켓 자신/)
+  expectError(check(startable({dependsOn: [ticketWorkId('jira', KEY)]}), {knownWorkIds: new Set([ticketWorkId('jira', KEY)])}), /자신의 작업/)
+  expectError(check(startable({dependsOn: ['WORK-00000009-0000-4000-8000-000000000009']})), /원장·계획에 없는 작업이다 — 사람 티켓이면 티켓 키로/)
+  const published = 'WORK-00000007-0000-4000-8000-000000000007'
+  const resolved = resolveTicketDependencies({dependsOn: ['AOA-47', 'AOA-48', published], provider: 'jira', keyedWorks: new Map([['AOA-48', published]])})
+  assert.deepEqual(resolved, [{workId: ticketWorkId('jira', 'AOA-47'), ticketKey: 'AOA-47'}, {workId: published, ticketKey: 'AOA-48'}, {workId: published, ticketKey: null}])
+  const definition = ticketWorkDefinition({assessment: startable({dependsOn: ['AOA-47']}), ticketKey: KEY, provider: 'jira', title: 't',
+    dependencies: resolveTicketDependencies({dependsOn: ['AOA-47'], provider: 'jira'})})
+  assert.deepEqual(definition.dependsOn, [ticketWorkId('jira', 'AOA-47')], '정의의 선행은 작업 ID여야 픽업·보드가 완료를 잰다')
 })
 
 test('완성한 본문은 원문을 보존하고, 편집 대조는 「원문」 아래를 읽지 않는다 · ID는 티켓에서 결정적이다', () => {
@@ -232,14 +248,23 @@ test('진입 가드: 인젝션 의심 원문은 판정 스냅샷·미리보기·
   })
 })
 
-test('겹침으로 착수할 수 없는 판정은 등록하지 않는다(로컬 등록·원장 모두)', async () => {
+test('겹침: 판정서 지문만으로는 등록하지 않고, 겹침을 묶은 지문으로 확인하면 겹친 채 등록한다(원장은 쓰지 않는다)', async () => {
   const plan = {workItems: [{workId: 'WORK-00000001-0000-4000-8000-000000000009', writePaths: ['src/pages/']}]}
   const state = {works: new Map([['WORK-00000001-0000-4000-8000-000000000009', {status: 'published', ticketKey: 'OTHER-1'}]]), tickets: new Map()}
   await withRoot(startable({ticket: {key: KEY, provider: 'github'}}), async root => {
     const out = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue: {number: KEY, title: '정지 회원 표시', body: original, labels: ['dev'], assignees: ['dev1']},
       state, plan, flags: {assessment: assessmentDigest(startable({ticket: {key: KEY, provider: 'github'}}))}, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
-    assert.equal(out.result?.bounce?.reason, 'ticket-overlaps-active-work', JSON.stringify(out))
-    assert.equal(existsSync(join(root, registrationPath(KEY))), false, '착수할 수 없는 판정을 등록했다')
+    assert.equal(out.result?.phase, 'TICKET_ASSESSMENT_MISMATCH', JSON.stringify(out))
+    assert.equal('expected' in out.result, false, '기대 지문을 돌려주면 미리보기를 보지 않고 그 값으로 겹침 확인을 통과한다')
+    assert.equal(existsSync(join(root, registrationPath(KEY))), false, '겹침을 보지 않은 확인으로 등록했다')
+    const issue = {number: KEY, title: '정지 회원 표시', body: original, labels: ['dev'], assignees: ['dev1']}
+    const preview = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state, plan, flags: {}, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
+    assert.equal(preview.result?.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(preview))
+    assert.deepEqual(preview.result.review.overlaps, [{ticketKey: 'OTHER-1', writePaths: ['src/pages/']}])
+    const accepted = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state, plan,
+      flags: {assessment: preview.result.confirmWith.value}, io: {provider: recordingProvider([]), ticketConfig: githubDev}})
+    assert.ok(accepted.registration, JSON.stringify(accepted.result ?? accepted))
+    assert.deepEqual(accepted.registration.acceptedOverlaps.map(work => work.workId), ['WORK-00000001-0000-4000-8000-000000000009'], '겹친 채 확인한 사실이 남지 않았다')
     assert.equal(existsSync(join(root, WORK_EVENTS_PATH)), false)
   })
 })
@@ -264,7 +289,7 @@ test('재확인: 판정서를 고치면 다시 미리보기를 거치고, 확인
 })
 
 test('취소 경로: 등록한 작업을 착수 불가로 다시 판정해 확인하면 로컬 등록을 거둔다 — 수정 범위를 놓는다', async () => {
-  const {readLocalTicketWork, withTicketRegistrations} = await import('./ticket/ticket-work-run.mjs')
+  const {readLocalTicketWork} = await import('./ticket/ticket-work-run.mjs')
   const first = startable({ticket: {key: KEY, provider: 'github'}})
   const needs = {...startable({ticket: {key: KEY, provider: 'github'}}), verdict: 'needs-planning', lane: null, writePaths: [], acceptance: [], testItems: [],
     planningNeeds: [{what: '정지 기준', why: '정해지지 않았다'}]}
@@ -500,3 +525,16 @@ test('보드: 남이 맡은 판정 전·판정된 사람 티켓은 집을 수 �
   assert.equal(rows.get('AOA-42').blockedReason, 'assigned-to-other')
 })
 
+
+test('등록을 겹칠 때 앞선 등록이 둔 선행 자리표시가 뒤의 실제 등록을 가리지 않는다 — 순서와 무관하게 보드에 남는다', () => {
+  const y = {ticketKey: 'AOA-48', workId: ticketWorkId('jira', 'AOA-48'), planId: 'p', planDigest: 'd', definition: {dependsOn: []}}
+  const x = {ticketKey: 'AOA-47', workId: ticketWorkId('jira', 'AOA-47'), planId: 'p', planDigest: 'd',
+    definition: {dependsOn: [y.workId]}, dependsOnKeys: ['AOA-48']}
+  for (const order of [[x, y], [y, x]]) {
+    const works = withTicketRegistrations({works: new Map()}, order).works
+    assert.equal(works.get(y.workId).placeholder, undefined, '실제 등록이 자리표시로 남으면 보드가 그 행을 거른다')
+    assert.equal(works.get(y.workId).definition !== undefined, true)
+  }
+  const onlyX = withTicketRegistrations({works: new Map()}, [x]).works
+  assert.equal(onlyX.get(y.workId).placeholder, true, '등록 전 선행은 자리표시로 두어야 트래커 완료를 겹친다')
+})

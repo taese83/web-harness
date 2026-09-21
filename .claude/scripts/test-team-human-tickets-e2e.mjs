@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {execFileSync} from 'node:child_process'
-import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {createJiraStub} from './ticket/jira-memory-stub.mjs'
@@ -53,7 +53,7 @@ test('사람 티켓만 쓰는 팀: 배정이 먼저, 요청은 확인 뒤, 임�
     git(lead, 'init', '-q', '-b', 'main'); git(lead, 'config', 'user.name', 'lead'); git(lead, 'config', 'user.email', 'lead@t')
     git(lead, 'add', '-A'); git(lead, 'commit', '-qm', 'init'); git(lead, 'remote', 'add', 'origin', origin); git(lead, 'push', '-q', 'origin', 'main')
     const devs = {}
-    for (const name of ['A', 'B', 'C']) { devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name]) }
+    for (const name of ['A', 'B', 'C', 'D']) { devs[name] = join(base, name); git(base, 'clone', '-q', origin, devs[name]) }
     const io = () => ({provider: providerFor(), ticketConfig, mergedPrs})
     const pickup = (name, key, flags = {}) => runWorkPickup({root: devs[name], ticketKey: key, developer: name, flags, io: io()})
     const judge = (name, key, judged) => writeFileSync(join(devs[name], assessmentPath(key)), JSON.stringify(judged))
@@ -132,10 +132,30 @@ test('사람 티켓만 쓰는 팀: 배정이 먼저, 요청은 확인 뒤, 임�
     const scopeText = readFileSync(join(devs.C, '_workspace/03_dev/change-scope.md'), 'utf8')
     assert.match(scopeText, /쿼리 파라미터 entry로 받는다/, '가정이 개발자의 change-scope에 없으면 원문의 「미정」만 보고 다른 가정을 한다')
 
-    // (4) 내 클론의 진행 중 작업과 겹치면 착수하지 않는다 — 그 PR이 머지되면 티켓이 열려 있어도 착수한다.
+    // (3-2) 선행을 티켓 키로 적는다 — 선행이 등록 전·진행 중이어도 판정은 받고, 착수는 선행이 머지될 때까지 기다린다.
+    const boot = jira.humanTicket({summary: '부팅 게이트', components: ['DEVELOP'], description: '완료 조건: 진입 판정이 끝나야 첫 화면을 그린다'})
+    originals.set(boot, structuredClone(jira.issues.get(boot).fields.description))
+    const bootJudged = assessment(boot, {acceptance: '진입 판정이 끝나야 첫 화면을 그린다', writePaths: ['src/shared/boot/'], dependsOn: [entry]})
+    assert.equal(pickupOutcome(await pickup('D', boot)), 'assessing')
+    judge('D', boot, bootJudged)
+    const bootPreview = await pickup('D', boot)
+    assert.deepEqual(bootPreview.review?.dependsOn, [{ticketKey: entry, title: null, known: false}], '선행이 승인 대상에 없다')
+    const waiting = await pickup('D', boot, {assessment: assessmentDigest(bootJudged)})
+    assert.equal(waiting.bounce?.reason, 'dependency-incomplete', JSON.stringify(waiting.bounce ?? waiting.errors ?? waiting))
+    assert.ok(existsSync(join(devs.D, registrationPath(boot))), '선행 대기 중인 판정을 등록하지 않았다')
+    merged.push({number: 7, title: `[${entry}] 진입 컨텍스트`, mergedAt: new Date().toISOString(), url: 'https://github.com/acme/web/pull/7'})
+    const unblocked = await pickup('D', boot)
+    assert.equal(pickupOutcome(unblocked), 'started', `선행 머지 뒤에도 착수하지 못했다: ${JSON.stringify(unblocked.bounce)}`)
+
+    // (4) 내 클론의 진행 중 작업과 겹치면 겹침을 보여 주고 확인받는다 — 판정서 지문만으로는 등록하지 않는다.
+    // 동료가 진행 중인 개발 티켓은 배정·상태로 함께 보인다(수정 범위는 모른다).
     const sortJudged = assessment(sort, {acceptance: '정렬 방향 아이콘'})
     const overlapped = await confirm(owner, sort, sortJudged)
-    assert.equal(overlapped.bounce?.reason, 'ticket-overlaps-active-work', JSON.stringify(overlapped.bounce ?? overlapped.errors))
+    assert.equal(overlapped.phase, 'TICKET_ASSESSMENT_MISMATCH', JSON.stringify(overlapped.bounce ?? overlapped.errors ?? overlapped))
+    const overlapPreview = await pickup(owner, sort)
+    assert.equal(overlapPreview.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(overlapPreview))
+    assert.deepEqual(overlapPreview.review.overlaps.map(item => item.ticketKey), [empty])
+    assert.ok(overlapPreview.review.peers.some(peer => peer.ticketKey === stats && peer.assignees.includes(spare)), JSON.stringify(overlapPreview.review.peers))
     writeFileSync(join(devs[owner], 'src/shared/ui/Table.tsx'), 'export const Table = () => "빈 목록"\n')
     mkdirSync(join(devs[owner], 'tests'), {recursive: true})
     writeFileSync(join(devs[owner], 'tests/table.test.ts'), `// TT-${empty}-1\n`)
@@ -147,6 +167,7 @@ test('사람 티켓만 쓰는 팀: 배정이 먼저, 요청은 확인 뒤, 임�
     merged.push({number: 5, title: `[${empty}] 빈 상태 문구`, mergedAt: new Date().toISOString(), url: prUrl})
     assert.equal(jira.issues.get(empty).fields.status?.statusCategory?.key === 'done', false, '전제: 티켓은 열려 있다')
     const after = await pickup(owner, sort, {assessment: assessmentDigest(sortJudged), 'replace-scope': true})
+    // 머지로 겹침이 사라졌으니 판정서 지문 그대로 확인된다
     assert.equal(pickupOutcome(after), 'started', `머지된 작업이 아직 수정 범위를 쥐었다: ${JSON.stringify(after.bounce)}`)
 
     // 다른 클론의 보드 — 남의 사람 티켓은 배정으로만 안다(판정·등록은 그 사람의 로컬에 있다).

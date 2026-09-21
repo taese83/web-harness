@@ -143,10 +143,10 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       const items = []
       let startAt = 0
       for (let guard = 0; guard < 10; guard++) {
-        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,assignee,labels`, options)
+        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,assignee,labels,status`, options)
         const issues = Array.isArray(payload?.issues) ? payload.issues : []
         for (const issue of issues) {
-          items.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null, labels: issue.fields?.labels ?? [],
+          items.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null, labels: issue.fields?.labels ?? [], status: issue.fields?.status?.name ?? null,
             assignees: issue.fields?.assignee ? [assigneeIdentity(issue.fields.assignee, config.assigneeField)].filter(Boolean) : []})
         }
         startAt += issues.length

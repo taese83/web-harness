@@ -22,7 +22,8 @@
    코멘트를 쌓지 않는다(남긴 지문은 로컬 `<키>.notified.json`).
 4. `startable`이면 `TICKET_WORK_PREVIEW`(`outcome: confirm`, 쓰기 0) — 사용자에게는 `review`(AI가 제안한 완료 조건·테스트 항목, 수정 범위,
    레인, 하지 않는 것, 디자인 부채, 임의 디자인·기획 미정 가정과 그 알림 문구)만 보여준다 — 이 확인이 스팩 승인을 대신하므로 승인 대상을 빠짐없이 싣는다.
-   미리보기에는 비신뢰 원문을 싣지 않는다. 진행 중 작업과 겹쳐 착수할 수 없으면 등록하지 않는다.
+   미리보기에는 비신뢰 원문을 싣지 않는다. 진행 중 작업과 겹치면 그 겹침과 선행을 함께 보여 주고, 확인 지문이 겹침을 묶는다(아래).
+   확인 지문이 틀리면 기대 지문을 돌려주지 않고 미리보기부터 다시 보게 한다.
 5. 개발자가 확인하면 스킬이 `confirmWith`를 붙여 다시 부른다 — 지문은 사용자에게 보이지 않는다. 지문이 지금 판정서와 다르면 멈춘다.
 6. 확인 = **로컬 등록**(`<키>.registered.json` — 확정한 정의·판정서 지문·확인할 때의 원문 지문) → 기존 픽업(전이·change-scope).
    임의 디자인이면 그 사실을, 가정이 있으면 그 가정을 티켓 코멘트로 알린다(같은 판정으로는 한 번). change-scope의 `origin: ticket`, `lane`,
@@ -75,7 +76,7 @@
   "nonGoals": [],
   "acceptance": [{"text": "…", "source": "ticket | proposed"}],
   "testItems": [{"id": "TT-AOA-31-1", "text": "…", "source": "ticket | proposed"}],
-  "dependsOn": [],
+  "dependsOn": ["WORK-… 또는 티켓 키(AOA-47 · #12)"],
   "designByImplementer": {"source": "ticket | developer", "quote": "ticket이면 원문 문장 그대로"},
   "assumptions": [{"what": "미정인 세부", "assumed": "어떻게 가정하는가", "why": "왜 가정해도 되는가"}]
 }
@@ -90,9 +91,13 @@ CLI가 막는 것:
   소유권 훅과 같은 정규화로 읽되, 앱 접두(`apps/x/…`)는 붙이지 않는다
 - `acceptance`가 비었음 · `source: ticket`인데 **원문에 그 문장이 없음**(지어낸 조건을 티켓 출처라 부르지 않는다)
 - `testItems` ID가 `TT-<키>-<순번>`이 아님 · change인데 테스트 항목이 없음 — 기획 TC(`TC-…`)와 다른 공간이다
-- `dependsOn`이 원장·계획에 없는 작업 · 미선언(`[]`로 명시한다)
-- 이 클론이 아는 진행 중 작업(발행한 계획 작업 + 내가 등록한 티켓 작업, 머지 전)과 `writePaths`가 겹침 → `ticket-overlaps-active-work`.
-  남이 다른 클론에서 등록한 작업은 보이지 않는다(배정으로만 안다) — 그 겹침은 머지 충돌로 드러난다
+- `dependsOn`의 WORK ID가 원장·계획에 없음 · 이 티켓 자신 · 미선언(`[]`로 명시한다). 사람 티켓은 **티켓 키**로 적는다 — 등록 전이어도
+  키에서 작업 ID가 정해지고, 판정은 받되 착수는 선행이 머지(또는 트래커 완료)될 때까지 `dependency-incomplete`로 기다린다
+
+CLI가 막지 않고 **보여 주는** 것: 이 클론이 아는 진행 중 작업(발행한 계획 작업 + 내가 등록한 티켓 작업, 머지 전)과 `writePaths`가 겹치면
+미리보기 `review.overlaps`에 싣고, 확인 지문이 그 겹침 목록을 묶는다(판정서 지문만으로 확인하면 `TICKET_ASSESSMENT_MISMATCH`).
+확인하면 겹친 채 등록하고 등록 기록에 `acceptedOverlaps`를 남긴다. 동료가 진행 중인 개발 티켓은 배정·상태로 `review.peers`에 보인다 —
+수정 범위는 모르므로 겹침 판단은 사람 몫이고, 실제 충돌은 머지할 때 정리한다
 
 `source: proposed`는 AI 제안이다. 개발자가 지문으로 확인하기 전에는 기준이 아니고 트래커에도 쓰지 않는다.
 

@@ -128,7 +128,9 @@ test('모노레포 팀 흐름: be·fe가 앱 접두 범위로 나눠 집고, 테
       testItems: [{id: `TT-${humanKey}-1`, text: '정렬 인자 없이 호출하면 가입일 역순', source: 'proposed'}]}
     writeFileSync(join(devs.third, assessmentPath(humanKey)), JSON.stringify(assessment))
     const overlapped = await pickup('third', humanKey, {assessment: assessmentDigest(assessment)})
-    assert.equal(overlapped.bounce?.reason, 'ticket-overlaps-active-work', JSON.stringify(overlapped.bounce))
+    assert.equal(overlapped.phase, 'TICKET_ASSESSMENT_MISMATCH', '겹침을 보지 않은 확인으로 착수했다')
+    const shown = await pickup('third', humanKey)
+    assert.ok(shown.review?.overlaps?.length > 0, JSON.stringify(shown))
     assert.equal(readChangeScopeFile(devs.third), null)
     const stray = await runWorkLink({root: devs.third, ticketKey: humanKey, prUrl: 'https://github.com/acme/mono/pull/9', flags: {}, io: {mergedPrs, prInfo: open}})
     assert.equal(stray.blocked, 'work-not-registered')
