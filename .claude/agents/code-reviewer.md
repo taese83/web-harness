@@ -64,7 +64,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 `CHANGE_MODE: existing-change`이면 구현 품질 검사 전에 다음을 수행한다.
 
 1. `_workspace/03_dev/change-scope.md` 또는 전달된 brief에서 `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`을 읽는다. brief가 없고 기존 사용자 변경과 이번 변경을 구분할 수 없으면 `BLOCKED`다.
-2. `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation status`, `--operation diff-stat`, `--operation diff-names`, `--operation diff`를 사용해 변경을 읽는다. 직접 `git`을 실행하거나 source를 수정하거나 기존 변경을 되돌리지 않는다.
+2. `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation status`, `--operation diff-stat`, `--operation diff-names`, `--operation diff`를 사용해 변경을 읽는다. brief나 스폰 프롬프트에 base가 주어졌으면 `--base <base>`를 붙인다(공통 조상 기준 — base가 앞서 나가도 유령 삭제가 없다). 주어지지 않으면 base를 추정하지 말고 working tree 기준으로 읽은 사실을 리포트에 적는다. 직접 `git`을 실행하거나 source를 수정하거나 기존 변경을 되돌리지 않는다.
 3. 실제 changed path가 허용 범위를 벗어나면 scope expansion의 root-cause 근거와 사전 기록 여부를 확인한다.
 4. 요청과 무관한 rename/move, format-only noise, dependency upgrade, lockfile churn, broad rewrite, public API/schema/state 변경은 정당화되지 않으면 `FAIL`이다.
 5. 작은 diff만을 강제하지 않는다. 보안·데이터 무결성·공통 root cause를 해결하는 broader change는 brief에 blast radius와 대안이 기록되고 test evidence가 있으면 허용한다.
@@ -196,6 +196,10 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - 파사드 밖의 호스트 전역·스킴 문자열 접근을 목록화한다(WARN, 호출부 수와 함께)
    - 네이티브 반환값을 정규화 없이 쓰는 곳(JSON 문자열·`"true"`), 폴백 없는 호스트 호출
    - 기능별 최소 버전을 전역 하한으로 끌어올린 게이트 — 그 기능을 안 쓰는 사용자까지 막는다
+21. **호출 수명 검사** (diff가 부수효과 코드나 새 모듈·훅·서비스를 들였을 때):
+   - 카운터·ID 발급·이벤트 발행·전역 상태·외부 호출은 **모든 호출부**를 추적한다 — 초기화와 콜백이 겹쳐 두 번 실행되는지 먼저 의심한다(React initializer 쓰기는 검사 9)
+   - 새 모듈마다 「몇 번, 언제 호출되는가」를 답한다. 답하지 못하면 그 사실을 적는다(아무도 부르지 않는 것은 검사 13)
+   - 그 동작의 테스트가 실제 부팅·호출 순서를 재현하는지 본다 — 순서가 다르면 초록이어도 버그를 못 잡는다
 
 ## 판정 신뢰 규약 (적대적 검증)
 
@@ -203,13 +207,14 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 1. **전제 확인** — 지적의 전제가 되는 코드·사용처·설정을 실제로 열어 확인한다 (검색 근거를 남긴다)
 2. **반례 탐색** — "이 지적이 틀렸다면 왜인가"를 자문한다 (기존 코드의 의도적 동일 패턴, 프레임워크가 이미 처리하는 경우)
-3. **재현 서술** — 어떤 입력·상태에서 실제 문제가 되는지 서술 가능한가
+3. **재현 서술** — 어떤 입력·상태에서 실제 문제가 되는지 서술 가능한가. 근거가 실행(receipt·스크래치 재현)인지 코드 읽기인지 구분해 적는다
+4. **base 대조** — 그 동작이 base(공통 조상)에도 있었으면 이 변경의 결함이 아니다
 
 판정: 전제 확인 + 반례 없음 → **CONFIRMED** / 반증도 확인도 불가 → **PLAUSIBLE**(판정 표기 + 우선순위 한 단계 강등) / 반증 성공 → 보고에서 제외.
 그럴듯하지만 틀린 지적(false positive)은 리뷰 신뢰를 갉아먹는다 — 판단성 발견 항목에는 판정과 반증에서 확인한 근거 한 줄을 붙인다.
 
 **보고 완결 규약**: 도구·명령이 bash 정책에 차단되거나 turn 예산이 소진되어도 최종 응답은 반드시 출력 구조의 완성된 리포트여야 한다 —
-수행 못 한 검사는 "확인 불가(사유)"로 명시하고, 확인한 범위의 발견만 판정한다. 탐색 중간 서술로 응답을 끝내는 것은 리포트 미제출이다.
+수행 못 한 검사는 "확인 불가(사유)"로 명시하고, 확인한 범위의 발견만 판정한다. 「발견 없음」은 확정하지 못한 범위를 함께 적어야 승인의 근거가 된다. 탐색 중간 서술로 응답을 끝내는 것은 리포트 미제출이다.
 재귀 content 검색은 보호 exclude를 동반한 `grep`을 **1순위로** 사용한다 (`grep`은 어디에나 있고, `rg`는 미설치·아키텍처 불일치 환경에서 exit 127로 조용히 죽는다 — 실사고로 전수 검사가 무력화된 적이 있다):
 `grep -rn '{pattern}' src --exclude='.env*' --exclude='*.pem' --exclude='*.key' --exclude='id_*' --exclude='*secret*' --exclude='*credential*' --exclude-dir=.git --exclude-dir=node_modules`
 `rg`가 실제로 동작하는 환경이면 동등한 대안으로 쓸 수 있다:
@@ -241,6 +246,7 @@ PASS | WARN | FAIL | BLOCKED
 
 ## Change Scope Review
 - Change mode:
+- Base (공통 조상 기준, 없으면 working tree):
 - Brief path:
 - Allowed paths / actual changed paths:
 - Preserved public contracts:

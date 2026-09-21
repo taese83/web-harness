@@ -163,11 +163,23 @@ if (operation === 'ls-files') {
 const headExists = runGit(['rev-parse', '--verify', 'HEAD']).status === 0
 if (operation === 'log') {
   if (!headExists) finish({status: 0, stdout: 'No commits.\n', stderr: ''})
-  finish(runGit(['log', ...(base ? [`${base}...HEAD`] : []), '--oneline', '--no-decorate', '--max-count=200']))
+  // `..`이다 — `...`는 대칭 차집합이라 분기 뒤 base에 들어온 커밋까지 이 브랜치 커밋으로 싣는다.
+  finish(runGit(['log', ...(base ? [`${base}..HEAD`] : []), '--oneline', '--no-decorate', '--max-count=200']))
 }
 
-const diffInvocations = extra => base
-  ? [['diff', '--no-ext-diff', '--no-textconv', ...extra, base]]
+// base 비교는 공통 조상 기준이다. `git diff <base>`는 분기 뒤 base에 들어온 변경을 이쪽이 지운 것처럼
+// 보여 PR 설명·semver 판정에 유령 삭제를 만든다. 워킹 트리 변경은 계속 포함한다.
+let mergeBase = null
+if (base !== undefined) {
+  const result = runGit(['merge-base', base, 'HEAD'])
+  // 없는 ref·shallow clone의 분기점 부재도 여기로 온다 — git 원문을 함께 낸다.
+  if (result.status !== 0) {
+    finish({status: 2, stdout: '', stderr: `No common ancestor between ${base} and HEAD — refusing a two-point diff.\n${result.stderr}`})
+  }
+  mergeBase = result.stdout.trim()
+}
+const diffInvocations = extra => mergeBase
+  ? [['diff', '--no-ext-diff', '--no-textconv', ...extra, mergeBase]]
   : headExists
     ? [['diff', '--no-ext-diff', '--no-textconv', ...extra, 'HEAD']]
     : [

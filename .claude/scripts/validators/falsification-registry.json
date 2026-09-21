@@ -3,6 +3,22 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "git-inspection-log-range",
+      "file": ".claude/scripts/run-git-inspection.mjs",
+      "find": "  finish(runGit(['log', ...(base ? [`${base}..HEAD`] : []), '--oneline', '--no-decorate', '--max-count=200']))",
+      "replace": "  finish(runGit(['log', ...(base ? [`${base}...HEAD`] : []), '--oneline', '--no-decorate', '--max-count=200']))",
+      "test": ".claude/scripts/test-run-git-inspection.mjs",
+      "why": "대칭 차집합으로 돌아가면 분기 뒤 base 커밋이 이 브랜치 커밋 목록에 섞여 PR 설명·semver 판정이 틀어진다"
+    },
+    {
+      "id": "git-inspection-merge-base",
+      "file": ".claude/scripts/run-git-inspection.mjs",
+      "find": "  mergeBase = result.stdout.trim()",
+      "replace": "  mergeBase = base",
+      "test": ".claude/scripts/test-run-git-inspection.mjs",
+      "why": "두 점 비교로 돌아가면 분기 뒤 base에 들어온 변경이 이쪽 삭제로 보여 PR 설명·semver 판정이 유령 삭제를 읽는다"
+    },
+    {
       "id": "environment-binding-always",
       "file": ".claude/scripts/receipt-validation-lib.mjs",
       "find": "    binding?.buildEnvironmentSha256 !== environmentSha256 ||",
