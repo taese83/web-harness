@@ -33,7 +33,8 @@
         "value": "prettier",
         "source": "default"
       }
-    }
+    },
+    "conventions": []
   },
   "targetShapes": [
     "web-app",
@@ -277,9 +278,9 @@
       {
         "path": "_workspace/02_design/solution-design.md",
         "present": true,
-        "sha256": "e41e4779ae91153fff4a2d656c9bd4b655436b92764e2609e80f40be874c1aeb"
+        "sha256": "6d6f1f3ac21125477deaa3722c42b3072ea015943b7c806686e4ce4efee2a77d"
       }
     ],
-    "combined": "e92fa434cc762f96689513384812d21b30568dcb1416b434fad67a150ff63584"
+    "combined": "8eb956bd99359c55c4ee4f0b625359e164faa0021f6d66a90860b60cf9b652aa"
   }
 }

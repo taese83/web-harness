@@ -203,7 +203,8 @@ substrate에 없다. → 미지정(기본값이 `default`로 채워짐). **subst
       "testRunner": {"value": "vitest", "source": "measured"},
       "lint": {"value": "eslint", "source": "measured"},
       "e2e": {"value": "playwright", "source": "measured"}
-    }
+    },
+    "conventions": []
   },
   "communication": ["rest"],
   "concurrency": [],
