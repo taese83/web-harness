@@ -14,7 +14,7 @@ import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
-  checkLayerMap, checkLayerMapCoverage, checkShapeEvidence, checkTargetShapes, checkToolchainAlignment,
+  checkConventions, checkLayerMap, checkLayerMapCoverage, checkShapeEvidence, checkTargetShapes, checkToolchainAlignment,
   checkSpecShared, checkAcceptanceCoverage,
   readShapeChecks, resolveRequiredChecks, inspectSpecConformance,
 } from './validate-spec-conformance.mjs'
@@ -525,4 +525,18 @@ test('e2e 레이어에서 인용해도 커버로 인정한다', () => {
   const root = covRoot({'e2e/a.spec.ts': 'TC-001-1 TC-001-2'})
   try { assert.deepEqual(checkAcceptanceCoverage(covSpec(), root), []) }
   finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('확정 뒤 사라진 규약 문서는 FAIL, 조사 기록이 없는 기존 관례 스팩은 알림이다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'spec-conformance-conventions-'))
+  try {
+    writeFileSync(join(root, 'AGENTS.md'), '# 규약\n')
+    assert.deepEqual(checkConventions({constitution: {conventions: ['AGENTS.md']}}, root), {failures: [], notes: []})
+    const gone = checkConventions({constitution: {conventions: ['CONTRIBUTING.md']}}, root)
+    assert.equal(gone.failures[0]?.kind, 'conventions')
+    assert.match(checkConventions({architecture: {pattern: 'existing'}, constitution: {}}, root).notes[0], /CONVENTIONS_UNDECLARED/)
+    assert.deepEqual(checkConventions({architecture: {pattern: 'fsd'}, constitution: {}}, root), {failures: [], notes: []})
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

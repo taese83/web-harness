@@ -24,7 +24,7 @@
 //     기획 없는 브라운필드 개선을 막지 않으면서 그 상태를 숨기지도 않는다.
 //     이 tier를 게이트가 어떻게 다룰지는 Stage 2의 결정이며 여기서 정하지 않는다.
 import {createHash} from 'node:crypto'
-import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
+import {existsSync, readdirSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {harnessVersion} from './harness-version.mjs'
@@ -388,6 +388,35 @@ export const validateDesignSource = decision => {
   return designSource
 }
 
+// 프로젝트 규약 문서. 적힌 경로는 실측 주장이다 — 루트 안의 실존 파일이어야 잠긴다.
+// `[]`는 찾아봤는데 없다(measured-absent), 필드 부재는 조사하지 않았다.
+export const validateConventions = (decision, projectRoot) => {
+  const conventions = decision.constitution?.conventions
+  if (conventions === undefined) return undefined
+  if (!Array.isArray(conventions) || conventions.some(path => typeof path !== 'string' || path.trim() === '')) {
+    throw new LockError('CONVENTIONS_INVALID', 'constitution.conventions는 규약 문서 경로 문자열 배열이어야 한다')
+  }
+  if (conventions.length === 0) return []
+  if (typeof projectRoot !== 'string') {
+    throw new LockError('CONVENTIONS_ROOT_MISSING', '규약 문서 실존을 대조할 프로젝트 루트가 없다 — 검사 미수행을 통과로 만들지 않는다(lockSpec이 공급한다)')
+  }
+  const root = resolve(projectRoot)
+  const inside = (base, target) => {
+    const offset = relative(base, target)
+    return offset !== '' && offset !== '..' && !offset.startsWith(`..${sep}`) && !isAbsolute(offset)
+  }
+  // 경로 탈출은 실경로로 본다 — `../`·절대경로·루트 밖을 가리키는 심볼릭 링크를 한 번에 막는다.
+  const missing = conventions.filter(path => {
+    const candidate = resolve(root, path)
+    if (!existsSync(candidate) || !statSync(candidate).isFile()) return true
+    return !inside(realpathSync(root), realpathSync(candidate))
+  })
+  if (missing.length > 0) {
+    throw new LockError('CONVENTION_NOT_FOUND', `constitution.conventions가 루트 안에 없는 파일을 가리킨다: ${missing.join(', ')} — 실측은 실존을 요구한다`, {missing})
+  }
+  return [...new Set(conventions.map(path => relative(root, resolve(root, path)).split(sep).join('/')))]
+}
+
 export const validateLayerMap = decision => {
   const layerMap = decision?.layerMap ?? {}
   if (typeof layerMap !== 'object' || Array.isArray(layerMap)) {
@@ -473,7 +502,7 @@ export const validateTestLayers = (decision, catalog = readShapeChecks()) => {
   return settled
 }
 
-export const buildSpec = ({decision, digest, acceptanceIds}) => {
+export const buildSpec = ({decision, digest, acceptanceIds, projectRoot}) => {
   if (decision === null || typeof decision !== 'object' || Array.isArray(decision)) {
     throw new LockError('DECISION_BLOCK_INVALID_SHAPE', '결정 블록이 객체가 아니다')
   }
@@ -535,7 +564,8 @@ export const buildSpec = ({decision, digest, acceptanceIds}) => {
     }
   }
 
-  const constitution = {substrate: mergeSubstrate(decision.constitution?.substrate)}
+  const conventions = validateConventions(decision, projectRoot)
+  const constitution = {substrate: mergeSubstrate(decision.constitution?.substrate), ...(conventions === undefined ? {} : {conventions})}
   // 형태는 배열이다(조사 2026-08-26): 라이브러리이면서 CLI인 패키지가 정상 패턴이고,
   // 하나로 강제하면 나머지 절반의 검증을 잃는다. 구 단수 필드는 조용히 받지 않고 거부한다 —
   // 같은 것을 두 가지로 말할 수 있으면 나중에 어느 쪽이 정본인지 모호해진다.
@@ -643,7 +673,7 @@ export const lockSpec = projectRoot => {
   const acceptanceIds = planFiles.length > 0
     ? extractAcceptanceIds(planFiles.map(file => readFileSync(resolve(root, file.read), 'utf8')).join('\n'))
     : new Set()
-  return buildSpec({decision, digest: digestInputs(root), acceptanceIds})
+  return buildSpec({decision, digest: digestInputs(root), acceptanceIds, projectRoot: root})
 }
 
 // main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는

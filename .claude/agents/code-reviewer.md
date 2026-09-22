@@ -88,6 +88,8 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    쓸 수 없다**. 다음 라운드가 막힌다.
 5. **`architecture.pattern`** — `existing`이면 기존 관례를 따랐는지, 특정 패턴이면 그 패턴을
    지켰는지 본다.
+6. **`constitution.conventions`** — 가리키는 규약 문서를 읽고 변경점이 어겼는지 본다(우선순위는
+   solution-design-contract §1). 필드가 없으면 '규약 문서 미조사'로 리포트에 적는다.
 
 스팩이 없으면 이 절을 건너뛰고 그 사실을 리포트에 적는다 — 침묵하지 않는다.
 **스팩과 코드가 어긋나면 어느 쪽이 옳은지 판정하지 않는다.** 둘 다 보고하고 owner 후보를

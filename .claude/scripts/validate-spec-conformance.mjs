@@ -34,7 +34,7 @@ import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
-import {harnessVersion, inspectSpecLedger, isSpecStale, readSubstrateDefaults} from './spec.mjs'
+import {harnessVersion, inspectSpecLedger, isSpecStale, LockError, readSubstrateDefaults, validateConventions} from './spec.mjs'
 import {pathToFileURL} from 'node:url'
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
@@ -78,6 +78,25 @@ export const checkLayerMap = (spec, projectRoot) => {
     if (!existsSync(resolve(root, path))) failures.push({layer, path, reason: '경로가 존재하지 않는다'})
   }
   return failures
+}
+
+// 규약 문서는 확정 뒤에도 실존해야 한다 — 사라지면 developer가 읽을 규칙이 없다.
+// 조사 기록 자체가 없으면 실패가 아니라 알린다(그린필드는 찾을 문서가 없다).
+export const checkConventions = (spec, projectRoot) => {
+  const failures = []
+  const notes = []
+  const conventions = spec.constitution?.conventions
+  if (conventions === undefined) {
+    if (spec.architecture?.pattern === 'existing') notes.push('CONVENTIONS_UNDECLARED — 기존 관례를 따른다면서 프로젝트 규약 문서를 조사한 기록(constitution.conventions)이 없다')
+    return {failures, notes}
+  }
+  try {
+    validateConventions({constitution: {conventions}}, resolve(projectRoot))
+  } catch (error) {
+    if (!(error instanceof LockError)) throw error
+    failures.push({kind: 'conventions', path: (error.details?.missing ?? []).join(', '), reason: error.message})
+  }
+  return {failures, notes}
 }
 
 // ── 형태 → 요구 검증 (Stage 2b) ──────────────────────────────────────────────
@@ -415,6 +434,9 @@ export const inspectSpecConformance = ({projectRoot, toolchain = defaultToolchai
     failures.push({kind: 'stale', reason: '확정 이후 입력이 바뀌었다 — 재확정이 필요하다'})
   }
   for (const item of checkLayerMap(spec, root)) failures.push({kind: 'layerMap', ...item})
+  const conventionCheck = checkConventions(spec, root)
+  failures.push(...conventionCheck.failures)
+  notes.push(...conventionCheck.notes)
   for (const item of checkToolchainAlignment(spec, toolchain)) failures.push({kind: 'toolchain', ...item})
   for (const item of checkSpecShared(root, SPEC_LOCK_PATH)) failures.push(item)
   for (const item of checkAcceptanceCoverage(spec, root)) failures.push(item)

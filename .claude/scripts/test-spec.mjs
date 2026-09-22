@@ -11,7 +11,7 @@
 //   (7) 확정 입력은 flat·sharded 양쪽으로 해소된다 — 분할된 기획·설계도 다이제스트에 든다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
@@ -57,7 +57,7 @@ const expectLockError = (fn, code) => {
   } catch (error) {
     assert.ok(error instanceof LockError, `LockError가 아니다: ${error}`)
     assert.equal(error.code, code)
-    return
+    return error
   }
   assert.fail(`${code}로 거부해야 하는데 통과했다`)
 }
@@ -192,6 +192,52 @@ test('measured-absent를 유효한 source로 받는다', () => {
   withProject(baseDecision({libraries: {mock: {choice: 'none', alternatives: [], source: 'measured-absent'}}}), root => {
     assert.equal(lockSpec(root).libraries.mock.source, 'measured-absent')
   })
+})
+
+// ── 프로젝트 규약 문서는 실측 주장이다 ─────────────────────────────────────────
+test('실존하는 규약 문서는 루트 기준 경로로 정규화돼 잠긴다', () => {
+  withProject(baseDecision({constitution: {conventions: ['AGENTS.md', './AGENTS.md', 'docs/../AGENTS.md']}}), root => {
+    writeFileSync(join(root, 'AGENTS.md'), '# 규약\n')
+    assert.deepEqual(lockSpec(root).constitution.conventions, ['AGENTS.md'])
+  })
+})
+
+test('규약 문서를 조사하지 않았으면 필드가 없고, 없다고 확인했으면 []다', () => {
+  withProject(baseDecision(), root => assert.equal('conventions' in lockSpec(root).constitution, false))
+  withProject(baseDecision({constitution: {conventions: []}}), root => assert.deepEqual(lockSpec(root).constitution.conventions, []))
+})
+
+test('반증: 없는 규약 문서·디렉터리를 적으면 거부한다', () => {
+  for (const path of ['CONTRIBUTING.md', '_workspace']) {
+    withProject(baseDecision({constitution: {conventions: [path]}}), root => {
+      expectLockError(() => lockSpec(root), 'CONVENTION_NOT_FOUND')
+    })
+  }
+})
+
+test('반증: 루트 밖에 실존하는 파일은 상대·절대·심볼릭 링크 어느 경로로도 잠기지 않는다', () => {
+  const outer = mkdtempSync(join(tmpdir(), 'spec-conventions-outer-'))
+  try {
+    const outside = join(outer, 'AGENTS.md')
+    writeFileSync(outside, '# 밖\n')
+    const inner = join(outer, 'project')
+    mkdirSync(join(inner, '_workspace/02_design'), {recursive: true})
+    symlinkSync(outside, join(inner, 'LINKED.md'))
+    for (const path of ['../AGENTS.md', outside, 'LINKED.md']) {
+      writeFileSync(join(inner, '_workspace/02_design/solution-design.md'), decisionBlock(baseDecision({constitution: {conventions: [path]}})))
+      const error = expectLockError(() => lockSpec(inner), 'CONVENTION_NOT_FOUND')
+      assert.deepEqual(error?.details?.missing, [path])
+    }
+  } finally {
+    rmSync(outer, {recursive: true, force: true})
+  }
+})
+
+test('반증: 루트 없이 규약 문서를 적으면 대조 미수행을 통과로 만들지 않는다', () => {
+  expectLockError(
+    () => buildSpec({decision: baseDecision({constitution: {conventions: ['AGENTS.md']}}), digest: {inputs: [], combined: 'x'.repeat(64)}}),
+    'CONVENTIONS_ROOT_MISSING',
+  )
 })
 
 // ── (5) staleness ────────────────────────────────────────────────────────────

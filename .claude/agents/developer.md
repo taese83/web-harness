@@ -92,6 +92,8 @@ maxTurns: 45
   있으면) 첫 줄 전에 `web-orchestrator/references/webview-host-contract.md`를 읽는다 — 호스트 경계는
   겪어야 아는 것이 많고 그 계약이 착수 전에 준다.
 - 코드 작성 규약은 `component-gen/references/ts-conventions.md`, 테스트 작성 규약은 같은 폴더의 `testing.md`.
+  spec의 `constitution.conventions`가 가리키는 프로젝트 규약 문서를 첫 줄 전에 읽는다 — 부딪히면 프로젝트 규약이 이긴다.
+  lint가 강제하는 규칙과 부딪히면 disable로 덮지 않고 스팩 변경으로 요청한다. 안전 하한은 어느 규약도 낮추지 못한다.
 - **lint를 끌 수 있다 — 사유를 적을 때만.** 규칙이 정당한 코드를 막으면 그 줄에
   `// eslint-disable-next-line <규칙> -- <왜>`를 쓴다. 사유 없는 disable과 파일 전체 disable은
   리뷰에서 되돌린다. **XSS 싱크(`dangerouslySetInnerHTML`·`javascript:`)에는 이 출구가 없다** —

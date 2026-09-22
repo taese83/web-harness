@@ -11,7 +11,10 @@ Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격된다.
 {
   "stage": 0,
   "targetShapes": ["web-app|library|cli|<기타>"],
-  "constitution": {"substrate": {"<키>": {"value": "...", "source": "default|measured|declared", "rationale": "declared면 필수"}}},
+  "constitution": {
+    "substrate": {"<키>": {"value": "...", "source": "default|measured|declared", "rationale": "declared면 필수"}},
+    "conventions": ["<규약 문서 경로>"]  // 선택 — []=찾아봤는데 없음, 생략=조사 안 함. 잠금이 실존을 대조한다
+  },
   "communication": ["rest|graphql|websocket|sse|streaming"],
   "concurrency": ["web-worker|service-worker|worker-thread"],
   "architecture": {"pattern": "fsd|layered|domain-modules|existing|<기타>", "rationale": "..."},

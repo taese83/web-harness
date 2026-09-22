@@ -329,6 +329,14 @@
               }
             }
           }
+        },
+        "conventions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "프로젝트 규약 문서 경로(루트 기준, 잠금 시 실존 대조). []=찾아봤는데 없음, 필드 부재=조사하지 않음. 우선순위는 solution-design-contract §1."
         }
       }
     },

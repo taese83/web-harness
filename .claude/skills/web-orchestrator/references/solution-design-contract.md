@@ -44,7 +44,13 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 |---|---|---|
 | **원칙** | 프로세스 법 — test-first·증거 요구·안전 하한 | `docs/protected-core.md`가 소유. **스팩에서 재선언하지 않는다** |
 | **고정 기반** | 도구 substrate — 패키지 매니저·번들러·테스트 러너·언어·lint·formatter·e2e | `constitution.substrate` |
+| **프로젝트 규약** | 팀이 적어 둔 규약 문서 경로 | `constitution.conventions` |
 | **유동 선택** | 서비스마다 답이 다른 것 | `targetShape`·`architecture`·`layerMap`·`testLayers`·`libraries`·`communication`·`concurrency`·`moduleBoundaries` |
+
+**`constitution.conventions`는 경로 포인터다.** 내용은 `sourceDigest` 밖이고 소비자가 쓰는 시점에 읽는다 —
+문서 한 줄 수정이 스팩 재확정을 부르지 않게 하려는 것이다. `[]`는 찾아봤는데 없다, 필드 부재는 조사하지 않았다.
+**우선순위**: 산문 규칙은 프로젝트 규약이 하네스 기본 규약(`ts-conventions.md` 등)을 이긴다. lint가 강제하는 규칙과
+부딪히면 disable로 덮지 않고 스팩 변경으로 묻는다. 안전 하한(접근성·보안·증거)은 어느 규약도 낮추지 못한다.
 
 **`designSource`는 선택이다.** 디자인 값이 없는 산출물(라이브러리·CLI)에서 강제하지 않는다 —
 없으면 `Gate D`가 `UNDECLARED`로 명시 보고하고 끝난다. 있으면 값이 **어디서 오는지**와 **지금
@@ -179,12 +185,12 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 서로 다른 서비스 형태에서 성립함을 확인한다:
 
 - **그린필드 React SPA** — 패턴 `fsd`, 레이어 맵이 하네스 기본 어휘(`entities`/`features`/
-  `widgets`/`shared`), 라이브러리 전부 `proposed`, 미결정은 대안이 갈리는 항목만
+  `widgets`/`shared`), 라이브러리 전부 `proposed`, 규약 문서 `[]`, 미결정은 대안이 갈리는 항목만
 - **기존 모노레포의 패키지(브라운필드)** — 패턴 `existing`, 레이어 맵과 라이브러리 대부분
   `measured`(실측 트리·`integration-overlay.json`에서), 하네스 기본 어휘와 다른 디렉토리
-  이름이 그대로 기록됨. 제안은 전부 미결정으로 올라감
+  이름이 그대로 기록됨. 규약 문서는 팀의 `CLAUDE.md`·`AGENTS.md` 등 경로. 제안은 전부 미결정으로 올라감
 - **아키텍처 관례가 없는 기존 앱** — 패턴 `existing`, `layerMap`이 부분적이거나 비어 있고
-  그 사실 자체가 기록됨. 없는 관례를 지어내지 않는 것이 유효한 산출이다
+  그 사실 자체가 기록됨(규약 문서도 `[]`). 없는 관례를 지어내지 않는 것이 유효한 산출이다
 
 **진실 검증 수준: 명명 수준.** 위 세 형태는 스키마가 표현 가능함을 보인 것이고, 실제 산출물이
 유용한지는 아직 실측되지 않았다 — Stage 0의 관측 목적이 정확히 그것이다. eval fixture로

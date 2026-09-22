@@ -53,6 +53,8 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 
 1. **실측 → 추론 → 질의 순서로 채운다**(계약 §4). 브라운필드면 `package.json`·`tsconfig`·env·
    설정·트리를 읽어 현재 관례를 확정한다(`measured`, 찾아보고 없으면 `measured-absent`).
+   팀이 적어 둔 규약 문서(`CLAUDE.md`·`AGENTS.md`·`CONTRIBUTING.md`·docs의 규약 문서 등)를 찾아
+   `constitution.conventions`에 경로로 적는다 — 찾아봤는데 없으면 `[]`. 잠금이 실존을 대조한다.
    그린필드면 요청·기획에서 **추론**한다(`inferred`). **읽거나 추론할 수 있는 것은 묻지 않는다.**
 2. **산출물 형태 확정.** `targetShapes`를 정한다(계약 §1) — **배열이며 조합 가능하다**.
    `package.json`의 `bin`(→cli)·`exports`/`main` + `private`(→library) 신호를 먼저 보고,
