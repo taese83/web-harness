@@ -3817,6 +3817,14 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-verdict-record.mjs",
       "why": "보고서 판정과 검증 에이전트 판정의 불일치를 대조하지 않는다"
+    },
+    {
+      "id": "contract-hygiene-reference-size-ratchet",
+      "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
+      "find": "      if (referenceBytes > REFERENCE_BYTE_BUDGET && (referenceCeiling === undefined || referenceBytes > referenceCeiling)) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-reference-size-ratchet.mjs",
+      "why": "20KB를 넘는 참조 문서가 등록 크기보다 커지거나 새로 넘어도 contract-hygiene가 통과한다"
     }
   ]
 }

@@ -14,6 +14,9 @@ import {detectSourceRepository} from './validate-adapter-hygiene.mjs';
 const validatorsDirectory = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_MD_MAX_LINES = 60;
 const DEFAULT_ALWAYS_READ_BUDGET = 8; // baseline 미등록 신규 스킬 기본 상한
+// 참조 문서 한 개의 크기 상한 — `_workspace` 산출물의 무분할 파일 예산(artifact-sharding-contract)과 같은 20KB.
+// 이미 넘은 문서는 baseline `referenceBytes`의 크기에서 더 커지지 못한다(ratchet).
+const REFERENCE_BYTE_BUDGET = 20 * 1024;
 const MATURITY_VALUES = new Set(['contract-only', 'eval-covered', 'golden-backed']);
 
 const listMarkdown = (root, out = []) => {
@@ -350,6 +353,16 @@ export function validateContractHygiene({repositoryRoot, pass, fail, evalScenari
       const relativeToRefs = afterReferences.split(/[\\/]/).join('/');
       const repoRelative = `.claude/skills/${skill}/references/${relativeToRefs}`;
       const text = readFileSync(path, 'utf8');
+
+      // 3-0) 참조 문서 크기 ratchet(I4) — 시점 로드라도 한 번 읽히면 문맥 전체를 차지한다
+      // 줄바꿈을 LF로 정규화해 잰다 — CRLF 체크아웃(Windows autocrlf)에서 줄마다 1B가 늘어 등록 문서가 전부 거짓 FAIL한다.
+      const referenceBytes = Buffer.byteLength(text.replace(/\r\n/g, '\n'), 'utf8');
+      const referenceCeiling = baseline.referenceBytes?.[repoRelative];
+      if (referenceBytes > REFERENCE_BYTE_BUDGET && (referenceCeiling === undefined || referenceBytes > referenceCeiling)) {
+        fail(
+          `contract-hygiene: ${repoRelative} ${referenceBytes.toLocaleString()}B > ${(referenceCeiling ?? REFERENCE_BYTE_BUDGET).toLocaleString()}B — 참조 문서가 예산을 넘었다. 분할하거나 줄이고, 불가피하면 baseline referenceBytes를 의식적으로 갱신하라(JUDGMENT, I4)`,
+        );
+      }
 
       // 3) baseline 밖 신규 계약 — 일반화 근거 필수(I3의 기록 강제)
       if (!baselineReferences.has(repoRelative)) {

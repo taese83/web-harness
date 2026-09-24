@@ -1,5 +1,5 @@
 {
-  "comment": "grandfather baseline — always-read는 성장 시 fail(의식적 갱신 필요), references는 목록 밖 신규 파일에 일반화 근거 섹션 요구. 갱신은 CLAUDE.md 판단 게이트를 거친다. | alwaysReadBytes(2026-08-20): 선행 로드 앵커의 바이트 실측 상한 — 참조 수만으로 못 잡는 파일 비대를 막는다. 앵커 배치 스킬만 등록.",
+  "comment": "grandfather baseline — always-read는 성장 시 fail(의식적 갱신 필요), references는 목록 밖 신규 파일에 일반화 근거 섹션 요구. 갱신은 CLAUDE.md 판단 게이트를 거친다. | alwaysReadBytes(2026-08-20): 선행 로드 앵커의 바이트 실측 상한 — 참조 수만으로 못 잡는 파일 비대를 막는다. 앵커 배치 스킬만 등록. referenceBytes: 20KB를 넘는 참조 문서의 현재 크기(ratchet 상한 — 더 커지지 못한다, 2026-09-24 등록).",
   "alwaysRead": {
     "analytics-chart-builder": 5,
     "api-connect": 0,
@@ -114,5 +114,15 @@
   ],
   "alwaysReadBytes": {
     "web-orchestrator": 47188
+  },
+  "referenceBytes": {
+    ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
+    ".claude/skills/web-orchestrator/references/approval-checkpoints.md": 22908,
+    ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28942,
+    ".claude/skills/web-orchestrator/references/execution-budget-contract.md": 20715,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30714,
+    ".claude/skills/web-orchestrator/references/provenance-contract.md": 25998,
+    ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26007,
+    ".claude/skills/web-orchestrator/references/source-artifacts.md": 29134
   }
 }

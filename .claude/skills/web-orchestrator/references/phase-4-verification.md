@@ -18,7 +18,7 @@ quality runner는 generated project의 package script를 실행하므로 실행 
 runner가 non-zero여도 보고서를 생략하지 않는다. `_workspace/04_qa/evidence/*.json`의 `FAIL`/`BLOCKED`를 owner에게 연결하는 QA 보고서를 생성하고 retry 여부를 판단한다. verifier가 Markdown에 임의의 exit code를 작성하거나 machine receipt를 대신 생성하면 안 된다.
 
 그 다음 아래 read-only verifier를 병렬 실행한다:
-- `code-reviewer` → `_workspace/04_qa/qa-code.md` (TypeScript, ESLint, FSD, a11y, 테스트 파일 존재 여부)
+- `code-reviewer` → `_workspace/04_qa/qa-code.md` (TypeScript, ESLint, 스팩 레이어 경계, a11y, 테스트 파일 존재 여부)
 - `ux-validator` → `_workspace/04_qa/qa-ux.md`
 - `integration-verifier` → `_workspace/04_qa/qa-integration.md`
 - `security-reviewer` → `_workspace/04_qa/qa-security.md`
