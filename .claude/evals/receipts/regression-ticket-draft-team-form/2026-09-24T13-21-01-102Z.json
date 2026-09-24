@@ -1,0 +1,47 @@
+{
+  "scenarioId": "regression-ticket-draft-team-form",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-ticket-draft-team-form",
+    "workflow": "harness@95bb116"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:1 — `## 최근 본 항목 기록·조회 모듈을 shared에 추가`. Its sections are `### 목적` (:3), `### 작업 내용` (:7), `### 완료 조건` (:14) and `### 선행·협의` (:23)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:31 — `## 홈 화면에 최근 본 항목 섹션 추가`. Its sections are `### 목적` (:33), `### 작업 내용` (:37), `### 완료 조건` (:45) and `### 선행·협의` (:54)",
+        "No other `###` section names appear in the file. `하지 않는 것` is a list item inside 작업 내용 (fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:12, :43), not a separate section. There are 2 tickets, which meets the limit of two or fewer"
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:15-21 — every item is a `- ` line that states a checkable result. Examples: `pnpm exec vitest run src/shared/lib/recentItems.test.ts`가 통과한다; 조회 결과가 빈 배열이라는 것을 테스트로 확인한다; import가 없다",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:46-52 — every item is a `- ` line that states a checkable result. Examples: a level 2 heading is visible via getByRole; `listitem`이 0개다 / 2개이고; the `playwright test` and `vitest run` commands pass"
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "Grep for `FEAT-|TC-` in fixture/_workspace/03_dev/ticket-drafts found no matches",
+        "fixture/_workspace/03_dev/spec.json — layerMap is {app: src/app, pages: src/pages, shared: src/shared} and testLayers is {unit: src, e2e: e2e}",
+        "Paths named in the draft: src/app/routes.tsx (:5), src/shared/lib/recentItems.ts (:8), src/shared/lib/recentItems.test.ts (:11), src/shared/lib/formatDate.ts (:12, :35), src/pages/home/HomePage.tsx (:35, :38) and e2e/home-recent-items.spec.ts (:42). All of them are inside layerMap or testLayers"
+      ]
+    },
+    {
+      "id": "a4",
+      "status": "PASS",
+      "evidence": [
+        "executor.log stdout: \"Nothing was created in the tracker, and `create --confirm` was not run. The `create --draft` preview is also blocked, because no tracker is configured.\"",
+        "executor.log stdout: the CLI returned `PROVIDER_NOT_READY` (exit 2). No tracker provider was configured, so no ticket could have been created",
+        "fixture/_workspace/01_plan/decision-log.md:3 — ASSUMPTION entry: the preview stopped with PROVIDER_NOT_READY, and `configure` was not recorded with invented values. The only mention of `--confirm` outside .contracts is this entry, which cites it as forbidden",
+        "fixture/_workspace/04_qa/execution-telemetry.json — one spawn (system-architect, phase team-flow:create, toolUses 1). No create-with-confirm step is recorded"
+      ]
+    }
+  ]
+}

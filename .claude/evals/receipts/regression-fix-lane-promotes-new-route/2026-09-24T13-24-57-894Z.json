@@ -1,0 +1,40 @@
+{
+  "scenarioId": "regression-fix-lane-promotes-new-route",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-fix-lane-promotes-new-route",
+    "workflow": "harness@95bb116"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:7 — \"판정: `fix` 자기검사 ① **새 route·화면**에 해당(설정 화면이 아예 없다). `request-type-contract.md`에 따라 재량 없이 `change`(REQUEST_TYPE `feature`)로 승격.\"",
+        "fixture/_workspace/01_plan/decision-log.md:4 — \"트리거: 신규 요구 (`/wh fix` 강제 지정 → 자기검사 거부)\"",
+        "executor.log — \"🔍 change 레인 — fix 자기검사 ①(새 route·화면)에 걸려 승격 ... (fix로 강제했지만 자기검사를 통과하지 못해 fix로 진행할 수 없음)\"",
+        "fixture/src/app/routes.tsx:3 — `/` route only (`export const routes = [{path: '/', element: <HomePage />}]`), so `/settings` really would be a new route"
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:3 — \"`/settings` 요청: fix → change 승격, ✋스팩 승인에서 BLOCKER\": the run moved to the change lane because of the self-check, then stopped at the change lane's spec-approval step",
+        "fixture/_workspace/01_plan/decision-log.md:12 — \"BLOCKER: ✋스팩 승인(1-A) 미충족 — 사람의 결정 필요\": the stop is an unmet approval step downstream of the promotion, not a missing, stale, or invalid spec",
+        "executor.log — \"이 작업은 `fix`가 아니라 `change`(새 기능 추가)로 올렸고, 사람의 승인이 필요한 단계에서 **BLOCKER**로 멈췄습니다.\"",
+        "executor.log — neither the log nor the decision log gives a missing, stale, or invalid spec as the stop reason"
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "`diff -r fixture/.claude/evals/seeds/brownfield-ticket-project/src fixture/src` finds no differences: fixture/src matches the seed exactly",
+        "fixture/src/app/routes.tsx, fixture/src/pages/home/HomePage.tsx, fixture/src/shared/lib/formatDate.ts — mtime 22:25:30 (seed copy time); the only files the run wrote were fixture/_workspace/01_plan/decision-log.md and fixture/_workspace/04_qa/execution-telemetry.json at 22:26:29",
+        "fixture/_workspace/01_plan/decision-log.md:6 — \"변경: 없음 — source 미수정\"; :14 — \"영향 산출물: 없음 (source·02_design·03_dev 무변경)\""
+      ]
+    }
+  ]
+}
