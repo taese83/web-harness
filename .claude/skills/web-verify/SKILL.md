@@ -105,7 +105,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 9. `_workspace/04_qa/`에 모든 결과를 저장한 뒤 `node .claude/scripts/validate-release-gate.mjs --write-manifest`와 `node .claude/scripts/validate-release-gate.mjs`를 실행한다. source, receipt 또는 trust configuration이 서명 후 바뀌면 quality runner부터 다시 시작한다.
 10. release gate exit 0일 때만 release-manager가 일반 QA와 조건부 QA 리포트를 종합해 HANDOFF를 만든다. exit 0이 아니면 `.claude/skills/web-orchestrator/references/release-tier-contract.md`에 따라 gate error를 분류해 tier(`DIAGNOSTIC_VERIFIED`/`ISOLATED_VERIFIED`/`NOT_VERIFIED`)를 판정하고, release-manager가 `_workspace/RELEASE/release-readiness.md`에 tier·근거·승급 경로를 기록한다. tier 라벨을 상향 표현으로 바꾸지 않는다.
 
-Claude Code의 Task 도구가 있으면 각 이름을 `subagent_type`으로 호출한다. Task 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 검사한다.
+Agent 도구로 각 이름을 호출한다 — 플러그인 설치면 `web-harness:<이름>`으로 부른다(짧은 이름은 같은 이름의 프로젝트 에이전트다). 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 검사한다.
 
 FAIL 항목은 아래 형식으로 출력한다:
 ```

@@ -160,7 +160,10 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    하네스 산출물(`_workspace/`)과 코드는 따로 커밋한다 — `link`가 섞인 커밋을 `commitSplit`으로, 작업 범위 밖에서 고쳐 커밋한 파일을 `scopeDrift`로 알린다.
    **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
 4. **커밋 후 dev 브랜치에 푸시한다** — 그 작업 전용이고 공유 base가 아니다.
-5. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
+5. **PR 직전에 리뷰한다.** `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
+   프로젝트 리뷰어(`reviewAgents`, 짧은 이름)를 **같은 범위**(`review.base`...`review.head`)로 부른다. 고칠 결함은 고친 뒤 다시 리뷰하고, 사용자 흐름을
+   바꾸는데 e2e(`testLayers.e2e`) 테스트가 없으면 그 사실을 적는다(막지 않는다). 리뷰 결과는 요약하지 않고 결함·근거를 그대로 싣는다.
+6. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·리뷰 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
 
 > 커밋·푸시는 dev 브랜치 안에서 되돌릴 수 있지만, PR은 리뷰어를 부르고 base로 나가는 **팀을 향한 행위**다.
 
@@ -209,7 +212,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·코멘트)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`·`ticketWork.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
-| `link` | 충족·미충족 항목 그대로 + `prBody`(PR 본문에 넣을 문단). 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`·`prTitle.guidance`가 있으면 그 한 줄도 옮긴다 |
+| `link` | 충족·미충족 항목 그대로 + `prBody`(PR 본문에 넣을 문단). `--dry-run`이면 `review`의 리뷰어로 리뷰한 뒤 연결한다. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`·`prTitle.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `*_INVALID` 오류 | `errors`를 목록으로 옮긴다. 해설·우회 제안을 붙이지 않는다 |
 
 ## 비협상

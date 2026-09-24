@@ -243,6 +243,8 @@ test('같은 provider 재설정은 병합이다 — 항목 하나 주려다 tran
 })
 
 test('반증: GitHub titlePrefix는 저장되고, 다시 설정해도 개발 티켓 분류(labelAxis)가 사라지지 않는다', () => {
+  assert.deepEqual(buildTicketConfig('github', {reviewAgents: 'code-reviewer, a11y-reviewer'}).github?.reviewAgents, ['code-reviewer', 'a11y-reviewer'])
+  assert.deepEqual(buildTicketConfig('jira', {reviewAgents: 'code-reviewer'}).jira?.reviewAgents, ['code-reviewer'])
   const built = buildTicketConfig('github', {titlePrefix: ' [FE] '})
   assert.equal(built.github?.titlePrefix, '[FE]', '허용 목록을 통과한 키를 저장하지 않고 버렸다')
   const existing = {provider: 'github', github: {labelAxis: {dev: '개발 티켓'}, labels: ['frontend']}}

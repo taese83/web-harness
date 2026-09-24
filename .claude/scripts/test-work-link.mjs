@@ -187,6 +187,11 @@ test('실행부: PR 제목이 티켓 키로 시작하지 않으면 연결하지 
     const branched = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: io('feat: 회원 API', 'feature/PF-101-member-api')})
     assert.equal(branched.prTitle?.ok, true, JSON.stringify(branched.prTitle))
     assert.equal(branched.prTitle.by, 'branch')
+    // 연결 전 리뷰 계획: 하네스 리뷰어는 늘, 프로젝트 리뷰어는 팀이 선언한 것만.
+    assert.deepEqual(branched.review, {harness: 'code-reviewer', project: [], base: 'develop', head: 'HEAD'}, '리뷰 범위가 link가 판정한 기대 base가 아니다')
+    const declared = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true},
+      io: {...io('feat: 회원 API', 'feature/PF-101-member-api'), ticketConfig: {provider: 'jira', jira: {reviewAgents: ['code-reviewer', 'code-reviewer', ' a11y-reviewer ']}}}})
+    assert.deepEqual(declared.review.project, ['code-reviewer', 'a11y-reviewer'], '팀이 선언한 프로젝트 리뷰어가 연결 전 리뷰에 실리지 않았다')
     const present = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: io('[PF-101] feat: 회원 API')})
     assert.equal(present.ok, true, JSON.stringify(present))
     assert.equal(present.prTitle?.ok, true)

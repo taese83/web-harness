@@ -38,7 +38,7 @@ metadata:
 
 external ingestion이면 requirements, tech-stack, project-brief 세 파일 모두 현재 mode와 `EXTERNAL_DATA_INGESTION_MODE: true`를 포함해야 한다. planning-only 단계에서는 crawler, runtime artifact, prototype source를 만들거나 commit/push/PR을 수행하지 않는다.
 
-Claude Code의 Task 도구가 있으면 각 이름을 `subagent_type`으로 호출한다. Task 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 작성한다.
+Agent 도구로 각 이름을 호출한다 — 플러그인 설치면 `web-harness:<이름>`으로 부른다(짧은 이름은 같은 이름의 프로젝트 에이전트다). 도구가 없으면 현재 에이전트가 같은 출력 파일 계약을 지키며 직접 작성한다.
 
 산출물 검토 후 **`/wh new`**(플러그인 설치면 `/web-harness:wh new`)로 이어서 실행한다 — 이미 `_workspace/01_plan/` 산출물이 있으면
 그것을 감지해 Phase 2 또는 Phase 3부터 잇는다. 그때 기획 공급원은 **`generated`**(하네스가 만든 것)이며

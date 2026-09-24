@@ -27,6 +27,7 @@ import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'no
 import {join, resolve} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
+import {HARNESS_AGENT_PREFIX, isPluginBuild} from './agent-identity.mjs'
 import {digestInputs, inspectSpecLedger, isSpecStale} from './spec.mjs'
 import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './validate-environment-closure.mjs'
 import {checkPlanAgainstSpec, readSpecAt, withinScope} from './validate-spawn-plan.mjs'
@@ -144,6 +145,8 @@ export function readAllowedPathsFromScope(root) {
 // 훅은 tool_name·agent_type이 어긋나면 조용히 exit 0(허용)이므로, 음성 컨트롤 없이는
 // "전부 허용"과 "배선 사망"을 구분할 수 없다(적대 리뷰 2026-08-30: fail-open).
 const NEGATIVE_CONTROL = '_workspace/03_dev/spec.json'
+// 예행은 실제 스폰이 받을 이름으로 한다 — 플러그인 판본의 개발 에이전트는 `web-harness:developer`로 온다.
+const probeAgent = () => (isPluginBuild() ? `${HARNESS_AGENT_PREFIX}developer` : 'developer')
 
 export function checkOwnership(root, spec, {run = null, allowedPaths = null} = {}) {
   const {paths, narrowed} = effectiveProbePaths(root, spec, {allowedPaths})
@@ -157,7 +160,8 @@ export function checkOwnership(root, spec, {run = null, allowedPaths = null} = {
       return {allowed: false, message: String(error.stderr ?? '').trim()}
     }
   })
-  const control = exec('developer', resolve(root, NEGATIVE_CONTROL))
+  const agent = probeAgent()
+  const control = exec(agent, resolve(root, NEGATIVE_CONTROL))
   if (control.allowed) {
     return fail('ownership', `예행 배선이 죽었다 — 반드시 차단돼야 할 ${NEGATIVE_CONTROL}이 허용으로 나온다`,
       '훅 입력 스키마가 어긋났을 가능성이 높다. 이 상태의 "쓰기 가능"은 근거가 없으므로 통과로 세지 않는다')
@@ -167,7 +171,7 @@ export function checkOwnership(root, spec, {run = null, allowedPaths = null} = {
   for (const layer of paths) {
     const clean = layer.replace(/\/+\*+$/, '').replace(/\/+$/, '')
     const probe = /\.[^./]+$/.test(clean) ? clean : `${clean}/__readiness_probe__.ts`
-    const result = exec('developer', resolve(root, probe))
+    const result = exec(agent, resolve(root, probe))
     if (!result.allowed) blocked.push({path: probe, message: result.message.replace(/^Blocked:\s*/, '')})
   }
   const what = narrowed ? '스폰 범위' : '스팩이 선언한'

@@ -37,6 +37,7 @@ export const JIRA_QUESTIONS = [
   {key: 'components', required: false, ask: '이슈에 붙일 컴포넌트 (쉼표 구분, 그 프로젝트에 실재하는 이름). 비우면 안 붙입니다'},
   {key: 'labels', required: false, ask: '모든 티켓에 공통으로 붙일 라벨 (쉼표 구분). 하네스 라벨(feat-·branch-)에 더해집니다'},
   {key: 'titlePrefix', required: false, ask: '하네스가 만드는 개발 티켓(create) 제목 앞에 붙일 팀 접두어(예: [FE]). 손 티켓과 제목 규칙을 맞춥니다. 비우면 붙이지 않습니다'},
+  {key: 'reviewAgents', required: false, ask: 'PR 연결(link) 전에 하네스 리뷰어와 함께 부를 프로젝트 리뷰 에이전트 이름(쉼표 구분, `.claude/agents/`의 name). 비우면 하네스 리뷰어만 부릅니다'},
   // 해결 사유 이름은 인스턴스마다 다르다 — Won't Fix·Duplicate도 「완료 범주」라 상태만 보면 취소된 작업이 끝난 것으로 읽힌다.
   {key: 'completedResolutions', required: false, ask: '작업이 끝났다고 볼 해결 사유 (쉼표 구분). 나머지 해결 사유(Won\'t Fix 등)는 취소로 봅니다', default: 'Fixed,Done'},
   // **컴포넌트 어휘는 팀이 정한다.** `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스가
@@ -77,6 +78,7 @@ export const GITHUB_QUESTIONS = [
   {key: 'labelAxis', required: false, ask: '라벨 → 분류 매핑(예: dev=개발 티켓, planning=기획 입력). `개발 티켓`으로 선언한 라벨이 붙은 이슈는 사람이 만든 개발 티켓으로 픽업 판정을 거치고, 인테이크가 공급 원문으로 받지 않습니다'},
   {key: 'labels', required: false, ask: '하네스가 발행·완성하는 WORK 티켓에 붙일 팀 라벨(쉼표 구분)'},
   {key: 'titlePrefix', required: false, ask: '하네스가 만드는 개발 티켓(create) 제목 앞에 붙일 팀 접두어(예: [FE]). 비우면 붙이지 않습니다'},
+  {key: 'reviewAgents', required: false, ask: 'PR 연결(link) 전에 하네스 리뷰어와 함께 부를 프로젝트 리뷰 에이전트 이름(쉼표 구분, `.claude/agents/`의 name). 비우면 하네스 리뷰어만 부릅니다'},
 ]
 
 /** provider별 질문. 선택이 정해지기 전에는 무엇을 물을지 모른다. */
@@ -86,7 +88,7 @@ export const PROVIDER_QUESTIONS = {github: GITHUB_QUESTIONS, jira: JIRA_QUESTION
 export const JIRA_AUTH_ENV = ['JIRA_TOKEN', 'JIRA_EMAIL']
 
 /** 쉼표 구분 답을 배열로 받는 필드 — 값이 여럿인 것은 사용자가 한 줄로 적는다. */
-const LIST_FIELDS = new Set(['components', 'labels', 'completedResolutions'])
+const LIST_FIELDS = new Set(['components', 'labels', 'completedResolutions', 'reviewAgents'])
 
 /**
  * 설정 파일을 읽는다. 없으면 null(=아직 고르지 않았다).
@@ -178,6 +180,7 @@ export function buildTicketConfig(provider, answers = {}) {
     }
     if (typeof answers.labels === 'string' && answers.labels.trim()) github.labels = answers.labels.split(',').map(item => item.trim()).filter(Boolean)
     if (typeof answers.titlePrefix === 'string' && answers.titlePrefix.trim()) github.titlePrefix = answers.titlePrefix.trim()
+    if (typeof answers.reviewAgents === 'string' && answers.reviewAgents.trim()) github.reviewAgents = answers.reviewAgents.split(',').map(item => item.trim()).filter(Boolean)
     return Object.keys(github).length > 0 ? {provider, github} : {provider}
   }
   const jira = {}
@@ -282,4 +285,18 @@ export function evaluateConfigWrite({existing = null, next, replace = false}) {
   }
   if (replace) return {ok: true, switching: {from: existing.provider, to: next.provider}}
   return {ok: false, reason: 'provider-switch', from: existing.provider, to: next.provider}
+}
+
+/** 하네스 리뷰어(플러그인 설치면 `web-harness:` 접두로 부른다) — 이름의 정본은 `.claude/agents/code-reviewer.md`의 name이다. */
+export const HARNESS_REVIEW_AGENT = 'code-reviewer'
+
+/**
+ * PR 연결 전 리뷰 계획(순수) — 하네스 리뷰어는 늘, 팀이 선언한 프로젝트 리뷰 에이전트는 그 이름대로.
+ * 이름을 추측하지 않는다 — 선언이 없으면 프로젝트 리뷰어를 부르지 않는다.
+ */
+export function reviewPlanOf(config, {base = null} = {}) {
+  const declared = config?.[config?.provider]?.reviewAgents
+  const project = [...new Set((Array.isArray(declared) ? declared : []).map(name => String(name).trim()).filter(Boolean))]
+  // 범위는 link가 판정한 기대 base다 — 모르면 null로 둔다(리뷰어가 추정하지 않고 묻는다).
+  return {harness: HARNESS_REVIEW_AGENT, project, base: typeof base === 'string' && base ? base : null, head: 'HEAD'}
 }

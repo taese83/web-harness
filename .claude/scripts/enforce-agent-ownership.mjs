@@ -4,6 +4,7 @@ import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
+import {harnessAgentName} from './agent-identity.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -126,10 +127,9 @@ try {
   const ownershipPath = nestedPrefix ? relativePath.slice(nestedPrefix[0].length) : relativePath
   const ownershipRoot = nestedPrefix ? join(projectRoot, nestedPrefix[0]) : projectRoot
 
-  // 플러그인 설치 시 agent_type은 `web-harness:<agent>`로 네임스페이스가 붙는다 — ownership
-  // 등록부는 bare 이름 기준이므로 자기 플러그인 접두만 벗겨 판정한다. 임의 접두를 벗기면
-  // 이름이 겹치는 서드파티 플러그인 에이전트가 ownership을 상속받으므로 반드시 고정한다.
-  const agentType = String(input.agent_type).replace(/^web-harness:/, '')
+  // 등록부는 하네스 에이전트의 bare 이름 기준이다. 플러그인 판본에서 프로젝트가 정의한 같은 이름은 프로젝트
+  // 에이전트라 소유권을 물려받지 않는다(null → 아래에서 소유권 없음으로 막힌다). 판정은 agent-identity.mjs.
+  const agentType = harnessAgentName(input.agent_type, {projectRoot})
 
   if (isProtectedWritePath(ownershipPath)) {
     block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — dependency trees, VCS internals, the harness and agent/IDE/MCP settings are never agent-owned.`)
@@ -147,6 +147,10 @@ try {
       + 'and owned by no agent. A spec or scope that names it does not grant ownership.')
   }
 
+  if (agentType === null) {
+    block(`Blocked: ${input.agent_type} is not a web-harness agent — harness write ownership is granted only to `
+      + `web-harness:<agent> in the plugin build. A project agent with the same name does not inherit it.`)
+  }
   const spec = readSpecLock(ownershipRoot)
   // 개발 에이전트는 layerMap 전체를 소유하고, 스폰 범위(change-scope ALLOWED_PATHS)가 그 위에서
   // 다시 좁힌다 — 병렬 격리가 에이전트 정체성이 아니라 모듈 경계에서 나온다(2026-08-26).

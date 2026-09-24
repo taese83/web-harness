@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {VERIFIER_AGENTS} from './agent-registry.mjs'
+import {harnessAgentName} from './agent-identity.mjs'
 import {evaluateGlobalBashPolicy, tokenizeSimpleCommand} from './global-bash-policy-lib.mjs'
 
 const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'grep'])
@@ -24,10 +25,10 @@ const block = message => {
 
 try {
   const input = await readInput()
-  // 플러그인 설치 시 agent_type은 `web-harness:<agent>`로 네임스페이스가 붙는다 — 자기 플러그인
-  // 접두만 벗겨 같은 verifier 정책을 적용한다(벗기지 않으면 verifier 게이트가 조용히 비활성화된다).
-  const agentType = String(input.agent_type ?? '').replace(/^web-harness:/, '')
-  if (input.tool_name !== 'Bash' || !VERIFIER_AGENTS.has(agentType)) process.exit(0)
+  // 하네스 에이전트만 verifier 정책을 받는다 — 플러그인 판본에서 프로젝트가 정의한 같은 이름은 프로젝트 에이전트다
+  // (프로젝트 리뷰어가 `git diff`를 못 돌리게 되면 그 리뷰가 조용히 빈다). 판정은 agent-identity.mjs.
+  const agentType = harnessAgentName(input.agent_type, {projectRoot: process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? null})
+  if (input.tool_name !== 'Bash' || !agentType || !VERIFIER_AGENTS.has(agentType)) process.exit(0)
 
   const command = input.tool_input?.command?.trim()
   if (!command) block('Blocked: verifier Bash requires a non-empty command.')

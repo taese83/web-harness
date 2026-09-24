@@ -5,7 +5,7 @@
 ## Agent invocation
 
 - `.claude/agents/{agent-name}.md`가 agent별 source of truth다.
-- Task/subagent tool이 있으면 frontmatter `name`과 같은 `subagent_type`으로 호출한다.
+- Agent 도구로 frontmatter `name`을 호출한다(플러그인 설치는 `web-harness:<name>`).
 - subagent tool이 없으면 현재 agent가 같은 입력·출력·소유권 계약을 지켜 수행한다.
 - subagent 능력은 실행 harness마다 다르다 — 호출 전에 필요한 tool·모델 가용성을 확인한다. subagent에서 web research/fetch가 불가한 harness에서는 그 조사를 **main 세션에서 수행**하고, harness가 요구하는 모델 override가 있으면 적용한다. subagent가 부분 능력·실패로 계약을 못 채우면 현재 agent가 같은 계약으로 직접 완결한다.
 - 이전 phase 필수 산출물이 존재하기 전에는 다음 phase를 시작하지 않는다.

@@ -10,7 +10,7 @@ import {WORK_PLAN_PATH} from './work-plan.mjs'
 import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs'
 import {layerPattern} from '../agent-registry.mjs'
 import {resolveCommentLanguage} from './readiness.mjs'
-import {readDeclaredLanguage} from './ticket-config.mjs'
+import {readDeclaredLanguage, readTicketConfig, reviewPlanOf} from './ticket-config.mjs'
 import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
 import {prNamesKey, titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
@@ -173,7 +173,9 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const prBody = [closeLine, summary, ...accepted.map(item => `- ${acceptedText[item]}`),
     ...list(decision.ticketAcceptance?.items).map(item => `- ${lang === 'en' ? 'Added on the ticket (verify in review)' : '티켓에서 더한 조건(리뷰에서 확인)'}: ${item.text ?? item}`)]
     .filter(Boolean).join('\n')
-  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, prBody, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance}
+  // 연결 전 리뷰할 에이전트 — 스킬이 dry-run 결과로 리뷰한 뒤 연결한다(리뷰 수행은 CLI가 증명하지 못한다).
+  const review = reviewPlanOf(io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })(), {base: baseRef})
+  if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, review, prBody, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance}
   const record = {schemaVersion: 1, ticketKey: String(titleKey), workId: decision.workId, prUrl, baseRef: payload.baseRef, accepted,
     // 이 PR이 **어느 티켓 개정**을 보고 개발됐는가 — 대조한 범위일 때만 싣는다.
     ...(payload.ticket?.revision ? {ticketRevision: payload.ticket.revision} : {}),
@@ -183,7 +185,7 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   // 연결한 사람 티켓 작업의 판정서는 더 읽을 곳이 없다 — 확인한 정의는 등록 기록에 있다.
   if (ticketWork) rmSync(join(root, (await import('./ticket-work.mjs')).assessmentPath(ticketKey)), {force: true})
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
-  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, completion, staleCheck: decision.staleCheck, closeLine, prBody, commitSplit, scopeDrift, freshness,
+  return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, review, completion, staleCheck: decision.staleCheck, closeLine, prBody, commitSplit, scopeDrift, freshness,
     prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
 }

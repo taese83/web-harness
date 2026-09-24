@@ -3777,6 +3777,22 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-spec.mjs",
       "why": "루트 없이 대조를 건너뛰면 검사 미수행이 통과로 바뀐다"
+    },
+    {
+      "id": "agent-identity-plugin-requires-prefix",
+      "file": ".claude/scripts/agent-identity.mjs",
+      "find": "  return pluginBuild && declaresOwnAgent(raw, {projectRoot, home}) ? null : raw",
+      "replace": "  return raw",
+      "test": ".claude/scripts/test-agent-identity.mjs",
+      "why": "플러그인 판본에서 프로젝트가 정의한 같은 이름의 에이전트가 하네스 소유권·verifier 제한을 물려받는다"
+    },
+    {
+      "id": "agent-identity-undeclared-stays-harness",
+      "file": ".claude/scripts/agent-identity.mjs",
+      "find": "  return pluginBuild && declaresOwnAgent(raw, {projectRoot, home}) ? null : raw",
+      "replace": "  return pluginBuild ? null : raw",
+      "test": ".claude/scripts/test-agent-identity.mjs",
+      "why": "런타임이 플러그인 에이전트를 접두 없이 보고하면 정의 없는 이름이 하네스 밖으로 빠져 verifier 제한이 조용히 풀린다"
     }
   ]
 }

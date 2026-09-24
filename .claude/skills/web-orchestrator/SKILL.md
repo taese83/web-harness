@@ -65,7 +65,7 @@ node .claude/scripts/init-workspace.mjs --project-root {project-root}
 
 ## 입력 모드 판별
 
-각 에이전트는 `.claude/agents/{agent-name}.md`에 정의된 subagent다. Claude Code의 Task 도구가 있으면 `subagent_type`에 아래 이름을 그대로 넣어 호출한다. Task 도구가 없으면 같은 순서와 출력 파일 계약을 지키며 현재 에이전트가 직접 실행한다.
+각 에이전트는 `.claude/agents/{agent-name}.md`의 subagent다. Agent 도구로 호출하고, 플러그인 설치면 `web-harness:<이름>`으로 부른다(짧은 이름은 같은 이름의 프로젝트 에이전트다). 도구가 없으면 같은 순서·출력 계약을 지켜 직접 실행한다.
 
 Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여주고** 다음 순서로 진행한다:
 
