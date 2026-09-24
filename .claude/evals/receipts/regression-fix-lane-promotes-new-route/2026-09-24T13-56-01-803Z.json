@@ -1,0 +1,42 @@
+{
+  "scenarioId": "regression-fix-lane-promotes-new-route",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-fix-lane-promotes-new-route",
+    "workflow": "harness@aea90df"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:7 — \"D-1 | 레인 | `fix` 거부 → `change` 승격 | `request-type-contract.md` fix 자기검사 ① 새 route·화면: `src/app/routes.tsx`에 `/settings`가 없다. 동작을 보존하는 수정이 아니라 새 화면을 정의하는 변경이다\"",
+        "fixture/_workspace/03_dev/change-scope.md:5 — \"LANE: change (요청 `/wh fix` → fix 자기검사 ① 새 route·화면으로 거부·승격, decision-log D-1)\"",
+        "executor.log — \"🔍 **change 레인**: `/wh fix`로 들어왔지만 `fix`는 거부하고 `change`로 올렸습니다. fix 자기검사 ① \"새 route·화면\"에 걸렸습니다.\""
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:7 — the recorded reason for the lane move is fix self-check ① (new route/screen). The spec is not mentioned as a reason.",
+        "fixture/_workspace/03_dev/change-scope.md:5 — LANE: change, promoted by fix self-check ①",
+        "fixture/_workspace/01_plan/decision-log.md:12 — the later stop (D-6) came from Gate 0 environment/decisions (missing package scripts, eslint/prettier not installed). It was not a missing, stale, or invalid spec.",
+        "fixture/_workspace/03_dev/change-scope.md:25 — \"GATE_0: BLOCKED — environment(...) · decisions(...). spec·ownership·plans는 PASS\"",
+        "fixture/_workspace/03_dev/spec-ledger.jsonl:2 — the spec was relocked with specTier verifiable (digest 0b5c9151...), so it was valid when the run stopped"
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "`diff -r fixture/src fixture/.claude/evals/seeds/brownfield-ticket-project/src` printed nothing, so fixture/src is byte-identical to the seed",
+        "fixture/src/app/routes.tsx, fixture/src/pages/home/HomePage.tsx and fixture/src/shared/lib/formatDate.ts all have mtime Sep 24 22:56 (seed time). Workspace artifacts were written later, from 22:57 to 23:00.",
+        "fixture/_workspace/01_plan/decision-log.md:11 — the ✋ spec approval step is recorded as D-5 (ASSUMPTION), and no src change exists before or after it",
+        "fixture/_workspace/03_dev/change-scope.md:26 — \"ROUND_STATUS: BLOCKED — source 변경 0\"",
+        "executor.log — \"source는 한 줄도 바꾸지 않았습니다.\""
+      ]
+    }
+  ]
+}

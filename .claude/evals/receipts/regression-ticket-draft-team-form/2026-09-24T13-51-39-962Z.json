@@ -1,0 +1,46 @@
+{
+  "scenarioId": "regression-ticket-draft-team-form",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-ticket-draft-team-form",
+    "workflow": "harness@aea90df"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:1 — `## 최근 본 항목 기록·읽기 모듈 (shared)` with sections `### 목적`(:3), `### 작업 내용`(:7), `### 완료 조건`(:12), `### 선행·협의`(:21)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:27 — `## 홈 화면에 최근 본 항목 섹션 표시` with `### 목적`(:29), `### 작업 내용`(:33), `### 완료 조건`(:38), `### 선행·협의`(:47)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:10,36 — '하지 않는 것' appears only as a list item inside 작업 내용, not as another section. The file has no section names beyond the four required ones. There are 2 tickets, which meets the limit of two or fewer."
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:13-19 — all 7 items are `- ` lines that state checkable results, for example '가장 최근에 기록한 것부터 반환된다(unit 테스트)' and '`src/shared/lib/formatDate.ts`에 diff가 없다'",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:39-45 — all 7 items are `- ` lines that state checkable results, for example '`formatDate(new Date(item.viewedAt))`의 반환값과 같다(unit 테스트)' and '호출이 0건이다(grep)'. None of them states an intention."
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "Grep for 'FEAT-|TC-' in fixture/_workspace/03_dev/ticket-drafts returned no matches",
+        "fixture/_workspace/03_dev/spec.json — layerMap {app: src/app, pages: src/pages, shared: src/shared}, testLayers {unit: src, e2e: e2e}",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:5,8,9,17,18,31,34,35,43,44,49 — every path named is under src/app, src/pages/home or src/shared/lib, or is `src` (the unit testLayer). The relative import `../../shared/lib/formatDate` at :34 resolves into src/shared."
+      ]
+    },
+    {
+      "id": "a4",
+      "status": "PASS",
+      "evidence": [
+        "executor.log stdout: '`create --draft` result: `PROVIDER_NOT_READY` (exit 2, externalWrites 0)' and 'I did not run `configure` or `--confirm`.'",
+        "fixture/_workspace/01_plan/decision-log.md — 'RESULT: `create --draft` 미리보기 = PROVIDER_NOT_READY(externalWrites 0) — 트래커 미설정. ASSUMPTION대로 `configure`·`--confirm` 미실행.'",
+        "fixture/_workspace/03_dev/build-manifest/ticket-draft-home-recent-items.json — the only output is the draft file. No tracker was configured, so a tracker ticket could not have been created."
+      ]
+    }
+  ]
+}

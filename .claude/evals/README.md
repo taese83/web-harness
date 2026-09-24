@@ -57,7 +57,7 @@ node .claude/scripts/run-eval-executor.mjs --suite regression --full       # 시
   통과 로그 요약을 JSON에 포함해야 한다.
 - 공통 경로: `.claude/evals/receipts/<scenario-id>/<run-id>.json`. 실행 메타(하네스 커밋 SHA·
   모델·grader 판정·evidence 파일 경로)가 없으면 그 run은 receipt로 세지 않는다.
-- 현재 receipt 5건 — `complete-harness-packaging`(2026-08-27)과 회귀 묶음 4건(2026-09-24, 0.42.0·0.43.0 릴리스 전 각 2건). 나머지 47 시나리오는 미실행이다. **스킬 라벨로 세면 `eval-covered` 12개 중 receipt가 뒷받침하는 것은 `project-init` 1개**다(2026-09-11 실측) — 나머지 11개의 라벨은 「시나리오가 선언돼 있다」는 뜻이지 「돌려봤다」가 아니다. 라벨과 receipt의 기계 결속(receipt 없는 라벨을
+- 현재 receipt 7건 — `complete-harness-packaging`(2026-08-27)과 회귀 묶음 6건(2026-09-24, 0.42.0·0.43.0·0.44.0 릴리스 전 각 2건). 나머지 47 시나리오는 미실행이다. **스킬 라벨로 세면 `eval-covered` 12개 중 receipt가 뒷받침하는 것은 `project-init` 1개**다(2026-09-11 실측) — 나머지 11개의 라벨은 「시나리오가 선언돼 있다」는 뜻이지 「돌려봤다」가 아니다. 라벨과 receipt의 기계 결속(receipt 없는 라벨을
   fail)은 **미배선**이다. protected-core §4 "maturity의 eval-언급 검사" 행의 승격 조건이며,
   첫 receipt 배치 후 결속을 검토한다(소급 fail 금지 관례 — G3).
 
