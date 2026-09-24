@@ -157,6 +157,18 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       }
       return {items, complete: false, truncated: true}
     },
+    /** 최근 끝난 개발 티켓(한 페이지) — 새 개발 티켓 초안이 이미 끝난 작업과 겹치는지 사람이 보게 한다. */
+    async listDoneDevTickets({config: teamConfig = {}, limit = 20} = {}) {
+      const axis = teamConfig?.jira?.componentAxis ?? config.componentAxis ?? {}
+      const components = Object.entries(axis).filter(([, role]) => role === DEV_TICKET).map(([name]) => name)
+      if (components.length === 0) return {items: [], complete: true, reason: 'no-dev-ticket-axis'}
+      const quoted = components.map(name => `"${String(name).replace(/"/g, '\\"')}"`).join(', ')
+      const jql = `project = "${config.projectKey}" AND component in (${quoted}) AND statusCategory = Done ORDER BY updated DESC`
+      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=0&maxResults=${limit}&fields=summary,status`, options)
+      const issues = Array.isArray(payload?.issues) ? payload.issues : []
+      return {items: issues.map(issue => ({ticketKey: issue.key, summary: issue.fields?.summary ?? null, status: issue.fields?.status?.name ?? null})),
+        complete: Number(payload?.total) <= issues.length}
+    },
     /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
     /**
      * 머지 근거 — Jira Git Integration 애드온이 티켓 키로 모은 커밋에서 기대 base의 커밋을 고른다(읽기 전용).

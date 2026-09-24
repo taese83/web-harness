@@ -289,3 +289,56 @@ test('실행부: 설정의 제목 접두어로 만들고, 다시 실행하면 �
     rmSync(root, {recursive: true, force: true})
   }
 })
+
+test('미리보기: 최근 끝난 개발 티켓을 함께 보여 준다 — 확인 지문은 그 목록에 흔들리지 않는다(Jira·GitHub)', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-ticket-create-done-'))
+  try {
+    writeFileSync(join(root, 'team.md'), teamDraftText)
+    writeFileSync(join(root, 'drafts.md'), draftText)
+    const jira = createJiraStub()
+    const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
+      transitions: {'in-progress': '31'}, componentAxis: {DEVELOP: '개발 티켓'}, labels: ['frontend']}
+    const io = () => ({provider: createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}}), ticketConfig: {provider: 'jira', jira: jiraConfig}})
+    const teamPreview = await runTicketCreate({root, flags: {draft: 'team.md'}, io: io()})
+    const made = await runTicketCreate({root, flags: {draft: 'team.md', confirm: true, digest: teamPreview.confirmWith.flags[2]}, io: io()})
+    const doneKey = made.created[0].ticketKey
+    const before = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: io()})
+    assert.deepEqual(before.recentDone.items, [], '끝나지 않은 티켓을 끝난 목록에 실었다')
+    jira.issues.get(doneKey).fields.status = {name: 'Done', statusCategory: {key: 'done'}}
+    const after = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: io()})
+    assert.equal(after.recentDone.checked, true)
+    assert.deepEqual(after.recentDone.items, [{ticketKey: doneKey, summary: '발견 화면 골격', status: 'Done'}], '끝난 개발 티켓을 상태와 함께 싣지 않았다')
+    assert.equal(after.confirmWith.flags[2], before.confirmWith.flags[2], '끝난 목록이 바뀌었다고 확인 지문이 달라졌다')
+
+    const gh = createGithubStub()
+    const ticketConfig = {provider: 'github', github: {labelAxis: {dev: '개발 티켓'}}}
+    const ghIo = () => ({provider: createGithubProvider({repo: 'acme/web', exec: gh.exec}), ticketConfig})
+    const ghPreview = await runTicketCreate({root, flags: {draft: 'team.md'}, io: ghIo()})
+    const ghMade = await runTicketCreate({root, flags: {draft: 'team.md', confirm: true, digest: ghPreview.confirmWith.flags[2]}, io: ghIo()})
+    gh.issue(ghMade.created[0].ticketKey).state = 'CLOSED'
+    const ghAfter = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: ghIo()})
+    assert.deepEqual(ghAfter.recentDone.items.map(item => item.ticketKey), [ghMade.created[0].ticketKey], 'GitHub의 닫힌 개발 티켓을 싣지 않았다')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('미리보기: 끝난 티켓 목록을 못 읽어도 create는 막히지 않고 그 사실을 알린다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-ticket-create-done-fail-'))
+  try {
+    writeFileSync(join(root, 'drafts.md'), draftText)
+    const jira = createJiraStub()
+    const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
+      transitions: {'in-progress': '31'}, componentAxis: {DEVELOP: '개발 티켓'}}
+    const base = createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}})
+    const failing = {...base, listDoneDevTickets: async () => { throw new Error('search 503') }}
+    const healthy = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: {provider: base, ticketConfig: {provider: 'jira', jira: jiraConfig}}})
+    const preview = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: {provider: failing, ticketConfig: {provider: 'jira', jira: jiraConfig}}})
+    assert.equal(preview.phase, 'CREATE_PREVIEW', '끝난 목록 조회 실패가 create를 막았다')
+    assert.equal(preview.recentDone.checked, false)
+    assert.match(preview.recentDone.reason, /search 503/, '못 읽은 사실이 「겹침 없음」으로 읽힌다')
+    assert.equal(preview.confirmWith.flags[2], healthy.confirmWith.flags[2])
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})

@@ -148,6 +148,18 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
       }
       return {items: [...items.values()], complete, ...(complete ? {} : {truncated: true})}
     },
+    /** 최근 닫힌 개발 티켓 — 새 개발 티켓 초안이 이미 끝난 작업과 겹치는지 사람이 보게 한다. */
+    async listDoneDevTickets({config: teamConfig = {}, limit = 20} = {}) {
+      const labels = Object.entries(teamConfig?.github?.labelAxis ?? {}).filter(([, role]) => role === DEV_TICKET).map(([name]) => name)
+      if (labels.length === 0) return {items: [], complete: true, reason: 'no-dev-ticket-axis'}
+      const items = new Map()
+      for (const label of labels) {
+        const json = JSON.parse(await run(['issue', 'list', '--repo', repo, '--state', 'closed', '--label', label, '--json', 'number,title,stateReason', '--limit', String(limit)]))
+        // 닫힘에는 완료와 취소(`NOT_PLANNED`)가 섞인다 — 사유를 그대로 싣는다.
+        for (const item of Array.isArray(json) ? json : []) items.set(String(item.number), {ticketKey: String(item.number), summary: item.title ?? null, status: item.stateReason ?? null})
+      }
+      return {items: [...items.values()].slice(0, limit), complete: true}
+    },
     /** 관계. 확인한 native 계층이 없다 — 본문 참조뿐이며 계층이라 부르지 않는다. */
     async linkRelated() {
       return {applied: false, mode: 'link-only',

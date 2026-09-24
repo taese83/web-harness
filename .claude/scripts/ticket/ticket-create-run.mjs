@@ -11,6 +11,18 @@ import {readDevTickets} from './ticket-work-run.mjs'
 const list = value => (Array.isArray(value) ? value : [])
 const keyOf = created => String(created?.ticketKey ?? created?.key ?? created?.number ?? '')
 
+/** 최근 끝난 개발 티켓(읽기만). 못 읽으면 그 사실을 돌려준다 — 「겹침 없음」으로 읽히지 않게. */
+async function readRecentDoneDevTickets({provider, config, limit = 20}) {
+  if (typeof provider?.listDoneDevTickets !== 'function') return {checked: false, reason: 'provider가 끝난 개발 티켓 목록을 주지 않는다', items: []}
+  try {
+    const listed = await provider.listDoneDevTickets({config, limit})
+    return {checked: true, items: list(listed.items).map(item => ({ticketKey: item.ticketKey, summary: item.summary, status: item.status ?? null})),
+      guidance: '최근 끝난 개발 티켓이다(취소·해결 안 함도 섞여 있다 — status로 가린다) — 만들 티켓과 같은 일을 이미 끝낸 것이 있으면 만들지 않고 그 티켓과 코드를 가리킨다'}
+  } catch (error) {
+    return {checked: false, reason: String(error?.message ?? error).slice(0, 120), items: []}
+  }
+}
+
 export async function runTicketCreate({root, flags = {}, io = {}}) {
   const provider = io.provider
   const config = io.ticketConfig ?? {}
@@ -46,7 +58,10 @@ export async function runTicketCreate({root, flags = {}, io = {}}) {
   // 확인은 **미리본 판본**에 묶는다 — 미리보기 뒤 초안을 고치면 다시 보게 한다(하네스가 쓴 완료 조건을 사람이 보는 유일한 자리다).
   const digest = canonicalDigest({items, existing})
   if (!flags.confirm) {
-    return {ok: true, mode: 'create', phase: 'CREATE_PREVIEW', externalWrites: 0, create: items, existing, confirmWith: {flags: ['--confirm', '--digest', digest]},
+    // 최근 끝난 개발 티켓 — 같은 제목 대조는 열린 티켓만 본다. 이미 끝낸 작업을 다른 제목으로 다시 만드는 것은 사람이 이 목록으로 가린다.
+    // 확인 지문에는 넣지 않는다(시간이 지나면 바뀌는 목록이라 미리본 판본과 무관하게 확인이 어긋난다).
+    const recentDone = await readRecentDoneDevTickets({provider, config})
+    return {ok: true, mode: 'create', phase: 'CREATE_PREVIEW', externalWrites: 0, create: items, existing, recentDone, confirmWith: {flags: ['--confirm', '--digest', digest]},
       ...(open.checked ? {} : {openCheck: {guidance: `열린 개발 티켓을 모두 읽지 못했다${open.reason ? `: ${open.reason}` : ''} — 확인하면 같은 제목 검사 없이 만들 수 없어 멈춘다.`}}),
       guidance: `개발 티켓 ${items.length}건을 만든다${existing.length ? `(이미 있는 ${existing.length}건은 건너뛴다)` : ''}. 확인하면 --confirm으로 다시 부른다. 만든 뒤에는 pickup으로 판정·착수한다.`}
   }

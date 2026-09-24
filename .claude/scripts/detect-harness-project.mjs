@@ -14,6 +14,14 @@ import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 const REENTRY_MAP = join('skills', 'web-orchestrator', 'references', 'reentry-map.md')
+// 하네스 스킬은 모델이 스스로 부르지 못한다(disable-model-invocation) — 사용자가 슬래시 명령으로 들어와야 한다.
+// 플러그인이면 `web-harness:` 네임스페이스가 붙는다(빌드 산출물에만 매니페스트가 있다).
+const PLUGIN = existsSync(new URL('../../.claude-plugin/plugin.json', import.meta.url))
+const entry = name => (PLUGIN ? `/web-harness:${name}` : `/${name}`)
+const ENTRY_GUIDANCE = `Entry: development and ticket work (create/pickup/link) start with ${entry('wh')} <request> ` +
+  `(${entry('team-flow')} also works for tickets). Once started, the session is in harness mode and later plain-text requests ` +
+  `are routed by it until ${entry('wh')} off. If harness mode is not on and the user asks for ticket or development work in plain text, ` +
+  `do not imitate the harness flow — ask them to start with ${entry('wh')}.\n`
 
 try {
   const projectDir = resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd())
@@ -40,12 +48,12 @@ try {
         `Re-entry guidance: for follow-up work on this project, do NOT reload the full web-orchestrator skill. ` +
         `Read the situation-matched minimal contract set from: ${resolve(reentryMap)} ` +
         `(A iterate round · B approval-surface change · C release promotion). ` +
-        `Fall back to full /web-orchestrator entry only for a new service or when the situation is unclear.\n`,
+        `Fall back to ${entry('wh')} new only for a new service or when the situation is unclear.\n` + ENTRY_GUIDANCE,
       )
     } else {
       process.stdout.write(
         `[web-harness] Harness-managed project detected (_workspace/ at project root). ` +
-        `Re-enter via the /web-orchestrator skill for follow-up work.\n`,
+        ENTRY_GUIDANCE,
       )
     }
   }

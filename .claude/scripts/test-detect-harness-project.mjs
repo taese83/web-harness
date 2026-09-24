@@ -29,6 +29,7 @@ test('루트 _workspace/ 존재: 안내 + reentry-map 절대 경로 주입, exit
   assert.match(result.stdout, /Harness-managed project detected/)
   assert.match(result.stdout, /reentry-map\.md/)
   assert.match(result.stdout, /web-orchestrator/)
+  assert.match(result.stdout, /ticket work \(create\/pickup\/link\) start with \/wh/, '티켓 작업 진입 명령 안내가 없다')
 })
 
 test('_workspace 부재: 완전 침묵, exit 0', () => {
@@ -64,6 +65,21 @@ test('reentry-map 부재(스크립트가 skills 트리 밖에 있음): 폴백 �
   })
   assert.equal(result.status, 0)
   assert.match(result.stdout, /Harness-managed project detected/)
-  assert.match(result.stdout, /Re-enter via the \/web-orchestrator skill/)
+  assert.match(result.stdout, /start with \/wh <request>/)
+  assert.match(result.stdout, /ask them to start with \/wh/, '슬래시 명령 없이 온 요청을 하네스 흉내로 처리하지 말라는 안내가 없다')
   assert.doesNotMatch(result.stdout, /reentry-map\.md/)
+})
+
+test('플러그인 배치: 진입 명령에 web-harness 네임스페이스가 붙는다', () => {
+  const pluginRoot = mkdtempSync(join(tmpdir(), 'wh-detect-plugin-'))
+  mkdirSync(join(pluginRoot, '.claude', 'scripts'), {recursive: true})
+  mkdirSync(join(pluginRoot, '.claude-plugin'), {recursive: true})
+  writeFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), '{"name":"web-harness"}')
+  const pluginScript = join(pluginRoot, '.claude', 'scripts', 'detect-harness-project.mjs')
+  copyFileSync(script, pluginScript)
+  const projectDir = mkdtempSync(join(tmpdir(), 'wh-detect-'))
+  mkdirSync(join(projectDir, '_workspace'))
+  const result = spawnSync(process.execPath, [pluginScript], {env: {...process.env, CLAUDE_PROJECT_DIR: projectDir}, encoding: 'utf8'})
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /start with \/web-harness:wh <request>/, '플러그인 설치본에서 슬래시 명령에 네임스페이스가 빠졌다')
 })

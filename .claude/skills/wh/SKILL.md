@@ -1,7 +1,7 @@
 ---
 name: wh
 description: Web Harness 단일 진입점. 요청을 plan/new/change/fix/verify 레인으로 판정해(plan은 명시 지정 전용) 해당 흐름을 실행한다. 새 서비스 생성, 기능 추가·UI 변경, 버그 수정·리팩터, 검증 전부 여기서 시작한다. 레인을 강제하려면 "/wh change ..."처럼 첫 단어로 지정한다. new 레인은 착수 전 기획·디자인·설계의 공급원(문서·링크·Figma가 있다 | 글로 설명 | 하네스가 만든다 | 없이 진행)을 묻는다.
-argument-hint: "[plan|new|change|fix|verify] <요청>"
+argument-hint: "[plan|new|change|fix|verify|off] <요청> (티켓 작업도 여기서 — 인자 없이 부르면 무엇을 할지 묻는다)"
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
@@ -20,6 +20,17 @@ metadata:
 진입점이 여럿이면 경로마다 게이트가 갈라진다. 하나로 모으면 게이트는 레인이 정하고, 레인은 항상 표시된다.
 
 ## 실행
+
+### 0. 들어온 요청 가르기 — 하네스 모드
+
+이 명령으로 세션이 **하네스 모드**가 된다 — 이후 슬래시 없는 요청에도 매 턴 이 문서의 경로가 안내로 붙는다
+(`harness-session-mode.mjs`, 안내이지 강제가 아니다). 그 요청도 이 절부터 다시 가른다. 하네스와 무관한 질문은 그대로 답한다.
+
+- **인자가 없으면** 무엇을 할지 한 번 묻는다(개발 요청 · 티켓 작업 · 검증). 답이 오면 아래로 이어 간다.
+- **`off`** — 하네스 모드를 끈다(훅이 표시를 지운다). 끈 뒤에는 슬래시 명령 없이 하네스 흐름으로 처리하지 않는다.
+- **티켓 작업**(개발 티켓 만들기·티켓 집기·보드·PR 연결·계획 분해·발행·기획 티켓 읽기)이면 레인 판정 대신 `../team-flow/SKILL.md`를
+  읽고 그 절차로 처리한다. 집은 티켓의 개발은 거기서 다시 `fix`·`change` 레인을 탄다(`ticket-work-contract.md` 흐름 6).
+- 그 밖이면 아래 레인 판정으로 간다.
 
 ### 1. 레인 판정
 

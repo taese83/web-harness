@@ -45,7 +45,10 @@ export function createJiraStub({gitIntegration = false} = {}) {
         hits = [...issues.values()].filter(issue => keys.has(issue.key))
       } else if ((match = jql.match(/component in \(([^)]+)\)/))) {
         const names = new Set(match[1].split(',').map(name => name.trim().replace(/^"|"$/g, '')))
-        hits = [...issues.values()].filter(issue => issue.fields.components.some(component => names.has(component.name)) && issue.fields.status.statusCategory.key !== 'done')
+        // 열린 목록(`!= Done`)과 끝난 목록(`= Done`)을 JQL 그대로 가른다.
+        const wantDone = /statusCategory = Done/.test(jql)
+        hits = [...issues.values()].filter(issue => issue.fields.components.some(component => names.has(component.name))
+          && (issue.fields.status.statusCategory.key === 'done') === wantDone)
       } else if (/AND created >= -\d+m/.test(jql)) {
         hits = [...issues.values()]
       } else if ([...jql.matchAll(/labels = "([^"]+)"/g)].length > 0) {

@@ -3825,6 +3825,30 @@
       "replace": "      if (false) {",
       "test": ".claude/scripts/test-reference-size-ratchet.mjs",
       "why": "20KB를 넘는 참조 문서가 등록 크기보다 커지거나 새로 넘어도 contract-hygiene가 통과한다"
+    },
+    {
+      "id": "ticket-create-recent-done-preview",
+      "file": ".claude/scripts/ticket/ticket-create-run.mjs",
+      "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",
+      "replace": "    const recentDone = {checked: true, items: []}",
+      "test": ".claude/scripts/test-ticket-create.mjs",
+      "why": "create 미리보기가 최근 끝난 개발 티켓을 보여 주지 않아, 이미 끝낸 작업을 다른 제목으로 다시 만드는 것을 사람이 가리지 못한다"
+    },
+    {
+      "id": "harness-session-mode-project-scope",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "  if (recorded?.projectRoot !== projectRoot) return ''",
+      "replace": "  if (false) return ''",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "한 프로젝트에서 켠 하네스 모드가 같은 세션이 옮겨 간 다른 프로젝트의 요청에도 붙는다"
+    },
+    {
+      "id": "harness-session-mode-id-sanitized",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": ".replace(/[^A-Za-z0-9_-]/g, '_')}.json`)",
+      "replace": ".replace(/$^/g, '_')}.json`)",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "외부 입력(session_id)이 홈의 세션 폴더 밖으로 파일 경로를 만든다"
     }
   ]
 }
