@@ -1,0 +1,292 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 3,
+  "harnessCommit": "08ae9725da3d5e91c9dd7d76cb3d8afeca80d8c4",
+  "dirty": false,
+  "pluginVersion": "0.46.0",
+  "distDigest": "e804afe94a2f8eb0060ffe858f483e9c3e383f66cc07aa2c5b9d393472c9a6fb",
+  "claudeVersion": "2.1.281",
+  "model": "claude-opus-5-5[1m]",
+  "startedAt": "2026-09-24T18:25:09.844Z",
+  "durationSeconds": 1175,
+  "costUsd": 13.008633900000001,
+  "partial": false,
+  "selection": {
+    "case": null,
+    "tag": null,
+    "runs": null
+  },
+  "cases": [
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "caseDigest": "cde57e40260d88ac8d9c880419fbc8fdc147d3c64d3f44e59054179ad0eb1f11",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.0912603,
+          "durationSeconds": 655,
+          "turns": 14,
+          "peakContextTokens": 65096,
+          "outputTokens": 10661,
+          "cacheReadTokens": 593429,
+          "toolUses": {
+            "Bash": 9,
+            "Agent": 3,
+            "Write": 1
+          },
+          "bashErrors": 2,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.9114304000000002,
+          "durationSeconds": 619,
+          "turns": 14,
+          "peakContextTokens": 69269,
+          "outputTokens": 10437,
+          "cacheReadTokens": 620270,
+          "toolUses": {
+            "Bash": 9,
+            "Agent": 3,
+            "Write": 1
+          },
+          "bashErrors": 2,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 4.6147100000000005,
+          "durationSeconds": 1116,
+          "turns": 39,
+          "peakContextTokens": 115033,
+          "outputTokens": 22745,
+          "cacheReadTokens": 2720042,
+          "toolUses": {
+            "Bash": 29,
+            "Agent": 5,
+            "Edit": 1,
+            "Read": 1,
+            "Write": 2
+          },
+          "bashErrors": 3,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:state-contract-designer": 2,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 2,
+          "scriptSourceReadSamples": [
+            "sed -n 20,60p /private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-OZxLdL/web-harness/.claude/scripts/validate-requirements-notation.mjs; sed",
+            "sed -n 1,60p /private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-OZxLdL/web-harness/.claude/scripts/spec.mjs | grep -n \"usage\\|--\\|SPEC_NOT_"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fix-lane-promotes-new-route",
+      "caseDigest": "2f434de65e32f1608859c3a05eb75456a6817eba52b0175de624a0baf2fc7d79",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 0.3006702,
+          "durationSeconds": 34,
+          "turns": 4,
+          "peakContextTokens": 36344,
+          "outputTokens": 2393,
+          "cacheReadTokens": 91931,
+          "toolUses": {
+            "Bash": 3
+          },
+          "bashErrors": 0,
+          "agentSpawns": {},
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 0.2664474,
+          "durationSeconds": 39,
+          "turns": 6,
+          "peakContextTokens": 31037,
+          "outputTokens": 2306,
+          "cacheReadTokens": 141717,
+          "toolUses": {
+            "Bash": 2,
+            "Grep": 1,
+            "Glob": 1,
+            "Read": 1
+          },
+          "bashErrors": 0,
+          "agentSpawns": {},
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 0.26519820000000005,
+          "durationSeconds": 30,
+          "turns": 4,
+          "peakContextTokens": 32320,
+          "outputTokens": 2242,
+          "cacheReadTokens": 90631,
+          "toolUses": {
+            "Bash": 3
+          },
+          "bashErrors": 0,
+          "agentSpawns": {},
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "ticket-draft-team-form",
+      "caseDigest": "2b76b4fe43ba09d9fbda2ce4af3552228f7263d7b7de33955770a4d53d5b9e14",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.2432652,
+          "durationSeconds": 277,
+          "turns": 10,
+          "peakContextTokens": 50036,
+          "outputTokens": 3949,
+          "cacheReadTokens": 287262,
+          "toolUses": {
+            "Bash": 5,
+            "Grep": 1,
+            "Read": 2,
+            "Agent": 1
+          },
+          "bashErrors": 1,
+          "agentSpawns": {
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.1586138000000004,
+          "durationSeconds": 254,
+          "turns": 6,
+          "peakContextTokens": 45267,
+          "outputTokens": 3851,
+          "cacheReadTokens": 185845,
+          "toolUses": {
+            "Bash": 3,
+            "Agent": 1,
+            "Read": 1
+          },
+          "bashErrors": 1,
+          "agentSpawns": {
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.1570384,
+          "durationSeconds": 229,
+          "turns": 7,
+          "peakContextTokens": 42675,
+          "outputTokens": 3664,
+          "cacheReadTokens": 223022,
+          "toolUses": {
+            "Bash": 4,
+            "Agent": 1,
+            "Read": 1
+          },
+          "bashErrors": 0,
+          "agentSpawns": {
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
