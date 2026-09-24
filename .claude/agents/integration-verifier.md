@@ -70,7 +70,7 @@ PASS | WARN | FAIL | BLOCKED
 ## Commands
 | Check | Command | Exit Code | Status |
 |---|---|---:|---|
-|| build | actual command from receipt | 0 | PASS ||
+| build | actual command from receipt | 0 | PASS |
 
 ## Build
 - profile-bound production build: PASS / FAIL / BLOCKED
@@ -78,9 +78,9 @@ PASS | WARN | FAIL | BLOCKED
 - Errors (if any):
 
 ## Bundle Size
-|| Chunk | Size | Status ||
+| Chunk | Size | Status |
 | vendor-mui | 420kB | PASS |
-|| app | 560kB | WARN (over 500kB) ||
+| app | 560kB | WARN (over 500kB) |
 
 ## Dev Server
 - Startup: PASS / FAIL
@@ -91,7 +91,7 @@ PASS | WARN | FAIL | BLOCKED
 - Handler count: N
 
 ## Route Check
-|| Path | Component File | Result ||
+| Path | Component File | Result |
 
 ## Config Consistency
 - scripts/config/ports: PASS / FAIL

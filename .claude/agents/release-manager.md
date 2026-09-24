@@ -94,8 +94,8 @@ AI architecture가 있으면 model gateway, provider와 prompt version, tool sco
 [App Router or FSD structure tree matching the locked profile]
 
 ## Key file locations
-|| Role | File ||
-|| API config | actual per-profile server/client API module ||
+| Role | File |
+| API config | actual per-profile server/client API module |
 | 환경 변수 | `_workspace/02_design/build-environment.json` 및 server-only env contract |
 | 라우팅 | React Router route tree 또는 Next `app/**` |
 | 오류 UI | 실제 Error Boundary / `error.tsx` |

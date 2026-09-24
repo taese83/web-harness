@@ -41,13 +41,13 @@ maxTurns: 20
 - Observable success criteria:
 
 ## Evidence Inventory
-|| Source/annotation | Confirmed fact | Confidence scope | Follow-up validation ||
+| Source/annotation | Confirmed fact | Confidence scope | Follow-up validation |
 
 ## UX Check
 <!-- trigger가 없으면 비적용 근거 -->
 
 ## Annotation Review
-|| ID | Target | Normalized intent | Scope | Verification method | Status ||
+| ID | Target | Normalized intent | Scope | Verification method | Status |
 
 ## Critical State Inventory
 | Surface | normal | empty | loading | error/partial | permission/destructive |

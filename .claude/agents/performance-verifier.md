@@ -40,10 +40,10 @@ maxTurns: 20
 PASS | WARN | FAIL | BLOCKED
 
 ## Bundle Budget
-|| Target | Budget | Measured | Verdict ||
+| Target | Budget | Measured | Verdict |
 
 ## Runtime Budget
-|| Metric | Budget | Measured/NOT_MEASURED | Verdict ||
+| Metric | Budget | Measured/NOT_MEASURED | Verdict |
 
 ## Over-budget items and owner
 ```

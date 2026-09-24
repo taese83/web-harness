@@ -7,7 +7,7 @@
 //   4. orphan reference    — 미참조 계약 정보성 보고 (기존 소급 fail 없음 — G3)
 // baseline(contract-hygiene-baseline.json) 갱신은 의식적 행위 — CLAUDE.md 판단 게이트를 거친다.
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs';
-import {dirname, join} from 'node:path';
+import {dirname, join, relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {detectSourceRepository} from './validate-adapter-hygiene.mjs';
 
@@ -18,6 +18,10 @@ const DEFAULT_ALWAYS_READ_BUDGET = 8; // baseline 미등록 신규 스킬 기본
 // 이미 넘은 문서는 baseline `referenceBytes`의 크기에서 더 커지지 못한다(ratchet).
 const REFERENCE_BYTE_BUDGET = 20 * 1024;
 const MATURITY_VALUES = new Set(['contract-only', 'eval-covered', 'golden-backed']);
+
+/** `||`로 시작하는 표 행의 줄 번호(순수). 에이전트가 양식을 그대로 옮기면 첫 칸이 비어 릴리스 게이트가 그 행을 읽지 못한다. */
+export const doublePipeTableRows = text => String(text).split(/\r?\n/)
+  .flatMap((line, index) => (/^\|\|/.test(line) ? [index + 1] : []));
 
 const listMarkdown = (root, out = []) => {
   if (!existsSync(root)) return out;
@@ -384,6 +388,11 @@ export function validateContractHygiene({repositoryRoot, pass, fail, evalScenari
 
   if (orphans.length > 0) {
     pass(`contract hygiene: ${orphans.length} orphan reference(s) [정보성] — ${orphans.join(', ')}`);
+  }
+
+  for (const path of [...listMarkdown(join(repositoryRoot, '.claude/agents')), ...listMarkdown(join(repositoryRoot, '.claude/skills'))]) {
+    const lines = doublePipeTableRows(readFileSync(path, 'utf8'));
+    if (lines.length > 0) fail(`${relative(repositoryRoot, path)}: '||'로 시작하는 표 행(줄 ${lines.join(', ')}) — 첫 칸이 비어 옮겨 쓴 보고서의 검사 행을 게이트가 건너뛴다`);
   }
   pass(
     `contract hygiene checked (judgment layer guarded, always-read ratchet: ${Object.keys(baseline.alwaysRead).length} skills, new contracts: ${newContracts}, orphans: ${orphans.length})`,

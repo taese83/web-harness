@@ -3653,8 +3653,8 @@
     {
       "id": "seo-report-public-exposure-trigger",
       "file": ".claude/scripts/release-report-policy.mjs",
-      "find": "  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md') || declaresPublicExposure(projectRoot)",
-      "replace": "  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md')",
+      "find": "  hasDesignArtifact(projectRoot, 'seo-spec') || declaresPublicExposure(projectRoot)",
+      "replace": "  hasDesignArtifact(projectRoot, 'seo-spec')",
       "test": ".claude/scripts/test-release-report-policy.mjs",
       "why": "스펙 파일만 트리거로 쓰면 생산자가 빠졌을 때 공개 사이트의 SEO QA가 조용히 사라진다"
     },
@@ -3849,6 +3849,62 @@
       "replace": ".replace(/$^/g, '_')}.json`)",
       "test": ".claude/scripts/test-harness-session-mode.mjs",
       "why": "외부 입력(session_id)이 홈의 세션 폴더 밖으로 파일 경로를 만든다"
+    },
+    {
+      "id": "verdict-map-next-contract",
+      "file": ".claude/scripts/verdict-record-lib.mjs",
+      "find": "  'next-contract-verifier': 'next-contract',",
+      "replace": "  // next-contract 판정 기록 없음",
+      "test": ".claude/scripts/test-verdict-record.mjs",
+      "why": "Next 프로필의 필수 보고서가 판정 기록 없이 남아, 기록이 생긴 프로젝트에서 릴리스가 영영 막힌다"
+    },
+    {
+      "id": "verdict-parse-template-echo",
+      "file": ".claude/scripts/verdict-record-lib.mjs",
+      "find": "  if (new Set(line.match(/\\b(?:PASS|WARN|FAIL|BLOCKED|NEEDS_REVIEW)\\b/g) ?? []).size > 1) return null",
+      "replace": "  // 여러 상태가 적힌 줄도 첫 단어로 판정한다",
+      "test": ".claude/scripts/test-verdict-record.mjs",
+      "why": "양식 줄(PASS | FAIL | …)을 옮긴 응답을 첫 단어 판정(PASS)으로 기록한다"
+    },
+    {
+      "id": "agent-skill-preload-dropped",
+      "file": ".claude/scripts/validators/validate-agent-boundaries.mjs",
+      "find": "  .filter(skill => skills.get(skill)?.disableModelInvocation !== false)",
+      "replace": "  .filter(() => false)",
+      "test": ".claude/scripts/test-agent-skill-preload.mjs",
+      "why": "모델 호출이 막힌 스킬을 skills:로 프리로드하면 Claude Code가 조용히 빼는데, 그 에이전트가 빈손으로 도는 것을 못 잡는다"
+    },
+    {
+      "id": "markdown-double-pipe-rows",
+      "file": ".claude/scripts/validators/validate-contract-hygiene.mjs",
+      "find": "  .flatMap((line, index) => (/^\\|\\|/.test(line) ? [index + 1] : []));",
+      "replace": "  .flatMap(() => []);",
+      "test": ".claude/scripts/test-markdown-table-rows.mjs",
+      "why": "|| 로 시작하는 표 행이 양식에 들어가 옮겨 쓴 보고서의 검사 행을 게이트가 건너뛴다"
+    },
+    {
+      "id": "eval-scenario-missing-skill",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    if (!skillNames.has(skill)) problems.push(",
+      "replace": "    if (false) problems.push(",
+      "test": ".claude/scripts/test-eval-scenario-references.mjs",
+      "why": "없는 스킬로 들어가는 평가 시나리오가 실행 시점까지 드러나지 않는다"
+    },
+    {
+      "id": "eval-scenario-removed-agent",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "      if (!known.has(token) && roleSuffixes.has(token.split('-').at(-1))) problems.push(",
+      "replace": "      if (false) problems.push(",
+      "test": ".claude/scripts/test-eval-scenario-references.mjs",
+      "why": "제거된 에이전트를 기대하는 단언이 남아 그 시나리오가 영영 통과하지 못한다"
+    },
+    {
+      "id": "report-policy-sharded-design",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  hasArtifact(projectRoot, `_workspace/02_design/${name}.md`) || hasArtifact(projectRoot, `_workspace/02_design/${name}`)",
+      "replace": "  hasArtifact(projectRoot, `_workspace/02_design/${name}.md`)",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "설계 산출물을 분할하면 그 QA 보고서 요구가 조용히 사라져 검증 없이 릴리스된다"
     }
   ]
 }

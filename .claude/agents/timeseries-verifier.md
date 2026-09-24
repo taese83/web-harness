@@ -43,13 +43,13 @@ maxTurns: 25
 PASS | WARN | FAIL | BLOCKED
 
 ## Stream Contract
-|| Item | Contract | Implementation | Verdict ||
+| Item | Contract | Implementation | Verdict |
 
 ## Buffer·Recovery
-|| Item | Budget/Policy | Measured/Confirmed | Verdict ||
+| Item | Budget/Policy | Measured/Confirmed | Verdict |
 
 ## Performance Evidence
-|| Metric | Budget | Measured/NOT_MEASURED | Verdict ||
+| Metric | Budget | Measured/NOT_MEASURED | Verdict |
 
 ## Failed items and owner
 ```

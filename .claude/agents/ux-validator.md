@@ -52,14 +52,14 @@ maxTurns: 20
 PASS | WARN | FAIL | BLOCKED
 
 ## Screen Completeness
-|| Screen | Specified | Implemented | Status ||
+| Screen | Specified | Implemented | Status |
 | dashboard | ✅ | ✅ | PASS |
 
 ## Component Spec Match
-|| Component | Props Match | States Implemented | Result ||
+| Component | Props Match | States Implemented | Result |
 
 ## Data Binding
-|| Screen/Component | Data Hook Used | Result ||
+| Screen/Component | Data Hook Used | Result |
 
 ## Missing / Mismatched Items
 - [fileName] missing content

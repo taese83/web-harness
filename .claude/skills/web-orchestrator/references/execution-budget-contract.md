@@ -171,11 +171,11 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
    truncated)만** 돌려준다. 재스폰 프롬프트에는 그 remaining만 지정한다(전체 재작성 금지 —
    완성분을 덮어써 오히려 truncate 위험을 키운다). remaining이 0이면 작업 완결이다.
 
-   **계획을 스폰 전에 확정한다(`--lock`).** outputs가 자기선언인 한, 빌더가 죽은 뒤 매니페스트를
+   **계획을 스폰 전에 잠근다(`--lock`).** outputs가 자기선언인 한, 빌더가 죽은 뒤 매니페스트를
    실제로 쓰인 파일에 맞춰 줄이면 COMPLETE가 나온다(사후 축소). fit 게이트를 통과할 때
    `--lock`을 붙이면 계획 내용의 digest가 매니페스트에 박히고, `resume-manifest`가 이를
-   대조해 **TAMPERED(exit 1, fail-closed)**로 잡는다. 스팩이 없으면 "검증되지 않은
-   자기선언"이라고 정직하게 보고한다 — 큰 빌더 스폰은 반드시 확정하고 시작한다.
+   대조해 **TAMPERED(exit 1, fail-closed)**로 잡는다. 잠금이 없으면 "검증되지 않은
+   자기선언"이라고 정직하게 보고한다 — 큰 빌더 스폰은 반드시 잠그고 시작한다.
 
    ```bash
    node .claude/scripts/validate-spawn-plan.mjs --project {root} --plan <manifest> --lock
@@ -185,13 +185,13 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
    `--owned`를 주면 소유 범위의 실제 파일과 선언 목록을 대조해 **선언되지 않은 산출물**을
    보고한다(매니페스트가 현실과 어긋났다는 신호).
 
-   스팩 확정 증거는 매니페스트 **바깥**의 append-only 원장(`.plan-locks.jsonl`)에 남는다.
-   원장은 **최초 스팩과 대조**하므로 `planLock` 삭제·축소 후 재확정이 둘 다 TAMPERED로 잡히고 재확정은
-   `relocked`로 드러난다. 나아가 `--lock`은 **다른 digest의 스팩이 이미 있으면 재확정을
+   잠금 증거는 매니페스트 **바깥**의 append-only 원장(`.plan-locks.jsonl`)에 남는다.
+   원장은 **최초 잠금과 대조**하므로 `planLock` 삭제·축소 후 재잠금이 둘 다 TAMPERED로 잡히고 재잠금은
+   `relocked`로 드러난다. 나아가 `--lock`은 **다른 digest의 잠금이 이미 있으면 재잠금을
    거부**한다(exit 2) — 사후 탐지보다 강한 사전 차단이며, 범위를 바꾸려면 새 task로 재계획해야
    한다.
 
-   **한계**: 원장과 `planLock`을 **둘 다 지운 뒤 재확정하면** 위조된 `locked`가 성립한다 — 로컬
+   **한계**: 원장과 `planLock`을 **둘 다 지운 뒤 다시 잠그면** 위조된 `locked`가 성립한다 — 로컬
    증거는 tamper-**evident**이지 tamper-proof가 아니며, 이 경로는 기계가 아니라
    **비협상 규칙**(CLAUDE.md "로컬에서 서명 증거 위조 금지")이 막는다.
 4. **즉시-쓰기 계약 (무산출 예방 — 프롬프트 규칙).** <!-- marker:immediate-write-contract --> 산출 스폰 프롬프트에 **"첫 도구 호출은

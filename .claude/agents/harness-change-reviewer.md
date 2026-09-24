@@ -18,7 +18,7 @@ maxTurns: 45
 1. `docs/protected-core.md`를 먼저 읽는다 — 불변식 서열(I1~I6), 변경 클래스별 질문, 예산,
    알려진 프록시 등록부가 판정 기준이다.
 2. 호출자가 준 변경 범위(diff 경로 목록 또는 `git diff` 대상)를 읽는다. 범위가 없으면
-   `git diff main --stat` 결과를 범위로 삼는다.
+   `node .claude/scripts/run-git-inspection.mjs --project . --operation diff-stat --base main` 결과를 범위로 삼는다(직접 `git`은 셸 정책이 막는다).
 3. 변경 클래스를 판정하고(계약/게이트/스킬·에이전트/fast-path/tier) 해당 질문을 전부 적용한다.
 
 ## 적대적 관점 (기본 자세: 반증 시도)

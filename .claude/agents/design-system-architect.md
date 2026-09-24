@@ -81,8 +81,8 @@ export const theme = createTheme({
 ```
 
 ## Component inventory
-|| Component | Location | Description ||
-|| PageHeader | shared/ui/page-header | Header at the top of every page ||
+| Component | Location | Description |
+| PageHeader | shared/ui/page-header | Header at the top of every page |
 ```
 
 출력 파일:

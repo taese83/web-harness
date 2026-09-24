@@ -21,6 +21,10 @@ const SEO_REPORTS = [['seo', 'qa-seo.md']]
 const TIMESERIES_REPORTS = [['timeseries', 'qa-timeseries.md']]
 
 const hasArtifact = (projectRoot, relativePath) => existsSync(join(projectRoot, relativePath))
+// 설계 산출물은 분할 디렉터리(`<name>/`)도 같은 산출물이다(artifact-sharding-contract) — 파일만 보면 분할하는 순간
+// 그 QA 보고서 요구가 조용히 사라진다.
+const hasDesignArtifact = (projectRoot, name) =>
+  hasArtifact(projectRoot, `_workspace/02_design/${name}.md`) || hasArtifact(projectRoot, `_workspace/02_design/${name}`)
 // 서버가 데이터를 소유하면 tenant/row-level 인가는 client 코드 리뷰로 증명되지 않는다 —
 // migration 디렉터리(= /server-db-migration 산출)가 그 조건의 관측 가능한 신호다.
 // 경로 모델은 `agent-registry`의 소유권 정규식(`(?:[^/]+/)+?migrations/`)과 정합해야 한다 —
@@ -43,14 +47,11 @@ const isServerOwnedDataProject = projectRoot => {
       existsSync(join(projectRoot, entry.name, 'migrations')),
   )
 }
-const isLocalDomainStateProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/state-contract.md')
-const isAnalyticsProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/analytics-architecture.md')
+const isLocalDomainStateProject = projectRoot => hasDesignArtifact(projectRoot, 'state-contract')
+const isAnalyticsProject = projectRoot => hasDesignArtifact(projectRoot, 'analytics-architecture')
 export const isVisualProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
-const isPerformanceProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/performance-budget.md')
+const isPerformanceProject = projectRoot => hasDesignArtifact(projectRoot, 'performance-budget')
 // 공개 노출은 tech-stack.md의 `PUBLIC_EXPOSURE: yes` 선언으로도 켠다. 스펙 파일만 트리거로 쓰면 생산자가
 // 빠졌을 때 SEO QA가 조용히 사라진다 — 선언이 있으면 qa-seo가 필수이고, 스펙이 없으면 seo-verifier가 BLOCKED다.
 // 분할 산출물(`tech-stack/`)도 읽는다. 템플릿 그대로의 `yes | no`는 선언이 아니다.
@@ -73,9 +74,8 @@ export const declaresPublicExposure = projectRoot => {
   })
 }
 const isSeoProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/seo-spec.md') || declaresPublicExposure(projectRoot)
-const isTimeseriesProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/timeseries-architecture.md')
+  hasDesignArtifact(projectRoot, 'seo-spec') || declaresPublicExposure(projectRoot)
+const isTimeseriesProject = projectRoot => hasDesignArtifact(projectRoot, 'timeseries-architecture')
 
 const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
 

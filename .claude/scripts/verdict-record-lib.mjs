@@ -27,16 +27,21 @@ export const VERDICT_REPORT_BY_AGENT = {
   'performance-verifier': 'performance',
   'seo-verifier': 'seo',
   'timeseries-verifier': 'timeseries',
+  'next-contract-verifier': 'next-contract',
 }
 
 const KNOWN = new Set(['PASS', 'WARN', 'FAIL', 'BLOCKED', 'NEEDS_REVIEW'])
 /**
  * 응답의 `## Result` 다음 줄 상태(순수). 없거나 모르는 값이면 null.
  * 줄 전체가 상태가 아니어도(`PASS — 경고 2건`) 첫 단어가 알려진 상태면 그것이 판정이다 — 기록 쪽 정규화일 뿐 대조 기준은 그대로다.
+ * 알려진 상태가 둘 이상 나오면(양식 줄 `PASS | FAIL | BLOCKED`를 그대로 옮긴 응답) 판정이 아니다 — 첫 단어로 추정하지 않는다.
  */
 export const parseVerdictStatus = text => {
   const match = String(text ?? '').match(/^## Result\s*\r?\n\s*([^\r\n]+)$/im)
-  const status = match ? match[1].replace(/[`*_]/g, '').trim().toUpperCase().match(/^[A-Z_]+/)?.[0] ?? null : null
+  if (!match) return null
+  const line = match[1].replace(/[`*_]/g, '').trim().toUpperCase()
+  if (new Set(line.match(/\b(?:PASS|WARN|FAIL|BLOCKED|NEEDS_REVIEW)\b/g) ?? []).size > 1) return null
+  const status = line.match(/^[A-Z_]+/)?.[0] ?? null
   return KNOWN.has(status) ? status : null
 }
 

@@ -56,11 +56,11 @@ maxTurns: 20
 # Component Spec — {serviceName}
 
 ## shared/ui Components
-|| Component | File Path | Props Interface | Description ||
+| Component | File Path | Props Interface | Description |
 |---|---|---|---|
 
 ## features Components
-|| Component | Slice | Props | State ||
+| Component | Slice | Props | State |
 
 ## Component Detail Specs
 ### MetricCard

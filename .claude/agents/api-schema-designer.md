@@ -46,12 +46,12 @@ Mock API 스키마를 설계하고 `developer`가 구현할 수 있는 명세를
 # API Schema — {serviceName}
 
 ## Endpoints
-|| Method | Path | Description | Request Params | Response Type ||
+| Method | Path | Description | Request Params | Response Type |
 |---|---|---|---|---|
-|| GET | /api/metrics | Metric list | - | Metric[] ||
-|| GET | /api/metrics/:id | Metric detail | id: string | Metric ||
-|| POST | /api/metrics | Create metric | CreateMetricRequest | Metric ||
-|| DELETE | /api/metrics/:id | Delete metric | id: string | void ||
+| GET | /api/metrics | Metric list | - | Metric[] |
+| GET | /api/metrics/:id | Metric detail | id: string | Metric |
+| POST | /api/metrics | Create metric | CreateMetricRequest | Metric |
+| DELETE | /api/metrics/:id | Delete metric | id: string | void |
 
 ## Realtime Contract (if applicable)
 | Transport | Endpoint | Authentication | Resume | Heartbeat | Schema |

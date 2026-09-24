@@ -7,6 +7,7 @@
 //       `/server-db-migration`이 `client/migrations/`를 기존 관습으로 문서화하므로 루트만 보면
 //       하네스가 스스로 권장한 관습을 따른 프로젝트가 조용히 빠진다 (2026-08-27 적대 검토 지적)
 //   (3) `node_modules/**/migrations/`는 발화시키지 않는다 — 의존성이 게이트를 켜면 안 된다
+//   (4) 분할된 설계 산출물(`state-contract/` 등 디렉터리)도 그 QA 보고서를 요구한다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
@@ -68,5 +69,15 @@ test('분할된 tech-stack/ 디렉터리의 선언도 읽는다', () => {
     writeFileSync(join(root, '_workspace/01_plan/tech-stack/INDEX.md'), '# index\n')
     writeFileSync(join(root, '_workspace/01_plan/tech-stack/harness-profile.md'), '- PUBLIC_EXPOSURE: yes\n')
     assert.equal(requiresSeo(root), true)
+  })
+})
+
+test('분할된 설계 산출물(디렉터리)도 그 QA 보고서를 요구한다 — 분할이 검증 요구를 지우지 않는다', () => {
+  withProject(['_workspace/02_design/state-contract', '_workspace/02_design/performance-budget'], root => {
+    writeFileSync(join(root, '_workspace/02_design/state-contract/overview.md'), '# State\n')
+    writeFileSync(join(root, '_workspace/02_design/performance-budget/web-vitals.md'), '# Budget\n')
+    const ids = releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
+    assert.ok(ids.includes('state'), `분할한 state-contract가 qa-state 요구를 지웠다: ${ids.join(', ')}`)
+    assert.ok(ids.includes('performance'), `분할한 performance-budget이 qa-perf 요구를 지웠다: ${ids.join(', ')}`)
   })
 })

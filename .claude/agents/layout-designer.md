@@ -131,10 +131,10 @@ eval fixture 미등록 — 명명 수준이다.
 - Widgets: ChartGrid (top 6 columns×2), MetricCards (bottom 3 columns×4)
 
 ## Routing map            <!-- SURFACE_MODEL: route -->
-|| Path | Component | Description ||
+| Path | Component | Description |
 
 ## Surface map            <!-- SURFACE_MODEL: overlay — 라우팅 맵 대신 -->
-|| PAGE-NNN | 서피스 종류 | 여는 트리거 | 닫는 경로 | 중첩 | 포커스 복귀 대상 ||
+| PAGE-NNN | 서피스 종류 | 여는 트리거 | 닫는 경로 | 중첩 | 포커스 복귀 대상 |
 ```
 
 출력 파일:

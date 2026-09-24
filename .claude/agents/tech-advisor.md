@@ -123,11 +123,11 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 - Performance fixture:
 
 ## Additional Service-Specific Libraries
-|| Role | Library | Version | Rationale | Alternative ||
+| Role | Library | Version | Rationale | Alternative |
 |---|---|---|---|---|
 
 ## Libraries to Avoid
-|| Library | Reason ||
+| Library | Reason |
 
 ## Package Changes
 | Package | Exact Version | Scope | Requirement | Source |

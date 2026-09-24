@@ -31,7 +31,7 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 
 ## Report contract
 
-- 각 Markdown report의 `## Result`에는 단일 status만 둔다.
+- 각 Markdown report의 `## Result`에는 단일 status만 둔다. 검증 에이전트를 스폰할 때 이 규칙을 프롬프트에 넣는다 — 상태가 둘 이상 적힌 줄(양식 `PASS | FAIL | BLOCKED`)은 판정으로 기록되지 않아 그 보고서가 게이트에서 막힌다.
 - command를 인용하면 `| Check | Command | Exit Code | Status |` 표를 사용한다.
 - 표의 command/exit/status는 `evidence/{check}.json`과 일치해야 한다.
 - `## Result`는 그 보고서를 낸 검증 에이전트가 **스스로 낸 판정**과 같아야 한다 — 검증 에이전트가 끝날 때 하네스가 최종 응답의 `## Result`를 `evidence/verdicts/<report>.jsonl`에 기록하고(`record-verdict.mjs`), release gate가 대조한다. 보고서는 검증 에이전트의 응답을 그대로 옮기고, 판정을 바꾸려면 검증 에이전트를 다시 돌린다.

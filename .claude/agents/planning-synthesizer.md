@@ -37,10 +37,10 @@ SURFACE_MODEL: route   ← 근거가 있을 때만 적는다(아래 규칙)
 EXTERNAL_DATA_INGESTION_MODE: true   ← 외부 수집이 요구될 때만 적는다
 
 ## Cross-document Consistency
-|| 불일치 | 문서 | 해소 또는 NEEDS_DECISION·BLOCKER ||
+| 불일치 | 문서 | 해소 또는 NEEDS_DECISION·BLOCKER |
 
 ## Confirmed Screen List
-|| Screen | Path (overlay면 여는 트리거) | FEAT(상세는 feature-plan) ||
+| Screen | Path (overlay면 여는 트리거) | FEAT(상세는 feature-plan) |
 
 ## Open Decisions
 - Item (option A vs B, rationale)

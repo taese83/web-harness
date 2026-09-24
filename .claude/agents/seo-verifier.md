@@ -34,10 +34,10 @@ maxTurns: 20
 PASS | WARN | FAIL | BLOCKED
 
 ## Route Metadata
-|| Route | Spec | Title | Description | Canonical | OG | Status ||
+| Route | Spec | Title | Description | Canonical | OG | Status |
 
 ## Crawler Artifacts
-|| Artifact | Exists | Spec match | Status ||
+| Artifact | Exists | Spec match | Status |
 
 ## Missing/mismatched items and owner
 ```

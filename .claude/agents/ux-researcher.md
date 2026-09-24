@@ -45,14 +45,14 @@ maxTurns: 25
 # UX Brief — {serviceName}
 
 ## Reference Service Analysis
-|| Service | Strengths | Weaknesses | Patterns to Adopt ||
+| Service | Strengths | Weaknesses | Patterns to Adopt |
 
 ## User Flow
 [text diagram]
 Login → Dashboard home → Panel selection → Detail chart
 
 ## Screen Inventory
-|| Screen | Path | Purpose | Key Components ||
+| Screen | Path | Purpose | Key Components |
 
 ## Information Hierarchy per Screen
 <!-- design-readiness-contract.md §1 format required — the design phase is BLOCKED without this table.
@@ -83,7 +83,7 @@ Login → Dashboard home → Panel selection → Detail chart
 - First glance / Next action / Misreading risk / Direction to settle first / Phase 2 checks
 
 ## Critical States & Annotation Intent
-|| Surface/annotation | normal/edge state | User intent | Error prevention | Verification ||
+| Surface/annotation | normal/edge state | User intent | Error prevention | Verification |
 
 ## Responsive Strategy
 - Mobile: single column, hamburger menu

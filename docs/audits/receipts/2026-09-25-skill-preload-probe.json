@@ -1,0 +1,25 @@
+{
+  "kind": "skill-preload-probe",
+  "measuredAt": "2026-09-25",
+  "host": "local (darwin arm64)",
+  "versions": {
+    "claude-code": "2.1.281"
+  },
+  "question": "Does a subagent's `skills:` preload inject a skill that sets `disable-model-invocation: true`?",
+  "fixture": {
+    ".claude/skills/probe-hidden/SKILL.md": "frontmatter disable-model-invocation: true; body 'Marker: HIDDEN-TOKEN-4417'",
+    ".claude/skills/probe-open/SKILL.md": "no invocation flags; body 'Marker: OPEN-TOKEN-9052'",
+    ".claude/agents/probe-agent.md": "model haiku, tools Read, skills [probe-hidden, probe-open]; prompt: list every TOKEN-<digits> string in your context without using tools, or NONE"
+  },
+  "procedure": [
+    "fresh git repo holding only the fixture",
+    "claude -p \"Spawn the probe-agent subagent with the task 'report markers' and reply with its answer verbatim, nothing else.\" --model haiku --allowedTools Agent",
+    "run twice in separate sessions (2026-09-24, 2026-09-25)"
+  ],
+  "observations": {
+    "reportedMarkers": ["OPEN-TOKEN-9052"],
+    "missingMarkers": ["HIDDEN-TOKEN-4417"]
+  },
+  "documentation": "https://code.claude.com/docs/en/sub-agents.md — \"You can't preload skills that set disable-model-invocation: true, since preloading draws from the same set of skills Claude can invoke.\"",
+  "conclusion": "The preload of a disable-model-invocation skill is dropped without an error. Every harness skill carries that flag (validate-harness), so a harness agent's `skills:` preload was always empty. validate-agent-boundaries rejects such preloads; re-run this probe when Claude Code changes the behavior, since the check would then block a valid configuration."
+}

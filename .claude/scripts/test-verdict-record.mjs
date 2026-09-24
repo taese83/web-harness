@@ -5,17 +5,20 @@
 //   - SubagentStop 훅이 검증 에이전트의 최종 응답(`last_assistant_message`)에서 `## Result`를 읽어 증거 폴더에 남긴다
 //   - 기록이 한 번도 없던 프로젝트(훅 미배선·옛 판본)는 막지 않는다 — 기록이 있는 프로젝트에서만 대조한다
 //   - 기록이 있는데 보고서 판정이 다르거나 그 보고서의 기록이 없으면 릴리스가 막힌다(옮겨 적으며 바뀐 판정·검증 없이 쓴 보고서)
+//   - 필수 QA 보고서마다 판정을 기록하는 검증 에이전트가 있고, 양식 줄을 옮긴 응답은 판정으로 기록하지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
-import {checkVerdictBinding, parseVerdictStatus, recordVerdict, VERDICTS_RELATIVE} from './verdict-record-lib.mjs'
+import {checkVerdictBinding, parseVerdictStatus, recordVerdict, VERDICT_REPORT_BY_AGENT, VERDICTS_RELATIVE} from './verdict-record-lib.mjs'
 import {buildReleaseManifest} from './release-gate-lib.mjs'
+import {releaseReportRequirements} from './release-report-policy.mjs'
 
 const HOOK = fileURLToPath(new URL('./record-verdict.mjs', import.meta.url))
+const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const withProject = run => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-verdict-')))
   try {
@@ -34,7 +37,22 @@ test('판정 읽기(순수): `## Result` 다음 줄의 알려진 상태만 받�
   assert.equal(parseVerdictStatus('## Result\nPASSABLE'), null)
   assert.equal(parseVerdictStatus('## Result\n아마 괜찮음'), null)
   assert.equal(parseVerdictStatus(undefined), null)
+  assert.equal(parseVerdictStatus('## Result\nPASS | WARN | FAIL | BLOCKED'), null, '양식 줄을 그대로 옮긴 응답을 첫 단어 판정으로 기록했다')
 })
+
+test('필수 보고서마다 판정을 기록하는 검증 에이전트가 있다 — 없으면 그 보고서는 기록이 생긴 프로젝트에서 영영 통과하지 못한다', () => withProject(root => {
+  for (const file of ['state-contract.md', 'analytics-architecture.md', 'visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md', 'timeseries-architecture.md']) {
+    mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(root, '_workspace/02_design', file), '')
+  }
+  mkdirSync(join(root, 'migrations'), {recursive: true})
+  // 분모는 어댑터 전부다 — 어댑터 전용 보고서가 새로 생겨도 이 대조에서 빠지지 않는다.
+  const adapters = readdirSync(join(REPOSITORY_ROOT, '.claude/adapters'), {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name)
+  assert.ok(adapters.includes('next-app-fullstack'), `어댑터 목록을 읽지 못했다: ${adapters.join(', ')}`)
+  const required = [...new Set(adapters.flatMap(id => releaseReportRequirements(root, {adapter: {id}}, 'final', true).map(([reportId]) => reportId)))]
+  const recorded = new Set(Object.values(VERDICT_REPORT_BY_AGENT))
+  assert.deepEqual(required.filter(id => !recorded.has(id)), [], '판정 기록이 없는 필수 보고서가 있다')
+}))
 
 test('훅: 끝난 검증 에이전트의 판정을 기록하고, 검증 에이전트가 아니면 남기지 않는다', () => withProject(root => {
   const stop = (agentType, message) => spawnSync(process.execPath, [HOOK], {

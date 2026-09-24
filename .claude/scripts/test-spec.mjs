@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// test-spec.mjs — 스팩 스팩 확정 회귀 (Stage 1의 안전망).
+// test-spec.mjs — 스팩 확정 회귀 (Stage 1의 안전망).
 //
 // 여기서 고정하는 사실:
 //   (1) 미결정이 하나라도 open이면 잠글 수 없다 — "착수 전 스팩 확정"의 기계 표현

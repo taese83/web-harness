@@ -96,13 +96,13 @@ maxTurns: 20
 | FEAT-001-01 | ... | TC-001-1 | ... | keep |
 
 ## FSD Slice Map
-|| Layer | Slice | Role | Depends On ||
+| Layer | Slice | Role | Depends On |
 |---|---|---|---|
-|| pages | dashboard | Main dashboard page | widgets/chart-grid ||
-|| features | filter-bar | Global filter | entities/metric ||
-|| entities | metric | Metric data/API | shared/api ||
-|| features | live-mode | realtime connect / pause / resume | shared/realtime ||
-|| widgets | chart-panel | historical + live display | entities/metric, features/live-mode ||
+| pages | dashboard | Main dashboard page | widgets/chart-grid |
+| features | filter-bar | Global filter | entities/metric |
+| entities | metric | Metric data/API | shared/api |
+| features | live-mode | realtime connect / pause / resume | shared/realtime |
+| widgets | chart-panel | historical + live display | entities/metric, features/live-mode |
 
 ## Data Model
 ```ts
@@ -116,9 +116,9 @@ interface Metric {
 ```
 
 ## API Endpoints
-|| Method | Path | Description | Response Type ||
+| Method | Path | Description | Response Type |
 |---|---|---|---|
-|| GET | /api/metrics | Metric list | Metric[] ||
+| GET | /api/metrics | Metric list | Metric[] |
 
 ## Mock Data Files
 - `src/mocks/data/metrics.json`

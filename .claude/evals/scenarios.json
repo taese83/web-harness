@@ -67,7 +67,7 @@
   },
   {
     "id": "production-aws-deploy",
-    "entrySkill": "/dev-orchestrator",
+    "entrySkill": "/wh new",
     "covers": [
       "web-orchestrator"
     ],
@@ -80,7 +80,7 @@
   },
   {
     "id": "trusted-npm-publish",
-    "entrySkill": "/dev-orchestrator",
+    "entrySkill": "/wh new",
     "covers": [
       "web-orchestrator"
     ],
@@ -141,7 +141,7 @@
     "prompt": "WebSocket이 끊기거나 데이터가 중복·역순·누락되는 경우에도 복구되는 실시간 메트릭 계층을 기존 앱에 추가해줘.",
     "assertions": [
       "the stream contract defines protocol version, sequence, cursor, heartbeat, duplicate, out-of-order, gap, reset, and error behavior",
-      "realtime-data-builder uses bounded backoff, bounded ring buffers, idempotent cleanup, resume cursors, and deterministic ordering",
+      "the realtime stream client that developer implements uses bounded backoff, bounded ring buffers, idempotent cleanup, resume cursors, and deterministic ordering",
       "tests cover disconnect, resume, duplicate, out-of-order, sequence gap, terminal failure, and unmount cleanup without unbounded timers"
     ]
   },
@@ -170,7 +170,7 @@
     "assertions": [
       "TIMESERIES_MODE is enabled for historical time-series exploration even though realtime is explicitly excluded",
       "the intake asks for range, resolution, series cardinality, visible points, timezone, and historical query SLO",
-      "realtime-data-builder is skipped while bounded historical aggregation and chart performance contracts remain active"
+      "no realtime stream client or reconnect code is planned while bounded historical aggregation and chart performance contracts remain active"
     ]
   },
   {
@@ -193,7 +193,7 @@
     ],
     "prompt": "서버 없이 브라우저 저장소에 업무 워크플로우를 관리하는 앱을 만들어줘. 필터와 검색 중에도 이동·정렬·다중 선택·삭제가 안전해야 하고 이전 버전이나 손상된 저장 데이터도 복구해야 해.",
     "assertions": [
-      "LOCAL_DOMAIN_STATE_MODE is enabled and state-contract-designer runs before client-domain-state-builder",
+      "LOCAL_DOMAIN_STATE_MODE is enabled and state-contract-designer runs before developer implements the local domain state",
       "the state contract separates authoritative collections from filtered, sorted, or virtualized views and defines ID-based mutation mapping",
       "move, reorder, bulk mutation, and delete use explicit commands with store-side preconditions and invariant-preserving postconditions",
       "persisted state has runtime validation, schema version migration, invalid-state recovery, and size or count budgets",
@@ -209,7 +209,7 @@
     "prompt": "테마와 언어 설정만 브라우저에 저장하는 간단한 웹앱을 만들어줘. 업무 데이터 CRUD나 정렬·이동은 없어.",
     "assertions": [
       "LOCAL_DOMAIN_STATE_MODE remains disabled for independent low-volume preferences",
-      "form-state-builder owns bounded validated preference persistence while local domain state agents are skipped"
+      "developer implements bounded validated preference persistence while state-contract-designer and state-invariant-verifier are skipped"
     ]
   },
   {
@@ -222,7 +222,7 @@
     "assertions": [
       "EXTERNAL_DATA_INGESTION_MODE is enabled and source authorization, refresh cadence, freshness, minimum count, coverage, promotion policy, and serving fallback are collected separately",
       "ingestion-contract-designer fixes static-snapshot as the current runtime mode and writes both ingestion-contract.md and a strict schema-bound runtime-data-contract.json before implementation",
-      "external-data-pipeline-builder validates source payloads and generated artifacts before atomic promotion and preserves last-known-good on empty, partial, schema-invalid, or threshold-failing runs",
+      "the ingestion pipeline that developer implements validates source payloads and generated artifacts before atomic promotion and preserves last-known-good on empty, partial, schema-invalid, or threshold-failing runs",
       "data-quality-verifier requires deterministic fixtures, root and deployment clean-build evidence, and a current same-cohort ingestion machine receipt before qa-data-quality.md can pass"
     ]
   },
@@ -236,8 +236,8 @@
     "assertions": [
       "the locked profile separates deployment provider vercel from target static-cdn and includes external-ingestion plus scheduled-static-ingestion capabilities",
       "the web app, ingestion source, contracts, generated artifact, and workflow share one canonical release root so one source fingerprint covers the whole service",
-      "ingestion-ci-writer alone owns the refresh workflow with full-SHA actions, persist-credentials false, read-only collection, exact generated paths, timeout, queued concurrency, manual recovery, direct-push prohibition, and isolated protected promotion",
-      "vercel-config-writer alone binds the Vercel root, build command, output, routing, cache, and headers while provider builds validate the promoted snapshot before build and byte-identical public-to-dist deployment copy after build instead of crawling",
+      "environment-scaffolder alone owns the refresh workflow with full-SHA actions, persist-credentials false, read-only collection, exact generated paths, timeout, queued concurrency, manual recovery, direct-push prohibition, and isolated protected promotion",
+      "environment-scaffolder alone binds the Vercel root, build command, output, routing, cache, and headers while provider builds validate the promoted snapshot before build and byte-identical public-to-dist deployment copy after build instead of crawling",
       "release is blocked unless strict artifact semantics and workflow policy pass and the ingestion receipt is current in the same isolated quality cohort"
     ]
   },
@@ -490,7 +490,7 @@
     ],
     "prompt": "운영에 들어갈 예약 서비스라서 프론트 에러 추적과 웹바이탈 수집이 필요해. 릴리즈별로 오류를 구분하고 개인 정보는 수집하면 안 돼.",
     "assertions": [
-      "OBSERVABILITY_MODE is detected and web-observability-builder runs before deploy-ci-writer with the source map upload contract handed over, not executed",
+      "the spec libraries declare an observability role that developer implements, and environment-scaffolder hands the source map upload to the deploy workflow as a contract without executing it",
       "error tracking initialization lives under src/shared/observability/ with release/environment tags injected from build info and PII scrubbing enabled by default",
       "no DSN or credential literal appears in source and dev mode does not send events"
     ]

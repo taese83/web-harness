@@ -236,17 +236,17 @@ PASS | WARN | FAIL | BLOCKED
 ## Commands
 | Check | Command | Exit Code | Status |
 |---|---|---:|---|
-|| typecheck | actual command from receipt | 0 | PASS ||
-|| lint | actual command from receipt | 0 | PASS ||
+| typecheck | actual command from receipt | 0 | PASS |
+| lint | actual command from receipt | 0 | PASS |
 
 ## TypeScript Errors
-|| File | Line | Error | Severity ||
+| File | Line | Error | Severity |
 
 ## ESLint Violations
-|| File | Line | Rule | Detail ||
+| File | Line | Rule | Detail |
 
 ## Layer Boundary Violations
-|| File | Violation ||
+| File | Violation |
 
 ## Change Scope Review
 - Change mode:
@@ -258,12 +258,12 @@ PASS | WARN | FAIL | BLOCKED
 - Verdict: PASS / WARN / FAIL / BLOCKED
 
 ## Security Warnings
-|| File:Line | Detail | Severity ||
-|| src/foo.tsx:42 | dangerouslySetInnerHTML outside SafeHtml | FAIL ||
-|| src/bar.ts:10 | credential stored in browser storage | FAIL ||
+| File:Line | Detail | Severity |
+| src/foo.tsx:42 | dangerouslySetInnerHTML outside SafeHtml | FAIL |
+| src/bar.ts:10 | credential stored in browser storage | FAIL |
 
 ## Accessibility (a11y) Warnings
-|| File | Detail | Recommended Fix ||
+| File | Detail | Recommended Fix |
 
 ## Test Files
 - Test file count: N
@@ -271,7 +271,7 @@ PASS | WARN | FAIL | BLOCKED
 - Note: see `qa-test.md` for test execution results
 
 ## Duplication & Reuse (refactoring suggestions — apply only after user approval)
-|| Target | Duplication/Reuse Detail | Suggestion | Recommended Timing ||
+| Target | Duplication/Reuse Detail | Suggestion | Recommended Timing |
 
 ## Summary
 - Buildable: YES / NO

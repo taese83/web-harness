@@ -1,8 +1,34 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync, readdirSync} from 'node:fs'
+import {existsSync, readdirSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {AGENT_OWNERSHIP, VERIFIER_AGENTS} from '../agent-registry.mjs'
 import {evaluateGlobalBashPolicy} from '../global-bash-policy-lib.mjs'
+
+const frontmatterOf = text => String(text).match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
+
+/** 에이전트별 `skills:` 프리로드 목록과 스킬별 모델 호출 가능 여부를 읽는다. */
+export const readSkillPreloads = claudeDirectory => {
+  const agentsDirectory = join(claudeDirectory, 'agents')
+  const agents = readdirSync(agentsDirectory).filter(name => name.endsWith('.md')).sort().map(file => {
+    const frontmatter = frontmatterOf(readFileSync(join(agentsDirectory, file), 'utf8'))
+    const block = frontmatter.match(/^skills:[ \t]*(.*)$((?:\r?\n[ \t]+-[ \t]*.+)*)/m)
+    const preload = block ? [...block[1].replace(/^\[|\]$/g, '').split(','), ...block[2].split(/\r?\n/).map(line => line.replace(/^[ \t]*-[ \t]*/, ''))]
+      .map(name => name.trim()).filter(Boolean) : []
+    return {name: file.slice(0, -'.md'.length), preload}
+  })
+  const skillsDirectory = join(claudeDirectory, 'skills')
+  const skills = new Map(readdirSync(skillsDirectory).filter(name => existsSync(join(skillsDirectory, name, 'SKILL.md'))).map(name => [name,
+    {disableModelInvocation: /^disable-model-invocation:[ \t]*true[ \t]*$/m.test(frontmatterOf(readFileSync(join(skillsDirectory, name, 'SKILL.md'), 'utf8')))}]))
+  return {agents, skills}
+}
+
+/**
+ * 조용히 빠지는 프리로드(순수). Claude Code는 `skills:`에 모델이 부를 수 있는 스킬만 싣는다 —
+ * disable-model-invocation 스킬(하네스 스킬 전부)이나 없는 스킬은 에이전트가 모른 채 빈손으로 돈다.
+ */
+export const droppedSkillPreloads = ({agents, skills}) => agents.flatMap(({name, preload}) => preload
+  .filter(skill => skills.get(skill)?.disableModelInvocation !== false)
+  .map(skill => ({agent: name, skill, reason: skills.has(skill) ? 'disable-model-invocation 스킬은 프리로드되지 않는다' : '없는 스킬이다'})))
 
 export const validateAgentBoundaries = ({
   claudeDirectory,
@@ -41,6 +67,11 @@ export const validateAgentBoundaries = ({
     fail(`.claude/agents/${file}: Bash를 가진 배포 에이전트가 VERIFIER_AGENTS 밖이다 — 플러그인에서는 셸이 제한되지 않아 소유권을 우회한다`)
   }
   pass('shipped Bash agents are all verifier-restricted')
+
+  for (const dropped of droppedSkillPreloads(readSkillPreloads(claudeDirectory))) {
+    fail(`.claude/agents/${dropped.agent}.md: skills 프리로드 '${dropped.skill}' — ${dropped.reason}. 읽을 참조 경로를 본문에 적는다`)
+  }
+  pass('agent skill preloads are loadable')
 
   // verifier 문서가 자체 Bash 정책이 차단하는 명령을 지시하면 안 된다.
   // 실사례: ux-validator가 `grep -rn`을, code-reviewer가 디렉토리 재귀 rg를 문서화해

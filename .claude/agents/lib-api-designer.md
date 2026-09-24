@@ -56,14 +56,14 @@ export interface MyOptions {
 }
 
 ## Export Structure
-|| Name | Kind | Path | Description ||
+| Name | Kind | Path | Description |
 |---|---|---|---|
-|| myFunc | function | src/core/myFunc.ts | Core feature ||
+| myFunc | function | src/core/myFunc.ts | Core feature |
 
 ## Subpath Exports
-|| import path | File | Purpose ||
+| import path | File | Purpose |
 |---|---|---|
-|| {pkg}/utils | src/utils/index.ts | Utility functions only ||
+| {pkg}/utils | src/utils/index.ts | Utility functions only |
 
 ## package.json exports Field (design)
 "exports": {

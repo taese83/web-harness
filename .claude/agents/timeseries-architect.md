@@ -4,7 +4,6 @@ description: Designs bounded historical/realtime time-series architecture — da
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
 maxTurns: 25
-skills: timeseries-dashboard
 ---
 
 # Timeseries Architect

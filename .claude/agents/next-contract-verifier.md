@@ -65,4 +65,5 @@ COMPATIBLE_IMPLEMENTED | VERIFIED_FOR_CURRENT_FINGERPRINT | BLOCKED
 - missing receipt/runtime/fixture and required next action
 ```
 
+`## Result` 다음 줄에는 상태 하나만 쓴다(`NOT_APPLICABLE`은 검사 행에만 쓴다) — release gate와 판정 기록(`evidence/verdicts/`)이 이 줄을 대조한다.
 보고서 본문만 반환한다. 파일이나 receipt를 직접 작성하지 않는다.
