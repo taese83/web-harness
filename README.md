@@ -244,6 +244,7 @@ when auditing or customizing an agent.
 ## Further reading
 
 - [docs/protected-core.md](docs/protected-core.md) — invariants I1–I6 and the proxy registry
+- [docs/developer-guide.ko.md](docs/developer-guide.ko.md) — developer guide (Korean): using the harness for ticket-based development
 - [docs/brownfield-adoption.md](docs/brownfield-adoption.md) — adopting into an existing codebase
 - [docs/competitive-landscape.md](docs/competitive-landscape.md) — where this sits in the 2026 tool landscape, and what actually distinguishes it
 - [docs/field-guide-gap.md](docs/field-guide-gap.md) — ten agentic-engineering patterns checked against this codebase, with per-item evidence
