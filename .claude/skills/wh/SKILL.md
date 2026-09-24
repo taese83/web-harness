@@ -110,7 +110,7 @@ Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent`
 | `plan` | `../web-plan/SKILL.md` — Phase 1만 돌고 멈춘다 | `plan-reviewer` readiness(`PASS`\|`NEEDS_DECISION`\|`BLOCKED`). **Phase 1 → 2 승인 체크포인트는 여기서 돌지 않는다** — `/wh new`(플러그인: `/web-harness:wh new`)로 이어질 때 돈다 |
 | `new` (기획·디자인 `generated`\|`supplied`) | `../web-orchestrator/SKILL.md`의 Phase 1~4 | Phase 1·2 체크포인트 |
 | `new` (기획 또는 디자인 `absent`) | 같은 SKILL의 공급원 조합 실행 — `absent` 단계의 wave만 건너뛰고 Phase 3·4는 동일 | `approval-checkpoints.md`의 「기획·디자인 `absent` 진입 → 개발」 |
-| `change` | `../web-orchestrator/references/execution-contract.md`의 Iterate 루프 | **1-A ✋스팩 승인**(`approval-checkpoints.md`) |
+| `change` | `../web-orchestrator/references/execution-contract.md`의 Iterate 루프 | **1-A ✋스팩 승인**(`approval-checkpoints.md`) — 사람 티켓 작업은 `specApproval: required`일 때만 |
 | `fix` | 같은 Iterate 루프, 1-A 건너뜀 | 유형별 보존 증거 |
 | `verify` | `../web-verify/SKILL.md` | 검증자는 read-only. **준비 단계는 source를 쓴다**(`environment-scaffolder`·`developer`) — 착수 전 ✋승인, 거절하면 준비가 필요한 검사는 `BLOCKED` |
 

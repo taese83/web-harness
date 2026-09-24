@@ -2,7 +2,7 @@
 name: team-flow
 description: Ticket-based team development flow for web-harness — 검토한 계획의 FEAT 전체를 WORK(공통 기반·기능별·통합 작업)로 분해·검토해 트래커(GitHub Issues·Jira)에 발행하고, 개발자가 WORK를 하나씩 픽업해 PR로 완료한다. 계획/디자인이 끝나 여러 개발자가 나눠 개발할 때 쓴다. "개발 준비해줘"·"WORK로 분해"(claim), "티켓 발행"(claim --publish), "뭐 개발할 수 있어"·"보드"(board), "이 티켓 픽업"(pickup), "PR 연결"(link)로 요청. FEAT/TC는 요구사항, WORK는 실행 단위다.
 disable-model-invocation: true
-allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion
+allowed-tools: Read, Glob, Grep, Bash, AskUserQuestion, Agent
 argument-hint: "[claim | claim --publish | create | board | pickup <티켓키> | link <티켓키> <pr-url>] (또는 자연어)"
 metadata:
   version: 1.0.0

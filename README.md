@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 47,067 bytes <!-- inventory:entry-cost --> of
+- **Fixed contract load per orchestrator run**: 47,188 bytes <!-- inventory:entry-cost --> of
   always-read contract files. That is a *byte* measurement of exactly those files — roughly 9k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the skill
   file itself (~9k tokens), the per-spawn agent definitions, runtime hook injection, and everything
@@ -124,9 +124,11 @@ Every agent has a declared file-ownership scope, enforced by a hook. A component
 cannot silently rewrite your build config. Verifier agents are read-only — they can find
 problems but cannot "fix" them into passing.
 
-A global Bash policy restricts what commands agents may run: validation scripts are
+In this repository a global Bash policy restricts what subagents may run: validation scripts are
 allowlisted with argument-level contracts, and anything outside that is denied rather
-than best-effort permitted.
+than best-effort permitted. The plugin does not ship that policy (it would govern the user's own
+sessions); there, every harness agent that has Bash is a read-only verifier limited by the verifier
+Bash hook, and agents that write files have no Bash — a validator keeps it that way.
 
 ## Runaway prevention
 

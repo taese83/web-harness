@@ -16,17 +16,17 @@ web-harness 기술 스펙 기반의 새 프론트엔드 프로젝트를 처음�
 
 ## Canonical web routing guard
 
-사용자 설명, 전달 문서 또는 대상 디렉토리에 crawling/scraping, RSS·CSV import, scheduled third-party sync, generated runtime JSON, `scripts/ingestion`, `scripts/crawl.*`, refresh workflow 중 하나가 있으면 scaffold를 시작하지 않는다. 원문 요청과 대상 경로를 손실 없이 `/web-orchestrator`에 넘겨 `EXTERNAL_DATA_INGESTION_MODE` 계약부터 만들게 한다. `/project-init`은 이 경로를 일반 React/Vite Mock 프로젝트로 축소할 수 없다.
+사용자 설명, 전달 문서 또는 대상 디렉토리에 crawling/scraping, RSS·CSV import, scheduled third-party sync, generated runtime JSON, `scripts/ingestion`, `scripts/crawl.*`, refresh workflow 중 하나가 있으면 scaffold를 시작하지 않는다. 원문 요청과 대상 경로를 손실 없이 `/wh new`(플러그인: `/web-harness:wh new`)에 넘겨 `EXTERNAL_DATA_INGESTION_MODE` 계약부터 만들게 한다. `/project-init`은 이 경로를 일반 React/Vite Mock 프로젝트로 축소할 수 없다.
 
 ### 이 skill의 범위 — scaffold vs 서비스 구축
 
-`/project-init`은 **빈 골격 세팅**(package/tooling/FSD 디렉터리/템플릿)까지다. 제품 기획·화면 설계·기능 구현·QA 게이트는 범위 밖이며 `/web-orchestrator`가 소유한다.
+`/project-init`은 **빈 골격 세팅**(package/tooling/FSD 디렉터리/템플릿)까지다. 제품 기획·화면 설계·기능 구현·QA 게이트는 범위 밖이며 `/wh new`(플러그인: `/web-harness:wh new`)가 소유한다.
 
-요청이 **동작하는 서비스**를 원하면(화면·기능·데이터 흐름을 말하거나, "만들어줘"의 대상이 앱 자체이거나, 기획·디자인 산출물을 기대하면) scaffold만 하고 끝내지 않는다. 그 요청은 `greenfield-service`이며 `/web-orchestrator`의 Phase 1~4가 canonical 경로다 — `request-type-contract.md` 참조.
+요청이 **동작하는 서비스**를 원하면(화면·기능·데이터 흐름을 말하거나, "만들어줘"의 대상이 앱 자체이거나, 기획·디자인 산출물을 기대하면) scaffold만 하고 끝내지 않는다. 그 요청은 `greenfield-service`이며 `/wh new`로 들어가는 Phase 1~4가 canonical 경로다 — `request-type-contract.md` 참조.
 
 - 골격만 필요하다고 **명시된** 경우(기존 팀 규약대로 빈 프로젝트만, 이후 직접 개발)에만 이 skill로 완결한다.
 - 판단이 갈리면 한 번 확인한다: "골격만 세팅할까요, 아니면 기획·설계·QA까지 포함해 서비스를 만들까요?"
-- scaffold로 완결한 경우 완료 보고에 **"기획·설계·QA 게이트는 실행되지 않음 — 서비스 구축은 `/web-orchestrator`"**를 명시한다. scaffold 성공을 서비스 완성으로 보고하지 않는다.
+- scaffold로 완결한 경우 완료 보고에 **"기획·설계·QA 게이트는 실행되지 않음 — 서비스 구축은 `/wh new`"**를 명시한다. scaffold 성공을 서비스 완성으로 보고하지 않는다.
 
 빈 골격 생성이 쉽다는 이유로 서비스 요청을 이 경로로 흡수하면 기획·설계·QA 게이트 전체가 조용히 우회된다.
 
@@ -54,7 +54,7 @@ When the user invokes `/project-init` alone, start with:
 9. **UI 레인** — 어드민·대시보드처럼 밀도·속도가 우선이면 `mui`, 브랜드·디자인 자유도가 우선이면 `tailwind-shadcn`을 권합니다. 어느 쪽으로 할까요? (미정이면 서비스 성격을 알려주시면 제안합니다)
 ```
 
-답변을 받으면 외부 데이터 수집 여부를 먼저 판별한다. 해당하면 `/web-orchestrator`로 위임하고, 아니면 Phase 1부터 순서대로 실행한다.
+답변을 받으면 외부 데이터 수집 여부를 먼저 판별한다. 해당하면 `/wh new`로 위임하고, 아니면 Phase 1부터 순서대로 실행한다.
 
 ## Workflow
 

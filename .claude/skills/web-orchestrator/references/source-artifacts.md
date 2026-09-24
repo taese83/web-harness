@@ -12,7 +12,7 @@ Use this reference when the user already has planning, design, API, or product d
 | Visual design | Figma export, screenshots, screen specs, design QA notes | `_workspace/02_design/layout-spec.md`, `component-spec.md` |
 | Design system | tokens, typography, color, spacing, component inventory | `_workspace/02_design/design-system.md` |
 | API/data | OpenAPI, endpoint table, sample JSON, ERD, mock data | `_workspace/02_design/api-schema.md` |
-| Timeseries | metric schema, stream protocol, dashboard query, retention, aggregation, performance SLO | `_workspace/02_design/timeseries-architecture.md` and related plan/design files |
+| Timeseries | metric schema, stream protocol, dashboard query, retention, aggregation, performance SLO | classified and traced in `_workspace/00_source/` as a timeseries input — `timeseries-architect` writes `_workspace/02_design/timeseries-architecture.md` |
 | **구현 설계·아키텍처** | 아키텍처 결정 문서, 레이어·모듈 구조, 라이브러리 선정 근거, ADR | **`_workspace/00_source/`에만 둔다** — 아래 참조 |
 
 **구현 설계 문서는 정규화하지 않는다.** `_workspace/02_design/solution-design.md`는 `spec.mjs`가
@@ -367,7 +367,7 @@ Treat existing planning, design, API, and product artifacts as read-only source 
 
 - Do not modify, rename, move, reformat, or delete original source files.
 - Do not “fix” PRD, design, OpenAPI, screenshots, or exported files in place.
-- Write normalized outputs only under `_workspace/01_plan` and `_workspace/02_design`.
+- Write normalized outputs only to the files listed in `source-artifact-ingestor` 「출력 파일」 — approval and review records are not normalized outputs.
 - Write source inventory and traceability under `_workspace/00_source`.
 - If source changes are needed, write proposals to `_workspace/00_source/source-change-proposals.md`.
 - Only modify originals when the user explicitly asks for original-file edits as a separate task.

@@ -25,7 +25,7 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
   경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 47,067 bytes <!-- inventory:entry-cost --> 의
+- **오케스트레이터 실행당 고정 계약 로드**: 47,188 bytes <!-- inventory:entry-cost --> 의
   always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 9k 토큰,
   토큰 카운트가 아니라 근사치다. skill 파일 자체(~9k 토큰), 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이
@@ -115,8 +115,10 @@ Phase 4  QA            code, UX, security, browser, performance, state verifier
 설정을 조용히 다시 쓸 수 없다. verifier agent는 read-only다 — 문제를 찾을 수는 있으나 통과하도록
 "고쳐" 넣을 수 없다.
 
-전역 Bash 정책이 agent가 실행할 수 있는 명령을 제한한다: 검증 스크립트는 인자 수준 계약과 함께
-allowlist되고, 그 밖의 것은 best-effort 허용이 아니라 거부된다.
+이 저장소에서는 전역 Bash 정책이 subagent가 실행할 수 있는 명령을 제한한다: 검증 스크립트는 인자 수준 계약과 함께
+allowlist되고, 그 밖의 것은 best-effort 허용이 아니라 거부된다. 플러그인은 이 정책을 싣지 않는다(사용자 자신의 세션까지
+다스리게 되므로). 대신 Bash를 가진 하네스 에이전트는 모두 읽기 전용 verifier라 verifier Bash 훅이 제한하고, 파일을 쓰는
+에이전트에는 Bash가 없다 — 검사기가 이 상태를 고정한다.
 
 ## Runaway 방지
 

@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process'
-import {existsSync} from 'node:fs'
+import {existsSync, readdirSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {AGENT_OWNERSHIP, VERIFIER_AGENTS} from '../agent-registry.mjs'
 import {evaluateGlobalBashPolicy} from '../global-bash-policy-lib.mjs'
@@ -26,6 +26,21 @@ export const validateAgentBoundaries = ({
     if (frontmatter.disallowedTools !== 'Write, Edit') fail(`${relativePath}: verifier must disallow Write, Edit`)
   }
   pass('read-only verifier tool boundaries checked')
+
+  // 플러그인 판본에는 전역 Bash 정책이 없다(build-plugin.mjs PLUGIN_HOOKS) — Bash를 가진 하네스 에이전트는 verifier 훅이
+  // 제한해야 한다. 쓰기 에이전트에 Bash를 주면 Write/Edit 소유권을 셸로 우회한다. 예외는 배포본에 싣지 않는 개발 전용뿐이다.
+  // validate-harness의 Write+Bash 금지를 포함하고 더 넓다 — Write 없는 비-verifier도 셸로는 파일을 바꾼다.
+  // DEV_ONLY_AGENTS는 build-plugin.mjs가 import 시 빌드를 실행하는 스크립트라 소스에서 읽는다(형태가 바뀌면 fail-closed).
+  const devOnlyAgents = new Set([...String(read('.claude/scripts/build-plugin.mjs').match(/DEV_ONLY_AGENTS = new Set\(\[([^\]]*)\]/)?.[1] ?? '')
+    .matchAll(/'([\w-]+)\.md'/g)].map(match => match[1]))
+  for (const file of readdirSync(join(repositoryRoot, '.claude/agents')).filter(name => name.endsWith('.md')).sort()) {
+    const name = file.slice(0, -'.md'.length)
+    const frontmatter = parseFrontmatter(`.claude/agents/${file}`, read(`.claude/agents/${file}`))
+    if (!/\bBash\b/.test(frontmatter.tools ?? '') || VERIFIER_AGENTS.has(name)) continue
+    if (devOnlyAgents.has(name)) continue
+    fail(`.claude/agents/${file}: Bash를 가진 배포 에이전트가 VERIFIER_AGENTS 밖이다 — 플러그인에서는 셸이 제한되지 않아 소유권을 우회한다`)
+  }
+  pass('shipped Bash agents are all verifier-restricted')
 
   // verifier 문서가 자체 Bash 정책이 차단하는 명령을 지시하면 안 된다.
   // 실사례: ux-validator가 `grep -rn`을, code-reviewer가 디렉토리 재귀 rg를 문서화해
@@ -150,6 +165,14 @@ export const validateAgentBoundaries = ({
     ['environment vitest variant config owned', 'environment-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],
     ['tooling arbitrary ts file not owned', 'environment-scaffolder', join(repositoryRoot, 'src/app/App.tsx'), 2],
     // Phase 1 sharded ownership — sharding 계약의 분할 축 대상 5 owner (search-portal 파일럿 실측 결함 4호 회귀 케이스)
+    ['ingestor source record', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/00_source/gap-report.md'), 0],
+    ['ingestor normalized plan', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/01_plan/feature-plan.md'), 0],
+    ['ingestor sharded design section', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/02_design/design-system/tokens.md'), 0],
+    ['ingestor cannot write plan review', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/01_plan/plan-review.md'), 2],
+    ['ingestor cannot write design review', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/02_design/design-review.md'), 2],
+    ['ingestor cannot write visual baseline', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/02_design/visual-baseline-manifest.json'), 2],
+    ['ingestor cannot write preview', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/02_design/preview/index.html'), 2],
+    ['ingestor cannot write solution design', 'source-artifact-ingestor', join(repositoryRoot, '_workspace/02_design/solution-design.md'), 2],
     ['planning context flat output', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context.md'), 0],
     ['planning context sharded index', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context/INDEX.md'), 0],
     ['planning context sharded section', 'planning-facilitator', join(repositoryRoot, '_workspace/01_plan/planning-context/product-frame.md'), 0],
