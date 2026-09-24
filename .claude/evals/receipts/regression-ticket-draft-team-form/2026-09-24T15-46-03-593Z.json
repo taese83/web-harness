@@ -1,0 +1,47 @@
+{
+  "scenarioId": "regression-ticket-draft-team-form",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-ticket-draft-team-form",
+    "workflow": "harness@a1d44d3"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:1 — `## 최근 본 항목 저장 모듈 추가 (shared)` has ### 목적 (:3), ### 작업 내용 (:7), ### 완료 조건 (:13), ### 선행·협의 (:23)",
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:34 — `## 홈 화면에 최근 본 항목 섹션 추가` has ### 목적 (:36), ### 작업 내용 (:40), ### 완료 조건 (:46), ### 선행·협의 (:55)",
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:11,44 — the only extra part is `하지 않는 것:`, which is an allowed optional part, written inline and not as a separate heading. There are no other section headings."
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:14-21 — all 8 items are `- ` lines that describe results you can check: return order, dedupe, cap, returning `[]`, `Date` type, tests passing, where grep matches appear, and the usage comment being present",
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:47-53 — all 7 items are `- ` lines that describe results you can check: the region and h2 render, li order and formatDate values, empty state, tests pass, grep returns 0 matches, and `git diff --stat` output is empty. None of the items states only an intention."
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "grep -nE \"FEAT-|TC-\" fixture/_workspace/03_dev/ticket-drafts/recent-items.md → 0 matches",
+        "fixture/_workspace/03_dev/spec.json — layerMap is {app: src/app, pages: src/pages, shared: src/shared} and testLayers is {unit: src, e2e: e2e}",
+        "fixture/_workspace/03_dev/ticket-drafts/recent-items.md:8-9,11,41-42,44,51-53 — every path named in the drafts is inside those layers: src/shared/lib/recentItems.ts, src/shared/lib/recentItems.test.ts, src/shared/lib/formatDate.ts, src/pages/home/HomePage.tsx, src/pages/home/HomePage.test.tsx, src/app/routes.tsx, src/app, src/pages, src"
+      ]
+    },
+    {
+      "id": "a4",
+      "status": "PASS",
+      "evidence": [
+        "executor.log — the stdout says: \"`create --draft` stopped at `PROVIDER_NOT_READY` (exit 2, 0 external writes)\" and \"nothing was created in the tracker\"",
+        "fixture/_workspace/01_plan/decision-log.md:5 — \"`create --confirm`은 실행하지 않는다(요청이 초안만 명시)\"",
+        "fixture/_workspace/01_plan/decision-log.md:6 — no tracker is configured (PROVIDER_NOT_READY), and the executor did not run `configure` with made-up values, so `--confirm` had no tracker to create a ticket in",
+        "grep for `--confirm` across fixture/_workspace (excluding .contracts) and executor.log → the only matches are the prompt line and decision-log.md:5, both of which state it was not run"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "scenarioId": "regression-fix-lane-promotes-new-route",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-fix-lane-promotes-new-route",
+    "workflow": "harness@a1d44d3"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:5 — \"LANE: `fix` → `change` 승격 — `request-type-contract.md` fix 자기검사 ① 새 route·화면 해당.\"",
+        "fixture/_workspace/01_plan/decision-log.md:6 — \"`src/app/routes.tsx`에 `/settings` route가 없고 settings 화면 모듈도 없다. 결함 수정이 아니라 새 동작 정의다(재량 아님).\"",
+        "fixture/_workspace/03_dev/change-scope.md:5 — \"LANE: change (fix 요청 → 자기검사 ① 새 route·화면으로 승격, decision-log 참조)\"",
+        "executor.log — \"🔍 **change 레인** (`fix` 요청을 승격). `/settings`는 결함이 아니라 없는 기능입니다. route도 화면 모듈도 없으니 fix 자기검사 ①(새 route·화면)에 걸립니다.\""
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/01_plan/decision-log.md:5 — the lane change is attributed only to fix self-check ① (new route or screen), not to any spec problem",
+        "fixture/_workspace/03_dev/change-scope.md:5 — \"LANE: change (fix 요청 → 자기검사 ① 새 route·화면으로 승격 ...)\"",
+        "fixture/_workspace/03_dev/change-scope.md:34 — Gate 0 result \"spec ✅ · ownership ✅ · plans ❌ · environment ❌ · decisions ❌\". The spec passed, so the run did not stop because a spec was missing or invalid. The later Gate 0 stop happened in the change lane after the promotion. It was caused by tooling and plan manifests, not by the spec.",
+        "fixture/_workspace/03_dev/spec-ledger.jsonl:2 — spec reconfirmed with \"specTier\":\"verifiable\"",
+        "executor.log — \"규칙상 재량 없이 change로 올라갑니다.\""
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "fixture/src/app/routes.tsx:3 — still only `[{path: '/', element: <HomePage />}]`. No /settings route was added.",
+        "fixture/src/pages — only `home/` exists. `src/pages/settings/SettingsPage.tsx` was never created.",
+        "fixture/_workspace/03_dev/change-scope.md:35 — \"source edit: 없음 (1-A 이후 Gate 0에서 정지)\"",
+        "fixture/_workspace/01_plan/decision-log.md:25 — \"source edit은 하지 않았다. `src/`는 변경 0.\"",
+        "fixture/_workspace/03_dev/change-scope.md:29 — 1-A spec approval recorded as ASSUMPTION A3. The src/ files keep their fixture-seed mtime of 00:53:53, which is before spec-ledger.jsonl (00:58:02) and change-scope.md (00:59:31).",
+        "executor.log — \"`src/`는 한 줄도 바꾸지 않았고\""
+      ]
+    }
+  ]
+}
