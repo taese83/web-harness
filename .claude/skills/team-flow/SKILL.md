@@ -84,7 +84,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
 **전제: 청구할 기획이 있는가.** `_workspace/01_plan/feature-plan.md`가 없거나 스팩의 `specTier`가
 `unverifiable`이면 나눠 줄 수용 기준이 없다 — 도구 오류가 아니라 `PLAN_SOURCE: absent`의 설계된 결과다
 (`../web-orchestrator/references/provenance-contract.md` §2). 기획을 지금 붙이거나(§3 지연 공급), 이번에
-나눌 범위만 FEAT/TC로 세우거나, 혼자 계속 간다. TC 발명으로 답하지 않는다.
+나눌 범위만 FEAT/TC로 세우거나, 혼자 계속 간다. **기획·디자인 없이 팀이 나눠 개발할 범위면 `create`로 개발 티켓을
+만들어 `pickup`한다** — 이것이 기획 없는 팀의 정식 경로다(예외 인수가 아니다). TC 발명으로 답하지 않는다.
 
 ### `claim --publish` — 발행
 
