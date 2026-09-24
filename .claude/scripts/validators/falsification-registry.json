@@ -3801,6 +3801,22 @@
       "replace": "    const inside = true",
       "test": ".claude/scripts/test-local-settings.mjs",
       "why": "개발자 로컬 설정의 참고 문서가 프로젝트 밖(../·절대 경로)을 가리켜도 리뷰어에게 실린다 — 경로 탈출"
+    },
+    {
+      "id": "release-gate-verdict-binding",
+      "file": ".claude/scripts/release-gate-lib.mjs",
+      "find": "    if (binding.error) errors.push(`${relativePath}: ${binding.error}`)",
+      "replace": "    if (false) errors.push(`${relativePath}: ${binding.error}`)",
+      "test": ".claude/scripts/test-verdict-record.mjs",
+      "why": "검증 에이전트가 FAIL을 냈는데 옮겨 적은 QA 보고서가 PASS여도 릴리스가 통과한다"
+    },
+    {
+      "id": "verdict-binding-status-mismatch",
+      "file": ".claude/scripts/verdict-record-lib.mjs",
+      "find": "  if (recorded.status !== reportStatus) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-verdict-record.mjs",
+      "why": "보고서 판정과 검증 에이전트 판정의 불일치를 대조하지 않는다"
     }
   ]
 }

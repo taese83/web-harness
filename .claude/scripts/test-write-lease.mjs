@@ -146,6 +146,6 @@ test('SubagentStop 해제 훅이 저장소 설정과 플러그인 배포 양쪽�
   assert.ok(stopCommands.some(command => command.includes('release-write-lease.mjs')),
     `저장소 설정의 SubagentStop에 해제 훅이 없다: ${JSON.stringify(stopCommands)}`)
   const build = readFileSync(join(repositoryRoot, '.claude/scripts/build-plugin.mjs'), 'utf8')
-  assert.match(build, /PLUGIN_SUBAGENT_STOP_HOOKS = \['release-write-lease\.mjs'\]/, '플러그인 배포 목록에 해제 훅이 없다')
+  assert.match(build, /PLUGIN_SUBAGENT_STOP_HOOKS = \[[^\]]*'release-write-lease\.mjs'[^\]]*\]/, '플러그인 배포 목록에 해제 훅이 없다')
   assert.match(build, /SubagentStop: PLUGIN_SUBAGENT_STOP_HOOKS\.map/, '플러그인 hooks.json에 SubagentStop이 생성되지 않는다')
 })

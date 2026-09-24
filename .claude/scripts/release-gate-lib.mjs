@@ -21,6 +21,7 @@ import {
   validateRuntimeDataArtifacts,
 } from './runtime-data-contract-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
+import {checkVerdictBinding} from './verdict-record-lib.mjs'
 import {inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
 import {inspectSpecConformance} from './validate-spec-conformance.mjs'
 import {acceptanceSummary, designRoundSummary, resolveSymbols, routeBindingSummary} from './design-evidence-lib.mjs'
@@ -178,7 +179,10 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
       continue
     }
 
-    reports.push({id, path: relativePath, sha256: sha256(source), status})
+    // 옮겨 적은 판정이 검증 에이전트가 낸 판정과 같아야 한다(SubagentStop 기록 — verdict-record-lib).
+    const binding = checkVerdictBinding(projectRoot, id, status)
+    if (binding.error) errors.push(`${relativePath}: ${binding.error}`)
+    reports.push({id, path: relativePath, sha256: sha256(source), status, verdictBound: binding.bound})
     checks.push(...parseChecks(source, id))
     if (id === 'data-quality' && status !== 'PASS') errors.push(`${relativePath}: status is ${status}; external data quality requires PASS`)
     else if (!REPORT_PASSING_STATUSES.has(status)) errors.push(`${relativePath}: status is ${status}`)

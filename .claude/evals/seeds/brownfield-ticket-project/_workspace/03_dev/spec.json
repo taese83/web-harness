@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "specTier": "unverifiable",
+  "acceptanceSource": "absent",
+  "acceptanceRefs": [],
+  "constitution": {
+    "substrate": {
+      "packageManager": {
+        "value": "pnpm",
+        "source": "default"
+      },
+      "language": {
+        "value": "typescript",
+        "source": "default"
+      },
+      "bundler": {
+        "value": "vite",
+        "source": "default"
+      },
+      "testRunner": {
+        "value": "vitest",
+        "source": "default"
+      },
+      "lint": {
+        "value": "eslint",
+        "source": "default"
+      },
+      "formatter": {
+        "value": "prettier",
+        "source": "default"
+      },
+      "e2e": {
+        "value": "playwright",
+        "source": "default"
+      }
+    },
+    "conventions": []
+  },
+  "targetShapes": [
+    "web-app"
+  ],
+  "architecture": {
+    "pattern": "existing",
+    "rationale": "기존 관례 — 앱·화면·공유 세 층"
+  },
+  "communication": [],
+  "concurrency": [],
+  "layerMap": {
+    "app": "src/app",
+    "pages": "src/pages",
+    "shared": "src/shared"
+  },
+  "testLayers": {
+    "unit": "src",
+    "e2e": "e2e"
+  },
+  "libraries": {},
+  "moduleBoundaries": [],
+  "nonGoals": [],
+  "decisions": [],
+  "sourceDigest": {
+    "inputs": [
+      {
+        "path": "_workspace/00_source/design-binding.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/feature-plan.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/tech-stack.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/project-profile.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/api-schema.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/component-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/state-contract.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/integration-overlay.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/layout-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/design-system.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/solution-design.md",
+        "present": true,
+        "sha256": "20a20a3e0afbad0a84f4a28483b12bf4d88e672e4850d55ba59d534f0d517ab9"
+      }
+    ],
+    "combined": "6983820af1956f2ce046b29c731bf524bb8fc6b392884a5044643861fcf3e8fe"
+  }
+}

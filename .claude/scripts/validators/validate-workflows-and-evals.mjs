@@ -719,6 +719,13 @@ export const validateWorkflowsAndEvals = ({
         scenarioIds.add(scenario.id)
         if (!scenario.entrySkill || !scenario.prompt) fail(`${scenario.id}: entrySkill and prompt are required`)
         if (!Array.isArray(scenario.assertions) || scenario.assertions.length === 0) fail(`${scenario.id}: assertions are required`)
+        // 선언한 seed·suite가 실재해야 한다 — 없는 seed는 실행 시점에야 드러나고, 오타 suite는 묶음에서 조용히 빠진다.
+        if (scenario.seed !== undefined && (!/^[a-z0-9-]+$/.test(scenario.seed) || !existsSync(join(claudeDirectory, 'evals', 'seeds', scenario.seed)))) {
+          fail(`${scenario.id}: seed .claude/evals/seeds/${scenario.seed} is missing`)
+        }
+        if (scenario.suites !== undefined && (!Array.isArray(scenario.suites) || scenario.suites.some(name => !['regression'].includes(name)))) {
+          fail(`${scenario.id}: suites must list known suites (regression)`)
+        }
       }
       for (const routingScenario of [
         'grafana-timeseries-dashboard',

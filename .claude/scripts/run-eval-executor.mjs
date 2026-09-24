@@ -22,7 +22,7 @@
 // eval-runs/는 VCS 제외 대상이다 (.gitignore).
 
 import {spawnSync} from 'node:child_process'
-import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
+import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
@@ -97,6 +97,16 @@ const runScenario = ({scenario}) => {
   if (deploy.status !== 0) {
     console.error('fixture에 control plane 배포 실패:\n' + (deploy.stderr || deploy.stdout))
     process.exit(1)
+  }
+  // 시나리오가 선언한 초기 프로젝트 상태(스팩·소스 등) — 행동 시나리오는 빈 fixture가 아니라 진행 중인 프로젝트에서 잰다.
+  // toolchain 재검증이 읽는 package.json·README.md는 위에서 만든 것을 유지한다.
+  if (scenario.seed) {
+    const seedDirectory = join(repositoryRoot, '.claude/evals/seeds', scenario.seed)
+    if (!/^[a-z0-9-]+$/.test(scenario.seed) || !existsSync(seedDirectory)) {
+      console.error(`seed를 찾을 수 없다: ${scenario.seed}`)
+      process.exit(1)
+    }
+    cpSync(seedDirectory, fixture, {recursive: true, filter: source => !/\/(?:package\.json|README\.md)$/.test(source.slice(seedDirectory.length))})
   }
 
   // 결과 효능 A/B(M2 Part 2, docs/efficacy/outcome-efficacy-ab-plan.md)의 암 지시문.
@@ -269,9 +279,30 @@ if (args.includes('--list-runs')) {
   process.exit(0)
 }
 
+// 회귀 묶음 — 시나리오의 `suites`에 이름이 있는 것을 하나씩 **별도 프로세스로** 돌린다(한 시나리오의 실패 종료가
+// 나머지를 멈추지 않게). 계약·프롬프트를 바꾼 릴리스 전에 돌려 에이전트 행동의 회귀를 본다.
+const suiteName = valueAfter('--suite')
+if (suiteName) {
+  const document = JSON.parse(readFileSync(join(repositoryRoot, '.claude/evals/scenarios.json'), 'utf8'))
+  const members = (Array.isArray(document) ? document : document.scenarios ?? []).filter(scenario => Array.isArray(scenario.suites) && scenario.suites.includes(suiteName))
+  if (members.length === 0) { console.error(`suite에 속한 시나리오가 없다: ${suiteName}`); process.exit(2) }
+  const mode = ['--dry-run', '--full', '--run'].find(flag => args.includes(flag))
+  if (!mode) { console.error('동작을 지정할 것: --dry-run | --run | --full'); process.exit(2) }
+  const passThrough = args.filter((value, index) => !['--suite', mode].includes(value) && args[index - 1] !== '--suite')
+  const outcomes = members.map(scenario => {
+    console.log(`\n=== suite ${suiteName}: ${scenario.id}`)
+    const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--scenario', scenario.id, mode, ...passThrough], {stdio: 'inherit'})
+    return {id: scenario.id, status: child.status}
+  })
+  console.log(`\nsuite ${suiteName} (${mode}):`)
+  for (const outcome of outcomes) console.log(`  ${outcome.status === 0 ? 'ok  ' : 'FAIL'} ${outcome.id} (exit ${outcome.status})`)
+  process.exit(outcomes.every(outcome => outcome.status === 0) ? 0 : 1)
+}
+
 const scenarioId = valueAfter('--scenario')
 if (!scenarioId) {
   console.log('Usage: node .claude/scripts/run-eval-executor.mjs --scenario <id> [--dry-run|--run|--grade|--full] [--arm on|off] [--model m] [--permission-mode p] [--timeout-minutes n] [--claude-bin path]')
+  console.log('       node .claude/scripts/run-eval-executor.mjs --suite <name> [--dry-run|--run|--full] [executor options]')
   console.log('       node .claude/scripts/run-eval-executor.mjs --list-runs')
   process.exit(2)
 }
@@ -279,7 +310,7 @@ const loaded = loadScenario(scenarioId)
 
 if (args.includes('--dry-run')) {
   console.log(`scenario: ${scenarioId} (${loaded.catalog} catalog, risk: ${loaded.scenario.risk ?? 'n/a'}, assertions: ${loaded.scenario.assertions.length})`)
-  console.log(`1) fixture 배포: deploy-harness.mjs --target eval-runs/${scenarioId}/<run-id>/fixture`)
+  console.log(`1) fixture 배포: deploy-harness.mjs --target eval-runs/${scenarioId}/<run-id>/fixture${loaded.scenario.seed ? ` + seed .claude/evals/seeds/${loaded.scenario.seed}` : ''}`)
   console.log(`2) executor:     ${claudeBin} -p "${loaded.scenario.entrySkill} ${loaded.scenario.prompt}" --permission-mode ${permissionMode}${model ? ` --model ${model}` : ''}`)
   console.log(`   A/B 암:       ${arm}${arm === 'off' ? ' — runaway 방어 3게이트 미호출 지시가 프롬프트에 추가된다(telemetry run 라벨 +gatesOff)' : ' (평소 동작, telemetry run 라벨 +gatesOn)'}`)
   console.log(`3) grader:       ${claudeBin} -p <grader-prompt> --allowedTools Read,Glob,Grep (read-only)`)

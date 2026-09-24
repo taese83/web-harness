@@ -31,6 +31,21 @@ executor는 전체 앱 빌드를 수행할 수 있어 시나리오당 수십 분
 - `validate-entry-points`가 셋을 검사한다(레인은 `wh/SKILL.md` 선언에서 읽는다).
 `--dry-run`으로 먼저 확인하고 개별 시나리오 단위로 실행할 것. `eval-runs/`는 VCS 제외.
 
+## 회귀 묶음 — 에이전트 행동 (`suites: ["regression"]`)
+
+스크립트 테스트는 CLI·훅이 맞는지만 잰다. 계약·프롬프트·에이전트 문서를 바꾼 릴리스는 **에이전트가 그대로 행동하는지**를
+따로 봐야 한다 — 그 자리가 이 묶음이다. 빈 fixture가 아니라 진행 중인 프로젝트 상태(`seed`)에서 돈다.
+
+```bash
+node .claude/scripts/run-eval-executor.mjs --suite regression --dry-run    # 무엇을 돌리는지(비용 0)
+node .claude/scripts/run-eval-executor.mjs --suite regression --full       # 시나리오마다 run → grade → verify
+```
+
+- **언제**: `.claude/skills`·`.claude/agents`·계약 문서를 바꾼 릴리스 전. 스크립트만 바꾼 릴리스는 생략할 수 있다.
+- **seed**: `.claude/evals/seeds/<이름>/`을 하네스 배포 뒤 fixture에 복사한다(package.json·README.md 제외). 이름·실존은 검사기가 본다.
+- **비용**: 시나리오마다 headless 실행 + 읽기 전용 채점. 묶음은 작게 유지한다 — 넓은 기능 회귀는 개별 시나리오의 몫이다.
+- 결과는 아래 receipt 규칙을 그대로 따른다.
+
 ## 실행 receipt — 커밋 대상 (2026-08-23 신설)
 
 실행 산출물 전체(`eval-runs/`)는 VCS 제외를 유지한다 — fixture·transcript는 크고 재현

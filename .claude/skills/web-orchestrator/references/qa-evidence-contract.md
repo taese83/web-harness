@@ -34,6 +34,7 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - 각 Markdown report의 `## Result`에는 단일 status만 둔다.
 - command를 인용하면 `| Check | Command | Exit Code | Status |` 표를 사용한다.
 - 표의 command/exit/status는 `evidence/{check}.json`과 일치해야 한다.
+- `## Result`는 그 보고서를 낸 검증 에이전트가 **스스로 낸 판정**과 같아야 한다 — 검증 에이전트가 끝날 때 하네스가 최종 응답의 `## Result`를 `evidence/verdicts/<report>.jsonl`에 기록하고(`record-verdict.mjs`), release gate가 대조한다. 보고서는 검증 에이전트의 응답을 그대로 옮기고, 판정을 바꾸려면 검증 에이전트를 다시 돌린다.
 - `qa-manifest.json` schema v3는 release gate script만 real parent·regular file 검사, exclusive mode `0600` temp write, atomic rename으로 생성하며, 신뢰할 수 있는 격리 CI attester의 Ed25519 서명을 필수로 한다.
 - unsigned request, trust root, signed envelope는 각각 `quality-attestation-request.schema.json`, `quality-attesters.schema.json`, `quality-attestation.schema.json`을 따른다. trust key는 canonical SPKI Ed25519 public-key PEM만 허용한다. checkout 밖의 보호된 trust-config digest와 CI identity가 없으면 release는 `BLOCKED`다. request 자체를 곧바로 서명하지 않고 외부 attester가 claims를 독립 검증해 final subject를 구성한다. private key나 보호된 control-plane environment는 project filesystem·project child process에 주입하지 않는다.
 - 모델 기억이나 terminal 화면 요약은 machine evidence가 아니다.

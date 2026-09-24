@@ -113,6 +113,10 @@
 					{
 						"type": "command",
 						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/release-write-lease.mjs"
+					},
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/record-verdict.mjs"
 					}
 				]
 			}
