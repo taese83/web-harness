@@ -36,6 +36,7 @@ export const JIRA_QUESTIONS = [
   {key: 'assigneeField', required: false, ask: 'assignee 표기 — Cloud는 accountId, 자체 호스팅은 name', default: 'accountId'},
   {key: 'components', required: false, ask: '이슈에 붙일 컴포넌트 (쉼표 구분, 그 프로젝트에 실재하는 이름). 비우면 안 붙입니다'},
   {key: 'labels', required: false, ask: '모든 티켓에 공통으로 붙일 라벨 (쉼표 구분). 하네스 라벨(feat-·branch-)에 더해집니다'},
+  {key: 'titlePrefix', required: false, ask: '하네스가 만드는 개발 티켓(create) 제목 앞에 붙일 팀 접두어(예: [FE]). 손 티켓과 제목 규칙을 맞춥니다. 비우면 붙이지 않습니다'},
   // 해결 사유 이름은 인스턴스마다 다르다 — Won't Fix·Duplicate도 「완료 범주」라 상태만 보면 취소된 작업이 끝난 것으로 읽힌다.
   {key: 'completedResolutions', required: false, ask: '작업이 끝났다고 볼 해결 사유 (쉼표 구분). 나머지 해결 사유(Won\'t Fix 등)는 취소로 봅니다', default: 'Fixed,Done'},
   // **컴포넌트 어휘는 팀이 정한다.** `PLAN`이 기획이고 `DEVELOP`이 아니라는 것을 하네스가
@@ -75,6 +76,7 @@ export const GITHUB_QUESTIONS = [
   // GitHub에는 컴포넌트가 없다 — 같은 역할을 라벨이 맡는다(Jira `componentAxis`의 대응).
   {key: 'labelAxis', required: false, ask: '라벨 → 분류 매핑(예: dev=개발 티켓, planning=기획 입력). `개발 티켓`으로 선언한 라벨이 붙은 이슈는 사람이 만든 개발 티켓으로 픽업 판정을 거치고, 인테이크가 공급 원문으로 받지 않습니다'},
   {key: 'labels', required: false, ask: '하네스가 발행·완성하는 WORK 티켓에 붙일 팀 라벨(쉼표 구분)'},
+  {key: 'titlePrefix', required: false, ask: '하네스가 만드는 개발 티켓(create) 제목 앞에 붙일 팀 접두어(예: [FE]). 비우면 붙이지 않습니다'},
 ]
 
 /** provider별 질문. 선택이 정해지기 전에는 무엇을 물을지 모른다. */
@@ -175,6 +177,7 @@ export function buildTicketConfig(provider, answers = {}) {
       github.labelAxis = {...(github.labelAxis ?? {}), [key.slice('labelAxis.'.length)]: value.trim()}
     }
     if (typeof answers.labels === 'string' && answers.labels.trim()) github.labels = answers.labels.split(',').map(item => item.trim()).filter(Boolean)
+    if (typeof answers.titlePrefix === 'string' && answers.titlePrefix.trim()) github.titlePrefix = answers.titlePrefix.trim()
     return Object.keys(github).length > 0 ? {provider, github} : {provider}
   }
   const jira = {}
@@ -265,7 +268,16 @@ export function evaluateConfigWrite({existing = null, next, replace = false}) {
       ...(existing.jira?.transitions || next.jira?.transitions
         ? {transitions: {...(existing.jira?.transitions ?? {}), ...(next.jira?.transitions ?? {})}}
         : {})}}
-    if (next.provider === 'github') delete merged.jira
+    if (next.provider === 'github') {
+      delete merged.jira
+      // github도 병합한다 — `--set titlePrefix=…` 하나에 `labelAxis`(개발 티켓 분류)가 사라지면 pickup이 티켓을 못 알아본다.
+      const github = {...(existing.github ?? {}), ...(next.github ?? {}),
+        ...(existing.github?.labelAxis || next.github?.labelAxis
+          ? {labelAxis: {...(existing.github?.labelAxis ?? {}), ...(next.github?.labelAxis ?? {})}}
+          : {})}
+      if (Object.keys(github).length > 0) merged.github = github
+      else delete merged.github
+    }
     return {ok: true, updating: true, merged}
   }
   if (replace) return {ok: true, switching: {from: existing.provider, to: next.provider}}

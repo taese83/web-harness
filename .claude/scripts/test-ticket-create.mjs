@@ -5,12 +5,13 @@
 //   - 양식은 손 티켓과 같은 네 절(목적·작업 내용·완료 조건·선행·협의)이고, 빠지거나 FEAT·TC가 섞이면 만들지 않는다
 //   - 확인 없이는 쓰기 0 · 같은 제목의 열린 개발 티켓은 만들지 않고 키를 알려 준다(다시 실행해도 두 번 만들지 않는다)
 //   - 만든 티켓은 손 티켓과 같다 — 팀의 개발 티켓 분류가 붙고 마커가 없어, pickup이 판정을 요구한다
+//   - 손 티켓이 경로·비목표를 따로 떼어 쓰는 선택 절(수정 범위·하지 않는 것)과 팀 제목 접두어를 그대로 따른다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {parseTicketDrafts, renderDevTicketBody, validateTicketDrafts} from './ticket/ticket-create.mjs'
+import {applyTitlePrefix, parseTicketDrafts, renderDevTicketBody, validateTicketDrafts} from './ticket/ticket-create.mjs'
 import {runTicketCreate} from './ticket/ticket-create-run.mjs'
 import {createJiraStub} from './ticket/jira-memory-stub.mjs'
 import {createJiraProvider} from './ticket/provider-jira-exec.mjs'
@@ -205,6 +206,85 @@ test('실행부(GitHub): 개발 티켓 라벨로 만들고 본문에 마커가 �
     const again = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: io()})
     assert.equal(again.create.length, 0)
     assert.equal(again.existing.length, 2)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+// 손 티켓 형식 — 경로·비목표를 따로 떼고, 기획·디자인 링크를 끝에 둔다.
+const teamDraftText = `## 발견 화면 골격
+### 목적
+발견 탭 화면의 뼈대를 세워 섹션이 들어올 자리를 만든다.
+
+### 수정 범위
+- apps/user/src/pages/discover
+- apps/user/src/widgets — 섹션 슬라이스
+
+### 작업 내용
+- 섹션 네 개를 widgets 슬라이스로 세우고 페이지가 순서대로 조립한다
+
+### 하지 않는 것
+- 각 섹션의 실제 콘텐츠와 데이터 연결
+
+### 완료 조건
+- 섹션 네 개가 시안 순서대로 자리를 차지한다
+
+### 선행·협의
+- 라우팅은 이미 섰다
+
+상세기획: https://docs.example.com/plan
+디자인: https://design.example.com/file
+`
+
+test('선택 절: 수정 범위·하지 않는 것을 받아 손 티켓 순서로 싣고, 끝의 기획·디자인 링크를 지우지 않는다', () => {
+  const drafts = parseTicketDrafts(teamDraftText)
+  const checked = validateTicketDrafts({drafts})
+  assert.equal(checked.ok, true, checked.errors.join('\n'))
+  const body = renderDevTicketBody(drafts[0], {format: 'jira-wiki'})
+  const order = ['목적', '수정 범위', '작업 내용', '하지 않는 것', '완료 조건', '선행·협의'].map(title => body.indexOf(`h3. ${title}\n`))
+  assert.ok(order.every(index => index >= 0), `절이 빠졌다:\n${body}`)
+  assert.deepEqual([...order].sort((a, b) => a - b), order, `손 티켓과 절 순서가 다르다:\n${body}`)
+  assert.match(body, /\* apps\/user\/src\/pages\/discover/)
+  assert.match(body, /상세기획: https:\/\/docs\.example\.com\/plan\n디자인: https:\/\/design\.example\.com\/file$/)
+  // 선택 절이 없으면 본문에 빈 제목을 싣지 않는다.
+  const [plain] = parseTicketDrafts(draftText)
+  assert.doesNotMatch(renderDevTicketBody(plain), /수정 범위|### 하지 않는 것/)
+  // 쓴다고 해 놓고 비운 선택 절은 막는다 — 빈 제목이 트래커에 실린다.
+  const emptied = structuredClone(drafts[0])
+  emptied.sections.scope = '  '
+  assert.ok(validateTicketDrafts({drafts: [emptied]}).errors.some(error => /「수정 범위」 절이 비었다/.test(error)))
+  // 선택 절이 필수 절을 대신하지 않는다.
+  const noWork = structuredClone(drafts[0])
+  delete noWork.sections.work
+  assert.ok(validateTicketDrafts({drafts: [noWork]}).errors.some(error => /「작업 내용」 절이 없거나 비었다/.test(error)))
+})
+
+test('제목 접두어: 팀 접두어를 한 번만 붙이고, 같은 제목 대조도 접두어가 붙은 제목으로 한다', () => {
+  assert.equal(applyTitlePrefix('발견 화면 골격', '[FE]'), '[FE] 발견 화면 골격')
+  assert.equal(applyTitlePrefix('[FE] 발견 화면 골격', '[FE]'), '[FE] 발견 화면 골격', '접두어를 두 번 붙였다')
+  assert.equal(applyTitlePrefix('발견 화면 골격', ''), '발견 화면 골격')
+  const drafts = parseTicketDrafts(teamDraftText)
+  const found = validateTicketDrafts({drafts, titlePrefix: '[FE]', openTickets: [{ticketKey: 'AOA-65', summary: '[FE] 발견 화면 골격'}]})
+  assert.deepEqual(found.existing, [{title: '발견 화면 골격', ticketKey: 'AOA-65'}], '접두어가 붙은 열린 티켓을 못 알아봐 또 만들려 했다')
+})
+
+test('실행부: 설정의 제목 접두어로 만들고, 다시 실행하면 같은 티켓을 건너뛴다', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-ticket-create-prefix-'))
+  try {
+    writeFileSync(join(root, 'drafts.md'), teamDraftText)
+    const jira = createJiraStub()
+    const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
+      transitions: {'in-progress': '31'}, componentAxis: {DEVELOP: '개발 티켓'}, labels: ['frontend'], titlePrefix: '[FE]'}
+    const io = () => ({provider: createJiraProvider({config: jiraConfig, fetchImpl: jira.fetchImpl, env: {JIRA_TOKEN: 't'}}), ticketConfig: {provider: 'jira', jira: jiraConfig}})
+    const preview = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: io()})
+    assert.deepEqual(preview.create.map(item => item.title), ['[FE] 발견 화면 골격'])
+    const created = await runTicketCreate({root, flags: {draft: 'drafts.md', confirm: true, digest: preview.confirmWith.flags[2]}, io: io()})
+    assert.equal(created.phase, 'CREATED', JSON.stringify(created))
+    assert.equal(jira.issues.get(created.created[0].ticketKey).fields.summary, '[FE] 발견 화면 골격')
+    const againPreview = await runTicketCreate({root, flags: {draft: 'drafts.md'}, io: io()})
+    const again = await runTicketCreate({root, flags: {draft: 'drafts.md', confirm: true, digest: againPreview.confirmWith.flags[2]}, io: io()})
+    assert.equal(again.created.length, 0, '접두어를 붙여 만든 티켓을 다시 실행에서 또 만들었다')
+    assert.deepEqual(again.existing.map(item => item.ticketKey), created.created.map(item => item.ticketKey))
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

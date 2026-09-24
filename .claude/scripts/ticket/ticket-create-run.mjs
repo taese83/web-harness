@@ -5,7 +5,7 @@
 import {existsSync, readFileSync, realpathSync} from 'node:fs'
 import {isAbsolute, relative, resolve, sep} from 'node:path'
 import {canonicalDigest} from './work-analysis.mjs'
-import {devTicketClassification, parseTicketDrafts, renderDevTicketBody, validateTicketDrafts} from './ticket-create.mjs'
+import {applyTitlePrefix, devTicketClassification, parseTicketDrafts, renderDevTicketBody, validateTicketDrafts} from './ticket-create.mjs'
 import {readDevTickets} from './ticket-work-run.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
@@ -16,7 +16,7 @@ export async function runTicketCreate({root, flags = {}, io = {}}) {
   const config = io.ticketConfig ?? {}
   if (typeof flags.draft !== 'string' || !flags.draft) {
     return {ok: false, mode: 'create', phase: 'DRAFT_REQUIRED', externalWrites: 0,
-      guidance: '`--draft <파일>`로 초안을 준다 — `## 제목` 아래 네 절(목적·작업 내용·완료 조건·선행·협의).'}
+      guidance: '`--draft <파일>`로 초안을 준다 — `## 제목` 아래 네 절(목적·작업 내용·완료 조건·선행·협의, 선택: 수정 범위·하지 않는 것).'}
   }
   const path = resolve(root, flags.draft)
   const outside = target => { const offset = relative(realpathSync(resolve(root)), target); return isAbsolute(offset) || offset === '..' || offset.startsWith(`..${sep}`) }
@@ -33,12 +33,14 @@ export async function runTicketCreate({root, flags = {}, io = {}}) {
   }
   const drafts = parseTicketDrafts(readFileSync(path, 'utf8'))
   const open = await readDevTickets({provider, config})
-  const checked = validateTicketDrafts({drafts, openTickets: open.items})
+  // 팀이 손 티켓 제목에 붙이는 접두어(예: `[FE]`) — 하네스 티켓도 같은 제목 규칙을 따른다.
+  const titlePrefix = String((provider.name === 'github' ? config.github?.titlePrefix : config.jira?.titlePrefix) ?? '')
+  const checked = validateTicketDrafts({drafts, openTickets: open.items, titlePrefix})
   if (!checked.ok) return {ok: false, mode: 'create', phase: 'DRAFT_INVALID', errors: checked.errors, externalWrites: 0}
   // Jira Cloud는 평문을 ADF로 감쌀 뿐 서식을 해석하지 않는다 — 절 이름만 적는 평문으로 낸다.
   const format = provider.name === 'jira' && provider.docFormat === 'markdown' ? 'plain' : provider.docFormat ?? 'markdown'
   const labels = provider.name === 'github' ? [...devLabels, ...list(config.github?.labels)] : list(config.jira?.labels ?? config.labels)
-  const items = checked.create.map(draft => ({title: draft.title, body: renderDevTicketBody(draft, {format}),
+  const items = checked.create.map(draft => ({title: applyTitlePrefix(draft.title, titlePrefix), body: renderDevTicketBody(draft, {format}),
     labels, ...(provider.name === 'github' ? {} : {components})}))
   const existing = checked.existing
   // 확인은 **미리본 판본**에 묶는다 — 미리보기 뒤 초안을 고치면 다시 보게 한다(하네스가 쓴 완료 조건을 사람이 보는 유일한 자리다).

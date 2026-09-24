@@ -242,6 +242,15 @@ test('같은 provider 재설정은 병합이다 — 항목 하나 주려다 tran
   assert.deepEqual(merged.jira.labels, ['team-fe'])
 })
 
+test('반증: GitHub titlePrefix는 저장되고, 다시 설정해도 개발 티켓 분류(labelAxis)가 사라지지 않는다', () => {
+  const built = buildTicketConfig('github', {titlePrefix: ' [FE] '})
+  assert.equal(built.github?.titlePrefix, '[FE]', '허용 목록을 통과한 키를 저장하지 않고 버렸다')
+  const existing = {provider: 'github', github: {labelAxis: {dev: '개발 티켓'}, labels: ['frontend']}}
+  const {merged} = evaluateConfigWrite({existing, next: built})
+  assert.deepEqual(merged.github, {labelAxis: {dev: '개발 티켓'}, labels: ['frontend'], titlePrefix: '[FE]'},
+    '접두어 하나 주려다 개발 티켓 분류가 사라지면 pickup이 티켓을 못 알아본다')
+})
+
 test('반증: GitHub provider에 모르는 --set 키를 주면 조용히 버리지 않는다', async () => {
   // 0.23.10부터 github도 설정을 받는다(`host` — 사내 GitHub Enterprise 주소). 그래서 판정이
   // 「이 provider는 설정을 안 받는다」에서 **「그 키가 허용 목록에 없다」**로 바뀌었고,
