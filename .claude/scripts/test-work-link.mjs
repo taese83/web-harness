@@ -28,6 +28,8 @@ const FIXTURE = join(repo, '.claude/evals/fixtures/work-plan/crud')
 const plan = JSON.parse(readFileSync(join(FIXTURE, '_workspace/03_dev/work-plan.json'), 'utf8'))
 const planDigest = canonicalDigest(plan)
 const W = n => `WORK-0000000${n}-0000-4000-8000-00000000000${n}`
+// 개발자 로컬 리뷰 설정(홈의 파일)을 읽는 경로가 실행자 머신 상태에 좌우되지 않게 빈 홈으로 격리한다.
+process.env.HOME = mkdtempSync(join(tmpdir(), 'wh-link-empty-home-'))
 const PR = 'https://github.com/acme/web/pull/42'
 const work = id => plan.workItems.find(entry => entry.workId === id)
 const owned = id => plan.featureBindings.flatMap(binding => binding.acceptanceOwners.filter(owner => owner.workId === id).map(owner => owner.testCaseId))
@@ -192,6 +194,15 @@ test('실행부: PR 제목이 티켓 키로 시작하지 않으면 연결하지 
     const declared = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true},
       io: {...io('feat: 회원 API', 'feature/PF-101-member-api'), ticketConfig: {provider: 'jira', jira: {reviewAgents: ['code-reviewer', 'code-reviewer', ' a11y-reviewer ']}}}})
     assert.deepEqual(declared.review.project, ['code-reviewer', 'a11y-reviewer'], '팀이 선언한 프로젝트 리뷰어가 연결 전 리뷰에 실리지 않았다')
+    // 개발자 로컬 설정(저장소 밖)이 있으면 그 리뷰어·참고 문서가 합쳐지고 출처가 남는다.
+    const home = mkdtempSync(join(tmpdir(), 'wh-link-home-'))
+    try {
+      mkdirSync(join(home, '.claude/web-harness'), {recursive: true})
+      writeFileSync(join(home, '.claude/web-harness/local.json'), JSON.stringify({projects: {[root]: {reviewAgents: ['local-reviewer']}}}))
+      const withLocal = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {'dry-run': true}, io: {...io('feat: 회원 API', 'feature/PF-101-member-api'), home}})
+      assert.deepEqual(withLocal.review.project, ['local-reviewer'])
+      assert.equal(withLocal.review.local?.path, join(home, '.claude/web-harness/local.json'), '로컬 설정 출처가 link 결과에 남지 않았다')
+    } finally { rmSync(home, {recursive: true, force: true}) }
     const present = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {}, io: io('[PF-101] feat: 회원 API')})
     assert.equal(present.ok, true, JSON.stringify(present))
     assert.equal(present.prTitle?.ok, true)

@@ -293,10 +293,15 @@ export const HARNESS_REVIEW_AGENT = 'code-reviewer'
 /**
  * PR 연결 전 리뷰 계획(순수) — 하네스 리뷰어는 늘, 팀이 선언한 프로젝트 리뷰 에이전트는 그 이름대로.
  * 이름을 추측하지 않는다 — 선언이 없으면 프로젝트 리뷰어를 부르지 않는다.
+ * `local`(local-settings.mjs)은 이 개발자에게만 적용되는 리뷰어·참고 문서다 — 출처를 결과에 남긴다.
  */
-export function reviewPlanOf(config, {base = null} = {}) {
+export function reviewPlanOf(config, {base = null, local = null} = {}) {
   const declared = config?.[config?.provider]?.reviewAgents
-  const project = [...new Set((Array.isArray(declared) ? declared : []).map(name => String(name).trim()).filter(Boolean))]
+  const team = (Array.isArray(declared) ? declared : []).map(name => String(name).trim()).filter(Boolean)
+  const project = [...new Set([...team, ...(local?.reviewAgents ?? [])])]
   // 범위는 link가 판정한 기대 base다 — 모르면 null로 둔다(리뷰어가 추정하지 않고 묻는다).
-  return {harness: HARNESS_REVIEW_AGENT, project, base: typeof base === 'string' && base ? base : null, head: 'HEAD'}
+  return {harness: HARNESS_REVIEW_AGENT, project, base: typeof base === 'string' && base ? base : null, head: 'HEAD',
+    ...(local ? {references: local.reviewReferences, local: {path: local.path, reviewAgents: local.reviewAgents,
+      ...(local.missingReferences.length ? {missingReferences: local.missingReferences} : {}),
+      ...(local.errors.length ? {errors: local.errors} : {})}} : {})}
 }

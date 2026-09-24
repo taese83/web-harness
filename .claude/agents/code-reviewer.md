@@ -89,7 +89,8 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 5. **`architecture.pattern`** — `existing`이면 기존 관례를 따랐는지, 특정 패턴이면 그 패턴을
    지켰는지 본다.
 6. **`constitution.conventions`** — 가리키는 규약 문서를 읽고 변경점이 어겼는지 본다(우선순위는
-   solution-design-contract §1). 필드가 없으면 '규약 문서 미조사'로 리포트에 적는다.
+   solution-design-contract §1). 필드가 없으면 '규약 문서 미조사'로 리포트에 적는다. 스폰 프롬프트가 리뷰 참고 문서
+   (`review.references`)를 주면 같은 방식으로 읽는다 — 개발자 로컬 설정이라 스팩 규약보다 앞세우지 않는다.
 
 스팩이 없으면 이 절을 건너뛰고 그 사실을 리포트에 적는다 — 침묵하지 않는다.
 **스팩과 코드가 어긋나면 어느 쪽이 옳은지 판정하지 않는다.** 둘 다 보고하고 owner 후보를

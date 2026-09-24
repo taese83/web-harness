@@ -163,6 +163,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
 5. **PR 직전에 리뷰한다.** `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
    프로젝트 리뷰어(`reviewAgents`, 짧은 이름)를 **같은 범위**(`review.base`...`review.head`)로 부른다. 고칠 결함은 고친 뒤 다시 리뷰하고, 사용자 흐름을
    바꾸는데 e2e(`testLayers.e2e`) 테스트가 없으면 그 사실을 적는다(막지 않는다). 리뷰 결과는 요약하지 않고 결함·근거를 그대로 싣는다.
+   `review.references`가 있으면 리뷰어에게 참고 문서로 넘긴다. `review.local`은 이 개발자만의 설정(`references/tracker-config.md`)이라 그렇다고 알리고,
+   `missingReferences`·`errors`가 있으면 그대로 보여 준다.
 6. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·리뷰 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
 
 > 커밋·푸시는 dev 브랜치 안에서 되돌릴 수 있지만, PR은 리뷰어를 부르고 base로 나가는 **팀을 향한 행위**다.

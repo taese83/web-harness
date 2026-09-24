@@ -32,6 +32,19 @@ cli.mjs configure --provider github --set host=github.example.com
 기록되는 곳은 `_workspace/03_dev/ticket-provider.json`(원장 옆, **팀 공유**)이고 **토큰은 여기
 넣지 않는다** — 허용 키 밖은 거부된다. 인증은 환경변수다.
 
+## 개발자 로컬 리뷰 설정
+
+저장소를 고칠 수 없을 때, PR 전 리뷰(`link`의 `review`)에 **나에게만** 리뷰어·참고 문서를 더한다. 저장소 밖
+홈 디렉터리의 `.claude` 폴더 아래 `web-harness/local.json`에 프로젝트 절대 경로를 키로 둔다(코드: `ticket/local-settings.mjs`).
+
+```json
+{"projects": {"/abs/project": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"]}}}
+```
+
+받는 키는 이 둘뿐이다 — 팀이 같아야 하는 값(제목 접두어·스팩·규약)은 받지 않고 오류로 알린다. 참고 문서는 프로젝트 안의
+실파일만 싣는다. 결과의 `review.local`이 출처를 남긴다. `reviewAgents`의 짧은 이름은 **프로젝트가 정의한** 에이전트다
+(예시의 `code-reviewer`는 저장소 자체 리뷰어 — 하네스 리뷰어는 늘 따로 부른다).
+
 ## 일반화 근거
 
 - **GitHub(github.com)** — 기본값은 기록하지 않는다. `Closes #N`이 자동으로 닫는다.

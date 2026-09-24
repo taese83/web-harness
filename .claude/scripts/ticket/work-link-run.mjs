@@ -11,6 +11,7 @@ import {foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from './work-events.mjs
 import {layerPattern} from '../agent-registry.mjs'
 import {resolveCommentLanguage} from './readiness.mjs'
 import {readDeclaredLanguage, readTicketConfig, reviewPlanOf} from './ticket-config.mjs'
+import {readLocalReviewSettings} from './local-settings.mjs'
 import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
 import {prNamesKey, titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
@@ -174,7 +175,8 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
     ...list(decision.ticketAcceptance?.items).map(item => `- ${lang === 'en' ? 'Added on the ticket (verify in review)' : '티켓에서 더한 조건(리뷰에서 확인)'}: ${item.text ?? item}`)]
     .filter(Boolean).join('\n')
   // 연결 전 리뷰할 에이전트 — 스킬이 dry-run 결과로 리뷰한 뒤 연결한다(리뷰 수행은 CLI가 증명하지 못한다).
-  const review = reviewPlanOf(io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })(), {base: baseRef})
+  const review = reviewPlanOf(io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })(),
+    {base: baseRef, local: readLocalReviewSettings(root, io.home ? {home: io.home} : {})})
   if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, review, prBody, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance}
   const record = {schemaVersion: 1, ticketKey: String(titleKey), workId: decision.workId, prUrl, baseRef: payload.baseRef, accepted,
     // 이 PR이 **어느 티켓 개정**을 보고 개발됐는가 — 대조한 범위일 때만 싣는다.

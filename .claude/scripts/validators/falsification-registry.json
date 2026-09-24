@@ -3793,6 +3793,14 @@
       "replace": "  return pluginBuild ? null : raw",
       "test": ".claude/scripts/test-agent-identity.mjs",
       "why": "런타임이 플러그인 에이전트를 접두 없이 보고하면 정의 없는 이름이 하네스 밖으로 빠져 verifier 제한이 조용히 풀린다"
+    },
+    {
+      "id": "local-settings-references-inside-project",
+      "file": ".claude/scripts/ticket/local-settings.mjs",
+      "find": "    const inside = !isAbsolute(reference) && offset !== '' && offset !== '..' && !offset.startsWith(`..${sep}`) && !isAbsolute(offset)",
+      "replace": "    const inside = true",
+      "test": ".claude/scripts/test-local-settings.mjs",
+      "why": "개발자 로컬 설정의 참고 문서가 프로젝트 밖(../·절대 경로)을 가리켜도 리뷰어에게 실린다 — 경로 탈출"
     }
   ]
 }
