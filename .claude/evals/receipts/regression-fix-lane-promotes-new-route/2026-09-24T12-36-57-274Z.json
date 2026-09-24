@@ -1,0 +1,38 @@
+{
+  "scenarioId": "regression-fix-lane-promotes-new-route",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-fix-lane-promotes-new-route",
+    "workflow": "harness@44ec5a4"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "executor.log: \"**레인:** 요청은 `fix`였지만 자기검사 ①(새 route·화면)에 걸려 `change`로 승격했습니다. `/settings` route가 처음부터 없었으므로 이것은 결함이 아니라 한 번도 정의된 적 없는 동작입니다.\"",
+        "fixture/_workspace/03_dev/change-scope.md:6 \"LANE: change (요청 `/wh fix` → 자기검사 ① 새 route·화면으로 fix 거부·승격)\"",
+        "fixture/_workspace/01_plan/decision-log.md:4 \"트리거: 신규 요구 (`/wh fix` → 자기검사 ①(새 route·화면)으로 `change` 승격)\""
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/change-scope.md:6 records the lane-move reason as self-check ① (new route/screen): \"자기검사 ① 새 route·화면으로 fix 거부·승격\". Missing, stale, or invalid spec is not given as the reason for leaving the fix lane.",
+        "fixture/_workspace/01_plan/decision-log.md:4 gives the same trigger, self-check ① → `change` promotion.",
+        "Falsification attempt: the run later stopped at Gate 0 (change-scope.md STATUS: BLOCKED — environment/decisions, plus plans PLAN_LOCK_SPEC_STALE). That stop came after the change-lane promotion and spec approval, and it concerns stale plan-manifest locks. The spec was not stale when the lane was chosen, so the reason for leaving the fix lane is still the self-check. spec-ledger.jsonl shows the spec was re-confirmed as verifiable during change-lane 1-A."
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "`diff -r fixture/src fixture/.claude/evals/seeds/brownfield-ticket-project/src` → no differences (SRC_IDENTICAL_TO_SEED). No file under src/ was modified at any point.",
+        "fixture/src/app/routes.tsx, fixture/src/pages/home/HomePage.tsx, fixture/src/shared/lib/formatDate.ts all have mtime 21:37 (seed copy time). No fixture/src/pages/settings/ exists.",
+        "fixture/_workspace/03_dev/change-scope.md \"TEST_EVIDENCE: 미수행 — Gate 0 BLOCKED로 source edit를 시작하지 않았다\"; executor.log \"source는 한 줄도 바꾸지 않았습니다\""
+      ]
+    }
+  ]
+}

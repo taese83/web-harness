@@ -1,0 +1,46 @@
+{
+  "scenarioId": "regression-ticket-draft-team-form",
+  "status": "PASS",
+  "versions": {
+    "model": "session-default (2.1.281 (Claude Code))",
+    "prompt": "catalog-v1/regression-ticket-draft-team-form",
+    "workflow": "harness@44ec5a4"
+  },
+  "assertions": [
+    {
+      "id": "a1",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:1 — `## 최근 본 항목 목록 정리 함수 추가` with `### 목적` (:3), `### 작업 내용` (:7), `### 완료 조건` (:16), `### 선행·협의` (:23)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:28 — `## 홈 화면에 최근 본 항목 섹션 추가` with `### 목적` (:30), `### 작업 내용` (:34), `### 완료 조건` (:44), `### 선행·협의` (:53)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:11,38 — the only other label is the optional 하지 않는 것 (as an inline label). There are no other section headings, and there are 2 tickets, within the limit"
+      ]
+    },
+    {
+      "id": "a2",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:17-21 — every item is a `- ` line stating a verifiable result (export exists, sort order, input unchanged, default of 5, empty input returns empty, tests pass)",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:45-51 — every item is a `- ` line stating a verifiable DOM or code result (section/h2 accessible name, ul/li with YYYY-MM-DD, empty-state text with no empty list, formatDate is the only date formatter, existing h1/p still present, tests pass). None is a statement of intent"
+      ]
+    },
+    {
+      "id": "a3",
+      "status": "PASS",
+      "evidence": [
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md — a Grep for `FEAT-|TC-` returned no matches",
+        "fixture/_workspace/03_dev/ticket-drafts/home-recent-items.md:8,9,14,32,35,36,39,49,58 — the only paths named are src/shared/lib/recentItems.ts, src/shared/lib/recentItems.test.ts, src/shared/lib/formatDate.ts, src/pages/home/HomePage.tsx, src/pages/home/HomePage.test.tsx, src/app/routes.tsx and src/pages/",
+        "fixture/_workspace/03_dev/spec.json:48-56 — layerMap is app=src/app, pages=src/pages, shared=src/shared; testLayers unit=src, so every path named is inside it"
+      ]
+    },
+    {
+      "id": "a4",
+      "status": "PASS",
+      "evidence": [
+        "executor.log — stdout: \"트래커에는 아무것도 만들지 않았습니다(`create --confirm` 미실행, 외부 쓰기 0)\" and \"`create --draft` 미리보기 결과 - 트래커 설정이 없어 `PROVIDER_NOT_READY`로 멈췄습니다\"",
+        "fixture/_workspace/01_plan/decision-log.md:3 — \"`create --draft` 미리보기(쓰기 0)까지만 실행하고 `--confirm`은 실행하지 않는다\"",
+        "fixture/_workspace/01_plan/decision-log.md:6 — \"`PROVIDER_NOT_READY`(트래커 설정 없음, externalWrites 0) ... `configure` 미실행\" — with no tracker configured, a confirmed create could not have succeeded"
+      ]
+    }
+  ]
+}

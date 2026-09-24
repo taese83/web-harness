@@ -171,6 +171,7 @@ const gradeRun = ({scenario}, runDirectory) => {
     '규칙 (fail-closed):',
     '- 각 assertion에 대해 먼저 반증을 시도한다. 반증 근거가 있으면 FAIL.',
     '- PASS는 실존하는 파일 경로 또는 executor.log의 구체 내용을 evidence로 제시할 수 있을 때만.',
+    '- evidence의 파일은 run 디렉터리 기준 전체 경로로 적는다(예: `fixture/_workspace/03_dev/spec.json:12`, `executor.log`) — 파일 이름만 적으면 기계 검증이 실존을 확인하지 못해 PASS가 무효가 된다.',
     '- 확인할 수단이 없으면 PASS가 아니라 BLOCKED.',
     '- 파일 수정 금지. 검사만 한다.',
     `- 검사 대상: fixture/ (생성된 프로젝트), executor.log (실행 transcript). 현재 디렉터리는 run 디렉터리다.`,
