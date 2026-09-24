@@ -1,0 +1,9 @@
+{
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 쓴 에이전트와 무관하게 시드와의 해시 대조로 잡는다",
+  "seed": "brownfield-ticket-project",
+  "checks": [
+    {
+      "type": "source-unchanged"
+    }
+  ]
+}

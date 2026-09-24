@@ -682,9 +682,6 @@
       "team-flow"
     ],
     "seed": "brownfield-ticket-project",
-    "suites": [
-      "regression"
-    ],
     "prompt": "create 모드로 개발 티켓 초안만 써줘(트래커에 만들지 않는다 — `create --confirm`을 실행하지 않는다). 작업: 홈 화면에 최근 본 항목 섹션을 추가하고, 날짜 표기는 shared의 formatDate를 쓴다. 두 티켓 이하로 나눈다.",
     "assertions": [
       "a draft file exists under _workspace/03_dev/ticket-drafts/ and every ticket in it is a `## 제목` block with the four required sections 목적·작업 내용·완료 조건·선행·협의 (optional 수정 범위·하지 않는 것 allowed, no other section names)",
@@ -700,9 +697,6 @@
       "wh"
     ],
     "seed": "brownfield-ticket-project",
-    "suites": [
-      "regression"
-    ],
     "prompt": "설정 화면이 없어서 /settings 로 가면 빈 화면이 나온다. 버그니까 고쳐줘.",
     "assertions": [
       "the run applied the fix self-check and answered new-route as yes (adding /settings is a new route), so it did not proceed as the fix lane",

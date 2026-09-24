@@ -3,6 +3,76 @@ import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
 import {deriveRoleSuffixes} from './agent-reachability.mjs'
 
+const PLUGIN_CASE_KEYS = new Set(['schema_version', 'name', 'description', 'tags', 'plugins', 'runs', 'expected_outcome', 'model',
+  'max_turns', 'timeout_seconds', 'allowed_tools', 'append_system_prompt', 'env'])
+const GRADER_TYPES = new Set(['regex', 'tool_used', 'tool_order', 'file_exists', 'llm', 'baseline'])
+const frontmatterMap = text => {
+  const block = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
+  if (!block) return null
+  // `key: value` 한 줄과, 값이 빈 키 아래의 `  - 항목` 목록을 읽는다(목록은 `[a, b]`로 모은다).
+  const keys = new Map()
+  let listKey = null
+  for (const line of block[1].split(/\r?\n/)) {
+    const item = line.match(/^\s+-\s+(.+)$/)
+    if (item && listKey) { keys.set(listKey, `${keys.get(listKey).replace(/\]$/, '')}${keys.get(listKey) === '[' ? '' : ', '}${item[1].trim()}]`); continue }
+    const pair = line.match(/^([A-Za-z_]+):\s*(.*)$/)
+    if (!pair) continue
+    listKey = pair[2].trim() === '' ? pair[1] : null
+    keys.set(pair[1], listKey ? '[' : pair[2].trim())
+  }
+  return {keys, body: block[2]}
+}
+
+/**
+ * 배포본 평가 사례(`claude plugin eval` 형식)를 실행 없이 검사한다. 알 수 없는 키는 러너가 거부하고, 짧은 턴·시간 상한은
+ * 하네스 흐름을 중간에 끊어 실패를 플러그인 탓으로 보이게 한다. 진입은 배포본이 쓰는 이름공간 명령(`/web-harness:`)이어야 한다.
+ */
+export const pluginEvalCaseProblems = casesDirectory => {
+  if (!existsSync(casesDirectory)) return ['.claude/evals/plugin이 없다 — 배포본 회귀 사례가 없다']
+  const problems = []
+  let regressionCases = 0
+  for (const name of readdirSync(casesDirectory).sort()) {
+    const caseDirectory = join(casesDirectory, name)
+    if (!lstatSync(caseDirectory).isDirectory()) continue
+    const promptPath = join(caseDirectory, 'prompt.md')
+    if (!existsSync(promptPath)) { problems.push(`${name}: prompt.md가 없다`); continue }
+    const prompt = frontmatterMap(readFileSync(promptPath, 'utf8'))
+    if (!prompt) { problems.push(`${name}: prompt.md 머리말이 없다`); continue }
+    for (const key of prompt.keys.keys()) if (!PLUGIN_CASE_KEYS.has(key)) problems.push(`${name}: 알 수 없는 키 ${key}`)
+    if (!(Number(prompt.keys.get('max_turns')) >= 20)) problems.push(`${name}: max_turns가 20 미만이거나 없다(기본 10은 하네스 흐름을 끊는다)`)
+    if (!(Number(prompt.keys.get('timeout_seconds')) >= 600)) problems.push(`${name}: timeout_seconds가 600 미만이거나 없다`)
+    if (!prompt.body.trimStart().startsWith('/web-harness:')) problems.push(`${name}: 진입이 배포본 이름공간 명령(/web-harness:)이 아니다`)
+    if (/\bregression\b/.test(prompt.keys.get('tags') ?? '')) regressionCases += 1
+    const gradersDirectory = join(caseDirectory, 'graders')
+    const graders = existsSync(gradersDirectory) ? readdirSync(gradersDirectory).filter(file => file.endsWith('.md')) : []
+    if (graders.length === 0) problems.push(`${name}: 채점기가 없다`)
+    for (const file of graders) {
+      const type = frontmatterMap(readFileSync(join(gradersDirectory, file), 'utf8'))?.keys.get('type')
+      if (!GRADER_TYPES.has(type)) problems.push(`${name}/graders/${file}: 알 수 없는 채점기 type ${type}`)
+    }
+    // 음성 채점기(안 한 것)만으로는 아무것도 하지 않은 실행도 통과한다 — 한 일을 보는 채점기나 사후 검사가 하나는 있어야 한다.
+    const positiveGraders = graders.filter(file => {
+      const grader = frontmatterMap(readFileSync(join(gradersDirectory, file), 'utf8'))?.keys
+      const type = grader?.get('type')
+      if (type === 'regex') return grader.get('match') !== 'not_contains'
+      if (type === 'tool_used') return Number(grader.get('min') ?? 1) >= 1
+      if (type === 'file_exists') return grader.get('exists') !== 'false'
+      return ['tool_order', 'llm', 'baseline'].includes(type)
+    }).length
+    const checksPath = join(caseDirectory, 'checks.json')
+    const positiveChecks = existsSync(checksPath)
+      ? (JSON.parse(readFileSync(checksPath, 'utf8')).checks ?? []).filter(check => ['ticket-drafts-valid', 'file-exists'].includes(check.type)).length : 0
+    if (/\bregression\b/.test(prompt.keys.get('tags') ?? '') && positiveGraders + positiveChecks === 0) {
+      problems.push(`${name}: 한 일을 보는 채점기·사후 검사가 없다 — 아무것도 하지 않은 실행도 통과한다`)
+    }
+    const casePath = join(caseDirectory, 'case.yaml')
+    const scaffold = existsSync(casePath) ? readFileSync(casePath, 'utf8').match(/^\s*scaffold_script:\s*(\S+)/m)?.[1] : null
+    if (scaffold && !existsSync(join(caseDirectory, scaffold))) problems.push(`${name}: scaffold_script ${scaffold}가 없다`)
+  }
+  if (regressionCases === 0) problems.push('regression 태그 사례가 없다 — 릴리스 전 배포본 회귀가 비었다')
+  return problems
+}
+
 /**
  * 시나리오가 부르는 스킬과 단언이 이름 붙인 에이전트가 실재하는가(순수). 없는 스킬은 실행이 곧장 헛돌고,
  * 없는 에이전트를 기대하는 단언은 영영 통과하지 못한다. 에이전트 후보는 실존 에이전트 이름의 마지막 세그먼트
@@ -750,6 +820,7 @@ export const validateWorkflowsAndEvals = ({
       const skillNames = new Set(readdirSync(join(claudeDirectory, 'skills')).filter(name => existsSync(join(claudeDirectory, 'skills', name, 'SKILL.md'))))
       const agentNames = readdirSync(join(claudeDirectory, 'agents')).filter(name => name.endsWith('.md')).map(name => name.slice(0, -'.md'.length))
       for (const {id, problem} of staleScenarioReferences({scenarios, skillNames, agentNames})) fail(`${id}: ${problem}`)
+      for (const problem of pluginEvalCaseProblems(join(claudeDirectory, 'evals', 'plugin'))) fail(`.claude/evals/plugin/${problem}`)
       for (const routingScenario of [
         'grafana-timeseries-dashboard',
         'historical-timeseries-routing',

@@ -31,20 +31,31 @@ executor는 전체 앱 빌드를 수행할 수 있어 시나리오당 수십 분
 - `validate-entry-points`가 셋을 검사한다(레인은 `wh/SKILL.md` 선언에서 읽는다).
 `--dry-run`으로 먼저 확인하고 개별 시나리오 단위로 실행할 것. `eval-runs/`는 VCS 제외.
 
-## 회귀 묶음 — 에이전트 행동 (`suites: ["regression"]`)
+## 릴리스 전 회귀 — 배포본 플러그인 평가 (`.claude/evals/plugin/`)
 
-스크립트 테스트는 CLI·훅이 맞는지만 잰다. 계약·프롬프트·에이전트 문서를 바꾼 릴리스는 **에이전트가 그대로 행동하는지**를
-따로 봐야 한다 — 그 자리가 이 묶음이다. 빈 fixture가 아니라 진행 중인 프로젝트 상태(`seed`)에서 돈다.
+스크립트 테스트는 CLI·훅이 맞는지만 잰다. 계약·프롬프트·에이전트 문서를 바꾼 릴리스는 **배포본이 그대로 행동하는지**를
+따로 본다. 사례는 `claude plugin eval` 형식(`<사례>/prompt.md` + `graders/*.md` + `case.yaml`)이고, 빌드된
+`dist/web-harness-plugin` 사본에 사례와 시드(`seeds/`)를 붙여 격리 실행한다 — 사용자에게 가는 배포본에는 싣지 않는다.
 
 ```bash
-node .claude/scripts/run-eval-executor.mjs --suite regression --dry-run    # 무엇을 돌리는지(비용 0)
-node .claude/scripts/run-eval-executor.mjs --suite regression --full       # 시나리오마다 run → grade → verify
+node .claude/scripts/run-plugin-evals.mjs                          # 전 사례, 사례마다 3회(pass^3)
+node .claude/scripts/run-plugin-evals.mjs --case ticket-draft-team-form --runs 1   # 한 사례 시범
 ```
 
-- **언제**: `.claude/skills`·`.claude/agents`·계약 문서를 바꾼 릴리스 전. 스크립트만 바꾼 릴리스는 생략할 수 있다.
-- **seed**: `.claude/evals/seeds/<이름>/`을 하네스 배포 뒤 fixture에 복사한다(package.json·README.md 제외). 이름·실존은 검사기가 본다.
-- **비용**: 시나리오마다 headless 실행 + 읽기 전용 채점. 묶음은 작게 유지한다 — 넓은 기능 회귀는 개별 시나리오의 몫이다.
-- 결과는 아래 receipt 규칙을 그대로 따른다.
+- **언제**: `.claude/skills`·`.claude/agents`·계약 문서를 바꾼 릴리스 전. `dist` 판본이 소스 판본과 같아야 돈다(CI 빌드 후).
+- **판정**: 사례의 모든 실행이 통과해야 통과다(pass^k). 실행은 비대화라 승인 지점에서 멈추고 보고하는 것이 정답이다.
+- **지표**: receipt(`receipts/plugin/<시각>.json`)에 실행마다 턴·최대 컨텍스트·출력 토큰·비용·에이전트 스폰·
+  하네스 스크립트 소스를 연 횟수(도구 안내가 부족하다는 신호)를 남긴다 — 컨텍스트 절감 같은 변경의 전후 비교 기준이다.
+- **비용**: 실행마다 실제 모델 호출이다. `--max-cost-usd`(기본 40)가 상한이고, 넘으면 부분 결과로 끝난다(종료 2).
+- **사후 검사**: 사례의 `checks.json`을 실행 뒤 작업 공간에서 결정적으로 본다 — `source-unchanged`(시드와 해시 대조, 쓴 에이전트와
+  무관), `ticket-drafts-valid`(배포본의 초안 검사기 그대로), `file-exists`. 배포본에 있는 스크립트를 디스패처가 못 찾은 실행은
+  판정이 아니라 환경 오류다(종료 2) — 부모 세션 PATH의 설치된 플러그인 bin은 러너가 뺀다.
+- **릴리스 채택 조건**: 선택 없이 돈 실행(`selection`의 case·tag·runs가 전부 null — regression 사례 전원·prompt.md의 runs) ·
+  `partial: false` · 환경 오류 없음 · receipt의 `harnessCommit`이 릴리스 커밋이고 `dirty: false`. 러너는 평가 직전에 그 트리로
+  dist를 다시 빌드한다(`distDigest`가 그 빌드다).
+- **보지 않는 것**: 비대화 규약이 첫 ✋에서 멈추므로 승인 이후(Gate 0·Iterate·구현·검증)는 보지 않는다. 채점은 결정적이라 초안
+  문장의 품질(완료 조건이 관측 가능한지)은 판정하지 않는다 — 그런 판단은 능력 평가의 몫이다. 사례 3개·k=3이라 드문 회귀는 놓친다.
+- `run-eval-executor.mjs`의 시나리오(`scenarios.json`)는 저장소 모드 능력 평가로 남는다.
 
 ## 실행 receipt — 커밋 대상 (2026-08-23 신설)
 

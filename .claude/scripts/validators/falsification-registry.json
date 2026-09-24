@@ -3905,6 +3905,78 @@
       "replace": "  hasArtifact(projectRoot, `_workspace/02_design/${name}.md`)",
       "test": ".claude/scripts/test-release-report-policy.mjs",
       "why": "설계 산출물을 분할하면 그 QA 보고서 요구가 조용히 사라져 검증 없이 릴리스된다"
+    },
+    {
+      "id": "plugin-eval-namespaced-entry",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    if (!prompt.body.trimStart().startsWith('/web-harness:')) problems.push(",
+      "replace": "    if (false) problems.push(",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "배포본 평가 사례가 저장소 모드 명령(/wh)으로 들어가 배포본의 이름공간 경로를 시험하지 않는다"
+    },
+    {
+      "id": "plugin-eval-turn-floor",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    if (!(Number(prompt.keys.get('max_turns')) >= 20)) problems.push(",
+      "replace": "    if (false) problems.push(",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "러너 기본 턴 상한(10)이 하네스 흐름을 끊어 플러그인 결함처럼 보이는 실패를 만든다"
+    },
+    {
+      "id": "trace-metrics-peak-not-sum",
+      "file": ".claude/scripts/eval-trace-metrics.mjs",
+      "find": "    peakContextTokens = Math.max(peakContextTokens, context)",
+      "replace": "    peakContextTokens += context",
+      "test": ".claude/scripts/test-eval-trace-metrics.mjs",
+      "why": "최대 컨텍스트를 요청 합계로 재면 전후 비교 기준이 턴 수에 묻힌다"
+    },
+    {
+      "id": "trace-metrics-source-reads",
+      "file": ".claude/scripts/eval-trace-metrics.mjs",
+      "find": "      if (opensScriptSource(block)) scriptSourceReads.push(",
+      "replace": "      if (false) scriptSourceReads.push(",
+      "test": ".claude/scripts/test-eval-trace-metrics.mjs",
+      "why": "모델이 하네스 스크립트 소스를 여는 것(도구 안내 부족의 신호)을 세지 못한다"
+    },
+    {
+      "id": "plugin-eval-positive-floor",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    if (/\\bregression\\b/.test(prompt.keys.get('tags') ?? '') && positiveGraders + positiveChecks === 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "음성 채점기만 있는 회귀 사례는 아무것도 하지 않은 실행도 통과시킨다"
+    },
+    {
+      "id": "eval-check-source-hash",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "      const changed = [...new Set([...before.keys(), ...after.keys()])].filter(file => before.get(file) !== after.get(file))",
+      "replace": "      const changed = []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "승인 전 src 변경(서브에이전트의 쓰기 포함)을 시드 해시 대조로 잡지 못한다"
+    },
+    {
+      "id": "eval-check-draft-validator",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "        const problems = draftValidator.validateTicketDrafts({drafts}).errors.map(error => `ticket-drafts-valid(${name}): ${error}`)",
+      "replace": "        const problems = []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "양식이 틀린 초안을 배포본 초안 검사기로 보지 않아 회귀가 통과한다"
+    },
+    {
+      "id": "eval-check-dispatch-exists-filter",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": ")].filter(name => existsSync(join(distScriptsDirectory, `${name}.mjs`)))",
+      "replace": ")]",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "모델의 사용 실수(없는 이름)를 환경 오류로 세어 정상 실행을 판정에서 뺀다"
+    },
+    {
+      "id": "eval-check-runroot-guard",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "  return real && /^e-[A-Za-z0-9]+$/.test(basename(real)) && tmpRoots.includes(dirname(real)) ? real : null",
+      "replace": "  return real",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "러너 실행 디렉터리가 아닌 자리를 열고 지운다"
     }
   ]
 }
