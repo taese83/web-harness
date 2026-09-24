@@ -16,12 +16,11 @@
 // 실행 수 부족·환경 오류·비용 상한)
 import {chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {spawnSync} from 'node:child_process'
-import {createHash} from 'node:crypto'
 import {delimiter, join, sep} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 import {traceMetrics} from './eval-trace-metrics.mjs'
-import {dispatchMisses, listFiles, runChecks, runRootOf} from './plugin-eval-checks-lib.mjs'
+import {dispatchMisses, runChecks, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const DIST = join(REPOSITORY_ROOT, 'dist/web-harness-plugin')
@@ -51,11 +50,6 @@ const build = spawnSync(process.execPath, [join(REPOSITORY_ROOT, '.claude/script
 if (build.status !== 0) usage(`플러그인 빌드 실패 — ${String(build.stderr || build.stdout).trim().split('\n').slice(-3).join(' | ')}`)
 const builtVersion = JSON.parse(readFileSync(join(DIST, '.claude-plugin/plugin.json'), 'utf8')).version
 
-const treeDigest = root => {
-  const hash = createHash('sha256')
-  for (const file of listFiles(root)) hash.update(`${file}\0`).update(readFileSync(join(root, file))).update('\0')
-  return hash.digest('hex')
-}
 const git = args => String(spawnSync('git', args, {cwd: REPOSITORY_ROOT, encoding: 'utf8'}).stdout ?? '').trim()
 
 // 사례별 기대 실행 수 — 러너가 이보다 적게 돌렸으면 pass^k가 아니다.
@@ -140,6 +134,9 @@ const cases = result.cases.map(testCase => {
   const expected = expectedRuns(testCase.name)
   return {
     name: testCase.name,
+    // 사례를 고치면 옛 receipt의 수치가 새 사례의 결과로 읽히지 않게, 잰 판본을 묶는다.
+    caseDigest: treeDigest(join(CASES, testCase.name)),
+    seedDigest: checks.seed ? treeDigest(join(SEEDS, checks.seed)) : null,
     expectedRuns: expected,
     passAll: runs.length === expected && runs.every(entry => entry.passed),
     incomplete: runs.length !== expected,
@@ -150,7 +147,7 @@ const cases = result.cases.map(testCase => {
 
 const receipt = {
   kind: 'plugin-eval-receipt',
-  schemaVersion: 2,
+  schemaVersion: 3,
   harnessCommit: git(['rev-parse', 'HEAD']),
   dirty: git(['status', '--porcelain', '--', '.claude']) !== '',
   pluginVersion: builtVersion,

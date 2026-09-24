@@ -3,6 +3,7 @@ name: api-contract-typegen
 description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Establishes a single source of truth for API contracts (OpenAPI or Zod) and generates TypeScript types shared between server handlers, MSW handlers, and frontend clients. Prevents drift where client casts responses to a type the server never returns. Use when API and frontend are developed separately, or when the current project has grown its own untyped fetch layer.
 argument-hint: "[openapi path | zod-first | auto-detect]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.0.0
@@ -30,7 +31,7 @@ Read `references/approach-selection.md` before choosing. Then read the matching 
 
 ## Start
 
-`/api-contract-typegen`을 호출하면:
+이 스킬을 적용하면:
 
 > 계약의 source of truth는 무엇인가요?
 

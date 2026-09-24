@@ -12,7 +12,7 @@ maxTurns: 20
 
 ## 입력과 계약
 
-1. `/web-plan` 또는 `/web-orchestrator`의 사용자 요청과 기존 source artifact를 읽는다.
+1. `/wh plan`·`/wh new`의 사용자 요청과 기존 source artifact를 읽는다.
 2. `.claude/skills/web-plan/references/planning-facilitation-contract.md`를 따른다.
 3. `.claude/skills/web-plan/references/planning-readiness-contract.md`를 따른다.
 4. 이미 확인 가능한 내용을 다시 묻지 않고, 필요한 질문은 최대 3개씩 반환한다.

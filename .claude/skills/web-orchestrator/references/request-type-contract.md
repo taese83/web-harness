@@ -1,7 +1,7 @@
 # Request Type Contract
 
 웹 요청을 프로젝트 유형과 별개로 아래 유형 중 하나로 판정하고, 유형은 **레인 다섯**으로 접힌다.
-레인이 게이트를 정한다. 상세는 `approval-checkpoints.md`.
+레인이 게이트를 정한다. 상세는 `approval-checkpoints.md`(change 레인은 `change-lane-checkpoint.md`).
 `plan`은 `/wh plan` 명시 지정 전용이라 아래 표에 행이 없다.
 
 | REQUEST_TYPE | 레인 | 의미 |

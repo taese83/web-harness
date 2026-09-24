@@ -683,7 +683,9 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   const rootIndex = argv.indexOf('--project-root')
   const projectRoot = rootIndex >= 0 ? argv[rootIndex + 1] : undefined
   if (!projectRoot) {
-    process.stderr.write('사용법: node .claude/scripts/spec.mjs --project-root <path>\n')
+    process.stderr.write('사용법: node .claude/scripts/spec.mjs --project-root <path> > <path>/_workspace/03_dev/spec.json\n'
+      + '  stdout이 확정된 스팩이다 — 그대로 저장한다. 원장(spec-ledger.jsonl)은 이 스크립트가 append한다.\n'
+      + '  거부되면 stderr JSON의 error.code(예: SPEC_NOT_SETTLED)와 details가 무엇을 먼저 닫을지 말한다.\n')
     process.exit(2)
   }
   try {

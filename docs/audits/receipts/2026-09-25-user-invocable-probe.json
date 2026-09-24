@@ -1,0 +1,27 @@
+{
+  "kind": "user-invocable-probe",
+  "measuredAt": "2026-09-25",
+  "host": "local (darwin arm64)",
+  "versions": {
+    "claude-code": "2.1.281"
+  },
+  "question": "Does `user-invocable: false` next to `disable-model-invocation: true` hide a skill from the slash menu, for plugin skills and project skills, and what happens when the hidden command is typed?",
+  "fixture": {
+    "plugin probe/skills/probe-shown/SKILL.md": "disable-model-invocation: true",
+    "plugin probe/skills/probe-hidden/SKILL.md": "disable-model-invocation: true; user-invocable: false",
+    "project .claude/skills/local-shown/SKILL.md": "disable-model-invocation: true",
+    "project .claude/skills/local-hidden/SKILL.md": "disable-model-invocation: true; user-invocable: false"
+  },
+  "procedure": [
+    "fresh git repo holding the project skills; the plugin loaded with --plugin-dir",
+    "claude -p \"Reply with the single word OK.\" --plugin-dir <plugin> --output-format stream-json --verbose --model haiku --max-turns 1 — read slash_commands and skills from the init event",
+    "claude -p \"/local-hidden say the marker\" --output-format stream-json --verbose --model haiku --max-turns 2 < /dev/null — read the result event"
+  ],
+  "observations": {
+    "slashCommands": ["local-shown", "probe:probe-shown"],
+    "absentFromSlashCommands": ["local-hidden", "probe:probe-hidden"],
+    "typedHiddenCommand": "result success with num_turns 0 and total_cost_usd 0 — no model request was made and nothing ran"
+  },
+  "documentation": "https://code.claude.com/docs/en/skills.md — user-invocable: false hides a skill from the / menu",
+  "conclusion": "The flag pair hides the skill from the menu in both plugin and project scope. A typed hidden command in print mode is dropped without an error, so a repo-mode eval that enters an internal skill by slash would run nothing and look like an empty pass. Internal-unit evals must enter by reading the SKILL.md, as the orchestrator does. Re-run this probe when Claude Code changes slash-command handling."
+}

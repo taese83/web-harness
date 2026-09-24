@@ -77,4 +77,4 @@ When the user invokes `/pr-drafter` alone, start with:
 - PR을 직접 열지 않는다. `gh pr create` 명령을 제안하는 것으로 끝낸다
 - 직접 `git`을 실행하지 않는다. broker는 repo/global/system Git config, pager, external diff, textconv를 신뢰하지 않고 secret-bearing 경로를 제외한다
 - `--base develop` 결과는 local ref 기준이므로 remote freshness를 가정하지 않는다. status의 untracked path는 Read 도구로 별도 검토한다
-- 플래닝 완료 후 PR을 열어야 한다면 `/web-plan` 산출물을 PR 본문에 연결한다
+- 플래닝 완료 후 PR을 열어야 한다면 `/wh plan` 산출물을 PR 본문에 연결한다

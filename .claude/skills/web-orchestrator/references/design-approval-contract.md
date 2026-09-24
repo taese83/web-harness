@@ -4,12 +4,7 @@
 
 ## Design Preview Loop (Phase 2 기본 흐름)
 
-> **승인은 언제나 프리뷰다. 바탕만 다르다.**(2026-08-28 확정)
->
-> 종전에는 서비스 태생에 따라 승인 표면을 나눠 배정했다 — greenfield는 프리뷰, brownfield는
-> 실행 중인 앱에 프록시로 오버레이를 주입하는 **라이브 델타**. 그 이원화가 CSP·SSR·Shadow DOM
-> 미실증과 신원 대조·anchorReceipt 같은 부수 기제를 전부 끌고 왔고, 표면이 둘이라 규칙도 둘이
-> 됐다. 라이브 델타를 제거하고 **승인 표면을 프리뷰 하나로 모았다.**
+> **승인은 언제나 프리뷰다. 바탕만 다르다.**
 >
 > 달라지는 것은 **프로토타입이 무엇 위에 놓이는가**뿐이다:
 >
@@ -25,11 +20,11 @@
 > **라이브는 승인과 무관하다.** 콘솔 Development>Live 탭은 "지금 무엇이 돌고 있나"를 보는
 > 운영 뷰이며 기획 매칭도 승인도 하지 않는다(`preview/live.json`은 그 대상 선언일 뿐이다).
 
-화면이 있는 greenfield는 Phase 2 Wave 2(component-spec) 완료 후 **프리뷰 루프를 기본 실행**한다. 사용자가 명시적으로 skip하면 생략한다. **이 계약의 프리뷰가 유일한 기획 확인·승인 표면**이다(라이브 델타 제거, 2026-08-28). 기획 UX(닷+호버 배지·기능 사이드바·변경 요청·승인 상태머신)는 공용 런타임 `assets/wh-overlay.mjs`가 제공하고, 승인은 `validate-design-preview.mjs`가 판정한다. **`preview/live.json`({target})은 승인이 아니라 dev 서버 운영 대상 선언**이며 콘솔 Development>Live 탭이 읽는다 — 특정 agent가 생성하지 않는 **운영자 수기 파일**이고, 깨진 JSON은 침묵 폴백 없이 `INVALID_LIVE_CONFIG`로 loud fail한다(델타 킷 레거시 manifest 폴백은 라이브 델타와 함께 제거). 시각 확인이 불필요한 brownfield 변경은 `docs/brownfield-adoption.md`의 L1(변경 관리 루프)로 충분하다.
+화면이 있는 greenfield는 Phase 2 Wave 2(component-spec) 완료 후 **프리뷰 루프를 기본 실행**한다. 사용자가 명시적으로 skip하면 생략한다. **이 계약의 프리뷰가 유일한 기획 확인·승인 표면**이다. 기획 UX(닷+호버 배지·기능 사이드바·변경 요청·승인 상태머신)는 공용 런타임 `assets/wh-overlay.mjs`가 제공하고, 승인은 `validate-design-preview.mjs`가 판정한다. **`preview/live.json`({target})은 승인이 아니라 dev 서버 운영 대상 선언**이며 콘솔 Development>Live 탭이 읽는다 — 특정 agent가 생성하지 않는 **운영자 수기 파일**이고, 깨진 JSON은 침묵 폴백 없이 `INVALID_LIVE_CONFIG`로 loud fail한다(델타 킷 레거시 manifest 폴백은 라이브 델타와 함께 제거). 시각 확인이 불필요한 brownfield 변경은 `docs/brownfield-adoption.md`의 L1(변경 관리 루프)로 충분하다.
 
 프리뷰는 정적 목업이 아니라 **메모리 상태 기반 인터랙티브 프로토타입**이다 — Feature List의 test case(`TC-NNN-N`)가 실제로 동작해야 한다. 목적은 "이렇게 보이는가"를 넘어 **"이렇게 동작하는가"를 사용자 피드백 수준으로** 확인하는 것이다.
 
-0. **방향 승인 — 사람이 결정하는 두 지점 중 첫째(2026-08-23 개정)**: 프리뷰를 만들기 **전에**
+0. **방향 승인 — 사람이 결정하는 두 지점 중 첫째**: 프리뷰를 만들기 **전에**
    방향을 사람과 함께 확정한다. **이것은 메뉴 제시가 아니라 협업이다** — 후보를 보고, 고르고,
    축을 분해해 재조합하고, 마음에 들 때까지 다듬는 왕복이다.
 
@@ -150,10 +145,10 @@ design-system을 먼저 갱신하고 그 베이스로 프리뷰를 재생성한�
 소스" 금지의 해소 경로이기도 하다 — 지어내는 대신 스펙을 갱신해 경유한다).
 **단, 이 "살아있는 공간"의 수명은 v1 구현 검증 완료까지다** — 실행 가능한 실물이 승인 TC
 **전부**의 같은-ID 검증을 통과 기록한 뒤의 새 변경은 프리뷰를 갱신하지 않고 dev server 위
-**현재 승인 표면이 없다**(라이브 델타 제거, 2026-08-28 — 아래 상태 표기). 실물이 생긴 뒤에도 프리뷰를 계속 갱신하는 것은
+**현재 승인 표면이 없다**(아래 상태 표기). 실물이 생긴 뒤에도 프리뷰를 계속 갱신하는 것은
 구현된 동작 전부를 따라잡는 두 번째 앱을 병행 유지하는 일이며, 그 자체가 drift다:
 
-- Phase 2뿐 아니라 v1 구현 검증 **전**의 `iterate` 모드·`/wh change`에서도 프리뷰 루프에 재진입한다. 화면·동작이 바뀌면 스펙을 고치고 프리뷰를 재생성해 다시 확인한다. v1 구현 검증 **후**의 iterate/feature-add는 **승인 표면이 현재 없다**(라이브 델타 제거, 2026-08-28) — 스냅샷 바탕 프리뷰가 그 자리를 채운다.
+- Phase 2뿐 아니라 v1 구현 검증 **전**의 `iterate` 모드·`/wh change`에서도 프리뷰 루프에 재진입한다. 화면·동작이 바뀌면 스펙을 고치고 프리뷰를 재생성해 다시 확인한다. v1 구현 검증 **후**의 iterate/feature-add는 **승인 표면이 현재 없다** — 스냅샷 바탕 프리뷰가 그 자리를 채운다.
 - 라운드 상한(기본 3)은 한 번의 확인 주기 기준이며, 세션을 재개해 계속 다듬을 수 있다. 매 개선은 스펙 갱신 → 프리뷰 재생성 → 재승인 순서를 지킨다(프리뷰 직접 수정 금지).
 - **양방향 동기화**: 구현(Phase 3) 중 디자인이 바뀌면 스펙과 프리뷰도 함께 갱신해 프리뷰가 stale해지지 않게 한다. 프리뷰는 항상 "현재 승인된 디자인"을 반영한다.
 - **파생 상태 판정**: `validate-design-preview.mjs --project {root} --json`은 현재 입력·프리뷰 digest를 마지막 승인 기록과 비교해 `MISSING | INVALID | DRAFT | UNAPPROVED | APPROVED | STALE`을 반환한다. 승인 뒤 source 또는 preview 파일 하나라도 바뀌면 기록을 덮어쓰지 않고 상태를 `STALE`로 파생한다. 재생성·재확인·재승인 전에는 Phase 3 진입과 Console의 "승인됨" 표시를 금지한다.
@@ -161,7 +156,7 @@ design-system을 먼저 갱신하고 그 베이스로 프리뷰를 재생성한�
 
 ## 프리뷰 보존 — 개발과 분리, 언제든 재확인 (필수)
 
-프리뷰는 일회성 산출물이 아니라 **릴리스까지 보존되는 자산**이다. 승인 후에도 언제든 고객에게 다시 보여줄 수 있어야 한다. **릴리스(v1 구현 검증 완료) 이후의 프리뷰는 증거물이다** — "무엇을 근거로 승인했나"를 재확인하는 보존 대상이지 승인 표면이 아니며, 이후 변경의 승인 표면은 **현재 없다**(라이브 델타 제거, 2026-08-28).
+프리뷰는 일회성 산출물이 아니라 **릴리스까지 보존되는 자산**이다. 승인 후에도 언제든 고객에게 다시 보여줄 수 있어야 한다. **릴리스(v1 구현 검증 완료) 이후의 프리뷰는 증거물이다** — "무엇을 근거로 승인했나"를 재확인하는 보존 대상이지 승인 표면이 아니며, 이후 변경의 승인 표면은 **현재 없다**.
 
 - **개발과 물리적으로 분리**: 프리뷰는 `_workspace/02_design/preview/`에만 존재하고 `src/`·production 코드와 섞이지 않는다. Phase 3 구현·Phase 4 QA 어느 agent도 `preview/`를 재료로 쓰거나 수정·삭제하지 않는다(소유자는 `design-preview-builder` 하나뿐). 구현이 진행돼도 프리뷰는 그대로 남는다.
 - **자기완결·무의존이라 언제든 재기동**: 외부 의존성이 0이므로 빌드·설치 없이 `node .claude/scripts/preview-server.mjs --project {root}`만으로 항상 다시 띄울 수 있다. 특정 시점 환경에 묶이지 않는다.
@@ -258,4 +253,4 @@ anchor-map에 없는 나머지 화면은 시각적 소음 없이 바탕으로만
 
 L/XL 또는 `DESIGN_PROTOTYPE_MODE`에서는 read-only `design-reviewer`가 information hierarchy, mode separation, layout stability, states, accessibility를 검토한 뒤 사용자 체크포인트를 연다.
 
-`VISUAL_QA_MODE`이면 `/visual-design-verify`의 target/state/mode와 baseline governance를 Phase 2 승인에 포함한다. prototype mode에서 rendered evidence 또는 visual contract가 없으면 `BLOCKED`다.
+`VISUAL_QA_MODE`이면 `.claude/skills/visual-design-verify/SKILL.md`의 target/state/mode와 baseline governance를 Phase 2 승인에 포함한다. prototype mode에서 rendered evidence 또는 visual contract가 없으면 `BLOCKED`다.

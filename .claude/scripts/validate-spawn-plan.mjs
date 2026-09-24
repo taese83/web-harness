@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // validate-spawn-plan.mjs — 스폰 **사전** 적합성 게이트 (GSD plan-time context-fit 착안).
 //
-// 왜: execution-budget-contract.md의 runaway 예방 규칙 1·2("출력 단위를 계층이 아니라
+// 왜: spawn-decomposition-contract.md의 runaway 예방 규칙 1·2("출력 단위를 계층이 아니라
 // 파일/작은 묶음으로 분해한다", "스펙 재독 세금을 오케스트레이터가 흡수한다")는 지금까지
 // **오케스트레이터에게 주는 산문**이었다. 산문 규칙은 이 하네스 자신의 분류법으로 자기진술
 // 프록시다 — 지키면 지킨 것이고 안 지켜도 아무도 모른다.

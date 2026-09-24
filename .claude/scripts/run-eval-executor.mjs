@@ -25,6 +25,7 @@ import {spawnSync} from 'node:child_process'
 import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {evalEntryText} from './validators/validate-entry-points.mjs'
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = resolve(scriptDirectory, '..', '..')
@@ -137,7 +138,8 @@ const runScenario = ({scenario}) => {
     '--max-outputs, --accept-*)를 쓰거나 게이트를 건너뛰지 마라. 재시도가 소진되면 그것이 ' +
     '명시적 BLOCKER이며, BLOCKER를 기록하고 종료하는 것은 실패가 아니다.'
 
-  const prompt = `${scenario.entrySkill} ${scenario.prompt}${armInstruction}${nonInteractiveInstruction}`
+  // 내부 스킬은 슬래시 메뉴에 없다 — internal-unit은 SKILL.md를 읽게 해서 들어간다(evalEntryText).
+  const prompt = `${evalEntryText(scenario)} ${scenario.prompt}${armInstruction}${nonInteractiveInstruction}`
   const claudeArguments = ['-p', prompt, '--permission-mode', permissionMode]
   if (model) claudeArguments.push('--model', model)
 
@@ -312,7 +314,7 @@ const loaded = loadScenario(scenarioId)
 if (args.includes('--dry-run')) {
   console.log(`scenario: ${scenarioId} (${loaded.catalog} catalog, risk: ${loaded.scenario.risk ?? 'n/a'}, assertions: ${loaded.scenario.assertions.length})`)
   console.log(`1) fixture 배포: deploy-harness.mjs --target eval-runs/${scenarioId}/<run-id>/fixture${loaded.scenario.seed ? ` + seed .claude/evals/seeds/${loaded.scenario.seed}` : ''}`)
-  console.log(`2) executor:     ${claudeBin} -p "${loaded.scenario.entrySkill} ${loaded.scenario.prompt}" --permission-mode ${permissionMode}${model ? ` --model ${model}` : ''}`)
+  console.log(`2) executor:     ${claudeBin} -p "${evalEntryText(loaded.scenario)} ${loaded.scenario.prompt}" --permission-mode ${permissionMode}${model ? ` --model ${model}` : ''}`)
   console.log(`   A/B 암:       ${arm}${arm === 'off' ? ' — runaway 방어 3게이트 미호출 지시가 프롬프트에 추가된다(telemetry run 라벨 +gatesOff)' : ' (평소 동작, telemetry run 라벨 +gatesOn)'}`)
   console.log(`3) grader:       ${claudeBin} -p <grader-prompt> --allowedTools Read,Glob,Grep (read-only)`)
   console.log('주의: executor는 전체 앱 빌드를 수행할 수 있어 수십 분·상당한 토큰이 든다.')

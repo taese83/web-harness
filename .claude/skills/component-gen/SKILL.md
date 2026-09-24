@@ -3,6 +3,7 @@ name: component-gen
 description: [내부] Phase 3가 고른다. 사용자 진입점은 /wh 하나다. Project-scoped component generator for web-harness. Use this skill when the user asks to create a new React component or UI boilerplate that follows the project's TypeScript conventions and its selected UI lane (MUI, or Tailwind + shadcn/ui vendored primitives). Generates code that respects Prettier config, the lane's public styling API rules, and the FSD layer the component belongs to.
 argument-hint: "[component name and responsibility]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.1.0
@@ -19,7 +20,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 ## Start
 
-When the user invokes `/component-gen` alone, start with:
+When this skill is applied without a target, start with:
 
 > 어떤 컴포넌트를 만들어야 하는지 알려주세요. FSD 레이어와 역할을 함께 알면 더 정확하게 만들 수 있어요.
 
@@ -27,7 +28,7 @@ When the user invokes `/component-gen` alone, start with:
 - 컴포넌트 이름과 어느 레이어/슬라이스에 속하는지 (모르면 역할을 설명하면 결정해준다)
 - 레인 라이브러리 컴포넌트를 직접 감싸는 래퍼인지, 새로운 UI를 만드는 것인지
 
-인자(`/component-gen ButtonGroup features/cart`)처럼 명확하면 별도 질문 없이 바로 생성한다.
+대상(`ButtonGroup features/cart`)처럼 명확하면 별도 질문 없이 바로 생성한다.
 
 ## Workflow
 
@@ -73,4 +74,4 @@ When the user invokes `/component-gen` alone, start with:
 - strict TypeScript, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`를 전제로 타입을 작성한다.
 - `noUnusedParameters: true` — 미사용 파라미터는 `_` 접두사를 붙인다.
 - TypeScript 오류가 있는 채로 완료를 선언하지 않는다. current source의 `typecheck` machine receipt PASS가 완료 조건이다.
-- source 변경으로 기존 receipt와 qa-manifest가 stale이므로 release 전 `/web-verify`를 다시 실행한다.
+- source 변경으로 기존 receipt와 qa-manifest가 stale이므로 release 전 `.claude/skills/web-verify/SKILL.md`의 절차로 다시 검증한다.

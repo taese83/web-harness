@@ -3,7 +3,7 @@
 - 기존 문서는 read-only source of truth로 정규화하고 `gap-report.md`의 `BLOCKER`를 해소하기 전 구현하지 않는다.
 - Phase 1/2 체크포인트를 건너뛰지 않는다.
 - 감지 모드는 intake 직후 사용자에게 보여주며 잘못 감지되면 재판별한다.
-- Vite scaffold 순서는 package → tooling → shared foundation → app shell이다. Next profile은 `/next-app` 계약을 따른다.
+- Vite scaffold 순서는 package → tooling → shared foundation → app shell이다. Next profile은 `.claude/skills/next-app/SKILL.md` 계약을 따른다.
 - data owner가 모두 끝난 뒤 `developer`를 실행한다.
 - foundation, surface contract, integrated source 뒤 development Gate A/B/C를 통과하고 실패를 후속 wave에 전가하지 않는다.
 - local domain state, external ingestion, timeseries, analytics, AI mode는 각 선행 설계 계약이 끝나기 전에 구현하지 않는다.

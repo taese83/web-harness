@@ -26,10 +26,10 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 47,188 bytes <!-- inventory:entry-cost --> of
-  always-read contract files. That is a *byte* measurement of exactly those files — roughly 9k
-  tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the skill
-  file itself (~9k tokens), the per-spawn agent definitions, runtime hook injection, and everything
+- **Fixed contract load per orchestrator run**: 47,010 bytes <!-- inventory:entry-cost --> —
+  the orchestrator skill file plus its always-read contract files. That is a *byte* measurement of exactly those files — roughly 15.7k
+  tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the per-spawn
+  agent definitions, runtime hook injection, and everything
   loaded on demand — so treat it as the floor of one dimension, not the total context bill. The
   always/on-demand split is declared by an `<!-- always-read -->` anchor, and both the reference
   count and the byte size are ratcheted: growth fails the build until someone updates the baseline
@@ -88,9 +88,9 @@ compares against the real directories, so this README cannot silently go stale.
 
 Then run **`/web-harness:wh`** from any project directory — it is the single entry point.
 It decides the lane (`plan`, `new`, `change`, `fix`, `verify`); force one by leading with it,
-as in `/web-harness:wh plan ...` (plugin skills are always namespaced). Every other skill is invoked by
-this entry point — calling one directly skips the
-lane banner and its gates. Open the approval console separately with `/web-harness:web-console`.
+as in `/web-harness:wh plan ...` (plugin skills are always namespaced). Internal skills are hidden from
+the slash menu (`user-invocable: false`) and this entry point reads them for you, so the
+lane banner and its gates always apply. Open the approval console separately with `/web-harness:web-console`.
 
 Cost note: the plugin adds roughly 10k tokens of always-on context per session. Disable
 it when you aren't using it.

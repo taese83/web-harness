@@ -1,6 +1,6 @@
 # Library Setup Snippet Catalog
 
-`/lib-advisor`에서 라이브러리 설치 후 초기 설정 코드를 생성할 때 사용한다.
+lib-advisor 스킬이 라이브러리를 설치한 뒤 초기 설정 코드를 생성할 때 사용한다.
 각 스니펫은 현재 프로젝트의 React/TypeScript/rendering profile에 맞게 조정한다. 예시는 React 19 + TypeScript 6 + Vite 8 호환 프로필 기준이다.
 
 ---

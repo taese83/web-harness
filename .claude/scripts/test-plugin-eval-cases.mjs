@@ -4,6 +4,7 @@
 // 고정하는 사실:
 //   - 알 수 없는 머리말 키·짧은 턴·시간 상한·이름공간 없는 진입·채점기 없음·없는 scaffold를 잡는다
 //   - regression 사례에 한 일을 보는 채점기·사후 검사가 없으면 잡는다(음성 채점기만 있으면 무작업 실행이 통과한다) — 목록형 tags도 읽는다
+//   - 시드에 이미 있는 파일을 보는 file-exists 사후 검사는 공허하다고 잡는다 — 시드에 없는 산출물만 한 일의 증거다
 //   - 하네스의 사례는 전부 통과하고 regression 태그 사례가 하나 이상 있다
 import assert from 'node:assert/strict'
 import test from 'node:test'
@@ -32,6 +33,24 @@ test('형식이 어긋난 사례를 잡는다', () => {
     assert.ok(!problems.some(problem => problem.startsWith('good')), `정상 사례를 문제로 잡았다: ${JSON.stringify(problems)}`)
   } finally {
     rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('시드에 이미 있는 파일을 보는 file-exists는 공허하다고 잡는다', () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'wh-plugin-cases-seed-')))
+  try {
+    const write = (path, text) => { mkdirSync(join(base, path, '..'), {recursive: true}); writeFileSync(join(base, path), text) }
+    write('seeds/s/_workspace/web-harness.md', 'marker\n')
+    for (const [name, path] of [['vacuous', '_workspace/web-harness.md'], ['real', '_workspace/01_plan/feature-plan.md']]) {
+      write(`plugin/${name}/prompt.md`, '---\ntags: [regression]\nmax_turns: 60\ntimeout_seconds: 900\n---\n/web-harness:wh change 무언가\n')
+      write(`plugin/${name}/graders/no-write.md`, '---\ntype: tool_used\ntool: Write\nmin: 0\nmax: 0\n---\n')
+      write(`plugin/${name}/checks.json`, JSON.stringify({seed: 's', checks: [{type: 'file-exists', path}]}))
+    }
+    const problems = pluginEvalCaseProblems(join(base, 'plugin'))
+    assert.ok(problems.some(problem => /^vacuous: file-exists _workspace\/web-harness\.md가 시드에 이미 있다/.test(problem)), JSON.stringify(problems))
+    assert.ok(!problems.some(problem => problem.startsWith('real')), `시드에 없는 산출물 검사를 문제로 잡았다: ${JSON.stringify(problems)}`)
+  } finally {
+    rmSync(base, {recursive: true, force: true})
   }
 })
 

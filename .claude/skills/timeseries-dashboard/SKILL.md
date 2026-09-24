@@ -3,6 +3,7 @@ name: timeseries-dashboard
 description: [내부] TIMESERIES_MODE가 고른다. 사용자 진입점은 /wh 하나다. Designs and implements production-oriented time-series dashboards for high-volume historical and realtime data. Use for Grafana-like dashboards, metric charts, date-range exploration, live telemetry, WebSocket/SSE streams, chart performance, downsampling, reconnect/resume behavior, realtime mocks, or migration from mock streams to real APIs.
 argument-hint: "[dashboard requirements or existing project path]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.0.0
@@ -18,7 +19,7 @@ metadata:
 
 ## Start
 
-`/timeseries-dashboard`를 단독 호출하면 다음 정보를 한 번에 확인한다.
+이 스킬을 단독으로 적용하면 다음 정보를 한 번에 확인한다.
 
 1. dashboard 사용자와 핵심 지표
 2. 최대 series 수, 초당 point 수, 화면 표시 point 수
@@ -34,10 +35,10 @@ metadata:
 
 ## 적용 모드
 
-- **신규 프로젝트**: `/web-orchestrator`의 조건부 timeseries branch로 실행한다.
+- **신규 프로젝트**: `web-orchestrator`의 조건부 timeseries branch로 실행한다.
 - **기존 프로젝트**: 현재 `_workspace`, source, package, API client를 읽고 change brief의 `ALLOWED_PATHS`에 해당하는 owner agent만 실행한다.
 - **설계 전용**: `timeseries-architect`까지만 실행하고 구현을 중단한다.
-- **실제 연결**: Mock transport가 완성된 뒤 `/api-connect`와 이 skill의 migration contract를 함께 적용한다.
+- **실제 연결**: Mock transport가 완성된 뒤 `.claude/skills/api-connect/SKILL.md`와 이 skill의 migration contract를 함께 적용한다.
 
 ## Workflow
 

@@ -1,6 +1,6 @@
 # Authentication Patterns
 
-`/auth-setup` 실행 전 반드시 읽는다. 이 문서는 브라우저 credential 탈취와 client-only authorization을 피하기 위한 최소 계약이다.
+`auth-setup`을 적용하기 전에 반드시 읽는다. 이 문서는 브라우저 credential 탈취와 client-only authorization을 피하기 위한 최소 계약이다.
 
 ## 아키텍처 선택
 

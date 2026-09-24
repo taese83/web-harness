@@ -6,12 +6,13 @@
 //   - ticket-drafts-valid는 배포본 초안 검사기로 본다 — 양식이 틀린 초안·초안 없음·티켓 수 초과는 문제
 //   - 환경 오류는 배포본에 **있는** 스크립트를 디스패처가 못 찾은 경우뿐이다 — 없는 이름(사용 실수)은 아니다
 //   - 실행 디렉터리 가드는 tmp 루트 바로 아래 `e-*`만 받는다 — tmp 루트 자신·다른 이름은 null(열지도 지우지도 않는다)
+//   - 트리 digest는 파일 이름과 내용에 묶인다 — 사례를 고치면 receipt의 사례 digest가 바뀐다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {dispatchMisses, runChecks, runRootOf} from './plugin-eval-checks-lib.mjs'
+import {dispatchMisses, runChecks, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 import * as draftValidator from './ticket/ticket-create.mjs'
 
 const withRoot = run => {
@@ -69,4 +70,16 @@ test('실행 디렉터리 가드: tmp 루트 바로 아래 e-*만 받는다', ()
   assert.equal(runRootOf(join(root, 'e-Abc123/out/trace.jsonl'), ['/nowhere']), null, 'tmp 루트 밖을 받았다')
   assert.equal(runRootOf(join(root, 'trace.jsonl'), [root]), null, 'tmp 루트 위를 가리키는 경로를 받았다')
   assert.equal(runRootOf(null, [root]), null)
+}))
+
+test('트리 digest는 파일 이름과 내용에 묶인다 — 사례를 고치면 receipt의 사례 digest가 바뀐다', () => withRoot(root => {
+  write(root, 'case/prompt.md', '요청 A')
+  write(root, 'case/graders/marker.md', 'grader')
+  const before = treeDigest(join(root, 'case'))
+  assert.equal(treeDigest(join(root, 'case')), before, '같은 트리에서 digest가 흔들린다')
+  write(root, 'case/prompt.md', '요청 B')
+  assert.notEqual(treeDigest(join(root, 'case')), before, '요청을 고쳤는데 digest가 같다')
+  write(root, 'case/prompt.md', '요청 A')
+  write(root, 'case/graders/extra.md', 'grader')
+  assert.notEqual(treeDigest(join(root, 'case')), before, '채점기를 더했는데 digest가 같다')
 }))

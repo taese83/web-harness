@@ -57,7 +57,7 @@ maxTurns: 25
 | **record-only** | `00_source/`만 — 스냅샷·`source-index.md`·해시·`gap-report.md` | 기존 산출물이 있다 |
 
 **record-only에서 `01_plan`·`02_design`을 쓰지 않는다.** 기존 산출물의 개정은 레인 절차가
-소유한다(`approval-checkpoints.md`「change 레인 → 개발」①) — 여기서 미리 쓰면 **승인 전에
+소유한다(`change-lane-checkpoint.md` ①) — 여기서 미리 쓰면 **승인 전에
 기획이 재작성되고** 그 승인은 확인할 대상을 잃는다. 새 문서가 기존 산출물과 어긋나는 부분은
 고쳐 쓰지 말고 `gap-report.md`에 차이로 올린다.
 

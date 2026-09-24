@@ -13,8 +13,9 @@
 1. 아래 상황 중 이번 요청과 일치하는 행을 고르고, core 목록을 원문으로 Read한 뒤 시작한다.
 2. 조건 열의 트리거가 성립하면 해당 계약을 추가 로드한다. **판단이 서지 않으면 로드한다** —
    과로드의 비용은 토큰이고 누락의 비용은 계약 위반이다.
-3. 어떤 상황에도 맞지 않거나, 신규 서비스 생성이거나, Plan/Design 산출물이 아직 없으면
-   이 맵을 쓰지 않는다 — `/web-orchestrator` 전체 진입이 정본이다.
+3. 어떤 상황에도 맞지 않거나, 신규 서비스 생성이거나, 만들던 Plan/Design 산출물이 아직 없으면
+   이 맵을 쓰지 않는다 — `web-orchestrator` 전체 진입이 정본이다. `_workspace/web-harness.md` 마커가 산출물이 없는
+   단계를 전부 `absent`로 선언한 프로젝트는 산출물이 없어도 이 맵을 쓴다(없는 기획은 `change-lane-checkpoint.md` ①이 다룬다).
 4. 이 맵은 SKILL.md·`execution-contract.md`의 기존 로드 지시를 재서술한 **인덱스**이며 새
    규칙을 만들지 않는다. 두 문서가 어긋나면 SKILL.md가 이기고, 어긋남을 발견하면 그 자리에서
    이 맵을 고친다(발견자가 수리 책임).
@@ -46,6 +47,7 @@
 |---|---|
 | **요청에 새 문서·링크·시안 이미지·Figma가 붙어 있을 때** | `provenance-contract.md` §6 — **레인 판정 전** 공급 감지. 기존 산출물이 있으면 `00_source/` 기록까지만(record-only). 이 행이 없으면 재진입 경로에서 사용자가 준 문서가 조용히 읽히지 않는다 |
 | 에이전트를 스폰하기 전(승격 QA 포함) | `execution-budget-contract.md` — telemetry 기록 의무 포함 |
+| 산출물을 여러 개 쓰는 빌더 스폰을 계획할 때 | `spawn-decomposition-contract.md` — fit-gate·계획 잠금·재개 |
 | QA 재시도를 결정하기 전 | `retry-policy.md` |
 | `DEPLOY_ONLY` criterion을 fixture 주입으로 검증할 때 | `auth-verification-contract.md` |
 | 기존 source 변경 감지 시(SKILL.md 지시) | `integration-overlay.md` |
@@ -62,7 +64,7 @@
 | v1 구현 검증 **완료 후** (브라운필드) | **승인 표면 없음**(라이브 델타 제거, 2026-08-28) — 스냅샷 바탕 프리뷰가 들어오면 갱신한다 |
 | v1 구현 검증 **전** | `design-approval-contract.md` — 프리뷰가 유일한 살아있는 승인 표면 |
 | `02_design` 산출물을 갱신할 때 | `artifact-sharding-contract.md` + `validate-artifact-sharding.mjs` 실행 |
-| 사용자 확인 체크포인트를 제시할 때 | `approval-checkpoints.md` |
+| 사용자 확인 체크포인트를 제시할 때 | `approval-checkpoints.md` — change 레인 스팩 승인은 `change-lane-checkpoint.md` |
 
 어느 시대인지는 판정 기준(승인 TC 전부가 같은
 ID의 구현 검증 기록으로 통과 확인된 시점)으로 가른다.
@@ -82,7 +84,7 @@ iterate 라운드 산출물을 배포 후보로 낼 때(§Iterate mode: full att
 ## 폴백
 
 신규 서비스 · 모드 미판별 · Phase 1~2 미완 · 위 상황 분류가 애매한 요청 → 이 맵을 버리고
-`/web-orchestrator` 전체 진입. 축약 진입이 애매함을 이기지 않는다.
+`web-orchestrator` 전체 진입. 축약 진입이 애매함을 이기지 않는다.
 
 ## 일반화 근거
 

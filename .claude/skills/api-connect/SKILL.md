@@ -1,8 +1,9 @@
 ---
 name: api-connect
-description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Connects a completed web-harness project to real REST and, when present, WebSocket/SSE endpoints. Replaces Mock adapters, updates environment variables, verifies snapshot/stream contracts, and writes migration guidance. Use after /web-orchestrator completes.
+description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Connects a completed web-harness project to real REST and, when present, WebSocket/SSE endpoints. Replaces Mock adapters, updates environment variables, verifies snapshot/stream contracts, and writes migration guidance. Use after web-orchestrator completes.
 argument-hint: "[API specification or endpoint]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion
 metadata:
   version: 1.0.0
@@ -12,7 +13,7 @@ metadata:
 
 # API Connect
 
-Mock API를 실제 API 엔드포인트로 교체한다. `/web-orchestrator`로 완성된 프로젝트에서 사용한다.
+Mock API를 실제 API 엔드포인트로 교체한다. `web-orchestrator`로 완성된 프로젝트에서 사용한다.
 
 Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` before the first source edit. 연동 대상 adapter와 integration path만 `ALLOWED_PATHS`로 두고 unrelated API client rewrite를 하지 않는다.
 
@@ -20,7 +21,7 @@ OpenAPI가 입력되거나 발견되면 `references/openapi-adoption-contract.md
 
 ## Start
 
-`/api-connect`를 호출하면:
+이 스킬을 적용하면:
 
 > 어떤 API를 연동할까요? 엔드포인트 URL과 연동할 기능을 알려주세요.
 
@@ -43,14 +44,14 @@ OpenAPI가 입력되거나 발견되면 `references/openapi-adoption-contract.md
 9. `runtime-data-contract.json`이 있거나 static snapshot에서 live API로 전환하면 `external-data-ingestion.md`를 읽는다. `ingestion-contract-designer`가 current mode, authoritative source, source precedence, freshness/fallback, build/deployment 계약을 먼저 갱신한다
 10. 응답은 `unknown`에서 runtime schema로 parse하고 query cancellation `AbortSignal`을 실제 client까지 전달한다
 11. 변경 후 `developer`가 success/empty/malformed/timeout/auth/schema drift fixture를 보강하고 사용자 승인 후 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다
-12. `api-contract-verifier`와 조건부 `data-quality-verifier`는 read-only로 판정한다. source 변경 뒤 기존 receipt/manifest를 재사용하지 않고 release 전 `/web-verify`를 실행한다
+12. `api-contract-verifier`와 조건부 `data-quality-verifier`는 read-only로 판정한다. source 변경 뒤 기존 receipt/manifest를 재사용하지 않고 release 전 `.claude/skills/web-verify/SKILL.md`의 절차로 다시 검증한다
 13. 기존 generator가 없을 때만 orval/openapi-typescript/manual-types 중 하나를 제안한다. generator 도입과 dependency 변경은 사용자 확인 후 진행한다.
 
 실제 API 인증 정보, prod API, 데이터 변경이 필요한 요청은 실행 전에 확인한다. 읽기 전용 dev API 확인은 사용자가 제공한 엔드포인트와 인증 방식이 명확할 때만 진행한다.
 
 ## 인증 처리
 
-실제 API에 인증이 필요하면 `/auth-setup`의 저장 전략을 먼저 확정한다. 프로덕션 서비스는 `HttpOnly cookie + CSRF` 또는 OIDC Authorization Code + PKCE를 기본으로 한다. 브라우저 저장소에는 access token과 refresh token을 저장하지 않는다.
+실제 API에 인증이 필요하면 `.claude/skills/auth-setup/SKILL.md`의 저장 전략을 먼저 확정한다. 프로덕션 서비스는 `HttpOnly cookie + CSRF` 또는 OIDC Authorization Code + PKCE를 기본으로 한다. 브라우저 저장소에는 access token과 refresh token을 저장하지 않는다.
 
 OIDC PKCE Bearer 방식을 선택한 경우 access token은 검증된 OIDC SDK의 메모리 저장소에서만 읽는다:
 ```ts

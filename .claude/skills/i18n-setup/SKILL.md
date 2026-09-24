@@ -3,6 +3,7 @@ name: i18n-setup
 description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Introduces internationalization to a web-harness project — locale inventory, message catalog structure, ICU formatting, locale routing strategy, string extraction, and translation completeness checks. Use when a project needs more than one display language or locale-aware formatting.
 argument-hint: "[locales and routing requirements]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.0.0
@@ -29,7 +30,7 @@ intake (최대 3개씩):
 1. **locale 목록과 기본 locale** — 예: `ko`(기본), `en`. 미정 locale은 `ASSUMPTION`
 2. **routing 전략** — URL prefix(`/en/…`) / 저장된 preference / Accept-Language 초기값. 공개 SEO 서비스면 URL prefix + hreflang을 기본 권장
 3. **번역 소스와 워크플로** — 개발자 직접 작성 / 번역 파일 외부 수령 / TMS 연동(범위 밖이면 수령 포맷만 고정)
-4. **라이브러리** — 기본 권장: react-i18next(+ICU 필요 시 i18next-icu), Next profile이면 next-intl. 정확한 버전은 `/lib-advisor`의 현재성 검증을 거쳐 typed broker로 설치한다. 하드코딩 버전을 이 스킬이 단정하지 않는다
+4. **라이브러리** — 기본 권장: react-i18next(+ICU 필요 시 i18next-icu), Next profile이면 next-intl. 정확한 버전은 `.claude/skills/lib-advisor/SKILL.md`의 현재성 검증을 거쳐 typed broker로 설치한다. 하드코딩 버전을 이 스킬이 단정하지 않는다
 
 ## Workflow
 

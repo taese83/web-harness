@@ -3,6 +3,7 @@ name: mock-service-setup
 description: [내부] Phase 3 스팩이 고른다. 사용자 진입점은 /wh 하나다. Introduces MSW (Mock Service Worker) into a web-harness project so frontend can develop and test against a shared contract without a running backend. Sets up handlers, fixtures, browser + node integration, contract-aligned response schemas, and enable/disable switches. Use when API and frontend are being developed separately, or when offline/CI reproducibility is required.
 argument-hint: "[endpoint list or api-schema path]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.0.0
@@ -29,7 +30,7 @@ Read `references/msw-contract.md` and `references/fixture-strategy.md` before wr
 
 ## Start
 
-`/mock-service-setup`을 호출하면:
+이 스킬을 적용하면:
 
 > 어떤 API를 mock으로 만들까요? `_workspace/02_design/api-schema.md`, OpenAPI 파일, endpoint 목록 중 하나를 알려주세요.
 

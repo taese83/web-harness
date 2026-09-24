@@ -54,12 +54,9 @@ metadata:
 
 ### 1-B. 공급원 확인 — `new` 레인에서만
 
-종전에는 `new`가 곧 "Phase 1부터 전부 만든다"였다. 그래서 **이미 PRD와 시안을 가진 사용자는
-같은 것을 다시 만들라는 요구**를 받았고, 기획을 세울 생각이 없는 사용자에게는 우회 말고
-길이 없었다. 우회하면 게이트가 통째로 빠진다 — 이 스킬이 존재하는 이유와 정반대다.
-
-그래서 `new`는 착수 전에 **각 단계의 공급원을 묻는다**(정본:
-`../web-orchestrator/references/provenance-contract.md` §1).
+`new`는 착수 전에 **각 단계의 공급원을 묻는다**(정본:
+`../web-orchestrator/references/provenance-contract.md` §1) — 이미 가진 PRD·시안을 다시 만들게 하지 않고,
+기획 없이 가려는 사용자가 게이트를 통째로 우회하지 않게 한다.
 `change`·`fix`·`verify`는 이 3문항을 묻지 않는다 — 산출물이 이미 있거나 source를 바꾸지 않는다.
 **다만 어느 레인이든 요청에 새 문서·링크·시안·Figma가 붙어 있으면 먼저 정규화한다**
 (`provenance-contract.md` §6). 진입 방식이 게이트 강도를 바꾸지 않듯, 사용자가 준 것을
@@ -98,7 +95,7 @@ metadata:
 **디자인 ④의 대가는 여기서 목록으로 보여줄 수 없다** — 조건(빈 상태·오류·권한 없음)은
 `ux-brief`의 정보 위계 표가 세우고, 이 시점은 **그 표가 서기 전**이다(기획 ①·②로 문서를
 가져왔더라도 아직 정규화 전이다). 그래서 성질만 말한다: 디자인 부재는 기획 부재와 달리
-**어느 인계에서도 막히지 않으며**(실측 2026-09-04, 같은 §2), 조건별 결정이 사라지는 것이 아니라
+**어느 인계에서도 막히지 않으며**(같은 §2), 조건별 결정이 사라지는 것이 아니라
 구현자에게 넘어간다. **그 목록은 조건 표가 서는 즉시 보여준다** — `approval-checkpoints.md`
 Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent` 유지 여부를 한 줄로 확인한다.
 **기획도 ④면 그 체크포인트가 서지 않으므로** 첫 표시는 개발 착수 직전이 된다
@@ -121,7 +118,7 @@ Phase 1 → 2에서 화면·조건 이름으로 제시하고, 거기서 `absent`
 | `plan` | `../web-plan/SKILL.md` — Phase 1만 돌고 멈춘다 | `plan-reviewer` readiness(`PASS`\|`NEEDS_DECISION`\|`BLOCKED`). **Phase 1 → 2 승인 체크포인트는 여기서 돌지 않는다** — `/wh new`(플러그인: `/web-harness:wh new`)로 이어질 때 돈다 |
 | `new` (기획·디자인 `generated`\|`supplied`) | `../web-orchestrator/SKILL.md`의 Phase 1~4 | Phase 1·2 체크포인트 |
 | `new` (기획 또는 디자인 `absent`) | 같은 SKILL의 공급원 조합 실행 — `absent` 단계의 wave만 건너뛰고 Phase 3·4는 동일 | `approval-checkpoints.md`의 「기획·디자인 `absent` 진입 → 개발」 |
-| `change` | `../web-orchestrator/references/execution-contract.md`의 Iterate 루프 | **1-A ✋스팩 승인**(`approval-checkpoints.md`) — 사람 티켓 작업은 `specApproval: required`일 때만 |
+| `change` | `../web-orchestrator/references/execution-contract.md`의 Iterate 루프 | **1-A ✋스팩 승인**(`change-lane-checkpoint.md`) — 사람 티켓 작업은 `specApproval: required`일 때만 |
 | `fix` | 같은 Iterate 루프, 1-A 건너뜀 | 유형별 보존 증거 |
 | `verify` | `../web-verify/SKILL.md` | 검증자는 read-only. **준비 단계는 source를 쓴다**(`environment-scaffolder`·`developer`) — 착수 전 ✋승인, 거절하면 준비가 필요한 검사는 `BLOCKED` |
 

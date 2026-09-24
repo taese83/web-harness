@@ -217,7 +217,7 @@ record-only인 이유: ingestor는 `01_plan/feature-plan.md`를 직접 쓰므로
 | 레인 | 정규화 결과를 어떻게 쓰는가 |
 |---|---|
 | `new` | 산출물이 없으므로 full 정규화. §4 조립 규칙 그대로, 해당 단계 공급원이 `supplied`가 된다 |
-| `change` | record-only. `00_source/`의 결과가 `approval-checkpoints.md`「change 레인 → 개발」①의 **기획 개정 입력**이 되고, 개정과 ✋승인은 거기서 일어난다. 개정할 기획이 없던 프로젝트면 이것이 §3 지연 공급의 실행이다 — `absent` → `supplied` 승격 |
+| `change` | record-only. `00_source/`의 결과가 `change-lane-checkpoint.md` ①의 **기획 개정 입력**이 되고, 개정과 ✋승인은 거기서 일어난다. 개정할 기획이 없던 프로젝트면 이것이 §3 지연 공급의 실행이다 — `absent` → `supplied` 승격 |
 | `fix` | record-only. 동작을 보존하므로 기획·디자인을 갱신하지 않는다 — 이번 변경에 쓰지 않으며 **그 사실을 사용자에게 말한다**(받아서 무시하는 것과 받아서 안 쓴다고 알리는 것은 다르다) |
 
 **같은 것을 두 번 넣지 않는다.** 재정규화 여부는 `00_source/` 인벤토리의 SHA-256 대조로 판정한다 —

@@ -2,6 +2,7 @@
 name: web-verify
 description: [내부] verify 레인에서 /wh가 호출한다. 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 4 (QA) of the web-harness independently. Use to re-run quality checks on an existing project without rebuilding from scratch.
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 argument-hint: "[검증 대상 프로젝트 경로 (선택)]"
 metadata:
@@ -68,7 +69,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 
 ## 실행
 
-`/web-verify`를 입력하면 먼저 검증 대상 프로젝트 경로를 확인한다. 현재 디렉토리에 `package.json`이 없으면:
+`/wh verify`로 들어오면 먼저 검증 대상 프로젝트 경로를 확인한다. 현재 디렉토리에 `package.json`이 없으면:
 
 > 검증할 프로젝트 경로를 알려주세요. (예: `my-app/client`)
 
@@ -112,7 +113,7 @@ FAIL 항목은 아래 형식으로 출력한다:
 ❌ FAIL: qa-code.md
   원인: src/features/xxx/ui/Foo.tsx:12 — TS2345 타입 불일치
   수정 agent: developer (minimal-change-contract 적용)
-  다음 단계: 수정 후 /web-verify를 다시 실행
+  다음 단계: 수정 후 /wh verify를 다시 실행
 ```
 
 직접 source를 수정하지 않는다. 수정은 `retry-policy.md`의 owner agent로 넘긴다.

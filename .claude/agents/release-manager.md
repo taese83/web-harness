@@ -72,9 +72,9 @@ node .claude/scripts/preview-server.mjs --project .   # http://localhost:4173
 ```
 `design-review.md`의 Preview Approval(승인 SHA-256·통과 TC)을 함께 링크한다.
 
-## Connect the real API (/api-connect)
+## Connect the real API (/wh change)
 1. React/Vite는 공개 API base URL 계약을, Next.js는 server-only/private env와 명시적으로 공개 가능한 `NEXT_PUBLIC_*` 계약을 구분한다
-2. `/api-connect` 실행: "GET /api/metrics를 실제 API로 연동해줘"
+2. `/wh change GET /api/metrics를 실제 API로 연동해줘` 실행(플러그인 설치면 `/web-harness:wh change …`)
 3. The src/mocks/ folder is enabled only in development, so production is unaffected
 
 timeseries architecture가 있으면 snapshot endpoint, stream endpoint, message version, cursor/resume retention, heartbeat, aggregation resolution, staging performance fixture를 함께 문서화한다.
@@ -83,9 +83,9 @@ analytics architecture가 있으면 metric/dimension catalog, selected chart typ
 
 AI architecture가 있으면 model gateway, provider와 prompt version, tool scope·approval, data source·ACL, runtime budget, trace·redaction, eval baseline, Mock에서 실제 provider·tool로 전환하는 순서와 rollback을 함께 문서화한다.
 
-## Modify the design (/component-gen)
+## Modify the design (/wh change)
 - Theme change: edit src/app/theme.ts
-- 컴포넌트 수정: `/component-gen` 실행
+- 컴포넌트 수정: `/wh change <바꿀 컴포넌트와 내용>` 실행
 
 ## Add a feature (/wh change)
 - `/wh change 알람 기능을 추가해줘`

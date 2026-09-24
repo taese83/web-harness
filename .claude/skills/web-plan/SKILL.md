@@ -3,6 +3,7 @@ name: web-plan
 description: [내부] `/wh plan` 레인에서 /wh가 호출한다(Phase 1만 돌고 plan-reviewer readiness에서 멈춘다 — Phase 1 → 2 승인 체크포인트는 `/wh new`가 돈다). 사용자 진입점은 /wh 하나다 — 직접 호출하면 레인 표시와 게이트 안내를 받지 못한다. Runs only Phase 1 (Planning) of the web-harness independently with product-first intake, UX risk review, data strategy, effort trade-offs, and readiness validation before design or implementation.
 argument-hint: "[service description]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent
 metadata:
   version: 1.3.0
@@ -18,7 +19,7 @@ metadata:
 
 ## 실행
 
-`/web-plan {서비스 설명}`을 입력하면:
+`/wh plan {서비스 설명}`으로 들어오면:
 
 0. **공급 취합 — 계획보다 먼저.** 요청에 기획 문서·링크가 붙어 있으면 `source-artifact-ingestor`로
    `_workspace/00_source/`에 원문을 보존한다(`/wh new`의 0-A와 같은 규칙 — 정본

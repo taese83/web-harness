@@ -25,7 +25,7 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 | `web-app` | `design-system-architect` · `layout-designer` · `component-designer` | `WEB_PROFILE` 파이프라인(SKILL.md Phase 3) | `browser-verifier` · `ux-validator` · 조건부 `seo-verifier` |
 | `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `environment-scaffolder`(패키지·빌드·테스트 설정) → `developer`(구현·단위 테스트·문서) | `pack-verifier` |
 | `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 두 단계 | `pack-verifier` |
-| `serverless-functions` | `api-schema-designer` | `/vite-serverless-hybrid` 계약의 `api/` handler | `api-contract-verifier` |
+| `serverless-functions` | `api-schema-designer` | `.claude/skills/vite-serverless-hybrid/SKILL.md` 계약의 `api/` handler | `api-contract-verifier` |
 
 Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·integration·security·api-contract·test)는 형태와 무관하게
 `release-report-policy.mjs`의 `BASE_REPORTS`가 요구한다.
@@ -48,13 +48,13 @@ Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·int
 
 | 필요한 판단 | 스팩의 어디를 보나 | 조건이면 |
 |---|---|---|
-| MSW handler | `libraries.mock` — `choice`가 `none`이 아니고 기본 셋업 이상이면 | `/mock-service-setup` |
-| client/server 계약 | `communication` + `_workspace/02_design/api-schema.md` 실존 | `/api-contract-typegen` |
-| 서버 DB | `libraries`에 DB 역할(postgres·sqlite·mysql 계열) | `/server-db-migration` |
-| 서버 OAuth | `libraries`에 auth 역할, `communication`에 서버 왕복 | `/auth-setup` |
-| 다국어 | `libraries.i18n` | `/i18n-setup` |
+| MSW handler | `libraries.mock` — `choice`가 `none`이 아니고 기본 셋업 이상이면 | `.claude/skills/mock-service-setup/SKILL.md` |
+| client/server 계약 | `communication` + `_workspace/02_design/api-schema.md` 실존 | `.claude/skills/api-contract-typegen/SKILL.md` |
+| 서버 DB | `libraries`에 DB 역할(postgres·sqlite·mysql 계열) | `.claude/skills/server-db-migration/SKILL.md` |
+| 서버 OAuth | `libraries`에 auth 역할, `communication`에 서버 왕복 | `.claude/skills/auth-setup/SKILL.md` |
+| 다국어 | `libraries.i18n` | `.claude/skills/i18n-setup/SKILL.md` |
 | 관측 | `libraries`에 observability 역할 | 해당 구현을 `developer`가 |
-| serverless 표면 | `targetShapes`에 `serverless-functions` | `/vite-serverless-hybrid` |
+| serverless 표면 | `targetShapes`에 `serverless-functions` | `.claude/skills/vite-serverless-hybrid/SKILL.md` |
 
 **스팩이 없으면 이 판단을 하지 않는다** — 감지로 되돌아가지 않는다. 스팩 없이 Phase 3에
 들어왔다면 그것부터 세운다(계약 §0-1).

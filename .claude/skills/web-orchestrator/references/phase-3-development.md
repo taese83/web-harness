@@ -1,7 +1,6 @@
 # Phase 3 — 개발 (순서 있음)
 
 `web-orchestrator`의 Phase 3 본문이다. **Phase 2 체크포인트를 통과한 시점에 읽는다**(선행 로드 금지).
-SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근거와 한계는 `docs/protected-core.md` §4.
 
 `_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. **`spec.json`의 `designPreview.policy`가 `skip`이면 `SKIPPED`로 통과한다** — 프로젝트가 프리뷰를 만들지 않기로 선언한 경우다. 다만 `skip`인데 프리뷰 디렉터리가 남아 있으면 `OPT_OUT_CONFLICT`로 막는다(선언과 실물이 어긋난 것을 조용히 넘기지 않는다). 선언이 없으면 종전대로 `APPROVED`를 요구한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
 
@@ -17,7 +16,7 @@ SKILL.md 본문에서 시점 로드로 강등했다(2026-08-27) — 강등 근�
 시점에 build·test·lint 중 무엇도 실행된 적이 없다.**
 
 두 에이전트는 이 사실을 정직하게 보고한다("not done — 결과를 지어내지 않겠다"). 그 줄을 넘기면
-검증되지 않은 산출물이 "구현 완료"로 보이고, 사용자가 전부 손으로 확인하게 된다(2026-09-01 실측).
+검증되지 않은 산출물이 "구현 완료"로 보이고, 사용자가 전부 손으로 확인하게 된다.
 
 실행 검증은 Bash를 가진 별도 에이전트가 한다. **Phase 3 체크포인트에서 무엇이 아직 실행되지
 않았는지 사용자에게 명시하고 Phase 4로 넘긴다.**
@@ -112,15 +111,14 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
 
 프로필은 **스팩 확정 전에** 해석돼 있어야 한다(§6) — `project-profile.json`이 `LOCK_INPUTS`라 여기서 처음 만들면 확정한 스팩이 곧바로 낡는다. 아직 없으면 `web-profile-contract.md`의 resolver를 실행하고 **스팩을 재확정한다.** 이때 intake에서 판별한 요청 언어를 `outputLanguage`로 프로필에 병합하고 산출 스폰마다 주입한다 — 규약·검사는 `development-gates-contract.md` Gate L. 기존 project는 `--requested auto`, greenfield는 tech-stack의 명시 profile/provider/deployment/capability를 전달한다. resolver는 crawler script, ingestion package, scheduled refresh workflow를 발견했는데 두 ingestion 계약 또는 `external-ingestion` capability가 없으면 fail-closed해야 한다. stable stdout JSON을 `_workspace/01_plan/project-profile.json`에 그대로 저장하고 `--profile-file`로 DAG를 컴파일해 `_workspace/03_dev/web-execution-plan.json`에 저장한다. profile conflict, provider-target conflict, forbidden marker, ingestion contract/capability 누락, stale adapter hash는 `BLOCKED`다. **구현 스폰마다 `.claude/skills/component-gen/references/ts-conventions.md`와 테스트 규약 `testing.md` 경로를 prompt에 전달한다** — Phase 2가 designer에게 디자인 원칙 허브를 넘기는 것과 같은 방식이며, 코드 작성 규약이 사후 `code-reviewer` 지적이 아니라 생성 시점에 적용되게 한다(포매팅 정본은 생성된 `.prettierrc`).
 
-**스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `shape-routing-contract.md` §2의 `library` 행 세트로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `/next-app`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
+**스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `shape-routing-contract.md` §2의 `library` 행 세트로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `.claude/skills/next-app/SKILL.md`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
 
 ## 디자인 부채 청구 — 화면을 만드는 첫 스폰 **전에** 한 번
 
-**프로필 공통 전제다.** 아래 Vite 전용 단계 목록 밖에 두는 이유는 `next-app-fullstack`이 그 목록을 실행하지 않기 때문이다(`/next-app` 위임) — 청구의 조건은 "화면을 만든다"이지 번들러가 아니다(적대 리뷰 2026-09-04).
+**프로필 공통 전제다.** 아래 Vite 전용 단계 목록 밖에 두는 이유는 `next-app-fullstack`이 그 목록을 실행하지 않기 때문이다(`next-app` 위임) — 청구의 조건은 "화면을 만든다"이지 번들러가 아니다.
 `DESIGN_SOURCE: absent`는 "디자인이 필요 없다"가 아니라 "지금 만들지 않는다"다
 (`provenance-contract.md` §3). 그 결정은 사라지지 않고 **구현하는 사람에게 넘어간다** —
-실측(2026-09-04)에서 디자인 부재는 인계 판정에 흔적을 남기지 않았다(양쪽 인계 READY,
-판정 변화 0건). 그래서 개발이 실제로 그 화면에 부딪히는 여기서 청구한다.
+디자인 부재는 인계 판정에 흔적을 남기지 않는다(양쪽 인계가 READY로 나온다). 그래서 개발이 실제로 그 화면에 부딪히는 여기서 청구한다.
 
 ```bash
 node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-debt
@@ -165,7 +163,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
 
 `developer`는 조건 내용이 없으면 지어내지 않고 멈춘다(그 규율이 이 청구의 backstop이다).
 따라서 **인수(③)를 골랐는데 기록이 없으면 첫 스폰이 다시 막히고, 사용자가 고른 경로가
-완결되지 않는다**(교차 모델 리뷰 2026-09-04). 기록은 형식이 아니라 그 정지를 푸는 열쇠다.
+완결되지 않는다**. 기록은 형식이 아니라 그 정지를 푸는 열쇠다.
 
 - `decision-log`에 `PC-NNN`으로 남긴다(`plan-history-contract.md`). **flat·sharded 두 형태다** —
   `_workspace/01_plan/decision-log.md`가 있으면 거기에, `decision-log/`로 분할돼 있으면
@@ -181,7 +179,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
 
   **인수는 `ack:<ID>` 토큰으로만 표시한다.** 맨 ID는 인수가 아니다 — `checkDecisionsLanded`가
   정본에 결정 ID를 **내용 근거로** 인용하도록 이미 밀고 있어서, 맨 ID를 인수로 읽으면
-  **하네스의 다른 게이트를 따르는 것이 곧 부채를 지우는 행위**가 된다(적대 리뷰 2026-09-04).
+  **하네스의 다른 게이트를 따르는 것이 곧 부채를 지우는 행위**가 된다.
 
   | 적는 자리 | 인수 범위 |
   |---|---|
@@ -203,7 +201,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
 
   인용이 필요한 이유는 둘이다: ⓐ `checkDecisionsLanded`는 정본(`01_plan`·`02_design`)이 인용하지
   않는 새 결정을 구멍으로 잡으므로, 인용 없이 로그에만 적으면 **다음 인계가 이 절차 때문에
-  HOLE이 된다**(적대 리뷰 2026-09-04). ⓑ 인용이 있으면 `--design-debt`가 그 조건을
+  HOLE이 된다**. ⓑ 인용이 있으면 `--design-debt`가 그 조건을
   `acknowledgedBy`로 표시해 **자기신고가 파일 대조가 된다.**
   분모가 없어 인용할 행이 없으면 ⓐ의 대가가 남고 ⓑ도 성립하지 않는다: 다음 인계에서 그 PC가
   stranded로 잡히면 **그때 표를 세우고 인용을 붙인다**. 다만 **`developer`는 그 상태에서
@@ -216,17 +214,17 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    - `environment-scaffolder` — package/workspace metadata → TS/Vite/ESLint/Vitest 설정까지 한 스폰
    - `developer` — shared/api/config/store/env/MSW 기반
    - `EXTERNAL_DATA_INGESTION_MODE`이면 `developer` — adapter/normalize/schema/quality/atomic promotion 구현
-   - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `/vite-serverless-hybrid`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
-   - `SERVER_DB_MODE`이면 `/server-db-migration`을 실행해 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
+   - `HYBRID_SERVERLESS_MODE`(`WEB_PROFILE: vite-serverless-hybrid`)이면 `.claude/skills/vite-serverless-hybrid/SKILL.md`의 계약으로 루트 `api/` handler를 구현한다 — **§7 엔드포인트 공통 가드 5종이 handler 구현보다 앞선다** (release DAG의 `api.guards`·`api.unit` receipt가 강제). `SERVER_DB_MODE`·`OAUTH_SERVER_MODE`가 이 위에 조합된다
+   - `SERVER_DB_MODE`이면 `.claude/skills/server-db-migration/SKILL.md`를 따라 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
    - `developer` — main/App/router/theme/home shell
 2. 지원 companion과 API 계약 확정:
-   - `API_CONTRACT_MODE`이면 `/api-contract-typegen`을 실행해 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
-   - `OAUTH_SERVER_MODE`이면 `/auth-setup`을 실행해 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
-   - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `/mock-service-setup`을 실행해 handler·fixture·시나리오 스위치·bypass mode를 조직한다
-3. **구현 — `developer`를 모듈 경계마다 스폰한다.**
+   - `API_CONTRACT_MODE`이면 `.claude/skills/api-contract-typegen/SKILL.md`를 따라 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
+   - `OAUTH_SERVER_MODE`이면 `.claude/skills/auth-setup/SKILL.md`를 따라 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
+   - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `.claude/skills/mock-service-setup/SKILL.md`를 따라 handler·fixture·시나리오 스위치·bypass mode를 조직한다
+3. **구현 — `developer`를 모듈 경계마다 스폰한다.** 스폰 계획(분해·발췌 주입·fit-gate·계획 잠금)은 `spawn-decomposition-contract.md`를 따른다.
    **전제조건: `_workspace/03_dev/spec.json`이 있어야 한다.** 없으면 스폰하지 않는다 —
    `developer`는 기본 소유권이 비어 있어 layerMap 없이는 아무것도 쓸 수 없고, 스폰해 봐야
-   디스크 변경 0건으로 반려된다(2026-08-30 실측). 스팩 확정(`spec.mjs`)으로 되돌린다.
+   디스크 변경 0건으로 반려된다. 스팩 확정(`spec.mjs`)으로 되돌린다.
    위쪽 "스팩이 확정돼 있으면 … 확정이 없으면 기존 `WEB_PROFILE` 경로다"는 **빌더 세트
    라우팅**에 대한 문장이지 소유권 면제가 아니다. 스팩의 `moduleBoundaries` 각각이 한 스폰의
    범위(`change-scope.md`의 `ALLOWED_PATHS`)가 되고, 소유권은 `layerMap`이 공급한다. **무엇을
@@ -240,10 +238,10 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    `--since _workspace/03_dev/reuse-inventory.json`을 붙여 새 export를 대조하고, `since.findings`
    (`UNUSED_NEW_EXPORT`·`DUPLICATE_NAME`)는 막지 않고 Phase 3 체크포인트 보고와 `code-reviewer`에
    넘긴다. 그 출력이 다음 스폰의 목록이 된다(developer는 `entries`만 읽는다 — `since`는 직전 스폰의
-   경고다). 이 파일을 스폰 매니페스트의 `reads`에 넣는다(`execution-budget-contract.md`). 스폰마다
+   경고다). 이 파일을 스폰 매니페스트의 `reads`에 넣는다(`spawn-decomposition-contract.md`). 스폰마다
    덮어쓰는 로컬 산출물이라 커밋하지 않는다(개발 준비 검사의 `team-sharing`이 무시 줄을 요구한다).
 
-   **병렬 안전의 조건(2026-09-10 정정)**: 경계가 겹치지 않는 것은 필요조건일 뿐이다. 범위를
+   **병렬 안전의 조건**: 경계가 겹치지 않는 것은 필요조건일 뿐이다. 범위를
    집행하는 훅은 모든 스폰이 공유하는 `change-scope.md` **하나**를 읽는다 — 같은 체크아웃에서
    병렬로 쓰면 **마지막에 기록된 범위가 다른 스폰에도 적용**된다(감사 FINDING-003).
    스폰마다 다른 범위를 넣는 채널이 이 하네스에 없으므로 실효 있는 안전 조건은 하나뿐이다:
@@ -251,15 +249,12 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    **같은 체크아웃에서 developer 쓰기 스폰은 직렬로 띄운다** — 병렬이 필요하면 **체크아웃(worktree)을
    나눈다.** 세션만 나누는 것은 격리가 아니다 — 훅은 세션과 무관하게 같은 프로젝트 루트의
    `change-scope.md`를 읽는다(worktree 분리는 훅의 root 판정과 함께 검증되지 않았다).
-   **2026-09-11부터 훅이 강제한다**: 먼저 쓴 developer 스폰이 체크아웃 단위 write 임대를 잡고
+   **훅이 강제한다**: 먼저 쓴 developer 스폰이 체크아웃 단위 write 임대를 잡고
    (`write-lease-lib.mjs` — 스폰 신원은 런타임이 넣는 `agent_id`), 다른 스폰의 쓰기는 막히며,
    `SubagentStop`이 자기 임대를 놓는다. 그러니 **병렬로 띄우면 두 번째 스폰은 막히고 멈춘다** —
    실측 receipt `docs/audits/receipts/2026-09-11-write-lease-e2e.json`. 직렬로 띄워라.
    임대는 자동 회수하지 않는다: 홀더가 `SubagentStop` 없이 죽으면 다음 쓰기가 경로를 대며 막히고
-   사람이 지운다. (스폰별 범위를 env로 넣던 첫 시도는 생산자 0건이라 걷어냈다.)
-   - 구조 지시 빌더 6종(`app-shell`·`route`·`component`·`entity-query`·`feature-mutation`·
-     `data-ui-binder`)은 2026-08-26에 제거됐다. 실측으로 그 소유권이 이미 성립하지 않았고
-     (`src/pages/**` 3중 겹침, 비-FSD 어휘 무소유) 공급한 것은 격리가 아니라 FSD 경로 처방이었다.
+   사람이 지운다.
 4. **여전히 순서·조건이 걸리는 스폰** — 에이전트는 모두 `developer`이고 구별되는 것은 **실행
    조건과 스폰 범위**다. 3단계의 모듈 경계 스폰과 달리 아래는 앞선 산출물을 기다리거나 모드
    플래그가 켜져야 돈다:

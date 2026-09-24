@@ -710,3 +710,11 @@ test('testLayers가 layerMap과 겹치는 것은 정상이다 — 유닛 테스�
   const layerMap = {routes: 'src/pages/'}
   assert.deepEqual(validateLayerMap({layerMap, testLayers: {unit: 'src/pages/'}}), layerMap)
 })
+
+test('CLI 사용법은 스팩을 어디에 두는지 말한다 — 모르면 모델이 저장 방법을 찾으려 스크립트 소스를 연다', async () => {
+  const {spawnSync} = await import('node:child_process')
+  const run = spawnSync(process.execPath, [new URL('./spec.mjs', import.meta.url).pathname], {encoding: 'utf8'})
+  assert.equal(run.status, 2)
+  assert.match(run.stderr, /_workspace\/03_dev\/spec\.json/, '사용법이 stdout 저장 자리를 말하지 않는다')
+  assert.match(run.stderr, /SPEC_NOT_SETTLED/, '사용법이 거부 시 읽을 자리를 말하지 않는다')
+})

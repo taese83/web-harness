@@ -7,6 +7,7 @@
 // 그것을 재지 않았다.
 //
 // 판정은 **`[내부]` 선언 자체**를 분모로 쓴다. 스킬 목록을 여기 적으면 두 곳이 갈라진다.
+// `[내부]` 스킬은 슬래시 메뉴에서 숨고(`user-invocable: false`), 배포 문서도 그 명령을 슬래시로 적지 않는다.
 import {readFileSync, readdirSync, existsSync} from 'node:fs'
 import {join} from 'node:path'
 
@@ -55,6 +56,56 @@ export function findAdvertisedInternals(repositoryRoot, {docs = USER_DOCS} = {})
     })
   }
   return violations
+}
+
+/**
+ * 배포 문서 — 플러그인에 실리는 스킬·에이전트·어댑터의 `.md`. 내부 스킬은 슬래시 메뉴에 없으므로
+ * (`user-invocable: false`) 여기서 `/이름`으로 적으면 사용자 안내는 막다른 길이 되고, 모델 지시는 읽을 경로가 없다.
+ */
+export function shippedDocs(repositoryRoot) {
+  const walk = relativeDirectory => {
+    const directory = join(repositoryRoot, relativeDirectory)
+    if (!existsSync(directory)) return []
+    return readdirSync(directory, {withFileTypes: true}).flatMap(entry => {
+      const path = `${relativeDirectory}/${entry.name}`
+      if (entry.isDirectory()) return walk(path)
+      return entry.name.endsWith('.md') ? [path] : []
+    })
+  }
+  return ['.claude/skills', '.claude/agents', '.claude/adapters'].flatMap(walk).sort()
+}
+
+/** `[내부]` 선언과 슬래시 메뉴 숨김(`user-invocable: false`)이 함께 가는가(순수 판정 + 파일 읽기). */
+export function invocationMismatches(repositoryRoot) {
+  const internals = new Set(internalSkills(repositoryRoot))
+  const skillsDir = join(repositoryRoot, '.claude/skills')
+  if (!existsSync(skillsDir)) return []
+  return readdirSync(skillsDir).sort().flatMap(name => {
+    const path = join(skillsDir, name, 'SKILL.md')
+    if (!existsSync(path)) return []
+    const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(path, 'utf8'))?.[1] ?? ''
+    const hidden = /^user-invocable:\s*false\s*$/m.test(frontmatter)
+    if (internals.has(name) && !hidden) return [{skill: name, kind: 'internal-visible'}]
+    if (!internals.has(name) && hidden) return [{skill: name, kind: 'public-hidden'}]
+    return []
+  })
+}
+
+const INVOCATION_REASONS = {
+  'internal-visible': '`[내부]` 스킬이 슬래시 메뉴에 뜬다 — frontmatter에 `user-invocable: false`를 적는다(진입점은 `/wh` 하나)',
+  'public-hidden': '공개 스킬을 슬래시 메뉴에서 숨겼다(`user-invocable: false`) — 사용자가 부를 길이 없다',
+}
+
+/**
+ * eval 실행기의 진입 문장. 내부 스킬은 슬래시 메뉴에 없고, 숨긴 명령을 치면 아무것도 돌지 않는다
+ * (`docs/audits/receipts/2026-09-25-user-invocable-probe.json`). 그래서 `internal-unit`은 오케스트레이터가
+ * 부를 때처럼 SKILL.md를 읽게 한다.
+ */
+export const evalEntryText = scenario => {
+  const [command, ...rest] = String(scenario?.entrySkill ?? '').trim().split(/\s+/)
+  if (scenario?.entryKind !== 'internal-unit') return [command, ...rest].join(' ')
+  const skill = command.replace(/^\//, '')
+  return [`\`.claude/skills/${skill}/SKILL.md\`를 읽고 그 절차로 아래 요청을 처리하라(내부 스킬 단위 시험 — 슬래시 메뉴에 없다):`, ...rest].join(' ')
 }
 
 /** `/wh`가 받는 레인. **`wh/SKILL.md`의 선언을 읽는다** — 여기 목록을 적으면 두 곳이 갈라진다. */
@@ -122,28 +173,26 @@ export function validateEntryPoints({repositoryRoot, pass, fail}) {
     fail('entry-points: `[내부]` 선언 스킬이 0개다 — 분모가 없어 진입점 안내를 잴 수 없다')
     return
   }
-  const violations = findAdvertisedInternals(repositoryRoot)
-  if (violations.length > 0) {
-    for (const item of violations) {
-      fail(`entry-points: ${item.doc}:${item.line}가 내부 스킬 '/${item.skill}'을 진입점으로 안내한다 — `
-        + '사용자 문서는 `/wh`만 안내한다(직접 호출은 레인 표시와 게이트를 건너뛴다)')
-    }
-    return
+  // 범주마다 끊지 않고 모두 보고한다 — 앞 범주의 위반이 뒤 범주의 위반을 가리지 않게 한다.
+  let failed = false
+  const report = message => { failed = true; fail(message) }
+  for (const item of invocationMismatches(repositoryRoot)) report(`entry-points: '${item.skill}' — ${INVOCATION_REASONS[item.kind]}`)
+  const docs = [...USER_DOCS, ...shippedDocs(repositoryRoot)]
+  for (const item of findAdvertisedInternals(repositoryRoot, {docs})) {
+    report(`entry-points: ${item.doc}:${item.line}가 내부 스킬 '/${item.skill}'을 슬래시 명령으로 적었다 — 내부 스킬은 메뉴에 없다. `
+      + `사용자 안내는 \`/wh <레인>\`, 모델 지시는 \`.claude/skills/${item.skill}/SKILL.md\`로 적는다`)
   }
   if (declaredLanes(repositoryRoot).length === 0) {
-    fail('entry-points: `wh/SKILL.md`에서 레인 선언을 읽지 못했다 — 분모가 없어 eval 진입점을 잴 수 없다')
-    return
-  }
-  let evalViolations
-  try { evalViolations = findEvalEntryViolations(repositoryRoot) } catch (error) {
-    fail(`entry-points: eval 시나리오를 읽지 못했다 — ${error.message}`)
-    return
-  }
-  if (evalViolations.length > 0) {
-    for (const item of evalViolations) {
-      fail(`entry-points: eval '${item.id}' — ${EVAL_REASONS[item.kind]}${item.detail ? ` (${item.detail})` : ''}`)
+    report('entry-points: `wh/SKILL.md`에서 레인 선언을 읽지 못했다 — 분모가 없어 eval 진입점을 잴 수 없다')
+  } else {
+    let evalViolations = []
+    try { evalViolations = findEvalEntryViolations(repositoryRoot) } catch (error) {
+      report(`entry-points: eval 시나리오를 읽지 못했다 — ${error.message}`)
     }
-    return
+    for (const item of evalViolations) {
+      report(`entry-points: eval '${item.id}' — ${EVAL_REASONS[item.kind]}${item.detail ? ` (${item.detail})` : ''}`)
+    }
   }
-  pass(`entry point advertising checked (${internals.length} internal skills, ${USER_DOCS.length} user docs, eval entries aligned)`)
+  if (failed) return
+  pass(`entry point advertising checked (${internals.length} internal skills hidden from the menu, ${docs.length} docs, eval entries aligned)`)
 }

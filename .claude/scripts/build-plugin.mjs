@@ -234,17 +234,37 @@ copyTree(join(repositoryRoot, 'packages', 'web-harness-console'), join(outputRoo
 })
 
 // 4. bin 디스패처 — 스킬 본문 변수 치환에 의존하지 않고 플러그인 루트를 자체 해석한다.
+// `--help`는 배포 문서가 부르는 이름을 보여 준다 — 이름을 찾으려고 스크립트 소스를 열지 않게 한다.
+const dispatchNames = [...referencedScripts]
+  .filter(scriptPath => existsSync(join(outputRoot, '.claude', 'scripts', scriptPath)))
+  .map(scriptPath => scriptPath.replace(/\.mjs$/, ''))
+  .sort()
+const dispatchNameLines = dispatchNames.reduce((lines, name) => {
+  const last = lines.at(-1)
+  if (last !== undefined && `${last} ${name}`.length <= 96) lines[lines.length - 1] = `${last} ${name}`
+  else lines.push(name)
+  return lines
+}, []).map(line => `  ${line}`).join('\n')
 writeExecutable(join(outputRoot, 'bin', 'web-harness-script'), `#!/usr/bin/env bash
 set -euo pipefail
 PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 NAME="\${1:-}"
+usage() {
+  cat <<'USAGE'
+usage: web-harness-script <name> [args...]
+배포 문서가 부르는 스크립트 — 인자는 그 문서의 명령 줄을 따른다:
+${dispatchNameLines}
+USAGE
+}
 case "$NAME" in
-  ''|*..*|*[!a-z0-9/-]*) echo "web-harness-script: invalid script name: $NAME" >&2; exit 2;;
+  -h|--help|help) usage; exit 0;;
+  '') usage >&2; exit 2;;
+  *..*|*[!a-z0-9/-]*) echo "web-harness-script: invalid script name: $NAME" >&2; exit 2;;
 esac
 shift
 SCRIPT="$PLUGIN_ROOT/.claude/scripts/$NAME.mjs"
 if [ ! -f "$SCRIPT" ]; then
-  echo "web-harness-script: not part of the plugin runtime: $NAME" >&2
+  echo "web-harness-script: not part of the plugin runtime: $NAME (이름 목록: web-harness-script --help)" >&2
   exit 2
 fi
 exec node "$SCRIPT" "$@"
@@ -325,7 +345,7 @@ The local Console (port 4310) and isolated preview (4311) are started against th
 
 ## Entry-point commands
 
-These are the commands you invoke directly. Everything else this plugin ships is an **internal building block** that \`/${PLUGIN_NAME}:wh\` calls for you (orchestrators, Phase steps, companion setups, AI submodes) — they appear in the \`/${PLUGIN_NAME}:\` list but calling one directly skips the lane banner and its gates.
+These are the commands you invoke directly, and the only ones in the \`/${PLUGIN_NAME}:\` menu. Everything else this plugin ships is an **internal building block** (orchestrators, Phase steps, companion setups, AI submodes) that is hidden from the menu and read by \`/${PLUGIN_NAME}:wh\` for you, so the lane banner and its gates always apply.
 
 | Command | Use it to |
 |---|---|
@@ -334,6 +354,7 @@ These are the commands you invoke directly. Everything else this plugin ships is
 | \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff. |
 | \`/${PLUGIN_NAME}:web-console\` | Open the approval-gated local Console for the current project. |
 | \`/${PLUGIN_NAME}:project-init\` | Scaffold an empty project skeleton only (no planning/QA gates). |
+| \`/${PLUGIN_NAME}:version-bump\` | Recommend a semantic version bump from the git history and changes. |
 
 First app, cost expectations, and the brownfield path: see the [quickstart](${PLUGIN_REPO_URL}/blob/main/docs/quickstart.md).
 

@@ -60,8 +60,15 @@ export const pluginEvalCaseProblems = casesDirectory => {
       return ['tool_order', 'llm', 'baseline'].includes(type)
     }).length
     const checksPath = join(caseDirectory, 'checks.json')
-    const positiveChecks = existsSync(checksPath)
-      ? (JSON.parse(readFileSync(checksPath, 'utf8')).checks ?? []).filter(check => ['ticket-drafts-valid', 'file-exists'].includes(check.type)).length : 0
+    const checks = existsSync(checksPath) ? JSON.parse(readFileSync(checksPath, 'utf8')) : {checks: []}
+    const positiveChecks = (checks.checks ?? []).filter(check => ['ticket-drafts-valid', 'file-exists'].includes(check.type)).length
+    // 시드에 이미 있는 파일을 보는 file-exists는 아무것도 하지 않은 실행도 통과시킨다.
+    const seedDirectory = checks.seed ? join(casesDirectory, '..', 'seeds', checks.seed) : null
+    for (const check of checks.checks ?? []) {
+      if (check.type === 'file-exists' && seedDirectory && existsSync(join(seedDirectory, check.path))) {
+        problems.push(`${name}: file-exists ${check.path}가 시드에 이미 있다 — 아무것도 하지 않은 실행도 통과한다`)
+      }
+    }
     if (/\bregression\b/.test(prompt.keys.get('tags') ?? '') && positiveGraders + positiveChecks === 0) {
       problems.push(`${name}: 한 일을 보는 채점기·사후 검사가 없다 — 아무것도 하지 않은 실행도 통과한다`)
     }

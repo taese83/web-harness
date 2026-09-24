@@ -17,6 +17,13 @@ export const listFiles = (root, current = root) => readdirSync(current, {withFil
 export const fileHashes = root => new Map(existsSync(root)
   ? listFiles(root).map(file => [file, createHash('sha256').update(readFileSync(join(root, file))).digest('hex')]) : [])
 
+/** 트리의 파일 이름과 내용에 묶인 digest — receipt가 어느 판본의 사례·시드·배포본을 쟀는지 남긴다. */
+export const treeDigest = root => {
+  const hash = createHash('sha256')
+  for (const file of listFiles(root)) hash.update(`${file}\0`).update(readFileSync(join(root, file))).update('\0')
+  return hash.digest('hex')
+}
+
 /**
  * 러너가 남긴 실행 디렉터리(`<tmp 루트>/e-*`)만 돌려준다 — 트레이스 경로가 다른 자리를 가리키면 null이라 열지도 지우지도 않는다.
  * @param {string} tracePath `<실행>/out/trace.jsonl`

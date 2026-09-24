@@ -3,6 +3,7 @@ name: visual-design-verify
 description: [내부] VISUAL_QA_MODE가 고른다. 사용자 진입점은 /wh 하나다. Builds and runs governed visual design verification for React/Vite and Next.js web applications. Use for design-to-code comparison, visual regression, Storybook state coverage, Playwright screenshots, responsive or theme matrices, Figma references, design-token drift, layout stability, and approved baseline changes.
 argument-hint: "[project path or visual QA request]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion, Agent
 metadata:
   version: 1.2.0

@@ -7,14 +7,15 @@
 //   (3) 분모가 0이면 통과가 아니다
 //   (4) 실제 저장소가 통과한다 — 픽스처만으로는 배선을 증명하지 못한다
 //   (5) eval 진입점: 내부 직행은 `internal-unit` 선언이 있을 때만 · 레인은 wh 선언에서 · covers 필수
+//   (6) `[내부]` 스킬은 슬래시 메뉴에서 숨고, 배포 문서는 숨긴 명령을 슬래시로 적지 않으며, internal-unit eval은 SKILL.md를 읽어 들어간다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {spawnSync} from 'node:child_process'
-import {declaredLanes, findAdvertisedInternals, findEvalEntryViolations, internalSkills, validateEntryPoints}
-  from './validators/validate-entry-points.mjs'
+import {declaredLanes, evalEntryText, findAdvertisedInternals, findEvalEntryViolations, internalSkills, invocationMismatches,
+  shippedDocs, validateEntryPoints} from './validators/validate-entry-points.mjs'
 
 const scaffold = ({description, readme}) => {
   const root = mkdtempSync(join(tmpdir(), 'wh-entry-'))
@@ -160,4 +161,73 @@ test('validateEntryPoints가 eval 검사를 실제로 부른다 — 배선', () 
     assert.ok(calls.fail.some(message => message.includes("'bypass'")),
       `내부 직행 eval이 있는데 막지 않았다 — 순수 함수만 살아 있고 호출부가 끊겼다\n${calls.fail.join('\n')}`)
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+// ── 슬래시 메뉴 숨김 (0.46.0) ───────────────────────────────────────────────────
+// 내부 스킬은 `user-invocable: false`로 메뉴에서 빠진다. 숨긴 명령을 치면 아무것도 돌지 않으므로
+// (프로브 receipt `docs/audits/receipts/2026-09-25-user-invocable-probe.json`) 배포 문서가 그 명령을 가리키면
+// 사용자 안내는 막다른 길이고, 저장소 모드 eval은 빈 실행이 된다.
+const skillFile = (root, name, frontmatter) => {
+  mkdirSync(join(root, '.claude/skills', name), {recursive: true})
+  writeFileSync(join(root, '.claude/skills', name, 'SKILL.md'), `---\nname: ${name}\n${frontmatter}\n---\n`)
+}
+
+test('`[내부]`와 메뉴 숨김은 함께 간다 — 한쪽만 있으면 잡는다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-entry-invocable-'))
+  try {
+    skillFile(root, 'hidden-internal', 'description: [내부] /wh가 읽는다.\nuser-invocable: false')
+    skillFile(root, 'visible-internal', 'description: [내부] /wh가 읽는다.')
+    skillFile(root, 'hidden-public', 'description: 공개 진입점.\nuser-invocable: false')
+    skillFile(root, 'visible-public', 'description: 공개 진입점.')
+    assert.deepEqual(invocationMismatches(root), [
+      {skill: 'hidden-public', kind: 'public-hidden'},
+      {skill: 'visible-internal', kind: 'internal-visible'},
+    ])
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('배포 문서가 숨긴 내부 스킬을 슬래시로 적으면 validateEntryPoints가 막는다 — 경로 표기는 막지 않는다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-entry-shipped-'))
+  try {
+    skillFile(root, 'auth-setup', 'description: [내부] Phase 3가 고른다.\nuser-invocable: false')
+    mkdirSync(join(root, '.claude/agents'), {recursive: true})
+    writeFileSync(join(root, '.claude/agents/release-manager.md'), '## 인증 붙이기\n- `/auth-setup` 실행\n')
+    writeFileSync(join(root, '.claude/agents/developer.md'), '인증은 `.claude/skills/auth-setup/SKILL.md`를 따른다.\n')
+    const calls = {pass: [], fail: []}
+    validateEntryPoints({repositoryRoot: root, pass: message => calls.pass.push(message), fail: message => calls.fail.push(message)})
+    assert.ok(calls.fail.some(message => message.includes('.claude/agents/release-manager.md:2')),
+      `배포 문서의 숨긴 명령 안내를 놓쳤다\n${calls.fail.join('\n')}`)
+    assert.ok(!calls.fail.some(message => message.includes('developer.md')), '경로 표기를 슬래시 명령으로 읽었다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('validateEntryPoints가 메뉴 숨김 불일치를 실제로 막는다 — 배선', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-entry-invocable-wire-'))
+  try {
+    skillFile(root, 'web-plan', 'description: [내부] /wh plan이 호출한다.')
+    const calls = {pass: [], fail: []}
+    validateEntryPoints({repositoryRoot: root, pass: message => calls.pass.push(message), fail: message => calls.fail.push(message)})
+    assert.ok(calls.fail.some(message => message.includes("'web-plan'") && message.includes('user-invocable')),
+      `메뉴에 뜨는 내부 스킬을 막지 않았다\n${calls.fail.join('\n')}`)
+    assert.equal(calls.pass.length, 0)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('internal-unit eval은 슬래시가 아니라 SKILL.md를 읽게 해서 들어간다 — 숨긴 명령은 아무것도 돌리지 않는다', () => {
+  const unit = evalEntryText({entrySkill: '/visual-design-verify', entryKind: 'internal-unit'})
+  assert.match(unit, /^`\.claude\/skills\/visual-design-verify\/SKILL\.md`를 읽고/)
+  assert.equal(evalEntryText({entrySkill: '/wh change'}), '/wh change', '공개 진입점은 그대로 슬래시로 넣는다')
+})
+
+test('실제 저장소: 내부 스킬은 전부 메뉴에서 숨고, 배포 문서는 숨긴 명령을 가리키지 않는다', () => {
+  const repositoryRoot = new URL('../..', import.meta.url).pathname
+  assert.deepEqual(invocationMismatches(repositoryRoot), [])
+  assert.deepEqual(findAdvertisedInternals(repositoryRoot, {docs: shippedDocs(repositoryRoot)}), [])
+  assert.ok(shippedDocs(repositoryRoot).includes('.claude/agents/release-manager.md'), '배포 문서 목록이 비었다 — 분모가 없다')
+})
+
+test('eval 실행기가 진입 문장을 evalEntryText로 만든다 — 배선', () => {
+  const executor = readFileSync(new URL('./run-eval-executor.mjs', import.meta.url), 'utf8')
+  assert.match(executor, /const prompt = `\$\{evalEntryText\(scenario\)\} /,
+    '실행기가 internal-unit을 슬래시로 넣는다 — 숨긴 명령은 아무것도 돌리지 않는다')
 })

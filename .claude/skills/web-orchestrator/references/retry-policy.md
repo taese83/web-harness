@@ -15,7 +15,7 @@ Use this reference before retrying after Phase 4 QA.
 | `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `environment-scaffolder`(설정·의존성) 또는 `developer`(소스) |
 | `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer` · `component-designer` 우선, 그 다음 `developer` |
 | `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `environment-scaffolder`(빌드·설정) 또는 `developer`(라우트·MSW 배선) |
-| `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `developer` · `environment-scaffolder` · `/auth-setup` owner |
+| `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `developer` · `environment-scaffolder` · `auth-setup` 스킬 owner |
 | `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `api-schema-designer` · `timeseries-architect` 우선, 그 다음 `developer` |
 | `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer` 우선, 그 다음 `developer` |
 | `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer` 우선, 그 다음 `developer` · `environment-scaffolder` |

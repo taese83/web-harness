@@ -31,8 +31,8 @@ refused — align them first.
    `/wh change` · `/wh fix` · `/wh verify`
 3. For existing services, check the detected `CHANGE_MODE: existing-change` and the
    integration overlay
-4. Skills below are invoked **by `/wh`**, not directly — calling one skips the lane banner
-   and its gates
+4. Internal skills are hidden from the slash menu (`user-invocable: false`) and read **by `/wh`** —
+   the lane banner and its gates always apply
 6. For Figma/reference images, visual regression, and theme/viewport checks,
    `VISUAL_QA_MODE` (via `/wh verify`) adds contracts and approved baselines
 

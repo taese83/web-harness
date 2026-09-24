@@ -1,8 +1,8 @@
 ---
 name: web-orchestrator
-description: [내부] Master orchestrator for building or extending any supported React/Vite or Next.js web application from a natural-language request or existing artifacts, including crawling, scheduled external-data ingestion, local domain state, AI, planning, implementation, QA, CI, and release evidence. 사용자 진입점은 /wh 하나다. Invoked by /wh for a complete service or cross-lifecycle web change.
-argument-hint: "[service description or artifact paths]"
+description: [내부] 사용자 진입점은 /wh 하나다. /wh가 new 레인(신규 서비스)과 수명주기 전체에 걸친 웹 변경에서 읽는 오케스트레이터다.
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.8.0
@@ -12,7 +12,7 @@ metadata:
 
 # Web Orchestrator
 
-**선행 로드**(시작 전 필독) — 앵커 안이 고정 진입 비용 전부다. 늘리려면 contract-hygiene ratchet(참조 수 + 바이트)이 막으므로 baseline을 의식적으로 갱신한다(I4).
+**선행 로드**(시작 전 필독):
 <!-- always-read -->
 - `references/interaction-contract.md`(질문·확인) · `references/request-type-contract.md`, `references/scenario-contract.md`(요청 유형·시나리오) · `references/operational-gotchas.md`(전 구간 금지·선행 조건) · `references/execution-contract.md`, `references/web-profile-contract.md`(실행 모드·프로필)
 <!-- /always-read -->
@@ -41,7 +41,7 @@ Read `references/source-artifacts.md` only when ingesting existing planning/desi
 
 ## Start
 
-사용자가 자연어 설명과 함께 `/web-orchestrator`를 호출하면 이미 답한 내용을 제외하고 아래 제품 중심 intake를 진행한다:
+사용자가 `/wh new`로 자연어 설명을 주면 이미 답한 내용을 제외하고 아래 제품 중심 intake를 진행한다:
 
 > 어떤 화면/기능이 대상이고, 누가 그곳에서 어떤 일을 끝내려 하나요? 지금 가장 불편한 점과 성공했음을 확인할 변화도 알려주세요. 기존 기획·디자인 자료가 있으면 함께 근거로 사용합니다.
 
@@ -145,7 +145,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 ### Phase 3 — 개발
 
-**시점 로드**: `references/phase-3-development.md` — `CHANGE_MODE` 판별과 change-scope · profile resolver와 DAG 컴파일 · `developer` 스폰(모듈 경계마다) · 환경/배포 단계 · Gate A·B·C와 스폰 완결성 게이트. Iterate·Resume mode는 여기서 진입하므로 이 파일부터 읽는다.
+**시점 로드**: `references/phase-3-development.md` — `CHANGE_MODE` 판별과 change-scope · profile resolver와 DAG 컴파일 · `developer` 스폰(모듈 경계마다) · 환경/배포 단계 · Gate A·B·C와 스폰 완결성 게이트. Resume mode는 여기서 진입하므로 이 파일부터 읽는다. Iterate mode는 `execution-contract.md` Iterate 루프가 정본이다.
 
 ### Phase 4 — 검증
 

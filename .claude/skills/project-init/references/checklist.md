@@ -176,7 +176,5 @@ VITE_APP_TITLE={appTitle}
 | Skill | 역할 |
 |---|---|
 | `/pr-drafter` | git diff → 한국어 PR 초안 자동 작성 |
-| `/component-gen` | 선택된 UI 레인(UI_LANE) 컨벤션에 맞게 생성 |
-| `/timeseries-dashboard` | 시계열·실시간 dashboard 설계/구현/검증 |
-| `/next-app` | Next.js App Router compatible profile 구현·검증 |
+| `/wh` | 기능 추가·변경·수정·검증의 단일 진입점 — `/wh change <요청>` |
 ```

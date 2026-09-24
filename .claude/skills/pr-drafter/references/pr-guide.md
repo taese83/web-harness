@@ -58,7 +58,7 @@ PR 설명 하단에 리뷰어를 위한 안내를 포함한다 (템플릿 `<deta
 
 ## Draft PR (기획 핸드오프용)
 
-`/web-plan`에서 기획 완료 후 draft PR을 열 때 추가로 포함:
+`/wh plan`으로 기획을 마친 뒤 draft PR을 열 때 추가로 포함:
 
 ```markdown
 ## 기획 메모

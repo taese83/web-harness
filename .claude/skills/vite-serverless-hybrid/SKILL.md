@@ -3,6 +3,7 @@ name: vite-serverless-hybrid
 description: [내부] WEB_PROFILE=vite-serverless-hybrid가 고른다. 사용자 진입점은 /wh 하나다. Implementation contract for the built-in vite-serverless-hybrid profile (certified — T1 isolated-CI receipt) — a Vite React SPA with Vercel-style serverless functions under a root api/ directory. Used by web-orchestrator when HYBRID_SERVERLESS_MODE locks this profile, or standalone to add a thin serverless backend to an existing Vite SPA. Endpoint guard contract (§7) precedes any handler implementation and is enforced by the profile DAG's api.guards/api.unit machine receipts.
 argument-hint: "[project root or hybrid setup requirements]"
 disable-model-invocation: true
+user-invocable: false
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.2.3
@@ -38,7 +39,7 @@ Read `references/architecture.md` before touching any config. `references/dev-mi
 
 ## Start
 
-`/vite-serverless-hybrid`를 호출하면:
+이 스킬을 적용하면:
 
 > Vite SPA + serverless functions 구성을 설정합니다. 프로젝트 root와 API 배치를 알려주세요.
 

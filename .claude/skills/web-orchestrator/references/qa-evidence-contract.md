@@ -1,6 +1,6 @@
 # QA And Evidence Contract
 
-Phase 4와 `/web-verify` 시작 전에 읽는다.
+Phase 4와 verify 레인(`web-verify`) 시작 전에 읽는다.
 
 ## Verifier immutability
 
