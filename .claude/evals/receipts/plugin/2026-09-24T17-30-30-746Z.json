@@ -1,0 +1,118 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 2,
+  "harnessCommit": "ea8d059848c9bf149ac5707da36427d88a2f49e8",
+  "dirty": false,
+  "pluginVersion": "0.45.0",
+  "distDigest": "2125855fcaee67dbbfb3eedcb0579de2c19bebf8967471ba22d7f8c915a460d6",
+  "claudeVersion": "2.1.281",
+  "model": "claude-opus-5-5[1m]",
+  "startedAt": "2026-09-24T17:30:30.746Z",
+  "durationSeconds": 673,
+  "costUsd": 5.5515888,
+  "partial": false,
+  "selection": {
+    "case": "change-lane-stops-at-spec-approval",
+    "tag": null,
+    "runs": null
+  },
+  "cases": [
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.1100331999999997,
+          "durationSeconds": 634,
+          "turns": 13,
+          "peakContextTokens": 73200,
+          "outputTokens": 9843,
+          "cacheReadTokens": 616877,
+          "toolUses": {
+            "Bash": 8,
+            "Agent": 3,
+            "Write": 1
+          },
+          "bashErrors": 0,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.5162236,
+          "durationSeconds": 673,
+          "turns": 42,
+          "peakContextTokens": 85301,
+          "outputTokens": 17743,
+          "cacheReadTokens": 2144934,
+          "toolUses": {
+            "Bash": 27,
+            "Read": 5,
+            "Agent": 4,
+            "Edit": 4,
+            "Write": 1
+          },
+          "bashErrors": 2,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 2,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 3,
+          "scriptSourceReadSamples": [
+            "P=/private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-4LBmzi/web-harness; ls $P/.claude/scripts | grep -iE \"spec|handoff|git|gate\" ; sed -n ",
+            "P=/private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-4LBmzi/web-harness; sed -n 255,300p $P/.claude/scripts/spec.mjs; sed -n 681,740p $P/.c",
+            "cd /private/tmp/e-LvJOoq/home/cwd; P=/private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-4LBmzi/web-harness; sed -n 60,100p $P/.claude/scrip"
+          ]
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 0.9253320000000002,
+          "durationSeconds": 279,
+          "turns": 13,
+          "peakContextTokens": 54038,
+          "outputTokens": 7211,
+          "cacheReadTokens": 452306,
+          "toolUses": {
+            "Bash": 10,
+            "Agent": 2
+          },
+          "bashErrors": 2,
+          "agentSpawns": {
+            "web-harness:requirements-analyst": 1,
+            "web-harness:feature-planner": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
