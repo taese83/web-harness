@@ -3,6 +3,7 @@ name: component-designer
 description: Designs component boundaries, public props, state machines, accessibility contracts, and FSD ownership.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

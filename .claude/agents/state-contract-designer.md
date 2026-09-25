@@ -3,6 +3,7 @@ name: state-contract-designer
 description: Designs authoritative local domain state — commands, invariants, destructive-action policy, persistence migration, recovery evidence.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

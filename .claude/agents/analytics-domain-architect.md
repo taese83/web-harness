@@ -3,6 +3,7 @@ name: analytics-domain-architect
 description: Designs semantic metric/dimension queries, chart compatibility, result schemas, and dashboard editing contracts.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

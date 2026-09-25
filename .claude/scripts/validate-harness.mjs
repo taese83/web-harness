@@ -25,6 +25,7 @@ import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mj
 import {validateSectionReaders} from './validators/validate-section-readers.mjs'
 import {detectSourceRepository} from './validators/validate-adapter-hygiene.mjs'
 import {validateAgentReachability} from './validators/agent-reachability.mjs'
+import {agentRuntimeSettingFailures, skillRuntimeSettingFailures} from './validators/validate-agent-runtime-settings.mjs'
 import {RETIRED_AGENTS} from './agent-registry.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
@@ -89,6 +90,7 @@ for (const relativePath of [...agentFiles, ...skillFiles]) {
   if (relativePath.includes('/agents/')) {
     if (!frontmatter.tools) fail(`${relativePath}: tools must be explicitly allowlisted`)
     if (!frontmatter.model) fail(`${relativePath}: model must be explicit`)
+    for (const failure of agentRuntimeSettingFailures(relativePath, frontmatter)) fail(failure)
     if (!/^[1-9]\d*$/.test(frontmatter.maxTurns ?? '')) fail(`${relativePath}: maxTurns must be a positive integer`)
     if (/\bWrite\b/.test(frontmatter.tools ?? '')) writableAgents.push(name)
     if (/\bWrite\b/.test(frontmatter.tools ?? '') && /\bBash\b/.test(frontmatter.tools ?? '')) {
@@ -99,6 +101,7 @@ for (const relativePath of [...agentFiles, ...skillFiles]) {
       fail(`${relativePath}: action skill must set disable-model-invocation: true`)
     }
     if (!frontmatter['allowed-tools']) fail(`${relativePath}: action skill must explicitly allowlist tools`)
+    for (const failure of skillRuntimeSettingFailures(relativePath, frontmatter)) fail(failure)
   }
 }
 pass(`frontmatter checked for ${agentFiles.length} agents and ${skillFiles.length} skills`)

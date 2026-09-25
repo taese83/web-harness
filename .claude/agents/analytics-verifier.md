@@ -4,6 +4,7 @@ description: Read-only verifier for semantic query correctness, chart compatibil
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 25
 ---
 

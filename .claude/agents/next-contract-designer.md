@@ -3,6 +3,7 @@ name: next-contract-designer
 description: Designs the six Next.js contract matrices (route, boundary, authorization, environment, cache, deployment) before implementation.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 30
 ---
 

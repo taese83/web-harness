@@ -4,6 +4,7 @@ description: Read-only Next contract review against the resolved profile, matric
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 25
 ---
 

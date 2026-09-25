@@ -3,6 +3,7 @@ name: layout-designer
 description: Designs page layouts, navigation, landmarks, responsive reflow, and routing or surface maps; produces layout-spec.md only.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

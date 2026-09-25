@@ -4,6 +4,7 @@ description: Read-only SEO contract verification — titles/canonicals, robots/s
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 20
 ---
 

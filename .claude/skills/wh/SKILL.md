@@ -3,6 +3,7 @@ name: wh
 description: Web Harness 단일 진입점. 요청을 plan/new/change/fix/verify 레인으로 판정해(plan은 명시 지정 전용) 해당 흐름을 실행한다. 새 서비스 생성, 기능 추가·UI 변경, 버그 수정·리팩터, 검증 전부 여기서 시작한다. 레인을 강제하려면 "/wh change ..."처럼 첫 단어로 지정한다. new 레인은 착수 전 기획·디자인·설계의 공급원(문서·링크·Figma가 있다 | 글로 설명 | 하네스가 만든다 | 없이 진행)을 묻는다.
 argument-hint: "[plan|new|change|fix|verify|off] <요청> (티켓 작업도 여기서 — 인자 없이 부르면 무엇을 할지 묻는다)"
 disable-model-invocation: true
+effort: xhigh
 allowed-tools: Read, Glob, Grep, Write, Edit, Bash, Agent, AskUserQuestion
 metadata:
   version: 1.3.0

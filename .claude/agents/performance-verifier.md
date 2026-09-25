@@ -4,6 +4,7 @@ description: Read-only verifier against performance-budget.md using build and br
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 20
 ---
 

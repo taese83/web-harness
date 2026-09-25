@@ -3,7 +3,7 @@ name: developer
 description: Implements the change within the confirmed spec — layerMap, libraries, architecture, module boundaries. Owns the declared source layers; the spawn scope narrows that further. Replaces the structural builders that prescribed FSD paths.
 tools: Read, Glob, Grep, Write, Edit
 model: opus
-effort: high
+effort: xhigh
 maxTurns: 45
 ---
 

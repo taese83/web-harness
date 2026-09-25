@@ -4,6 +4,7 @@ description: Verifies npm package contents with build/test/pack dry-run and reco
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: medium
 maxTurns: 20
 ---
 

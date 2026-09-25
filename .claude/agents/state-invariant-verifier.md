@@ -4,6 +4,7 @@ description: Read-only verification of local domain state invariants, destructiv
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 30
 ---
 

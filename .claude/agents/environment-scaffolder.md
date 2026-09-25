@@ -3,6 +3,7 @@ name: environment-scaffolder
 description: Creates the project environment — package/workspace metadata, TypeScript/bundler/lint/formatter/test configuration, and test infrastructure. Owns config files only; writes no runtime source. Merged from package-scaffolder, tooling-scaffolder, and test-scaffolder.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 35
 ---
 

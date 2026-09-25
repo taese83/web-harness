@@ -4,6 +4,7 @@ description: Read-only contract check across API specs, generated types, clients
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 20
 ---
 

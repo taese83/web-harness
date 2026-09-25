@@ -3,6 +3,7 @@ name: release-manager
 description: Reviews all QA reports and produces the final HANDOFF.md with next steps; packages the release.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

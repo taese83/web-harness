@@ -4,6 +4,7 @@ description: Read-only TIMESERIES_MODE verifier — stream contract completeness
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 25
 ---
 

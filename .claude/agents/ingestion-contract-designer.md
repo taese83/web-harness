@@ -3,6 +3,7 @@ name: ingestion-contract-designer
 description: Designs project-independent external data ingestion, quality, promotion, recovery, and deployment contracts before implementation.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 30
 ---
 

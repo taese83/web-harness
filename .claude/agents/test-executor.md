@@ -4,6 +4,7 @@ description: Runs the existing Vitest suite and coverage, then returns qa-test.m
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: medium
 maxTurns: 20
 ---
 

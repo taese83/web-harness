@@ -4,6 +4,7 @@ description: Analyzes git history and diffs to recommend a semantic version bump
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: medium
 maxTurns: 15
 ---
 

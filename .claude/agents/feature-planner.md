@@ -3,6 +3,7 @@ name: feature-planner
 description: Breaks requirements into vertical feature units — page groups, feature list, behavior specs and test cases, machine-readable dependencies and paths, and the surface-model declaration.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

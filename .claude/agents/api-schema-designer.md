@@ -3,6 +3,7 @@ name: api-schema-designer
 description: Designs REST and realtime stream contracts — runtime schemas, endpoints, sample data, authorization, pagination, errors.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

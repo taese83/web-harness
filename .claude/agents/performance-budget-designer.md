@@ -3,6 +3,7 @@ name: performance-budget-designer
 description: Defines the measurable performance budget — Core Web Vitals targets, per-route byte budgets, evidence sources — before implementation.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

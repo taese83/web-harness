@@ -4,6 +4,7 @@ description: Read-only adversarial reviewer for harness control-plane changes ag
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: fable
+effort: xhigh
 maxTurns: 45
 ---
 

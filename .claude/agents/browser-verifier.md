@@ -4,6 +4,7 @@ description: Read-only Playwright verification — routes, responsive, keyboard,
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 25
 ---
 

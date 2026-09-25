@@ -3,6 +3,7 @@ name: source-artifact-ingestor
 description: Normalizes existing PRD/IA/screen-spec/Figma/API artifacts into the _workspace contract so web-orchestrator can continue without regenerating.
 tools: Read, Glob, Grep, Write, Edit, WebFetch, mcp__figma__get_metadata, mcp__figma__get_variable_defs, mcp__figma__get_screenshot, mcp__figma__get_code_connect_map
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

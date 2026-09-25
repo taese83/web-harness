@@ -3,6 +3,7 @@ name: visual-baseline-manager
 description: Records explicitly approved visual baseline hashes and review metadata; never runs tests or approves its own changes.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: medium
 maxTurns: 20
 ---
 

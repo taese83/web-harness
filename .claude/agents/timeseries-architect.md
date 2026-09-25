@@ -3,6 +3,7 @@ name: timeseries-architect
 description: Designs bounded historical/realtime time-series architecture — data budgets, snapshot/stream contracts, downsampling, reconnect, chart acceptance criteria.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

@@ -4,6 +4,7 @@ description: Verifies build, routes, Mock API connection, and dev server startup
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 20
 ---
 

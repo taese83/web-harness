@@ -4,6 +4,7 @@ description: Read-only verifier for visual contract coverage, approved baselines
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
+effort: xhigh
 maxTurns: 25
 ---
 

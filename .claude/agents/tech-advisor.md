@@ -3,6 +3,7 @@ name: tech-advisor
 description: Selects the tech stack and libraries for the service type with justification, referencing the lib-catalog when available.
 tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

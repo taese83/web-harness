@@ -3,6 +3,7 @@ name: visual-contract-designer
 description: Defines visual QA contracts — targets, states, deterministic render, thresholds, baseline governance — before tests are written.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 25
 ---
 

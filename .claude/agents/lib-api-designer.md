@@ -3,6 +3,7 @@ name: lib-api-designer
 description: Designs an npm library's public API surface and produces api-design.md as the contract all other lib agents follow.
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
+effort: high
 maxTurns: 20
 ---
 

@@ -3,6 +3,7 @@ name: product-planner
 description: Fixes the product frame (screens, users, job, pain, success), then writes MVP-scoped requirements with data strategy and effort, the UX brief, and the decision log.
 tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch
 model: sonnet
+effort: high
 maxTurns: 40
 ---
 

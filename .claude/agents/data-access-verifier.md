@@ -3,7 +3,8 @@ name: data-access-verifier
 description: Read-only verifier for tenant isolation, ACLs, row-level policies, deletion propagation, and cross-user negative tests.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
-model: sonnet
+model: opus
+effort: xhigh
 maxTurns: 30
 ---
 
