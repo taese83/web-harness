@@ -42,7 +42,8 @@ test('사슬 순서가 뒤집히거나 product-planner가 산출물을 선언하
 test('퇴역 에이전트 이름이 에이전트 문서에 남으면 validate-harness가 막는다', () => {
   const root = mkdtempSync(join(tmpdir(), 'wh-retired-agent-'))
   try {
-    cpSync(REPOSITORY, root, {recursive: true, filter: path => !/\/(?:\.git|node_modules|dist|eval-runs|\.wt-[^/]+)(?:\/|$)/.test(path.slice(REPOSITORY.length - 1))})
+    // 병렬로 도는 validate-harness의 보안 자체 시험이 저장소 루트에 임시 폴더를 만들고 지운다 — 복사 도중 사라지면 ENOENT다.
+    cpSync(REPOSITORY, root, {recursive: true, filter: path => !/\/(?:\.git|node_modules|dist|eval-runs|\.wt-[^/]+|\.security-hardening-package-[^/]+)(?:\/|$)/.test(path.slice(REPOSITORY.length - 1))})
     const target = join(root, '.claude/agents/feature-planner.md')
     writeFileSync(target, `${readFileSync(target, 'utf8')}\n입력 초안은 ux-researcher가 쓴다.\n`)
     const result = spawnSync(process.execPath, ['.claude/scripts/validate-harness.mjs'], {cwd: root, encoding: 'utf8'})
