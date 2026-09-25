@@ -5,11 +5,12 @@
 //   - 켜지 않은 세션에는 아무것도 붙이지 않는다(하네스 스킬 자동 호출을 막아 둔 설계를 지킨다)
 //   - `/wh`·`/web-harness:wh`·`/web-harness:team-flow`로 켜고, 이후 같은 세션·같은 프로젝트의 요청마다 `/wh` 문서 경로를 붙인다
 //   - `/wh off`로 끈다. 다른 세션·다른 프로젝트에는 붙이지 않는다. 훅은 어떤 경우에도 요청을 막지 않는다
+//   - 경로에 링크가 끼어도(플러그인 경로) 훅이 돈다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync} from 'node:fs'
-import {join} from 'node:path'
+import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync} from 'node:fs'
+import {dirname, join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
 import {handlePrompt, sessionsDirectory} from './harness-session-mode.mjs'
@@ -55,6 +56,17 @@ test('훅 프로세스: 표준 출력으로 안내를 붙이고, 깨진 입력�
   assert.equal(next.status, 0)
   assert.match(next.stdout, /하네스 모드/)
   assert.equal(run('{ 깨진').status, 0, '깨진 입력이 요청을 막았다')
+}))
+
+test('훅 프로세스: 경로에 링크가 끼어도 안내를 붙인다 — main 판정은 실경로로 대조한다', () => withDirs(({home, project}) => {
+  const linked = join(dirname(home), 'linked-scripts')
+  // 링크는 저장소의 .claude/scripts를 가리킨다 — withDirs의 rmSync는 링크를 따라가지 않는다(따라가는 삭제로 바꾸면 저장소가 지워진다).
+  symlinkSync(dirname(HOOK), linked, 'dir')
+  const run = input => spawnSync(process.execPath, [join(linked, 'harness-session-mode.mjs')],
+    {input, encoding: 'utf8', env: {...process.env, HOME: home, CLAUDE_PROJECT_DIR: project}})
+  assert.equal(run(JSON.stringify({session_id: 'l1', prompt: '/wh', cwd: project})).status, 0)
+  assert.match(run(JSON.stringify({session_id: 'l1', prompt: '보드 보여줘', cwd: project})).stdout, /하네스 모드/,
+    '링크 경로로 부른 훅이 조용히 빠졌다')
 }))
 
 test('훅이 저장소 설정과 플러그인 배포 양쪽에 배선돼 있다', () => {

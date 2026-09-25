@@ -250,9 +250,11 @@ const dispatchNameLines = dispatchNames.reduce((lines, name) => {
   else lines.push(name)
   return lines
 }, []).map(line => `  ${line}`).join('\n')
+// bin의 PLUGIN_ROOT는 실경로(pwd -P)다 — 링크가 낀 경로(평가의 /var/folders, 링크로 둔 ~/.claude)를 그대로 넘기면
+// 스크립트의 main 판정(import.meta.url 대조)이 거짓이 되어 아무것도 하지 않고 0으로 끝난다.
 writeExecutable(join(outputRoot, 'bin', 'web-harness-script'), `#!/usr/bin/env bash
 set -euo pipefail
-PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd -P)"
 NAME="\${1:-}"
 usage() {
   cat <<'USAGE'
@@ -276,12 +278,12 @@ exec node "$SCRIPT" "$@"
 `)
 writeExecutable(join(outputRoot, 'bin', 'web-harness-console'), `#!/usr/bin/env bash
 set -euo pipefail
-PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd -P)"
 exec node "$PLUGIN_ROOT/packages/web-harness-console/server.mjs" --root "\${CLAUDE_PROJECT_DIR:-$PWD}" "$@"
 `)
 writeExecutable(join(outputRoot, 'bin', 'web-harness-read'), `#!/usr/bin/env bash
 set -euo pipefail
-PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd -P)"
 TARGET="\${1:-}"
 case "$TARGET" in
   ''|/*|*..*) echo "web-harness-read: invalid path: $TARGET" >&2; exit 2;;

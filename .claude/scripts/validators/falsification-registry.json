@@ -4305,6 +4305,30 @@
       "replace": "import {parseTrustedPromotionActions} from './validators/validate-workflows-and-evals.mjs'",
       "test": ".claude/scripts/test-import-closure.mjs",
       "why": "릴리스 게이트 훅(release-gate-lib → receipt-validation-lib)이 배포되지 않는 validators/를 불러 설치본에서 로드 실패한다 — PreToolUse 훅의 exit 1은 비차단이라 게이트가 조용히 꺼진다"
+    },
+    {
+      "id": "dispatcher-physical-plugin-root",
+      "file": ".claude/scripts/build-plugin.mjs",
+      "find": "&& pwd -P)\"\nNAME=\"\\${1:-}\"",
+      "replace": "&& pwd)\"\nNAME=\"\\${1:-}\"",
+      "test": ".claude/scripts/test-plugin-dispatcher.mjs",
+      "why": "디스패처가 논리 경로로 스크립트를 넘기면 링크가 낀 플러그인 경로에서 main 판정이 거짓이 되어 스크립트가 아무것도 하지 않고 0으로 끝난다 — 게이트가 조용히 통과로 읽힌다"
+    },
+    {
+      "id": "session-mode-realpath-guard",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "realOrSelf(process.argv[1]) === realOrSelf(fileURLToPath(import.meta.url))",
+      "replace": "resolve(process.argv[1]) === fileURLToPath(import.meta.url)",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "링크가 낀 플러그인 경로로 불린 하네스 모드 훅이 main 판정에서 빠져 안내가 조용히 사라진다"
+    },
+    {
+      "id": "console-bin-physical-plugin-root",
+      "file": ".claude/scripts/build-plugin.mjs",
+      "find": "&& pwd -P)\"\nexec node \"$PLUGIN_ROOT/packages/web-harness-console/server.mjs\"",
+      "replace": "&& pwd)\"\nexec node \"$PLUGIN_ROOT/packages/web-harness-console/server.mjs\"",
+      "test": ".claude/scripts/test-plugin-dispatcher.mjs",
+      "why": "콘솔 bin이 논리 경로로 서버를 넘기면 링크가 낀 플러그인 경로에서 서버의 main 판정이 거짓이 되어 콘솔이 뜨지 않고 조용히 0으로 끝난다"
     }
   ]
 }

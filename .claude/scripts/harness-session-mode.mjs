@@ -64,7 +64,8 @@ function pruneStale(home, now) {
   } catch { /* 정리 실패는 무시한다 */ }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// 실경로로 대조한다 — 플러그인 경로에 링크가 끼면 문자열 대조가 거짓이 되어 훅이 조용히 빠진다. realOrSelf는 던지지 않는다.
+if (process.argv[1] && realOrSelf(process.argv[1]) === realOrSelf(fileURLToPath(import.meta.url))) {
   try {
     let source = ''
     for await (const chunk of process.stdin) source += chunk
