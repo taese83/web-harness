@@ -9,12 +9,16 @@
 //   - 트리 digest는 파일 이름과 내용에 묶인다 — 사례를 고치면 receipt의 사례 digest가 바뀐다
 //   - artifact-exists는 산출물 파일이나 같은 이름의 분할 디렉터리를 받는다
 //   - 인증 실패로 모델에 닿지 못한 실행은 환경 오류다 — 다른 실행 오류는 판정에 남긴다
+//   - file-absent는 경로가 있으면 잡는다 — 멈춰야 할 단계를 넘은 실행(서브에이전트의 쓰기 포함)
+//   - artifact-matches는 산출물 파일이나 분할 INDEX.md에서 패턴을 찾는다 — 없거나 안 맞으면 잡는다
+//   - 디스패처를 셸이 못 찾은 실행(exit 127)은 배포본에 디스패처가 있을 때만 환경 오류다 — 없으면 빌드 결함이다
+//   - 평가 세션 PATH는 평가 대상의 bin을 앞에 두고 설치본 플러그인의 bin은 뺀다 — 설치본과 같은 조건에서 잰다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
-import {join} from 'node:path'
+import {delimiter, join, sep} from 'node:path'
 import {tmpdir} from 'node:os'
-import {dispatchMisses, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 import * as draftValidator from './ticket/ticket-create.mjs'
 
 const withRoot = run => {
@@ -102,4 +106,42 @@ test('인증 실패로 모델에 닿지 못한 실행은 환경 오류다 — �
   assert.match(runFailureEnvironmentErrors(expired)[0], /claude auth login/)
   assert.deepEqual(runFailureEnvironmentErrors('exit 1: max turns reached'), [], '플러그인이 만든 실패를 환경 오류로 뺐다')
   assert.deepEqual(runFailureEnvironmentErrors(null), [])
+})
+
+test('file-absent는 경로가 생기면 잡는다 — 멈춰야 할 단계를 넘은 실행', () => withRoot(root => {
+  const check = [{type: 'file-absent', path: '_workspace/03_dev/spec.json'}]
+  assert.deepEqual(runChecks(check, {workspace: root, seedSource: null, draftValidator}), [])
+  write(root, '_workspace/03_dev/spec.json', '{}')
+  assert.match(runChecks(check, {workspace: root, seedSource: null, draftValidator})[0], /spec\.json가 있다/)
+}))
+
+test('artifact-matches는 파일이나 분할 INDEX.md에서 패턴을 찾고, 없거나 안 맞으면 잡는다', () => withRoot(root => {
+  const check = [{type: 'artifact-matches', path: '_workspace/02_design/api-schema', pattern: '^API_CONTRACT: provisional'}]
+  assert.match(runChecks(check, {workspace: root, seedSource: null, draftValidator})[0], /api-schema\(\.md 또는 분할 INDEX\.md\)가 없다/)
+  write(root, '_workspace/02_design/api-schema.md', '# API Schema\n\nAPI_CONTRACT: confirmed (openapi.yaml)\n')
+  assert.match(runChecks(check, {workspace: root, seedSource: null, draftValidator})[0], /API_CONTRACT: provisional\/가 없다/, '다른 상태를 맞는 것으로 봤다')
+  write(root, '_workspace/02_design/api-schema.md', '# API Schema\n\nAPI_CONTRACT: provisional\n')
+  assert.deepEqual(runChecks(check, {workspace: root, seedSource: null, draftValidator}), [])
+  unlinkSync(join(root, '_workspace/02_design/api-schema.md'))
+  write(root, '_workspace/02_design/api-schema/INDEX.md', '# API Schema\n\nAPI_CONTRACT: provisional\n')
+  assert.deepEqual(runChecks(check, {workspace: root, seedSource: null, draftValidator}), [], '분할 산출물의 INDEX를 보지 않았다')
+}))
+
+test('디스패처를 셸이 못 찾은 실행은 배포본에 디스패처가 있을 때만 환경 오류다', () => withRoot(root => {
+  const trace = '{"type":"user","message":{"content":[{"type":"tool_result","content":"(eval):1: command not found: web-harness-script"}]}}'
+  assert.deepEqual(dispatcherNotOnPath(trace, join(root, 'bin')), [], '배포본에 디스패처가 없는데 환경 오류로 뺐다 — 빌드 결함을 숨긴다')
+  write(root, 'bin/web-harness-script', '#!/usr/bin/env bash\n')
+  assert.equal(dispatcherNotOnPath(trace, join(root, 'bin')).length, 1)
+  assert.deepEqual(dispatcherNotOnPath('{"ok":true}', join(root, 'bin')), [])
+  assert.equal(dispatcherNotOnPath('bash: web-harness-script: command not found', join(root, 'bin')).length, 1, 'bash 형식을 놓쳤다')
+  assert.deepEqual(dispatcherNotOnPath('(eval):1: command not found: web-harness-scripts', join(root, 'bin')), [],
+    '이름이 다른 명령(오타)을 PATH 누락으로 읽었다 — 플러그인 결함을 판정에서 뺀다')
+}))
+
+test('평가 세션 PATH는 평가 대상의 bin을 앞에 두고 설치본 플러그인의 bin은 뺀다', () => {
+  const installed = ['', 'Users', 'u', '.claude', 'plugins', 'cache', 'web-harness', '0.46.0', 'bin'].join(sep)
+  const path = evalSessionPath(join(sep, 'tmp', 'eval', 'web-harness'), ['/usr/bin', installed, '/bin'].join(delimiter)).split(delimiter)
+  assert.equal(path[0], join(sep, 'tmp', 'eval', 'web-harness', 'bin'), '평가 대상의 디스패처가 PATH에 없다 — 서브에이전트가 exit 127로 실패한다')
+  assert.ok(!path.includes(installed), '설치본 디스패처가 남았다 — 평가 대상이 아닌 판본을 잰다')
+  assert.deepEqual(path.slice(1), ['/usr/bin', '/bin'])
 })

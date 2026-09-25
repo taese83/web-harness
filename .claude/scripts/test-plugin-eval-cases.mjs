@@ -57,6 +57,36 @@ test('시드에 이미 있는 파일을 보는 file-exists는 공허하다고 �
   }
 })
 
+test('사후 검사 종류를 모르거나, 시드가 이미 맞추거나 이미 가진 경로를 요구하면 잡는다', () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'wh-plugin-cases-checks-')))
+  try {
+    const write = (path, text) => { mkdirSync(join(base, path, '..'), {recursive: true}); writeFileSync(join(base, path), text) }
+    write('seeds/s/_workspace/02_design/api-schema/INDEX.md', '# API\n\nAPI_CONTRACT: provisional\n')
+    write('seeds/s/src/app.ts', 'app\n')
+    const cases = {
+      'odd-check': {type: 'file-there'},
+      'vacuous-matches': {type: 'artifact-matches', path: '_workspace/02_design/api-schema', pattern: '^API_CONTRACT: provisional'},
+      'seeded-absent': {type: 'file-absent', path: 'src'},
+      'real-matches': {type: 'artifact-matches', path: '_workspace/02_design/api-schema', pattern: '^API_CONTRACT: confirmed'},
+      'real-absent': {type: 'file-absent', path: '_workspace/03_dev/spec.json'},
+      'broken-pattern': {type: 'artifact-matches', path: '_workspace/02_design/solution-design', pattern: '"status": ("open"'},
+    }
+    for (const [name, check] of Object.entries(cases)) {
+      write(`plugin/${name}/prompt.md`, '---\ntags: [regression]\nmax_turns: 60\ntimeout_seconds: 900\n---\n/web-harness:wh 이어서 진행\n')
+      write(`plugin/${name}/graders/said.md`, '---\ntype: regex\ntarget: last_message\npattern: "x"\n---\n')
+      write(`plugin/${name}/checks.json`, JSON.stringify({seed: 's', checks: [check]}))
+    }
+    const problems = pluginEvalCaseProblems(join(base, 'plugin'))
+    assert.ok(problems.some(problem => /^odd-check: 알 수 없는 사후 검사 type file-there/.test(problem)), JSON.stringify(problems))
+    assert.ok(problems.some(problem => /^vacuous-matches: artifact-matches .*시드에서 이미 맞는다/.test(problem)), `시드가 이미 맞추는 내용 검사를 놓쳤다: ${JSON.stringify(problems)}`)
+    assert.ok(problems.some(problem => /^seeded-absent: file-absent src가 시드에 이미 있다/.test(problem)), JSON.stringify(problems))
+    assert.ok(problems.some(problem => /^broken-pattern: artifact-matches .*pattern이 정규식이 아니다/.test(problem)), `정규식이 아닌 pattern을 놓쳤다: ${JSON.stringify(problems)}`)
+    assert.ok(!problems.some(problem => problem.startsWith('real')), `정당한 검사를 문제로 잡았다: ${JSON.stringify(problems)}`)
+  } finally {
+    rmSync(base, {recursive: true, force: true})
+  }
+})
+
 test('하네스의 배포본 평가 사례는 형식을 지킨다', () => {
   assert.deepEqual(pluginEvalCaseProblems(fileURLToPath(new URL('../evals/plugin', import.meta.url))), [])
 })

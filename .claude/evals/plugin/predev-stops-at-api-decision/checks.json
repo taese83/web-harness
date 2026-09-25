@@ -1,0 +1,36 @@
+{
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — ⓪ API 계약(잠정 상태 줄)과 ① 구현 설계가 서고, 설계에 열린 결정이 남아(정지 근거 — 확정이 거부된다) 스팩·소스·패키지가 없어야 한다. 시드에는 api-schema·solution-design이 없으므로 있으면 이번 실행이 만든 것이다.",
+  "seed": "library-seat-predev",
+  "checks": [
+    {
+      "type": "artifact-exists",
+      "path": "_workspace/02_design/api-schema"
+    },
+    {
+      "type": "artifact-matches",
+      "path": "_workspace/02_design/api-schema",
+      "pattern": "^[\\s>*-]*\\**API_CONTRACT\\**:\\s*[`*]*provisional"
+    },
+    {
+      "type": "file-exists",
+      "path": "_workspace/02_design/solution-design.md"
+    },
+    {
+      "type": "artifact-matches",
+      "path": "_workspace/02_design/solution-design",
+      "pattern": "\"status\":\\s*\"open\""
+    },
+    {
+      "type": "file-absent",
+      "path": "_workspace/03_dev/spec.json"
+    },
+    {
+      "type": "file-absent",
+      "path": "src"
+    },
+    {
+      "type": "file-absent",
+      "path": "package.json"
+    }
+  ]
+}

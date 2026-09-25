@@ -1,0 +1,18 @@
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f4f7f7;
+  --color-text: #1b2426;
+  --color-text-muted: #55646a;
+  --color-accent: #0f766e;
+  --color-on-accent: #ffffff;
+  --color-danger: #b91c1c;
+  --color-success: #15803d;
+  --seat-available: #0f766e;
+  --seat-mine: #1d4ed8;
+  --seat-taken: #9ca3af;
+  --seat-past: #e5e7eb;
+  --seat-unknown: #f59e0b;
+  --duration-press: 100ms;
+  --duration-expand: 200ms;
+  --duration-skeleton-period: 1400ms;
+}

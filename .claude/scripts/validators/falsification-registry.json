@@ -4105,6 +4105,86 @@
       "replace": "      if (false) {",
       "test": ".claude/scripts/test-eval-scenario-references.mjs",
       "why": "평가 단언이 퇴역 에이전트를 기대해도 통과한다 — 같은 접미사의 마지막 에이전트가 사라지면 접미사 추론이 놓친다"
+    },
+    {
+      "id": "eval-check-file-absent",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "    if (check.type === 'file-absent') return existsSync(join(workspace, check.path)) ? [`file-absent: ${check.path}가 있다 — 멈춰야 할 단계를 넘었다`] : []",
+      "replace": "    if (check.type === 'file-absent') return []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "멈춰야 할 단계를 넘은 실행(스팩 확정·소스 생성, 서브에이전트의 쓰기 포함)이 사후 검사를 통과한다"
+    },
+    {
+      "id": "eval-check-artifact-matches",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "      return new RegExp(check.pattern, 'm').test(readFileSync(file, 'utf8')) ? [] : [`artifact-matches: ${check.path}에 /${check.pattern}/가 없다`]",
+      "replace": "      return []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "산출물이 있기만 하면 내용 계약(상태 줄 등)이 틀려도 통과한다"
+    },
+    {
+      "id": "eval-check-dispatcher-bin-exists",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "  DISPATCHER_NOT_FOUND.test(String(traceText ?? '')) && existsSync(join(pluginBinDirectory, 'web-harness-script'))",
+      "replace": "  DISPATCHER_NOT_FOUND.test(String(traceText ?? ''))",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "배포본에서 디스패처가 빠진 빌드 결함을 환경 오류로 분류해 판정에서 뺀다"
+    },
+    {
+      "id": "eval-session-path-plugin-bin",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "export const evalSessionPath = (pluginDirectory, parentPath) => [join(pluginDirectory, 'bin'),",
+      "replace": "export const evalSessionPath = (pluginDirectory, parentPath) => [",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "평가 대상의 디스패처가 PATH에 없어 서브에이전트의 기계 판정이 평가에서만 exit 127로 실패한다"
+    },
+    {
+      "id": "plugin-case-unknown-check-type",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "      if (!CHECK_TYPES.has(check.type)) problems.push(`${name}: 알 수 없는 사후 검사 type ${check.type}`)",
+      "replace": "      if (false) problems.push(`${name}: 알 수 없는 사후 검사 type ${check.type}`)",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "모르는 사후 검사 종류가 실행 때에야 실패로 드러나 평가 비용을 버린다"
+    },
+    {
+      "id": "plugin-case-vacuous-matches-check",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "        if (seeded && pattern?.test(readFileSync(seeded, 'utf8'))) {",
+      "replace": "        if (false) {",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "시드가 이미 맞추는 내용 검사가 양성 검사로 세어져 아무것도 하지 않은 실행이 통과한다"
+    },
+    {
+      "id": "plugin-case-seeded-absent",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "      if (check.type === 'file-absent' && seedDirectory && existsSync(join(seedDirectory, check.path))) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "시드에 이미 있는 경로의 부재를 요구하는 사례가 모든 실행을 실패로 만든다"
+    },
+    {
+      "id": "eval-trace-dispatcher-name-boundary",
+      "file": ".claude/scripts/eval-trace-metrics.mjs",
+      "find": "export const DISPATCHER_NOT_FOUND = /command not found: web-harness-script(?![\\w-])|web-harness-script: command not found/",
+      "replace": "export const DISPATCHER_NOT_FOUND = /command not found: web-harness-script|web-harness-script: command not found/",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "에이전트 문서의 오타(web-harness-scripts)로 생긴 플러그인 결함을 디스패처 PATH 누락으로 읽어 판정에서 뺀다"
+    },
+    {
+      "id": "plugin-case-invalid-pattern",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "        try { pattern = new RegExp(check.pattern, 'm') } catch { problems.push(`${name}: artifact-matches ${check.path}의 pattern이 정규식이 아니다`) }",
+      "replace": "        try { pattern = new RegExp(check.pattern, 'm') } catch { }",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "정규식이 아닌 pattern이 실행 때에야 검사 실패로 드러나 평가 비용을 버린다"
+    },
+    {
+      "id": "eval-trace-dispatcher-count",
+      "file": ".claude/scripts/eval-trace-metrics.mjs",
+      "find": "      dispatcherNotFound += event.message.content.filter(block => block.type === 'tool_result' && DISPATCHER_NOT_FOUND.test(toolResultText(block))).length",
+      "replace": "      dispatcherNotFound += 0",
+      "test": ".claude/scripts/test-eval-trace-metrics.mjs",
+      "why": "receipt가 디스패처를 못 찾은 실행을 세지 못해 결함 환경에서 잰 수치가 정상 수치와 구별되지 않는다"
     }
   ]
 }

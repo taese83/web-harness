@@ -47,18 +47,21 @@ node .claude/scripts/run-plugin-evals.mjs --case ticket-draft-team-form --runs 1
 - **사례 작성**: 레인 사례의 요청은 interaction-contract 「질문이 필요한 경우」(데이터 모델·저장 범위가 선택에 따라
   갈린다)에 걸리지 않게 쓴다 — 걸리면 먼저 묻는 것이 정답이라 사례가 재려는 경로에 가지 않는다. 고치는 쪽은 요청이다:
   「묻고 멈춤」을 통과시키려고 채점기를 넓히지 않는다(양성 채점기가 공허해진다).
-- **지표**: receipt(`receipts/plugin/<시각>.json`, schema 3부터 사례·시드 digest로 잰 판본을 묶는다)에 실행마다 턴·최대 컨텍스트·출력 토큰·비용·에이전트 스폰·
+- **지표**: receipt(`receipts/plugin/<시각>.json`, schema 3부터 사례·시드 digest로 잰 판본을 묶고, schema 4부터 실행별 디스패처 누락 건수 `dispatcherNotFound`를 남긴다)에 실행마다 턴·최대 컨텍스트·출력 토큰·비용·에이전트 스폰·
   하네스 스크립트 소스를 연 횟수(도구 안내가 부족하다는 신호)를 남긴다 — 컨텍스트 절감 같은 변경의 전후 비교 기준이다.
 - **비용**: 실행마다 실제 모델 호출이다. `--max-cost-usd`(기본 40)가 상한이고, 넘으면 부분 결과로 끝난다(종료 2).
 - **사후 검사**: 사례의 `checks.json`을 실행 뒤 작업 공간에서 결정적으로 본다 — `source-unchanged`(시드와 해시 대조, 쓴 에이전트와
-  무관), `ticket-drafts-valid`(배포본의 초안 검사기 그대로), `file-exists`, `artifact-exists`(파일이나 같은 이름의 분할 디렉터리).
+  무관), `ticket-drafts-valid`(배포본의 초안 검사기 그대로), `file-exists`, `artifact-exists`(파일이나 같은 이름의 분할 디렉터리),
+  `file-absent`(멈춰야 할 단계를 넘지 않았는가), `artifact-matches`(파일이나 분할 `INDEX.md`에서 정규식 — 상태 줄·열린 결정).
   배포본에 있는 스크립트를 디스패처가 못 찾은 실행과 인증 실패로 모델에 닿지 못한 실행은 판정이 아니라 환경 오류다(종료 2) —
-  부모 세션 PATH의 설치된 플러그인 bin은 러너가 뺀다. 인증이 만료됐으면 `claude auth login` 뒤 다시 돌린다.
+  배포본에 디스패처가 있는데 셸이 못 찾은 실행도 환경 오류다. 러너는 부모 세션 PATH에서 설치된 플러그인 bin을 빼고 배포본 bin을
+  앞에 둔다(설치본과 같은 조건 — 없으면 서브에이전트가 디스패처를 못 찾는다). 인증이 만료됐으면 `claude auth login` 뒤 다시 돌린다.
 - **릴리스 채택 조건**: 선택 없이 돈 실행(`selection`의 case·tag·runs가 전부 null — regression 사례 전원·prompt.md의 runs) ·
   `partial: false` · 환경 오류 없음 · receipt의 `harnessCommit`이 릴리스 커밋이고 `dirty: false`. 러너는 평가 직전에 그 트리로
   dist를 다시 빌드한다(`distDigest`가 그 빌드다).
-- **보지 않는 것**: 비대화 규약이 첫 ✋에서 멈추므로 승인 이후(Gate 0·Iterate·구현·검증)는 보지 않는다. 채점은 결정적이라 초안
-  문장의 품질(완료 조건이 관측 가능한지)은 판정하지 않는다 — 그런 판단은 능력 평가의 몫이다. 사례 3개·k=3이라 드문 회귀는 놓친다.
+- **보지 않는 것**: 비대화 규약이 첫 ✋에서 멈춘다. 앞 단계를 시드로 깐 사례(`predev-stops-at-api-decision`)로 착수 전 구간(⓪①②)까지는
+  보지만, 구현·검증(Gate 0 이후)은 보지 않는다. 채점은 결정적이라 초안
+  문장의 품질(완료 조건이 관측 가능한지)은 판정하지 않는다 — 그런 판단은 능력 평가의 몫이다. 사례 5개·k=3이라 드문 회귀는 놓친다.
 - `run-eval-executor.mjs`의 시나리오(`scenarios.json`)는 저장소 모드 능력 평가로 남는다.
 
 ## 실행 receipt — 커밋 대상 (2026-08-23 신설)

@@ -3,6 +3,8 @@ import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync} from 'no
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
 import {deriveRoleSuffixes} from './agent-reachability.mjs'
+// 모르는 사후 검사 종류는 실행 때에야 실패로 드러나므로 여기서 먼저 막는다 — 목록은 runChecks와 한 곳이다.
+import {CHECK_TYPES} from '../plugin-eval-checks-lib.mjs'
 
 const PLUGIN_CASE_KEYS = new Set(['schema_version', 'name', 'description', 'tags', 'plugins', 'runs', 'expected_outcome', 'model',
   'max_turns', 'timeout_seconds', 'allowed_tools', 'append_system_prompt', 'env'])
@@ -62,10 +64,23 @@ export const pluginEvalCaseProblems = casesDirectory => {
     }).length
     const checksPath = join(caseDirectory, 'checks.json')
     const checks = existsSync(checksPath) ? JSON.parse(readFileSync(checksPath, 'utf8')) : {checks: []}
-    const positiveChecks = (checks.checks ?? []).filter(check => ['ticket-drafts-valid', 'file-exists', 'artifact-exists'].includes(check.type)).length
+    const positiveChecks = (checks.checks ?? []).filter(check => ['ticket-drafts-valid', 'file-exists', 'artifact-exists', 'artifact-matches'].includes(check.type)).length
     // 시드에 이미 있는 파일을 보는 file-exists는 아무것도 하지 않은 실행도 통과시킨다.
     const seedDirectory = checks.seed ? join(casesDirectory, '..', 'seeds', checks.seed) : null
     for (const check of checks.checks ?? []) {
+      if (!CHECK_TYPES.has(check.type)) problems.push(`${name}: 알 수 없는 사후 검사 type ${check.type}`)
+      // 시드에 이미 있는 경로의 부재를 요구하면 모든 실행이 실패한다 — 사례 정의의 결함이다.
+      if (check.type === 'file-absent' && seedDirectory && existsSync(join(seedDirectory, check.path))) {
+        problems.push(`${name}: file-absent ${check.path}가 시드에 이미 있다 — 모든 실행이 실패한다`)
+      }
+      if (check.type === 'artifact-matches') {
+        let pattern = null
+        try { pattern = new RegExp(check.pattern, 'm') } catch { problems.push(`${name}: artifact-matches ${check.path}의 pattern이 정규식이 아니다`) }
+        const seeded = seedDirectory ? [`${check.path}.md`, join(check.path, 'INDEX.md')].map(path => join(seedDirectory, path)).find(path => existsSync(path)) : null
+        if (seeded && pattern?.test(readFileSync(seeded, 'utf8'))) {
+          problems.push(`${name}: artifact-matches ${check.path}가 시드에서 이미 맞는다 — 아무것도 하지 않은 실행도 통과한다`)
+        }
+      }
       if (check.type === 'file-exists' && seedDirectory && existsSync(join(seedDirectory, check.path))) {
         problems.push(`${name}: file-exists ${check.path}가 시드에 이미 있다 — 아무것도 하지 않은 실행도 통과한다`)
       }

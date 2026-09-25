@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: predev-stops-at-api-decision
+context:
+  scaffold_script: fixture.sh

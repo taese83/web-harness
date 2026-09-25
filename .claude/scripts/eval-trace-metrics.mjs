@@ -9,6 +9,11 @@
 const SCRIPT_PATH = /\/scripts\/[\w./-]+\.mjs/
 const SHELL_SOURCE_READ = /(?:^|[\s;&|(])(?:cat|sed|grep|rg|awk|head|tail|less)\b[^|;&]*\/scripts\/[\w./-]+\.mjs/
 
+// 셸이 배포본 디스패처를 못 찾은 흔적(zsh·bash 두 형식) — 메인·서브에이전트 모두 센다. 이름 뒤 경계로 오타를 가른다.
+export const DISPATCHER_NOT_FOUND = /command not found: web-harness-script(?![\w-])|web-harness-script: command not found/
+
+const toolResultText = block => (Array.isArray(block.content) ? block.content.map(part => part?.text ?? '').join(' ') : String(block.content ?? ''))
+
 const parse = text => String(text).split(/\r?\n/).filter(Boolean).flatMap(line => {
   try { return [JSON.parse(line)] } catch { return [] }
 })
@@ -29,7 +34,11 @@ export const traceMetrics = traceText => {
   const scriptSourceReads = []
   const bashIds = new Set()
   let bashErrors = 0
+  let dispatcherNotFound = 0
   for (const event of events) {
+    if (event.type === 'user' && Array.isArray(event.message?.content)) {
+      dispatcherNotFound += event.message.content.filter(block => block.type === 'tool_result' && DISPATCHER_NOT_FOUND.test(toolResultText(block))).length
+    }
     // 메인 스레드 Bash 결과 중 오류 — 스크립트가 전부 실패한 실행이 receipt에서 건강해 보이지 않게 분모를 남긴다.
     if (event.type === 'user' && !event.parent_tool_use_id && Array.isArray(event.message?.content)) {
       bashErrors += event.message.content.filter(block => block.type === 'tool_result' && block.is_error && bashIds.has(block.tool_use_id)).length
@@ -59,6 +68,7 @@ export const traceMetrics = traceText => {
     cacheReadTokens: result.usage?.cache_read_input_tokens ?? null,
     toolUses,
     bashErrors,
+    dispatcherNotFound,
     agentSpawns,
     scriptSourceReads: scriptSourceReads.length,
     scriptSourceReadSamples: scriptSourceReads.slice(0, 5),

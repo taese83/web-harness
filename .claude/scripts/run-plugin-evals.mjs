@@ -16,11 +16,11 @@
 // 실행 수 부족·환경 오류·비용 상한)
 import {chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {spawnSync} from 'node:child_process'
-import {delimiter, join, sep} from 'node:path'
+import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 import {traceMetrics} from './eval-trace-metrics.mjs'
-import {dispatchMisses, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const DIST = join(REPOSITORY_ROOT, 'dist/web-harness-plugin')
@@ -68,8 +68,7 @@ cpSync(CASES, join(plugin, 'evals'), {recursive: true})
 cpSync(SEEDS, join(plugin, 'evals', 'seeds'), {recursive: true})
 const resultPath = join(work, 'result.json')
 
-// 부모 세션 PATH에 설치된 플러그인의 bin이 있으면 실행이 평가 대상이 아니라 설치본 디스패처를 부른다 — 뺀다.
-const PATH = (process.env.PATH ?? '').split(delimiter).filter(entry => !entry.includes(`${sep}.claude${sep}plugins${sep}`)).join(delimiter)
+const PATH = evalSessionPath(plugin, process.env.PATH)
 const args = ['plugin', 'eval', plugin, '--ablation', 'none', '--trust-plugin', '--scaffold', '--keep-temp',
   '--allow-tools', 'Bash', 'Write', 'Edit', '--json', resultPath, '--concurrency', options.concurrency, '--max-cost-usd', options.maxCost]
 if (options.runs) args.push('--runs', options.runs)
@@ -114,7 +113,7 @@ const cases = result.cases.map(testCase => {
     }
     const missed = dispatchMisses(trace, join(DIST, '.claude/scripts'))
     const environmentErrors = [...missed.map(name => `배포본에 있는 스크립트 ${name}를 디스패처가 찾지 못했다 — 이 실행은 플러그인 판정이 아니다`),
-      ...runFailureEnvironmentErrors(armRun.error)]
+      ...runFailureEnvironmentErrors(armRun.error), ...dispatcherNotOnPath(trace, join(DIST, 'bin'))]
     const checkProblems = runChecks(checks.checks, {workspace: root ? join(root, 'sealed', 'home', 'cwd') : null,
       seedSource: checks.seed ? join(SEEDS, checks.seed, 'src') : null, draftValidator})
     const gradersPassed = armRun.passed === true
@@ -148,7 +147,7 @@ const cases = result.cases.map(testCase => {
 
 const receipt = {
   kind: 'plugin-eval-receipt',
-  schemaVersion: 3,
+  schemaVersion: 4,
   harnessCommit: git(['rev-parse', 'HEAD']),
   dirty: git(['status', '--porcelain', '--', '.claude']) !== '',
   pluginVersion: builtVersion,

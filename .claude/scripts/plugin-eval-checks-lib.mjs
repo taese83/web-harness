@@ -4,7 +4,11 @@
 // 직접 본다. 판정이 CLI 안에 인라인이면 테스트도 반증도 붙지 않는다 — 여기 모아 test-plugin-eval-checks가 고정한다.
 import {existsSync, readdirSync, readFileSync, realpathSync} from 'node:fs'
 import {createHash} from 'node:crypto'
-import {basename, dirname, join, relative} from 'node:path'
+import {basename, delimiter, dirname, join, relative, sep} from 'node:path'
+import {DISPATCHER_NOT_FOUND} from './eval-trace-metrics.mjs'
+
+/** 사후 검사 종류 — runChecks와 사례 검사기(validate-workflows-and-evals)가 같은 목록을 쓴다. */
+export const CHECK_TYPES = new Set(['source-unchanged', 'ticket-drafts-valid', 'file-exists', 'artifact-exists', 'file-absent', 'artifact-matches'])
 
 export const listFiles = (root, current = root) => readdirSync(current, {withFileTypes: true})
   .sort((left, right) => left.name.localeCompare(right.name))
@@ -45,6 +49,22 @@ export const dispatchMisses = (traceText, distScriptsDirectory) => [...new Set(
 )].filter(name => existsSync(join(distScriptsDirectory, `${name}.mjs`)))
 
 /**
+ * 평가 세션의 PATH — 설치본 플러그인의 bin은 뺀다(평가 대상이 아닌 디스패처를 부른다). 평가 대상의 bin은 설치본처럼
+ * 앞에 둔다 — 없으면 서브에이전트가 디스패처를 못 찾고(exit 127), 검증 Bash 정책이 절대 경로를 막아 우회로도 없다.
+ */
+export const evalSessionPath = (pluginDirectory, parentPath) => [join(pluginDirectory, 'bin'),
+  ...String(parentPath ?? '').split(delimiter).filter(entry => entry !== '' && !entry.includes(`${sep}.claude${sep}plugins${sep}`))].join(delimiter)
+
+/**
+ * 배포본에 **있는** 디스패처를 셸이 못 찾았다는 흔적(exit 127) — 설치본은 플러그인 bin을 PATH에 두므로 이 실행은
+ * 플러그인 판정이 아니라 환경 오류다. 배포본에 디스패처가 없으면 빌드 결함이라 환경 오류로 빼지 않는다.
+ */
+export const dispatcherNotOnPath = (traceText, pluginBinDirectory) =>
+  DISPATCHER_NOT_FOUND.test(String(traceText ?? '')) && existsSync(join(pluginBinDirectory, 'web-harness-script'))
+    ? ['배포본의 web-harness-script를 셸이 찾지 못했다(PATH에 플러그인 bin이 없다) — 이 실행은 플러그인 판정이 아니다']
+    : []
+
+/**
  * 실행이 모델에 닿지도 못한 흔적(인증 만료 등) — 플러그인 판정이 아니라 환경 오류다. 그대로 두면 채점기 실패가
  * 「플러그인이 아무것도 안 했다」로 읽힌다.
  */
@@ -81,6 +101,14 @@ export const runChecks = (checks, {workspace, seedSource, draftValidator}) => ch
       })
     }
     if (check.type === 'file-exists') return existsSync(join(workspace, check.path)) ? [] : [`file-exists: ${check.path}가 없다`]
+    // 멈춰야 할 자리에서 멈췄는가 — 서브에이전트의 쓰기는 채점기(메인 트레이스)가 못 보므로 작업 공간을 본다.
+    if (check.type === 'file-absent') return existsSync(join(workspace, check.path)) ? [`file-absent: ${check.path}가 있다 — 멈춰야 할 단계를 넘었다`] : []
+    // 산출물의 내용 계약(상태 줄 등) — 분할이면 INDEX.md를 본다(artifact-sharding-contract).
+    if (check.type === 'artifact-matches') {
+      const file = [`${check.path}.md`, join(check.path, 'INDEX.md')].map(path => join(workspace, path)).find(path => existsSync(path))
+      if (!file) return [`artifact-matches: ${check.path}(.md 또는 분할 INDEX.md)가 없다`]
+      return new RegExp(check.pattern, 'm').test(readFileSync(file, 'utf8')) ? [] : [`artifact-matches: ${check.path}에 /${check.pattern}/가 없다`]
+    }
     // 설계·기획 산출물은 크면 같은 이름의 디렉터리로 나뉜다(artifact-sharding-contract) — 파일만 보면 분할한 실행이 실패로 보인다.
     if (check.type === 'artifact-exists') {
       return [`${check.path}.md`, check.path].some(path => existsSync(join(workspace, path))) ? [] : [`artifact-exists: ${check.path}(.md 또는 분할 디렉터리)가 없다`]
