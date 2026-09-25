@@ -4073,6 +4073,38 @@
       "replace": "      if (false) {",
       "test": ".claude/scripts/test-plugin-eval-cases.mjs",
       "why": "시드에 이미 있는 산출물(분할 디렉터리 포함)을 보는 사후 검사가 양성 검사로 세어진다"
+    },
+    {
+      "id": "planning-chain-order",
+      "file": ".claude/scripts/validators/validate-planning-facilitation.mjs",
+      "find": "    if (order.some(index => index < 0) || order.some((index, position) => position > 0 && index <= order[position - 1])) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-planning-chain.mjs",
+      "why": "기획 사슬 순서가 뒤집혀도 통과한다 — plan-reviewer가 tech-stack 없이 판정하거나 feature-planner가 요구사항 없이 FEAT를 나눈다"
+    },
+    {
+      "id": "product-planner-declares-outputs",
+      "file": ".claude/scripts/validators/validate-planning-facilitation.mjs",
+      "find": "    if (!planner.includes(`_workspace/01_plan/${output}`)) fail(`product-planner does not declare its output ${output}`)",
+      "replace": "    if (false) fail(`product-planner does not declare its output ${output}`)",
+      "test": ".claude/scripts/test-planning-chain.mjs",
+      "why": "합친 기획 에이전트가 산출물 하나를 잃어도 통과한다 — 그 산출물의 생산자가 사라진다"
+    },
+    {
+      "id": "retired-agents-are-legacy",
+      "file": ".claude/scripts/validate-harness.mjs",
+      "find": "  ...Object.keys(RETIRED_AGENTS),\n",
+      "replace": "  // retired names unchecked\n",
+      "test": ".claude/scripts/test-planning-chain.mjs",
+      "why": "합친 에이전트의 옛 이름이 계약에 남아도 통과한다 — 오케스트레이터가 없는 에이전트를 부른다"
+    },
+    {
+      "id": "eval-scenario-retired-agent",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "      if (Object.hasOwn(retiredAgents, token) && !roleSuffixes.has(token.split('-').at(-1))) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-eval-scenario-references.mjs",
+      "why": "평가 단언이 퇴역 에이전트를 기대해도 통과한다 — 같은 접미사의 마지막 에이전트가 사라지면 접미사 추론이 놓친다"
     }
   ]
 }

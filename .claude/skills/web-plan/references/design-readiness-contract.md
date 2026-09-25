@@ -1,6 +1,6 @@
 # Design Readiness Contract
 
-디자인 단계가 기획에게 요구하는 입력의 단일 명세다. 기획 agent(ux-researcher, feature-planner, planning-facilitator)는 이 형식으로 산출하고, 디자인 agent(design-system-architect, layout-designer, component-designer)는 이 절이 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다.
+디자인 단계가 기획에게 요구하는 입력의 단일 명세다. 기획 agent(product-planner, feature-planner)는 이 형식으로 산출하고, 디자인 agent(design-system-architect, layout-designer, component-designer)는 이 절이 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다.
 
 원칙: **디자인 품질은 기획 문서의 디자인 소비 가능성에 상한이 걸린다.** 화면 목록만으로는 레이아웃을 정할 수 없고, 정보 위계 없이는 시각 위계를 정할 수 없다.
 

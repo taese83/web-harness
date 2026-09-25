@@ -25,6 +25,7 @@ import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mj
 import {validateSectionReaders} from './validators/validate-section-readers.mjs'
 import {detectSourceRepository} from './validators/validate-adapter-hygiene.mjs'
 import {validateAgentReachability} from './validators/agent-reachability.mjs'
+import {RETIRED_AGENTS} from './agent-registry.mjs'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')
@@ -118,6 +119,7 @@ const legacyAgents = [
   'state-integrator',
   'test-runner',
   'version-analyst',
+  ...Object.keys(RETIRED_AGENTS),
 ]
 for (const agentName of legacyAgents) {
   if (existsSync(join(claudeDirectory, 'agents', `${agentName}.md`))) fail(`legacy agent still exists: ${agentName}`)
@@ -175,7 +177,7 @@ validateMinimalChange({repositoryRoot, read, pass, fail})
 // 배치-류 마커: 존재 + 코드펜스 밖 배치까지 검사한다(존재-류는 validate-marker-integrity
 // 레지스트리 몫). needle은 언어 중립 앵커 — 지시 산문은 자유 번역 가능(M1 ④).
 const instructionPlacementChecks = [
-  ['.claude/agents/requirements-analyst.md', '<!-- marker:detect-timeseries -->'],
+  ['.claude/agents/product-planner.md', '<!-- marker:detect-timeseries -->'],
 ]
 for (const [relativePath, marker] of instructionPlacementChecks) {
   const lines = read(relativePath).split(/\r?\n/)
@@ -291,7 +293,7 @@ pass('canonical web orchestration and dev delegation checked')
 
 const localStateReference = '.claude/skills/web-orchestrator/references/local-domain-state.md'
 if (!existsSync(join(repositoryRoot, localStateReference))) fail('local domain state contract is missing')
-for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/requirements-analyst.md', read('.claude/agents/requirements-analyst.md')]]) {
+for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/product-planner.md', read('.claude/agents/product-planner.md')]]) {
   if (!source.includes(localStateReference)) {
     fail(`${label}: canonical local domain state contract is not referenced`)
   }
@@ -303,7 +305,7 @@ pass('local domain state detection and invariant contracts checked')
 
 const externalIngestionReference = '.claude/skills/web-orchestrator/references/external-data-ingestion.md'
 if (!existsSync(join(repositoryRoot, externalIngestionReference))) fail('external data ingestion contract is missing')
-for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/requirements-analyst.md', read('.claude/agents/requirements-analyst.md')]]) {
+for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/product-planner.md', read('.claude/agents/product-planner.md')]]) {
   if (!source.includes(externalIngestionReference)) {
     fail(`${label}: canonical external ingestion contract is not referenced`)
   }

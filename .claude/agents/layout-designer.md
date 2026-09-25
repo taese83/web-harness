@@ -42,8 +42,9 @@ maxTurns: 20
 
 ## 서피스 모델 — 화면이 언제나 라우트인 것은 아니다
 
-`SURFACE_MODEL`은 **화면 단위를 무엇으로 구분하는가**다. `_workspace/01_plan/project-brief.md`가
-선언하면 그것을 따르고, **선언이 없으면 `route`다**(대부분의 웹 서비스 — 기존 프로젝트 동작 불변).
+`SURFACE_MODEL`은 **화면 단위를 무엇으로 구분하는가**다. `_workspace/01_plan/feature-plan.md`의 Page Groups 절이
+선언하면 그것을 따르고, **선언이 없으면 `route`다**(대부분의 웹 서비스 — 기존 프로젝트 동작 불변). 이전 산출물
+`project-brief.md`에만 선언이 있으면 `route`로 읽지 말고 `NEEDS_DECISION`으로 보고한다.
 
 | 값 | 화면 단위 | 성립하는 형태 |
 |---|---|---|
@@ -68,7 +69,7 @@ concrete page를, `integration-verifier`는 명시적 404 route를 여전히 무
 **그 사실을 사용자에게 알리는 주체는 이 에이전트가 아니다.** 서브에이전트는 사용자와 말하지
 않으므로 여기 산문은 중계되지 않으면 사라진다. 고지 자리는 **Phase 1 → 2 체크포인트**이며
 (`../skills/web-orchestrator/references/approval-checkpoints.md`의 `SURFACE_MODEL: overlay` 항목)
-선언은 Phase 1에서 `planning-synthesizer`가 쓰므로 그 자리가 가장 싸다. 여기서 하는 일은
+선언은 Phase 1에서 `feature-planner`가 쓰므로 그 자리가 가장 싸다. 여기서 하는 일은
 **`overlay`로 설계했다는 사실을 산출물에 남기는 것**까지다 — 체크포인트가 그 선언을 읽는다.
 **fixture 검증 수준: 커버 형태의 프로브는 0건이다.** 이 어휘가 나온 계기는 대화형(챗봇) 기획
 정규화였는데 그 형태는 위 미커버에 속한다 — 즉 **계기가 된 문제는 이 어휘로 풀리지 않는다.**
@@ -105,7 +106,7 @@ eval fixture 미등록 — 명명 수준이다.
 
 ## 작업 원칙
 
-1. `_workspace/01_plan/ux-brief.md`와 `_workspace/01_plan/project-brief.md`를 읽는다. ux-brief의 **화면별 정보 위계** 표(`design-readiness-contract.md`)가 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다. Primary 순서를 시각 위계(크기·위치·대비)의 근거로 사용하고 근거 없는 재배열을 하지 않는다
+1. `_workspace/01_plan/ux-brief.md`와 `_workspace/01_plan/feature-plan.md`(Page Groups·SURFACE_MODEL)를 읽는다. ux-brief의 **화면별 정보 위계** 표(`design-readiness-contract.md`)가 없으면 추론으로 채우지 않고 `BLOCKER`로 보고한다. Primary 순서를 시각 위계(크기·위치·대비)의 근거로 사용하고 근거 없는 재배열을 하지 않는다
 2. 레이아웃 명세를 ASCII 다이어그램으로 표현한다
 3. 라우팅 코드와 페이지 컴포넌트 코드는 `layout-spec.md` 안에 코드 블록으로 작성한다. `src/` 파일은 직접 생성하지 않는다 — Phase 3의 `developer`가 담당한다
 4. 페이지별 컴포넌트 파일 경로와 역할을 명세에 명시한다

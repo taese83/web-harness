@@ -6,7 +6,7 @@ Use this reference when the user already has planning, design, API, or product d
 
 | Artifact type | Examples | Normalized output |
 |---|---|---|
-| Product planning | PRD, requirements, business rules, acceptance criteria | `_workspace/01_plan/planning-context.md`, `requirements.md`, `project-brief.md` |
+| Product planning | PRD, requirements, business rules, acceptance criteria | `_workspace/01_plan/requirements.md` |
 | UX planning | IA, sitemap, user flows, personas, jobs-to-be-done, annotated screenshots | `_workspace/01_plan/ux-brief.md`, `feature-plan.md` |
 | Tech planning | stack decision, browser support, deployment target, constraints | `_workspace/01_plan/tech-stack.md` |
 | Visual design | Figma export, screenshots, screen specs, design QA notes | `_workspace/02_design/layout-spec.md`, `component-spec.md` |

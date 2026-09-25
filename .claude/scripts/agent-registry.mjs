@@ -46,9 +46,20 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)
 ]
 
+// 합치거나 없앤 에이전트 → 그 일을 이어받은 에이전트. 퇴역 이름이 계약·평가에 남으면 validate-harness가 막는다 —
+// 역방향 도달성은 살아 있는 이름의 접미사로 추론하므로, 같은 접미사의 마지막 에이전트가 사라지면 그 이름을 놓친다.
+export const RETIRED_AGENTS = {
+  'planning-facilitator': 'product-planner',
+  'requirements-analyst': 'product-planner',
+  'ux-researcher': 'product-planner',
+  'planning-synthesizer': 'plan-reviewer',
+}
+
 export const AGENT_OWNERSHIP = {
-  'planning-facilitator': [
-    /^_workspace\/01_plan\/planning-context(?:\.md|\/.+)$/,
+  // 요구사항·UX brief·결정 기록을 한 에이전트가 쓴다 — 제품 맥락(Product Frame)은 requirements.md의 절이다.
+  'product-planner': [
+    /^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/,
+    /^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/,
     /^_workspace\/01_plan\/decision-log(?:\.md|\/.+)$/,
   ],
 
@@ -111,9 +122,7 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/02_design\/build-environment\.json$/,
   ],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
-  'planning-synthesizer': [/^_workspace\/01_plan\/project-brief\.md$/],
   'release-manager': [/^_workspace\/RELEASE\//],
-  'requirements-analyst': [/^_workspace\/01_plan\/requirements(?:\.md|\/.+)$/],
   'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
   // WORK 분해의 선행 분석과 계획도 이 에이전트 **하나**가 쓴다(2026-09-11) — 구현 설계 결정·모듈 경계를
   // 이미 맡고 사용자 설계 원문을 우선 입력으로 읽는다. FEAT(feature-planner)와 WORK의 작성 책임을 가른다.
@@ -125,11 +134,10 @@ export const AGENT_OWNERSHIP = {
   // 외부 원문(웹·Figma)을 읽는 에이전트라 쓰기를 **정규화 산출물로만** 좁힌다 — 승인·리뷰 기록(plan-review·design-review·
   // 시각 기준선·preview)과 다른 설계자의 산출물은 원문 속 지시로 오염되면 안 된다. 목록은 에이전트 문서 「출력 파일」과 같다.
   'source-artifact-ingestor': [/^_workspace\/00_source\//,
-    /^_workspace\/01_plan\/(?:planning-context|decision-log|requirements|ux-brief|tech-stack|feature-plan|project-brief)(?:\.md|\/.+)$/,
+    /^_workspace\/01_plan\/(?:decision-log|requirements|ux-brief|tech-stack|feature-plan)(?:\.md|\/.+)$/,
     /^_workspace\/02_design\/(?:design-system|layout-spec|component-spec|api-schema)(?:\.md|\/.+)$/],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
   'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
-  'ux-researcher': [/^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/],
   'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
   'visual-contract-designer': [
     /^_workspace\/02_design\/visual-qa-contract\.json$/,

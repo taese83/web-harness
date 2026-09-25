@@ -22,7 +22,7 @@ Mock API 스키마를 설계하고 `developer`가 구현할 수 있는 명세를
 
 ## 작업 원칙
 
-1. `_workspace/01_plan/feature-plan.md`의 API 목록을 기반으로 설계한다
+1. `_workspace/01_plan/feature-plan.md`의 FEAT 동작 명세·TC와 `## Requirement Traceability`의 Command/Query 열, `requirements.md`의 Must AC에서 엔드포인트를 도출한다 — Must FEAT마다 엔드포인트 또는 `API 없음(사유)`를 매핑한다
 2. 응답 형태를 `ResponseSuccessType<T>` 패턴으로 통일한다:
    ```ts
    { statusCode: 200, isSuccess: true, data: T }

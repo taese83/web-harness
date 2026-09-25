@@ -42,7 +42,7 @@ metadata:
 
 ## Workflow
 
-1. `requirements-analyst`가 데이터 규모와 SLO를 `requirements.md`에 반영한다.
+1. `product-planner`가 데이터 규모와 SLO를 `requirements.md`에 반영한다.
 2. `feature-planner`가 time-range, chart-panel, live-mode, stream-status slice를 설계한다.
 3. `tech-advisor`가 chart/transport/worker 선택과 compatibility를 확정한다.
 4. `timeseries-architect`가 `_workspace/02_design/timeseries-architecture.md`를 생성한다.

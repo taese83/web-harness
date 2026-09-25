@@ -622,9 +622,9 @@ test('구분선 없는 표는 표가 아니다 — 헤더가 데이터 행으로
 })
 
 test('생산자 템플릿의 표 형식이 파서와 맞는다', () => {
-  // ux-researcher가 내놓는 형식이 파서에 안 맞으면, 정상 생성물이 게이트에 걸린다.
+  // product-planner가 내놓는 형식이 파서에 안 맞으면, 정상 생성물이 게이트에 걸린다.
   // 이 저장소가 이미 물린 클래스 — 생산자와 검사기가 같은 형식을 말해야 한다.
-  const template = readFileSync(new URL('../agents/ux-researcher.md', import.meta.url), 'utf8')
+  const template = readFileSync(new URL('../agents/product-planner.md', import.meta.url), 'utf8')
   // **템플릿의 헤딩을 그대로 쓴다.** 한국어 헤딩을 인위적으로 붙이면 필수 절 앵커와 파서의
   // 언어 집합이 어긋나 있어도 테스트가 통과한다 — 결함을 가리는 회귀가 된다(실제로 그랬다).
   const table = parseInformationHierarchy(template)

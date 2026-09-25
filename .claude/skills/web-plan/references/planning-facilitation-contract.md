@@ -24,7 +24,7 @@ API, branch, 파일, 라이브러리, 배포 방식은 첫 질문에 넣지 않�
 
 ## 자동 UX Check
 
-다음 중 하나라도 해당하면 `planning-context.md`와 `ux-brief.md`에 간결한 `## UX Check`를 작성한다.
+다음 중 하나라도 해당하면 `ux-brief.md`에 간결한 `## UX Check`를 작성한다.
 
 - 표·목록·차트·대시보드·필터처럼 정보 밀도가 높은 화면
 - 선택·삭제·일괄 작업·권한·소유권·disabled·부분 실패
@@ -58,7 +58,7 @@ UX Check는 디자인을 확정하지 않는다. Phase 2에서 검증할 우선�
 
 ## Current Planning Memo
 
-주요 답변 또는 방향 전환 뒤 `planning-context.md`의 memo를 갱신한다.
+주요 답변 또는 방향 전환 뒤 `requirements.md`의 `### Current Planning Memo`를 갱신한다.
 
 - 대상 화면/기능
 - 주 사용자와 목적

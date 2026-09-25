@@ -148,7 +148,7 @@ test('plan 레인: 받은 문서·기획 티켓을 계획보다 먼저 00_source
   const plan = skillBody('web-plan')
   const intakeAt = plan.search(/cli\.mjs intake/)
   const ingestAt = plan.search(/source-artifact-ingestor/)
-  const planningAt = plan.search(/`planning-facilitator`가/)
+  const planningAt = plan.search(/`product-planner`가/)
   assert.ok(intakeAt >= 0, 'web-plan이 기획 티켓을 기존 intake로 받지 않는다')
   assert.ok(ingestAt >= 0, 'web-plan이 붙인 문서를 ingestor로 보존하지 않는다')
   assert.ok(planningAt > Math.max(intakeAt, ingestAt), '취합이 계획 단계보다 뒤에 있다 — 계획이 받은 자료를 못 본다')

@@ -18,7 +18,7 @@ Phase 2 설계 산출물에서 **무의존 인터랙티브 프로토타입**을 
 
 ## 입력
 
-- `_workspace/01_plan/feature-plan.md`의 **Feature List**와 FSD/Local Domain State 절 — 프로토타입이 시연해야 할 **동작의 정본**. 없으면 `BLOCKED`
+- `_workspace/01_plan/feature-plan.md`의 **Feature List**·동작 명세·Local Domain State 절 — 프로토타입이 시연해야 할 **동작의 정본**. 없으면 `BLOCKED`
 - `_workspace/01_plan/ux-brief.md`의 **화면별 정보 위계**와 **디자인 방향** 절 (`design-readiness-contract.md` 형식) — 없으면 `BLOCKED`
 - `_workspace/02_design/design-system(.md|/)` (+ `theme.code.ts` 토큰)
 - `_workspace/02_design/layout-spec(.md|/)` (화면·라우팅 맵 또는 서피스 맵), `component-spec(.md|/)` (컴포넌트 상태 계약)
@@ -39,7 +39,7 @@ _workspace/02_design/preview/
   traceability.json  # FEAT ↔ TC ↔ 화면 요소 앵커의 machine-readable 매핑
 ```
 
-단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. project-brief가 `SURFACE_MODEL: overlay`를 선언했으면(layout-spec은 라우팅 맵 대신 서피스 맵을 담는다) 화면 전환이 URL이 아니므로 `router.js`가 해시 라우팅 대신 **열림 서피스 스택**을 소유한다 — 스택이 없으면 두 곳에서 열리거나 닫아도 남는다. **`router.js`는 어느 모델에서도 생략하지 않는다**(`design-preview-status-lib.mjs`의 필수 산출물). 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. 프리뷰는 **커밋된 단일 시안**이 기본이다 — 비교 토글은 사용자가 명시적으로 요청했거나 스펙이 opt-in으로 지정한 축에만 만들고, 그때도 별도 파일이 아니라 앱 내 토글로 전환한다.
+단일 페이지(index.html) + 해시 라우팅을 기본으로 한다. feature-plan이 `SURFACE_MODEL: overlay`를 선언했으면(layout-spec은 라우팅 맵 대신 서피스 맵을 담는다) 화면 전환이 URL이 아니므로 `router.js`가 해시 라우팅 대신 **열림 서피스 스택**을 소유한다 — 스택이 없으면 두 곳에서 열리거나 닫아도 남는다. **`router.js`는 어느 모델에서도 생략하지 않는다**(`design-preview-status-lib.mjs`의 필수 산출물). 화면별 정적 파일(`{screen}.html`)로 쪼개면 상태가 공유되지 않아 CRUD 흐름이 끊기므로, **하나의 in-memory store를 공유하는 SPA**로 만든다. 프리뷰는 **커밋된 단일 시안**이 기본이다 — 비교 토글은 사용자가 명시적으로 요청했거나 스펙이 opt-in으로 지정한 축에만 만들고, 그때도 별도 파일이 아니라 앱 내 토글로 전환한다.
 
 ## 생성 규칙
 

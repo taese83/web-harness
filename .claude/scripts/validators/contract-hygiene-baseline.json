@@ -113,14 +113,14 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 47010
+    "web-orchestrator": 46871
   },
   "referenceBytes": {
     ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
-    ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28416,
-    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30189,
-    ".claude/skills/web-orchestrator/references/provenance-contract.md": 25998,
+    ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28305,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30185,
+    ".claude/skills/web-orchestrator/references/provenance-contract.md": 25971,
     ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26007,
-    ".claude/skills/web-orchestrator/references/source-artifacts.md": 29134
+    ".claude/skills/web-orchestrator/references/source-artifacts.md": 29091
   }
 }

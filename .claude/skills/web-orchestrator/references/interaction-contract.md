@@ -46,4 +46,4 @@
 
 각 단계의 미결 항목이 다음 단계의 구조를 바꾸지 않으면 ASSUMPTION으로 넘길 수 있다. 구조를 바꾸면 다음 Phase 전에 확인한다.
 
-첫 단계와 UX 피드백 처리는 `../../web-plan/references/planning-facilitation-contract.md`를 따른다. `planning-facilitator`가 답변과 source 근거를 `planning-context.md`, 변경 결정을 `decision-log.md`에 기록한다.
+첫 단계와 UX 피드백 처리는 `../../web-plan/references/planning-facilitation-contract.md`를 따른다. `product-planner`가 답변과 source 근거를 `requirements.md`의 Product Frame, 변경 결정을 `decision-log.md`에 기록한다.

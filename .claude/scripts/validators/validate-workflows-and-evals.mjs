@@ -1,3 +1,4 @@
+import {RETIRED_AGENTS} from '../agent-registry.mjs'
 import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
@@ -88,7 +89,7 @@ export const pluginEvalCaseProblems = casesDirectory => {
  * 없는 에이전트를 기대하는 단언은 영영 통과하지 못한다. 에이전트 후보는 실존 에이전트 이름의 마지막 세그먼트
  * (역할 어휘)로 끝나는 하이픈 토큰이다 — 지금 어느 에이전트도 쓰지 않는 역할 어휘로 끝나는 이름은 못 잡는다.
  */
-export const staleScenarioReferences = ({scenarios, skillNames, agentNames}) => {
+export const staleScenarioReferences = ({scenarios, skillNames, agentNames, retiredAgents = {}}) => {
   const known = new Set(agentNames)
   const roleSuffixes = deriveRoleSuffixes(known)
   return scenarios.flatMap(scenario => {
@@ -97,6 +98,12 @@ export const staleScenarioReferences = ({scenarios, skillNames, agentNames}) => 
     if (!skillNames.has(skill)) problems.push(`entrySkill ${scenario.entrySkill}은 없는 스킬이다`)
     for (const token of new Set(JSON.stringify(scenario.assertions ?? []).match(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g) ?? [])) {
       if (!known.has(token) && roleSuffixes.has(token.split('-').at(-1))) problems.push(`단언이 없는 에이전트 ${token}를 기대한다`)
+    }
+    // 퇴역 이름은 이름으로 본다 — 같은 접미사의 마지막 에이전트가 사라지면 위 추론이 그 이름을 놓친다.
+    for (const token of new Set(JSON.stringify(scenario.assertions ?? []).match(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g) ?? [])) {
+      if (Object.hasOwn(retiredAgents, token) && !roleSuffixes.has(token.split('-').at(-1))) {
+        problems.push(`단언이 퇴역 에이전트 ${token}를 기대한다 — 그 일은 ${retiredAgents[token]}가 한다`)
+      }
     }
     return problems.map(problem => ({id: scenario.id, problem}))
   })
@@ -829,7 +836,7 @@ export const validateWorkflowsAndEvals = ({
       }
       const skillNames = new Set(readdirSync(join(claudeDirectory, 'skills')).filter(name => existsSync(join(claudeDirectory, 'skills', name, 'SKILL.md'))))
       const agentNames = readdirSync(join(claudeDirectory, 'agents')).filter(name => name.endsWith('.md')).map(name => name.slice(0, -'.md'.length))
-      for (const {id, problem} of staleScenarioReferences({scenarios, skillNames, agentNames})) fail(`${id}: ${problem}`)
+      for (const {id, problem} of staleScenarioReferences({scenarios, skillNames, agentNames, retiredAgents: RETIRED_AGENTS})) fail(`${id}: ${problem}`)
       for (const problem of pluginEvalCaseProblems(join(claudeDirectory, 'evals', 'plugin'))) fail(`.claude/evals/plugin/${problem}`)
       for (const routingScenario of [
         'grafana-timeseries-dashboard',

@@ -34,7 +34,7 @@ npm 라이브러리의 공개 API 표면을 설계한다. 타입 인터페이스
 
 ## 작업 원칙
 
-1. `_workspace/01_plan/project-brief.md`·`feature-plan.md`·`tech-stack.md`를 읽는다
+1. `_workspace/01_plan/requirements.md`(Product Frame·Open Decisions)·`feature-plan.md`·`tech-stack.md`를 읽는다
 2. "사용자가 이 라이브러리를 어떻게 import하는가"를 먼저 작성한다 (README-driven design)
 3. 내부 구현 방법이 아니라 공개 계약(types, exports)에만 집중한다
 4. Breaking change를 유발하는 경계를 명시한다

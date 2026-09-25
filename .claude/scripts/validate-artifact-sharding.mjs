@@ -15,6 +15,7 @@
 import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {RETIRED_AGENTS} from './agent-registry.mjs'
 
 const SECTION_MAX_BYTES = 15 * 1024
 const INDEX_MAX_BYTES = 5 * 1024
@@ -255,7 +256,9 @@ for (const relativeDirectory of pendingDirectories) {
         const name = raw.replace(/\s*\([^)]*\)\s*$/, '').trim()
         if (/^(전체|\*|all)$/i.test(name)) continue
         if (knownAgents.size > 0 && !knownAgents.has(name)) {
-          errors.push(`${indexRelative}: consumer "${name}" is not a known agent name — downstream agents cannot self-select on it`)
+          // 퇴역 이름이면 후임을 알려 준다 — 에이전트를 합친 판본으로 올린 진행 중 프로젝트의 INDEX가 여기 걸린다.
+          const successor = Object.hasOwn(RETIRED_AGENTS, name) ? ` (retired — rename it to "${RETIRED_AGENTS[name]}", which does this work now)` : ''
+          errors.push(`${indexRelative}: consumer "${name}" is not a known agent name${successor} — downstream agents cannot self-select on it`)
         }
       }
     }

@@ -7,8 +7,8 @@
 
 ## ① 기획 개정 — 항상
 
-바뀌는 요구사항과 Feature List 항목만 개정한다. `tech-advisor`·`planning-synthesizer`는 실행하지
-않는다 — 스택과 project-brief는 이미 고정돼 있고 이번 변경이 그것을 바꾸지 않는다.
+바뀌는 요구사항과 Feature List 항목만 개정한다. `tech-advisor`는 실행하지
+않는다 — 스택은 이미 고정돼 있고 이번 변경이 그것을 바꾸지 않는다.
 바꾼다면 그때만 해당 wave로 승격한다.
 
 요구사항이 실제로 바뀌지 않는 변경(예: `infrastructure`)이면 개정할 것이 없다. 그때는 빈
@@ -31,7 +31,7 @@ change-scope 라운드 항목에 남긴다 — 기준의 출처가 티켓이라�
 가르는 선택(`interaction-contract.md` 「질문이 필요한 경우」)을 남기면 기획 wave 전에 그것만 묻고, 나머지 미결은
 기획 산출물의 `ASSUMPTION`·`NEEDS_DECISION`으로 ✋에 싣는다.
 
-- `requirements-analyst`·`feature-planner`를 **이번 변경 범위로 한정해** 실행하고, 그 결과를
+- `product-planner`(요구사항·decision-log 경량 재호출 — 조사하지 않는다)·`feature-planner`를 **이번 변경 범위로 한정해** 실행하고, 그 결과를
   `_workspace/01_plan/feature-plan.md`에 FEAT/TC로 추가한다(파일이 없으면 여기서 생긴다).
 - 그 순간 `provenance-contract.md` §3 지연 공급이 발동한다 — 새 입력이 `LOCK_INPUTS`에 들어가
   스팩이 stale이 되므로 ④에서 `acceptanceSource: "feature-plan"`으로 **재확정**한다.
@@ -46,7 +46,7 @@ change-scope 라운드 항목에 남긴다 — 기준의 출처가 티켓이라�
 
 개정된 기획을 `_workspace/02_design/`의 canonical 문서와 **대조**해 어긋나는 것을 뽑고
 `DOCS_TO_UPDATE`(`minimal-change-contract.md`)에 기록한다. 새로 만드는 것이 아니라 대조다 —
-`ux-researcher` 같은 리서치 에이전트는 실행하지 않는다.
+리서치(`product-planner`의 조사·UX brief 재작성)는 실행하지 않는다.
 
 **감지 결과가 비어 있어도 그 사실을 남긴다.** `DOCS_TO_UPDATE: none (대조: layout-spec,
 component-spec, api-schema, design-system, state-contract)`처럼 **무엇을 대조했는지** 함께 적는다.
@@ -81,7 +81,7 @@ source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 �
 
 ## 일반화 근거
 
-- **기획·디자인 `absent`로 세운 브라운필드 웹 앱** — ①이 변경 범위만큼 기획을 세우고(`requirements-analyst`·
+- **기획·디자인 `absent`로 세운 브라운필드 웹 앱** — ①이 변경 범위만큼 기획을 세우고(`product-planner`·
   `feature-planner`) ✋에서 멈춘다. 배포본 평가 `change-lane-stops-at-spec-approval`(3회 실행)로 확인한다.
 - **사람 티켓 작업**(`origin: ticket`, `specApproval: required`) — 기준이 티켓 완료 조건·`TT-`라 ①이 기획을 세우지
   않고 라벨만 남긴다. 명명 수준 — 평가 사례가 없다.

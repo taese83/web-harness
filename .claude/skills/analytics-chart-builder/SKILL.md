@@ -40,7 +40,7 @@ metadata:
 
 ## Workflow
 
-1. `requirements-analyst`가 `ANALYTICS_BUILDER_MODE`와 Must chart type을 기록한다.
+1. `product-planner`가 `ANALYTICS_BUILDER_MODE`와 Must chart type을 기록한다.
 2. `analytics-domain-architect`가 `_workspace/02_design/analytics-architecture.md`를 생성한다.
 3. `api-schema-designer`가 catalog/query/preview/dashboard 계약을 runtime schema로 설계한다.
 4. `component-designer`가 builder state machine과 chart별 configuration UI를 설계한다.

@@ -1,5 +1,5 @@
 ---
-description: change 레인은 변경 범위만큼 기획을 개정(requirements-analyst·feature-planner)한 뒤 ✋ 결정·승인 지점에서 멈추고, 승인 전에는 source를 고치지 않는다. 요청은 데이터 모델·저장 범위를 명시한다 — 모호하면 계약상 기획 전에 묻는 것이 정답이라 이 사례가 재려는 것을 못 잰다.
+description: change 레인은 변경 범위만큼 기획을 개정(product-planner·feature-planner)한 뒤 ✋ 결정·승인 지점에서 멈추고, 승인 전에는 source를 고치지 않는다. 요청은 데이터 모델·저장 범위를 명시한다 — 모호하면 계약상 기획 전에 묻는 것이 정답이라 이 사례가 재려는 것을 못 잰다.
 tags: [regression, lane]
 runs: 3
 max_turns: 80

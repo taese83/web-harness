@@ -383,7 +383,7 @@
     "assertions": [
       "the first intake asks no more than three questions about target screen, primary user task, current pain, and observable success before API, files, libraries, or deployment",
       "ambiguous discomfort is analyzed through hierarchy, mode separation, affordance, layout stability, and state clarity before copy changes",
-      "planning-context.md records evidence, assumptions, critical states, and a current planning memo without creating implementation or prototype source"
+      "requirements.md records the product frame, evidence, assumptions, and a current planning memo, and ux-brief.md records critical states, without creating implementation or prototype source"
     ]
   },
   {
@@ -534,7 +534,7 @@
     "assertions": [
       "code-reviewer reports a modified or deleted existing PC entry in decision-log.md as FAIL (append-only violation)",
       "planning document diffs without a corresponding PC entry are reported as WARN (unrecorded change)",
-      "reviewers do not rewrite the log themselves — the fix is routed to planning-facilitator as the owning agent"
+      "reviewers do not rewrite the log themselves — the fix is routed to product-planner as the owning agent"
     ]
   },
   {

@@ -98,7 +98,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 0. **Iterate Mode** — 이미 buildable한 기존 프로젝트에 `request-type-contract.md`의 `change`·`fix` 레인 요청이 오면(`verify`는 검증자가 read-only인 경로로 간다 — 테스트 기반 준비는 승인 후 source를 만들 수 있다)(대상 앱이 이미 존재하고 이번 요청이 신규 서비스 생성이 아니면) Phase 1~2 intake·설계를 반복하지 않고 `execution-contract.md`의 **Iterate mode** 경량 루프로 수행한다. 첫 감지 배너는 1줄로 축약하고, Plan/Design 산출물은 이미 있으면 재사용한다. 신규 화면·데이터 계약·아키텍처 변경이 필요하면 그 부분만 해당 Phase 에이전트로 승격한다. 경량 루프여도 `execution-contract.md`의 **Iterate round exit gates**(승격 QA·evidence 재발급·문서 동기화) 3종은 생략하지 않는다 — 진입점이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).
 1. **Resume Mode** — `_workspace/01_plan`과 `_workspace/02_design`의 필수 파일이 모두 존재하면 Phase 3부터 시작한다.
 2. **Source Artifact Mode**(`supplied`) — 사용자가 기존 기획/디자인/API 문서·폴더·링크·시안 이미지·Figma 참조를 제공했으면 `source-artifact-ingestor`를 실행한다. 받는 형태와 URL·이미지·Figma MCP의 처리 절차는 `references/source-artifacts.md`가 정본이다.
-   - `planning-context.md`를 포함해 정규화하고 read-only `plan-reviewer` readiness gate를 통과한 뒤 다음 Phase로 간다.
+   - `requirements.md`의 Product Frame을 포함해 정규화하고 read-only `plan-reviewer` readiness gate를 통과한 뒤 다음 Phase로 간다.
    - 정규화 후 Plan/Design 필수 파일이 모두 있으면 Phase 3부터 시작한다.
    - Plan만 충분하면 Phase 2부터 시작한다.
    - Design만 충분하면 `source-artifact-ingestor`가 최소 Plan 산출물을 `ASSUMPTION`으로 생성하고, 누락된 Design 산출물만 Phase 2 에이전트로 보강한다.
@@ -109,23 +109,16 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 ### Phase 1 — 기획 (순서 있음)
 
-**Wave 0** — `planning-facilitator`가 `_workspace/01_plan/planning-context.md`, `decision-log.md`를 작성한다.
+**Wave 0** — `product-planner`가 `_workspace/01_plan/requirements.md`(Product Frame·데이터 전략·노력도 포함), `ux-brief.md`, `decision-log.md`를 작성한다.
 
-**Wave 1** — `requirements-analyst` → `_workspace/01_plan/requirements.md`
+**Wave 1** — `feature-planner` → `_workspace/01_plan/feature-plan.md`. UX 결정과 requirement를 함께 입력으로 사용한다.
 
-**Wave 2** — `ux-researcher` → `_workspace/01_plan/ux-brief.md`
-
-**Wave 3** — `feature-planner` → `_workspace/01_plan/feature-plan.md`. UX 결정과 requirement를 함께 입력으로 사용한다.
-
-**Wave 4** — 단독 실행 (planning-context.md + ux-brief.md + feature-plan.md + requirements.md 존재 후):
+**Wave 2** — 단독 실행 (requirements.md + ux-brief.md + feature-plan.md 존재 후):
 - `tech-advisor` → `_workspace/01_plan/tech-stack.md`
 - `tech-stack.md`에 built-in `WEB_PROFILE`, deployment provider와 runtime target, selected capabilities, exact Node/pnpm/framework versions를 고정한다
 
-**Wave 5** — 단독 실행 (모든 plan 파일 완료 후):
-- `planning-synthesizer` → `_workspace/01_plan/project-brief.md`
-
-**Wave 6 — 준비도 리뷰**:
-- read-only `plan-reviewer`를 항상 실행하고 L/XL, realtime, 권한, destructive action, analytics builder이면 심화한다.
+**Wave 3 — 준비도 리뷰**:
+- read-only `plan-reviewer`를 항상 실행한다 — 디자인 인계 기계 판정을 먼저 돌리고 문서 간 정합을 본다. L/XL, realtime, 권한, destructive action, analytics builder이면 심화한다.
 - 반환 본문은 `_workspace/01_plan/plan-review.md`에 저장한다.
 - `NEEDS_DECISION`은 최대 3개씩 사용자 체크포인트에 포함하고 `BLOCKED`면 Phase 2를 시작하지 않는다.
 

@@ -65,7 +65,7 @@ receipt 재발급도 따라오지 않는다.
   때문이다 — 두 경로 모두 Phase 2 이전이라 디자인 산출물이 없고, 보고는 모든 조건을 근거
   없음으로 센다. `supplied`의 귀속 기록 부재는 위 「디자인 근거의 귀속」 항목이 이미 사람
   확인으로 덮고, 무문서 경로는 `docs/protected-core.md` §4에 등록돼 있다.
-- **`SURFACE_MODEL: overlay`를 선언했으면 Phase 3 미정합을 함께 알린다**(`project-brief.md`에
+- **`SURFACE_MODEL: overlay`를 선언했으면 Phase 3 미정합을 함께 알린다**(`feature-plan.md` Page Groups 절에
   그 행이 있을 때만). 화면 단위가 route가 아닌 형태는 Phase 2까지만 성립한다 —
   `buildable-app-contract.md`는 여전히 route table과 concrete page를, `integration-verifier`는
   명시적 404 route를 **무조건** 요구한다. 게이트를 끄지 않았으므로 overlay 프로젝트는 개발

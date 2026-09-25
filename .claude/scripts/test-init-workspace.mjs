@@ -33,7 +33,7 @@ test('최소 환경은 디렉토리 6종 + 마커 하나다', () => {
     assert.ok(existsSync(join(root, MARKER)))
     assert.equal(result.marker, 'written')
     // 문서 사슬을 미리 만들지 않는다 — 요청이 있을 때 만든다
-    for (const doc of ['01_plan/requirements.md', '01_plan/project-brief.md', '02_design/design-system.md']) {
+    for (const doc of ['01_plan/requirements.md', '01_plan/feature-plan.md', '02_design/design-system.md']) {
       assert.equal(existsSync(join(root, '_workspace', doc)), false, `${doc}를 미리 만들면 안 된다`)
     }
   })

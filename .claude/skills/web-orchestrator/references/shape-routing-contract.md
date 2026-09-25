@@ -17,7 +17,7 @@
 ## 2. 라우팅 표
 
 Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해석만 달라진다 — 라이브러리에서
-`ux-researcher`는 화면 UX가 아니라 **API 발견성·타입 추론·오류 메시지·migration DX**를 다룬다.
+`product-planner`의 UX brief는 화면 UX가 아니라 **API 발견성·타입 추론·오류 메시지·migration DX**를 다룬다.
 그 사실을 에이전트 prompt에 명시해 전달한다.
 
 | targetShape | Phase 2 설계 | Phase 3 빌더 | Phase 4 검증 |

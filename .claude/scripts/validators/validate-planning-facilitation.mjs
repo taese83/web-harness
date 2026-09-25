@@ -5,7 +5,7 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
   const requiredFiles = [
     '.claude/skills/web-plan/references/planning-facilitation-contract.md',
     '.claude/skills/web-plan/references/planning-readiness-contract.md',
-    '.claude/agents/planning-facilitator.md',
+    '.claude/agents/product-planner.md',
   ]
   for (const relativePath of requiredFiles) {
     if (!existsSync(join(repositoryRoot, relativePath))) fail(`${relativePath}: planning facilitation contract is missing`)
@@ -13,8 +13,10 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
 
   const orchestration = `${read('.claude/skills/web-plan/SKILL.md')}\n${read('.claude/skills/web-orchestrator/SKILL.md')}`
   for (const marker of [
-    'planning-facilitator',
-    'planning-context.md',
+    'product-planner',
+    'requirements.md',
+    'ux-brief.md',
+    'decision-log.md',
     'planning-facilitation-contract.md',
     'planning-readiness-contract.md',
     'plan-reviewer',
@@ -36,23 +38,20 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
     }
     const source = fullSource.slice(anchorAt)
     const order = [
-      'planning-facilitator',
-      'requirements-analyst',
-      'ux-researcher',
+      'product-planner',
       'feature-planner',
       'tech-advisor',
-      'planning-synthesizer',
       'plan-reviewer',
     ].map(marker => source.indexOf(marker))
     if (order.some(index => index < 0) || order.some((index, position) => position > 0 && index <= order[position - 1])) {
-      fail(`${relativePath}: planning agents are not ordered product context → requirements → UX → feature → tech → synthesis → review`)
+      fail(`${relativePath}: planning agents are not ordered product frame·requirements·UX → feature → tech → review`)
     }
   }
   // **파일별로 단언한다.** 종전에는 두 파일을 합쳐 `includes`했는데, ingestor 하나가 세 마커를
   // 모두 갖고 있어 계약 파일 쪽은 비어도 통과했다 — 합집합 검사는 소유자를 강제하지 못한다
   // (적대 리뷰 2026-09-04). 정규화 규칙의 집은 이제 source-normalization.md다.
   const normalization = read('.claude/skills/web-orchestrator/references/source-normalization.md')
-  for (const marker of ['planning-context.md', 'planning-facilitation-contract.md', 'planning-readiness-contract.md']) {
+  for (const marker of ['Product Frame', 'planning-facilitation-contract.md', 'planning-readiness-contract.md']) {
     if (!normalization.includes(marker)) fail(`source-normalization.md is missing the planning normalization marker ${marker}`)
   }
   const ingestor = read('.claude/agents/source-artifact-ingestor.md')
@@ -87,15 +86,18 @@ export const validatePlanningFacilitation = ({repositoryRoot, read, pass, fail})
   }
 
   const agents = [
-    '.claude/agents/requirements-analyst.md',
-    '.claude/agents/ux-researcher.md',
+    '.claude/agents/product-planner.md',
     '.claude/agents/feature-planner.md',
     '.claude/agents/tech-advisor.md',
-    '.claude/agents/planning-synthesizer.md',
     '.claude/agents/plan-reviewer.md',
   ].map(read).join('\n')
-  for (const marker of ['planning-context.md', 'UX Check', 'Mock→real', 'NEEDS_DECISION']) {
+  for (const marker of ['Product Frame', 'UX Check', 'Mock→real', 'NEEDS_DECISION']) {
     if (!agents.includes(marker)) fail(`planning agent chain is missing ${marker}`)
+  }
+  // 제품 맥락·요구사항·UX brief·결정 기록을 한 에이전트가 쓴다 — 셋 중 하나라도 빠지면 그 산출물의 생산자가 없다.
+  const planner = read('.claude/agents/product-planner.md')
+  for (const output of ['requirements.md', 'ux-brief.md', 'decision-log.md']) {
+    if (!planner.includes(`_workspace/01_plan/${output}`)) fail(`product-planner does not declare its output ${output}`)
   }
 
   const scenarios = JSON.parse(read('.claude/evals/scenarios.json'))

@@ -28,8 +28,8 @@
 
 | 흐름 단계 | 상태 | 근거 |
 |---|---|---|
-| 기획서 → feature 추출 | **있음** | `source-artifact-ingestor` → `requirements-analyst` → `feature-planner` |
-| feature마다 TC 생성 | **있음** | `feature-planner` 16-1 — Must FEAT마다 동작 명세 + `TC-NNN-N`, REQ AC를 정본으로 재사용 |
+| 기획서 → feature 추출 | **있음** | `source-artifact-ingestor` → `product-planner` → `feature-planner` |
+| feature마다 TC 생성 | **있음** | `feature-planner` 11-1 — Must FEAT마다 동작 명세 + `TC-NNN-N`, REQ AC를 정본으로 재사용 |
 | 티켓 발행(Jira) | **있음** | `team-flow` claim + `provider-jira.mjs`. 원장에 `FEAT ↔ 티켓키 ↔ PR` |
 | 개발 착수 게이트 | **있음** | `pickupTicket` — fail-closed bounce 구조가 이미 있다 |
 | **① 티켓 내용 준비도가 픽업을 막는 배선** | **없음** | §2 — 필드는 있는데 게이트가 안 읽는다 |
@@ -100,7 +100,7 @@ behavior · acceptanceCriteria · testCaseIds     (emit.mjs:30-32, normalize.mjs
 ### 3-2 · feature 1:N 세분화가 안 된다
 
 계약에는 이미 있다 — `design-readiness-contract.md` §3-2의 `FEAT-NNN-NN` 하위 기능 표
-(`feature-planner` 16-2: "독립적으로 설명·검증·변경 가능한 행동이 둘 이상이면").
+(`feature-planner` 11-2: "독립적으로 설명·검증·변경 가능한 행동이 둘 이상이면").
 
 **그런데 티켓 파서가 못 읽는다.** `plan-units.mjs:17`이 스스로 적어뒀다:
 

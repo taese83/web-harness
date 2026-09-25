@@ -49,18 +49,15 @@ _workspace/02_design/api-schema/            ← 분할
 | `layout-spec` | 글로벌 레이아웃·라우팅 맵 / 페이지별 |
 | `state-contract` | aggregate별 + 공통 persistence·verification 1개 |
 
-**Phase 1 산출물** — 재읽기 규모가 Phase 2보다 **크다**. 실측(당시 96개 agent prompt 전수 집계 — 2026-08-26/27 통합으로 현재는 46개이며 재측정 전이다)에서 `tech-stack`은 18개, `requirements`는 13개 에이전트가 입력으로 읽는데, 초기 계약은 Phase 2만 다뤄 가장 많이 재읽히는 두 파일이 규칙 밖에 있었다.
+**Phase 1 산출물** — 재읽기 규모가 Phase 2보다 **크다**. 실측(당시 96개 agent prompt 전수 집계 — 재측정 전이다)에서 `tech-stack`은 18개, `requirements`는 13개 에이전트가 입력으로 읽는데, 초기 계약은 Phase 2만 다뤄 가장 많이 재읽히는 두 파일이 규칙 밖에 있었다.
 
 | 산출물 | 분할 축 | 주요 소비자 경계 |
 |---|---|---|
-| `planning-context` | Product Frame·Evidence / UX 리스크·상태 / 디자인 방향 intake / 데이터·규모 전략 / 미결정 / Planning Memo | 디자인 방향은 design-system-architect·ux-researcher만, 미결정·Memo는 전체 (실측: search-portal 파일럿 10섹션 발화) |
 | `tech-stack` | 의존성·버전 매트릭스 / 아키텍처 결정(ADR) / 배포·provider target / 테스트 전략 | scaffolder는 버전만, designer는 결정만, CI writer는 배포만 |
-| `requirements` | 기능 REQ(도메인별) / 비기능 NFR / 상태·엣지 시나리오 | feature-planner는 기능, performance-budget-designer는 NFR, state-contract-designer는 시나리오 |
+| `requirements` | Product Frame·데이터 전략·노력도 / 기능 REQ(도메인별) / 비기능 NFR / 상태·엣지 시나리오 / 미결정·Memo | feature-planner는 기능, performance-budget-designer는 NFR, state-contract-designer는 시나리오, 미결정·Memo는 전체 |
 | `ux-brief` | 화면 인벤토리·상태 matrix / 사용자 플로우 / 디자인 방향 | layout-designer는 인벤토리, design-system-architect는 방향 |
-| `feature-plan` | Feature List 표 / slice·command 매핑 / 데이터 모델 | 표만 필요한 소비자가 다수 |
+| `feature-plan` | Page Groups·Feature List 표 / FEAT별 동작 명세·TC / 추적·전달 순서 | 표만 필요한 소비자가 다수 |
 | `decision-log` | **ID 구간별**(`PC-001~050`, `PC-051~100` …) — append는 최신 절에만 | append-only 대장이므로 주제별로 자르면 이력 추적이 깨진다 |
-
-`project-brief`는 이미 다른 산출물의 요약·연결 문서다. 20KB를 넘으면 분할하기보다 **원본을 가리키고 본문을 줄인다** — 요약이 원본만큼 커지면 요약이 아니다.
 
 ## 코드 블록 분리
 
@@ -121,7 +118,7 @@ exit 1이면 계약 위반이다. 이 검사는 아래 4항목을 측정한다 �
 - 절 파일·INDEX·미분할 단일 파일이 예산을 넘지 않는가 (절 개수 트리거 포함 — 단
   **분할 금지 문서**는 절 개수 트리거를 적용하지 않고, KB 초과 시 "분할"이 아니라 "축소"
   지시를 낸다). 분할 금지 문서는 둘이다:
-  - `01_plan/project-brief.md` — 요약·연결 문서라 분할할 축이 없다. 시정은 본문 축소와
+  - `01_plan/project-brief.md` — 생산자가 없는 이전 산출물이라 분할할 축이 없다. 시정은 본문 축소와
     원본 샤드 가리키기
   - `02_design/solution-design.md` — `spec.mjs`의 `lockSpec`이 flat 경로를 요구하므로
     분할하면 스팩 확정이 깨진다. 시정은 산문 축소다. 결정 블록은 **산문 예산 밖이되 자체

@@ -149,7 +149,7 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
 
 | 구간 | Fresh/greenfield | existing-change · iterate |
 |---|---|---|
-| Phase 1 기획 | 9 | — (재사용) |
+| Phase 1 기획 | 6 | — (재사용) |
 | Phase 2 디자인 | 12 | 필요 Wave만 |
 | Phase 3 개발 | 22 | 12 |
 | Phase 4 검증 | 18 | 10 |
@@ -183,7 +183,7 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
 |---|---|---|
 | 기계적 | `environment-scaffolder`(package·tooling·test 설정, 배포 config) | 저비용 모델 허용 |
 | 생성 | builder·designer 계열 | 기본 유지 |
-| 판단 | `plan-reviewer`, `design-reviewer`, `code-reviewer`, `security-reviewer`, verifier 전원, `planning-synthesizer`, `release-manager` | 강등 금지 |
+| 판단 | `plan-reviewer`, `design-reviewer`, `code-reviewer`, `security-reviewer`, verifier 전원, `release-manager` | 강등 금지 |
 
 판단 계층을 강등해 얻는 절감은 false PASS 위험보다 작다.
 

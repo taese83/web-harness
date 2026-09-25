@@ -35,7 +35,7 @@ Phase 1은 문서가 존재한다는 이유로 완료되지 않는다. 제품 �
 
 ## Readiness Gate
 
-`plan-reviewer`는 다음을 모두 확인한다.
+`plan-reviewer`는 디자인 인계 기계 판정(`validate-handoff-readiness --to design`)을 먼저 돌린다 — 기계가 재는 항목은 다시 판정하지 않고 옮기며, HOLE이 있으면 `PASS`가 아니다. 그 위에 다음을 모두 확인한다.
 
 - 대상 화면/기능, 주 사용자, 핵심 업무, 현재 pain, 관찰 가능한 성공 조건
 - Must/Should/Won't와 근거 없는 “당연한 기능”의 범위 유입 방지

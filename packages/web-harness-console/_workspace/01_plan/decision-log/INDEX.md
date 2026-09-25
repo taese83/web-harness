@@ -4,7 +4,7 @@
 
 | 절 | 파일 | 담당 범위 | 주 소비자 |
 |---|---|---|---|
-| PC-001~050 | `pc-001-050.md` | 현재 제품·보안·변경 workflow 결정 | planning-synthesizer, plan-reviewer |
+| PC-001~050 | `pc-001-050.md` | 현재 제품·보안·변경 workflow 결정 | plan-reviewer |
 
 ## 전역 결정
 
