@@ -56,7 +56,11 @@ node .claude/scripts/run-plugin-evals.mjs --case ticket-draft-team-form --runs 1
   배포본에 있는 스크립트를 디스패처가 못 찾은 실행과 인증 실패로 모델에 닿지 못한 실행은 판정이 아니라 환경 오류다(종료 2) —
   배포본에 디스패처가 있는데 셸이 못 찾은 실행도 환경 오류다. 러너는 부모 세션 PATH에서 설치된 플러그인 bin을 빼고 배포본 bin을
   앞에 둔다(설치본과 같은 조건 — 없으면 서브에이전트가 디스패처를 못 찾는다). 인증이 만료됐으면 `claude auth login` 뒤 다시 돌린다.
-- **릴리스 채택 조건**: 선택 없이 돈 실행(`selection`의 case·tag·runs가 전부 null — regression 사례 전원·prompt.md의 runs) ·
+- **릴리스 실행 계획**: 모든 사례를 돌리되, 이번 릴리스가 바꾼 핵심 구간의 사례만 prompt.md의 runs(pass^k)로, 나머지는 1회(스모크)로
+  돈다 — `--deep <사례,…>`. receipt의 `runPlan`에 남고, 3회로 돈 사례와 그 사유는 릴리스 커밋에 적는다. **스모크 사례가 하나라도
+  실패하면 넘기지 않는다** — 그 사례를 `--case`로 선언된 횟수만큼 다시 돌려 판정한다. 한계: 스모크는 확정적인 퇴행은 잡지만 가끔
+  깨지는 퇴행(3회 중 1회꼴)은 놓칠 수 있다(1회 탐지율 약 33%, 3회 약 70%).
+- **릴리스 채택 조건**: 선택 없이 돈 실행(`selection`의 case·tag·runs가 전부 null — regression 사례 전원, 계획이 있으면 `runPlan`대로) ·
   `partial: false` · 환경 오류 없음 · receipt의 `harnessCommit`이 릴리스 커밋이고 `dirty: false`. 러너는 평가 직전에 그 트리로
   dist를 다시 빌드한다(`distDigest`가 그 빌드다).
 - **보지 않는 것**: 비대화 규약이 첫 ✋에서 멈춘다. 앞 단계를 시드로 깐 사례(`predev-stops-at-api-decision`)로 착수 전 구간(⓪①②)까지는

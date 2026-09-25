@@ -10,7 +10,7 @@
 // 해시 대조, 쓴 에이전트와 무관), 티켓 초안 형식(배포본의 초안 검사기 그대로). 실행 중 하네스 스크립트가 돌지 못했으면
 // (디스패처 실패) 그 실행은 판정이 아니라 환경 오류다.
 //
-// 사용법: node .claude/scripts/run-plugin-evals.mjs [--runs <n>] [--case <glob>] [--tag <tag>] [--concurrency <n>] [--max-cost-usd <n>] [--keep]
+// 사용법: node .claude/scripts/run-plugin-evals.mjs [--runs <n>] [--case <glob>] [--tag <tag>] [--concurrency <n>] [--max-cost-usd <n>] [--deep <사례,…>] [--keep]
 // 평가 직전에 작업 트리로 dist를 다시 빌드한다 — 옛 빌드를 평가하고 새 커밋의 증거로 쓰지 않는다.
 // 종료 코드: 0 모든 사례의 모든 실행이 통과(pass^k) · 1 실패한 실행이 있다 · 2 실행이 성립하지 않았다(빌드 실패·사례 없음·
 // 실행 수 부족·환경 오류·비용 상한)
@@ -20,7 +20,7 @@ import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 import {traceMetrics} from './eval-trace-metrics.mjs'
-import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, plannedRuns, runChecks, runFailureEnvironmentErrors, runRootOf, SMOKE_RUNS, treeDigest, withRuns} from './plugin-eval-checks-lib.mjs'
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const DIST = join(REPOSITORY_ROOT, 'dist/web-harness-plugin')
@@ -30,7 +30,7 @@ const RECEIPTS = join(REPOSITORY_ROOT, '.claude/evals/receipts/plugin')
 const TRACE_ARCHIVE = join(REPOSITORY_ROOT, 'eval-runs/plugin')
 
 const usage = message => {
-  process.stderr.write(`${message}\n사용법: run-plugin-evals.mjs [--runs <n>] [--case <glob>] [--tag <tag>] [--concurrency <n>] [--max-cost-usd <n>] [--keep]\n`)
+  process.stderr.write(`${message}\n사용법: run-plugin-evals.mjs [--runs <n>] [--case <glob>] [--tag <tag>] [--concurrency <n>] [--max-cost-usd <n>] [--deep <사례,…>] [--keep]\n`)
   process.exit(2)
 }
 
@@ -40,9 +40,18 @@ for (let index = 0; index < argv.length; index += 1) {
   const flag = argv[index]
   const value = argv[index + 1]
   if (flag === '--keep') { options.keep = true; continue }
-  if (!['--runs', '--case', '--tag', '--concurrency', '--max-cost-usd'].includes(flag) || value === undefined) usage(`알 수 없는 인자: ${flag}`)
-  options[{'--runs': 'runs', '--case': 'case', '--tag': 'tag', '--concurrency': 'concurrency', '--max-cost-usd': 'maxCost'}[flag]] = value
+  if (!['--runs', '--case', '--tag', '--concurrency', '--max-cost-usd', '--deep'].includes(flag) || value === undefined) usage(`알 수 없는 인자: ${flag}`)
+  options[{'--runs': 'runs', '--case': 'case', '--tag': 'tag', '--concurrency': 'concurrency', '--max-cost-usd': 'maxCost', '--deep': 'deep'}[flag]] = value
   index += 1
+}
+
+// 릴리스 실행 계획 — 전체 실행에서만 쓴다(선택 실행은 이미 부분 측정이다). 3회로 돌 사례와 그 사유는 릴리스 커밋에 적는다.
+const deep = options.deep ? options.deep.split(',').map(name => name.trim()).filter(Boolean) : null
+if (deep) {
+  if (options.case || options.tag || options.runs) usage('--deep은 --case·--tag·--runs 없이 전체 실행에서만 쓴다')
+  const known = new Set(readdirSync(CASES, {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name))
+  const unknown = deep.filter(name => !known.has(name))
+  if (unknown.length) usage(`--deep에 없는 사례: ${unknown.join(', ')}`)
 }
 
 // 평가할 배포본을 지금 트리로 빌드한다(stale dist 차단). 판본 문자열만 대조하면 같은 판본의 옛 빌드를 평가할 수 있다.
@@ -54,7 +63,7 @@ const git = args => String(spawnSync('git', args, {cwd: REPOSITORY_ROOT, encodin
 
 // 사례별 기대 실행 수 — 러너가 이보다 적게 돌렸으면 pass^k가 아니다.
 const declaredRuns = name => Number(readFileSync(join(CASES, name, 'prompt.md'), 'utf8').match(/^runs:\s*(\d+)\s*$/m)?.[1] ?? 3)
-const expectedRuns = name => (options.runs ? Number(options.runs) : declaredRuns(name))
+const expectedRuns = name => (options.runs ? Number(options.runs) : plannedRuns(declaredRuns(name), deep, name))
 const caseChecks = name => {
   const path = join(CASES, name, 'checks.json')
   const declared = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
@@ -66,6 +75,13 @@ const plugin = join(work, 'web-harness')
 cpSync(DIST, plugin, {recursive: true})
 cpSync(CASES, join(plugin, 'evals'), {recursive: true})
 cpSync(SEEDS, join(plugin, 'evals', 'seeds'), {recursive: true})
+if (deep) {
+  for (const name of readdirSync(CASES, {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name)) {
+    if (deep.includes(name)) continue
+    const promptPath = join(plugin, 'evals', name, 'prompt.md')
+    writeFileSync(promptPath, withRuns(readFileSync(promptPath, 'utf8'), SMOKE_RUNS))
+  }
+}
 const resultPath = join(work, 'result.json')
 
 const PATH = evalSessionPath(plugin, process.env.PATH)
@@ -159,6 +175,7 @@ const receipt = {
   costUsd: result.costUsd,
   partial: result.partial === true,
   selection: {case: options.case ?? null, tag: options.tag ?? null, runs: options.runs ?? null},
+  runPlan: deep ? {deep, smokeRuns: SMOKE_RUNS} : null,
   cases,
 }
 mkdirSync(RECEIPTS, {recursive: true})

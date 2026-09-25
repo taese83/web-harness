@@ -4225,6 +4225,22 @@
       "replace": "  const offset = relative(resolve(root), projectRoot)",
       "test": ".claude/scripts/test-artifact-sharding.mjs",
       "why": "같은 디렉터리의 다른 표기(/tmp → /private/tmp·심볼릭 링크)를 세션 프로젝트 밖으로 읽어 분할 검사가 exit 2로 거부된다 — 모델이 환경 변수를 직접 넘겨 우회한다"
+    },
+    {
+      "id": "eval-run-plan-deep-keeps-declared",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "export const plannedRuns = (declared, deep, name) => (deep === null || deep.includes(name) ? declared : SMOKE_RUNS)",
+      "replace": "export const plannedRuns = (declared, deep, name) => (deep === null ? declared : SMOKE_RUNS)",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "핵심 구간(deep) 사례까지 스모크 1회로 줄어 릴리스가 바꾼 구간의 pass^k가 사라진다"
+    },
+    {
+      "id": "eval-run-plan-rewrite",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "  if (/^runs:\\s*\\d+\\s*$/m.test(text)) return text.replace(/^runs:\\s*\\d+\\s*$/m, `runs: ${runs}`)",
+      "replace": "  if (/^runs:\\s*\\d+\\s*$/m.test(text)) return text",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "사례 사본의 실행 수를 바꾸지 못해 계획과 실제 실행 수가 어긋난다 — receipt가 스모크라 적고 3회를 돌거나 그 반대"
     }
   ]
 }

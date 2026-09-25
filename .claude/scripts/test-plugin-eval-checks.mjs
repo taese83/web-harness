@@ -13,12 +13,13 @@
 //   - artifact-matches는 산출물 파일이나 분할 INDEX.md에서 패턴을 찾는다 — 없거나 안 맞으면 잡는다
 //   - 디스패처를 셸이 못 찾은 실행(exit 127)은 배포본에 디스패처가 있을 때만 환경 오류다 — 없으면 빌드 결함이다
 //   - 평가 세션 PATH는 평가 대상의 bin을 앞에 두고 설치본 플러그인의 bin은 뺀다 — 설치본과 같은 조건에서 잰다
+//   - 릴리스 실행 계획: deep 사례는 선언된 횟수, 나머지는 1회(스모크). 계획이 없으면 선언된 횟수 그대로다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
 import {delimiter, join, sep} from 'node:path'
 import {tmpdir} from 'node:os'
-import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatcherNotOnPath, dispatchMisses, evalSessionPath, plannedRuns, runChecks, runFailureEnvironmentErrors, runRootOf, SMOKE_RUNS, treeDigest, withRuns} from './plugin-eval-checks-lib.mjs'
 import * as draftValidator from './ticket/ticket-create.mjs'
 
 const withRoot = run => {
@@ -144,4 +145,14 @@ test('평가 세션 PATH는 평가 대상의 bin을 앞에 두고 설치본 플�
   assert.equal(path[0], join(sep, 'tmp', 'eval', 'web-harness', 'bin'), '평가 대상의 디스패처가 PATH에 없다 — 서브에이전트가 exit 127로 실패한다')
   assert.ok(!path.includes(installed), '설치본 디스패처가 남았다 — 평가 대상이 아닌 판본을 잰다')
   assert.deepEqual(path.slice(1), ['/usr/bin', '/bin'])
+})
+
+test('릴리스 실행 계획은 deep 사례만 선언된 횟수로, 나머지는 스모크 1회로 돌린다', () => {
+  assert.equal(plannedRuns(3, ['predev-stops-at-api-decision'], 'predev-stops-at-api-decision'), 3, 'deep 사례를 줄였다 — 핵심 구간의 pass^k가 사라진다')
+  assert.equal(plannedRuns(3, ['predev-stops-at-api-decision'], 'ticket-draft-team-form'), SMOKE_RUNS)
+  assert.equal(plannedRuns(3, null, 'ticket-draft-team-form'), 3, '계획이 없는데 줄였다')
+  const prompt = '---\ndescription: x\nruns: 3\nmax_turns: 60\n---\n/web-harness:wh plan x\n'
+  assert.match(withRuns(prompt, 1), /^runs: 1$/m)
+  assert.equal(withRuns(prompt, 1).match(/^runs:/gm).length, 1)
+  assert.match(withRuns('---\ndescription: x\n---\nbody\n', 1), /^---\nruns: 1\n/, 'runs가 없는 머리말에 넣지 못했다')
 })

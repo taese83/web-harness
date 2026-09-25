@@ -49,6 +49,20 @@ export const dispatchMisses = (traceText, distScriptsDirectory) => [...new Set(
 )].filter(name => existsSync(join(distScriptsDirectory, `${name}.mjs`)))
 
 /**
+ * 릴리스 실행 계획 — 모든 사례를 돌리되, 이번 릴리스가 바꾼 핵심 구간(`deep`)만 선언된 횟수(pass^k)로, 나머지는
+ * 1회(스모크)로 돈다. 1회 사례의 실패는 넘기지 않는다 — 그 사례를 선언된 횟수로 다시 돌려 판정한다.
+ * `deep`이 null이면 계획이 없다(선언된 횟수 그대로).
+ */
+export const SMOKE_RUNS = 1
+export const plannedRuns = (declared, deep, name) => (deep === null || deep.includes(name) ? declared : SMOKE_RUNS)
+/** 사례 사본의 prompt.md 실행 수를 바꾼다(원본은 그대로 — 사례 digest는 원본으로 잰다). */
+export const withRuns = (promptText, runs) => {
+  const text = String(promptText)
+  if (/^runs:\s*\d+\s*$/m.test(text)) return text.replace(/^runs:\s*\d+\s*$/m, `runs: ${runs}`)
+  return text.replace(/^---\r?\n/, `---\nruns: ${runs}\n`)
+}
+
+/**
  * 평가 세션의 PATH — 설치본 플러그인의 bin은 뺀다(평가 대상이 아닌 디스패처를 부른다). 평가 대상의 bin은 설치본처럼
  * 앞에 둔다 — 없으면 서브에이전트가 디스패처를 못 찾고(exit 127), 검증 Bash 정책이 절대 경로를 막아 우회로도 없다.
  */
