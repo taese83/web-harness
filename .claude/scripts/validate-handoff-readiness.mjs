@@ -1533,13 +1533,20 @@ export function analyzeHandoffReadiness(root, {to = 'development'} = {}) {
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const argv = process.argv.slice(2)
+  // `--project-root`는 `--project`의 별칭이다 — 다른 하네스 스크립트(spec.mjs·init-workspace)가 그 이름을 써서
+  // 검증 에이전트가 헷갈리면 검증 Bash 정책이 막아 기계 판정이 통째로 빠진다.
+  const argv = process.argv.slice(2).map(arg => (arg === '--project-root' ? '--project' : arg))
+  const usageLine = `사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> [--to ${HANDOFFS.join('|')} | --design-debt | --motion-role] [--json]\n`
+  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
+    process.stdout.write(usageLine)
+    process.exit(0)
+  }
   const projectIndex = argv.indexOf('--project')
   const toIndex = argv.indexOf('--to')
   const projectRoot = projectIndex >= 0 ? argv[projectIndex + 1] : undefined
   const to = toIndex >= 0 ? argv[toIndex + 1] : 'development'
   if (!projectRoot || !HANDOFFS.includes(to)) {
-    process.stderr.write(`사용법: node .claude/scripts/validate-handoff-readiness.mjs --project <root> [--to ${HANDOFFS.join('|')} | --design-debt | --motion-role] [--json]\n`)
+    process.stderr.write(usageLine)
     process.exit(2)
   }
   // 디자인 부채 청구서. **판정이 아니라 보고이므로 항상 exit 0이다** — 이 출력으로 진행을

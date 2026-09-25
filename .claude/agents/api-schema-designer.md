@@ -124,7 +124,7 @@ export const metricHandlers = [
 
 - `_workspace/02_design/api-schema.md` — 명세 문서
 
-`.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘거나 리소스가 8개를 넘으면 `_workspace/02_design/api-schema/`로 분할하고 리소스별 절 + 공통 envelope·에러 절 1개 + `INDEX.md`를 만든다. 80줄을 넘는 Zod/MSW 코드 블록은 절 본문이 아니라 `{리소스}.code.ts`로 분리하고 본문에는 경로만 남긴다.
+`.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. **쓰기 전에 형태를 정한다** — 절(H2) 목록을 먼저 세워 계약의 절 수·크기 예산을 넘을 것 같으면 처음부터 `_workspace/02_design/api-schema/`에 쓴다(리소스별 절 + 공통 envelope·에러 절 1개 + `INDEX.md`). 단일 파일을 먼저 쓰고 나중에 나누지 않는다 — 둘이 함께 있으면 분할 검사가 거부한다. 기준은 리소스 수가 아니라 절 수다. 80줄을 넘는 Zod/MSW 코드 블록은 절 본문이 아니라 `{리소스}.code.ts`로 분리하고 본문에는 경로만 남긴다.
 
 다음 파일은 직접 만들지 않고 `api-schema.md`에 구현 계획으로만 적는다. 실제 생성은 Phase 3의 `developer` 스폰이 담당한다.
 

@@ -667,6 +667,48 @@
       "expect": "DENY",
       "code": "DENY_PNPM_DIRECT",
       "command": "pnpm run lint"
+    },
+    {
+      "id": "verifier-handoff-project-root-alias",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "agentType": "plan-reviewer",
+      "command": "web-harness-script validate-handoff-readiness --project-root . --to design --json"
+    },
+    {
+      "id": "verifier-handoff-help",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "agentType": "plan-reviewer",
+      "command": "web-harness-script validate-handoff-readiness --help"
+    },
+    {
+      "id": "verifier-handoff-alias-unknown-flag",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "agentType": "plan-reviewer",
+      "command": "web-harness-script validate-handoff-readiness --project-root . --to design --fix"
+    },
+    {
+      "id": "verifier-handoff-node-project-root",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "agentType": "plan-reviewer",
+      "command": "node .claude/scripts/validate-handoff-readiness.mjs --project-root . --to development --json"
+    },
+    {
+      "id": "verifier-handoff-short-help",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "agentType": "plan-reviewer",
+      "command": "web-harness-script validate-handoff-readiness -h"
+    },
+    {
+      "id": "verifier-handoff-help-with-flags",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "agentType": "plan-reviewer",
+      "command": "web-harness-script validate-handoff-readiness --help --json"
     }
   ]
 }

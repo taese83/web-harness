@@ -792,6 +792,10 @@ const validationScriptContract = (script, args, context) => {
       !arg.startsWith('--') || allowed.has(arg) || commandArgs[index - 1] === '--expect' || commandArgs[index - 1] === '--paths')
   }
   if (script === '.claude/scripts/validate-handoff-readiness.mjs') {
+    // 사용법 출력만(읽기 전용) — 검증 에이전트가 인자를 확인하려다 막히면 기계 판정이 빠진다.
+    if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) return true
+    // `--project-root`는 스크립트가 `--project`로 읽는 별칭이다 — 같은 경계 검사를 받는다.
+    args = args.map(arg => (arg === '--project-root' ? '--project' : arg))
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     if (!args.includes('--project')) return false
     // `--design-debt`는 판정이 아니라 **읽기 전용 보고**다(exit 0 고정). 등록하지 않으면

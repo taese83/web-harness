@@ -16,6 +16,9 @@ import {
 import {parseFeaturePlanUnits} from './ticket/plan-units.mjs'
 import {canonicalDigest} from './ticket/work-analysis.mjs'
 import {randomUUID} from 'node:crypto'
+import {spawnSync} from 'node:child_process'
+import {fileURLToPath} from 'node:url'
+import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
 
 const SOLUTION_DESIGN = decisions => [
   '# Solution Design', '', '```json web-harness:solution-design',
@@ -685,4 +688,22 @@ test('배선: 두 인계가 모두 이 대조를 세운다 — 디자인에서 �
   assert.match(design, /checkSourceConsumption\(root\)/, '디자인 인계에 없다')
   const dev = assembly.slice(assembly.indexOf('const spec = readSpecAt(root)'))
   assert.match(dev, /checkSourceConsumption\(root\)/, '개발 인계에 없다')
+})
+
+test('검증 에이전트가 --project-root·--help로 불러도 기계 판정이 돈다 — CLI와 Bash 정책이 같은 별칭을 받는다', () => {
+  const decide = command => evaluateGlobalBashPolicy({agent_type: 'plan-reviewer', tool_name: 'Bash', tool_input: {command}}).allowed
+  const base = 'node .claude/scripts/validate-handoff-readiness.mjs'
+  assert.equal(decide(`${base} --project-root . --to design --json`), true, '별칭 인자가 정책에서 막힌다')
+  assert.equal(decide(`${base} --help`), true, '사용법 출력이 정책에서 막힌다')
+  assert.equal(decide(`${base} --project-root . --to design --fix`), false, '별칭이 알 수 없는 인자까지 열었다')
+  const script = fileURLToPath(new URL('./validate-handoff-readiness.mjs', import.meta.url))
+  const help = spawnSync(process.execPath, [script, '--help'], {encoding: 'utf8'})
+  assert.equal(help.status, 0)
+  assert.match(help.stdout, /--project <root>/)
+  withProject(root => {
+    const run = flag => spawnSync(process.execPath, [script, flag, root, '--to', 'design', '--json'], {encoding: 'utf8'})
+    const viaAlias = run('--project-root')
+    assert.equal(viaAlias.status, run('--project').status)
+    assert.equal(viaAlias.stdout, run('--project').stdout, '별칭이 다른 판정을 냈다')
+  }, {shards: {'a.md': DECLARED}})
 })

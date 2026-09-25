@@ -4243,6 +4243,38 @@
       "why": "사례 사본의 실행 수를 바꾸지 못해 계획과 실제 실행 수가 어긋난다 — receipt가 스모크라 적고 3회를 돌거나 그 반대"
     },
     {
+      "id": "handoff-policy-project-root-alias",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "    args = args.map(arg => (arg === '--project-root' ? '--project' : arg))",
+      "replace": "    args = [...args]",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "검증 에이전트가 --project-root로 부르면 정책이 막아 기계 판정이 통째로 빠진다"
+    },
+    {
+      "id": "handoff-policy-help",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "    if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) return true",
+      "replace": "    if (false) return true",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "사용법을 확인하려는 검증 에이전트가 막혀 인자를 추측하다 기계 판정을 포기한다"
+    },
+    {
+      "id": "handoff-cli-project-root-alias",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  const argv = process.argv.slice(2).map(arg => (arg === '--project-root' ? '--project' : arg))",
+      "replace": "  const argv = process.argv.slice(2)",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "정책이 별칭을 통과시켜도 스크립트가 --project를 못 찾아 사용 오류(exit 2)로 끝난다"
+    },
+    {
+      "id": "handoff-cli-help",
+      "file": ".claude/scripts/validate-handoff-readiness.mjs",
+      "find": "  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-handoff-readiness.mjs",
+      "why": "--help가 사용 오류(exit 2)로 끝나 검증 에이전트가 실패로 읽는다"
+    },
+    {
       "id": "import-closure-filter",
       "file": ".claude/scripts/import-closure-lib.mjs",
       "find": "    .filter(specifier => !existsSync(resolve(dirname(file), specifier)))",
