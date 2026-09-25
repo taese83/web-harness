@@ -14,6 +14,10 @@
     ".claude/scripts/validators/validate-marker-integrity.mjs"
   ],
   "unregistered": [
-    "run-golden-profile.mjs"
-  ]
+    "run-golden-profile.mjs",
+    "report-test-qa.mjs"
+  ],
+  "unregisteredReasons": {
+    "report-test-qa.mjs": "메인 스레드(오케스트레이터) 전용이다 — qa-test.md와 판정 기록을 쓰고 변이 표본으로 소스를 잠시 바꾸므로 읽기 전용 검증자의 Bash에 열지 않는다. 메인 스레드는 전역 Bash 정책 밖이다."
+  }
 }

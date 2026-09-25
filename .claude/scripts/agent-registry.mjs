@@ -18,7 +18,6 @@ export const VERIFIER_AGENTS = new Set([
   'security-reviewer',
   'seo-verifier',
   'state-invariant-verifier',
-  'test-executor',
   'timeseries-verifier',
   'ux-validator',
   'version-analyzer',
@@ -53,6 +52,8 @@ export const RETIRED_AGENTS = {
   'requirements-analyst': 'product-planner',
   'ux-researcher': 'product-planner',
   'planning-synthesizer': 'plan-reviewer',
+  // 테스트 판정은 스크립트(report-test-qa)가 한다. 계약의 시나리오를 테스트로 옮기는 소비자는 developer다.
+  'test-executor': 'developer',
 }
 
 export const AGENT_OWNERSHIP = {

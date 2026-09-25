@@ -1481,7 +1481,7 @@ export function checkVerificationEvidence(root) {
   }
   if (evidence.evidenceState === 'NOT_RUN') {
     return hole('evidence', `요구 검증 ${evidence.required.length}종이 하나도 수행되지 않았다(${evidence.required.join(', ')})`,
-      '검증자를 띄운다 — integration-verifier(build·라우트·dev 서버) · test-executor(테스트·커버리지) · code-reviewer. 쓰는 에이전트는 Bash가 없어 스스로 돌리지 못한다')
+      '검증자를 띄운다 — integration-verifier(build·라우트·dev 서버) · report-test-qa(테스트·커버리지 판정 — 품질 실행기 영수증) · code-reviewer. 쓰는 에이전트는 Bash가 없어 스스로 돌리지 못한다')
   }
   const broken = [...evidence.missing.map(c => `${c}: receipt 없음`), ...evidence.failing.map(c => `${c}: PASS 아님`)]
   if (broken.length > 0) {

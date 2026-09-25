@@ -13,7 +13,7 @@ import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathS
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
-import {checkVerdictBinding, parseVerdictStatus, recordVerdict, VERDICT_REPORT_BY_AGENT, VERDICTS_RELATIVE} from './verdict-record-lib.mjs'
+import {checkVerdictBinding, parseVerdictStatus, recordScriptVerdict, recordVerdict, VERDICT_REPORT_BY_AGENT, VERDICT_REPORT_BY_SCRIPT, VERDICTS_RELATIVE} from './verdict-record-lib.mjs'
 import {buildReleaseManifest} from './release-gate-lib.mjs'
 import {releaseReportRequirements} from './release-report-policy.mjs'
 
@@ -40,7 +40,7 @@ test('판정 읽기(순수): `## Result` 다음 줄의 알려진 상태만 받�
   assert.equal(parseVerdictStatus('## Result\nPASS | WARN | FAIL | BLOCKED'), null, '양식 줄을 그대로 옮긴 응답을 첫 단어 판정으로 기록했다')
 })
 
-test('필수 보고서마다 판정을 기록하는 검증 에이전트가 있다 — 없으면 그 보고서는 기록이 생긴 프로젝트에서 영영 통과하지 못한다', () => withProject(root => {
+test('필수 보고서마다 판정을 기록하는 검증 에이전트나 스크립트가 있다 — 없으면 그 보고서는 기록이 생긴 프로젝트에서 영영 통과하지 못한다', () => withProject(root => {
   for (const file of ['state-contract.md', 'analytics-architecture.md', 'visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md', 'timeseries-architecture.md']) {
     mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
     writeFileSync(join(root, '_workspace/02_design', file), '')
@@ -50,7 +50,12 @@ test('필수 보고서마다 판정을 기록하는 검증 에이전트가 있�
   const adapters = readdirSync(join(REPOSITORY_ROOT, '.claude/adapters'), {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name)
   assert.ok(adapters.includes('next-app-fullstack'), `어댑터 목록을 읽지 못했다: ${adapters.join(', ')}`)
   const required = [...new Set(adapters.flatMap(id => releaseReportRequirements(root, {adapter: {id}}, 'final', true).map(([reportId]) => reportId)))]
-  const recorded = new Set(Object.values(VERDICT_REPORT_BY_AGENT))
+  const recorded = new Set([...Object.values(VERDICT_REPORT_BY_AGENT), ...Object.values(VERDICT_REPORT_BY_SCRIPT)])
+  // 스크립트 기록자는 실제로 그 보고서 id로 기록해야 한다 — 이름만 올린 기록자는 없는 것과 같다.
+  for (const [script, reportId] of Object.entries(VERDICT_REPORT_BY_SCRIPT)) {
+    const source = readFileSync(join(REPOSITORY_ROOT, `.claude/scripts/${script}.mjs`), 'utf8')
+    assert.match(source, new RegExp(`recordScriptVerdict\\(projectRoot, \\{reportId: VERDICT_REPORT_BY_SCRIPT\\['${script}'\\]`), `${script}가 ${reportId} 판정을 기록하지 않는다`)
+  }
   assert.deepEqual(required.filter(id => !recorded.has(id)), [], '판정 기록이 없는 필수 보고서가 있다')
 }))
 
@@ -84,6 +89,16 @@ test('릴리스 게이트: 보고서가 PASS인데 검증 에이전트가 FAIL�
   recordVerdict(root, {agentName: 'security-reviewer', message: '## Result\nFAIL'})
   const after = buildReleaseManifest(root).errors.filter(error => error.startsWith('_workspace/04_qa/qa-security.md'))
   assert.ok(after.some(error => /검증 에이전트 security-reviewer의 판정\(FAIL\)/.test(error)), `옮겨 적으며 바뀐 판정이 릴리스를 통과했다: ${JSON.stringify(after)}`)
+}))
+
+test('릴리스 게이트: 스크립트가 쓴 보고서는 판정 줄 밖을 고쳐도 막는다', () => withProject(root => {
+  const report = '# Test QA\n\n## Result\nPASS\n\n## Findings\n- 없음\n'
+  writeFileSync(join(root, '_workspace/04_qa/qa-test.md'), report)
+  recordScriptVerdict(root, {reportId: 'test', script: 'report-test-qa', status: 'PASS', report})
+  const errorsFor = () => buildReleaseManifest(root).errors.filter(error => error.startsWith('_workspace/04_qa/qa-test.md'))
+  assert.deepEqual(errorsFor(), [], '스크립트가 쓴 그대로의 보고서를 막았다')
+  writeFileSync(join(root, '_workspace/04_qa/qa-test.md'), report.replace('- 없음', '- 없음(확인함)'))
+  assert.ok(errorsFor().some(error => /바뀌었다/.test(error)), '판정 줄 밖을 고친 보고서가 게이트를 통과했다')
 }))
 
 test('기록 훅이 저장소 설정과 플러그인 배포 양쪽에 배선돼 있다', () => {

@@ -17,7 +17,6 @@ export const VERDICT_REPORT_BY_AGENT = {
   'integration-verifier': 'integration',
   'security-reviewer': 'security',
   'api-contract-verifier': 'api-contract',
-  'test-executor': 'test',
   'browser-verifier': 'browser',
   'data-access-verifier': 'data-access',
   'state-invariant-verifier': 'state',
@@ -28,6 +27,11 @@ export const VERDICT_REPORT_BY_AGENT = {
   'seo-verifier': 'seo',
   'timeseries-verifier': 'timeseries',
   'next-contract-verifier': 'next-contract',
+}
+
+// 검증 에이전트 대신 스크립트가 보고서를 쓰고 판정을 기록하는 보고서 — 스크립트 이름 → 보고서 id.
+export const VERDICT_REPORT_BY_SCRIPT = {
+  'report-test-qa': 'test',
 }
 
 const KNOWN = new Set(['PASS', 'WARN', 'FAIL', 'BLOCKED', 'NEEDS_REVIEW'])
@@ -57,6 +61,19 @@ export function recordVerdict(projectRoot, {agentName, agentId = null, message, 
   return record
 }
 
+/**
+ * 스크립트가 영수증에서 계산한 판정을 기록한다(report-test-qa). 보고서를 스크립트가 쓰므로 옮겨 적는 단계가 없지만,
+ * 기록을 남겨야 손으로 고친 보고서를 릴리스 게이트가 같은 대조로 잡는다.
+ */
+export function recordScriptVerdict(projectRoot, {reportId, script, status, report, at = new Date().toISOString()}) {
+  const record = {reportId, agent: `script:${script}`, agentId: null, status,
+    digest: createHash('sha256').update(String(report ?? '')).digest('hex'), at}
+  const directory = join(projectRoot, VERDICTS_RELATIVE)
+  mkdirSync(directory, {recursive: true})
+  appendFileSync(join(directory, `${reportId}.jsonl`), `${JSON.stringify(record)}\n`)
+  return record
+}
+
 const latestRecord = (projectRoot, reportId) => {
   const path = join(projectRoot, VERDICTS_RELATIVE, `${reportId}.jsonl`)
   if (!existsSync(path)) return null
@@ -73,12 +90,17 @@ const latestRecord = (projectRoot, reportId) => {
  * 폴더가 있는데 그 보고서의 기록이 없거나 상태가 다르면 오류다 — 검증 에이전트 없이 쓴 보고서이거나 옮겨 적으며 바뀐 판정이다.
  * @returns {{bound: boolean, error?: string, recorded?: object}}
  */
-export function checkVerdictBinding(projectRoot, reportId, reportStatus) {
+export function checkVerdictBinding(projectRoot, reportId, reportStatus, reportSource = null) {
   if (!existsSync(join(projectRoot, VERDICTS_RELATIVE))) return {bound: false}
   const recorded = latestRecord(projectRoot, reportId)
   if (!recorded) return {bound: true, error: `검증 에이전트의 판정 기록이 없다(${VERDICTS_RELATIVE}/${reportId}.jsonl) — 검증 에이전트 없이 쓴 보고서다`}
   if (recorded.status !== reportStatus) {
     return {bound: true, recorded, error: `보고서 판정(${reportStatus})이 검증 에이전트 ${recorded.agent}의 판정(${recorded.status ?? '없음'})과 다르다`}
+  }
+  // 스크립트가 쓴 보고서는 보고서 자체의 digest를 기록한다 — 판정 줄을 안 건드린 편집도 잡는다.
+  if (String(recorded.agent ?? '').startsWith('script:') && reportSource !== null
+    && recorded.digest !== createHash('sha256').update(String(reportSource)).digest('hex')) {
+    return {bound: true, recorded, error: `${recorded.agent}가 쓴 보고서가 그 뒤에 바뀌었다 — 스크립트를 다시 돌린다`}
   }
   return {bound: true, recorded}
 }

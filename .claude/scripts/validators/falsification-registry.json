@@ -4353,6 +4353,126 @@
       "replace": "    void agentRuntimeSettingFailures\n",
       "test": ".claude/scripts/test-agent-runtime-settings.mjs",
       "why": "검사 함수가 있어도 validate-harness가 부르지 않으면 게이트가 없는 것과 같다"
+    },
+    {
+      "id": "test-qa-receipt-integrity-blocks",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "for (const error of errors.filter(error => !/: status is |: exit code must be 0$/.test(error))) findings.push(`BLOCKED — ${error}`)",
+      "replace": "void errors",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "낡거나 변조된 영수증으로 테스트 PASS를 낸다"
+    },
+    {
+      "id": "test-qa-gate-parity-read",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "const record = readReceipt(projectRoot, checkId, fingerprint, errors, lockedProfile, context)",
+      "replace": "const record = true",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "게이트와 다른 기준으로 영수증을 읽어 qa-test와 게이트 판정이 갈린다"
+    },
+    {
+      "id": "test-qa-failed-count-fails",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "if (counts?.failed > 0) findings.push(",
+      "replace": "if (counts?.failed > 1e9) findings.push(",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "실패한 테스트가 있는데 PASS를 낸다"
+    },
+    {
+      "id": "test-qa-zero-tests-blocked",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "if (counts && counts.total === 0) findings.push(",
+      "replace": "if (counts && counts.total === -1) findings.push(",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "실행된 테스트가 0개인데 통과로 센다"
+    },
+    {
+      "id": "test-qa-coverage-threshold",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "percent.lines < COVERAGE_WARN_BELOW",
+      "replace": "percent.lines < 0",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "커버리지 기준을 지우면 낮은 커버리지가 PASS다"
+    },
+    {
+      "id": "test-qa-must-citation",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "if (uncited.length > 0) findings.push(",
+      "replace": "if (uncited.length > 1e9) findings.push(",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "Must 기능을 어떤 테스트도 인용하지 않는데 통과한다 — 스팩 등급과 무관한 연결 검사다"
+    },
+    {
+      "id": "test-qa-cut-excluded",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "if (!/^must$/i.test(priority) || /^cut$/i.test(scope)) continue",
+      "replace": "if (!/^must$/i.test(priority)) continue",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "cut한 기능까지 인용을 요구해 멀쩡한 프로젝트를 막는다"
+    },
+    {
+      "id": "test-qa-verdict-recorded",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "  recordScriptVerdict(projectRoot, {reportId: VERDICT_REPORT_BY_SCRIPT['report-test-qa'], script: 'report-test-qa', status: result.status, report})\n",
+      "replace": "  void recordScriptVerdict\n",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "판정 기록이 없으면 손으로 PASS로 고친 qa-test.md를 게이트가 잡지 못한다"
+    },
+    {
+      "id": "runner-records-test-summary",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "    testSummary: definition.testKind ? parseTestSummary(`${stdout}\\n${stderr}`, definition.testKind) : null,\n",
+      "replace": "    testSummary: null,\n",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "영수증에 실행 수가 없으면 실패·0개 판정을 할 수 없다"
+    },
+    {
+      "id": "output-summary-vitest",
+      "file": ".claude/scripts/quality-output-summary-lib.mjs",
+      "find": "  if (vitest) return {runner: 'vitest'",
+      "replace": "  if (false) return {runner: 'vitest'",
+      "test": ".claude/scripts/test-quality-output-summary.mjs",
+      "why": "vitest 요약을 못 읽으면 실행 수가 늘 미상이다"
+    },
+    {
+      "id": "output-summary-coverage-header",
+      "file": ".claude/scripts/quality-output-summary-lib.mjs",
+      "find": "  if (!header || !total) return null",
+      "replace": "  if (!total) return null",
+      "test": ".claude/scripts/test-quality-output-summary.mjs",
+      "why": "머리글 없는 표를 읽어 열을 잘못 짚은 숫자를 커버리지로 쓴다"
+    },
+    {
+      "id": "output-summary-no-tests-is-zero",
+      "file": ".claude/scripts/quality-output-summary-lib.mjs",
+      "find": "  if (/^\\s*No test files found\\b/m.test(text)) return {runner: 'vitest', passed: 0, failed: 0, skipped: 0, todo: 0, total: 0}\n",
+      "replace": "  void text\n",
+      "test": ".claude/scripts/test-quality-output-summary.mjs",
+      "why": "테스트를 하나도 찾지 못한 실행이 「수 미상 → WARN」으로 게이트를 통과한다"
+    },
+    {
+      "id": "test-qa-unreadable-plan-blocks",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "  if (planSources.length > 0 && rows === 0) findings.push(",
+      "replace": "  if (planSources.length > 0 && rows === -1) findings.push(",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "기획서의 기능 표를 못 읽으면 Must 인용 검사가 조용히 꺼진다"
+    },
+    {
+      "id": "verdict-binding-script-digest",
+      "file": ".claude/scripts/verdict-record-lib.mjs",
+      "find": "  if (String(recorded.agent ?? '').startsWith('script:') && reportSource !== null\n",
+      "replace": "  if (false && reportSource !== null\n",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "스크립트가 쓴 보고서의 판정 줄 밖 내용을 손으로 고쳐도 게이트가 모른다"
+    },
+    {
+      "id": "release-gate-passes-report-source",
+      "file": ".claude/scripts/release-gate-lib.mjs",
+      "find": "    const binding = checkVerdictBinding(projectRoot, id, status, source)",
+      "replace": "    const binding = checkVerdictBinding(projectRoot, id, status)",
+      "test": ".claude/scripts/test-verdict-record.mjs",
+      "why": "게이트가 보고서 원문을 넘기지 않으면 digest 대조가 게이트에서 꺼진다"
     }
   ]
 }

@@ -746,16 +746,6 @@ const validationScriptContract = (script, args, context) => {
     }
     return true
   }
-  if (script === '.claude/scripts/validate-mutation-sample.mjs') {
-    // `test-executor`가 부르는 명령이다. 등록하지 않으면 에이전트 경로에서 막히고 저자는
-    // 메인 스레드라 그것을 못 본다 — 이 저장소가 네 번 물린 클래스다.
-    // **이 스크립트는 소스를 변이시킨다.** 그러나 복원을 fingerprint로 증명하고 실패하면
-    // exit 2로 loud하게 멈춘다. 쓰기 범위는 프로젝트의 소스 파일이며 새로 만들지 않는다.
-    const commandArgs = withoutDirectoryOption(args, '--project', context)
-    const allowed = new Set(['--json', '--limit'])
-    return args.includes('--project') && commandArgs.every((arg, index) =>
-      allowed.has(arg) || (commandArgs[index - 1] === '--limit' && /^\d{1,3}$/.test(arg)))
-  }
   if (script === '.claude/scripts/init-workspace.mjs') {
     // **쓰기가 있는 첫 등록이다.** 쓰는 범위는 `<project-root>/_workspace/` 안으로 닫혀 있다 —
     // 디렉터리 6개와 마커(`_workspace/web-harness.md`)뿐이고, `--project-root`는

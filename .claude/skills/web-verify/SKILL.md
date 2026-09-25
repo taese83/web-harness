@@ -85,7 +85,8 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - `VISUAL_QA_MODE`이면 `developer`를 시각 test/story 범위로 실행한다. baseline은 갱신하지 않는다.
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.
 4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. `external-ingestion` capability에서는 `ingestion` receipt가 같은 cohort에 포함되지 않으면 `BLOCKED`다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
-5. 독립 QA 에이전트 실행 (병렬 가능):
+5. 테스트 판정 스크립트를 실행한다: `node .claude/scripts/report-test-qa.mjs --project {project-root}` → `qa-test.md`와 판정 기록(에이전트 스폰 없음).
+   독립 QA 에이전트 실행 (병렬 가능):
    - code-reviewer
    - ux-validator
    - integration-verifier
@@ -97,7 +98,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - `_workspace/02_design/timeseries-architecture.md`가 있으면 timeseries-verifier
    - `_workspace/02_design/seo-spec.md`가 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 seo-verifier
    - `_workspace/02_design/performance-budget.md`가 있으면 performance-verifier
-   - test-executor
    - browser-verifier
    - `VISUAL_QA_MODE`이면 visual-regression-verifier
 6. 다중 tenant 또는 서버 인가 경로가 있으면 data-access-verifier를 실행한다.

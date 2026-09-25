@@ -137,12 +137,12 @@ export const validateAgentBoundaries = ({
       encoding: 'utf8',
       input: JSON.stringify({agent_type: agentType, tool_input: {command}, tool_name: 'Bash'}),
     })
-  if (runVerifierBashHook('test-executor', 'pnpm test').status !== 2) {
+  if (runVerifierBashHook('integration-verifier', 'pnpm test').status !== 2) {
     fail('verifier Bash hook allowed a direct package-manager command')
   }
   if (
     runVerifierBashHook(
-      'test-executor',
+      'integration-verifier',
       'node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution',
     ).status !== 0
   ) fail('verifier Bash hook blocked the typed quality runner')
@@ -152,9 +152,9 @@ export const validateAgentBoundaries = ({
   if (runVerifierBashHook('code-reviewer', "node -e 'process.exit(0)'").status !== 2) {
     fail('verifier Bash hook allowed arbitrary Node execution')
   }
-  if (runVerifierBashHook('test-executor', 'pnpm test --update').status !== 2) fail('verifier Bash hook allowed snapshot update')
+  if (runVerifierBashHook('integration-verifier', 'pnpm test --update').status !== 2) fail('verifier Bash hook allowed snapshot update')
   if (
-    runVerifierBashHook('test-executor', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status !== 2
+    runVerifierBashHook('integration-verifier', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status !== 2
   ) fail('verifier Bash hook allowed a mutating package operation')
   if (runVerifierBashHook('security-reviewer', 'rm -rf src').status !== 2) fail('verifier Bash hook allowed a mutating command')
   pass('verifier Bash allow/deny behavior checked')

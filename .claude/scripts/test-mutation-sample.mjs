@@ -101,26 +101,23 @@ test('테스트 파일은 변이시키지 않는다 — 테스트를 바꾸면 �
 })
 
 // ── 배선 ─────────────────────────────────────────────────────────────────────
-test('배선: test-executor가 변이 표본을 부르고, bash 정책이 그 명령을 허용한다', async () => {
-  // 부르지 않는 검사는 없는 것과 같고, 정책에 없는 명령은 에이전트 경로에서 막힌다 —
-  // 이 저장소가 네 번 물린 클래스다(`--to design`·`--design-debt`·`init-workspace`·여기).
+test('배선: 테스트 판정 스크립트가 변이 표본을 부르고, 읽기 전용 검증 에이전트는 직접 부르지 못한다', async () => {
+  // 부르지 않는 검사는 없는 것과 같다. 반대로 이 스크립트는 소스를 변이시키므로 읽기 전용 검증자의 Bash에 열지 않는다 —
+  // 호출자는 report-test-qa(자식 프로세스)뿐이다.
   const {readFileSync} = await import('node:fs')
   const {fileURLToPath} = await import('node:url')
   const root = fileURLToPath(new URL('../../', import.meta.url))
-  const agent = readFileSync(`${root}.claude/agents/test-executor.md`, 'utf8')
-  assert.match(agent, /validate-mutation-sample\.mjs/, 'test-executor가 부르지 않는다')
-  assert.match(agent, /커버리지는 실행만 측정한다/, '왜 부르는지가 적혀 있지 않다')
+  const reporter = readFileSync(`${root}.claude/scripts/report-test-qa.mjs`, 'utf8')
+  assert.match(reporter, /join\(SCRIPTS, 'validate-mutation-sample\.mjs'\)/, '테스트 판정이 변이 표본을 부르지 않는다')
+  assert.match(reporter, /커버리지는 실행만 측정한다/, '왜 부르는지가 적혀 있지 않다')
 
   const {evaluateGlobalBashPolicy} = await import('./global-bash-policy-lib.mjs')
   const decide = command => evaluateGlobalBashPolicy({
-    agent_type: 'test-executor', tool_name: 'Bash', tool_input: {command},
+    agent_type: 'integration-verifier', tool_name: 'Bash', tool_input: {command},
   })
-  const base = 'node .claude/scripts/validate-mutation-sample.mjs --project .'
-  assert.equal(decide(base).allowed, true, '계약이 부르는 명령이 정책에 막힌다')
-  assert.equal(decide(`${base} --limit 8 --json`).allowed, true)
-  // 인자 계약은 좁게 — 알 수 없는 값이 --limit에 오면 막는다.
-  assert.equal(decide(`${base} --limit rm`).code, 'DENY_VALIDATION_COMMAND')
-  assert.equal(decide('node .claude/scripts/validate-mutation-sample.mjs --project /etc').code, 'DENY_PATH_OUTSIDE')
+  const denied = decide('node .claude/scripts/validate-mutation-sample.mjs --project .')
+  assert.equal(denied.allowed, false, '읽기 전용 검증자가 소스를 변이시키는 명령을 부를 수 있다')
+  assert.equal(denied.code, 'DENY_VALIDATION_COMMAND')
 })
 
 test('배선: CLI가 프로세스로 돌아 점수를 내고 소스를 원복한다', async () => {

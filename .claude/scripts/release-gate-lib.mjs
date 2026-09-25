@@ -180,7 +180,7 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
     }
 
     // 옮겨 적은 판정이 검증 에이전트가 낸 판정과 같아야 한다(SubagentStop 기록 — verdict-record-lib).
-    const binding = checkVerdictBinding(projectRoot, id, status)
+    const binding = checkVerdictBinding(projectRoot, id, status, source)
     if (binding.error) errors.push(`${relativePath}: ${binding.error}`)
     reports.push({id, path: relativePath, sha256: sha256(source), status, verdictBound: binding.bound})
     checks.push(...parseChecks(source, id))

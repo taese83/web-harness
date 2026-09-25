@@ -162,10 +162,10 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - 단, `index.ts`, `main.tsx`, `App.tsx`, `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`는 제외한다
    - Grep 도구로 `from '.*{파일명}'` 패턴의 역참조 여부를 확인한다
    - 실제 삭제 여부는 사람이 판단한다. 이 검사는 후보만 제시한다
-14. **테스트 파일 확인** (존재 여부만 — 실제 실행은 `test-executor` 담당):
+14. **테스트 파일 확인** (존재 여부만 — 실제 실행은 품질 실행기, 판정은 `report-test-qa` 담당):
    - Glob 도구로 스팩 `testLayers`가 선언한 경로 아래의 `*.{test,spec}.*`를 조회한다(스팩이 없거나 `testLayers`가 없으면 저장소 관례 경로를 적고 확인 불가로 둔다)
-   - 테스트 파일이 0개면 WARN으로 기록하고 `test-executor`가 release FAIL로 판정하도록 전달
-   - 테스트 파일이 있으면 PASS로 기록 — 실제 실행과 커버리지 측정은 `test-executor`가 담당하므로 여기서는 실행하지 않는다
+   - 테스트 파일이 0개면 WARN으로 기록하고 테스트 판정(`report-test-qa`)이 BLOCKED로 막는다
+   - 테스트 파일이 있으면 PASS로 기록 — 실제 실행과 커버리지 판정은 품질 실행기와 `report-test-qa`가 담당하므로 여기서는 실행하지 않는다
 15. **외부 데이터·아키텍처 드리프트 검사** (`runtime-data-contract.json`이 있을 때):
    - static snapshot/live API/hybrid mode와 README, runtime consumer, route, deployment config가 같은지 확인
    - schema parse 없는 generated JSON, empty fixture fallback, duplicated crawler/parser/API path, ignored `AbortSignal`을 검사

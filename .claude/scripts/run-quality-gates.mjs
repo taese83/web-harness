@@ -54,6 +54,7 @@ import {
   validateWorkflowSecurityProjects,
 } from './workflow-security-lib.mjs'
 import {collectVisualEvidence} from './visual-evidence-lib.mjs'
+import {parseCoverageSummary, parseTestSummary} from './quality-output-summary-lib.mjs'
 const BASE_CHECKS = new Map([
   ['build', {scripts: ['build'], timeoutMs: 600_000}],
   ['typecheck', {scripts: ['typecheck'], timeoutMs: 600_000}],
@@ -755,6 +756,9 @@ const executeCheck = (id, definition) => {
     status,
     blockedReason,
     discoveredTestFiles,
+    // 출력 원문은 싣지 않는다 — 판정에 필요한 수만 뽑는다(jest는 요약을 stderr로 낸다).
+    testSummary: definition.testKind ? parseTestSummary(`${stdout}\n${stderr}`, definition.testKind) : null,
+    coverageSummary: receiptId === 'coverage' ? parseCoverageSummary(`${stdout}\n${stderr}`) : null,
     stdoutSha256: sha256(stdout),
     stderrSha256: sha256(stderr),
     stdoutTail: '',

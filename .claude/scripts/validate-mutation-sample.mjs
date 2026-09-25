@@ -84,6 +84,6 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     process.stdout.write(`${renderMutationSample(result)}\n`)
     for (const item of result.survivors ?? []) process.stdout.write(`  · 살아남음 ${item.file} [${item.label}]\n`)
   }
-  // **보고다.** 점수가 낮아도 exit 0 — 판정은 사람과 `test-executor`의 몫이다.
+  // **보고다.** 점수가 낮아도 exit 0 — 판정은 사람의 몫이다(report-test-qa가 결과를 그대로 싣는다).
   process.exit(0)
 }

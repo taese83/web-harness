@@ -25,7 +25,7 @@
 | 실행할 것 | 에이전트 |
 |---|---|
 | build · 라우트 · Mock API 연결 · dev 서버 기동 | `integration-verifier` |
-| 테스트 실행과 커버리지 | `test-executor` |
+| 테스트 실행·판정 | `report-test-qa` |
 | TS·ESLint·경계 위반 리뷰 | `code-reviewer` |
 
 ## 형상 규율 — 이 단계의 커밋·브랜치

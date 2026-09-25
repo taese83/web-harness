@@ -38,7 +38,7 @@ Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·int
 같은 체크아웃에서 병렬로 띄우면 write 임대가 두 번째 developer의 쓰기를 막는다(`phase-3-development.md`).
 
 **공통(형태 무관)**: `environment-scaffolder`가 항상 먼저 돈다.
-`code-reviewer` · `security-reviewer` · `test-executor`는 항상 돈다.
+`code-reviewer` · `security-reviewer`와 테스트 판정 스크립트(`report-test-qa`)는 항상 돈다.
 
 ## 2-1. 보조 skill은 스팩이 고른다 (2026-08-26)
 

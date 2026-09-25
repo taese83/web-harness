@@ -74,7 +74,7 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
 
 1. `package.json`에 `@playwright/test`, `@axe-core/playwright`를 포함한 test dependency가 없으면 추가 필요성을 보고하고 사용자 확인을 받는다.
 2. product test file은 생성하지 않는다.
-3. 테스트 실행은 `test-executor`가 담당한다.
+3. 테스트 실행은 품질 실행기가, 판정은 `report-test-qa` 스크립트가 담당한다.
 4. mock handler 구현은 `developer`가 담당한다.
 5. production feature/entity/component 로직을 수정하지 않는다.
 6. 수정 허용 범위는 테스트 인프라 파일(`vitest.config.ts`, `playwright.config.ts`, `src/test/**`, `e2e/` 공통 helper, MSW test bootstrap 연결)에 한정한다.
