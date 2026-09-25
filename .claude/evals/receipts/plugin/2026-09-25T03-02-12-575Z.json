@@ -1,0 +1,133 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 3,
+  "harnessCommit": "3de9cfcef927df9ff6b30d9159f83caa53da8e13",
+  "dirty": false,
+  "pluginVersion": "0.46.0",
+  "distDigest": "e804afe94a2f8eb0060ffe858f483e9c3e383f66cc07aa2c5b9d393472c9a6fb",
+  "claudeVersion": "2.1.281",
+  "model": "claude-opus-5-5[1m]",
+  "startedAt": "2026-09-25T03:02:12.575Z",
+  "durationSeconds": 2430,
+  "costUsd": 16.222884699999998,
+  "partial": false,
+  "selection": {
+    "case": "plan-lane-runs-phase1",
+    "tag": null,
+    "runs": null
+  },
+  "cases": [
+    {
+      "name": "plan-lane-runs-phase1",
+      "caseDigest": "bdf2d39eec18c0cd3334e553967abf40a56004b8d02bafd2c98f4758e44a32de",
+      "seedDigest": null,
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 5.1708862999999985,
+          "durationSeconds": 2139,
+          "turns": 23,
+          "peakContextTokens": 100668,
+          "outputTokens": 29378,
+          "cacheReadTokens": 910609,
+          "toolUses": {
+            "Bash": 7,
+            "Agent": 7,
+            "Grep": 1,
+            "Read": 2,
+            "Edit": 4,
+            "Write": 1
+          },
+          "bashErrors": 2,
+          "agentSpawns": {
+            "web-harness:planning-facilitator": 1,
+            "web-harness:requirements-analyst": 1,
+            "web-harness:ux-researcher": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:tech-advisor": 1,
+            "web-harness:planning-synthesizer": 1,
+            "web-harness:plan-reviewer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 6.679888100000001,
+          "durationSeconds": 2430,
+          "turns": 21,
+          "peakContextTokens": 98941,
+          "outputTokens": 30271,
+          "cacheReadTokens": 856570,
+          "toolUses": {
+            "Bash": 7,
+            "Agent": 10,
+            "SendMessage": 1,
+            "Grep": 1,
+            "Write": 1
+          },
+          "bashErrors": 1,
+          "agentSpawns": {
+            "web-harness:planning-facilitator": 3,
+            "web-harness:requirements-analyst": 1,
+            "web-harness:ux-researcher": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:tech-advisor": 1,
+            "web-harness:planning-synthesizer": 2,
+            "web-harness:plan-reviewer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 4.372110299999999,
+          "durationSeconds": 1714,
+          "turns": 14,
+          "peakContextTokens": 72321,
+          "outputTokens": 20048,
+          "cacheReadTokens": 517091,
+          "toolUses": {
+            "Bash": 5,
+            "Agent": 7,
+            "Write": 1
+          },
+          "bashErrors": 1,
+          "agentSpawns": {
+            "web-harness:planning-facilitator": 1,
+            "web-harness:requirements-analyst": 1,
+            "web-harness:ux-researcher": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:tech-advisor": 1,
+            "web-harness:planning-synthesizer": 1,
+            "web-harness:plan-reviewer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
