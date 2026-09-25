@@ -130,11 +130,11 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 ### Phase 2 — 디자인
 
-**시점 로드**: `references/phase-2-design.md` — Wave 0/0-A/0-B(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃·API 스키마) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
+**시점 로드**: `references/phase-2-design.md` — Wave 0/0-A/0-B(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
 
 ### ✋ Phase 2 완료 체크포인트
 
-`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로(인계 점검 HOLES면 승인 금지) 화면·컴포넌트·API·시각 자료·미결정을 보여주고 확인받는다. 확인 후 Phase 3 착수 전에 `references/solution-design-contract.md`로 두 단계를 밟는다: ① `system-architect`로 구현 설계 결정을 기록하고 선택지를 제시한다(**관측·게이트 아님** — 실패하면 사실만 기록하고 재시도하지 않는다). ② `spec.mjs`로 스팩을 확정한다(**구현 스폰의 전제조건** — 없으면 `developer`가 아무것도 쓸 수 없다). ①은 건너뛸 수 있고 ②는 없다.
+`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로(인계 점검 HOLES면 승인 금지) 화면·컴포넌트·시각 자료·미결정을 보여주고 확인받는다. 확인 후 Phase 3 착수 전에 `references/solution-design-contract.md` §0-3으로 세 단계를 밟는다: ⓪ `api-schema-designer`로 API 계약을 세운다. ① `system-architect`로 구현 설계 결정을 기록하고 선택지를 제시한다(**관측** — 무엇도 막지 않지만 ②가 그 산출물을 요구하므로 건너뛰지 않는다). ② `spec.mjs`로 스팩을 확정한다(**구현 스폰의 전제조건** — 없으면 `developer`가 아무것도 쓸 수 없다).
 
 ### Phase 3 — 개발
 

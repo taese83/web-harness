@@ -47,8 +47,8 @@ metadata:
 3. `tech-advisor`가 chart/transport/worker 선택과 compatibility를 확정한다.
 4. `timeseries-architect`가 `_workspace/02_design/timeseries-architecture.md`를 생성한다.
 5. 다음 agent가 architecture 문서를 입력으로 사용한다.
-   - `api-schema-designer`
-   - `component-designer`
+   - `component-designer`(디자인 단계)
+   - `api-schema-designer`(개발 착수 직전 — snapshot·stream 계약)
    - `developer`
 6. `developer`가 공통 timestamp schema를 먼저 확정하고, 그 다음 스폰에서 transport adapter, buffer, merge, reconnect 계층을 구현한다 — schema가 나머지 전부의 입력이므로 순서가 있다.
 7. `developer`가 완성된 transport interface를 사용해 deterministic realtime fake를 구현한다.

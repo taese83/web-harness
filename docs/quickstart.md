@@ -52,9 +52,10 @@ What happens next:
    product-focused questions (target screens,
    who finishes what task, what "success" looks like). Answer in Korean or English.
 2. **Phase 1 Planning → Phase 2 Design** — parallel agent waves produce requirements, UX
-   brief, layout/component/API specs under `_workspace/`. You get **approval checkpoints**;
+   brief, layout/component specs under `_workspace/`. You get **approval checkpoints**;
    the design preview is an interactive prototype you validate before implementation.
-3. **Phase 3 Implementation → Phase 4 QA** — builders write the app (React 19 + Vite + TS
+3. **Phase 3 Implementation → Phase 4 QA** — the API contract (MSW mocks if no real API yet) and the
+   implementation spec are fixed first; builders write the app (React 19 + Vite + TS
    strict, FSD structure); read-only verifiers produce QA reports with machine receipts.
 4. Verify or iterate with `/web-harness:wh verify` (or `/web-harness:wh change ...` to add behaviour).
    Want planning only, stopping at the plan-reviewer readiness gate? `/web-harness:wh plan ...`.

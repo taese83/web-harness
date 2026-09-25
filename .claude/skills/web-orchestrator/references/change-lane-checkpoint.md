@@ -54,7 +54,7 @@ component-spec, api-schema, design-system, state-contract)`처럼 **무엇을 �
 
 ## ③ 감지된 문서만 개정
 
-`DOCS_TO_UPDATE`에 나열된 문서만 해당 Phase 2 에이전트로 개정한다. 나열되지 않은 문서는 손대지
+`DOCS_TO_UPDATE`에 나열된 문서만 그 문서의 설계 에이전트(API는 `api-schema-designer`)로 개정한다. 나열되지 않은 문서는 손대지
 않는다. 신규 화면·데이터 계약·아키텍처 변경이면 그 부분만 승격한다.
 
 ## ④ 스팩 확정

@@ -102,7 +102,7 @@ runaway에 더 노출된다 — 이 사실을 사용자에게 알리지 않고 �
 | `--to design` **READY** · `--to development` **READY** | `validate-handoff-readiness.mjs` | **차단 없음. 대조군 대비 판정 변화 0건** |
 | `design-binding` **SKIPPED**(양쪽) | 같은 곳 | `design-binding.json`이 없으므로 조건 커버리지 미수행 — 권한 없음·빈 상태가 선언돼 있어도 아무도 요구하지 않는다 |
 | `specTier` 영향 없음 | `spec.mjs` | 기획이 있으면 `verifiable` 유지. 디자인은 tier 축이 아니다 |
-| `LOCK_INPUTS` 8종 중 **4종이 디자인 소유**(`api-schema`·`component-spec`·`state-contract`·`integration-overlay`), 전부 `present: false` | `digestInputs` | 부재가 **기록은 된다** — 이것이 §3 승격의 발화점이다 |
+| `LOCK_INPUTS` 8종 중 **3종이 디자인 소유**(`component-spec`·`state-contract`·`integration-overlay`), 전부 `present: false` | `digestInputs` | 부재가 **기록은 된다** — 이것이 §3 승격의 발화점이다 |
 | 나중에 붙이면 `sourceDigest` 변화 → 스팩 stale | 같은 곳 | **승격 배관은 기계로 작동한다** |
 | 시각 QA | `release-gate-lib.mjs` | `visual-qa-contract.json` 존재로 활성 — 디자인 `absent`면 비활성 |
 | 안전 하한(접근성·보안·receipt) | Phase 4 무조건 verifier | **그대로 돈다**(I6) |
@@ -171,7 +171,7 @@ runaway에 더 노출된다 — 이 사실을 사용자에게 알리지 않고 �
 단계마다 공급원이 실행 방식을 고른다.
 
 - `generated` → 그 Phase의 wave를 정상 실행 · `supplied` → wave 대신 `source-artifact-ingestor`로 정규화하고 **빠진 필수 산출물만** 보강 · `absent` → wave도 정규화도 하지 않고 그 Phase 체크포인트도 없다.
-- **어느 조합이든 설계·스팩은 선다**(`SOLUTION_SOURCE`에 `absent` 없음). 세 값 모두 `system-architect`가 `solution-design.md`의 기계 블록을 쓰고 `spec.mjs`로 확정한다 — 가르는 것은 입력과 근거 티어다(§1 표). 기획·디자인이 둘 다 `absent`인 경로에서는 `system-architect`가 **선택이 아니다** — 스팩의 유일한 입력이 그 산출물뿐이라서다.
+- **어느 조합이든 설계·스팩은 선다**(`SOLUTION_SOURCE`에 `absent` 없음). 세 값 모두 ⓪ API 계약 → `system-architect`의 `solution-design.md` → `spec.mjs` 확정 순서다(`solution-design-contract.md` §0-3) — 가르는 것은 입력과 근거 티어다(§1 표).
 - `absent`여도 intake는 없어지지 않는다 — `planning-facilitation-contract.md` 3항 대신 `solution-design-contract.md` §4 근거 순서(실측 → 추론 → 질의)로 설계에 필요한 것만 묻는다.
 - **승인**: `generated`\|`supplied`면 해당 Phase 체크포인트 그대로. 하나라도 `absent`면 그 자리에 `approval-checkpoints.md`의 「기획·디자인 `absent` 진입 → 개발」이 선다. 통과 전 source edit 금지.
 - **Phase 3·4는 모든 조합에서 동일하다** — 진입 방식이 게이트 강도를 바꾸지 않는다(`request-type-contract.md`).

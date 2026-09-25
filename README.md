@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 46,871 bytes <!-- inventory:entry-cost --> —
+- **Fixed contract load per orchestrator run**: 46,913 bytes <!-- inventory:entry-cost --> —
   the orchestrator skill file plus its always-read contract files. That is a *byte* measurement of exactly those files — roughly 15.6k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the per-spawn
   agent definitions, runtime hook injection, and everything
@@ -99,9 +99,9 @@ it when you aren't using it.
 
 ```
 Phase 1  Planning      requirements, UX, feature plan, tech stack   → readiness review
-Phase 2  Design        design system, layout, components, API       → approval surface
+Phase 2  Design        design system, layout, components            → approval surface
          ── approval gate: nothing proceeds without it ──
-Phase 3  Implementation  scaffolding, domain state, components, routes
+Phase 3  Implementation  API contract (provisional on MSW until OpenAPI) → spec lock → scaffolding, domain state, components, routes
 Phase 4  QA            code, UX, security, browser, performance, state verifiers
          Release       handoff document
 ```

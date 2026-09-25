@@ -91,9 +91,9 @@ buildable한 기존 프로젝트에 `request-type-contract.md`가 `change`·`fix
 | Phase | Required outputs |
 |---|---|
 | Source | existing artifact가 있으면 `source-index.md`, `gap-report.md`, 필요 시 `source-change-proposals.md` |
-| Plan | requirements, UX brief, tech stack, feature plan, project brief |
-| Design | design system, layout, component, API schema와 활성 mode별 contract |
-| Develop | 선택한 project root 아래 buildable application, 기존 source 수정이면 `_workspace/03_dev/change-scope.md` |
+| Plan | requirements, UX brief, tech stack, feature plan, plan review |
+| Design | design system, layout, component와 활성 mode별 contract |
+| Develop | 착수 전 API schema·solution design·spec, 선택한 project root 아래 buildable application, 기존 source 수정이면 `_workspace/03_dev/change-scope.md` |
 | Deploy CI | 요구된 경우에만 deploy workflow/config |
 | QA | base QA reports, machine receipts, conditional QA reports, signed attestation, manifest v3 |
 | Release | 모든 hard gate 통과 후 `_workspace/RELEASE/HANDOFF.md` |

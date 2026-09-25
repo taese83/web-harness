@@ -20,12 +20,12 @@ Phase 1(기획)은 형태와 무관하게 **같은 에이전트**가 돈다. 해
 `product-planner`의 UX brief는 화면 UX가 아니라 **API 발견성·타입 추론·오류 메시지·migration DX**를 다룬다.
 그 사실을 에이전트 prompt에 명시해 전달한다.
 
-| targetShape | Phase 2 설계 | Phase 3 빌더 | Phase 4 검증 |
+| targetShape | 설계 | Phase 3 빌더 | Phase 4 검증 |
 |---|---|---|---|
 | `web-app` | `design-system-architect` · `layout-designer` · `component-designer` | `WEB_PROFILE` 파이프라인(SKILL.md Phase 3) | `browser-verifier` · `ux-validator` · 조건부 `seo-verifier` |
 | `library` | `lib-api-designer` → `_workspace/02_design/api-design.md` | `environment-scaffolder`(패키지·빌드·테스트 설정) → `developer`(구현·단위 테스트·문서) | `pack-verifier` |
 | `cli` | `lib-api-designer`(CLI 표면: 명령·플래그·exit code·stderr 계약) | `library`와 같은 두 단계 | `pack-verifier` |
-| `serverless-functions` | `api-schema-designer` | `.claude/skills/vite-serverless-hybrid/SKILL.md` 계약의 `api/` handler | `api-contract-verifier` |
+| `serverless-functions` | (개발 착수 직전) `api-schema-designer` | `.claude/skills/vite-serverless-hybrid/SKILL.md` 계약의 `api/` handler | `api-contract-verifier` |
 
 Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·integration·security·api-contract·test)는 형태와 무관하게
 `release-report-policy.mjs`의 `BASE_REPORTS`가 요구한다.
@@ -49,7 +49,7 @@ Phase 4 열은 형태별 **추가** 검증이다. 기본 보고서(code·ux·int
 | 필요한 판단 | 스팩의 어디를 보나 | 조건이면 |
 |---|---|---|
 | MSW handler | `libraries.mock` — `choice`가 `none`이 아니고 기본 셋업 이상이면 | `.claude/skills/mock-service-setup/SKILL.md` |
-| client/server 계약 | `communication` + `_workspace/02_design/api-schema.md` 실존 | `.claude/skills/api-contract-typegen/SKILL.md` |
+| client/server 계약 | `communication` + `api-schema.md`의 `API_CONTRACT`가 `none`이 아님 | `.claude/skills/api-contract-typegen/SKILL.md` |
 | 서버 DB | `libraries`에 DB 역할(postgres·sqlite·mysql 계열) | `.claude/skills/server-db-migration/SKILL.md` |
 | 서버 OAuth | `libraries`에 auth 역할, `communication`에 서버 왕복 | `.claude/skills/auth-setup/SKILL.md` |
 | 다국어 | `libraries.i18n` | `.claude/skills/i18n-setup/SKILL.md` |

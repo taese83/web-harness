@@ -112,7 +112,6 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --motion-ro
 
 - 화면·route 목록과 핵심 정보 구조
 - shared/feature component 목록과 기존 디자인 재사용 범위
-- API endpoint, Mock/OpenAPI adoption, 상태 및 오류 계약
 - 색상·타이포그래피·responsive/layout-stability 기준
 - `DESIGN_PROTOTYPE_MODE`와 prototype/screenshot이 있으면 시각 자료
 - Design Preview Loop 결과: 프리뷰 URL(또는 스크린샷), FEAT/TC 배지·side panel 추적성, 시안 확정 내역(커밋 방향·기각 방향·근거), `validate-design-preview.mjs`의 `APPROVED` 상태, `design-review.md`의 source/preview/traceability 승인 해시, 미결 `NEEDS_DECISION` (`design-approval-contract.md`) — 프리뷰는 실렌더링 근사치라는 한계 문구 포함
@@ -206,7 +205,7 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 - `moduleBoundaries`와 `nonGoals`
 - `openDecisions` 중 `assumed`로 닫힌 항목 — 사용자가 보류해 추천안으로 확정된 것
 
-수정 요청이 있으면 `system-architect`를 다시 실행하고 `spec.mjs`로 재확정한 뒤 이 절을 반복한다.
+수정 요청이 있으면 `system-architect`를 다시 실행하고(API면 ⓪부터, `solution-design-contract.md` §0-3) `spec.mjs`로 재확정한 뒤 이 절을 반복한다.
 **확인 전에는 Phase 3 source edit를 시작하지 않는다.**
 
 ## change 레인 → 개발

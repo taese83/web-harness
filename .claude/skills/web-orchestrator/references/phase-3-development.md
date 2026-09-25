@@ -1,6 +1,7 @@
 # Phase 3 — 개발 (순서 있음)
 
 `web-orchestrator`의 Phase 3 본문이다. **Phase 2 체크포인트를 통과한 시점에 읽는다**(선행 로드 금지).
+재진입이면 `api-schema.md`(분할이면 `api-schema/`)·`solution-design.md`·`spec.json` 중 빠진 첫 단계(⓪·①·②)부터 밟는다(`solution-design-contract.md` §0-3).
 
 `_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. **`spec.json`의 `designPreview.policy`가 `skip`이면 `SKIPPED`로 통과한다** — 프로젝트가 프리뷰를 만들지 않기로 선언한 경우다. 다만 `skip`인데 프리뷰 디렉터리가 남아 있으면 `OPT_OUT_CONFLICT`로 막는다(선언과 실물이 어긋난 것을 조용히 넘기지 않는다). 선언이 없으면 종전대로 `APPROVED`를 요구한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
 
@@ -218,7 +219,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    - `SERVER_DB_MODE`이면 `.claude/skills/server-db-migration/SKILL.md`를 따라 `migrations/` 디렉토리, idempotent SQL 규칙, direct/pooled DSN 분리, 러너 script를 준비한다. 실제 migration 실행은 사용자 승인 후
    - `developer` — main/App/router/theme/home shell
 2. 지원 companion과 API 계약 확정:
-   - `API_CONTRACT_MODE`이면 `.claude/skills/api-contract-typegen/SKILL.md`를 따라 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
+   - client/server 계약이면(`shape-routing-contract.md` §2-1) `.claude/skills/api-contract-typegen/SKILL.md`를 따라 client/server가 공유할 schema(Zod 또는 OpenAPI codegen)를 확정한다. Mock handler와 entity/feature builder가 이 schema를 참조한다
    - `OAUTH_SERVER_MODE`이면 `.claude/skills/auth-setup/SKILL.md`를 따라 `_lib/oauth.ts`, `_lib/session.ts`, `api/auth/*/{start,callback}.ts`, `authGuard`를 구현한다. 이후 protected handler가 이 guard를 사용한다
    - `MOCK_SERVICE_MODE`이고 `developer`의 기본 셋업 이상이 필요하면 `.claude/skills/mock-service-setup/SKILL.md`를 따라 handler·fixture·시나리오 스위치·bypass mode를 조직한다
 3. **구현 — `developer`를 모듈 경계마다 스폰한다.** 스폰 계획(분해·발췌 주입·fit-gate·계획 잠금)은 `spawn-decomposition-contract.md`를 따른다.

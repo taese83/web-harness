@@ -25,7 +25,7 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
   경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 46,871 bytes <!-- inventory:entry-cost --> —
+- **오케스트레이터 실행당 고정 계약 로드**: 46,913 bytes <!-- inventory:entry-cost --> —
   오케스트레이터 skill 파일과 always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 15.6k 토큰,
   토큰 카운트가 아니라 근사치다. 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이
@@ -92,9 +92,9 @@ green 실행은 다음을 검증한다:
 
 ```
 Phase 1  기획          requirements, UX, feature plan, tech stack   → readiness review
-Phase 2  디자인        design system, layout, components, API       → 승인 표면
+Phase 2  디자인        design system, layout, components            → 승인 표면
          ── 승인 게이트: 이것 없이는 아무것도 진행하지 않는다 ──
-Phase 3  구현          scaffolding, domain state, components, routes
+Phase 3  구현          API 계약(OpenAPI 전까지 MSW 잠정) → 스팩 확정 → scaffolding, domain state, components, routes
 Phase 4  QA            code, UX, security, browser, performance, state verifier
          Release       인수인계 문서
 ```

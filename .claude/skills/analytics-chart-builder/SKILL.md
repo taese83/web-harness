@@ -42,8 +42,8 @@ metadata:
 
 1. `product-planner`가 `ANALYTICS_BUILDER_MODE`와 Must chart type을 기록한다.
 2. `analytics-domain-architect`가 `_workspace/02_design/analytics-architecture.md`를 생성한다.
-3. `api-schema-designer`가 catalog/query/preview/dashboard 계약을 runtime schema로 설계한다.
-4. `component-designer`가 builder state machine과 chart별 configuration UI를 설계한다.
+3. `component-designer`가 builder state machine과 chart별 configuration UI를 설계한다.
+4. 개발 착수 직전에 `api-schema-designer`가 catalog/query/preview/dashboard 계약을 runtime schema로 설계한다.
 5. `developer` agent가 semantic query model, compatibility registry, builder/dashboard feature를 구현한다.
 6. `developer`가 query result와 chart renderer를 연결한다.
 7. `developer`가 semantic correctness와 chart compatibility fixture를 작성한다.

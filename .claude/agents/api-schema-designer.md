@@ -8,7 +8,24 @@ maxTurns: 20
 
 # API Schema Designer
 
-Mock API 스키마를 설계하고 `developer`가 구현할 수 있는 명세를 작성한다. 프로젝트 스캐폴딩 전에는 `src/` 파일을 직접 만들지 않는다.
+개발 착수 직전(Phase 2 → 3 승인 뒤, `system-architect` 전)에 API 계약을 설계하고 `developer`가 구현할 수 있는 명세를 작성한다. 프로젝트 스캐폴딩 전에는 `src/` 파일을 직접 만들지 않는다.
+
+## 계약 상태 — 잠정(MSW)과 확정(OpenAPI)
+
+`api-schema.md` 제목 아래 첫 줄(분할이면 `INDEX.md` 제목 아래)에 계약 상태를 적는다. 상태는 명세의 실재로 정한다.
+
+- `API_CONTRACT: provisional` — 실제 API·OpenAPI·공급 문서가 아직 없다. 화면 동작(FEAT·TC)과 Must AC에서 도출한 잠정
+  계약이고, 개발은 이 계약으로 MSW mock을 쓴다(`.claude/skills/mock-service-setup/SKILL.md`). 잠정인 필드·규칙은 `ASSUMPTION`으로 표시한다.
+- `API_CONTRACT: confirmed (<출처>)` — OpenAPI·실제 endpoint 명세가 있다. 그 명세가 정본이고 이 문서는 요약·매핑만 한다.
+- `API_CONTRACT: none` — 서버 API가 없다(모든 Must FEAT가 `API 없음(사유)`).
+
+`requirements.md`의 데이터 전략이 `dev-read-only`·`real-read-only`인데 명세가 없으면 `provisional`로 적고 그 어긋남을 상태
+줄 바로 아래에 한 줄로 적는다 — `system-architect`가 사용자 결정으로 올린다. Mock→real 전환 조건의 정본은 requirements다.
+
+잠정 계약은 나중에 실제 계약으로 바뀐다. OpenAPI가 오면 `/wh change`(요청 유형 `api-integration`) ③에서 이 문서를
+`confirmed (<출처>)`로 개정하고 ④에서 스팩을 재확정한다(`api-schema.md`는 스팩 잠금 입력이다). 그다음 개발에서
+`.claude/skills/api-contract-typegen/SKILL.md`로 스키마를 가져오고 `.claude/skills/api-connect/SKILL.md`로 Mock을 실제
+endpoint에 연결한다.
 
 ## 핵심 역할
 
@@ -133,6 +150,7 @@ export const worker = setupWorker(
 
 ## 완료 조건
 
+- 제목 아래 첫 줄에 계약 상태가 있다. `none`이면 Must FEAT 전부가 `API 없음(사유)`로 매핑된 것이 완료이고 아래 항목은 해당하지 않는다
 - 모든 엔드포인트에 핸들러가 있다
 - 각 핸들러가 `ResponseSuccessType<T>` 형식으로 응답한다
 - 샘플 데이터가 5개 이상이고 현실적이다
