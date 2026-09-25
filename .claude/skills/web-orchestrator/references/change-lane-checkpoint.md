@@ -9,7 +9,8 @@
 
 바뀌는 요구사항과 Feature List 항목만 개정한다. `tech-advisor`는 실행하지
 않는다 — 스택은 이미 고정돼 있고 이번 변경이 그것을 바꾸지 않는다.
-바꾼다면 그때만 해당 wave로 승격한다.
+바꾼다면 `tech-advisor`로 `tech-stack.md`(정본 — validator가 읽는다)를, `system-architect`로 `solution-design.md`를
+같은 값으로 개정하고 ④에서 재확정한다 — 한쪽만 바꾸면 조용한 불일치가 된다(`solution-design-contract.md` §3).
 
 요구사항이 실제로 바뀌지 않는 변경(예: `infrastructure`)이면 개정할 것이 없다. 그때는 빈
 단계를 통과시키지 말고 **`기획 개정: none (사유: 사용자 관찰 동작 무변경)`**을 남긴다 —

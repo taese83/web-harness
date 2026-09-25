@@ -20,7 +20,7 @@ metadata:
 **시점 로드** — 앵커 밖 계약은 전부 그 시점 직전에 읽는다(선행 로드 금지). **시점 표기가 곧 계약이다.**
 - **Fresh mode 첫 intake 전** `../web-plan/references/planning-facilitation-contract.md`, `../web-plan/references/planning-readiness-contract.md` — Iterate/Resume mode는 Phase 1 intake를 반복하지 않으므로 읽지 않는다
 - **첫 스폰 전** `references/execution-budget-contract.md` — 이후 **스폰이 끝날 때마다 결과 usage를 `_workspace/04_qa/execution-telemetry.json`에 기록한다** (usage 미제공 환경이면 `null`, 지어내지 않는다)
-- **기존 source 변경 감지 시** `references/integration-overlay.md`(실패 시 `change-journal-contract.md`) · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 3 착수 전** `references/solution-design-contract.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
+- **기존 source 변경 감지 시** `references/integration-overlay.md`(실패 시 `change-journal-contract.md`) · **첫 Phase 체크포인트 전** `references/approval-checkpoints.md` · **Phase 2 전** `references/design-approval-contract.md`와 디자인 원칙 허브 `references/design-principles.md` · **Phase 2 wave 뒤(착수 전 세 단계)** `references/solution-design-contract.md` · **Phase 4 판정·release tier 보고 전** `references/release-tier-contract.md` · **완료 보고 전** `references/completion-contract.md`
 - **재진입**(후속 턴·새 세션·압축 후 재관여)은 이 스킬 전체를 재로드하지 않는다 — `references/reentry-map.md`의 상황별 최소 로드가 정본이다. 전체 진입은 신규 서비스·모드 미판별에서만 필요하다
 
 자연어 설명 하나 또는 기존 기획/디자인/API 문서로 완성된 웹 애플리케이션을 만든다. 입력 상태를 먼저 판별한 뒤 필요한 Phase만 실행한다.
@@ -126,15 +126,19 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 ### ✋ Phase 1 완료 체크포인트
 
-`references/approval-checkpoints.md`의 Phase 1 → Phase 2 계약으로 범위·기술·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다.
+`references/approval-checkpoints.md`의 Phase 1 → Phase 2 계약으로 범위·UI 레인·미결정을 보여주고 확인받는다. 수정 시 해당 Wave만 재실행한다.
 
 ### Phase 2 — 디자인
 
 **시점 로드**: `references/phase-2-design.md` — Wave 0/0-A/0-B(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
 
-### ✋ Phase 2 완료 체크포인트
+### 착수 전 — API 계약 · 구현 설계 · 스팩
 
-`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로(인계 점검 HOLES면 승인 금지) 화면·컴포넌트·시각 자료·미결정을 보여주고 확인받는다. 확인 후 Phase 3 착수 전에 `references/solution-design-contract.md` §0-3으로 세 단계를 밟는다: ⓪ `api-schema-designer`로 API 계약을 세운다. ① `system-architect`로 구현 설계 결정을 기록하고 선택지를 제시한다(**관측** — 무엇도 막지 않지만 ②가 그 산출물을 요구하므로 건너뛰지 않는다). ② `spec.mjs`로 스팩을 확정한다(**구현 스폰의 전제조건** — 없으면 `developer`가 아무것도 쓸 수 없다).
+Phase 2 wave가 끝나면 체크포인트 **앞에서** `references/solution-design-contract.md` §0-3의 세 단계를 밟는다: ⓪ `api-schema-designer`(API 계약) → ① `system-architect`(구현 설계 — 건너뛰지 않는다, 사용자 결정은 ② 전에 묻는다) → ② `spec.mjs`(스팩 확정 — **구현 스폰의 전제조건**).
+
+### ✋ 개발 착수 체크포인트 (Phase 2 → 3)
+
+`references/approval-checkpoints.md`의 Phase 2 → Phase 3 계약으로(인계 점검 HOLES면 승인 금지) 디자인과 착수 전 결정을 한 번에 보여주고 확인받는다.
 
 ### Phase 3 — 개발
 

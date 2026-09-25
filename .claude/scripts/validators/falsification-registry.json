@@ -4185,6 +4185,46 @@
       "replace": "      dispatcherNotFound += 0",
       "test": ".claude/scripts/test-eval-trace-metrics.mjs",
       "why": "receipt가 디스패처를 못 찾은 실행을 세지 못해 결함 환경에서 잰 수치가 정상 수치와 구별되지 않는다"
+    },
+    {
+      "id": "release-policy-state-mode-declared",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  hasDesignArtifact(projectRoot, 'state-contract') || declaresMode(projectRoot, 'LOCAL_DOMAIN_STATE_MODE')",
+      "replace": "  hasDesignArtifact(projectRoot, 'state-contract')",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "디자인 absent로 state-contract가 없으면 LOCAL_DOMAIN_STATE 모드인데도 qa-state 요구가 조용히 사라진다"
+    },
+    {
+      "id": "release-policy-timeseries-mode-declared",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  hasDesignArtifact(projectRoot, 'timeseries-architecture') || declaresMode(projectRoot, 'TIMESERIES_MODE')",
+      "replace": "  hasDesignArtifact(projectRoot, 'timeseries-architecture')",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "디자인 absent로 timeseries-architecture가 없으면 TIMESERIES 모드인데도 qa-timeseries 요구가 사라진다"
+    },
+    {
+      "id": "release-policy-analytics-mode-declared",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  hasDesignArtifact(projectRoot, 'analytics-architecture') || declaresMode(projectRoot, 'ANALYTICS_BUILDER_MODE')",
+      "replace": "  hasDesignArtifact(projectRoot, 'analytics-architecture')",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "디자인 absent로 analytics-architecture가 없으면 분석 빌더 모드인데도 qa-analytics 요구가 사라진다"
+    },
+    {
+      "id": "release-policy-mode-template-not-declaration",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "*true\\\\b(?![\\`*]*[ \\\\t]*[|/])`, 'im')",
+      "replace": "*true\\\\b`, 'im')",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "템플릿 자리표시자 `true | false`를 선언으로 읽어 모든 프로젝트에 모드 QA를 요구한다"
+    },
+    {
+      "id": "sharding-boundary-realpath",
+      "file": ".claude/scripts/validate-artifact-sharding.mjs",
+      "find": "  const offset = relative(realOrResolved(root), realOrResolved(projectRoot))",
+      "replace": "  const offset = relative(resolve(root), projectRoot)",
+      "test": ".claude/scripts/test-artifact-sharding.mjs",
+      "why": "같은 디렉터리의 다른 표기(/tmp → /private/tmp·심볼릭 링크)를 세션 프로젝트 밖으로 읽어 분할 검사가 exit 2로 거부된다 — 모델이 환경 변수를 직접 넘겨 우회한다"
     }
   ]
 }

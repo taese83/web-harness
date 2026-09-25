@@ -28,4 +28,6 @@ Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽
 **Wave 3 — 조건부 디자인 검토**:
 - `design-approval-contract.md`에 따라 기존 디자인 inventory와 `DESIGN_PROTOTYPE_MODE`를 판정한다.
 - L/XL 또는 prototype mode이면 read-only `design-reviewer`를 실행해 `_workspace/02_design/design-review.md`에 저장한다 — 파일이 이미 있으면 **뒤에 덧붙인다**(Wave 2의 프리뷰 승인 기록이 같은 파일에 있어 덮어쓰면 승인이 사라진다).
-- `NEEDS_DECISION`은 Phase 2 체크포인트에서 최대 3개씩 확인하고 `BLOCKED`면 구현하지 않는다.
+- `NEEDS_DECISION`은 ② 전에 ①의 열린 결정과 함께 최대 3개씩 묻는다(체크포인트에서 받으면 스팩을 다시 확정한다). `BLOCKED`면 구현하지 않는다.
+
+**Wave 뒤, 체크포인트 앞** — 착수 전 세 단계(⓪ API 계약 · ① 구현 설계 · ② 스팩 확정)를 밟는다(`solution-design-contract.md` §0-3).

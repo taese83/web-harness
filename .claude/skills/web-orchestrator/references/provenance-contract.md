@@ -171,6 +171,7 @@ runaway에 더 노출된다 — 이 사실을 사용자에게 알리지 않고 �
 단계마다 공급원이 실행 방식을 고른다.
 
 - `generated` → 그 Phase의 wave를 정상 실행 · `supplied` → wave 대신 `source-artifact-ingestor`로 정규화하고 **빠진 필수 산출물만** 보강 · `absent` → wave도 정규화도 하지 않고 그 Phase 체크포인트도 없다.
+- **모드 계약은 디자인 공급원이 아니라 모드가 부른다.** 디자인이 `absent`여도 requirements `## Modes`가 켠 모드의 계약(`phase-2-design.md` Wave 0·0-A·0-B와 Wave 1의 state·performance)은 ⓪ 전에 만든다 — 릴리스 정책이 모드 선언만으로 그 QA를 요구한다(`release-report-policy.mjs`).
 - **어느 조합이든 설계·스팩은 선다**(`SOLUTION_SOURCE`에 `absent` 없음). 세 값 모두 ⓪ API 계약 → `system-architect`의 `solution-design.md` → `spec.mjs` 확정 순서다(`solution-design-contract.md` §0-3) — 가르는 것은 입력과 근거 티어다(§1 표).
 - `absent`여도 intake는 없어지지 않는다 — `planning-facilitation-contract.md` 3항 대신 `solution-design-contract.md` §4 근거 순서(실측 → 추론 → 질의)로 설계에 필요한 것만 묻는다.
 - **승인**: `generated`\|`supplied`면 해당 Phase 체크포인트 그대로. 하나라도 `absent`면 그 자리에 `approval-checkpoints.md`의 「기획·디자인 `absent` 진입 → 개발」이 선다. 통과 전 source edit 금지.

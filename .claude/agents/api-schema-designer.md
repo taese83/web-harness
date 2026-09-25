@@ -8,7 +8,7 @@ maxTurns: 20
 
 # API Schema Designer
 
-개발 착수 직전(Phase 2 → 3 승인 뒤, `system-architect` 전)에 API 계약을 설계하고 `developer`가 구현할 수 있는 명세를 작성한다. 프로젝트 스캐폴딩 전에는 `src/` 파일을 직접 만들지 않는다.
+개발 착수 직전(Phase 2 wave 뒤·Phase 2 → 3 체크포인트 앞, `system-architect` 전)에 API 계약을 설계하고 `developer`가 구현할 수 있는 명세를 작성한다. 프로젝트 스캐폴딩 전에는 `src/` 파일을 직접 만들지 않는다.
 
 ## 계약 상태 — 잠정(MSW)과 확정(OpenAPI)
 

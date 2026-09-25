@@ -47,8 +47,31 @@ const isServerOwnedDataProject = projectRoot => {
       existsSync(join(projectRoot, entry.name, 'migrations')),
   )
 }
-const isLocalDomainStateProject = projectRoot => hasDesignArtifact(projectRoot, 'state-contract')
-const isAnalyticsProject = projectRoot => hasDesignArtifact(projectRoot, 'analytics-architecture')
+// 모드는 requirements.md `## Modes`의 선언으로도 켠다. 모드 계약(설계 산출물)만 트리거로 쓰면 디자인이 `absent`라 그
+// 계약의 생산자가 돌지 않은 경로에서 QA가 조용히 사라진다. 분할 산출물(`requirements/`)도 읽고, 템플릿 그대로의
+// `true | false`는 선언이 아니다.
+export const declaresMode = (projectRoot, mode) => {
+  const pattern = new RegExp(`^[\\s>*-]*\\**${mode}\\**:\\s*[\`*]*true\\b(?![\`*]*[ \\t]*[|/])`, 'im')
+  const plan = join(projectRoot, '_workspace/01_plan')
+  const shard = join(plan, 'requirements')
+  const files = [join(plan, 'requirements.md')]
+  try {
+    if (existsSync(shard)) files.push(...readdirSync(shard).filter(name => name.endsWith('.md')).map(name => join(shard, name)))
+  } catch {
+    // 읽지 못한 분할 디렉터리는 선언이 없는 것과 같게 본다 — 설계 산출물 트리거는 그대로 남는다
+  }
+  return files.some(file => {
+    try {
+      return existsSync(file) && pattern.test(readFileSync(file, 'utf8'))
+    } catch {
+      return false
+    }
+  })
+}
+const isLocalDomainStateProject = projectRoot =>
+  hasDesignArtifact(projectRoot, 'state-contract') || declaresMode(projectRoot, 'LOCAL_DOMAIN_STATE_MODE')
+const isAnalyticsProject = projectRoot =>
+  hasDesignArtifact(projectRoot, 'analytics-architecture') || declaresMode(projectRoot, 'ANALYTICS_BUILDER_MODE')
 export const isVisualProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
 const isPerformanceProject = projectRoot => hasDesignArtifact(projectRoot, 'performance-budget')
@@ -75,7 +98,8 @@ export const declaresPublicExposure = projectRoot => {
 }
 const isSeoProject = projectRoot =>
   hasDesignArtifact(projectRoot, 'seo-spec') || declaresPublicExposure(projectRoot)
-const isTimeseriesProject = projectRoot => hasDesignArtifact(projectRoot, 'timeseries-architecture')
+const isTimeseriesProject = projectRoot =>
+  hasDesignArtifact(projectRoot, 'timeseries-architecture') || declaresMode(projectRoot, 'TIMESERIES_MODE')
 
 const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
 

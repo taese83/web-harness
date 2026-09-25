@@ -1,9 +1,9 @@
 # Phase 3 — 개발 (순서 있음)
 
-`web-orchestrator`의 Phase 3 본문이다. **Phase 2 체크포인트를 통과한 시점에 읽는다**(선행 로드 금지).
-재진입이면 `api-schema.md`(분할이면 `api-schema/`)·`solution-design.md`·`spec.json` 중 빠진 첫 단계(⓪·①·②)부터 밟는다(`solution-design-contract.md` §0-3).
+`web-orchestrator`의 Phase 3 본문이다. **Phase 2 → 3 체크포인트를 통과한 시점에 읽는다**(선행 로드 금지).
+재진입이면 `api-schema.md`(분할이면 `api-schema/`)·`solution-design.md`·`spec.json` 중 빠진 첫 단계(⓪·①·②)부터 밟는다(`solution-design-contract.md` §0-3). 마커(`_workspace/web-harness.md`)에 `DEV_START_APPROVED`가 없거나 그 `spec=`이 현재 `spec.json`의 `sourceDigest.combined` 앞 8자와 다르면 체크포인트(디자인 absent면 「기획·디자인 `absent` 진입 → 개발」)를 다시 보인다(`approval-checkpoints.md`).
 
-`_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. **`spec.json`의 `designPreview.policy`가 `skip`이면 `SKIPPED`로 통과한다** — 프로젝트가 프리뷰를 만들지 않기로 선언한 경우다. 다만 `skip`인데 프리뷰 디렉터리가 남아 있으면 `OPT_OUT_CONFLICT`로 막는다(선언과 실물이 어긋난 것을 조용히 넘기지 않는다). 선언이 없으면 종전대로 `APPROVED`를 요구한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
+`_workspace/02_design/preview/`가 존재하면 첫 source edit 전에 `node .claude/scripts/validate-design-preview.mjs --project {root} --json`을 실행한다. 상태가 `APPROVED`가 아니면 `BLOCKED`이며, `STALE`이면 바뀐 스펙에서 프리뷰를 재생성·재확인·재승인한다. **`spec.json`의 `designPreview.policy`가 `skip`이면 `SKIPPED`로 통과한다** — 프로젝트가 프리뷰를 만들지 않기로 선언한 경우다. 다만 `skip`인데 프리뷰 디렉터리가 남아 있으면 `OPT_OUT_CONFLICT`로 막는다(선언과 실물이 어긋난 것을 조용히 넘기지 않는다). 선언이 없으면 `APPROVED`를 요구한다. production builder에는 승인된 source digest가 묶은 design-system/layout-spec/component-spec/feature-plan만 전달하고 preview HTML/CSS/JS는 구현 입력으로 전달하지 않는다.
 
 ## 착수 전 — Gate 0
 
@@ -134,7 +134,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
 | `status` | 뜻 | 다음 행동 |
 |---|---|---|
 | `no-screens` | 화면이 없는 형태(library·cli) | 청구 없음. 그대로 진행 |
-| `design-present` | **분모가 선 뒤에** 디자인 산출물이 있고 마커가 `supplied`라고 말하지 않는다 | **청구 없음.** 이 경로의 조건 확인은 Phase 2 체크포인트가 이미 했다 — 여기서 다시 물으면 이미 내린 결정을 되묻는 것이다. 조건별 귀속은 재지 않았고 보고가 그 사실을 적는다. 마커에 `DESIGN_SOURCE`가 없으면 **판정 불가**임을 함께 알린다 — 시안을 받아 만든 것이라면 귀속 기록이 필요하다 |
+| `design-present` | **분모가 선 뒤에** 디자인 산출물이 있고 마커가 `supplied`라고 말하지 않는다 | **청구 없음.** 이 경로의 조건 확인은 Phase 2 → 3 체크포인트가 이미 했다 — 여기서 다시 물으면 이미 내린 결정을 되묻는 것이다. 조건별 귀속은 재지 않았고 보고가 그 사실을 적는다. 마커에 `DESIGN_SOURCE`가 없으면 **판정 불가**임을 함께 알린다 — 시안을 받아 만든 것이라면 귀속 기록이 필요하다 |
 | `binding-missing` | **분모가 선 뒤에** 마커가 `DESIGN_SOURCE: supplied`인데 귀속 기록이 없다 | 아래 ④ — 디자인을 다시 만들지 않고 `design-binding.json`에 귀속을 적는다 |
 | `binding-invalid` | 근거 기록(`design-binding.json`)이 유효하지 않다 | **청구하지 않는다** — 깨진 기록을 근거로 센 숫자는 사실이 아니다. `design-binding-contract.md` 형식으로 고친 뒤 재실행한다. 같은 상태에서 `--to development`도 `design-binding` HOLE을 낸다 |
 | `clear` | 조건이 전부 시각 근거를 갖는다 | 그대로 진행 |

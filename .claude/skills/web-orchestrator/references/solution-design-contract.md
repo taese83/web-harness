@@ -3,15 +3,11 @@
 Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구현 설계 결정**을 기록하고
 사용자에게 선택지를 제시한다. 산출물은 `_workspace/02_design/solution-design.md`.
 
-## 0. 이 단계의 지위 — Stage 0(관측)
+## 0. 이 단계의 지위 — 결정 기록
 
-**현재 이 산출물은 게이트가 아니다.** 어떤 검사도 이 파일의 내용을 근거로 `BLOCKED`시키지 않는다
-(다만 없거나 `open`이 남으면 §6 확정이 거부된다). 목적은 하나다 — **설계자가 실제로 쓸 만한
-결정을 내는지 관측하는 것**. 관측 결과가 이후 단계(스팩 락 → 게이트 전환 → 소유권 이관)의
-실패 데이터가 된다.
-
-이 지위는 문서에 명시된다. 산출물 상단에 `STAGE: 0 (observational — not a gate)`를 적고,
-읽는 쪽이 이것을 계약으로 오해하지 않게 한다. 지위가 바뀌면 이 절을 갱신한다.
+설계자(`system-architect`)는 무엇도 막지 않는다 — 결정을 기록하고 사용자가 정할 것을 올린다. 막는 것은 다음 단계다:
+이 파일이 없거나 `open` 결정이 남으면 확정(§6)이 거부되고 개발 인계(`--to development`의 `design-decisions`)가 HOLE이다.
+그래서 이 단계는 건너뛸 수 없다.
 
 ## 0-1. 진입 경로 — 스팩은 언제 서는가
 
@@ -37,7 +33,8 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 
 ## 0-3. 착수 전 순서 — ⓪ API 계약 → ① 설계 → ② 확정
 
-`system-architect`가 `api-schema.md`를 읽으므로 ⓪이 ①보다 먼저다. 이미 있으면(공급·재진입, 분할이면 `api-schema/`) 다시
+Phase 2 wave가 끝난 뒤, Phase 2 → 3 체크포인트 **앞에서** 밟는다 — 체크포인트의 인계 판정이 `solution-design.md`와
+`spec.json`을 요구한다. `system-architect`가 `api-schema.md`를 읽으므로 ⓪이 ①보다 먼저다. 이미 있으면(공급·재진입, 분할이면 `api-schema/`) 다시
 만들지 않고, 없으면 `api-schema-designer`로 세운다 — 첫 줄 `API_CONTRACT` 상태의 규칙은 그 에이전트 문서가, 잠정 계약의
 사용자 확인은 ①이 맡는다(§4). 세운 뒤 `node .claude/scripts/validate-artifact-sharding.mjs --project {root}`가 exit 0이어야
 ①로 간다. `api-schema.md`도 `LOCK_INPUTS`라 확정 뒤에 세우면 스팩이 즉시 stale이다.
@@ -164,7 +161,7 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
 
 ## 5. 기계 판독 가능 블록 (전방 호환)
 
-문서 끝에 결정을 구조화해 한 번 더 적는다. Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격되므로
+문서 끝에 결정을 구조화해 한 번 더 적는다. §6 확정(`spec.mjs`)이 이 블록을 파싱하므로
 **형식을 임의로 바꾸지 않는다.**
 
 형식 예시는 `assets/solution-design-block.md`에 있다.
@@ -200,7 +197,7 @@ Figma로 준다) · `absent`(세우지 않는다) 중 무엇으로 서는지, `a
   그 사실 자체가 기록됨(규약 문서도 `[]`). 없는 관례를 지어내지 않는 것이 유효한 산출이다
 
 **진실 검증 수준: 명명 수준.** 위 세 형태는 스키마가 표현 가능함을 보인 것이고, 실제 산출물이
-유용한지는 아직 실측되지 않았다 — Stage 0의 관측 목적이 정확히 그것이다. eval fixture로
+유용한지는 아직 실측되지 않았다. eval fixture로
 검증되기 전까지 이 계약은 "형태를 담을 수 있다"까지만 주장한다.
 
 ### 수용 기준이 없을 때
@@ -352,21 +349,17 @@ node .claude/scripts/validate-spec-conformance.mjs --project-root {project-root}
 - `layerMap`이 덮지 않는 소스 디렉토리는 **아무 에이전트도 쓸 수 없다.** 정합 검사가 그
   디렉토리 이름을 들어 보고한다(FAIL은 아니다 — 소유자가 없어도 되는 곳이 있다)
 
-**Stage 2a의 한계(정직 표기)**
+**소비자와 한계(정직 표기)**
 
-- **형태별 게이트 선택이 배선되지 않았다.** `targetShape`는 기록·보고되지만 어떤 검증을
-  고를지는 정하지 않는다 — 그것이 2b다
-- **기계 소비자가 없다.** 이 검사를 호출하는 것은 이 계약 산문뿐이고 release gate도
-  `validate-harness`도 읽지 않는다. **게이트가 아니라 검사기다**
+- 릴리스 게이트가 이 검사의 FAIL을 오류로 올리고(`release-gate-lib.mjs`), 완료 인계(`--to completion`)가 형태 증거를 대조한다
+  (`checkShapeEvidence`). 형태별 빌더·검증 선택은 `shape-routing-contract.md`와 `.claude/shape-checks.json`이 한다
 - substrate ↔ toolchain 정합은 7키 중 `packageManager` 1키만 대조한다
 - 근거표(`SUBSTRATE_EVIDENCE`)가 수기라 미등록 도구명은 오탐 FAIL 또는 unverifiable이 된다
 
-## 8. Stage 0에서 하지 않는 것
+## 8. 설계자가 하지 않는 것
 
-- 이 산출물로 무엇도 차단하지 않는다
-- `layerMap`·`moduleBoundaries`를 근거로 **다른 에이전트의** 소유권 경로를 바꾸지 않는다 —
-  레이어 맵은 기록만 되고 소비자가 없다(설계자 자신의 산출 경로 등록은 이 변경에서 완료)
+- 이 산출물로 무엇도 직접 차단하지 않는다 — 막는 것은 확정(§6)과 개발 인계다
+- 다른 에이전트의 소유권 경로를 직접 바꾸지 않는다 — 소유권은 확정된 스팩의 `layerMap`으로만 공급된다
+  (`enforce-agent-ownership.mjs`, §7 「layerMap이 소유권을 공급한다」)
 - `project-profile.json`을 대체하지 않는다 — 프로필 해석은 지금 경로 그대로다
 - 빌더 파이프라인 순서를 바꾸지 않는다
-
-위 넷 중 하나라도 하면 Stage 0이 아니다.

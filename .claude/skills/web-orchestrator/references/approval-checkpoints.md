@@ -29,8 +29,8 @@ receipt 재발급도 따라오지 않는다.
 - ux-brief의 디자인 방향 요약과 `ASSUMPTION(시안 확정)` 항목 (프리뷰 루프에서 확정 예정임을 안내)
 - 자동 `UX Check`, critical state, 정규화한 주석과 Phase 2 확인 항목
 - `mock | dev-read-only | real-read-only | production-integration-later` 데이터 전략과 Mock→real 조건
+- `UI_LANE`과 공개 노출(`PUBLIC_EXPOSURE`) — 디자인이 그 위에서 만든다. 스택의 나머지는 개발 착수 체크포인트에서 보인다
 - `S | M | L | XL` 상대 노력도, driver, `invest | reduce | split`, 가장 작은 가시적 검토 단위
-- `WEB_PROFILE`, 주요 라이브러리, provider/runtime target
 - **디자인 근거의 귀속**(`DESIGN_SOURCE: supplied`일 때): `00_source/design-binding.json`의 화면·조건별 근거와 **미결**(`unbound`·`resolution: pending`)을 그대로 보여주고 확정받는다. 근거가 없는 조건은 빈 칸이 아니라 `derive | reuse:<id>`로 **결정**한다 (`design-binding-contract.md`) — 이 결정을 미루면 구현 중에 즉흥으로 내려진다
 - **디자인 부채 — `DESIGN_SOURCE`가 `absent`일 때 반드시**(그 외에는 생략한다):
 
@@ -84,6 +84,9 @@ receipt 재발급도 따라오지 않는다.
 그 간극의 대가는 개발 중의 질문으로 돌아온다(2026-08-30 실측: 병렬 순서가 산문 한 줄에만
 있어 11건이 전부 착수 가능으로 보였고, FEAT별 경로가 없어 충돌 검사가 통째로 미수행이었다).
 
+**이 체크포인트 앞에서 ⓪①②를 끝낸다**(`solution-design-contract.md` §0-3) — 아래 판정이 `solution-design.md`와
+`spec.json`을 요구한다.
+
 ```bash
 node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to development
 ```
@@ -118,8 +121,16 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --motion-ro
 - `VISUAL_QA_MODE`이면 target/state/mode matrix, reference mapping, threshold와 baseline 승인자 — `design-binding.json`이 있으면 같은 `referenceId`가 양쪽에서 같은 것을 가리키는지 함께 확인한다(어긋나면 receipt 단계에서 거부된다)
 - 새 `ASSUMPTION`, `NEEDS_DECISION`, `BLOCKED`
 - `design-review.md`가 있으면 최대 3개의 우선 결정사항
+- API 계약 상태(`API_CONTRACT`)와 endpoint 수 — `provisional`이면 ①에서 받은 착수 결정
+- 스팩 요약 — 아래 「기획·디자인 `absent` 진입 → 개발」의 확인 목록과 같다(형태·아키텍처·`layerMap`·`libraries`·substrate·경계·비목표·`assumed` 결정)
+- `WEB_PROFILE`, 주요 라이브러리 버전, provider/runtime target
 
-수정 요청이 있으면 해당 design wave만 다시 실행한 후 체크포인트를 반복한다. 확인 전에는 Phase 3 source edit를 시작하지 않는다.
+수정 요청이 있으면 디자인은 해당 wave부터, API는 ⓪부터, 구현 설계는 ①부터 다시 밟아 스팩을 재확정한 뒤 체크포인트를
+반복한다. `UI_LANE`을 바꾸면 `tech-advisor`부터 Phase 2 wave와 ⓪①②를 다시 밟는다 — 가장 비싸서 Phase 1 → 2에서 확인한다.
+
+**확인받으면 기록한다**: `_workspace/web-harness.md`에 `- DEV_START_APPROVED: <ISO 시각> spec=<spec.json sourceDigest.combined 앞 8자>`
+한 줄을 적는다(있으면 바꾼다). 재진입 가드가 이 줄로 승인을 가린다(`phase-3-development.md`) — 산출물 유무로 추론하면
+골격이나 기존 코드가 먼저 있는 프로젝트에서 승인 없이 개발에 들어간다. 확인 전에는 Phase 3 source edit를 시작하지 않는다.
 
 ## 기획·디자인 `absent` 진입 → 개발
 
@@ -206,7 +217,7 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 - `openDecisions` 중 `assumed`로 닫힌 항목 — 사용자가 보류해 추천안으로 확정된 것
 
 수정 요청이 있으면 `system-architect`를 다시 실행하고(API면 ⓪부터, `solution-design-contract.md` §0-3) `spec.mjs`로 재확정한 뒤 이 절을 반복한다.
-**확인 전에는 Phase 3 source edit를 시작하지 않는다.**
+**확인 전에는 Phase 3 source edit를 시작하지 않는다.** 확인받으면 Phase 2 → 3과 같은 `DEV_START_APPROVED` 줄을 적는다.
 
 ## change 레인 → 개발
 

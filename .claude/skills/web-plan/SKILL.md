@@ -27,7 +27,7 @@ metadata:
    `node .claude/scripts/ticket/cli.mjs intake <키> --repo <o/r>`로 격리 스냅샷과 인벤토리 행을 만든다(기존
    입구 — 트래커 설정이 없으면 그 안내를 그대로 보여준다). 기획 티켓은 **출처**다 — 개발 작업으로 청구하지
    않고, 계획 요청만으로 개발 티켓을 발행하지 않는다. 이 단계를 건너뛰면 사용자가 준 자료가 계획에 닿지 않는다.
-1. `_workspace/01_plan/`을 만들고 `product-planner`가 제품 중심 intake와 기존 근거로 `requirements.md`(Product Frame·데이터 전략·노력도 포함), `ux-brief.md`, `decision-log.md`를 작성한다.
+1. `node .claude/scripts/init-workspace.mjs --project-root {project-root}`로 작업 공간과 계약 사본(`_workspace/.contracts/`)을 만든다 — 디렉터리만 만들면 서브에이전트가 읽을 계약 사본이 없다. 그다음 `product-planner`가 제품 중심 intake와 기존 근거로 `requirements.md`(Product Frame·데이터 전략·노력도 포함), `ux-brief.md`, `decision-log.md`를 작성한다.
 2. 제품 맥락 뒤 external ingestion을 의미 기반으로 판별한다. 해당하면 `EXTERNAL_DATA_INGESTION_MODE: true`를 고정하고 source 권한, authoritative source, `static-snapshot|live-api|hybrid`, cadence, freshness, count·coverage, promotion rejection, serving fallback, root/provider cwd를 planning agent 입력에 포함한다. source 권한 또는 authoritative source가 없으면 `BLOCKER`로 남긴다.
 3. `feature-planner` → `feature-plan.md`. UX 결정과 requirement를 모두 입력으로 사용하고, `SURFACE_MODEL`은 근거가 있을 때만 선언한다.
 4. `tech-advisor` → `tech-stack.md`. 제품·기능·데이터 전략을 입력으로 사용한다.

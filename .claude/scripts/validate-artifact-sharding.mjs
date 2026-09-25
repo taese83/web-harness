@@ -12,7 +12,7 @@
 //   node .claude/scripts/validate-artifact-sharding.mjs --project <dir> [--json]
 // 종료코드: 0 = 계약 충족, 1 = 위반(fail-closed), 2 = 사용법·경로 오류
 
-import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs'
+import {existsSync, readdirSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {RETIRED_AGENTS} from './agent-registry.mjs'
@@ -90,9 +90,14 @@ try {
 // 하니스 저장소 내부 또는 현재 세션 프로젝트(CLAUDE_PROJECT_DIR — 플러그인 모드) 내부만 허용한다.
 // run-package-operation과 달리 최상위 세그먼트 블랙리스트(.claude/.git/_workspace)는 두지 않는다 —
 // 이 validator는 고정된 _workspace 하위 .md만 읽는 read-only 스캐너로 write/exec 표면이 없다.
+// 경계는 실제 경로로 잰다 — 같은 디렉터리의 두 표기(macOS /tmp → /private/tmp 등)가 경계 밖으로 읽히지 않게, 그리고
+// 경계 안의 심볼릭 링크가 밖을 가리키면 밖으로 읽히게.
+const realOrResolved = path => {
+  try { return realpathSync(path) } catch { return resolve(path) }
+}
 const escapesRoot = root => {
   if (!root) return true
-  const offset = relative(resolve(root), projectRoot)
+  const offset = relative(realOrResolved(root), realOrResolved(projectRoot))
   return offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
 }
 if (escapesRoot(repositoryRoot) && escapesRoot(process.env.CLAUDE_PROJECT_DIR)) {

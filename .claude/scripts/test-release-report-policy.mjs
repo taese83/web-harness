@@ -8,6 +8,7 @@
 //       하네스가 스스로 권장한 관습을 따른 프로젝트가 조용히 빠진다 (2026-08-27 적대 검토 지적)
 //   (3) `node_modules/**/migrations/`는 발화시키지 않는다 — 의존성이 게이트를 켜면 안 된다
 //   (4) 분할된 설계 산출물(`state-contract/` 등 디렉터리)도 그 QA 보고서를 요구한다
+//   (5) requirements의 모드 선언만 있어도 그 모드의 QA를 요구한다 — 디자인 `absent`로 모드 계약이 없어도 사라지지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
@@ -79,5 +80,25 @@ test('분할된 설계 산출물(디렉터리)도 그 QA 보고서를 요구한�
     const ids = releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
     assert.ok(ids.includes('state'), `분할한 state-contract가 qa-state 요구를 지웠다: ${ids.join(', ')}`)
     assert.ok(ids.includes('performance'), `분할한 performance-budget이 qa-perf 요구를 지웠다: ${ids.join(', ')}`)
+  })
+})
+
+test('모드 선언만 있어도 그 모드의 QA를 요구한다 — 모드 계약 생산자가 돌지 않은 경로에서도 사라지지 않는다', () => {
+  withProject(['_workspace/01_plan'], root => {
+    const ids = () => releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
+    const requirements = join(root, '_workspace/01_plan/requirements.md')
+    assert.ok(!ids().includes('state'))
+    writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: true — 브라우저 저장소가 정본\n- TIMESERIES_MODE: true\n- ANALYTICS_BUILDER_MODE: true\n')
+    for (const id of ['state', 'timeseries', 'analytics']) assert.ok(ids().includes(id), `선언된 모드의 ${id} QA 요구가 빠졌다: ${ids().join(', ')}`)
+    writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: false — API가 정본\n- TIMESERIES_MODE: true | false\n- ANALYTICS_BUILDER_MODE: true/false\n')
+    for (const id of ['state', 'timeseries', 'analytics']) assert.ok(!ids().includes(id), `선언하지 않은 모드(${id})를 요구했다 — false·템플릿은 선언이 아니다`)
+  })
+})
+
+test('분할된 requirements/ 디렉터리의 모드 선언도 읽는다', () => {
+  withProject(['_workspace/01_plan/requirements'], root => {
+    writeFileSync(join(root, '_workspace/01_plan/requirements/INDEX.md'), '# index\n')
+    writeFileSync(join(root, '_workspace/01_plan/requirements/modes.md'), '- **LOCAL_DOMAIN_STATE_MODE**: **true**\n')
+    assert.ok(releaseReportRequirements(root, PROFILE, 'final', false).some(([id]) => id === 'state'))
   })
 })

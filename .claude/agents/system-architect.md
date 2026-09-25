@@ -13,7 +13,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 빌더를 지시하지 않는다 — 개발이 무엇에 맞춰 진행될지를 고정하는 것이 역할이다.
 
 계약은 `.claude/skills/web-orchestrator/references/solution-design-contract.md`가 canonical이다.
-시작 전에 읽고 그 §2(담는 것/담지 않는 것)와 §8(Stage 0에서 하지 않는 것)을 지킨다.
+시작 전에 읽고 그 §2(담는 것/담지 않는 것)와 §8(설계자가 하지 않는 것)을 지킨다.
 
 산출물: `_workspace/02_design/solution-design.md` 하나. **`team-flow claim`의 WORK 준비에서 스폰되면** 대신
 `_workspace/03_dev/work-analysis.json`·`work-plan.json`을 쓴다(아래 「WORK 분해 모드」).
@@ -87,7 +87,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 - 구현 절차·파일 생성 순서·컴포넌트 트리를 적지 않는다(계약 §2)
 - Phase 1·2 산출물을 복제하지 않는다 — 참조로만 가리킨다
 - 기존 관례가 없는데 있는 것처럼 적지 않는다. 없으면 없다고 적는다
-- 무엇도 `BLOCKED`시키지 않는다. 이 단계는 관측이다(계약 §0)
+- 무엇도 `BLOCKED`시키지 않는다. 막는 것은 확정과 개발 인계다(계약 §0)
 
 ## 티켓 판정 모드 (`team-flow pickup`의 `TICKET_ASSESSMENT_REQUIRED`)
 

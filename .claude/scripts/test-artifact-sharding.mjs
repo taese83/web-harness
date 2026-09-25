@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs'
+import {realpathSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join, resolve} from 'node:path'
 
@@ -306,4 +306,24 @@ test('decision-log ID 구간 파일명(~)이 절 행으로 인식된다 — 계�
   })
   assert.equal(run.status, 0)
   assert.deepEqual(run.errors, [])
+})
+
+test('세션 프로젝트 경계는 실제 경로로 잰다 — 같은 디렉터리의 다른 표기는 안, 경계 밖은 여전히 밖', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'sharding-link-')))
+  const project = join(root, 'project')
+  const outside = join(root, 'outside')
+  mkdirSync(join(project, '_workspace/01_plan'), {recursive: true})
+  mkdirSync(outside, {recursive: true})
+  writeFileSync(join(project, '_workspace/01_plan/requirements.md'), '# 요구사항\n')
+  const link = join(root, 'link')
+  symlinkSync(project, link)
+  const run = sessionProject => spawnSync(process.execPath, [script, '--project', project, '--json'], {
+    encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: sessionProject},
+  })
+  try {
+    assert.equal(run(link).status, 0, `심볼릭 링크 표기의 세션 프로젝트를 경계 밖으로 읽었다: ${run(link).stderr}`)
+    assert.equal(run(outside).status, 2, '세션 프로젝트 밖의 경로를 받았다')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })
