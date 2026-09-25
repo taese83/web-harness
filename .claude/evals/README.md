@@ -51,8 +51,9 @@ node .claude/scripts/run-plugin-evals.mjs --case ticket-draft-team-form --runs 1
   하네스 스크립트 소스를 연 횟수(도구 안내가 부족하다는 신호)를 남긴다 — 컨텍스트 절감 같은 변경의 전후 비교 기준이다.
 - **비용**: 실행마다 실제 모델 호출이다. `--max-cost-usd`(기본 40)가 상한이고, 넘으면 부분 결과로 끝난다(종료 2).
 - **사후 검사**: 사례의 `checks.json`을 실행 뒤 작업 공간에서 결정적으로 본다 — `source-unchanged`(시드와 해시 대조, 쓴 에이전트와
-  무관), `ticket-drafts-valid`(배포본의 초안 검사기 그대로), `file-exists`. 배포본에 있는 스크립트를 디스패처가 못 찾은 실행은
-  판정이 아니라 환경 오류다(종료 2) — 부모 세션 PATH의 설치된 플러그인 bin은 러너가 뺀다.
+  무관), `ticket-drafts-valid`(배포본의 초안 검사기 그대로), `file-exists`, `artifact-exists`(파일이나 같은 이름의 분할 디렉터리).
+  배포본에 있는 스크립트를 디스패처가 못 찾은 실행과 인증 실패로 모델에 닿지 못한 실행은 판정이 아니라 환경 오류다(종료 2) —
+  부모 세션 PATH의 설치된 플러그인 bin은 러너가 뺀다. 인증이 만료됐으면 `claude auth login` 뒤 다시 돌린다.
 - **릴리스 채택 조건**: 선택 없이 돈 실행(`selection`의 case·tag·runs가 전부 null — regression 사례 전원·prompt.md의 runs) ·
   `partial: false` · 환경 오류 없음 · receipt의 `harnessCommit`이 릴리스 커밋이고 `dirty: false`. 러너는 평가 직전에 그 트리로
   dist를 다시 빌드한다(`distDigest`가 그 빌드다).

@@ -45,6 +45,16 @@ export const dispatchMisses = (traceText, distScriptsDirectory) => [...new Set(
 )].filter(name => existsSync(join(distScriptsDirectory, `${name}.mjs`)))
 
 /**
+ * 실행이 모델에 닿지도 못한 흔적(인증 만료 등) — 플러그인 판정이 아니라 환경 오류다. 그대로 두면 채점기 실패가
+ * 「플러그인이 아무것도 안 했다」로 읽힌다.
+ */
+export const runFailureEnvironmentErrors = error => {
+  const text = String(error ?? '')
+  if (!/\b401\b|authenticat|OAuth access token/i.test(text)) return []
+  return [`Claude 인증이 실패했다(${text.slice(0, 160)}) — 이 실행은 플러그인 판정이 아니다. \`claude auth login\` 뒤 다시 돌린다`]
+}
+
+/**
  * 사례의 사후 검사(순수에 가깝다 — 읽기만 한다). 문제 문장 목록을 돌려준다(빈 목록 = 통과).
  * @param {Array<{type: string}>} checks checks.json의 checks
  * @param {{workspace: string|null, seedSource: string|null, draftValidator: {parseTicketDrafts: Function, validateTicketDrafts: Function}}} context
@@ -71,6 +81,10 @@ export const runChecks = (checks, {workspace, seedSource, draftValidator}) => ch
       })
     }
     if (check.type === 'file-exists') return existsSync(join(workspace, check.path)) ? [] : [`file-exists: ${check.path}가 없다`]
+    // 설계·기획 산출물은 크면 같은 이름의 디렉터리로 나뉜다(artifact-sharding-contract) — 파일만 보면 분할한 실행이 실패로 보인다.
+    if (check.type === 'artifact-exists') {
+      return [`${check.path}.md`, check.path].some(path => existsSync(join(workspace, path))) ? [] : [`artifact-exists: ${check.path}(.md 또는 분할 디렉터리)가 없다`]
+    }
     return [`알 수 없는 검사 type: ${check.type}`]
   } catch (error) {
     return [`${check.type}: 검사하지 못했다(${error instanceof Error ? error.message : String(error)})`]

@@ -4049,6 +4049,30 @@
       "replace": "      if (false) {",
       "test": ".claude/scripts/test-plugin-eval-cases.mjs",
       "why": "시드에 이미 있는 파일을 보는 사후 검사가 양성 검사로 세어져, 아무것도 하지 않은 실행이 한 일의 증거를 가진 것처럼 통과한다"
+    },
+    {
+      "id": "eval-check-auth-failure-is-environment",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "  if (!/\\b401\\b|authenticat|OAuth access token/i.test(text)) return []",
+      "replace": "  return []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "인증 만료로 모델에 닿지 못한 실행이 플러그인 실패로 판정된다 — 채점기 실패가 「아무것도 안 했다」로 읽힌다"
+    },
+    {
+      "id": "eval-check-artifact-exists",
+      "file": ".claude/scripts/plugin-eval-checks-lib.mjs",
+      "find": "      return [`${check.path}.md`, check.path].some(path => existsSync(join(workspace, path))) ? [] : [`artifact-exists: ${check.path}(.md 또는 분할 디렉터리)가 없다`]",
+      "replace": "      return []",
+      "test": ".claude/scripts/test-plugin-eval-checks.mjs",
+      "why": "기획·설계 산출물이 없어도 사후 검사가 통과한다 — 무작업 실행이 한 일의 증거를 가진 것처럼 보인다"
+    },
+    {
+      "id": "plugin-case-vacuous-artifact-check",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "      if (check.type === 'artifact-exists' && seedDirectory && [`${check.path}.md`, check.path].some(path => existsSync(join(seedDirectory, path)))) {",
+      "replace": "      if (false) {",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "시드에 이미 있는 산출물(분할 디렉터리 포함)을 보는 사후 검사가 양성 검사로 세어진다"
     }
   ]
 }

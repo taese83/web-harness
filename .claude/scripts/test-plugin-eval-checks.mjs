@@ -7,12 +7,14 @@
 //   - 환경 오류는 배포본에 **있는** 스크립트를 디스패처가 못 찾은 경우뿐이다 — 없는 이름(사용 실수)은 아니다
 //   - 실행 디렉터리 가드는 tmp 루트 바로 아래 `e-*`만 받는다 — tmp 루트 자신·다른 이름은 null(열지도 지우지도 않는다)
 //   - 트리 digest는 파일 이름과 내용에 묶인다 — 사례를 고치면 receipt의 사례 digest가 바뀐다
+//   - artifact-exists는 산출물 파일이나 같은 이름의 분할 디렉터리를 받는다
+//   - 인증 실패로 모델에 닿지 못한 실행은 환경 오류다 — 다른 실행 오류는 판정에 남긴다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {dispatchMisses, runChecks, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatchMisses, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 import * as draftValidator from './ticket/ticket-create.mjs'
 
 const withRoot = run => {
@@ -83,3 +85,21 @@ test('트리 digest는 파일 이름과 내용에 묶인다 — 사례를 고치
   write(root, 'case/graders/extra.md', 'grader')
   assert.notEqual(treeDigest(join(root, 'case')), before, '채점기를 더했는데 digest가 같다')
 }))
+
+test('artifact-exists는 파일이나 같은 이름의 분할 디렉터리를 받고, 둘 다 없으면 잡는다', () => withRoot(root => {
+  const check = [{type: 'artifact-exists', path: '_workspace/01_plan/ux-brief'}]
+  assert.match(runChecks(check, {workspace: root, seedSource: null, draftValidator})[0], /ux-brief\(\.md 또는 분할 디렉터리\)가 없다/)
+  write(root, '_workspace/01_plan/ux-brief.md', 'brief')
+  assert.deepEqual(runChecks(check, {workspace: root, seedSource: null, draftValidator}), [])
+  unlinkSync(join(root, '_workspace/01_plan/ux-brief.md'))
+  write(root, '_workspace/01_plan/ux-brief/INDEX.md', 'index')
+  assert.deepEqual(runChecks(check, {workspace: root, seedSource: null, draftValidator}), [], '분할 산출물을 없는 것으로 봤다')
+}))
+
+test('인증 실패로 모델에 닿지 못한 실행은 환경 오류다 — 다른 실행 오류는 판정에 남긴다', () => {
+  const expired = 'exit 1: Failed to authenticate. API Error: 401 OAuth access token has expired. Re-authenticate to continue.'
+  assert.equal(runFailureEnvironmentErrors(expired).length, 1)
+  assert.match(runFailureEnvironmentErrors(expired)[0], /claude auth login/)
+  assert.deepEqual(runFailureEnvironmentErrors('exit 1: max turns reached'), [], '플러그인이 만든 실패를 환경 오류로 뺐다')
+  assert.deepEqual(runFailureEnvironmentErrors(null), [])
+})

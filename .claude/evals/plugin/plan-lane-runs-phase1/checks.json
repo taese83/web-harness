@@ -1,0 +1,10 @@
+{
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — plan 레인은 Phase 1 기획 산출물을 남긴다(빈 작업 공간이라 있으면 이번 실행이 만든 것이다). 에이전트 이름이 아니라 산출물로 보므로 기획 에이전트를 합쳐도 같은 사례로 전후를 잰다.",
+  "checks": [
+    {"type": "artifact-exists", "path": "_workspace/01_plan/requirements"},
+    {"type": "artifact-exists", "path": "_workspace/01_plan/ux-brief"},
+    {"type": "artifact-exists", "path": "_workspace/01_plan/feature-plan"},
+    {"type": "artifact-exists", "path": "_workspace/01_plan/tech-stack"},
+    {"type": "file-exists", "path": "_workspace/01_plan/plan-review.md"}
+  ]
+}

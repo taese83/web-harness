@@ -20,7 +20,7 @@ import {delimiter, join, sep} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 import {traceMetrics} from './eval-trace-metrics.mjs'
-import {dispatchMisses, runChecks, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
+import {dispatchMisses, runChecks, runFailureEnvironmentErrors, runRootOf, treeDigest} from './plugin-eval-checks-lib.mjs'
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const DIST = join(REPOSITORY_ROOT, 'dist/web-harness-plugin')
@@ -113,7 +113,8 @@ const cases = result.cases.map(testCase => {
       try { model ??= init ? JSON.parse(init).model ?? null : null } catch { /* 모델 미상 */ }
     }
     const missed = dispatchMisses(trace, join(DIST, '.claude/scripts'))
-    const environmentErrors = missed.map(name => `배포본에 있는 스크립트 ${name}를 디스패처가 찾지 못했다 — 이 실행은 플러그인 판정이 아니다`)
+    const environmentErrors = [...missed.map(name => `배포본에 있는 스크립트 ${name}를 디스패처가 찾지 못했다 — 이 실행은 플러그인 판정이 아니다`),
+      ...runFailureEnvironmentErrors(armRun.error)]
     const checkProblems = runChecks(checks.checks, {workspace: root ? join(root, 'sealed', 'home', 'cwd') : null,
       seedSource: checks.seed ? join(SEEDS, checks.seed, 'src') : null, draftValidator})
     const gradersPassed = armRun.passed === true

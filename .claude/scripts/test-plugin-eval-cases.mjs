@@ -41,13 +41,16 @@ test('시드에 이미 있는 파일을 보는 file-exists는 공허하다고 �
   try {
     const write = (path, text) => { mkdirSync(join(base, path, '..'), {recursive: true}); writeFileSync(join(base, path), text) }
     write('seeds/s/_workspace/web-harness.md', 'marker\n')
-    for (const [name, path] of [['vacuous', '_workspace/web-harness.md'], ['real', '_workspace/01_plan/feature-plan.md']]) {
+    write('seeds/s/_workspace/02_design/layout-spec/INDEX.md', 'index\n')
+    for (const [name, path, type = 'file-exists'] of [['vacuous', '_workspace/web-harness.md'], ['real', '_workspace/01_plan/feature-plan.md'],
+      ['vacuous-artifact', '_workspace/02_design/layout-spec', 'artifact-exists'], ['real-artifact', '_workspace/01_plan/ux-brief', 'artifact-exists']]) {
       write(`plugin/${name}/prompt.md`, '---\ntags: [regression]\nmax_turns: 60\ntimeout_seconds: 900\n---\n/web-harness:wh change 무언가\n')
       write(`plugin/${name}/graders/no-write.md`, '---\ntype: tool_used\ntool: Write\nmin: 0\nmax: 0\n---\n')
-      write(`plugin/${name}/checks.json`, JSON.stringify({seed: 's', checks: [{type: 'file-exists', path}]}))
+      write(`plugin/${name}/checks.json`, JSON.stringify({seed: 's', checks: [{type, path}]}))
     }
     const problems = pluginEvalCaseProblems(join(base, 'plugin'))
     assert.ok(problems.some(problem => /^vacuous: file-exists _workspace\/web-harness\.md가 시드에 이미 있다/.test(problem)), JSON.stringify(problems))
+    assert.ok(problems.some(problem => /^vacuous-artifact: artifact-exists _workspace\/02_design\/layout-spec가 시드에 이미 있다/.test(problem)), `분할 디렉터리로 시드에 있는 산출물을 놓쳤다: ${JSON.stringify(problems)}`)
     assert.ok(!problems.some(problem => problem.startsWith('real')), `시드에 없는 산출물 검사를 문제로 잡았다: ${JSON.stringify(problems)}`)
   } finally {
     rmSync(base, {recursive: true, force: true})
