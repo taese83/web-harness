@@ -7,6 +7,7 @@ import {execFileSync} from 'node:child_process'
 import {chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync} from 'node:fs'
 import {basename, dirname, join, relative, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {unresolvedRelativeImports} from './import-closure-lib.mjs'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
@@ -49,6 +50,10 @@ const DEV_ONLY_SCRIPTS = new Set([
   'run-plugin-evals.mjs',
   'eval-trace-metrics.mjs',
   'plugin-eval-checks-lib.mjs',
+  'import-closure-lib.mjs',
+  // validators/를 경로로 읽는다 — 배포본에는 그 폴더가 없어 설치본에서 실행하면 실패한다.
+  'validate-wiring-coverage.mjs',
+  'validate-falsification.mjs',
   'run-golden-profile.mjs',
   'validate-harness.mjs',
   'validate-toolchain.mjs',
@@ -194,8 +199,8 @@ copyTree(join(repositoryRoot, '.claude', 'scripts'), join(outputRoot, '.claude',
     const [head] = relativePath.split('/')
     if (entry.isDirectory()) return DEV_ONLY_SCRIPT_DIRS.has(head)
     if (DEV_ONLY_SCRIPTS.has(relativePath)) return true
-    if (relativePath.includes('/')) return false
-    return DEV_ONLY_SCRIPT_PATTERN.test(relativePath)
+    // 하위 폴더의 회귀(web-core/test-*.mjs 등)도 배포하지 않는다 — 그 픽스처는 배포본에 없다.
+    return DEV_ONLY_SCRIPT_PATTERN.test(basename(relativePath))
   },
 })
 copyTree(join(repositoryRoot, '.claude', 'adapters'), join(outputRoot, '.claude', 'adapters'))
@@ -410,4 +415,10 @@ if (missingDocuments.length > 0) {
   process.stdout.write(`  document references with no file in the payload (fix before shipping):\n`)
   for (const documentPath of missingDocuments) process.stdout.write(`    - ${documentPath}\n`)
 }
-if (unexpectedMissing.length > 0 || missingDocuments.length > 0) process.exitCode = 1
+// 배포본의 상대 import가 배포본 안에 없으면 그 스크립트는 설치본에서 로드부터 실패한다 — 배포 전에 막는다.
+const unresolvedImports = unresolvedRelativeImports(outputRoot)
+if (unresolvedImports.length > 0) {
+  process.stdout.write(`  relative imports that do not resolve inside the payload (fix before shipping):\n`)
+  for (const {file, specifier} of unresolvedImports) process.stdout.write(`    - ${file} -> ${specifier}\n`)
+}
+if (unexpectedMissing.length > 0 || missingDocuments.length > 0 || unresolvedImports.length > 0) process.exitCode = 1

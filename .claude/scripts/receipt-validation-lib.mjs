@@ -3,7 +3,7 @@ import {dirname, join} from 'node:path'
 import {sha256} from './evidence-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
 import {validateStaticRuntimeDataDeployment} from './runtime-data-deployment-lib.mjs'
-import {parseTrustedPromotionActions} from './validators/validate-workflows-and-evals.mjs'
+import {parseTrustedPromotionActions} from './workflow-security-lib.mjs'
 import {
   analyzePackageScript,
   readDependencyBinding,

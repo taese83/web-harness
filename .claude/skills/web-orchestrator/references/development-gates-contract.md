@@ -72,6 +72,7 @@ node .claude/scripts/validate-development-readiness.mjs --project {root} [--fix]
 병합이 `project-profile.json`을 다시 쓰면 그것은 `LOCK_INPUTS` 변경이므로 **스팩을 재확정한다**.
 재생성 결과가 바이트 동일하면 아무 일도 일어나지 않는다 — 다르면 재확정이 의무다.
 
+<!-- repo-only:start -->
 ## 배선 회귀 규율 (하네스 자신에 대한 규칙)
 
 **순수 함수에 회귀가 있다는 것은 배선이 산다는 뜻이 아니다.** 이 저장소가 §4에 세 번 등록한
@@ -91,6 +92,7 @@ node .claude/scripts/validate-wiring-coverage.mjs
 출력·사용법 오류), ② 문서에 명령을 적기 전에 정책에 등록한다. 등록 없이 문서화하면
 에이전트 경로에서 `DENY_VALIDATION_COMMAND`로 막히는데, **저자는 메인 스레드라 그것이 안
 보인다** — 같은 날 두 번 실측됐다.
+<!-- repo-only:end -->
 
 ## Gate A0 — 의존성 pin 사전검증 (install 전, greenfield)
 

@@ -52,7 +52,7 @@ import {validateVercelProjectConfig} from './web-core/vercel-config-lib.mjs'
 import {
   parseTrustedPromotionActions,
   validateWorkflowSecurityProjects,
-} from './validators/validate-workflows-and-evals.mjs'
+} from './workflow-security-lib.mjs'
 import {collectVisualEvidence} from './visual-evidence-lib.mjs'
 const BASE_CHECKS = new Map([
   ['build', {scripts: ['build'], timeoutMs: 600_000}],

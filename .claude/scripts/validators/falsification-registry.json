@@ -4241,6 +4241,38 @@
       "replace": "  if (/^runs:\\s*\\d+\\s*$/m.test(text)) return text",
       "test": ".claude/scripts/test-plugin-eval-checks.mjs",
       "why": "사례 사본의 실행 수를 바꾸지 못해 계획과 실제 실행 수가 어긋난다 — receipt가 스모크라 적고 3회를 돌거나 그 반대"
+    },
+    {
+      "id": "import-closure-filter",
+      "file": ".claude/scripts/import-closure-lib.mjs",
+      "find": "    .filter(specifier => !existsSync(resolve(dirname(file), specifier)))",
+      "replace": "    .filter(() => false)",
+      "test": ".claude/scripts/test-import-closure.mjs",
+      "why": "배포본에 없는 파일을 부르는 스크립트를 잡지 못해 설치본에서 로드부터 실패한다"
+    },
+    {
+      "id": "build-plugin-import-closure-wired",
+      "file": ".claude/scripts/build-plugin.mjs",
+      "find": "const unresolvedImports = unresolvedRelativeImports(outputRoot)",
+      "replace": "const unresolvedImports = []",
+      "test": ".claude/scripts/test-import-closure.mjs",
+      "why": "빌드가 닫힘 검사를 돌리지 않아 dev 전용 경로를 부르는 런타임이 조용히 배포된다"
+    },
+    {
+      "id": "runtime-no-validators-import",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "} from './workflow-security-lib.mjs'",
+      "replace": "} from './validators/validate-workflows-and-evals.mjs'",
+      "test": ".claude/scripts/test-import-closure.mjs",
+      "why": "품질 실행기가 배포되지 않는 validators/를 불러 설치본에서 ERR_MODULE_NOT_FOUND로 멈춘다"
+    },
+    {
+      "id": "release-gate-chain-no-validators-import",
+      "file": ".claude/scripts/receipt-validation-lib.mjs",
+      "find": "import {parseTrustedPromotionActions} from './workflow-security-lib.mjs'",
+      "replace": "import {parseTrustedPromotionActions} from './validators/validate-workflows-and-evals.mjs'",
+      "test": ".claude/scripts/test-import-closure.mjs",
+      "why": "릴리스 게이트 훅(release-gate-lib → receipt-validation-lib)이 배포되지 않는 validators/를 불러 설치본에서 로드 실패한다 — PreToolUse 훅의 exit 1은 비차단이라 게이트가 조용히 꺼진다"
     }
   ]
 }
