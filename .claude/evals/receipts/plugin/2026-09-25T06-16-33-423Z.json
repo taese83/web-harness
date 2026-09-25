@@ -1,0 +1,123 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "e71c7a55fa503baf23cd8422560859dae988ece6",
+  "dirty": false,
+  "pluginVersion": "0.47.0",
+  "distDigest": "0a52d018867b0f0f05923b85a8feeae1c0f3a547503047a4acd74bb9a01e8b47",
+  "claudeVersion": "2.1.281",
+  "model": "claude-opus-5-5[1m]",
+  "startedAt": "2026-09-25T06:16:33.423Z",
+  "durationSeconds": 2078,
+  "costUsd": 16.601451400000002,
+  "partial": false,
+  "selection": {
+    "case": "predev-stops-at-api-decision",
+    "tag": null,
+    "runs": null
+  },
+  "cases": [
+    {
+      "name": "predev-stops-at-api-decision",
+      "caseDigest": "d2932a8c8a51640b733d3d86d20f619f3580e5a042d8c42d6808b7703bf9f1f6",
+      "seedDigest": "c891fe3c52855946484e2e5ab266f0058c9d75afaab887d75dba5d46ecfb7c12",
+      "expectedRuns": 3,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 4.780926000000001,
+          "durationSeconds": 1031,
+          "turns": 25,
+          "peakContextTokens": 91717,
+          "outputTokens": 9904,
+          "cacheReadTokens": 1613044,
+          "toolUses": {
+            "Bash": 18,
+            "Read": 3,
+            "Agent": 2,
+            "Grep": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:api-schema-designer": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 1,
+          "scriptSourceReadSamples": [
+            "B=/private/var/folders/r0/7r490msd259chb1123yq8n000000gn/T/wh-plugin-eval-rW6tL4/web-harness; sed -n 70,100p $B/.claude/scripts/validate-artifact-sharding.mjs; "
+          ]
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 8.601528,
+          "durationSeconds": 2078,
+          "turns": 27,
+          "peakContextTokens": 89423,
+          "outputTokens": 12366,
+          "cacheReadTokens": 1569490,
+          "toolUses": {
+            "Bash": 21,
+            "Agent": 4,
+            "Grep": 1
+          },
+          "bashErrors": 2,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:api-schema-designer": 2,
+            "web-harness:system-architect": 2
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        },
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 3.2189974,
+          "durationSeconds": 862,
+          "turns": 25,
+          "peakContextTokens": 97569,
+          "outputTokens": 11667,
+          "cacheReadTokens": 1352485,
+          "toolUses": {
+            "Bash": 12,
+            "Read": 4,
+            "Grep": 1,
+            "Glob": 1,
+            "Agent": 3,
+            "Write": 1,
+            "Edit": 2
+          },
+          "bashErrors": 2,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:api-schema-designer": 2,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
