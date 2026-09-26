@@ -7,7 +7,12 @@
 //   - 형식을 모르면 null이다 — 추측한 숫자를 쓰지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {parseCoverageSummary, parseTestSummary} from './quality-output-summary-lib.mjs'
+import {spawnSync} from 'node:child_process'
+import {cpSync, existsSync, mkdtempSync, readFileSync, rmSync} from 'node:fs'
+import {join} from 'node:path'
+import {tmpdir} from 'node:os'
+import {fileURLToPath} from 'node:url'
+import {parseCoverageSummary, parseFailureLocations, parseTestSummary} from './quality-output-summary-lib.mjs'
 
 test('단위 테스트 요약: vitest·jest, 마지막 요약을 쓴다', () => {
   assert.deepEqual(parseTestSummary(' Test Files  2 passed (2)\n      Tests  5 passed (5)\n   Duration  1s'),
@@ -40,4 +45,46 @@ test('모르는 형식은 null — 숫자를 지어내지 않는다', () => {
   assert.equal(parseTestSummary('nothing', 'browser'), null)
   assert.equal(parseCoverageSummary('All files | 85 | 75 |'), null, '머리글 없는 표를 읽었다')
   assert.equal(parseCoverageSummary('File | % Stmts | % Branch | % Funcs | % Lines |\nAll files | x | 75 | 100 | 85 |'), null)
+})
+
+// 수정 스폰 입력 — 실패 위치만(이름·파일·줄·규칙). 실행된 코드가 정하는 본문·메시지는 싣지 않는다.
+test('실패 위치: vitest·jest·playwright 테스트 이름, tsc·eslint 파일:줄·규칙 — 본문·메시지는 없다', () => {
+  const vitest = ' FAIL  src/api/auth.test.ts > auth > refreshes once\nAssertionError: expected secret-body to be 1\n'
+  assert.deepEqual(parseFailureLocations(vitest), [{kind: 'test', file: 'src/api/auth.test.ts', name: 'auth > refreshes once'}])
+  assert.deepEqual(parseFailureLocations('  ● suite › does x\n\n    expect(received).toBe(expected)\n'), [{kind: 'test', name: 'suite › does x'}])
+  assert.deepEqual(parseFailureLocations('  1) [chromium] › e2e/a.spec.ts:12:5 › logs in\n'), [{kind: 'test', file: 'e2e/a.spec.ts', line: 12, name: 'logs in'}])
+  assert.deepEqual(parseFailureLocations('src/a.ts(12,5): error TS2322: Type secret\nsrc/b.ts:3:1 - error TS2304: Cannot find\n'),
+    [{kind: 'type', file: 'src/a.ts', line: 12, rule: 'TS2322'}, {kind: 'type', file: 'src/b.ts', line: 3, rule: 'TS2304'}])
+  const eslint = '/work/p/src/c.ts\n  7:3  error  Unexpected any secret-msg  @typescript-eslint/no-explicit-any\n'
+  assert.deepEqual(parseFailureLocations(eslint, {projectRoot: '/work/p'}), [{kind: 'lint', file: 'src/c.ts', line: 7, rule: '@typescript-eslint/no-explicit-any'}])
+  const all = JSON.stringify([vitest, eslint].map(output => parseFailureLocations(output)))
+  assert.doesNotMatch(all, /secret-body|secret-msg|AssertionError/, '본문·메시지가 실렸다')
+})
+
+test('실패 위치: 토큰 모양 문자열은 가리고 건수는 상한이 있다', () => {
+  assert.deepEqual(parseFailureLocations(' FAIL  src/a.test.ts > uses sk-abcdefghijklmnopqrst\n'), [{kind: 'test', file: 'src/a.test.ts', name: 'uses <redacted>'}])
+  const many = Array.from({length: 80}, (_, index) => ` FAIL  src/a.test.ts > case ${index}`).join('\n')
+  assert.equal(parseFailureLocations(many).length, 50)
+})
+
+const runner = fileURLToPath(new URL('./run-quality-gates.mjs', import.meta.url))
+const fixture = fileURLToPath(new URL('../../golden/vite-serverless-hybrid', import.meta.url))
+test('실제 러너: --failure-summary는 --check에서만, 통과하지 못한 check의 위치 목록을 evidence/ 밖에 쓴다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-failure-summary-'))
+  const project = join(root, 'p')
+  try {
+    cpSync(fixture, project, {recursive: true, filter: source => !source.includes('/node_modules')})
+    const env = {...process.env, WEB_HARNESS_ISOLATED_EXECUTION: '1'}
+    const withAll = spawnSync(process.execPath, [runner, '--project', project, '--all', '--failure-summary'], {encoding: 'utf8', env})
+    assert.equal(withAll.status, 2)
+    assert.match(withAll.stderr, /--check only/)
+    spawnSync(process.execPath, [runner, '--project', project, '--check', 'typecheck', '--failure-summary'], {encoding: 'utf8', env})
+    const summaryPath = join(project, '_workspace/04_qa/failure-summary.json')
+    assert.ok(existsSync(summaryPath), '통과하지 못한 check의 위치 목록을 쓰지 않았다')
+    const summary = JSON.parse(readFileSync(summaryPath, 'utf8'))
+    assert.deepEqual(summary.checks.map(check => check.check), ['typecheck'])
+    assert.ok(!existsSync(join(project, '_workspace/04_qa/evidence/failure-summary.json')), '영수증 폴더에 썼다')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

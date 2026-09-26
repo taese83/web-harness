@@ -69,6 +69,11 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - 경량 증거는 재현 절차(무엇을 구동해 무엇을 봤는지)를 한 줄로 남긴다. 모델 기억·화면 요약만으로 PASS하지 않는다.
 - **기존 receipt의 재발급**: 프로젝트에 이미 `_workspace/04_qa/evidence/`가 있으면, 경량 라운드도 소스를 바꾼 뒤 `run-quality-gates.mjs --project {root} --all`로 receipt를 재발급한다. attestation·manifest는 만들지 않지만 **receipt를 stale로 남기지도 않는다** — receipt는 발급 시점 소스에 fingerprint로 결속되므로, 소스를 고치고 그대로 두면 그 시점부터 저장된 모든 evidence가 검증 불가가 된다. 재발급이 불가한 환경이면 완료 보고에 `QA evidence: STALE (재발급 필요)`를 명시하고 완료로 선언하지 않는다.
 - **승격 QA**: change-scope의 `CAPABILITY_ESCALATION`이 `detected`면 경량 라운드에서도 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`도) 재투입이 의무다. 자세한 조건은 `execution-contract.md`의 **Iterate round exit gates**가 canonical이다.
+- **위험 트리거 리뷰**: 아래 신호가 하나라도 있으면 새 문맥 리뷰어 1회 — 보안 신호는 `security-reviewer`, 그 밖은 `code-reviewer`, 둘 다면 둘 다(승격 QA에 **더한다**, 대체하지 않는다). 신호가 없으면 LLM 리뷰 없이 보고에 `review: none-required (신호 0)`를 적는다.
+  - 형태 무관: `CAPABILITY_ESCALATION: detected` · 의존성 추가 · 삭제·마이그레이션·저장 데이터 · 계약 파일(API 스키마·공개 타입) · diff 300줄 이상 · 기존 테스트 수정·삭제·skip/only 추가·스냅샷 갱신 · 게이트 실패 후 수정된 check.
+  - 형태별(`targetShapes`, 여럿이면 합집합): 웹 앱 — 인증·세션·토큰, 입력 → HTML/쿼리 sink, UI 레이어(접근성) / 라이브러리 — 공개 export / CLI — 명령·플래그·exit code / serverless — `api/` 핸들러.
+  - 리뷰어 입력은 이번 라운드 diff·수용 기준·change brief뿐이다(구현 대화는 주지 않는다). 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
+  - 수정은 developer 수정 스폰(`retry-policy.md` Iterate 상한), 재확인은 **마지막 수정 뒤 한 번** 같은 역할 새 스폰이 1차 finding의 처분(fixed·dismissed·open)을 낸다. 남은 FAIL이면 라운드는 `BLOCKED`, 증거 있는 HIGH 이상을 기각하려면 사용자 답이 필요하다.
 
 ## Dev server note
 

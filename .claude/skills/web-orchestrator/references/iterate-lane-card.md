@@ -9,14 +9,15 @@
 | # | 단계 | 명령·산출 | 정본 |
 |---|---|---|---|
 | 1 | 공급 감지 — 요청에 문서·링크·시안이 붙었을 때만 | `00_source/` 기록 | `provenance-contract.md` §6 |
-| 2 | **`change`만**: ① 기획 개정 → ② 디자인 델타 감지 → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」) | `change-lane-checkpoint.md` ①~③ |
+| 2 | **`change`만**: ① 기획 개정 → ② 디자인 델타 감지 → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` ①~③ |
 | 3 | **`change`만**: ④ 스팩 확정 | `node .claude/scripts/spec.mjs --project-root {root}` → stdout을 `_workspace/03_dev/spec.json`에 그대로 저장. `SPEC_NOT_SETTLED`면 그 결정을 ✋에 싣는다 | `change-lane-checkpoint.md` ④ |
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
 | 6 | Gate 0 — 첫 source edit 전 | `node .claude/scripts/validate-development-readiness.mjs --project {root}` | `development-gates-contract.md` Gate 0 |
-| 7 | 구현 — `developer` 스폰, 범위는 change brief | 스폰마다 telemetry 1행 append(아래) | `execution-contract.md` Iterate 2 |
-| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | 프로젝트 스크립트 | `development-gates-contract.md` |
+| 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). 메인은 source를 쓰지 않는다 | 스폰마다 telemetry 1행 append(아래) | `retry-policy.md` Iterate 라운드 |
+| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary` (첫 실행은 사용자 승인 뒤 `--allow-host-execution`) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |
+| 8-2 | 위험 트리거 리뷰 — 신호가 있을 때만 새 문맥 리뷰어 역할별 1회, 마지막 수정 뒤 역할별 재확인 1회. 신호 0이면 `review: none-required` | 리뷰어 입력은 라운드 diff·수용 기준·change brief뿐, `CONFIRMED`만 판정 산입, 남은 FAIL은 `BLOCKED` | `qa-evidence-contract.md` Iterate evidence |
 | 9 | 라운드 종료 게이트 3종 | ① `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `_workspace/04_qa/evidence/`가 있으면 `node .claude/scripts/run-quality-gates.mjs --project {root} --all` ③ `DOCS_TO_UPDATE` 개정 완료 | `qa-evidence-contract.md` Iterate evidence |
 | 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 3종 상태 | `execution-contract.md` Iterate 6 |
 
@@ -55,7 +56,7 @@ DOCS_TO_UPDATE: none (대조: …) | 문서 목록
 
 `_workspace/04_qa/execution-telemetry.json`의 `spawns`에 append —
 `{"run": "<시작시각>+iterate", "phase": "<단계>", "agent": "<이름>", "retry": false, "mode": "fresh", "tokens": <totalTokens>, "toolUses": <totalToolUseCount>, "durationMs": <totalDurationMs>}`.
-값은 스폰 결과 metadata에서 옮긴다 — 없으면 `null`이다(`execution-budget-contract.md`).
+값은 스폰 결과 metadata에서 옮긴다 — 없으면 `null`이다(`execution-budget-contract.md`). 구현 뒤의 developer 수정 스폰은 `retry: true`.
 
 ## 일반화 근거
 

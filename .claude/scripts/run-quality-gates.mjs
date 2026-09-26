@@ -54,7 +54,7 @@ import {
   validateWorkflowSecurityProjects,
 } from './workflow-security-lib.mjs'
 import {collectVisualEvidence} from './visual-evidence-lib.mjs'
-import {parseCoverageSummary, parseTestSummary} from './quality-output-summary-lib.mjs'
+import {parseCoverageSummary, parseFailureLocations, parseTestSummary} from './quality-output-summary-lib.mjs'
 const BASE_CHECKS = new Map([
   ['build', {scripts: ['build'], timeoutMs: 600_000}],
   ['typecheck', {scripts: ['typecheck'], timeoutMs: 600_000}],
@@ -82,16 +82,18 @@ let projectValue = process.cwd()
 let selectedCheck = null
 let allRequested = false
 let hostExecutionApproved = false
+let failureSummaryRequested = false
 const seenOptions = new Set()
 for (let index = 0; index < args.length; index += 1) {
   const option = args[index]
-  if (!['--project', '--check', '--all', '--allow-host-execution'].includes(option) || seenOptions.has(option)) {
+  if (!['--project', '--check', '--all', '--allow-host-execution', '--failure-summary'].includes(option) || seenOptions.has(option)) {
     process.stderr.write(`Unknown or duplicate quality runner option: ${option}\n`)
     process.exit(2)
   }
   seenOptions.add(option)
   if (option === '--all') allRequested = true
   else if (option === '--allow-host-execution') hostExecutionApproved = true
+  else if (option === '--failure-summary') failureSummaryRequested = true
   else {
     const value = args[index + 1]
     if (!value || value.startsWith('--')) {
@@ -105,6 +107,11 @@ for (let index = 0; index < args.length; index += 1) {
 }
 if (allRequested && selectedCheck) {
   process.stderr.write('--all and --check are mutually exclusive.\n')
+  process.exit(2)
+}
+// 실패 위치 목록은 수정 스폰의 입력이다 — 단일 check에서만 쓴다(--all 증거 실행에는 싣지 않는다).
+if (failureSummaryRequested && allRequested) {
+  process.stderr.write('--failure-summary works with --check only.\n')
   process.exit(2)
 }
 const externallyIsolated = process.env.WEB_HARNESS_ISOLATED_EXECUTION === '1'
@@ -722,6 +729,9 @@ const executeCheck = (id, definition) => {
   }
   const stdout = result?.stdout ?? ''
   const stderr = result?.stderr ?? result?.error?.message ?? ''
+  if (failureSummaryRequested && status !== 'PASS') {
+    failureLocations.push({check: receiptId, status, failures: parseFailureLocations(`${stdout}\n${stderr}`, {projectRoot})})
+  }
   return {
     schemaVersion: 2,
     runner: 'web-harness-quality-gate',
@@ -840,6 +850,7 @@ if (runAll) {
   if (ingestionIndex >= 0) selectedEntries.push(...selectedEntries.splice(ingestionIndex, 1))
 }
 const qualityCohortId = randomUUID()
+const failureLocations = []
 const receipts = selectedEntries.map(([id, definition]) => executeCheck(id, definition))
 const dependencyBindingAtEnd = readDependencyBinding(projectRoot, packageJson)
 if (JSON.stringify(dependencyBindingAtEnd) !== JSON.stringify(dependencyBindingAtStart)) {
@@ -867,6 +878,13 @@ for (const receipt of receipts) {
   }
   process.stdout.write(`${receipt.id}: ${receipt.status} (${receipt.command})\n`)
   if (receipt.blockedReason) process.stderr.write(`${receipt.id}: ${receipt.blockedReason}\n`)
+}
+
+// 영수증이 아니다 — evidence/ 밖(_workspace/04_qa/는 소스 지문 제외)에 덮어쓴다. 통과면 지운다.
+if (failureSummaryRequested) {
+  const summaryPath = join(projectRoot, '_workspace/04_qa/failure-summary.json')
+  if (failureLocations.length > 0) writeFileSync(summaryPath, `${JSON.stringify({generatedAt: new Date().toISOString(), checks: failureLocations}, null, 2)}\n`)
+  else rmSync(summaryPath, {force: true})
 }
 
 rmSync(sandboxHome, {recursive: true, force: true})

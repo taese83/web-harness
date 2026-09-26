@@ -54,3 +54,36 @@ export const parseCoverageSummary = stdout => {
   }
   return summary
 }
+
+// ── 실패 위치(수정 스폰 입력) ────────────────────────────────────────────────────
+// 실패한 check의 출력에서 **어디가** 실패했는지만 뽑는다 — 테스트 이름·파일·줄·규칙 id. assertion 본문·메시지는
+// 싣지 않는다(실행된 코드가 정하는 문자열이 쓰는 에이전트의 프롬프트로 들어가는 주입 표면을 좁힌다). 건수·길이 상한,
+// 토큰 모양 문자열 가림. 형식을 모르면 빈 목록이다.
+const MAX_FAILURE_LOCATIONS = 50
+const TOKEN_SHAPE = /(?:sk-|ghp_|gho_|github_pat_|xox[abp]-|AKIA|eyJ)[A-Za-z0-9_\-.]{8,}/g
+const clean = (value, projectRoot) => String(value ?? '')
+  .replace(projectRoot ? new RegExp(`${projectRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?`, 'g') : /$^/, '')
+  .replace(TOKEN_SHAPE, '<redacted>')
+  .trim()
+  .slice(0, 160)
+
+export const parseFailureLocations = (output, {projectRoot = null} = {}) => {
+  const text = plain(output)
+  const found = []
+  const add = entry => {
+    const normalized = Object.fromEntries(Object.entries(entry).map(([key, value]) => [key, typeof value === 'number' ? value : clean(value, projectRoot)]))
+    if (!found.some(item => JSON.stringify(item) === JSON.stringify(normalized))) found.push(normalized)
+  }
+  for (const [, file, name] of text.matchAll(/^\s*FAIL\s+(\S+\.[cm]?[jt]sx?)\s+>\s+(.+?)\s*$/gm)) add({kind: 'test', file, name})
+  for (const [, name] of text.matchAll(/^\s*●\s+(.+?)\s*$/gm)) if (!/^Console/.test(name)) add({kind: 'test', name})
+  for (const [, file, line, name] of text.matchAll(/^\s*\d+\)\s+\[[^\]]+\]\s+›\s+(\S+?):(\d+):\d+\s+›\s+(.+?)\s*$/gm)) add({kind: 'test', file, line: Number(line), name})
+  for (const [, file, line, rule] of text.matchAll(/^(\S+?\.[cm]?[jt]sx?)\((\d+),\d+\):\s*error\s+(TS\d+)/gm)) add({kind: 'type', file, line: Number(line), rule})
+  for (const [, file, line, rule] of text.matchAll(/^(\S+?\.[cm]?[jt]sx?):(\d+):\d+\s+-\s+error\s+(TS\d+)/gm)) add({kind: 'type', file, line: Number(line), rule})
+  let lintFile = null
+  for (const line of text.split('\n')) {
+    if (/^\S.*\.(?:[cm]?[jt]sx?|vue|css|scss)$/.test(line.trim()) && !/\s{2,}/.test(line)) { lintFile = line.trim(); continue }
+    const problem = line.match(/^\s+(\d+):\d+\s+(?:error|warning)\s+.+?\s{2,}(\S+)\s*$/)
+    if (problem && lintFile) add({kind: 'lint', file: lintFile, line: Number(problem[1]), rule: problem[2]})
+  }
+  return found.slice(0, MAX_FAILURE_LOCATIONS)
+}
