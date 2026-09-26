@@ -346,6 +346,28 @@ try {
   rmSync(oversizedPackageFixture, {recursive: true, force: true})
 }
 
+// 소스 스캔은 코드 파일만 읽는다 — 코드가 아닌 파일로 가는 링크(CLAUDE.md → AGENTS.md)로 막지 않되,
+// 코드 확장자·디렉터리·깨진 링크는 내용을 확인할 수 없으므로 계속 fail-closed.
+const symlinkFixture = mkdtempSync(join(tmpdir(), 'web-harness-symlink-scan-'))
+try {
+  writeFileSync(join(symlinkFixture, 'package.json'), '{"name":"x","private":true}\n')
+  writeFileSync(join(symlinkFixture, 'AGENTS.md'), '# agents\n')
+  symlinkSync('AGENTS.md', join(symlinkFixture, 'CLAUDE.md'))
+  const documentLink = inspectExternalIngestion(symlinkFixture, {includeAncestorRepositories: false})
+  check(!documentLink.evidence.some(item => item.startsWith('uninspectable-')), `a non-code document link must not block the scan: ${documentLink.evidence}`)
+  mkdirSync(join(symlinkFixture, 'real-src'))
+  writeFileSync(join(symlinkFixture, 'real-src/fetcher.ts'), 'export const x = 1\n')
+  symlinkSync('real-src/fetcher.ts', join(symlinkFixture, 'linked.ts'))
+  symlinkSync('real-src', join(symlinkFixture, 'linked-dir'))
+  symlinkSync('missing.md', join(symlinkFixture, 'broken.md'))
+  const codeLinks = inspectExternalIngestion(symlinkFixture, {includeAncestorRepositories: false}).evidence
+  for (const name of ['linked.ts', 'linked-dir', 'broken.md']) {
+    check(codeLinks.includes(`uninspectable-source:${name}`), `a ${name} link must stay uninspectable: ${codeLinks}`)
+  }
+} finally {
+  rmSync(symlinkFixture, {recursive: true, force: true})
+}
+
 const splitRootFixture = mkdtempSync(join(tmpdir(), 'web-harness-split-root-'))
 try {
   mkdirSync(join(splitRootFixture, '.git'))

@@ -33,7 +33,7 @@ import {
 import {
   analyzePackageScript,
   cleanProfileBuildArtifacts,
-  findUnsafePackageConfig,
+  inspectPackageConfig,
   hasMeaningfulProfileScript,
   readDependencyBinding,
   resolvePinnedPackageManager,
@@ -228,6 +228,9 @@ commandEnvironment.USERPROFILE = sandboxHome
 commandEnvironment.XDG_CACHE_HOME = join(sandboxHome, '.cache')
 commandEnvironment.XDG_CONFIG_HOME = join(sandboxHome, '.config')
 commandEnvironment.npm_config_userconfig = join(sandboxHome, '.npmrc')
+// audit(러너 안의 유일한 pnpm 호출)의 판정·TLS 신뢰를 프로젝트 .npmrc가 바꾸지 못하게 env로 고정한다(env > 프로젝트 .npmrc).
+commandEnvironment.npm_config_strict_ssl = 'true'
+commandEnvironment.npm_config_audit_level = 'low'
 commandEnvironment.npm_config_globalconfig = join(sandboxHome, '.global-npmrc')
 commandEnvironment.npm_config_registry = 'https://registry.npmjs.org'
 commandEnvironment.TMP = join(sandboxHome, 'tmp')
@@ -247,8 +250,18 @@ try {
   process.stderr.write(`Cannot read package.json: ${error instanceof Error ? error.message : String(error)}\n`)
   process.exit(2)
 }
-if (findUnsafePackageConfig(projectRoot)) {
-  process.stderr.write('Project/workspace npmrc or pnpm hook is outside the public-registry quality runner scope.\n')
+// 레지스트리·인증·설치 방식 키만 담은 .npmrc는 허용한다(사내 registry 브라운필드). 실행을 바꾸는 키·pnpm 훅은
+// 거부하고 키 이름만 알린다 — 값은 출력하지 않는다.
+const packageConfig = inspectPackageConfig(projectRoot)
+// package.json의 pnpm.auditConfig(ignoreCves·ignoreGhsas)는 audit 판정에서 권고를 지운다 — 러너가 받는 audit 문턱을 프로젝트가 바꾸지 못하게 막는다.
+if (packageJson.pnpm && typeof packageJson.pnpm === 'object' && 'auditConfig' in packageJson.pnpm) {
+  process.stderr.write('package.json pnpm.auditConfig changes the audit verdict and is outside the quality runner scope.\n')
+  process.exit(2)
+}
+if (packageConfig.blocked) {
+  const offending = packageConfig.files.filter(file => file.disallowedKeys.length > 0)
+    .map(file => `${relative(projectRoot, file.path) || file.path}: ${file.disallowedKeys.join(', ')}`)
+  process.stderr.write(`Project .npmrc, pnpm hook, or pnpm-workspace.yaml sets keys outside the quality runner allowlist (npmrc: registry, scoped registry, registry auth, install and transport options; workspace: packages, catalogs, build and resolution keys): ${offending.join('; ')}\n`)
   process.exit(2)
 }
 const dependencyBindingAtStart = readDependencyBinding(projectRoot, packageJson)
@@ -724,6 +737,8 @@ const executeCheck = (id, definition) => {
       commandContractSha256: packageScriptAnalysis?.ok ? sha256(JSON.stringify(packageScriptAnalysis.commands)) : null,
     } : null,
     cwd: '.',
+    // 프로젝트 패키지 설정의 키 분류만 남긴다 — 값·해시·원래 키 이름(사내 호스트)은 싣지 않는다.
+    packageConfig: packageConfig.files.map(file => ({kind: file.kind, classes: file.classes})),
     startedAt,
     durationMs: Math.round(durationMs),
     timeoutMs: definition.timeoutMs,

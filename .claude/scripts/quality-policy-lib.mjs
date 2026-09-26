@@ -686,7 +686,59 @@ export const resolvePackageExecutionTarget = (projectRoot, executable) => {
   return owner.path
 }
 
-export const findUnsafePackageConfig = projectRoot => {
+// ── 프로젝트 패키지 설정(.npmrc·pnpm 훅) ──────────────────────────────────────
+// 사내 registry 프로젝트는 레지스트리·인증 줄을 담은 .npmrc를 커밋한다. 러너는 패키지 스크립트를 pnpm 없이 걸러낸 env로
+// 직접 실행하므로(`executeVerifiedPackageScript`) .npmrc가 닿는 곳은 pnpm으로 도는 `audit` 하나다. 그래서 audit 판정을 바꿀 수
+// 있는 설정(audit-level·TLS 신뢰·프록시·registry)을 러너가 막거나 env로 고정한다. 허용 목록 밖의 키·섹션·pnpm 훅 파일은
+// 거부하고(모르는 키는 막는다), 값은 읽어도 출력·기록하지 않는다(키 분류만 남긴다). 줄 나누기는 pnpm(ini)과 같게 한다 —
+// 다르게 나누면 거부할 키가 허용 키의 값 안에 숨는다.
+const REGISTRY_AUTH_FIELDS = new Set(['_authToken', '_auth', 'username', '_password', 'email', 'always-auth', 'certfile', 'keyfile'])
+const NPMRC_KEY_CLASSES = new Map([
+  ...['always-auth', 'email', 'strict-ssl', 'fetch-retries', 'fetch-retry-factor', 'fetch-retry-mintimeout',
+    'fetch-retry-maxtimeout', 'fetch-timeout', 'network-concurrency'].map(key => [key, 'transport']),
+  ...['auto-install-peers', 'strict-peer-dependencies', 'shamefully-hoist', 'public-hoist-pattern', 'hoist-pattern',
+    'dedupe-peer-dependents', 'save-exact', 'save-prefix', 'engine-strict', 'resolution-mode', 'prefer-offline',
+    'link-workspace-packages', 'prefer-workspace-packages'].map(key => [key, 'install-option']),
+])
+
+/** .npmrc 키 하나의 분류 — 허용 목록 밖이면 null(거부). */
+export const classifyNpmrcKey = key => {
+  if (key === 'registry') return 'registry'
+  if (/^@[a-z0-9][\w.-]*:registry$/i.test(key)) return 'scoped-registry'
+  const auth = key.match(/^\/\/\S+\/:([\w-]+)$/)
+  if (auth) return REGISTRY_AUTH_FIELDS.has(auth[1]) ? 'registry-auth' : null
+  return NPMRC_KEY_CLASSES.get(key) ?? null
+}
+
+/** .npmrc 원문에서 키 이름만 뽑는다(값은 버린다). 섹션 머리는 `[섹션]` 키로 남겨 거부되게 한다. */
+export const parseNpmrcKeys = source => (source.includes('\0') ? ['<NUL byte>'] : source.split(/[\r\n]+/))
+  .map(line => line.trim())
+  .filter(line => line && !line.startsWith('#') && !line.startsWith(';'))
+  .map(line => (line.startsWith('[') ? line : line.split('=')[0].trim().replace(/^["']|["']$/g, '').replace(/\[\]$/, '')))
+
+// pnpm-workspace.yaml의 설정은 env 고정보다 우선한다(pnpm 10.23·11.18 실측) — 최상위 키를 허용 목록으로 판정한다.
+// 허용: 작업공간 구성과 설치 시점에만 쓰이는 해석 키. audit·실행·네트워크를 바꾸는 키와 모호한 YAML은 거부한다.
+const WORKSPACE_ALLOWED_KEYS = new Set(['packages', 'catalog', 'catalogs', 'onlyBuiltDependencies', 'ignoredBuiltDependencies',
+  'neverBuiltDependencies', 'strictDepBuilds', 'allowBuilds', 'overrides', 'patchedDependencies', 'packageExtensions', 'peerDependencyRules',
+  'autoInstallPeers', 'strictPeerDependencies', 'shamefullyHoist', 'publicHoistPattern', 'hoistPattern', 'dedupePeerDependents',
+  'saveExact', 'savePrefix', 'engineStrict', 'resolutionMode', 'preferOffline', 'linkWorkspacePackages', 'preferWorkspacePackages'])
+// 판정은 pnpm(js-yaml)이 읽는 루트 매핑 키와 같아야 한다 — 들여쓴 루트·`---` 줄의 내용·BOM은 js-yaml이 받아들이므로
+// (pnpm 10.23·11.18 실측) 0번째 칸의 `키:` 줄·주석·빈 줄만 허용하고 나머지 형태는 거부한다(fail-closed).
+export const workspaceDisallowedKeys = source => {
+  if (/[\0\t\\\uFEFF]/.test(source) || /(?:^|\s)(?:!![^\s]+|&[\w-]+|\*[\w-]+)|^\s*(?:<<\s*:|\?\s)/m.test(source)) return ['<ambiguous YAML>']
+  const lines = source.split(/[\r\n]+/).filter(line => line.trim() && !line.trimStart().startsWith('#'))
+  if (lines.length > 0 && /^\s/.test(lines[0])) return ['<indented root>']
+  return lines
+    .filter(line => !/^\s/.test(line))
+    .map(line => line.match(/^([A-Za-z][\w-]*)\s*:/)?.[1] ?? '<unsupported top-level line>')
+    .filter(key => !WORKSPACE_ALLOWED_KEYS.has(key))
+}
+
+/**
+ * 프로젝트에서 저장소 경계(.git)까지 올라가며 .npmrc·pnpm 훅·pnpm-workspace.yaml을 찾아 판정한다.
+ * @returns {{files: Array<{path: string, kind: 'npmrc'|'pnpmfile'|'workspace', classes: string[], disallowedKeys: string[]}>, blocked: boolean}}
+ */
+export const inspectPackageConfig = projectRoot => {
   let repositoryBoundary = projectRoot
   for (let directory = projectRoot; ; directory = dirname(directory)) {
     if (existsSync(join(directory, '.git'))) {
@@ -695,13 +747,25 @@ export const findUnsafePackageConfig = projectRoot => {
     }
     if (dirname(directory) === directory) break
   }
+  const files = []
   for (let directory = projectRoot; ; directory = dirname(directory)) {
-    for (const name of ['.npmrc', '.pnpmfile.cjs', '.pnpmfile.mjs']) {
-      if (existsSync(join(directory, name))) return join(directory, name)
+    for (const name of ['.pnpmfile.cjs', '.pnpmfile.mjs']) {
+      if (existsSync(join(directory, name))) files.push({path: join(directory, name), kind: 'pnpmfile', classes: [], disallowedKeys: ['<pnpm hook file>']})
+    }
+    if (existsSync(join(directory, '.npmrc'))) {
+      let keys
+      try { keys = parseNpmrcKeys(readFileSync(join(directory, '.npmrc'), 'utf8')) } catch { keys = ['<unreadable>'] }
+      const classes = [...new Set(keys.map(classifyNpmrcKey).filter(Boolean))].sort()
+      files.push({path: join(directory, '.npmrc'), kind: 'npmrc', classes, disallowedKeys: keys.filter(key => !classifyNpmrcKey(key))})
+    }
+    if (existsSync(join(directory, 'pnpm-workspace.yaml'))) {
+      let disallowedKeys
+      try { disallowedKeys = workspaceDisallowedKeys(readFileSync(join(directory, 'pnpm-workspace.yaml'), 'utf8')) } catch { disallowedKeys = ['<unreadable>'] }
+      files.push({path: join(directory, 'pnpm-workspace.yaml'), kind: 'workspace', classes: [], disallowedKeys})
     }
     if (directory === repositoryBoundary || dirname(directory) === directory) break
   }
-  return null
+  return {files, blocked: files.some(file => file.disallowedKeys.length > 0)}
 }
 
 /**

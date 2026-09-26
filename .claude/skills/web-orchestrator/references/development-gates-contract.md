@@ -17,8 +17,9 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
   하네스의 증거는 선다 — 품질 러너의 `dependencyBinding`이 `pnpm-lock.yaml`과
   `node_modules/.pnpm/lock.yaml`의 해시를 대조하므로 설치 주체와 무관하고(단 pnpm 기본 linker 전제),
   릴리스 필수 영수증 7종에 설치는 없다. `pnpm.overrides`·workspace 커스터마이즈는 브로커만 막는다.
-- **`.npmrc`·pnpm hook은 브로커와 러너가 **둘 다** 막는다**(공개 registry 전제). 사내 registry를 쓰는
-  프로젝트는 지금 품질 러너를 돌릴 수 없다 — 브라운필드 도입의 남은 장벽이며 `docs/protected-core.md` §4에 등록돼 있다.
+- **프로젝트 `.npmrc`·`pnpm-workspace.yaml`은 러너가 키 허용 목록으로 판정한다** — 러너는 패키지 스크립트를 pnpm 없이 실행하므로
+  이 설정이 닿는 곳은 `audit`뿐이다. `.npmrc`는 레지스트리·인증·설치·전송 키만, `pnpm-workspace.yaml`은 작업공간·설치 해석 키만
+  통과하고 나머지·pnpm hook 파일은 막는다(키 이름만 알린다). audit의 registry·TLS·판정 문턱은 env로 고정한다. 설치 브로커는 여전히 막는다.
 - **패키지 매니저는 pnpm만 실행한다.** 프로젝트가 핀한 pnpm 버전을 머신에서 찾아 쓰고, 없으면 처방과
   함께 막는다 — **게이트 시점에 받아오지 않는다.** pnpm은 프로젝트 안에서 호출되면 핀한 버전을 registry에서
   받아와 실행하므로, 러너는 핀을 못 찾으면 프로젝트 안에서 pnpm을 한 번도 부르지 않는다.

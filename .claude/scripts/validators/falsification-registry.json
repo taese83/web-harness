@@ -4553,6 +4553,78 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-falsification-sandbox.mjs",
       "why": "시그널로 죽거나 스폰에 실패한 짝 테스트를 반증됨으로 세면 과부하가 게이트 발화로 읽힌다(병렬 실행의 역-공허 100%)"
+    },
+    {
+      "id": "npmrc-allowlist-refuses-unknown-keys",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "  return NPMRC_KEY_CLASSES.get(key) ?? null",
+      "replace": "  return NPMRC_KEY_CLASSES.get(key) ?? 'install-option'",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "모르는 키를 허용하면 node-options·script-shell 같은 실행 변경 키가 러너를 통과해 검사하지 않은 코드가 돈다"
+    },
+    {
+      "id": "npmrc-runner-blocks-disallowed",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (packageConfig.blocked) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "러너가 판정을 무시하면 실행을 바꾸는 .npmrc 키가 있는 프로젝트에서 영수증이 선다"
+    },
+    {
+      "id": "npmrc-pnpm-hook-always-blocked",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "disallowedKeys: ['<pnpm hook file>']",
+      "replace": "disallowedKeys: []",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "pnpm 훅 파일은 pnpm이 실행하는 JS다 — 통과시키면 검사하지 않은 코드가 돈다"
+    },
+    {
+      "id": "ingestion-scan-code-links-stay-uninspectable",
+      "file": ".claude/scripts/web-core/ingestion-detection-lib.mjs",
+      "find": "        if (!target || target.isDirectory() || /\\.(?:c?js|mjs|[cm]?ts|tsx)$/i.test(entry.name)) evidence.push(`uninspectable-source:${relativePath}`)",
+      "replace": "        if (!target) evidence.push(`uninspectable-source:${relativePath}`)",
+      "test": ".claude/scripts/web-core/test-web-core.mjs",
+      "why": "코드 파일·디렉터리로 가는 링크를 통과시키면 외부 수집 코드가 링크 뒤에 숨어 탐지를 피한다"
+    },
+    {
+      "id": "npmrc-line-split-matches-pnpm",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "source.split(/[\\r\\n]+/))",
+      "replace": "source.split(/\\r?\\n/))",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "pnpm(ini)은 \\r 단독도 줄 끝으로 본다 — \\n으로만 나누면 거부할 키(audit-level 등)가 허용 키의 값 안에 숨어 audit 영수증이 위조된다"
+    },
+    {
+      "id": "workspace-yaml-allowlist-refuses-settings",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "    .filter(key => !WORKSPACE_ALLOWED_KEYS.has(key))",
+      "replace": "    .filter(() => false)",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "pnpm-workspace.yaml의 auditLevel·strictSsl은 env 고정보다 우선한다 — 판정하지 않으면 audit 판정을 프로젝트가 바꾼다"
+    },
+    {
+      "id": "runner-pins-audit-level-env",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "commandEnvironment.npm_config_audit_level = 'low'",
+      "replace": "void 'low'",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "audit-level을 고정하지 않으면 프로젝트 .npmrc가 audit 판정 문턱을 올려 high 취약점이 있어도 PASS가 된다"
+    },
+    {
+      "id": "workspace-yaml-refuses-indented-root",
+      "file": ".claude/scripts/quality-policy-lib.mjs",
+      "find": "  if (lines.length > 0 && /^\\s/.test(lines[0])) return ['<indented root>']",
+      "replace": "  if (false) return ['<indented root>']",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "js-yaml은 들여쓴 루트 매핑을 받아들인다 — 0번째 칸만 보면 auditLevel이 숨어 audit 영수증이 위조된다"
+    },
+    {
+      "id": "runner-refuses-pnpm-audit-config",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (packageJson.pnpm && typeof packageJson.pnpm === 'object' && 'auditConfig' in packageJson.pnpm) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "pnpm.auditConfig의 ignoreCves·ignoreGhsas는 audit 판정에서 권고를 지운다 — 막지 않으면 알려진 취약점이 있어도 PASS"
     }
   ]
 }

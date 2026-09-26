@@ -1,4 +1,4 @@
-import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync} from 'node:fs'
+import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {inspectRuntimeDataContractMetadata} from '../runtime-data-contract-lib.mjs'
 
@@ -144,7 +144,13 @@ const inspectNetworkIngestionSources = (projectRoot, evidence, excludeHarnessPro
     for (const entry of readdirSync(directory, {withFileTypes: true}).sort((left, right) => left.name.localeCompare(right.name))) {
       if (inspected > MAX_INSPECTED_SOURCE_FILES) break
       const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name
-      if (entry.isSymbolicLink()) evidence.push(`uninspectable-source:${relativePath}`)
+      if (entry.isSymbolicLink()) {
+        // 이 스캔은 코드 파일만 읽는다 — 코드가 아닌 파일을 가리키는 링크(CLAUDE.md → AGENTS.md 등)는 대상이 아니다.
+        // 코드 확장자·디렉터리·깨진 링크는 내용을 확인할 수 없으므로 검사 불가로 남긴다.
+        let target = null
+        try { target = statSync(join(directory, entry.name)) } catch { /* 깨진 링크 */ }
+        if (!target || target.isDirectory() || /\.(?:c?js|mjs|[cm]?ts|tsx)$/i.test(entry.name)) evidence.push(`uninspectable-source:${relativePath}`)
+      }
       else if (entry.isDirectory() && !SOURCE_SCAN_EXCLUDED_DIRECTORIES.has(entry.name)) {
         // ancestor 스캔 한정: 자체 하니스 release root(사촌 프로젝트)는 이 프로젝트의 조상
         // 운영 표면이 아니다 — search-portal 파일럿 실측(형제 파일럿의 crawler가 ancestor
