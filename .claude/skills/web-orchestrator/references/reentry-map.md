@@ -34,12 +34,13 @@
 
 | 계약 | 역할 |
 |---|---|
-| `execution-contract.md` | §Iterate mode 경량 루프 + §Runtime verifiability (LOCAL_VERIFIABLE/DEPLOY_ONLY) |
-| `request-type-contract.md` | 요청 유형 고정 — 진입점이 게이트 강도를 바꾸지 않는다 |
-| `minimal-change-contract.md` | change brief를 `_workspace/03_dev/change-scope.md`에 라운드별 append |
-| `development-gates-contract.md` | typecheck·lint·test·build를 toolchain pin으로 실행 |
-| `qa-evidence-contract.md` | §Iterate evidence — 라운드 종료 게이트 3종(승격 QA·evidence 재발급·문서 동기화) 정본 |
+| `iterate-lane-card.md` | 라운드의 순서·명령·양식 한 장 — 각 행이 정본 계약을 가리킨다 |
+| `request-type-contract.md` | 요청 유형 고정 — 진입점이 게이트 강도를 바꾸지 않는다(`fix` 자기검사) |
 | `operational-gotchas.md` | 전 구간 금지·선행 조건 |
+
+**카드 행의 정본(그 단계가 막히거나 카드로 판단이 서지 않을 때 그 절만 연다):** `execution-contract.md` §Iterate mode·§Runtime verifiability ·
+`minimal-change-contract.md`(change brief) · `development-gates-contract.md`(Gate 0·toolchain pin 게이트) ·
+`qa-evidence-contract.md` §Iterate evidence(라운드 종료 게이트 3종 정본).
 
 **Conditional (트리거 성립 시 로드):**
 
