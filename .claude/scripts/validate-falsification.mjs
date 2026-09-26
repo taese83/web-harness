@@ -23,9 +23,9 @@
 // 찾지 못했다」로 실패한다. 게이트는 그대로인데 CI가 빨개지면, 고치는 사람이 문구가 아니라 seed를
 // 손대고 싶어진다 — 게이트를 약하게 만드는 압력이다(실측: 0.29.1 문구 개선에서 발생).
 // 그래서 앵커는 **판정하는 조건**까지만 잡는다. 메시지는 인자로 남겨 두면 문구 수정과 무관해진다.
-import {execFileSync} from 'node:child_process'
+import {execFileSync, spawn} from 'node:child_process'
 import {copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync} from 'node:fs'
-import {tmpdir} from 'node:os'
+import {availableParallelism, tmpdir} from 'node:os'
 import {createHash} from 'node:crypto'
 import {dirname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath, pathToFileURL} from 'node:url'
@@ -173,7 +173,7 @@ const insideOf = (root, path) => {
   return offset !== '' && !offset.startsWith('..') && !offset.startsWith(sep) && offset !== '..'
 }
 
-const runTest = (testPath, cwd) => {
+const testEnvironment = () => {
   // **`NODE_TEST_CONTEXT`를 물려주지 않는다.** 부모가 `node --test`면 그 변수가 상속되고,
   // 자식 러너는 자기가 테스트 자식인 줄 알고 **실패해도 exit 0**을 낸다(실측 2026-09-10:
   // 같은 실패 테스트가 상속 시 0, 제거 시 1). 그러면 반증기 자신이 vacuous가 된다.
@@ -183,104 +183,100 @@ const runTest = (testPath, cwd) => {
   // `global-bash-policy-lib` 등)이 이 값을 프로젝트 루트로 쓴다 — 상속하면 사본에서 도는 테스트가
   // **정본을** 루트로 잡는다(적대 리뷰 2026-09-11). CI에는 이 값이 없으므로 지우는 쪽이 CI와 같다.
   delete env.CLAUDE_PROJECT_DIR
+  return env
+}
+
+// 러너는 `{code, signal, error}`를 돌려준다. 출력은 버린다 — 버퍼 상한에 걸려 자식이 죽으면 그 죽음이
+// 「반증됨」으로 세어진다. 판정은 **정수 종료 코드만** 쓴다(아래 `outcomeOf`·`judgeMutation`).
+const runTest = (testPath, cwd) => {
   try {
-    execFileSync('node', ['--test', testPath], {cwd, stdio: 'pipe', env})
-    return 0
+    execFileSync('node', ['--test', testPath], {cwd, stdio: 'ignore', env: testEnvironment()})
+    return {code: 0}
   } catch (error) {
-    return error.status ?? 1
+    return {code: Number.isInteger(error.status) ? error.status : null, signal: error.signal ?? null, error: error.code ?? null}
   }
 }
+
+const runTestAsync = (testPath, cwd) => new Promise(resolvePromise => {
+  const child = spawn('node', ['--test', testPath], {cwd, stdio: 'ignore', env: testEnvironment()})
+  child.once('error', error => resolvePromise({code: null, signal: null, error: error.code ?? error.message}))
+  child.once('close', (code, signal) => resolvePromise({code, signal}))
+})
+
+/** 주입 러너는 숫자를 돌려줘도 된다. 정수가 아닌 종료(시그널·스폰 실패)는 판정할 수 없는 실행이다. */
+const outcomeOf = value => (typeof value === 'number' ? {code: value} : (value ?? {code: null}))
 
 /**
  * 한 항목을 반증한다 — **`root` 안에서만.** `root`는 사본이어야 하고, 기본값(저장소)은 단독
  * 함수 호출의 하위 호환일 뿐이다. 원본은 `finally`에서 되쓰고 **되쓴 것을 확인한다** — 사본이라도
  * 한 항목의 잔재가 다음 항목의 판정을 오염시키면 안 된다.
  */
-export const falsifyOne = (entry, {root, run = testPath => runTest(testPath, root)} = {}) => {
+const requireRoot = root => {
   // **`root`는 필수다.** 기본값이 정본이면 「정본에 쓰지 않는다」가 API에서 강제되지 않는다 —
   // 호출자가 root를 빠뜨리는 순간 제자리 변형으로 되돌아간다(적대 리뷰 2026-09-11).
   if (typeof root !== 'string' || root === '') throw new Error('falsifyOne: root(사본 경로)가 필요하다 — 정본을 기본값으로 쓰지 않는다')
+}
+
+/** 변형을 적용한다. 적용할 수 없으면 `{result}`(STALE), 적용했으면 되쓸 원문을 돌려준다. */
+const applyMutation = (entry, root) => {
   const absolute = join(root, entry.file)
   if (!insideOf(root, absolute)) {
-    return {id: entry.id, status: 'STALE', reason: `변형 대상이 작업 공간 밖이다: ${entry.file}`}
+    return {result: {id: entry.id, status: 'STALE', reason: `변형 대상이 작업 공간 밖이다: ${entry.file}`}}
   }
   let original
   try { original = readFileSync(absolute, 'utf8') } catch {
-    return {id: entry.id, status: 'STALE', reason: `변형 대상이 작업 공간에 없다: ${entry.file}`}
+    return {result: {id: entry.id, status: 'STALE', reason: `변형 대상이 작업 공간에 없다: ${entry.file}`}}
   }
   if (!original.includes(entry.find)) {
-    return {id: entry.id, status: 'STALE', reason: `변형 지점을 찾지 못했다: ${entry.find.trim().slice(0, 60)}`}
+    return {result: {id: entry.id, status: 'STALE', reason: `변형 지점을 찾지 못했다: ${entry.find.trim().slice(0, 60)}`}}
   }
   if (original.split(entry.find).length - 1 !== 1) {
-    return {id: entry.id, status: 'STALE', reason: '변형 지점이 유일하지 않다 — 어느 것을 끄는지 모호하다'}
+    return {result: {id: entry.id, status: 'STALE', reason: '변형 지점이 유일하지 않다 — 어느 것을 끄는지 모호하다'}}
   }
-  let result
-  try {
-    writeFileSync(absolute, original.replace(entry.find, entry.replace))
-    const exitCode = run(entry.test)
-    result = exitCode === 0
-      ? {id: entry.id, status: 'NOT_FALSIFIED', reason: `게이트를 껐는데 ${entry.test}가 통과했다 — 이 게이트는 회귀에 결박되지 않았다`}
-      : {id: entry.id, status: 'OK', reason: ''}
-  } finally {
-    // 되쓰기 자체가 실패해도(권한·디스크) 여기서 던지지 않는다 — 아래에서 **판정한다**.
-    try { writeFileSync(absolute, original) } catch { /* 아래 대조가 잡는다 */ }
-  }
+  writeFileSync(absolute, original.replace(entry.find, entry.replace))
+  return {absolute, original}
+}
+
+/** 되쓴다. 되쓰기 자체가 실패해도(권한·디스크) 던지지 않는다 — `judgeMutation`이 **판정한다**. */
+const restoreMutation = ({absolute, original}) => {
+  try { writeFileSync(absolute, original) } catch { /* 아래 대조가 잡는다 */ }
+}
+
+const judgeMutation = (entry, {absolute, original}, runResult) => {
   let restored = false
   try { restored = readFileSync(absolute, 'utf8') === original } catch { /* 읽지도 못하면 복원 실패다 */ }
   if (!restored) {
     return {id: entry.id, status: 'RESTORE_FAILED', reason: `${entry.file}를 되쓰지 못했다 — 이후 판정을 믿을 수 없다`}
   }
-  return result
+  const outcome = outcomeOf(runResult)
+  // 시그널 종료·스폰 실패(과부하의 EAGAIN 등)는 테스트가 게이트를 잡은 것이 아니다 — 반증됨으로 세지 않는다.
+  if (!Number.isInteger(outcome.code)) {
+    return {id: entry.id, status: 'RUN_ERROR', reason: `짝 테스트 ${entry.test}가 판정할 수 있게 끝나지 않았다(${outcome.error ?? `signal ${outcome.signal}`}) — 게이트 발화로 세지 않는다`}
+  }
+  return outcome.code === 0
+    ? {id: entry.id, status: 'NOT_FALSIFIED', reason: `게이트를 껐는데 ${entry.test}가 통과했다 — 이 게이트는 회귀에 결박되지 않았다`}
+    : {id: entry.id, status: 'OK', reason: ''}
 }
 
-/**
- * 등록부 전량을 **사본에서** 반증한다. 정본은 읽기만 하고, 실행 전후 digest가 다르면 **운영 오류**로
- * 막는다 — 테스트 실패보다 무거운 사고다(정본이 바뀌었다는 뜻이고, 그 트리의 다음 판정이 거짓이 된다).
- * @returns {{ok: number, total: number, treeChanged: string[]|null}}
- */
-export const validateFalsification = ({pass, fail, sourceRoot = repositoryRoot, registry = null,
-  run = runTest, onSandbox = null} = {}) => {
-  const entries = (registry ?? readRegistry()).entries
-  if (!Array.isArray(entries) || entries.length === 0) {
-    fail('falsification: 등록부가 비어 있다 — 반증 0건을 통과로 만들지 않는다')
-    return {ok: 0, total: 0, treeChanged: null}
-  }
-  const files = listSourceFiles(sourceRoot)
-  const beforeDigest = treeDigest(sourceRoot, files)
-  const beforeHashes = fileHashes(sourceRoot, files)
-  const sandbox = prepareSandbox(sourceRoot, files)
-  onSandbox?.(sandbox)
-  let ok = 0
-  try {
-    // **기준 실행.** 변형 없이 짝 테스트를 먼저 돌린다. 사본은 정본과 환경이 다르다(`.git`·ignored
-    // 파일 부재) — 어느 짝 테스트가 사본에서 **원래** 빨가면, 거기 결박된 항목은 변형과 무관하게
-    // 「잡혔다」로 세어진다. mutation-sample이 「빨간 스위트 100%」로 물린 바로 그 클래스다(§4).
-    // 빨간 파일의 항목은 OK로 세지 않고 NOT_MEASURED로 막는다.
-    const red = new Set()
-    for (const testPath of [...new Set(entries.map(entry => entry.test))]) {
-      if (run(testPath, sandbox) !== 0) red.add(testPath)
-    }
-    for (const entry of entries) {
-      if (red.has(entry.test)) {
-        fail(`falsification [${entry.id}]: NOT_MEASURED — 짝 테스트 ${entry.test}가 **변형 없이도** 사본에서 실패한다. `
-          + '기준이 빨간 테스트로는 게이트가 발화하는지 잴 수 없다(통과로 세지 않는다)')
-        continue
-      }
-      const result = falsifyOne(entry, {root: sandbox, run: testPath => run(testPath, sandbox)})
-      if (result.status === 'OK') { ok++; continue }
-      fail(`falsification [${result.id}]: ${result.reason}`)
-      // 사본의 한 파일이 되쓰이지 않았으면 정본에서 다시 가져온다 — 다음 항목을 오염시키지 않게.
-      // 그것도 못 하면 **남은 항목을 돌리지 않는다** — 오염된 사본 위의 판정은 거짓이다.
-      if (result.status === 'RESTORE_FAILED') {
-        try { copyFileSync(join(sourceRoot, entry.file), join(sandbox, entry.file)) } catch (error) {
-          fail(`falsification: 사본을 복구하지 못해 남은 항목을 중단한다 — ${error.message}`)
-          break
-        }
-      }
-    }
-  } finally {
-    rmSync(sandbox, {recursive: true, force: true})
-  }
+export const falsifyOne = (entry, {root, run = testPath => runTest(testPath, root)} = {}) => {
+  requireRoot(root)
+  const mutation = applyMutation(entry, root)
+  if (mutation.result) return mutation.result
+  let exitCode
+  try { exitCode = run(entry.test) } finally { restoreMutation(mutation) }
+  return judgeMutation(entry, mutation, exitCode)
+}
+
+export const falsifyOneAsync = async (entry, {root, run}) => {
+  requireRoot(root)
+  const mutation = applyMutation(entry, root)
+  if (mutation.result) return mutation.result
+  let exitCode
+  try { exitCode = await run(entry.test) } finally { restoreMutation(mutation) }
+  return judgeMutation(entry, mutation, exitCode)
+}
+
+const concludeRun = ({pass, fail, sourceRoot, files, beforeDigest, beforeHashes, ok, total, suffix = ''}) => {
   const afterDigest = treeDigest(sourceRoot, files)
   // 미리 나열한 파일만 보면 **추가된 파일**을 못 잡는다 — 다시 나열해 집합 차이도 본다
   // (예전 복원 테스트가 정본 추적 디렉터리에 `tmp-falsify-*`를 만들던 것이 정확히 이 경로였다).
@@ -291,10 +287,91 @@ export const validateFalsification = ({pass, fail, sourceRoot = repositoryRoot, 
     const changed = [...changedFiles(sourceRoot, files, beforeHashes), ...added.map(file => `${file}(추가됨)`)]
     fail(`falsification: **정본 트리가 실행 중 바뀌었다** — ${changed.join(', ') || '(목록 산출 불가)'}. `
       + '반증은 사본에서만 변형하므로 이것은 다른 프로세스의 편집이거나 격리 결함이다. 결과를 믿지 말고 git status를 확인하라')
-    return {ok, total: entries.length, treeChanged: changed}
+    return {ok, total, treeChanged: changed}
   }
-  if (ok === entries.length) pass(`falsification: ${ok}건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변)`)
-  return {ok, total: entries.length, treeChanged: null}
+  if (ok === total) pass(`falsification: ${ok}건 전부 반증됨 — 게이트가 실제로 발화한다 (사본 격리 · 정본 digest 불변${suffix})`)
+  return {ok, total, treeChanged: null}
+}
+
+const notMeasured = entry => `falsification [${entry.id}]: NOT_MEASURED — 짝 테스트 ${entry.test}가 **변형 없이도** 사본에서 실패한다. `
+  + '기준이 빨간 테스트로는 게이트가 발화하는지 잴 수 없다(통과로 세지 않는다)'
+
+export const defaultWorkers = () => {
+  const requested = Number.parseInt(process.env.WEB_HARNESS_FALSIFICATION_WORKERS ?? '', 10)
+  // 코어 수를 넘기지 않는다 — 과부하의 스폰 실패·타임아웃이 판정을 흐린다.
+  if (Number.isFinite(requested) && requested > 0) return Math.min(requested, availableParallelism())
+  return Math.max(1, Math.min(8, availableParallelism() - 2))
+}
+
+/**
+ * 등록부 전량을 **사본에서** 반증한다. 정본은 읽기만 하고, 실행 전후 digest가 다르면 **운영 오류**로
+ * 막는다 — 테스트 실패보다 무거운 사고다(정본이 바뀌었다는 뜻이고, 그 트리의 다음 판정이 거짓이 된다).
+ *
+ * 사본을 작업자 수만큼 만들고 항목을 나눠 돈다. **한 사본 안에서는 한 번에 한 변형만** 있다 — 사본마다
+ * 변형·실행·복원이 차례로 일어나므로 항목끼리 오염시키지 않는다. 같은 짝 테스트가 서로 다른 사본에서
+ * 동시에 돌 수는 있다 — 짝 테스트는 임시 디렉터리를 mkdtemp로 따로 잡고 HOME·고정 포트·고정 경로에
+ * 쓰지 않는다. 동시 실행 플레이크가 「반증됨」으로 읽히는지는 `--null-control`(변형 없는 대조)로 잰다.
+ * 보고는 등록부 순서다.
+ * @returns {Promise<{ok: number, total: number, treeChanged: string[]|null}>}
+ */
+export const validateFalsification = async ({pass, fail, sourceRoot = repositoryRoot, registry = null,
+  workers = defaultWorkers(), run = runTestAsync, onSandbox = null} = {}) => {
+  const entries = (registry ?? readRegistry()).entries
+  if (!Array.isArray(entries) || entries.length === 0) {
+    fail('falsification: 등록부가 비어 있다 — 반증 0건을 통과로 만들지 않는다')
+    return {ok: 0, total: 0, treeChanged: null}
+  }
+  const files = listSourceFiles(sourceRoot)
+  const beforeDigest = treeDigest(sourceRoot, files)
+  const beforeHashes = fileHashes(sourceRoot, files)
+  const sandboxes = []
+  const results = new Map()
+  let aborted = null
+  try {
+    for (let index = 0; index < Math.max(1, Math.min(workers, entries.length)); index++) {
+      const sandbox = prepareSandbox(sourceRoot, files)
+      sandboxes.push(sandbox)
+      onSandbox?.(sandbox)
+    }
+    const pool = async (items, work) => {
+      let next = 0
+      await Promise.all(sandboxes.map(async sandbox => {
+        while (next < items.length && !aborted) await work(items[next++], sandbox)
+      }))
+    }
+    // **기준 실행.** 변형 없이 짝 테스트를 먼저 돌린다. 사본은 정본과 환경이 다르다(`.git`·ignored
+    // 파일 부재) — 어느 짝 테스트가 사본에서 **원래** 빨가면, 거기 결박된 항목은 변형과 무관하게
+    // 「잡혔다」로 세어진다. mutation-sample이 「빨간 스위트 100%」로 물린 바로 그 클래스다(§4).
+    // 빨간 파일의 항목은 OK로 세지 않고 NOT_MEASURED로 막는다.
+    const red = new Set()
+    await pool([...new Set(entries.map(entry => entry.test))], async (testPath, sandbox) => {
+      if (outcomeOf(await run(testPath, sandbox)).code !== 0) red.add(testPath)
+    })
+    await pool(entries, async (entry, sandbox) => {
+      if (red.has(entry.test)) { results.set(entry, {status: 'NOT_MEASURED'}); return }
+      const result = await falsifyOneAsync(entry, {root: sandbox, run: testPath => run(testPath, sandbox)})
+      results.set(entry, result)
+      // 사본의 한 파일이 되쓰이지 않았으면 정본에서 다시 가져온다 — 다음 항목을 오염시키지 않게.
+      // 그것도 못 하면 **남은 항목을 돌리지 않는다** — 오염된 사본 위의 판정은 거짓이다.
+      if (result.status === 'RESTORE_FAILED') {
+        try { copyFileSync(join(sourceRoot, entry.file), join(sandbox, entry.file)) } catch (error) { aborted = error.message }
+      }
+    })
+  } finally {
+    for (const sandbox of sandboxes) rmSync(sandbox, {recursive: true, force: true})
+  }
+  let ok = 0
+  const statuses = {}
+  for (const entry of entries) {
+    const result = results.get(entry)
+    if (!result) continue
+    statuses[result.status] = (statuses[result.status] ?? 0) + 1
+    if (result.status === 'OK') ok++
+    else fail(result.status === 'NOT_MEASURED' ? notMeasured(entry) : `falsification [${result.id}]: ${result.reason}`)
+  }
+  if (aborted) fail(`falsification: 사본을 복구하지 못해 남은 항목을 중단한다 — ${aborted}`)
+  else if (results.size < entries.length) fail(`falsification: ${entries.length - results.size}건이 판정되지 않았다 — 통과로 세지 않는다`)
+  return {...concludeRun({pass, fail, sourceRoot, files, beforeDigest, beforeHashes, ok, total: entries.length, suffix: ` · 작업자 ${sandboxes.length}`}), statuses}
 }
 
 // main guard: `file://${argv[1]}` 문자열 결합은 POSIX에서만 맞는다 — Windows 경로(D:\…)에서는
@@ -319,19 +396,37 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     process.stderr.write(`락을 만들 수 없어 락 없이 진행한다(${lock.unavailable.join(' · ')}) — 사본 격리라 정본은 안전하다\n`)
   }
   const release = () => lock.release?.()
-  let sandboxPath = null
+  const sandboxPaths = []
   // 강제 종료에도 사본을 치운다(최선 노력) — 정본은 애초에 쓰지 않으므로 여기서 지킬 것은 없다.
-  const abort = () => { release(); if (sandboxPath) try { rmSync(sandboxPath, {recursive: true, force: true}) } catch { /* 최선 */ } process.exit(2) }
+  const abort = () => {
+    release()
+    for (const path of sandboxPaths) try { rmSync(path, {recursive: true, force: true}) } catch { /* 최선 */ }
+    process.exit(2)
+  }
   process.once('SIGINT', abort)
   process.once('SIGTERM', abort)
   let failed = 0
   let treeChanged = null
+  const reporters = {
+    pass: message => process.stdout.write(`✅ ${message}\n`),
+    fail: message => { failed++; process.stdout.write(`❌ ${message}\n`) },
+    onSandbox: path => { sandboxPaths.push(path) },
+  }
+  // `--null-control`: 모든 항목을 **변형 없이**(replace = find) 돈다. 전부 NOT_FALSIFIED여야 한다 — 하나라도
+  // OK면 변형과 무관하게 짝 테스트가 빨개진 것(동시 실행 플레이크·환경)이고, 그만큼 초록 실행의 「반증됨」을 믿을 수 없다.
+  const nullControl = process.argv.includes('--null-control')
   try {
-    ({treeChanged} = validateFalsification({
-      pass: message => process.stdout.write(`✅ ${message}\n`),
-      fail: message => { failed++; process.stdout.write(`❌ ${message}\n`) },
-      onSandbox: path => { sandboxPath = path },
-    }))
+    if (nullControl) {
+      const registry = readRegistry()
+      const control = await validateFalsification({...reporters, fail: () => {},
+        registry: {...registry, entries: registry.entries.map(entry => ({...entry, replace: entry.find}))}})
+      treeChanged = control.treeChanged
+      const clean = control.statuses.NOT_FALSIFIED === control.total
+      process.stdout.write(`${clean ? '✅' : '❌'} null-control: ${JSON.stringify(control.statuses)} / ${control.total} — 전부 NOT_FALSIFIED여야 한다\n`)
+      if (!clean) failed++
+    } else {
+      ;({treeChanged} = await validateFalsification(reporters))
+    }
   } finally { release() }
   // 정본이 바뀌었으면 테스트 실패(1)보다 무거운 운영 오류(2)다.
   process.exit(treeChanged ? 2 : failed === 0 ? 0 : 1)

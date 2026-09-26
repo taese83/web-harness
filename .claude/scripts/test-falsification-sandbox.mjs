@@ -45,12 +45,12 @@ const spies = () => {
   return {calls, pass: message => calls.pass.push(message), fail: message => calls.fail.push(message)}
 }
 
-test('변형은 사본에서만 한다 — 짝 테스트가 도는 동안 정본은 원형이다', () => {
+test('변형은 사본에서만 한다 — 짝 테스트가 도는 동안 정본은 원형이다', async () => {
   const root = fixture()
   try {
     const {calls, pass, fail} = spies()
     let observed = null
-    validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
+    await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
       run: (testPath, cwd) => {
         if (!mutated(cwd)) return 0 // 기준 실행
         observed = {
@@ -68,24 +68,24 @@ test('변형은 사본에서만 한다 — 짝 테스트가 도는 동안 정본
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('실제 짝 테스트로 반증되고 정본 digest는 불변이다', () => {
+test('실제 짝 테스트로 반증되고 정본 digest는 불변이다', async () => {
   const root = fixture()
   try {
     const files = listSourceFiles(root)
     const before = treeDigest(root, files)
     const {calls, pass, fail} = spies()
-    const result = validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}})
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}})
     assert.equal(result.ok, 1, `짝 테스트가 사본의 변형을 잡지 못했다: ${calls.fail.join(' | ')}`)
     assert.equal(result.treeChanged, null)
     assert.equal(treeDigest(root, files), before, '정본 digest가 바뀌었다')
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('정본이 실행 중 바뀌면 운영 오류로 막는다 — 결과를 믿지 않는다', () => {
+test('정본이 실행 중 바뀌면 운영 오류로 막는다 — 결과를 믿지 않는다', async () => {
   const root = fixture()
   try {
     const {calls, pass, fail} = spies()
-    const result = validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
       run: (testPath, cwd) => {
         if (!mutated(cwd)) return 0
         writeFileSync(join(root, 'lib.mjs'), `${ORIGINAL}// 누군가의 편집\n`)
@@ -121,7 +121,7 @@ test('강제 종료(SIGKILL)로 중단돼도 정본은 원형이다 — finally�
   writeFileSync(driver, [
     `import {readFileSync, writeFileSync} from 'node:fs'`,
     `import {validateFalsification} from ${JSON.stringify(new URL('./validate-falsification.mjs', import.meta.url).href)}`,
-    `validateFalsification({pass: () => {}, fail: () => {}, sourceRoot: ${JSON.stringify(root)},`,
+    `await validateFalsification({pass: () => {}, fail: () => {}, sourceRoot: ${JSON.stringify(root)},`,
     `  onSandbox: path => writeFileSync(${JSON.stringify(sandboxRecord)}, path),`,
     `  registry: {entries: [${JSON.stringify(ENTRY)}]},`,
     // 기준 실행은 곧바로 통과시키고, **변형된 사본에서만** 표지를 남기고 멈춘다.
@@ -163,30 +163,30 @@ test('git이 없으면 걷되 의존성·산출물·.git은 빼고 복사한다'
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('기준이 빨간 짝 테스트의 항목은 OK가 아니라 NOT_MEASURED다 — 변형 없이도 실패하면 잴 수 없다', () => {
+test('기준이 빨간 짝 테스트의 항목은 OK가 아니라 NOT_MEASURED다 — 변형 없이도 실패하면 잴 수 없다', async () => {
   const root = fixture()
   try {
     const {calls, pass, fail} = spies()
     // 사본에서 원래 빨간 짝 테스트(환경 차이 등). 종전에는 이 항목이 「반증됨」으로 세어졌다.
-    const result = validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}, run: () => 1})
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}, run: () => 1})
     assert.equal(result.ok, 0, '기준이 빨간데 반증됨으로 셌다 — vacuous 100%로 되돌아갔다')
     assert.ok(calls.fail.some(message => message.includes('NOT_MEASURED')), calls.fail.join('\n'))
     assert.equal(calls.pass.length, 0)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('정본에 **추가된** 파일도 트리 변경이다 — 미리 나열한 파일만 보면 못 잡는다', () => {
+test('정본에 **추가된** 파일도 트리 변경이다 — 미리 나열한 파일만 보면 못 잡는다', async () => {
   const root = fixture()
   try {
     const {calls, pass, fail} = spies()
-    const result = validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
       run: (testPath, cwd) => { if (mutated(cwd)) writeFileSync(join(root, 'stray.mjs'), 'x'); return mutated(cwd) ? 1 : 0 }})
     assert.ok((result.treeChanged ?? []).includes('stray.mjs(추가됨)'), `추가 파일을 못 잡았다: ${JSON.stringify(result.treeChanged)}`)
     assert.equal(calls.pass.length, 0)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('사본의 짝 테스트에 정본 경로를 물려주지 않는다 — CLAUDE_PROJECT_DIR', () => {
+test('사본의 짝 테스트에 정본 경로를 물려주지 않는다 — CLAUDE_PROJECT_DIR', async () => {
   // 정책 lib들이 이 값을 프로젝트 루트로 쓴다. 상속되면 사본에서 도는 테스트가 정본을 루트로 잡는다.
   const root = fixture()
   writeFileSync(join(root, 'lib.check.mjs'), [
@@ -203,13 +203,54 @@ test('사본의 짝 테스트에 정본 경로를 물려주지 않는다 — CLA
   process.env.CLAUDE_PROJECT_DIR = root
   try {
     const {calls, pass, fail} = spies()
-    const result = validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}})
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]}})
     assert.equal(result.ok, 1, `env가 새면 기준 실행이 빨갛게 나온다: ${calls.fail.join(' | ')}`)
   } finally {
     if (saved === undefined) delete process.env.CLAUDE_PROJECT_DIR
     else process.env.CLAUDE_PROJECT_DIR = saved
     rmSync(root, {recursive: true, force: true})
   }
+})
+
+// 작업자마다 사본이 따로다 — 한 사본 안에는 한 번에 한 변형만 있어야 항목끼리 오염시키지 않는다.
+test('병렬: 사본마다 한 번에 한 변형만 돌고, 여러 사본으로 나뉘며, 전 항목이 판정된다', async () => {
+  const root = fixture()
+  try {
+    const libs = ['lib.mjs', 'lib2.mjs', 'lib3.mjs', 'lib4.mjs', 'lib5.mjs', 'lib6.mjs']
+    for (const lib of libs.slice(1)) writeFileSync(join(root, lib), ORIGINAL)
+    const entries = libs.map(file => ({...ENTRY, id: `gate-${file}`, file}))
+    const active = new Map()
+    const seen = {maxPerSandbox: 0, maxMutations: 0, sandboxes: new Set()}
+    const {calls, pass, fail} = spies()
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries}, workers: 3,
+      run: async (testPath, cwd) => {
+        active.set(cwd, (active.get(cwd) ?? 0) + 1)
+        seen.maxPerSandbox = Math.max(seen.maxPerSandbox, active.get(cwd))
+        seen.sandboxes.add(cwd)
+        const mutations = libs.filter(lib => readFileSync(join(cwd, lib), 'utf8').includes('() => false')).length
+        seen.maxMutations = Math.max(seen.maxMutations, mutations)
+        await new Promise(resolve => setTimeout(resolve, 15))
+        active.set(cwd, active.get(cwd) - 1)
+        return mutations > 0 ? 1 : 0
+      }})
+    assert.equal(seen.maxPerSandbox, 1, '한 사본에서 두 실행이 겹쳤다 — 변형이 서로를 오염시킨다')
+    assert.equal(seen.maxMutations, 1, '한 사본에 변형이 둘 이상 동시에 있었다')
+    assert.ok(seen.sandboxes.size > 1, `작업이 한 사본에만 몰렸다 — 병렬이 아니다(${seen.sandboxes.size})`)
+    assert.equal(result.ok, libs.length, calls.fail.join(' | '))
+    assert.match(calls.pass[0] ?? '', /작업자 3/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('시그널 종료·스폰 실패는 반증됨이 아니라 RUN_ERROR다 — 과부하가 게이트 발화로 읽히지 않는다', async () => {
+  const root = fixture()
+  try {
+    const {calls, pass, fail} = spies()
+    const result = await validateFalsification({pass, fail, sourceRoot: root, registry: {entries: [ENTRY]},
+      run: (testPath, cwd) => (mutated(cwd) ? {code: null, signal: 'SIGKILL'} : 0)})
+    assert.equal(result.ok, 0, '시그널로 죽은 짝 테스트를 반증됨으로 셌다')
+    assert.equal(result.statuses.RUN_ERROR, 1)
+    assert.ok(calls.fail.some(message => message.includes('판정할 수 있게 끝나지 않았다')), calls.fail.join('\n'))
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
 test('falsifyOne은 root 없이 부를 수 없다 · 사본에 없는 파일은 STALE이다', () => {

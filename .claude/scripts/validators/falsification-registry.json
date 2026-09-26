@@ -997,8 +997,8 @@
     {
       "id": "falsification-mutates-only-sandbox",
       "file": ".claude/scripts/validate-falsification.mjs",
-      "find": "      const result = falsifyOne(entry, {root: sandbox, run: testPath => run(testPath, sandbox)})",
-      "replace": "      const result = falsifyOne(entry, {root: sourceRoot, run: testPath => run(testPath, sourceRoot)})",
+      "find": "      const result = await falsifyOneAsync(entry, {root: sandbox, run: testPath => run(testPath, sandbox)})",
+      "replace": "      const result = await falsifyOneAsync(entry, {root: sourceRoot, run: testPath => run(testPath, sourceRoot)})",
       "test": ".claude/scripts/test-falsification-sandbox.mjs",
       "why": "정본을 제자리에서 변형하면 겹친 러너·SIGKILL·앱 종료가 변이를 정본으로 굳힌다 — 2026-09-10 cli.mjs 오염과 감사의 CI 오판정이 그 경로였다"
     },
@@ -1037,8 +1037,8 @@
     {
       "id": "falsification-baseline-before-mutation",
       "file": ".claude/scripts/validate-falsification.mjs",
-      "find": "      if (red.has(entry.test)) {",
-      "replace": "      if (false) {",
+      "find": "      if (red.has(entry.test)) { results.set(entry, {status: 'NOT_MEASURED'}); return }",
+      "replace": "      if (false) { results.set(entry, {status: 'NOT_MEASURED'}); return }",
       "test": ".claude/scripts/test-falsification-sandbox.mjs",
       "why": "기준 실행 없이 변형만 보면 사본에서 원래 빨간 짝 테스트가 모든 결박 항목을 「반증됨」으로 만든다 — mutation-sample이 빨간 스위트 100%로 물린 클래스"
     },
@@ -4537,6 +4537,22 @@
       "replace": "`execution-contract.md` |",
       "test": ".claude/scripts/test-contract-load-points.mjs",
       "why": "카드가 런타임 검증 단계를 잃으면 카드만 따르는 라운드에서 수용 기준 검증이 조용히 탈락한다"
+    },
+    {
+      "id": "falsification-one-mutation-per-sandbox",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "      await Promise.all(sandboxes.map(async sandbox => {",
+      "replace": "      await Promise.all(sandboxes.map(async (_unused, index, all) => { const sandbox = all[0]",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "작업자들이 한 사본을 나눠 쓰면 변형이 겹쳐 한 항목의 변형이 다른 항목의 짝 테스트를 빨갛게 만든다 — 그 실패가 「반증됨」으로 세어진다"
+    },
+    {
+      "id": "falsification-run-error-not-fired",
+      "file": ".claude/scripts/validate-falsification.mjs",
+      "find": "  if (!Number.isInteger(outcome.code)) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-falsification-sandbox.mjs",
+      "why": "시그널로 죽거나 스폰에 실패한 짝 테스트를 반증됨으로 세면 과부하가 게이트 발화로 읽힌다(병렬 실행의 역-공허 100%)"
     }
   ]
 }
