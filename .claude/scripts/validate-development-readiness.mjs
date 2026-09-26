@@ -28,6 +28,7 @@ import {join, resolve} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
 import {HARNESS_AGENT_PREFIX, isPluginBuild} from './agent-identity.mjs'
+import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
 import {digestInputs, inspectSpecLedger, isSpecStale} from './spec.mjs'
 import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './validate-environment-closure.mjs'
 import {checkPlanAgainstSpec, readSpecAt, withinScope} from './validate-spawn-plan.mjs'
@@ -117,7 +118,9 @@ export function checkSpec(root) {
 export function effectiveProbePaths(root, spec, {allowedPaths = null} = {}) {
   const layers = [...Object.values(spec?.layerMap ?? {}), ...Object.values(spec?.testLayers ?? {})]
     .filter(value => typeof value === 'string' && value.trim())
-  const scope = allowedPaths ?? readAllowedPathsFromScope(root)
+  const read = allowedPaths === null ? readScopeForProbe(root) : {paths: allowedPaths}
+  if (read.error) return {paths: [], narrowed: false, scopeError: read.error}
+  const scope = read.paths
   if (!scope || scope.length === 0) return {paths: layers, narrowed: false}
   // 범위는 소유권을 넓히지 못한다 — 교집합만 예행한다(훅의 intersectWithScope와 같은 뜻).
   const inside = scope.filter(entry => layers.some(layer => withinScope(entry.replace(/\/+\*+$/, '').replace(/\/+$/, ''), layer)
@@ -125,20 +128,16 @@ export function effectiveProbePaths(root, spec, {allowedPaths = null} = {}) {
   return {paths: inside.length > 0 ? inside : layers, narrowed: inside.length > 0}
 }
 
-// change-scope의 기계 정본(```json change-scope 펜스)에서 ALLOWED_PATHS를 읽는다.
-// 훅과 같은 자리를 본다 — 다른 자리를 보면 예행과 실제가 갈린다.
-export function readAllowedPathsFromScope(root) {
+// 훅과 같은 해석기(change-scope-lib)로 읽는다 — 다르게 읽으면 예행과 실제가 갈린다.
+const readScopeForProbe = root => {
   const path = join(root, '_workspace/03_dev/change-scope.md')
-  if (!existsSync(path)) return null
-  let source
-  try { source = readFileSync(path, 'utf8') } catch { return null }
-  const fence = source.match(/```json\s+change-scope\s*\n([\s\S]*?)\n```/)
-  if (!fence) return null
-  try {
-    const parsed = JSON.parse(fence[1])
-    const paths = parsed?.ALLOWED_PATHS
-    return Array.isArray(paths) ? paths.filter(value => typeof value === 'string' && value.trim()) : null
-  } catch { return null }
+  if (!existsSync(path)) return {paths: null}
+  try { return parseChangeScopeAllowedPaths(readFileSync(path, 'utf8')) } catch { return {paths: null} }
+}
+
+export function readAllowedPathsFromScope(root) {
+  const read = readScopeForProbe(root)
+  return read.error || !read.paths || read.paths.length === 0 ? null : read.paths
 }
 
 // 반드시 **차단돼야** 하는 경로. 이것이 허용으로 나오면 예행 배선이 죽은 것이다 —
@@ -149,7 +148,11 @@ const NEGATIVE_CONTROL = '_workspace/03_dev/spec.json'
 const probeAgent = () => (isPluginBuild() ? `${HARNESS_AGENT_PREFIX}developer` : 'developer')
 
 export function checkOwnership(root, spec, {run = null, allowedPaths = null} = {}) {
-  const {paths, narrowed} = effectiveProbePaths(root, spec, {allowedPaths})
+  const {paths, narrowed, scopeError} = effectiveProbePaths(root, spec, {allowedPaths})
+  if (scopeError) {
+    return fail('ownership', `change-scope 블록이 유효한 JSON이 아니다(${scopeError}) — 소유권 훅이 developer 쓰기를 전부 막는다`,
+      '_workspace/03_dev/change-scope.md의 ```json change-scope 펜스를 고친다')
+  }
   if (paths.length === 0) return skip('ownership', '스팩에 layerMap·testLayers가 없어 예행할 경로가 없다')
   const exec = run ?? ((agentType, filePath) => {
     const payload = JSON.stringify({tool_name: 'Write', agent_type: agentType, cwd: root, tool_input: {file_path: filePath}})

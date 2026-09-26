@@ -20,6 +20,7 @@ import {
   effectiveProbePaths, readAllowedPathsFromScope,
 } from './validate-development-readiness.mjs'
 import {digestInputs} from './spec.mjs'
+import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
 
 const SPEC = {
   schemaVersion: 2,
@@ -146,6 +147,53 @@ test('스폰 범위는 change-scope의 기계 정본(펜스)에서 읽는다 —
     writeFileSync(join(root, '_workspace/03_dev/change-scope.md'),
       ['# s', '', '```json change-scope', JSON.stringify({ALLOWED_PATHS: ['src/entities/track/']}), '```', ''].join('\n'))
     assert.deepEqual(readAllowedPathsFromScope(root), ['src/entities/track/'])
+  })
+})
+
+// 훅은 펜스가 없으면 수기 줄(`ALLOWED_PATHS: a, b`)로 범위를 좁힌다. 예행이 펜스만 읽으면
+// layerMap 전체를 찔러 "N/N 쓰기 불가"로 막고, 오케스트레이터는 범위 파일을 치워서 통과시킨다.
+test('실제 훅: 수기 줄로 적은 범위도 훅과 같게 읽어 착수를 막지 않는다', () => {
+  withProject(root => {
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'),
+      '# s\n\nALLOWED_PATHS: src/entities/track.ts, src/entities/track.test.ts\n')
+    const result = checkOwnership(root, SPEC)
+    assert.equal(result.state, 'PASS', `${result.detail}\n${result.remedy ?? ''}`)
+    assert.match(result.detail, /스폰 범위 2개/)
+  })
+})
+
+// change brief는 라운드마다 append된다 — 첫 항목을 읽으면 두 번째 라운드부터 지난 범위로 판정한다.
+test('범위 해석: 문서의 마지막 항목이 현재 범위다 — 표기(펜스·줄)와 무관하게', () => {
+  const fence = paths => `\`\`\`json change-scope\n${JSON.stringify({ALLOWED_PATHS: paths}, null, 2)}\n\`\`\``
+  const cases = [
+    ['ALLOWED_PATHS: a.ts, b.ts', {paths: ['a.ts', 'b.ts']}],
+    [`## r1\nALLOWED_PATHS: old.ts\n## r2\nALLOWED_PATHS: new.ts`, {paths: ['new.ts']}],
+    [`## r1\n${fence(['old.ts'])}\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts']}],
+    [`## r1\n${fence(['old.ts'])}\n## r2\nALLOWED_PATHS: new.ts`, {paths: ['new.ts']}],
+    [`## r1\nALLOWED_PATHS: old.ts\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts']}],
+    [`${fence(['a.ts'])}\n\`\`\`json change-scope\n{"NOTE": 1}\n\`\`\``, {paths: ['a.ts']}],
+    ['없음', {paths: []}],
+  ]
+  for (const [source, expected] of cases) assert.deepEqual(parseChangeScopeAllowedPaths(source), expected, source)
+  assert.ok(parseChangeScopeAllowedPaths('```json change-scope\n{"ALLOWED_PATHS": [\n```').error, '깨진 마지막 펜스를 범위 미발급으로 넓혔다')
+})
+
+test('실제 훅: 두 번째 라운드의 범위로 예행한다', () => {
+  withProject(root => {
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'),
+      '## r1\nALLOWED_PATHS: src/entities/old.ts\n\n## r2\nALLOWED_PATHS: src/entities/track.ts, src/entities/track.test.ts, e2e/track.spec.ts\n')
+    const result = checkOwnership(root, SPEC)
+    assert.equal(result.state, 'PASS', `${result.detail}\n${result.remedy ?? ''}`)
+    assert.match(result.detail, /스폰 범위 3개/)
+  })
+})
+
+test('실제 훅: 범위 펜스 JSON이 깨졌으면 착수 전에 막는다 — 훅이 developer 쓰기를 전부 막는 상태다', () => {
+  withProject(root => {
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), '```json change-scope\n{"ALLOWED_PATHS": [\n```\n')
+    const result = checkOwnership(root, SPEC)
+    assert.equal(result.state, 'FAIL')
+    assert.match(result.detail, /유효한 JSON이 아니다/)
   })
 })
 

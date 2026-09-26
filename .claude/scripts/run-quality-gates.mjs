@@ -719,7 +719,8 @@ const executeCheck = (id, definition) => {
     executionMode: packageScriptAnalysis ? 'verified-package-argv' : 'pinned-control-plane-argv',
     packageScript: packageScriptName ? {
       name: packageScriptName,
-      sha256: sha256(packageScriptSource),
+      // 필수 스크립트가 없으면 BLOCKED 영수증을 쓴다 — 없는 원문을 해시하다 --all 전체가 죽지 않게.
+      sha256: packageScriptSource === null ? null : sha256(packageScriptSource),
       commandContractSha256: packageScriptAnalysis?.ok ? sha256(JSON.stringify(packageScriptAnalysis.commands)) : null,
     } : null,
     cwd: '.',

@@ -5,6 +5,7 @@ import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
 import {harnessAgentName} from './agent-identity.mjs'
+import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -72,15 +73,8 @@ try {
   if (relativePath.startsWith('../') || relativePath === '..') block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
 
   // change-scope.md의 ALLOWED_PATHS — 스폰별 범위. 없으면 범위 제한이 없다(소유권만 적용).
-  //
-  // **정본은 ```json change-scope 펜스다.** 종전에는 문서 전체에서 "ALLOWED_PATHS가 처음
-  // 나오는 곳"을 부분 문자열로 잡아서, 산문·주석·예시가 진짜 범위보다 앞에 있으면 그것이
-  // 이겼다 — 승자가 **문서 편집 순서에 좌우**됐다(적대 리뷰 2026-08-30). 실물 change-scope는
-  // ALLOWED_PATHS를 3번(산문·JSON·마크다운 줄) 담는다.
-  //
-  // 펜스가 있는데 JSON이 깨졌으면 **막는다.** 종전에는 `[]`로 떨어졌고 빈 배열은
-  // `intersectWithScope`에서 "제한 없음"이라 **범위가 조용히 layerMap 전체로 넓어졌다** —
-  // 파싱 실패가 확대로 이어지는 fail-open이었다. 판정할 수 없으면 통과시키지 않는다.
+  // 해석은 change-scope-lib 하나다 — 개발 착수 점검의 예행도 같은 함수로 읽는다.
+  // 펜스 JSON이 깨졌으면 막는다 — 판정할 수 없는 범위를 layerMap 전체로 넓히지 않는다.
   const readAllowedPaths = root => {
     let source
     try {
@@ -88,28 +82,12 @@ try {
     } catch {
       return [] // 파일 부재 = 범위 미발급. 소유권만 적용한다(계약대로)
     }
-    const asPathList = value => (Array.isArray(value)
-      ? value.filter(entry => typeof entry === 'string' && entry.trim())
-      : [])
-    const fence = source.match(/```json\s+change-scope\s*\n([\s\S]*?)\n```/)
-    if (fence) {
-      let parsed
-      try {
-        parsed = JSON.parse(fence[1])
-      } catch (error) {
-        block('Blocked: _workspace/03_dev/change-scope.md의 change-scope 블록이 유효한 JSON이 아니다 '
-          + `(${error instanceof Error ? error.message : String(error)}). 범위를 판정할 수 없으면 넓히지 않는다 — 블록을 고쳐라.`)
-      }
-      const fromFence = asPathList(parsed?.ALLOWED_PATHS)
-      if (fromFence.length > 0) return fromFence
-      // 펜스는 있는데 ALLOWED_PATHS가 없다 — 수기 표기로 내려간다(둘 다 없으면 범위 미발급)
+    const scope = parseChangeScopeAllowedPaths(source)
+    if (scope.error) {
+      block('Blocked: _workspace/03_dev/change-scope.md의 change-scope 블록이 유효한 JSON이 아니다 '
+        + `(${scope.error}). 범위를 판정할 수 없으면 넓히지 않는다 — 블록을 고쳐라.`)
     }
-    // 펜스가 없는 수기 change-scope. 별표·따옴표 유무를 가리지 않는다 — 종전에는 줄 표기가
-    // 별표를 **요구**하고 폴백은 허용해서, `ALLOWED_PATHS: a, b`라고 민무늬로 적으면 어느
-    // 쪽에도 안 걸려 범위가 조용히 사라졌다.
-    const line = source.match(/^[-*\s]*["*]{0,2}ALLOWED_PATHS["*]{0,2}\s*[:：]\s*(\S.*)$/mi)
-    if (!line) return []
-    return line[1].split(/[,·]/).map(value => value.replace(/[`"\s]/g, '')).filter(Boolean)
+    return scope.paths
   }
 
   // 프로젝트가 `workspace/<project>/`로 중첩되면 **판정 기준 root가 둘로 갈린다.**

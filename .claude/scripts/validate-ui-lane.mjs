@@ -57,7 +57,9 @@ const escapesRoot = root => {
   const offset = relative(resolve(root), projectRoot)
   return offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
 }
-if (escapesRoot(repositoryRoot) && escapesRoot(process.env.CLAUDE_PROJECT_DIR)) {
+// 세션 프로젝트: Claude Code는 CLAUDE_PROJECT_DIR를 훅에만 넘기고 Bash 도구에는 넘기지 않는다 —
+// 없으면 작업 디렉터리가 세션 프로젝트다(detect-harness-project와 같은 규칙). 읽기 전용 스캐너에만 쓴다.
+if (escapesRoot(repositoryRoot) && escapesRoot(process.env.CLAUDE_PROJECT_DIR || process.cwd())) {
   process.stderr.write('UI lane validation must stay inside the harness repository or the current session project.\n')
   process.exit(2)
 }

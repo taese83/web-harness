@@ -327,3 +327,29 @@ test('세션 프로젝트 경계는 실제 경로로 잰다 — 같은 디렉터
     rmSync(root, {recursive: true, force: true})
   }
 })
+
+// Bash 도구에는 CLAUDE_PROJECT_DIR가 없다 — 플러그인 설치에서 읽기 전용 스캐너가 늘 거부돼 한 번도 돌지 않았다.
+// 같은 경계를 쓰는 스캐너 셋을 함께 고정한다(쓰기·실행 표면인 run-package-operation은 이 규칙을 쓰지 않는다).
+test('CLAUDE_PROJECT_DIR가 없으면 작업 디렉터리가 세션 프로젝트다 — 그 밖은 여전히 밖', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'sharding-cwd-')))
+  const project = join(root, 'project')
+  const outside = join(root, 'outside')
+  mkdirSync(join(project, '_workspace/01_plan'), {recursive: true})
+  mkdirSync(outside, {recursive: true})
+  writeFileSync(join(project, '_workspace/01_plan/requirements.md'), '# 요구사항\n')
+  const {CLAUDE_PROJECT_DIR: _unused, ...env} = process.env
+  const boundary = /must stay inside the harness repository or the current session project/
+  try {
+    for (const name of ['validate-artifact-sharding', 'validate-ui-lane', 'validate-design-tokens']) {
+      const run = cwd => spawnSync(process.execPath, [resolve(import.meta.dirname, `${name}.mjs`), '--project', project, '--json'], {encoding: 'utf8', cwd, env})
+      const inside = run(project)
+      assert.doesNotMatch(inside.stderr, boundary, `${name}: 작업 디렉터리인 프로젝트를 거부했다`)
+      assert.notEqual(inside.status, 2, `${name}: ${inside.stderr}`)
+      const away = run(outside)
+      assert.equal(away.status, 2, `${name}: 작업 디렉터리 밖의 프로젝트를 받았다`)
+      assert.match(away.stderr, boundary)
+    }
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
