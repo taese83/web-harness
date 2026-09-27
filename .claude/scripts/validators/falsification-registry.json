@@ -3755,6 +3755,54 @@
       "why": "명령 집합을 담지 않은 이전 판 승인이 통과하면 결박이 없는 것과 같다"
     },
     {
+      "id": "workflow-acceptance-not-for-release-evidence",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "    acceptFinding: runAll ? null : finding => {",
+      "replace": "    acceptFinding: finding => {",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "기록된 인수가 --all에 적용되면 워크플로 finding을 실은 채 배포 증거가 만들어진다"
+    },
+    {
+      "id": "workflow-acceptance-flag-only-when-absent",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "      if (workflowAcceptance.state === 'none' && workflowAcceptanceRequested) {",
+      "replace": "      if (workflowAcceptanceRequested) {",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "flag가 기존 인수를 덮어쓰면 워크플로를 바꾼 주체가 같은 호출에서 자기 변경을 인수한다"
+    },
+    {
+      "id": "workflow-acceptance-check-only-flag",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (workflowAcceptanceRequested && (allRequested || selectedCheck === null)) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "--all에 인수 flag를 조용히 받으면 배포 증거가 인수 대상처럼 보인다"
+    },
+    {
+      "id": "workflow-acceptance-digest-binding",
+      "file": ".claude/scripts/workflow-security-acceptance.mjs",
+      "find": "    entry.sha256 === sha256 &&",
+      "replace": "    true &&",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "내용 결박이 풀리면 한 번의 인수가 이후 어떤 워크플로 변경이든 덮는다"
+    },
+    {
+      "id": "workflow-acceptance-project-binding",
+      "file": ".claude/scripts/workflow-security-acceptance.mjs",
+      "find": "  if (record.projectRoot !== projectRoot) return {state: 'other-project'}",
+      "replace": "  if (false) return {state: 'other-project'}",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "다른 프로젝트에서 복사한 인수가 효력을 가진다"
+    },
+    {
+      "id": "workflow-acceptance-release-receipt-rejected",
+      "file": ".claude/scripts/receipt-validation-lib.mjs",
+      "find": "  } else if (receipt.workflowSecurityAccepted.length > 0) {",
+      "replace": "  } else if (false) {",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "인수된 finding을 실은 영수증이 배포 증거로 통과하면 finding 0 조건을 잃는다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

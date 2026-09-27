@@ -51,6 +51,12 @@
       "command": "node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution"
     },
     {
+      "id": "subagent-cannot-accept-workflow-findings",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/run-quality-gates.mjs --check typecheck --accept-workflow-findings"
+    },
+    {
       "id": "isolated-quality-check",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

@@ -87,6 +87,7 @@
 | `ALLOWED_PATHS` 밖, 확정 계약과 충돌, 되돌리기 어렵거나 팀 전체 영향 | 같은 문서 |
 | PR 생성 직전 | 같은 문서 |
 | 호스트에서 프로젝트 스크립트 첫 실행, 그리고 승인 뒤 `scripts`가 바뀐 첫 실행 ★ | `host-execution-grant.mjs` |
+| 기존 저장소의 워크플로 보안 finding 인수(개발 게이트 전용) ★ | `workflow-security-acceptance.mjs` |
 
 ## 6. 알림 (막지 않음)
 

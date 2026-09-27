@@ -8,10 +8,10 @@ Phase 3의 늦은 통합 실패를 줄이기 위한 진단 게이트다. release
 - **host 실행 승인은 프로젝트당 한 번이다.** 러너가 생성 프로젝트의 package script를 사용자
   머신에서 실행하므로 처음 한 번은 `--allow-host-execution`으로 승인받는다. 그 승인은
   `_workspace/03_dev/host-execution-grant.json`에 **프로젝트·호스트·승인 당시 package script 결박**으로
-  기록되고, 이후 게이트는 다시 묻지 않는다. 매 게이트·매 재시도마다 묻는 것은 판단이 아니라 의식이며
-  개발 단계 규율("확인 지점은 PR 직전과 스팩 변경뿐")과 정면으로 어긋난다(2026-08-30). 되돌리려면
-  그 파일을 지운다. 승인이 깨졌거나 다른 머신·다른 프로젝트의 것이거나 **승인 뒤 `scripts`가 바뀌었으면
-  다시 묻는다** — 승인한 것은 "이 프로젝트"가 아니라 "이 명령들"이다.
+  기록되고, 이후 게이트는 다시 묻지 않는다(확인 지점은 PR 직전과 스팩 변경뿐). 되돌리려면 그 파일을
+  지운다. 승인이 깨졌거나 다른 머신·다른 프로젝트의 것이거나 **승인 뒤 `scripts`가 바뀌었으면 다시 묻는다** — 승인한 것은 "이 프로젝트"가 아니라 "이 명령들"이다.
+- **기존 저장소 워크플로의 보안 finding으로 `--check`가 막히면** finding을 보이고 사용자 승인 뒤
+  `--accept-workflow-findings`로 재실행한다 — 개발 게이트 전용이고 워크플로 내용에 결박된다(`workflow-security-acceptance.mjs`).
 - **에이전트는** raw package-manager 명령을 사용하지 않는다. 승인된 host에서는 `run-quality-gates.mjs --check {id} --allow-host-execution`, 격리 CI에서는 `WEB_HARNESS_ISOLATED_EXECUTION=1`을 사용한다.
 - **의존성 설치는 팀이 해도 된다.** 브로커(`run-package-operation.mjs`)를 거치지 않고 설치해도
   하네스의 증거는 선다 — 품질 러너의 `dependencyBinding`이 `pnpm-lock.yaml`과

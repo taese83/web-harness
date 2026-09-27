@@ -386,6 +386,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         stdoutTail: '',
         stderrTail: '',
         outputTailPolicy: 'omitted-to-prevent-secret-persistence',
+        workflowSecurityAccepted: [],
         packageScript: packageScriptName ? {
           name: packageScriptName,
           sha256: sha256(packageScriptSource),
@@ -747,6 +748,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         stdoutTail: '',
         stderrTail: '',
         outputTailPolicy: 'omitted-to-prevent-secret-persistence',
+        workflowSecurityAccepted: [],
         packageScript: {
           name: scriptName,
           sha256: sha256(nextPackageScripts[scriptName]),
@@ -926,6 +928,17 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   refreshReleaseReceipts()
   writeReleaseFixtureManifest()
   if (runReleaseGateHook().status !== 0) fail('release hook blocked refreshed source evidence')
+  const acceptedTypecheckPath = join(releaseEvidenceDirectory, 'typecheck.json')
+  const acceptedTypecheck = JSON.parse(readFileSync(acceptedTypecheckPath, 'utf8'))
+  writeFileSync(acceptedTypecheckPath, `${JSON.stringify({
+    ...acceptedTypecheck,
+    workflowSecurityAccepted: [{path: '.github/workflows/ci.yml', code: 'UNPINNED_ACTION', line: 3}],
+  }, null, 2)}\n`)
+  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('accepted workflow security findings'))) {
+    fail('release manifest accepted a receipt carrying accepted workflow security findings')
+  }
+  refreshReleaseReceipts()
+  writeReleaseFixtureManifest()
   
   const releaseDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
   mkdirSync(releaseDesignDirectory, {recursive: true})
@@ -1249,6 +1262,45 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     workflowMismatchRun.status !== 2 ||
     !workflowMismatchRun.stderr.includes('REFRESH_PATH_MANIFEST_MISMATCH')
   ) fail('quality runner did not preflight workflow generated paths before project code execution')
+  // 기존 저장소의 워크플로 finding 인수 — 개발 게이트에서만, 내용 digest에 결박, flag로 덮어쓰기 불가.
+  const acceptanceFile = join(qualityFixtureRoot, '_workspace/03_dev/workflow-security-acceptance.json')
+  const runAcceptance = extraArgs => spawnSync(
+    process.execPath,
+    [qualityRunnerPath, '--project', qualityFixtureRoot, ...extraArgs, '--allow-host-execution'],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        VITE_PUBLIC_FIXTURE: 'visible-by-contract',
+        WEB_HARNESS_TRUSTED_PROMOTION_ACTIONS: JSON.stringify(workflowSecurityFixture.trustedPromotionActions),
+      },
+    },
+  )
+  const releaseAcceptanceRun = runAcceptance(['--all', '--accept-workflow-findings'])
+  if (releaseAcceptanceRun.status !== 2 || !releaseAcceptanceRun.stderr.includes('--check only') || existsSync(acceptanceFile)) {
+    fail('quality runner accepted a workflow finding acceptance request for release evidence (--all)')
+  }
+  const acceptedRun = runAcceptance(['--check', 'typecheck', '--accept-workflow-findings'])
+  const acceptedReceipt = existsSync(typecheckReceiptPath) ? JSON.parse(readFileSync(typecheckReceiptPath, 'utf8')) : null
+  if (
+    acceptedRun.status !== 0 ||
+    !existsSync(acceptanceFile) ||
+    !acceptedReceipt?.workflowSecurityAccepted?.some(finding => finding.code === 'REFRESH_PATH_MANIFEST_MISMATCH')
+  ) fail(`quality runner did not record an explicit workflow finding acceptance on the development gate: ${acceptedRun.stderr}`)
+  if (runAcceptance(['--check', 'typecheck']).status !== 0) fail('quality runner ignored a standing workflow finding acceptance')
+  const releaseWithAcceptanceRun = runAcceptance(['--all'])
+  if (releaseWithAcceptanceRun.status !== 2 || !releaseWithAcceptanceRun.stderr.includes('REFRESH_PATH_MANIFEST_MISMATCH')) {
+    fail('quality runner applied a standing workflow finding acceptance to release evidence (--all)')
+  }
+  const acceptedRecord = readFileSync(acceptanceFile, 'utf8')
+  const refreshWorkflowPath = join(qualityFixtureRoot, '.github/workflows/refresh-data.yml')
+  writeFileSync(refreshWorkflowPath, `${readFileSync(refreshWorkflowPath, 'utf8')}# changed after acceptance\n`)
+  const staleAcceptanceRun = runAcceptance(['--check', 'typecheck', '--accept-workflow-findings'])
+  if (staleAcceptanceRun.status !== 2 || readFileSync(acceptanceFile, 'utf8') !== acceptedRecord) {
+    fail('quality runner let a flag re-accept a workflow changed after its acceptance')
+  }
+  rmSync(acceptanceFile, {force: true})
   rmSync(join(qualityFixtureRoot, '.github'), {recursive: true, force: true})
   const mutatingQualityRun = spawnSync(
     process.execPath,

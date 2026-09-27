@@ -1,6 +1,7 @@
 // workflow-security-lib.mjs — GitHub Actions 워크플로 보안 검사(파서·검사·신뢰 승격 액션 계약).
 // 품질 실행기·영수증 검증(배포본 런타임)과 하네스 검사기(validators/validate-workflows-and-evals)가 함께 쓴다.
 // 런타임 스크립트는 dev 전용 validators/를 부르면 안 된다 — 플러그인 빌드가 그 폴더를 싣지 않아 배포본에서 로드가 실패한다.
+import {createHash} from 'node:crypto'
 import {existsSync, lstatSync, readFileSync, readdirSync, realpathSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
@@ -591,7 +592,9 @@ export const validateWorkflowSecurityFixtures = ({claudeDirectory, pass, fail}) 
   pass(`${fixture.cases.length} workflow security self-fixtures completed`)
 }
 
-export const validateWorkflowSecurityProjects = ({repositoryRoot, manifest, pass, fail}) => {
+// `acceptFinding`(선택): 내용 finding 하나를 받아 true면 fail하지 않는다. 구조 실패(심링크·크기·개수·
+// 읽기 불가)는 인수 대상이 아니다 — 검사하지 못한 파일을 인수하면 무엇을 인수했는지 알 수 없다.
+export const validateWorkflowSecurityProjects = ({repositoryRoot, manifest, pass, fail, acceptFinding = null}) => {
   if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.projects) || manifest.projects.length === 0) {
     fail('workflow security manifest requires schemaVersion 1 and explicit projects[]')
     return
@@ -667,16 +670,17 @@ export const validateWorkflowSecurityProjects = ({repositoryRoot, manifest, pass
         fail(`${workflowPath}: workflow must be a regular file and cannot be a symlink`)
         continue
       }
-      let source
+      let bytes
       try {
         const projectRelativeWorkflowPath = ['.github', 'workflows', entry.name].join('/')
-        source = readProjectRegularFile(projectRoot, projectRelativeWorkflowPath, {maxBytes: MAX_WORKFLOW_BYTES})
-          .toString('utf8')
+        bytes = readProjectRegularFile(projectRoot, projectRelativeWorkflowPath, {maxBytes: MAX_WORKFLOW_BYTES})
       } catch (error) {
         fail(`${workflowPath}: workflow cannot be inspected safely: ${error instanceof Error ? error.message : String(error)}`)
         continue
       }
       inspectedWorkflows += 1
+      const source = bytes.toString('utf8')
+      const sha256 = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
       for (const finding of inspectWorkflowSecurity({
         source,
         workflowPath,
@@ -684,6 +688,7 @@ export const validateWorkflowSecurityProjects = ({repositoryRoot, manifest, pass
         trustedPromotionActions,
       })) {
         const location = finding.line ? `${workflowPath}:${finding.line}` : workflowPath
+        if (acceptFinding?.({workflowPath, sha256, code: finding.code, line: finding.line, message: finding.message}) === true) continue
         fail(`${location}: [${finding.code}] ${finding.message}`)
       }
     }

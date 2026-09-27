@@ -83,6 +83,12 @@ export const readReceipt = (
   }
   if (!/^[0-9a-f-]{36}$/i.test(receipt.qualityCohortId ?? '')) errors.push(`${relativePath}: quality cohort id is missing`)
   if (receipt.runMode !== 'all') errors.push(`${relativePath}: final release evidence must come from one --all run`)
+  // 인수된 워크플로 finding은 개발 게이트 전용이다 — 배포 증거에 실리면 finding 0 조건을 잃는다.
+  if (!Array.isArray(receipt.workflowSecurityAccepted)) {
+    errors.push(`${relativePath}: workflow finding acceptance field is missing — regenerate with --all`)
+  } else if (receipt.workflowSecurityAccepted.length > 0) {
+    errors.push(`${relativePath}: release evidence cannot carry accepted workflow security findings`)
+  }
   if (!/^[0-9a-f]{64}$/.test(receipt.environmentPolicy?.publicEnvironmentSha256 ?? '')) {
     errors.push(`${relativePath}: public build environment digest is missing`)
   }
