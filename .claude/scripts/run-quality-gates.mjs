@@ -47,7 +47,8 @@ import {
   readLockedProjectProfile,
   validateLockedProfileProjectState,
 } from './web-core/profile-policy-lib.mjs'
-import {inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
+import {workspaceMembersDeclaring} from './web-core/profile-lib.mjs'
+import {EXTERNAL_INGESTION_CAPABILITY, inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
 import {validateVercelProjectConfig} from './web-core/vercel-config-lib.mjs'
 import {
   parseTrustedPromotionActions,
@@ -315,6 +316,18 @@ if (existsSync(projectProfilePath)) {
     }
   } catch (error) {
     process.stderr.write(`Invalid locked project profile: ${error instanceof Error ? error.message : String(error)}\n`)
+    // 워크스페이스 루트에서 잠갔는데 패키지가 멤버에만 있으면 이 잠금은 여기서 영영 충족되지 않는다 — 해법을 알린다.
+    const members = error?.code === 'PROJECT_PROFILE_PACKAGE_MISSING'
+      ? workspaceMembersDeclaring(projectRoot, error.details?.missingPackages ?? [])
+      : []
+    if (members.length > 0) {
+      process.stderr.write(
+        `The lock was resolved at the workspace root but ${error.details.missingPackages.join(', ')} are declared in workspace member(s) ` +
+        `${members.join(', ')}. It cannot be satisfied here: remove the stale _workspace/01_plan/project-profile.json ` +
+        '(the runner then uses the base checks; a locked spec lists this file as a lock input and will read as stale) ' +
+        'or run the profile resolution from the app root.\n',
+      )
+    }
     process.exit(2)
   }
 }
@@ -323,12 +336,25 @@ if (ingestionInspection.errors.length) {
   process.stderr.write(`Invalid external ingestion declaration: ${ingestionInspection.errors.join('; ')}\n`)
   process.exit(2)
 }
-if (ingestionInspection.detected && !ingestionInspection.contractsComplete) {
+// 수집 QA는 **감지가 아니라 선언**에 걸린다 — 프로필 해석과 같은 규칙(protected-core §4). 선언 = 잠긴 프로필이
+// external-ingestion을 켰거나 계약 파일이 하나라도 있다. 선언했는데 계약이 모자라면 막는다. 감지만 되고 선언이 없으면
+// 수집 QA는 돌지 않는다(I2 약화 방향, 명시) — 그 사실을 알리고 영수증에 남긴다.
+const ingestionDeclared =
+  lockedProfile?.selection.selectedCapabilities.includes(EXTERNAL_INGESTION_CAPABILITY) === true ||
+  ['_workspace/02_design/ingestion-contract.md', '_workspace/02_design/runtime-data-contract.json']
+    .some(path => existsSync(join(projectRoot, path)))
+if (ingestionDeclared && !ingestionInspection.contractsComplete) {
   process.stderr.write(
-    'External ingestion markers require both _workspace/02_design/ingestion-contract.md and ' +
+    'Declared external ingestion requires both _workspace/02_design/ingestion-contract.md and ' +
     '_workspace/02_design/runtime-data-contract.json.\n',
   )
   process.exit(2)
+}
+if (ingestionInspection.detected && !ingestionDeclared) {
+  process.stderr.write(
+    `External ingestion markers detected but not declared — ingestion QA does not run (${ingestionInspection.evidence.join(', ')}). ` +
+    'If the project ingests external data, declare the external-ingestion capability.\n',
+  )
 }
 let runtimeDataContract = null
 let generatedArtifactPaths = []
@@ -749,6 +775,8 @@ const executeCheck = (id, definition) => {
     cwd: '.',
     // 프로젝트 패키지 설정의 키 분류만 남긴다 — 값·해시·원래 키 이름(사내 호스트)은 싣지 않는다.
     packageConfig: packageConfig.files.map(file => ({kind: file.kind, classes: file.classes})),
+    // 감지됐지만 선언되지 않은 수집은 게이트가 아니라 보고다 — 사라지지 않게 영수증에 남긴다.
+    ingestionReadiness: {detected: ingestionInspection.detected, declared: ingestionDeclared, evidence: ingestionInspection.evidence},
     startedAt,
     durationMs: Math.round(durationMs),
     timeoutMs: definition.timeoutMs,

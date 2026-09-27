@@ -346,6 +346,27 @@ try {
   rmSync(oversizedPackageFixture, {recursive: true, force: true})
 }
 
+// 워크스페이스 루트에서 강제 지정한 프로필의 요구 패키지가 멤버에만 있으면 잘못 잡은 루트다 — 잠그지 않는다.
+// 멤버가 없는 루트(그린필드 — scaffold 전)는 막지 않는다.
+const workspaceRootFixture = mkdtempSync(join(tmpdir(), 'web-harness-workspace-root-'))
+try {
+  mkdirSync(join(workspaceRootFixture, '.git'))
+  writeFileSync(join(workspaceRootFixture, 'package.json'), '{"name":"mono","private":true,"packageManager":"pnpm@10.23.0"}\n')
+  writeFileSync(join(workspaceRootFixture, 'pnpm-workspace.yaml'), "packages:\n  - 'apps/*'\n")
+  mkdirSync(join(workspaceRootFixture, 'apps/web'), {recursive: true})
+  writeFileSync(join(workspaceRootFixture, 'apps/web/package.json'), '{"name":"web","dependencies":{"react":"19.1.1"},"devDependencies":{"vite":"8.0.0"}}\n')
+  let refused = null
+  try { resolveProjectProfile({projectRoot: workspaceRootFixture, requested: 'react-vite-spa'}) } catch (error) { refused = error }
+  check(refused?.code === 'PROFILE_AT_WORKSPACE_ROOT' && refused.details.members.join() === 'apps/web',
+    `a workspace-root lock whose packages live only in a member must be refused: ${refused?.code} ${JSON.stringify(refused?.details)}`)
+  rmSync(join(workspaceRootFixture, 'apps'), {recursive: true, force: true})
+  let greenfield = null
+  try { resolveProjectProfile({projectRoot: workspaceRootFixture, requested: 'react-vite-spa'}) } catch (error) { greenfield = error }
+  check(greenfield?.code !== 'PROFILE_AT_WORKSPACE_ROOT', 'a root without members (pre-scaffold) must not be refused as a misplaced workspace lock')
+} finally {
+  rmSync(workspaceRootFixture, {recursive: true, force: true})
+}
+
 // 소스 스캔은 코드 파일만 읽는다 — 코드가 아닌 파일로 가는 링크(CLAUDE.md → AGENTS.md)로 막지 않되,
 // 코드 확장자·디렉터리·깨진 링크는 내용을 확인할 수 없으므로 계속 fail-closed.
 const symlinkFixture = mkdtempSync(join(tmpdir(), 'web-harness-symlink-scan-'))

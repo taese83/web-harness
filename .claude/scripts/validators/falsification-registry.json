@@ -4657,6 +4657,30 @@
       "replace": "신호 0이면 생략",
       "test": ".claude/scripts/test-contract-load-points.mjs",
       "why": "트리거 리뷰 단계가 카드에서 빠지면 카드만 따르는 라운드에서 위험 변경의 독립 리뷰가 사라진다"
+    },
+    {
+      "id": "runner-ingestion-declared-requires-contracts",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (ingestionDeclared && !ingestionInspection.contractsComplete) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "수집을 선언했는데 계약이 모자라면 막아야 한다 — 선언이 게이트다"
+    },
+    {
+      "id": "runner-ingestion-contract-presence-is-declaration",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "    .some(path => existsSync(join(projectRoot, path)))",
+      "replace": "    .some(() => false)",
+      "test": ".claude/scripts/test-package-config-policy.mjs",
+      "why": "계약 파일을 두는 것 자체가 선언이다 — 빼면 절반만 쓴 계약이 감지 없는 러너를 통과한다"
+    },
+    {
+      "id": "profile-refuses-workspace-root-lock",
+      "file": ".claude/scripts/web-core/profile-lib.mjs",
+      "find": "  if (requested !== 'auto' && !detected && project.workspaceRoot === project.root) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/web-core/test-web-core.mjs",
+      "why": "워크스페이스 루트에서 멤버의 패키지로만 성립하는 프로필을 잠그면 러너가 영영 PROJECT_PROFILE_PACKAGE_MISSING으로 막힌다"
     }
   ]
 }

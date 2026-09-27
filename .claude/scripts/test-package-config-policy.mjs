@@ -137,3 +137,42 @@ test('실제 러너: 실행을 바꾸는 키가 있으면 막고, 키 이름만 
   assert.doesNotMatch(result.stderr, /steal-4471/, '값을 출력했다')
   assert.equal(receipt, null, '거부했는데 영수증을 썼다')
 })
+
+// 수집 QA는 감지가 아니라 선언에 걸린다(프로필 해석과 같은 규칙) — 나가는 호출이 있는 개발 스크립트 하나로 러너 전체를 막지 않는다.
+const runIngestionCase = setup => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-ingestion-run-'))
+  const project = join(root, 'p')
+  try {
+    cpSync(fixture, project, {recursive: true, filter: source => !source.includes('/node_modules')})
+    mkdirSync(join(project, 'scripts'), {recursive: true})
+    writeFileSync(join(project, 'scripts/upload.mjs'), "await fetch('https://cdn.example.test/upload', {method: 'POST'})\n")
+    setup(project)
+    const result = spawnSync(process.execPath, [runner, '--project', project, '--check', 'typecheck'], {
+      encoding: 'utf8', env: {...process.env, WEB_HARNESS_ISOLATED_EXECUTION: '1'},
+    })
+    let receipt = null
+    try { receipt = JSON.parse(readFileSync(join(project, '_workspace/04_qa/evidence/typecheck.json'), 'utf8')) } catch { /* 막히면 없다 */ }
+    return {result, receipt}
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+}
+
+test('실제 러너: 감지만 되고 선언이 없으면 막지 않고 알리며 영수증에 남긴다', () => {
+  const {result, receipt} = runIngestionCase(() => {})
+  assert.doesNotMatch(result.stderr, /requires both/, `감지만으로 러너를 막았다:\n${result.stderr}`)
+  assert.match(result.stderr, /detected but not declared/)
+  assert.ok(receipt, `영수증이 없다:\n${result.stderr}`)
+  assert.equal(receipt.ingestionReadiness.detected, true)
+  assert.equal(receipt.ingestionReadiness.declared, false)
+})
+
+test('실제 러너: 계약을 하나라도 두면 선언이다 — 나머지 계약이 없으면 막는다', () => {
+  const {result, receipt} = runIngestionCase(project => {
+    mkdirSync(join(project, '_workspace/02_design'), {recursive: true})
+    writeFileSync(join(project, '_workspace/02_design/ingestion-contract.md'), '# ingestion\n')
+  })
+  assert.equal(result.status, 2)
+  assert.match(result.stderr, /Declared external ingestion requires both/)
+  assert.equal(receipt, null)
+})

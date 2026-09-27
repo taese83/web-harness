@@ -55,6 +55,30 @@ export const findWorkspaceRoot = start => {
   return null
 }
 
+// 워크스페이스 루트에서 요구 패키지를 모두 선언한 멤버 패키지(상대 경로). pnpm-workspace의 목록 항목 중 `dir`·`dir/*`만
+// 읽는다 — 그 밖의 항목(부정·중첩 glob)은 보지 않는다. 목록 항목이 멤버가 아니면(package.json 없음) 건너뛴다.
+export const workspaceMembersDeclaring = (root, requiredPackages) => {
+  const manifestPath = WORKSPACE_MARKERS.map(marker => join(root, marker)).find(path => existsSync(path))
+  if (!manifestPath || requiredPackages.length === 0) return []
+  const members = new Set()
+  for (const [, glob] of readFileSync(manifestPath, 'utf8').matchAll(/^\s*-\s*['"]?([^'"\s#!][^'"\s#]*)['"]?\s*$/gm)) {
+    const starred = glob.endsWith('/*')
+    const base = starred ? glob.slice(0, -2) : glob
+    if (base.includes('*') || base.includes('..')) continue
+    const candidates = starred
+      ? (existsSync(join(root, base)) ? readdirSync(join(root, base), {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => `${base}/${entry.name}`) : [])
+      : [base]
+    for (const candidate of candidates) {
+      const manifest = join(root, candidate, 'package.json')
+      if (!existsSync(manifest)) continue
+      let names
+      try { names = new Set(packageNames(readJson(manifest))) } catch { continue }
+      if (requiredPackages.every(name => names.has(name))) members.add(candidate)
+    }
+  }
+  return [...members].sort()
+}
+
 const inspectProject = projectRoot => {
   const root = resolve(projectRoot)
   if (!existsSync(root) || !lstatSync(root).isDirectory()) {
@@ -207,6 +231,18 @@ export const resolveProjectProfile = ({
 
   const selectedId = requested === 'auto' ? detected.id : requested
   const adapter = adapterById.get(selectedId)
+  // 워크스페이스 루트에서 강제 지정했는데 요구 패키지가 멤버에만 있으면 잘못 잡은 루트다 — 그대로 잠그면 이 루트에서는
+  // 영영 충족되지 않는 패키지 계약이 된다(러너가 PROJECT_PROFILE_PACKAGE_MISSING으로 막힌다). 앱 패키지를 가리킨다.
+  // 멤버가 없으면(그린필드 — scaffold 전) 막지 않는다.
+  if (requested !== 'auto' && !detected && project.workspaceRoot === project.root) {
+    const missing = adapter.detection.allPackages.filter(name => !project.packages.includes(name))
+    const members = missing.length > 0 ? workspaceMembersDeclaring(project.root, adapter.detection.allPackages) : []
+    if (members.length > 0) {
+      throw new WebCoreError('PROFILE_AT_WORKSPACE_ROOT',
+        `Requested profile ${selectedId} declares its packages in workspace members, not at this workspace root — resolve the profile for the app package`,
+        {missing, members})
+    }
+  }
   const ingestion = inspectExternalIngestion(project.root, {
     includeAncestorRepositories: includeAncestorIngestion,
   })
