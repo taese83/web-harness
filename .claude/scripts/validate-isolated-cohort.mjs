@@ -106,6 +106,10 @@ export const validateIsolatedCohort = ({projectRoot, declaredRevision}) => {
     if (receipt.runMode !== 'all' || !/^[0-9a-f-]{36}$/i.test(receipt.qualityCohortId ?? '')) {
       errors.push(`${relativePath}: final --all cohort binding is missing`)
     }
+    // 인수된 워크플로 finding은 개발 게이트 전용이다 — 서명 전제에도 실리지 못한다.
+    if (!Array.isArray(receipt.workflowSecurityAccepted) || receipt.workflowSecurityAccepted.length > 0) {
+      errors.push(`${relativePath}: isolated cohort cannot carry accepted workflow security findings`)
+    }
     if (id === 'audit') {
       if (receipt.executionMode !== 'pinned-control-plane-argv' || receipt.packageScript !== null) {
         errors.push(`${relativePath}: audit execution binding is invalid`)

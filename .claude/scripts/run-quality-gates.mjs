@@ -148,7 +148,12 @@ if (!externallyIsolated && !hostExecutionApproved && !standing.granted) {
 }
 // 명시 승인으로 들어왔으면 그 사실을 남긴다 — 다음 게이트부터는 묻지 않는다.
 if (!externallyIsolated && hostExecutionApproved && !standing.granted) {
-  recordHostExecutionGrant(projectRoot)
+  try {
+    recordHostExecutionGrant(projectRoot)
+  } catch (error) {
+    process.stderr.write(`host 실행 승인을 기록하지 못했다(${error instanceof Error ? error.message : String(error)}) — 사람이 ${GRANT_RELATIVE}를 확인·삭제한다.\n`)
+    process.exit(2)
+  }
   process.stderr.write(`host 실행 승인을 기록했다 — script가 그대로인 동안은 다시 묻지 않는다(${GRANT_NOTE}).\n`)
 }
 // Toolchain pin preflight (development-gates-contract §toolchain pin): this runner spawns the
@@ -450,7 +455,12 @@ if (!runAll && !checks.has(selectedCheck)) {
 }
 // 인수 기록은 실제로 돌 check가 확정된 뒤에만 남긴다.
 if (pendingWorkflowAcceptance.length) {
-  recordWorkflowSecurityAcceptance(projectRoot, pendingWorkflowAcceptance)
+  try {
+    recordWorkflowSecurityAcceptance(projectRoot, pendingWorkflowAcceptance)
+  } catch (error) {
+    process.stderr.write(`워크플로 finding 인수를 기록하지 못했다(${error instanceof Error ? error.message : String(error)}) — 사람이 ${ACCEPTANCE_RELATIVE}를 확인·삭제한다.\n`)
+    process.exit(2)
+  }
   acceptedWorkflowFindings.push(...pendingWorkflowAcceptance)
   process.stderr.write(`워크플로 finding ${pendingWorkflowAcceptance.length}건 인수를 기록했다 — 개발 게이트에서만 유효하고 워크플로가 바뀌면 무효다(되돌리려면 ${ACCEPTANCE_RELATIVE} 삭제).\n`)
 }

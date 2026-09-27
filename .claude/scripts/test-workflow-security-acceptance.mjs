@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
@@ -18,6 +18,7 @@ import {
 } from './workflow-security-acceptance.mjs'
 import {readReceipt} from './receipt-validation-lib.mjs'
 import {validateWorkflowSecurityProjects} from './workflow-security-lib.mjs'
+import {validateIsolatedCohort} from './validate-isolated-cohort.mjs'
 
 const runner = fileURLToPath(new URL('./run-quality-gates.mjs', import.meta.url))
 const fixture = fileURLToPath(new URL('../../golden/vite-serverless-hybrid', import.meta.url))
@@ -139,4 +140,47 @@ test('구조 실패는 acceptFinding이 모두 받아도 실패로 남는다', (
     assert.deepEqual(failures.map(message => message.split(':')[0]), ['.github/workflows/not-a-file.yml'])
     assert.ok(offered.length > 0 && offered.every(candidate => /^sha256:[0-9a-f]{64}$/.test(candidate.sha256)), '내용 finding에 digest가 없다')
   })
+})
+
+test('인수 파일은 따라 읽지도 따라 쓰지도 않는다 — 심링크·거대 파일은 무효', () => {
+  withProject(root => {
+    withProject(outside => {
+      const target = join(outside, 'acceptance.json')
+      recordWorkflowSecurityAcceptance(root, [finding()])
+      writeFileSync(target, readFileSync(acceptancePath(root)))
+      rmSync(acceptancePath(root))
+      symlinkSync(target, acceptancePath(root))
+      assert.equal(readWorkflowSecurityAcceptance(root).state, 'unreadable')
+      const before = readFileSync(target, 'utf8')
+      assert.throws(() => recordWorkflowSecurityAcceptance(root, [finding({code: 'JOB_TIMEOUT_REQUIRED'})]))
+      assert.equal(readFileSync(target, 'utf8'), before, '인수 기록이 심링크 너머 파일을 덮었다')
+    })
+    rmSync(acceptancePath(root))
+    writeFileSync(acceptancePath(root), `{"pad":"${'x'.repeat(1100 * 1024)}"}`)
+    assert.equal(readWorkflowSecurityAcceptance(root).state, 'unreadable')
+  })
+})
+
+test('격리 cohort(서명 전제)도 인수된 finding을 실은 영수증을 거부한다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-wf-accept-cohort-'))
+  const project = join(root, 'p')
+  try {
+    cpSync(fixture, project, {recursive: true, filter: source => !source.includes('/node_modules')})
+    const evidence = join(project, '_workspace/04_qa/evidence')
+    mkdirSync(evidence, {recursive: true})
+    const cohortErrors = accepted => {
+      writeFileSync(join(evidence, 'typecheck.json'), JSON.stringify({schemaVersion: 2, id: 'typecheck', ...(accepted === undefined ? {} : {workflowSecurityAccepted: accepted})}))
+      try {
+        validateIsolatedCohort({projectRoot: project, declaredRevision: 'a'.repeat(40)})
+        return []
+      } catch (error) {
+        return (error.details?.errors ?? [String(error)]).filter(message => message.includes('accepted workflow security findings'))
+      }
+    }
+    assert.equal(cohortErrors([{path: '.github/workflows/ci.yml', code: 'ACTION_NOT_IMMUTABLE', line: 7}]).length, 1)
+    assert.equal(cohortErrors(undefined).length, 1, '필드를 빼서 인수 사실을 숨길 수 있다')
+    assert.equal(cohortErrors([]).length, 0)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
 })

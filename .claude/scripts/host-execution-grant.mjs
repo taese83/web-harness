@@ -14,14 +14,17 @@
 // 않으면 `test`를 실행해도 된다는 한 번의 "예"가, 나중에 그 `test`가 무엇으로 바뀌든 실행해도
 // 된다는 허가가 된다. 승인은 "이 프로젝트의 코드"가 아니라 **"이 명령들"**에 대한 것이다.
 import {createHash} from 'node:crypto'
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
+import {existsSync, readFileSync} from 'node:fs'
 import {hostname} from 'node:os'
-import {dirname, join} from 'node:path'
+import {join} from 'node:path'
+import {atomicWriteProjectFile, readOptionalProjectRegularFile} from './safe-project-file-lib.mjs'
 
 export const GRANT_RELATIVE = '_workspace/03_dev/host-execution-grant.json'
 export const grantPath = projectRoot => join(projectRoot, GRANT_RELATIVE)
 /** 승인 레코드 형식. 이전 판 승인은 명령 집합을 담지 않으므로 다시 묻는다. */
 export const GRANT_SCHEMA_VERSION = 2
+// 승인 레코드는 몇백 바이트다 — 상한은 심링크·거대 파일로 판정을 흔드는 것을 막는다.
+const GRANT_MAX_BYTES = 64 * 1024
 
 /**
  * 승인이 덮는 **명령 집합**의 digest — `package.json`의 `scripts` 전체.
@@ -49,7 +52,13 @@ export function commandSetDigest(projectRoot, {read = null} = {}) {
  */
 export function evaluateHostExecutionGrant(projectRoot, {read = null, host = hostname(), readPackage = null} = {}) {
   const path = grantPath(projectRoot)
-  const raw = read ? read(path) : (existsSync(path) ? readFileSync(path, 'utf8') : null)
+  let raw
+  try {
+    raw = read ? read(path) : readOptionalProjectRegularFile(projectRoot, GRANT_RELATIVE, {maxBytes: GRANT_MAX_BYTES})?.toString('utf8')
+  } catch {
+    // 심링크·비정규 파일·크기 초과 — 따라가 읽지 않고 거부로 읽는다.
+    return {granted: false, reason: 'grant-unreadable'}
+  }
   if (raw === null || raw === undefined) return {granted: false, reason: 'no-grant'}
   let record
   try {
@@ -79,12 +88,9 @@ export function recordHostExecutionGrant(projectRoot, {host = hostname(), now = 
     grantedAt: now(),
     note: '승인 당시의 package script를 이 머신에서 실행하는 것을 승인했다. script가 바뀌면 다시 묻는다. 되돌리려면 이 파일을 지운다.',
   }
-  const path = grantPath(projectRoot)
   const serialized = `${JSON.stringify(record, null, 2)}\n`
-  if (write) write(path, serialized)
-  else {
-    mkdirSync(dirname(path), {recursive: true})
-    writeFileSync(path, serialized)
-  }
+  // 심링크를 따라 쓰지 않는다(원자적 교체 · O_NOFOLLOW) — 승인 쓰기가 프로젝트 밖 파일을 덮지 못한다.
+  if (write) write(grantPath(projectRoot), serialized)
+  else atomicWriteProjectFile(projectRoot, GRANT_RELATIVE, serialized, {maxBytes: GRANT_MAX_BYTES})
   return record
 }

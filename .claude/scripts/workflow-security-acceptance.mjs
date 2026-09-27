@@ -10,12 +10,13 @@
 // 코드**에 결박한다. 파일이 한 바이트라도 바뀌거나 새 코드가 생기면 인수는 그것을 덮지 않고,
 // flag로 다시 인수할 수도 없다 — 사람이 이 파일을 지운 뒤에만 다시 기록된다(워크플로를 바꾼 주체가
 // 같은 호출에서 자기 변경을 인수하는 폐곡선을 막는다).
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
-import {dirname, join} from 'node:path'
+import {join} from 'node:path'
+import {atomicWriteProjectFile, readOptionalProjectRegularFile} from './safe-project-file-lib.mjs'
 
 export const ACCEPTANCE_RELATIVE = '_workspace/03_dev/workflow-security-acceptance.json'
 export const acceptancePath = projectRoot => join(projectRoot, ACCEPTANCE_RELATIVE)
 export const ACCEPTANCE_SCHEMA_VERSION = 1
+const ACCEPTANCE_MAX_BYTES = 1024 * 1024
 
 /**
  * 현재 인수 상태. 깨진 파일·다른 프로젝트의 파일·다른 형식은 **부재가 아니라 무효**다 —
@@ -23,8 +24,15 @@ export const ACCEPTANCE_SCHEMA_VERSION = 1
  * @returns {{state: 'none'|'valid'|'unreadable'|'other-project'|'schema-outdated', record?: object}}
  */
 export function readWorkflowSecurityAcceptance(projectRoot, {read = null} = {}) {
-  const path = acceptancePath(projectRoot)
-  const raw = read ? read(path) : (existsSync(path) ? readFileSync(path, 'utf8') : null)
+  let raw
+  try {
+    raw = read
+      ? read(acceptancePath(projectRoot))
+      : readOptionalProjectRegularFile(projectRoot, ACCEPTANCE_RELATIVE, {maxBytes: ACCEPTANCE_MAX_BYTES})?.toString('utf8')
+  } catch {
+    // 심링크·비정규 파일·크기 초과 — 따라가 읽지 않고 무효로 읽는다(flag로 덮지도 못한다).
+    return {state: 'unreadable'}
+  }
   if (raw === null || raw === undefined) return {state: 'none'}
   let record
   try {
@@ -64,12 +72,8 @@ export function recordWorkflowSecurityAcceptance(projectRoot, findings, {now = (
       .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)),
     note: '이 워크플로 내용의 보안 finding을 개발 게이트(--check)에서 인수했다. 배포 증거(--all)는 인수하지 않는다. 워크플로가 바뀌면 효력이 없고, 되돌리거나 다시 인수하려면 이 파일을 지운다.',
   }
-  const path = acceptancePath(projectRoot)
   const serialized = `${JSON.stringify(record, null, 2)}\n`
-  if (write) write(path, serialized)
-  else {
-    mkdirSync(dirname(path), {recursive: true})
-    writeFileSync(path, serialized)
-  }
+  if (write) write(acceptancePath(projectRoot), serialized)
+  else atomicWriteProjectFile(projectRoot, ACCEPTANCE_RELATIVE, serialized, {maxBytes: ACCEPTANCE_MAX_BYTES})
   return record
 }

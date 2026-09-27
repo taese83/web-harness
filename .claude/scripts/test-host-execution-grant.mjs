@@ -6,7 +6,7 @@
 // 2026-08-30 사용자 지적). 여기서 고정하는 것: 승인은 기억되고, 그 기억이 **번지지 않는다.**
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {evaluateHostExecutionGrant, grantPath, recordHostExecutionGrant} from './host-execution-grant.mjs'
@@ -154,5 +154,31 @@ test('기록에 언제·어디서 승인했는지 남는다 — 되돌릴 수 �
     assert.equal(record.host, 'box-a')
     assert.equal(record.grantedAt, '2026-08-30T00:00:00.000Z')
     assert.match(readFileSync(grantPath(root), 'utf8'), /지운다/, '되돌리는 법이 파일 안에 있어야 한다')
+  })
+})
+
+// 승인 파일은 따라 읽지도, 따라 쓰지도 않는다 — 심링크로 다른 파일의 내용을 승인으로 읽히거나
+// 승인 기록이 프로젝트 밖 파일을 덮는 경로를 막는다.
+test('심링크 승인은 거부이고, 기록은 심링크를 따라 쓰지 않는다', () => {
+  withProject(root => {
+    writeScripts(root, {test: 'vitest run'})
+    withProject(outside => {
+      const target = join(outside, 'grant.json')
+      writeFileSync(target, JSON.stringify(recordHostExecutionGrant(root, {host: 'box-a'})))
+      rmSync(grantPath(root))
+      symlinkSync(target, grantPath(root))
+      assert.equal(evaluateHostExecutionGrant(root, {host: 'box-a'}).reason, 'grant-unreadable')
+      const before = readFileSync(target, 'utf8')
+      assert.throws(() => recordHostExecutionGrant(root, {host: 'box-a'}))
+      assert.equal(readFileSync(target, 'utf8'), before, '승인 기록이 심링크 너머 파일을 덮었다')
+    })
+  })
+})
+
+test('거대한 승인 파일은 거부다', () => {
+  withProject(root => {
+    mkdirSync(dirname(grantPath(root)), {recursive: true})
+    writeFileSync(grantPath(root), `{"pad":"${'x'.repeat(70 * 1024)}"}`)
+    assert.equal(evaluateHostExecutionGrant(root).reason, 'grant-unreadable')
   })
 })

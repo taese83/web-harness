@@ -48,7 +48,8 @@ const inspectDirectory = (root, segments, {create}) => {
     const candidate = join(directory, segment)
     if (!existsSync(candidate)) {
       if (!create) throw new Error('project file parent directory is missing')
-      mkdirSync(candidate, {mode: 0o700})
+      // 동시 첫 실행이 같은 디렉터리를 만들 수 있다 — 이미 생겼으면 아래 lstat 검사로 판정한다.
+      try { mkdirSync(candidate, {mode: 0o700}) } catch (error) { if (error?.code !== 'EEXIST') throw error }
     }
     const stats = lstatSync(candidate)
     if (stats.isSymbolicLink() || !stats.isDirectory()) {
@@ -143,4 +144,16 @@ export const readProjectRegularFile = (projectPath, relativePath, {maxBytes = 4 
   } finally {
     if (descriptor !== undefined) closeSync(descriptor)
   }
+}
+
+// 없을 수 있는 하네스 기록 파일(승인·인수)을 읽는다 — 부재면 null, 심링크·비정규·크기 초과는 throw.
+export const readOptionalProjectRegularFile = (projectPath, relativePath, options = {}) => {
+  const candidate = join(projectRootPath(projectPath), ...safeSegments(relativePath))
+  try {
+    lstatSync(candidate)
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null
+    throw error
+  }
+  return readProjectRegularFile(projectPath, relativePath, options)
 }

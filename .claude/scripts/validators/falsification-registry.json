@@ -3803,6 +3803,46 @@
       "why": "인수된 finding을 실은 영수증이 배포 증거로 통과하면 finding 0 조건을 잃는다"
     },
     {
+      "id": "host-grant-reader-no-follow",
+      "file": ".claude/scripts/host-execution-grant.mjs",
+      "find": "    raw = read ? read(path) : readOptionalProjectRegularFile(projectRoot, GRANT_RELATIVE, {maxBytes: GRANT_MAX_BYTES})?.toString('utf8')",
+      "replace": "    raw = read ? read(path) : (existsSync(path) ? readFileSync(path, 'utf8') : null)",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "승인 파일을 따라 읽으면 심링크로 다른 파일의 내용이 승인으로 읽힌다"
+    },
+    {
+      "id": "host-grant-size-cap",
+      "file": ".claude/scripts/host-execution-grant.mjs",
+      "find": "const GRANT_MAX_BYTES = 64 * 1024",
+      "replace": "const GRANT_MAX_BYTES = 1e12",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "크기 상한이 없으면 거대 승인 파일이 판정 경로를 흔든다"
+    },
+    {
+      "id": "workflow-acceptance-size-cap",
+      "file": ".claude/scripts/workflow-security-acceptance.mjs",
+      "find": "const ACCEPTANCE_MAX_BYTES = 1024 * 1024",
+      "replace": "const ACCEPTANCE_MAX_BYTES = 1e12",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "크기 상한이 없으면 거대 인수 파일이 무효가 아니라 다른 판정으로 읽힌다"
+    },
+    {
+      "id": "isolated-cohort-rejects-accepted-workflow-findings",
+      "file": ".claude/scripts/validate-isolated-cohort.mjs",
+      "find": "    if (!Array.isArray(receipt.workflowSecurityAccepted) || receipt.workflowSecurityAccepted.length > 0) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-workflow-security-acceptance.mjs",
+      "why": "인수된 워크플로 finding을 실은 영수증이 서명 전제(T1)를 통과한다"
+    },
+    {
+      "id": "project-record-write-no-follow",
+      "file": ".claude/scripts/safe-project-file-lib.mjs",
+      "find": "    throw new Error('project file destination must be a regular non-symlink file')",
+      "replace": "    return",
+      "test": ".claude/scripts/test-host-execution-grant.mjs",
+      "why": "기록 대상이 심링크여도 쓰기를 진행하면 승인·인수 기록이 조용히 링크를 갈아치운다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",
