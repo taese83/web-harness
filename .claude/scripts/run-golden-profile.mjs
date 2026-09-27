@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // run-golden-profile.mjs — 골든 프로필 프로젝트에서 품질 러너를 돌려 T1 격리 cohort 증거를 만든다.
-// 사용법: node .claude/scripts/run-golden-profile.mjs --profile <id> [--check <id>] [--allow-host-execution] [--write-evidence] [--expected-revision <sha>]
+// 사용법: node .claude/scripts/run-golden-profile.mjs --profile <id> [--check <id>] [--allow-host-execution] [--write-evidence] [--verify-t1 --expected-revision <full-sha>]
+//   --verify-t1은 --write-evidence와 40자 --expected-revision을 함께 요구하고 --check와 함께 쓰지 않는다.
 // 종료 코드: 0 = 통과, 비0 = 러너 결과 또는 T1 검증 실패, 2 = 사용법 오류.
 
 import {spawnSync} from 'node:child_process'

@@ -80,13 +80,13 @@ export const LOCK_INPUTS = [
 ]
 
 // 거부마다 무엇을 하면 풀리는지 — 거부를 받은 쪽이 이 스크립트 소스를 읽어 해법을 찾지 않게 한다.
-// 새 거부 코드는 여기에 해법이 없으면 테스트가 실패한다(test-spec-fixes).
+// 새 거부 코드는 여기에 해법이 없으면 테스트가 실패한다(test-refusal-fixes).
 export const LOCK_ERROR_FIXES = Object.freeze({
   ACCEPTANCE_INDEX_MISSING: "spec.mjs를 --project-root와 함께 실행한다(lockSpec이 feature-plan 색인을 공급한다)",
   ACCEPTANCE_REF_NOT_FOUND: "acceptanceRefs의 없는 ID를 feature-plan.md에 추가하거나 블록에서 뺀다(solution-design-contract.md §6)",
   ACCEPTANCE_SOURCE_CONTRADICTS_REFS: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — feature-plan이면 acceptanceRefs에 TC id를, absent면 빈 배열을 적는다(solution-design-contract.md §6)",
   ACCEPTANCE_SOURCE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — acceptanceSource를 feature-plan 또는 absent로 적는다(solution-design-contract.md §6)",
-  ACCEPTANCE_SOURCE_WITHOUT_PLAN: "feature-plan.md를 먼저 만든다(change light면 developer 계획 패스, full이면 feature-planner) — 그 뒤 다시 확정한다",
+  ACCEPTANCE_SOURCE_WITHOUT_PLAN: "feature-plan.md를 먼저 만든다(change light면 developer 계획 패스, full이면 feature-planner). 수용 기준 없이 가기로 했으면 결정 블록의 acceptanceSource를 absent로 적는다(solution-design-contract.md §6) — 그 뒤 다시 확정한다",
   ARCHITECTURE_PATTERN_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.pattern을 적는다(기존 관례면 existing)(solution-design-contract.md §1)",
   ARCHITECTURE_RATIONALE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.rationale을 적는다(solution-design-contract.md §1)",
   CONVENTIONS_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — constitution.conventions를 규약 문서 경로 문자열 배열로 쓴다",
@@ -108,7 +108,7 @@ export const LOCK_ERROR_FIXES = Object.freeze({
   DESIGN_SOURCE_TOKEN_FORMAT_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designSource.tokenFormat을 허용 값 중 하나로 적는다(메시지의 목록)",
   DESIGN_SOURCE_TOKEN_PATH_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 토큰 파일을 쓰는 kind면 tokenPath를 적는다",
   E2E_TEST_LAYER_EMPTY: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — testLayers.e2e를 빈 문자열이 아니라 경로나 `(absent — 이유)`로 적는다(solution-design-contract.md §7 testLayers)",
-  E2E_TEST_LAYER_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 화면이 있는 형태면 testLayers.e2e에 e2e 테스트 경로를 적는다. 도구가 없어 이번에 도입하지 않기로 했으면 그 결정을 SD로 기록하고 기존 러너로 도는 앱 전체 테스트 경로(예: src/e2e)를 적는다 — 브라우저 게이트는 BLOCKED로 남는다(solution-design-contract.md §7 testLayers)",
+  E2E_TEST_LAYER_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 화면이 있는 형태면 testLayers.e2e에 e2e 테스트가 놓일 경로를 적는다(solution-design-contract.md §7 testLayers)",
   E2E_TEST_LAYER_UNDECIDED: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 카탈로그 밖 형태면 testLayers.e2e에 경로를 적거나 `(absent — 이유)`를 적는다(solution-design-contract.md §7 testLayers)",
   LAYER_DEPENDENCIES_INCOMPLETE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 빠진 레이어를 layerDependencies에 추가한다(의존이 없으면 빈 배열)(solution-design-contract.md §7)",
   LAYER_DEPENDENCIES_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — layerDependencies를 {레이어: [허용 레이어]} 객체로 쓴다(solution-design-contract.md §7)",
@@ -753,7 +753,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   } catch (error) {
     const payload = error instanceof LockError
       ? {ok: false, error: {code: error.code, message: error.message, fix: LOCK_ERROR_FIXES[error.code] ?? null, details: error.details}}
-      : {ok: false, error: {code: 'LOCK_FAILED', message: error.message, details: {}}}
+      : {ok: false, error: {code: 'LOCK_FAILED', message: error.message, fix: null, details: {}}}
     // 오류는 stderr로 낸다 — stdout은 "그대로 저장" 관례라 오류 객체가 스팩 확정으로 위장될 수 있다.
     process.stderr.write(`${JSON.stringify(payload, null, 2)}\n`)
     process.exit(1)
