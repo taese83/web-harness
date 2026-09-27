@@ -49,6 +49,7 @@ Use this reference before retrying after Phase 4 QA.
 
 - **구현은 `developer` 1회 스폰이 코드와 그 테스트를 함께 쓴다**(소스·테스트를 스폰으로 나누지 않는다). 메인은 source를 쓰지 않는다 — 고칠 것은 developer 수정 스폰으로 보낸다. developer가 못 채운 것을 메인이 직접 완결하는 폴백(`execution-contract.md` Agent invocation)은 Iterate source에 적용하지 않는다 — 수정 스폰이거나 `BLOCKED`다.
 - 검사는 메인이 `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary`로 돌리고, 통과하지 못하면 `_workspace/04_qa/failure-summary.json`(실패 위치만 — 테스트 이름·파일:줄·규칙 id)을 수정 스폰의 입력으로 준다. 첫 실행은 사용자 승인 뒤 `--allow-host-execution`이다. 영수증 `status: BLOCKED`(스크립트 부재·engine·의존 그래프 등 환경 원인)는 수정 스폰의 입력이 아니다 — 라운드를 `BLOCKED (사유)`로 멈춘다.
+- light 경로에서는 수정도 **구현한 developer를 SendMessage로 이어서** 시킨다(같은 컨텍스트 — 불가하면 새 수정 스폰). 횟수 상한은 같다.
 - **구현 스폰 뒤의 developer 스폰은 종류(수정·이어 쓰기)와 무관하게 게이트 실패·리뷰 finding 합산 라운드당 최대 2회**이고 위 진전 조건을 따른다. 초과하거나 남은 FAIL이 있으면 라운드는 `BLOCKED`다 — 상한을 늘리지 않는다.
 
 ## Hard Stop Conditions

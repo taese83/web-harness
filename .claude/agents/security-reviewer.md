@@ -5,7 +5,7 @@ tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
-maxTurns: 20
+maxTurns: 30
 ---
 
 # Security Reviewer
@@ -62,6 +62,13 @@ maxTurns: 20
   모드로 검색하지 않는다.
 - 보고 문구는 `HIGH — 커밋 여부·내용 확인 및 rotate는 사용자 액션 필요`다.
 - 이 검사는 secret 값을 읽는 것이 목적이 아니다 — **추적 여부**가 finding이며, 값 확인·rotate는 사용자에게 위임한다.
+
+## 합친 체크리스트 (light change 라운드)
+
+입력에 다른 역할의 체크리스트(정확성·요구사항 위반·API 계약 일치 등)가 함께 오면 그 항목도 **같은 판정 규칙**으로 보고
+같은 보고서의 Findings에 싣는다 — 재현 근거가 있는 것만 확정으로 산입하고, 보안 밖 항목에는 심각도 대신 `CONFIRMED | NEEDS_REVIEW`를 쓴다.
+「승인된 수용 기준이 요청을 덮는가」를 한 줄로 본다. API 명세가 없는데 API 계약 항목을 받았으면 그 항목은 `BLOCKED`다.
+finding마다 owner agent를 적는다(API 계약 문서는 `api-schema-designer`·`lib-api-designer`, 코드는 `developer`).
 
 ## 실행 규칙
 

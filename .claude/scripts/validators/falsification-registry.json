@@ -4011,6 +4011,38 @@
       "why": "Write가 막히면 셸 리다이렉트로 승인 기록을 만들어 사람 확인을 우회한다"
     },
     {
+      "id": "developer-plan-pass-blocks-source",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  if (scope?.phase === 'plan' && !DEVELOPER_PLAN_PHASE_OWNERSHIP.some(pattern => pattern.test(ownershipPath))) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "계획 패스의 developer가 승인(✋) 전에 source를 쓴다"
+    },
+    {
+      "id": "developer-plan-pass-owns-plan-docs",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "    ? (scope.phase === 'plan' ? DEVELOPER_PLAN_PHASE_OWNERSHIP :",
+      "replace": "    ? (false ? DEVELOPER_PLAN_PHASE_OWNERSHIP :",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "계획 패스의 developer가 수용 기준 문서를 쓰지 못해 light 경로가 동작하지 않는다"
+    },
+    {
+      "id": "change-scope-phase-parsed",
+      "file": ".claude/scripts/change-scope-lib.mjs",
+      "find": "    if (paths.length > 0) return {paths, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE : null}",
+      "replace": "    if (paths.length > 0) return {paths, phase: null}",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "계획 패스 표지가 읽히지 않아 승인 전 source 차단이 사라진다"
+    },
+    {
+      "id": "change-scope-line-phase-parsed",
+      "file": ".claude/scripts/change-scope-lib.mjs",
+      "find": "phase: phase ? phase.toLowerCase() : null}",
+      "replace": "phase: null}",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "줄 표기 PHASE: plan이 읽히지 않아 계획 패스 차단이 꺼진다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

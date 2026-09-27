@@ -285,3 +285,59 @@ test('레이어 패턴이 앞 세그먼트를 허용해도 의존성 트리·하
     assert.equal(owned.allowed, true, owned.message)
   })
 })
+
+// ── (8) light change 레인의 계획 패스 ─────────────────────────────────────────
+// 계획 패스가 현재 범위인 동안 developer는 수용 기준·API 계약만 쓴다 — 승인(✋) 전 source 변경 0을 훅이 보장한다.
+const planFence = ['# change-scope', '', '```json change-scope',
+  JSON.stringify({PHASE: 'plan', ALLOWED_PATHS: ['_workspace/01_plan/feature-plan.md', '_workspace/02_design/api-schema.md']}), '```', ''].join('\n')
+test('계획 패스: developer는 기획 write-back 세트·API 계약만 쓰고 source는 막힌다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('_workspace/01_plan/feature-plan.md').allowed, true, write('_workspace/01_plan/feature-plan.md').message)
+    for (const path of ['_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md', '_workspace/01_plan/plan-delta/PC-003.json',
+      '_workspace/02_design/api-schema.md', '_workspace/02_design/api-design.md']) {
+      assert.equal(write(path).allowed, true, `${path}: ${write(path).message}`)
+    }
+    const source = write('src/entities/track/model/schema.ts')
+    assert.equal(source.allowed, false)
+    assert.match(source.message, /plan pass/)
+    assert.equal(write('_workspace/01_plan/ux-brief.md').allowed, false, '계획 패스가 write-back 세트 밖 기획 문서까지 쓴다')
+    assert.equal(write('_workspace/02_design/solution-design.md').allowed, false, '계획 패스가 설계 결정 블록을 쓴다')
+  }, {rawScope: planFence})
+})
+
+test('계획 패스: 줄 표기(PHASE: plan)도 같은 차단이다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'src/entities/track/model/schema.ts')})
+    assert.equal(result.allowed, false)
+    assert.match(result.message, /plan pass/)
+  }, {rawScope: '# change-scope\n\nPHASE: plan\nALLOWED_PATHS: _workspace/01_plan/feature-plan.md\n'})
+})
+
+// 메인은 카드·체크포인트에 적힌 그대로 펜스를 쓴다 — 거기 적힌 형태를 파서가 읽지 못하면 차단이 조용히 꺼진다.
+test('카드·체크포인트의 계획 펜스를 파서가 그대로 plan으로 읽는다', async () => {
+  const {readFileSync} = await import('node:fs')
+  const {parseChangeScopeAllowedPaths} = await import('./change-scope-lib.mjs')
+  for (const doc of ['../skills/web-orchestrator/references/iterate-lane-card.md', '../skills/web-orchestrator/references/change-lane-checkpoint.md']) {
+    const source = readFileSync(fileURLToPath(new URL(doc, import.meta.url)), 'utf8')
+    const fence = source.match(/```json change-scope\n[^`]*"PHASE": "plan"[^`]*\n```/)
+    assert.ok(fence, `${doc}에 계획 펜스 원문이 없다`)
+    assert.equal(parseChangeScopeAllowedPaths(fence[0]).phase, 'plan', `${doc}의 계획 펜스가 plan으로 읽히지 않는다`)
+  }
+})
+
+test('계획 패스 뒤 구현 범위를 append하면 source 소유가 돌아오고 계획 문서는 다시 developer 소유가 아니다', () => {
+  const implementation = `${planFence}\n\`\`\`json change-scope\n${JSON.stringify({ALLOWED_PATHS: ['src/entities/track']})}\n\`\`\`\n`
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('src/entities/track/model/schema.ts').allowed, true, write('src/entities/track/model/schema.ts').message)
+    assert.equal(write('_workspace/01_plan/feature-plan.md').allowed, false)
+  }, {rawScope: implementation})
+})
+
+test('계획 패스는 developer에게만 적용된다 — 다른 에이전트의 소유는 그대로다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const result = runHook({cwd: harnessRoot, agentType: 'feature-planner', filePath: join(projectRoot, '_workspace/01_plan/feature-plan.md')})
+    assert.equal(result.allowed, true, result.message)
+  }, {rawScope: planFence})
+})

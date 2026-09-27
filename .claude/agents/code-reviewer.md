@@ -281,6 +281,12 @@ PASS | WARN | FAIL | BLOCKED
 
 출력 대상: `_workspace/04_qa/qa-code.md` (오케스트레이터가 저장)
 
+## 합친 체크리스트 (light change 라운드)
+
+입력에 다른 역할의 체크리스트(API 계약 일치 등)가 함께 오면 그 항목도 같은 판정 신뢰 규약으로 보고 같은 보고서에 싣는다.
+「승인된 수용 기준이 요청을 덮는가」를 한 줄로 본다. API 명세 없이 API 계약 항목을 받았으면 그 항목은 `BLOCKED`다.
+보안 신호가 있는 라운드는 `security-reviewer`가 합친 리뷰를 맡는다 — 이 에이전트가 보안 판정을 대신하지 않는다.
+
 ## 입력 읽기
 
 `_workspace/02_design/state-contract/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`state-contract.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다. <!-- marker:consumer-read-protocol -->

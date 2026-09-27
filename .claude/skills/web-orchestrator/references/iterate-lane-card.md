@@ -9,7 +9,7 @@
 | # | 단계 | 명령·산출 | 정본 |
 |---|---|---|---|
 | 1 | 공급 감지 — 요청에 문서·링크·시안이 붙었을 때만 | `00_source/` 기록 | `provenance-contract.md` §6 |
-| 2 | **`change`만**: ① 기획 개정 → ② 디자인 델타 감지 → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` ①~③ |
+| 2 | **`change`만**: light면 developer 계획 패스 1회(아래 「light」), full이면 ① 기획 개정 → ② 디자인 델타 감지 → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` light·①~③ |
 | 3 | **`change`만**: ④ 스팩 확정 | `node .claude/scripts/spec.mjs --project-root {root}` → stdout을 `_workspace/03_dev/spec.json`에 그대로 저장. `SPEC_NOT_SETTLED`면 그 결정을 ✋에 싣는다 | `change-lane-checkpoint.md` ④ |
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
@@ -18,10 +18,26 @@
 | 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary` (첫 실행은 사용자 명시 승인 뒤 `--allow-host-execution` — 훅이 확인을 띄운다. 사용법 `--help`) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |
 | 8-2 | 위험 트리거 리뷰 — 신호가 있을 때만 새 문맥 리뷰어 역할별 1회, 마지막 수정 뒤 역할별 재확인 1회. 신호 0이면 `review: none-required` | 리뷰어 입력은 라운드 diff·수용 기준·change brief뿐, `CONFIRMED`만 판정 산입, 남은 FAIL은 `BLOCKED` | `qa-evidence-contract.md` Iterate evidence |
-| 9 | 라운드 종료 게이트 3종 | ① `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `_workspace/04_qa/evidence/`가 있으면 `node .claude/scripts/run-quality-gates.mjs --project {root} --all` ③ `DOCS_TO_UPDATE` 개정 완료 | `qa-evidence-contract.md` Iterate evidence |
+| 9 | 라운드 종료 게이트 3종 | ① (light는 위 「light」 4) `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `_workspace/04_qa/evidence/`가 있으면 `node .claude/scripts/run-quality-gates.mjs --project {root} --all` ③ `DOCS_TO_UPDATE` 개정 완료 | `qa-evidence-contract.md` Iterate evidence |
 | 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 3종 상태 | `execution-contract.md` Iterate 6 |
 
 `fix`는 자기검사(`request-type-contract.md` — 하나라도 걸리면 `change`로 승격)를 통과한 뒤 2·3·5를 건너뛰고 유형별 보존 증거를 남긴다.
+
+## light — 기본값(스팩 잠금·solution-design이 있고 제품 의도를 새로 정하지 않을 때)
+
+1. 다음 `PC-NNN`으로 `validate-plan-delta.mjs --project {root} --change PC-NNN --snapshot` → change-scope.md에 아래 펜스를 **그대로**
+   append(info-string `json change-scope`까지 — 다른 표기는 차단이 켜지지 않는다. 계획 패스의 쓰기 소유는 이 ALLOWED_PATHS가 아니라
+   고정 세트다) → developer 계획 패스 스폰(PC 번호를 넘긴다). 첫 기획이라 snapshot이 안정 ID 0을 경고해도 `--allow-no-ids`를
+   쓰지 않는다 — 계획 패스가 ID를 더하면 `--verify`가 선다:
+
+```json change-scope
+{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md", "_workspace/01_plan/requirements.md", "_workspace/01_plan/decision-log.md"]}
+```
+
+2. 반환 뒤 `--verify`. TC는 반환이 준 ID로 `grep -n`한 행을 ✋에 싣는다. `ESCALATE_TO_FULL`이 `none`이 아니면 full. ✋에서 기준이 바뀌면 새 PC 항목이다.
+3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 SendMessage로 이어서** 구현·수정시킨다. 반환한 스폰이 이어지지
+   않거나(세션 종료·비대화 실행 포함) 응답이 없으면 `TaskStop` 뒤 새 스폰에 계획 반환·TC ID를 넘긴다. telemetry `mode: resume`.
+4. 리뷰는 라운드당 **한 스폰** — 규칙은 `qa-evidence-contract.md` Iterate evidence의 light 항목(9 ①도 그것이 채운다).
 
 ## 반환 — 산출물을 다시 읽지 않는다
 
@@ -60,6 +76,7 @@ DOCS_TO_UPDATE: none (대조: …) | 문서 목록
 
 ## 일반화 근거
 
-- **브라운필드 웹 앱의 `change`** — 한 형태·변경 유형 2종(화면 기능, 공통 모듈)에서 오케스트레이터가 계약을 통째로
-  읽고 산출물을 다시 연 것을 관찰했다. 명명 수준 — 카드 적용 뒤 효과는 재측정 전이다.
+- **브라운필드 웹 앱의 `change`** — 화면 기능·공통 모듈 두 변경 유형에서 관찰. light는 평가 사례
+  `change-lane-light-plan-pass`로 고정하고 비용 효과는 재측정 전이다.
+- **라이브러리·CLI의 `change`** — light 계획 패스가 `api-design.md`를 개정한다. 명명 수준 — 평가 사례가 없다.
 - **라이브러리·CLI의 `fix`** — 같은 Iterate 루프에서 2·3·5를 건너뛴다. 명명 수준 — 평가 사례가 없다.

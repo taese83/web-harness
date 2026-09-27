@@ -2,7 +2,7 @@
 
 import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {AGENT_OWNERSHIP, DEVELOPER_AGENT, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
+import {AGENT_OWNERSHIP, DEVELOPER_AGENT, DEVELOPER_PLAN_PHASE_OWNERSHIP, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
 import {harnessAgentName} from './agent-identity.mjs'
 import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
@@ -75,19 +75,19 @@ try {
   // change-scope.md의 ALLOWED_PATHS — 스폰별 범위. 없으면 범위 제한이 없다(소유권만 적용).
   // 해석은 change-scope-lib 하나다 — 개발 착수 점검의 예행도 같은 함수로 읽는다.
   // 펜스 JSON이 깨졌으면 막는다 — 판정할 수 없는 범위를 layerMap 전체로 넓히지 않는다.
-  const readAllowedPaths = root => {
+  const readScope = root => {
     let source
     try {
       source = readFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'utf8')
     } catch {
-      return [] // 파일 부재 = 범위 미발급. 소유권만 적용한다(계약대로)
+      return {paths: [], phase: null} // 파일 부재 = 범위 미발급. 소유권만 적용한다(계약대로)
     }
     const scope = parseChangeScopeAllowedPaths(source)
     if (scope.error) {
       block('Blocked: _workspace/03_dev/change-scope.md의 change-scope 블록이 유효한 JSON이 아니다 '
         + `(${scope.error}). 범위를 판정할 수 없으면 넓히지 않는다 — 블록을 고쳐라.`)
     }
-    return scope.paths
+    return scope
   }
 
   // 프로젝트가 `workspace/<project>/`로 중첩되면 **판정 기준 root가 둘로 갈린다.**
@@ -130,10 +130,17 @@ try {
       + `web-harness:<agent> in the plugin build. A project agent with the same name does not inherit it.`)
   }
   const spec = readSpecLock(ownershipRoot)
+  const scope = agentType === DEVELOPER_AGENT ? readScope(ownershipRoot) : null
   // 개발 에이전트는 layerMap 전체를 소유하고, 스폰 범위(change-scope ALLOWED_PATHS)가 그 위에서
   // 다시 좁힌다 — 병렬 격리가 에이전트 정체성이 아니라 모듈 경계에서 나온다(2026-08-26).
+  // 계획 패스(`PHASE: plan`)가 현재 범위면 source 소유는 없고 계획 문서만 쓴다 — 승인 전 source 변경 0을 훅이 보장한다.
+  if (scope?.phase === 'plan' && !DEVELOPER_PLAN_PHASE_OWNERSHIP.some(pattern => pattern.test(ownershipPath))) {
+    block(`Blocked: ${input.agent_type} is in the plan pass (change-scope PHASE: plan) — it writes only `
+      + 'the plan write-back set (01_plan feature-plan·requirements·decision-log·plan-delta) and the API contract doc. '
+      + 'Source waits for the spec approval (✋) and the implementation scope.')
+  }
   const specPatterns = agentType === DEVELOPER_AGENT
-    ? intersectWithScope(resolveDeveloperOwnership(spec) ?? [], readAllowedPaths(ownershipRoot))
+    ? (scope.phase === 'plan' ? DEVELOPER_PLAN_PHASE_OWNERSHIP : intersectWithScope(resolveDeveloperOwnership(spec) ?? [], scope.paths))
     : resolveSpecOwnership(spec, agentType)
   const allowedPatterns = (specPatterns?.length ? specPatterns : null) ?? AGENT_OWNERSHIP[agentType]
   // developer는 기본 소유권이 **비어 있다** — 스팩의 layerMap이 소유를 공급하는 구조다

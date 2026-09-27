@@ -12,7 +12,9 @@ const asPathList = value => (Array.isArray(value)
   ? value.filter(entry => typeof entry === 'string' && entry.trim())
   : [])
 
-/** @returns {{paths: string[]} | {error: string}} paths가 비었으면 범위 미발급이다. */
+// 펜스의 `"PHASE": "plan"`은 light change 레인의 계획 패스다 — 그 범위가 현재인 동안 developer는 계획 문서만 쓴다
+// (소유권 훅이 source를 막는다). 줄 표기에는 단계가 없다(구현 단계).
+/** @returns {{paths: string[], phase: string|null} | {error: string}} paths가 비었으면 범위 미발급이다. */
 export function parseChangeScopeAllowedPaths(source) {
   const entries = []
   for (const fence of source.matchAll(/```json\s+change-scope\s*\n([\s\S]*?)\n```/g)) {
@@ -23,10 +25,17 @@ export function parseChangeScopeAllowedPaths(source) {
   for (const line of source.matchAll(/^[-*\s]*["*]{0,2}ALLOWED_PATHS["*]{0,2}\s*[:：]\s*(\S.*)$/gmi)) {
     if (!inFence(line.index)) entries.push({index: line.index, line: line[1]})
   }
+  // 줄 표기의 단계(`PHASE: plan`) — 같은 항목에서 ALLOWED_PATHS 줄 **앞**(앞 항목 뒤)에 적힌 것만 그 항목의 단계다.
+  const phaseLines = [...source.matchAll(/^[-*\s]*["*]{0,2}PHASE["*]{0,2}\s*[:：]\s*[`"]?([a-z]+)/gmi)]
+    .filter(line => !inFence(line.index))
+  // 항목 경계는 앞 항목과 그 사이의 마지막 제목(`## …`)이다 — 앞 항목 끝에 붙은 PHASE를 다음 항목이 물려받지 않게.
+  const headings = [...source.matchAll(/^#{1,6}\s/gm)].map(match => match.index)
   entries.sort((left, right) => right.index - left.index)
-  for (const entry of entries) {
+  for (const [position, entry] of entries.entries()) {
     if (entry.line !== undefined) {
-      return {paths: entry.line.split(/[,·]/).map(value => value.replace(/[`"\s]/g, '')).filter(Boolean)}
+      const previous = Math.max(entries[position + 1]?.index ?? -1, ...headings.filter(index => index < entry.index))
+      const phase = phaseLines.filter(line => line.index > previous && line.index < entry.index).at(-1)?.[1] ?? null
+      return {paths: entry.line.split(/[,·]/).map(value => value.replace(/[`"\s]/g, '')).filter(Boolean), phase: phase ? phase.toLowerCase() : null}
     }
     let parsed
     try {
@@ -35,7 +44,7 @@ export function parseChangeScopeAllowedPaths(source) {
       return {error: error instanceof Error ? error.message : String(error)}
     }
     const paths = asPathList(parsed?.ALLOWED_PATHS)
-    if (paths.length > 0) return {paths}
+    if (paths.length > 0) return {paths, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE : null}
   }
-  return {paths: []}
+  return {paths: [], phase: null}
 }

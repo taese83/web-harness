@@ -36,6 +36,21 @@ maxTurns: 45
    `_workspace/01_plan/ux-brief.md`(또는 `ux-brief/`) 「화면별 정보 위계」 표가 정본이다 —
    디자인이 `absent`여도 이 표는 기획 산출물이라 선다.
 
+## 계획 패스 (light change — change-scope `PHASE: plan`)
+
+첫 쓰기 전에 `_workspace/03_dev/change-scope.md`의 마지막 항목(`json change-scope` 펜스 또는 줄 표기)이 `PHASE: plan`인지 확인한다 — 아니면 아무것도
+쓰지 않고 `SPAWN_RESULT: blocked (계획 펜스 없음)`으로 돌려준다. 계획 패스인 동안에는 **source·테스트를 쓰지 않는다**(훅이 막는다).
+코드와 기존 스펙을 읽고 이번 범위만큼 기획 write-back 한 세트를 쓴다(`plan-history-contract.md` §2): `feature-plan.md`의 FEAT/TC 행
+(양식은 `web-plan/references/design-readiness-contract.md` §3-1), `requirements.md` 해당 절, `decision-log.md`의 넘겨받은 `PC-NNN` 항목,
+`plan-delta/PC-NNN.json`의 declared. API 계약이 바뀌면 `02_design/api-schema.md`(라이브러리·CLI는 `api-design.md`)를 개정한다.
+각 TC는 관찰 가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`를 가진다. 반환은 짧게:
+
+- 추가한 TC ID · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`)
+- 열린 질문 최대 3개(선택지·추천) — 요청이 정하지 않은 동작은 가정으로 삼지 말고 여기 올린다
+- `ESCALATE_TO_FULL: none | <사유>` — 새 레이어·라이브러리·형태가 필요하거나 제품 의도 결정이 남으면 사유를 적는다
+
+승인 뒤 같은 대화로 이어서 구현을 받으면 승인된 TC가 기준이다 — 계획 패스에서 쓴 기준을 구현하며 바꾸지 않는다.
+
 ## 규율
 
 - **스팩 밖 결정을 하지 않는다.** 새 라이브러리·새 레이어·형태 변경처럼 스팩을 바꾸거나 더해야

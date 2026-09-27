@@ -30,7 +30,7 @@ append-only. 기존 엔트리의 수정·삭제는 금지이며, 정정도 새 �
 2. `requirements.md` 해당 절 갱신
 3. `decision-log.md`에 엔트리 append
 
-- 갱신 주체는 main thread가 아니라 **기존 owner agent의 경량 재호출**이다: `product-planner`(requirements.md·decision-log.md), `feature-planner`(feature-plan.md). 경량 재호출은 전체 재작성이 아니라 대상 절/행만 수정한다.
+- 갱신 주체는 main thread가 아니라 **기존 owner agent의 경량 재호출**이다: `product-planner`(requirements.md·decision-log.md), `feature-planner`(feature-plan.md). 경량 재호출은 전체 재작성이 아니라 대상 절/행만 수정한다. light change(`change-lane-checkpoint.md`)에서는 developer 계획 패스가 change-scope `PHASE: plan` 아래에서 같은 세트를 쓴다.
 3. 세 가지 중 하나라도 빠지면 그 변경은 미기록 변경이며 code-reviewer/plan-reviewer의 검사 대상이다.
 
 ### 2-1. 경량 재호출의 기계 검증 (OpenSpec delta 착안)

@@ -173,8 +173,13 @@ test('범위 해석: 문서의 마지막 항목이 현재 범위다 — 표기(�
     [`## r1\nALLOWED_PATHS: old.ts\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts']}],
     [`${fence(['a.ts'])}\n\`\`\`json change-scope\n{"NOTE": 1}\n\`\`\``, {paths: ['a.ts']}],
     ['없음', {paths: []}],
+    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md"]}\n\`\`\``, {paths: ['_workspace/01_plan/feature-plan.md'], phase: 'plan'}],
+    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["x.md"]}\n\`\`\`\n## r2\n${fence(['src/a.ts'])}`, {paths: ['src/a.ts']}],
+    ['## r1\nPHASE: plan\nALLOWED_PATHS: x.md', {paths: ['x.md'], phase: 'plan'}],
+    ['## r1\nPHASE: plan\nALLOWED_PATHS: x.md\n## r2\nALLOWED_PATHS: src/a.ts', {paths: ['src/a.ts']}],
+    ['## r1\nALLOWED_PATHS: x.md\nPHASE: plan\n## r2\nALLOWED_PATHS: src/a.ts', {paths: ['src/a.ts']}],
   ]
-  for (const [source, expected] of cases) assert.deepEqual(parseChangeScopeAllowedPaths(source), expected, source)
+  for (const [source, expected] of cases) assert.deepEqual(parseChangeScopeAllowedPaths(source), {phase: null, ...expected}, source)
   assert.ok(parseChangeScopeAllowedPaths('```json change-scope\n{"ALLOWED_PATHS": [\n```').error, '깨진 마지막 펜스를 범위 미발급으로 넓혔다')
 })
 

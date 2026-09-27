@@ -285,6 +285,15 @@ export const resolveDeveloperOwnership = spec => {
 
 // 스폰별 범위 — change-scope의 ALLOWED_PATHS. 소유권과 **교집합**이다. 범위가 소유권을
 // 넓히지 못하고, 소유권이 범위를 넓히지 못한다. 둘 다 통과해야 쓸 수 있다.
+// light change 레인의 계획 패스(change-scope `PHASE: plan`)에서 developer가 쓰는 것은 이번 범위의 기획 write-back 한 세트
+// (feature-plan·requirements·decision-log PC 항목·plan-delta 선언 — plan-history-contract §2)와 API 계약(웹 api-schema,
+// 라이브러리·CLI api-design)뿐이다. source·테스트는 계획 승인(✋) 뒤 구현 범위가 현재가 될 때까지 쓰지 않는다.
+export const DEVELOPER_PLAN_PHASE_OWNERSHIP = [
+  /^_workspace\/01_plan\/(?:feature-plan|requirements|decision-log)\.md$/,
+  /^_workspace\/01_plan\/plan-delta\/PC-\d+\.json$/,
+  /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/,
+]
+
 export const intersectWithScope = (patterns, allowedPaths) => {
   if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return patterns
   const scoped = allowedPaths
