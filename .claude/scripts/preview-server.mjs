@@ -13,6 +13,9 @@ import {createServer} from 'node:http'
 import {existsSync, realpathSync, statSync, createReadStream} from 'node:fs'
 import {extname, join, resolve, sep} from 'node:path'
 import {inspectDesignPreview} from './design-preview-status-lib.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',

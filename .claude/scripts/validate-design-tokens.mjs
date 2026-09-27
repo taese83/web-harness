@@ -17,6 +17,9 @@
 import {existsSync, readFileSync, statSync} from 'node:fs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // 토큰 값이 아직 채워지지 않았음을 나타내는 표기. `unset`은 CSS-wide 키워드라 var()가 참조하면
 // 초기값으로 떨어진다 — "값이 없다"를 문법으로 강제하는 관용구이지 실제 토큰 값이 아니다.

@@ -1,5 +1,12 @@
 #!/usr/bin/env node
+// validate-design-preview.mjs — 디자인 프리뷰가 확정 디자인 문서와 결박돼 있는지·승인이 기록됐는지 검사한다.
+// 사용법: node .claude/scripts/validate-design-preview.mjs --project <root> [--json] [--write-source-snapshot | --record-approval --approval-text <원문>] [--allow-unapproved]
+// 종료 코드: 0 = 통과, 1 = 위반, 2 = 사용법 오류.
+
 import {inspectDesignPreview, recordPreviewApproval, writeSourceSnapshot} from './design-preview-status-lib.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const parseArguments = argv => {
   const values = {project: null, writeSourceSnapshot: false, recordApproval: false, approvalText: null, json: false, allowUnapproved: false}

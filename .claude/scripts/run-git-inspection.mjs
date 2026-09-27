@@ -1,10 +1,16 @@
 #!/usr/bin/env node
+// run-git-inspection.mjs — 읽기 전용 git 조회(서브에이전트용 고정 argv).
+// 사용법: node .claude/scripts/run-git-inspection.mjs --project <directory> --operation <status|diff-stat|diff-names|diff|log|ls-files> [--base <branch>]
+// 종료 코드: git 결과를 그대로 전달, 2 = 사용법 오류.
 
 import {spawnSync} from 'node:child_process'
 import {existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {delimiter, dirname, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const argv = process.argv.slice(2)
 const values = new Map()

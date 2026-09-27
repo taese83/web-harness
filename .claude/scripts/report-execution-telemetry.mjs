@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // report-execution-telemetry.mjs — 실행 telemetry 집계 (advisory, gate 아님).
+// 사용법: node .claude/scripts/report-execution-telemetry.mjs [--project <root>] — 0 = 집계 출력(파일 없음 포함), 1 = telemetry 파싱·형식 오류.
 //
 // execution-budget-contract.md의 telemetry 절이 정의한
 // _workspace/04_qa/execution-telemetry.json 을 run·phase별로 집계해 출력한다.
@@ -7,6 +8,9 @@
 
 import {existsSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
 const projectIndex = args.indexOf('--project')

@@ -1,8 +1,14 @@
 #!/usr/bin/env node
+// validate-release-gate.mjs — HANDOFF 전 release gate: 영수증·QA 보고서·attestation을 대조한다.
+// 사용법: node .claude/scripts/validate-release-gate.mjs [--project <root>] [--write-manifest]
+// 종료 코드: 0 = 통과, 1 = 차단(오류 목록 출력), 2 = --write-manifest의 매니페스트를 안전하게 쓰지 못함.
 
 import {resolve} from 'node:path'
 import {buildReleaseManifest, validateReleaseGate} from './release-gate-lib.mjs'
 import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
 const projectFlagIndex = args.indexOf('--project')

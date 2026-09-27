@@ -18,6 +18,9 @@
 // **없으면 통과가 아니라 실패다.** 도구가 없어 축을 못 돌리는 상태를 green으로 적지 않는다.
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {join, resolve} from 'node:path'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // scaffolder §109. `dev`는 라이브러리·CLI 형태에 없을 수 있어 조건부로 둔다.
 export const REQUIRED_SCRIPTS = ['build', 'lint', 'typecheck', 'test', 'test:coverage', 'test:tc']

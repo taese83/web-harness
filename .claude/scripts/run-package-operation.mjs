@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// run-package-operation.mjs — 의존성 설치 등 패키지 작업을 고정 argv로 대신 실행하는 브로커.
+// 사용법: node .claude/scripts/run-package-operation.mjs --project <directory> --operation <lockfile|install|msw-init|husky-init|git-init>
+// 종료 코드: 작업 결과를 그대로 전달, 2 = 사용법 오류.
 
 import {spawnSync} from 'node:child_process'
 import {inspectLockfileSource} from './lockfile-source-lib.mjs'
@@ -6,6 +9,9 @@ import {accessSync, constants, existsSync, mkdtempSync, readFileSync, realpathSy
 import {tmpdir} from 'node:os'
 import {delimiter, dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
 const projectIndex = args.indexOf('--project')

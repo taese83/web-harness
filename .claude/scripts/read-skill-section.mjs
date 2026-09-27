@@ -1,8 +1,14 @@
 #!/usr/bin/env node
+// read-skill-section.mjs — 스킬 카탈로그 문서에서 필요한 절 하나만 읽는다(전체를 싣지 않는다).
+// 사용법: node .claude/scripts/read-skill-section.mjs --catalog <project-templates|library-setup> (--list | --section <key>)
+// 종료 코드: 0 = 출력, 2 = 사용법 오류·없는 절·카탈로그 매핑 오류.
 
 import {readFileSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 

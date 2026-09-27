@@ -33,6 +33,9 @@ import {planLockLedgerPath, planDigest, readSpecAt, specDigestOf} from './valida
 import {readEvidenceLog} from './evidence-log-lib.mjs'
 import {SCANNABLE, scanSource} from './verify-spawn-completion.mjs'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const SKIP_DIRS = new Set(['node_modules', '.next', '.git', 'dist', 'coverage', '__tests__'])
 

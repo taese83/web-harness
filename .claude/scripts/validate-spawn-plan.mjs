@@ -37,6 +37,9 @@ import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'no
 import {appendEvidenceLine, readEvidenceLog} from './evidence-log-lib.mjs'
 import {dirname, join, normalize, relative, resolve, sep} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // 계획 잠금 원장 경로 — 매니페스트와 같은 디렉터리의 append-only jsonl.
 export const planLockLedgerPath = manifestPath => join(dirname(manifestPath), '.plan-locks.jsonl')

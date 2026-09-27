@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // validate-spec-conformance.mjs
+// 사용법: node .claude/scripts/validate-spec-conformance.mjs --project-root <path> [--json]
 //
 // 2026-08-26 축소: `measured` 대조(libraries·substrate)를 걷어냈다. 빌드가 돌면 vite가 있는
 // 것이고 테스트가 통과하면 그 라이브러리가 있는 것이다 — **실행이 증명하는 것을 정적으로
@@ -36,6 +37,9 @@ import {findWorkspaceRoot} from './web-core/profile-lib.mjs'
 import {COMMON_RECEIPT_ALIASES} from './web-core/profile-policy-lib.mjs'
 import {harnessVersion, inspectSpecLedger, isSpecStale, LockError, readSubstrateDefaults, validateConventions} from './spec.mjs'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
 const EVIDENCE_DIR = '_workspace/04_qa/evidence'

@@ -16,6 +16,9 @@ import {existsSync, readdirSync, readFileSync, realpathSync, statSync} from 'nod
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {RETIRED_AGENTS} from './agent-registry.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const SECTION_MAX_BYTES = 15 * 1024
 const INDEX_MAX_BYTES = 5 * 1024

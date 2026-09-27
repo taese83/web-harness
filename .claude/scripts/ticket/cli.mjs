@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // 팀 워크플로우 — executor CLI. team-flow 스킬이 호출하는 실행부 글루.
+// 사용법: node .claude/scripts/ticket/cli.mjs <claim|pickup|link|board|intake|configure|create|pilot-report> [인자] — 명령별 인자는 team-flow 스킬 문서.
 //
 // 모델은 **WORK 하나**다(FEAT 개발 티켓의 claim·pickup·board·link·bind·adopt는 2026-09-14 제거 —
 // 게이트는 WORK 경로로 이관됐고 대응표는 `references/work-plan-contract.md`에 있다).
@@ -23,6 +24,9 @@ import {createJiraProvider} from './provider-jira-exec.mjs'
 import {requireTicketProvider} from './ticket-provider.mjs'
 import {assertAllowedKeys, buildTicketConfig, evaluateConfigWrite, JIRA_AUTH_ENV, JIRA_QUESTIONS, PROVIDER_QUESTIONS, readTicketConfig, resolveProviderChoice, TICKET_CONFIG_RELATIVE, writeTicketConfig} from './ticket-config.mjs'
 import {parseFeaturePlanUnits} from './plan-units.mjs'
+import {answerHelp} from '../cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 export const CHANGE_SCOPE_RELATIVE = '_workspace/03_dev/change-scope.md'
 export const PLAN_RELATIVE = '_workspace/01_plan/feature-plan.md'

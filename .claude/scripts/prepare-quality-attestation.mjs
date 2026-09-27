@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// prepare-quality-attestation.mjs — 격리 CI의 --all 영수증 묶음으로 품질 attestation 요청서를 만든다(서명은 CI가 한다).
+// 사용법: node .claude/scripts/prepare-quality-attestation.mjs --project <root> --issuer-run-id <id>
+// 출력: stdout JSON. 인자·영수증이 맞지 않으면 오류 JSON과 비0 종료.
 
 import {resolve} from 'node:path'
 import {buildReleaseManifest} from './release-gate-lib.mjs'
@@ -8,6 +11,9 @@ import {
   readQualityAttesterTrustSha256,
 } from './quality-attestation-lib.mjs'
 import {parseArgv, runCli, WebCoreError} from './web-core/core-lib.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 runCli(() => {
   const args = parseArgv(process.argv.slice(2), {

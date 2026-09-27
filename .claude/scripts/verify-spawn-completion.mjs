@@ -25,6 +25,9 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {extname, join, relative, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 export const SCANNABLE = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
 

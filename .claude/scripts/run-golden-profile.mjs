@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// run-golden-profile.mjs — 골든 프로필 프로젝트에서 품질 러너를 돌려 T1 격리 cohort 증거를 만든다.
+// 사용법: node .claude/scripts/run-golden-profile.mjs --profile <id> [--check <id>] [--allow-host-execution] [--write-evidence] [--expected-revision <sha>]
+// 종료 코드: 0 = 통과, 비0 = 러너 결과 또는 T1 검증 실패, 2 = 사용법 오류.
 
 import {spawnSync} from 'node:child_process'
 import {cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync} from 'node:fs'
@@ -7,6 +10,9 @@ import {dirname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
 import {validateIsolatedCohort} from './validate-isolated-cohort.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
 const profileIndex = args.indexOf('--profile')

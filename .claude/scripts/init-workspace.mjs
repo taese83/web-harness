@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // init-workspace.mjs — 하네스 최소 환경을 만든다.
+// 사용법: node .claude/scripts/init-workspace.mjs [--project-root <path>] [--force]
 //
 // 최소 환경은 **디렉토리 + `_workspace/web-harness.md` 하나**다. 기획·디자인 문서 사슬을
 // 미리 만들지 않는다 — 그건 요청이 있을 때 그 요청에 맞춰 생성된다(계약 §0-1).
@@ -15,6 +16,9 @@ import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {basename, join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {syncContracts} from './sync-plugin-contracts.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 export const WORKSPACE_DIRS = ['00_source', '01_plan', '02_design', '03_dev', '04_qa', 'RELEASE']
 export const MARKER = '_workspace/web-harness.md'

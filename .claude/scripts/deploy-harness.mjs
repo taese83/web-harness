@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// deploy-harness.mjs — 하네스 control plane(.claude)을 기존 프로젝트에 배포한다.
+// 사용법: node .claude/scripts/deploy-harness.mjs --target <existing-project-directory>
+// 종료 코드: 0 = 배포 완료, 1 = 원본 control plane 검사 실패, 2 = 사용법·대상 오류(없는 디렉터리·기존 .claude·pin 충돌).
 
 import {
   closeSync,
@@ -21,6 +24,9 @@ import {spawnSync} from 'node:child_process'
 import {randomUUID} from 'node:crypto'
 import {dirname, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
 if (args.length !== 2 || args[0] !== '--target') {

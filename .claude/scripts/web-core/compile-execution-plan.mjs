@@ -1,10 +1,16 @@
 #!/usr/bin/env node
+// compile-execution-plan.mjs — 잠긴 프로젝트 프로필과 adapter로 실행 계획(checks·targets)을 만든다.
+// 사용법: node .claude/scripts/web-core/compile-execution-plan.mjs (--profile <id> | --profile-file <path>) [--target <id> ...]
+// 출력: stdout JSON(그대로 _workspace/03_dev/web-execution-plan.json에 저장). 오류는 JSON과 비0 종료.
 
 import {isAbsolute, relative, resolve, sep} from 'node:path'
 import {loadBuiltinAdapter} from './adapter-lib.mjs'
 import {parseArgv, runCli, WebCoreError} from './core-lib.mjs'
 import {compileCapabilityDag} from './dag-lib.mjs'
 import {adapterCheckBindings, projectProfileSha256, readLockedProjectProfile} from './profile-policy-lib.mjs'
+import {answerHelp} from '../cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 runCli(() => {
   const args = parseArgv(process.argv.slice(2), {

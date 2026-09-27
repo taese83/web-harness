@@ -29,6 +29,9 @@ import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'n
 import {appendEvidenceLine, readEvidenceLog, detectRebind} from './evidence-log-lib.mjs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // before 인벤토리의 digest. 원장과 delta 파일의 대조에 쓴다.
 export const inventoryDigest = ids =>

@@ -23,6 +23,9 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const HANGUL = /[가-힣]/
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'coverage', '00_source'])

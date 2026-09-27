@@ -19,6 +19,7 @@ const withForkedRepo = run => {
   try {
     mkdirSync(join(root, '.claude/scripts'), {recursive: true})
     copyFileSync(RUNNER, join(root, '.claude/scripts/run-git-inspection.mjs'))
+    copyFileSync(join(dirname(RUNNER), 'cli-help-lib.mjs'), join(root, '.claude/scripts/cli-help-lib.mjs'))
     const project = join(root, 'proj')
     mkdirSync(project)
     const git = (...args) => {

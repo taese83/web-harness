@@ -20,6 +20,9 @@ import {execFileSync} from 'node:child_process'
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // ── 최소 semver (dependency-free, 보수적) ─────────────────────────────────
 // 파싱 못 하는 범위는 false-fail 대신 'unknown'을 반환해 SKIP한다(신뢰성 우선).

@@ -34,6 +34,9 @@ import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './va
 import {checkPlanAgainstSpec, readSpecAt, withinScope} from './validate-spawn-plan.mjs'
 import {inspectPlanSpecBinding} from './resume-manifest.mjs'
 import {TICKET_CLOSE_ASSETS, installTicketCloseAssets, planTicketCloseInstall} from './ticket/cli.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const OWNERSHIP_HOOK = fileURLToPath(new URL('./enforce-agent-ownership.mjs', import.meta.url))
 

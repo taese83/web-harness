@@ -21,6 +21,9 @@ import {computeSourceFingerprint} from './evidence-lib.mjs'
 import {resolveReleaseProfile} from './release-profile-lib.mjs'
 import {createReceiptValidationContext, readReceipt} from './receipt-validation-lib.mjs'
 import {VERDICT_REPORT_BY_SCRIPT, recordScriptVerdict} from './verdict-record-lib.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 export const REPORT_RELATIVE = '_workspace/04_qa/qa-test.md'
 export const COVERAGE_WARN_BELOW = 70

@@ -4035,6 +4035,30 @@
       "why": "계획 패스 표지가 읽히지 않아 승인 전 source 차단이 사라진다"
     },
     {
+      "id": "spec-refusal-carries-fix",
+      "file": ".claude/scripts/spec.mjs",
+      "find": "fix: LOCK_ERROR_FIXES[error.code] ?? null, ",
+      "replace": "fixOmitted: null, ",
+      "test": ".claude/scripts/test-refusal-fixes.mjs",
+      "why": "거부 JSON이 해법을 싣지 않아 받는 쪽이 스크립트 소스를 읽는다"
+    },
+    {
+      "id": "help-only-for-main-module",
+      "file": ".claude/scripts/cli-help-lib.mjs",
+      "find": "  if (!invokedDirectly) return\n",
+      "replace": "  void invokedDirectly\n",
+      "test": ".claude/scripts/test-refusal-fixes.mjs",
+      "why": "다른 CLI가 import한 모듈이 그 CLI의 --help를 가로채 엉뚱한 사용법을 내고 끝낸다"
+    },
+    {
+      "id": "init-workspace-help-no-side-effect",
+      "file": ".claude/scripts/init-workspace.mjs",
+      "find": "answerHelp(import.meta.url)",
+      "replace": "void answerHelp",
+      "test": ".claude/scripts/test-refusal-fixes.mjs",
+      "why": "init-workspace --help가 사용법 대신 _workspace를 만든다"
+    },
+    {
       "id": "change-scope-line-phase-parsed",
       "file": ".claude/scripts/change-scope-lib.mjs",
       "find": "phase: phase ? phase.toLowerCase() : null}",

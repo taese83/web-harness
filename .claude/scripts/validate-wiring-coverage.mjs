@@ -24,6 +24,9 @@
 import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative, resolve, sep} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const SCRIPTS = join(ROOT, '.claude/scripts')

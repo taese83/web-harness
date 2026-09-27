@@ -20,6 +20,9 @@ import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {dirname, join, relative, resolve, sep} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {isLayerPathDeclared} from './agent-registry.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const SPEC_LOCK_PATH = '_workspace/03_dev/spec.json'
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/

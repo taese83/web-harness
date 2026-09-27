@@ -22,6 +22,9 @@
 import {existsSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 // 의무 진술 — 이것이 **필요조건**이다. 없으면 라벨일 뿐 요구사항이 아니다.
 // 줄 끝 앵커를 쓰지 않는다 — 실측에서 AC 줄이 `` `[LOCAL_VERIFIABLE]` `` 같은 마커로 끝나

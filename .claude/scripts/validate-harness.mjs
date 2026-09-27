@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// validate-harness.mjs — 하네스 저장소 전체 검사(계약·에이전트·스킬·예산·fixture). CI가 부른다.
+// 사용법: node .claude/scripts/validate-harness.mjs
+// 종료 코드: 0 = 통과, 1 = 오류 있음.
+
 import {spawnSync} from 'node:child_process'
 import {validateGoldenSpecDrift} from './golden-spec-drift-lib.mjs'
 import {validateEntryPoints} from './validators/validate-entry-points.mjs'
@@ -27,6 +31,9 @@ import {detectSourceRepository} from './validators/validate-adapter-hygiene.mjs'
 import {validateAgentReachability} from './validators/agent-reachability.mjs'
 import {agentRuntimeSettingFailures, skillRuntimeSettingFailures} from './validators/validate-agent-runtime-settings.mjs'
 import {RETIRED_AGENTS} from './agent-registry.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const claudeDirectory = resolve(scriptDirectory, '..')
 const repositoryRoot = resolve(claudeDirectory, '..')

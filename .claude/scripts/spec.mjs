@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // spec.mjs — 개발 착수 전 구현 스팩을 확정·확정한다 (Stage 1).
+// 사용법: node .claude/scripts/spec.mjs --project-root <path> > <path>/_workspace/03_dev/spec.json (거부는 stderr JSON: code·fix·details)
 //
 // solution-design.md의 `web-harness:solution-design` 블록을 읽어 검증하고, 그것이 유래한
 // 입력들의 해시를 함께 묶어 spec-lock을 stdout으로 낸다. 오케스트레이터가 stdout을 그대로
@@ -31,6 +32,9 @@ import {harnessVersion} from './harness-version.mjs'
 import {findLayerOverlaps, isLayerPathDeclared} from './agent-registry.mjs'
 import {pathToFileURL} from 'node:url'
 import {readShapeChecks} from './validate-shape-checks.mjs'
+import {answerHelp} from './cli-help-lib.mjs'
+
+answerHelp(import.meta.url)
 
 const BLOCK = /```json\s+web-harness:solution-design\s*\n([\s\S]*?)\n```/g
 
@@ -74,6 +78,59 @@ export const LOCK_INPUTS = [
   '_workspace/02_design/design-system.md',
   '_workspace/02_design/solution-design.md',
 ]
+
+// 거부마다 무엇을 하면 풀리는지 — 거부를 받은 쪽이 이 스크립트 소스를 읽어 해법을 찾지 않게 한다.
+// 새 거부 코드는 여기에 해법이 없으면 테스트가 실패한다(test-spec-fixes).
+export const LOCK_ERROR_FIXES = Object.freeze({
+  ACCEPTANCE_INDEX_MISSING: "spec.mjs를 --project-root와 함께 실행한다(lockSpec이 feature-plan 색인을 공급한다)",
+  ACCEPTANCE_REF_NOT_FOUND: "acceptanceRefs의 없는 ID를 feature-plan.md에 추가하거나 블록에서 뺀다(solution-design-contract.md §6)",
+  ACCEPTANCE_SOURCE_CONTRADICTS_REFS: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — feature-plan이면 acceptanceRefs에 TC id를, absent면 빈 배열을 적는다(solution-design-contract.md §6)",
+  ACCEPTANCE_SOURCE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — acceptanceSource를 feature-plan 또는 absent로 적는다(solution-design-contract.md §6)",
+  ACCEPTANCE_SOURCE_WITHOUT_PLAN: "feature-plan.md를 먼저 만든다(change light면 developer 계획 패스, full이면 feature-planner) — 그 뒤 다시 확정한다",
+  ARCHITECTURE_PATTERN_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.pattern을 적는다(기존 관례면 existing)(solution-design-contract.md §1)",
+  ARCHITECTURE_RATIONALE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.rationale을 적는다(solution-design-contract.md §1)",
+  CONVENTIONS_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — constitution.conventions를 규약 문서 경로 문자열 배열로 쓴다",
+  CONVENTIONS_ROOT_MISSING: "spec.mjs를 --project-root와 함께 실행한다(lockSpec이 루트를 공급한다)",
+  CONVENTION_NOT_FOUND: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — conventions에서 없는 파일을 빼거나 실제 경로로 고친다",
+  DECISION_BLOCK_AMBIGUOUS: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 블록을 하나만 남긴다(solution-design-contract.md §5)",
+  DECISION_BLOCK_INVALID_JSON: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 블록 JSON 문법을 고친다(solution-design-contract.md §5)",
+  DECISION_BLOCK_INVALID_SHAPE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 블록 최상위를 객체로 쓴다(solution-design-contract.md §5)",
+  DECISION_BLOCK_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 문서 끝에 ```json web-harness:solution-design 블록을 넣는다(solution-design-contract.md §5)",
+  DECISION_ID_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 모든 결정에 SD-NNN id를 준다(solution-design-contract.md §5)",
+  DECISION_QUESTION_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 결정마다 question을 적는다(solution-design-contract.md §5)",
+  DESIGN_PREVIEW_INVALID_SHAPE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designPreview를 객체로 쓴다(solution-design-contract.md §5)",
+  DESIGN_PREVIEW_POLICY_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designPreview.policy를 허용 값 중 하나로 적는다(메시지의 목록)",
+  DESIGN_PREVIEW_RATIONALE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — policy=skip에 rationale을 적는다",
+  DESIGN_SOURCE_INVALID_SHAPE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designSource를 객체로 쓴다(solution-design-contract.md §5)",
+  DESIGN_SOURCE_KIND_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designSource.kind를 허용 값 중 하나로 적는다(메시지의 목록)",
+  DESIGN_SOURCE_MODES_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designSource.modes를 배열로 쓴다",
+  DESIGN_SOURCE_MODE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — modes 항목마다 name·selector 문자열을 적는다",
+  DESIGN_SOURCE_TOKEN_FORMAT_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — designSource.tokenFormat을 허용 값 중 하나로 적는다(메시지의 목록)",
+  DESIGN_SOURCE_TOKEN_PATH_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 토큰 파일을 쓰는 kind면 tokenPath를 적는다",
+  E2E_TEST_LAYER_EMPTY: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — testLayers.e2e를 빈 문자열이 아니라 경로나 `(absent — 이유)`로 적는다(solution-design-contract.md §7 testLayers)",
+  E2E_TEST_LAYER_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 화면이 있는 형태면 testLayers.e2e에 e2e 테스트 경로를 적는다. 도구가 없어 이번에 도입하지 않기로 했으면 그 결정을 SD로 기록하고 기존 러너로 도는 앱 전체 테스트 경로(예: src/e2e)를 적는다 — 브라우저 게이트는 BLOCKED로 남는다(solution-design-contract.md §7 testLayers)",
+  E2E_TEST_LAYER_UNDECIDED: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 카탈로그 밖 형태면 testLayers.e2e에 경로를 적거나 `(absent — 이유)`를 적는다(solution-design-contract.md §7 testLayers)",
+  LAYER_DEPENDENCIES_INCOMPLETE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 빠진 레이어를 layerDependencies에 추가한다(의존이 없으면 빈 배열)(solution-design-contract.md §7)",
+  LAYER_DEPENDENCIES_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — layerDependencies를 {레이어: [허용 레이어]} 객체로 쓴다(solution-design-contract.md §7)",
+  LAYER_DEPENDENCIES_UNKNOWN_LAYER: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — layerDependencies에는 layerMap에 있는 레이어 이름만 쓴다(solution-design-contract.md §7)",
+  LAYER_MAP_INVALID_SHAPE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — layerMap을 {레이어: 경로} 객체로 쓴다(solution-design-contract.md §7 layerMap)",
+  LAYER_MAP_OVERLAP: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 겹치는 layerMap 경로를 서로 포함하지 않게 나눈다(solution-design-contract.md §7 layerMap)",
+  LIBRARY_CHOICE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — libraries의 그 역할에 choice를 적는다(없음이 확인됐으면 none)(solution-design-contract.md §1)",
+  LIBRARY_SOURCE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — libraries의 source를 measured|measured-absent|inferred|confirmed|proposed 중 하나로 적는다(solution-design-contract.md §1)",
+  LOCK_INPUT_ESCAPES_ROOT: "확정 입력 경로를 프로젝트 루트 안으로 옮긴다 — 링크·상위 경로를 쓰지 않는다",
+  SOLUTION_DESIGN_MISSING: "system-architect를 스폰해 solution-design.md를 쓴다(브라운필드 첫 작업이면 실측 `measured`) — solution-design-contract.md §0-1",
+  SPEC_NOT_SETTLED: "details의 open 결정을 ✋로 사용자에게 묻고 답을 결정 블록에 기록한다(또는 ASSUMPTION으로 적는다) — 그 뒤 다시 확정한다",
+  SUBSTRATE_DECLARED_WITHOUT_RATIONALE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — declared 항목에 rationale을 적는다(solution-design-contract.md §1)",
+  SUBSTRATE_DEFAULT_MISMATCH: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 기본값과 다른 값은 source를 declared로 바꾸고 rationale을 적는다(solution-design-contract.md §1)",
+  SUBSTRATE_DEFAULT_UNKNOWN_KEY: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — 하네스 기본값에 없는 키는 measured·declared로 적는다(solution-design-contract.md §1)",
+  SUBSTRATE_SOURCE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — source를 default|measured|inferred|declared 중 하나로 적는다(solution-design-contract.md §1)",
+  SUBSTRATE_VALUE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — constitution.substrate의 그 키에 value를 적는다(solution-design-contract.md §1)",
+  TARGET_SHAPES_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — targetShapes에 산출물 형태(web-app·library·cli 등)를 적는다(solution-design-contract.md §1)",
+  TARGET_SHAPE_SINGULAR: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — targetShape를 targetShapes 배열로 바꾼다(solution-design-contract.md §1)",
+  TEST_LAYERS_INVALID_SHAPE: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — testLayers를 {unit, e2e} 객체로 쓴다(solution-design-contract.md §7 testLayers)",
+  TEST_LAYER_UNKNOWN_KEY: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — testLayers에는 unit·e2e만 쓴다(solution-design-contract.md §7 testLayers)",
+  UNIT_TEST_LAYER_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — testLayers.unit에 유닛 테스트가 놓일 경로를 적는다(solution-design-contract.md §7 testLayers)",
+})
 
 export class LockError extends Error {
   constructor(code, message, details = {}) {
@@ -685,7 +742,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   if (!projectRoot) {
     process.stderr.write('사용법: node .claude/scripts/spec.mjs --project-root <path> > <path>/_workspace/03_dev/spec.json\n'
       + '  stdout이 확정된 스팩이다 — 그대로 저장한다. 원장(spec-ledger.jsonl)은 이 스크립트가 append한다.\n'
-      + '  거부되면 stderr JSON의 error.code(예: SPEC_NOT_SETTLED)와 details가 무엇을 먼저 닫을지 말한다.\n')
+      + '  거부되면 stderr JSON의 error.code(예: SPEC_NOT_SETTLED)·fix(무엇을 하면 풀리는지)·details가 무엇을 먼저 닫을지 말한다.\n')
     process.exit(2)
   }
   try {
@@ -695,7 +752,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     process.stdout.write(`${JSON.stringify(spec, null, 2)}\n`)
   } catch (error) {
     const payload = error instanceof LockError
-      ? {ok: false, error: {code: error.code, message: error.message, details: error.details}}
+      ? {ok: false, error: {code: error.code, message: error.message, fix: LOCK_ERROR_FIXES[error.code] ?? null, details: error.details}}
       : {ok: false, error: {code: 'LOCK_FAILED', message: error.message, details: {}}}
     // 오류는 stderr로 낸다 — stdout은 "그대로 저장" 관례라 오류 객체가 스팩 확정으로 위장될 수 있다.
     process.stderr.write(`${JSON.stringify(payload, null, 2)}\n`)
