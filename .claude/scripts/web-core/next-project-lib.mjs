@@ -131,7 +131,7 @@ export const validateNextProject = projectPath => {
     const command = commands.get(binding.commandId)
     const expectedScriptName = command?.args?.[0] === 'run' ? command.args[1] : null
     const packageScriptSource = expectedScriptName ? packageJson.scripts?.[expectedScriptName] : null
-    const packageScriptAnalysis = typeof packageScriptSource === 'string' ? analyzePackageScript(packageScriptSource) : null
+    const packageScriptAnalysis = typeof packageScriptSource === 'string' ? analyzePackageScript(packageScriptSource, {projectRoot}) : null
     const executionTargetBinding = readExecutionTargetBinding({
       projectRoot,
       analysis: packageScriptAnalysis,

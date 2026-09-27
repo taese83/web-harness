@@ -22,7 +22,8 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 
 - build, typecheck, lint, unit, coverage, browser, production audit를 runner가 직접 실행한다.
 - required script 없음과 test file 0개는 `BLOCKED`다.
-- receipt는 실제 command, package script argv digest, cwd, exit, runtime compatibility, output hash, discovered tests, source fingerprint, full effective `node_modules` content·metadata·virtual-store package-link·`.bin` graph와 실제 store binary binding을 기록한다. project workspace symlink는 승인 root와 target-tree digest 계약 전까지 차단한다. package script는 검증된 binary를 argv로 직접 실행하며 secret 영속화를 막기 위해 stdout/stderr tail은 저장하지 않는다.
+- receipt는 실제 command, package script argv digest, cwd, exit, runtime compatibility, output hash, discovered tests, source fingerprint, full effective `node_modules` content·metadata·virtual-store package-link·`.bin` graph와 실제 store binary binding을 기록한다. project workspace symlink는 선언된 워크스페이스 멤버를 정확히 가리킬 때만 받고(따라 들어가지 않는다 — 멤버 내용은 소스 지문이 결박한다) 그 밖은 차단한다. package script는 검증된 binary를 argv로 직접 실행하며 secret 영속화를 막기 위해 stdout/stderr tail은 저장하지 않는다.
+- 모노레포 루트 script의 `pnpm run <script>`·`pnpm --filter <멤버 이름> [run] <script>`는 러너가 정적으로 펼쳐 멤버 디렉터리에서 실행한다 — 펼친 명령도 같은 argv 계약을 통과해야 하고, 그 밖의 pnpm 형태와 pre/post가 있는 대상은 `BLOCKED`다. 영수증 `packageScript.commands`에 실제로 돈 argv·디렉터리를 남기고, host 실행 승인은 멤버 script까지 결박한다. 멤버 `node_modules` 최상위 링크는 lock 해시와 실행 대상 바인딩으로만 결박된다.
 - final release receipt는 하나의 `--all` cohort와 public build-environment digest를 공유하고 24시간을 넘기지 않는다. single-check receipt는 진단용이며 release evidence가 아니다.
 - profile build는 기존 selected artifact를 먼저 제거한 clean build여야 한다. build는 promoted runtime data를 포함한 protected source를 변경할 수 없고 selected deployment artifact만 다시 만들 수 있다. exact protected root를 예외로 선언할 수 없다.
 - 다른 source mutation은 receipt 실패다.

@@ -18,7 +18,7 @@ import {delimiter, dirname, isAbsolute, join, relative, resolve, sep} from 'node
 import {sha256} from './evidence-lib.mjs'
 
 const PACKAGE_EXECUTABLES = new Set([
-  'cypress', 'eslint', 'jest', 'knip', 'next', 'playwright', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
+  'cypress', 'eslint', 'jest', 'knip', 'next', 'playwright', 'stylelint', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
 ])
 const SYSTEM_EXECUTABLES = new Set(['docker', 'node'])
 const SAFE_EXECUTABLES = new Set([...PACKAGE_EXECUTABLES, ...SYSTEM_EXECUTABLES])
@@ -33,7 +33,114 @@ const fileDigestCache = new Map()
 const normalizedExecutable = source => source.replace(/\.(?:cmd|exe)$/i, '').toLowerCase()
 const parseError = error => ({ok: false, error, commands: [], executionCommands: []})
 
-export const analyzePackageScript = source => {
+// ── pnpm 위임 ────────────────────────────────────────────────────────────────
+// 모노레포 루트 script는 멤버에 위임한다(`pnpm --filter <pkg> build`, `pnpm run type-check`). 러너는 pnpm을 실행하지 않고
+// 위임을 정적으로 풀어 "패키지 디렉터리 + 명령"으로 펼친다 — 펼친 명령은 루트 명령과 같은 argv 계약을 통과해야 한다.
+// 형태는 둘뿐이다: `pnpm run <script>`(같은 패키지), `pnpm --filter|-F <정확한 멤버 이름> [run] <script>`. 추가 인자·
+// selector 문법(glob·`...`·경로)·재귀 실행·pre/post 스크립트는 거부한다 — pnpm이 실제로 할 일과 달라질 수 있는 형태다.
+// `run` 없이 쓴 이름이 이 목록에 있으면 pnpm은 script가 아니라 내장 명령(또는 그 별칭)을 돈다 — pnpm 10·11의 명령·별칭
+// 스냅샷이다. 목록에 없는 새 내장 명령은 §4 등록부의 한계이고, `run`을 명시한 위임은 이 목록과 무관하다.
+const PNPM_BUILTIN_COMMANDS = new Set(['add', 'approve-builds', 'audit', 'bin', 'c', 'cache', 'cat-file', 'cat-index', 'catalog',
+  'completion', 'config', 'create', 'dedupe', 'deploy', 'deprecate', 'dist-tag', 'dlx', 'docs', 'doctor', 'env', 'exec', 'fetch',
+  'find-hash', 'help', 'i', 'ignored-builds', 'import', 'info', 'init', 'install', 'install-test', 'it', 'licenses', 'link', 'list', 'ln',
+  'login', 'logout', 'ls', 'm', 'multi', 'outdated', 'owner', 'pack', 'patch', 'patch-commit', 'patch-remove', 'prune', 'publish', 'rb',
+  'rebuild', 'recursive', 'remove', 'repo', 'restart', 'rm', 'root', 'sbom', 'search', 'self-update', 'server', 'setup', 'store', 't', 'tst',
+  'un', 'uninstall', 'unlink', 'unpublish', 'up', 'update', 'upgrade', 'version', 'view', 'whoami', 'why'])
+const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/
+const SCRIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/
+const MAX_DELEGATION_DEPTH = 8
+const MAX_MANIFEST_BYTES = 1024 * 1024
+
+const readManifest = (projectRoot, packageDirectory) => {
+  const path = join(projectRoot, packageDirectory, 'package.json')
+  const stats = lstatSync(path)
+  if (!stats.isFile() || stats.isSymbolicLink()) throw new Error(`package manifest must be a regular file: ${packageDirectory}/package.json`)
+  if (stats.size > MAX_MANIFEST_BYTES) throw new Error(`package manifest is too large: ${packageDirectory}/package.json`)
+  return JSON.parse(readFileSync(path, 'utf8'))
+}
+
+/**
+ * 프로젝트 루트의 pnpm-workspace.yaml이 선언한 멤버(`dir`·`dir/*` 항목만). 멤버는 심링크가 아닌 디렉터리와 정규 package.json을
+ * 가져야 하고, 이름이 겹치면 거부한다(위임 대상이 모호하다).
+ * @returns {Array<{directory: string, name: string|null}>}
+ */
+export const listWorkspaceMembers = projectRoot => {
+  const manifestPath = join(projectRoot, 'pnpm-workspace.yaml')
+  if (!existsSync(manifestPath) || !lstatSync(manifestPath).isFile()) return []
+  const directories = new Set()
+  // 최상위 `packages:` 블록의 목록 항목만 읽는다 — 다른 키(onlyBuiltDependencies 등)의 항목은 멤버가 아니다.
+  const lines = readFileSync(manifestPath, 'utf8').split(/\r?\n/)
+  const start = lines.findIndex(line => /^packages\s*:\s*(?:#.*)?$/.test(line))
+  const block = []
+  for (const line of start < 0 ? [] : lines.slice(start + 1)) {
+    if (/^\S/.test(line) && !line.startsWith('#')) break
+    block.push(line)
+  }
+  for (const [, glob] of block.join('\n').matchAll(/^\s*-\s*['"]?([^'"\s#!][^'"\s#]*)['"]?\s*$/gm)) {
+    const starred = glob.endsWith('/*')
+    const base = glob.replace(/\/\*$/, '').replace(/^\.\//, '')
+    if (base.includes('*') || base.split('/').some(segment => segment === '..' || segment === '')) continue
+    // 보호 경로(하네스 기록·제어면·VCS·설치 트리)는 멤버가 될 수 없다.
+    if (['.git', '.claude', '_workspace', 'node_modules'].includes(base.split('/')[0])) continue
+    const baseStats = existsSync(join(projectRoot, base)) ? lstatSync(join(projectRoot, base)) : null
+    if (!baseStats?.isDirectory() || baseStats.isSymbolicLink()) continue
+    const candidates = starred
+      ? readdirSync(join(projectRoot, base), {withFileTypes: true}).filter(entry => entry.isDirectory() && !entry.isSymbolicLink()).map(entry => `${base}/${entry.name}`)
+      : [base]
+    for (const candidate of candidates) {
+      const manifest = join(projectRoot, candidate, 'package.json')
+      if (existsSync(manifest) && lstatSync(manifest).isFile()) directories.add(candidate)
+    }
+  }
+  const members = [...directories].sort().map(directory => {
+    const name = readManifest(projectRoot, directory).name
+    return {directory, name: typeof name === 'string' ? name : null}
+  })
+  const names = members.map(member => member.name).filter(Boolean)
+  if (new Set(names).size !== names.length) throw new Error('workspace members declare duplicate package names')
+  return members
+}
+
+const resolvePnpmDelegation = (args, context) => {
+  let selector = null
+  let rest = args
+  if (rest[0] === '--filter' || rest[0] === '-F') {
+    selector = rest[1] ?? ''
+    rest = rest.slice(2)
+  } else if (rest[0]?.startsWith('--filter=')) {
+    selector = rest[0].slice('--filter='.length)
+    rest = rest.slice(1)
+  }
+  const explicitRun = rest[0] === 'run'
+  if (explicitRun) rest = rest.slice(1)
+  else if (selector === null) throw new Error('pnpm delegation must be `pnpm run <script>` or `pnpm --filter <package> [run] <script>`')
+  if (rest.length !== 1 || !SCRIPT_NAME.test(rest[0])) throw new Error('pnpm delegation takes exactly one script name and no other arguments')
+  const script = rest[0]
+  if (!explicitRun && PNPM_BUILTIN_COMMANDS.has(script)) throw new Error(`pnpm shorthand names a pnpm command, not a script: ${script}`)
+  let packageDirectory = context.packageDirectory
+  if (selector !== null) {
+    if (!PACKAGE_NAME.test(selector)) throw new Error(`pnpm --filter must name exactly one workspace package: ${selector}`)
+    const member = listWorkspaceMembers(context.projectRoot).find(candidate => candidate.name === selector)
+    if (!member) throw new Error(`pnpm --filter target is not a workspace member: ${selector}`)
+    packageDirectory = member.directory
+  }
+  const key = `${packageDirectory}#${script}`
+  if (context.stack.includes(key)) throw new Error(`pnpm delegation cycle: ${[...context.stack, key].join(' -> ')}`)
+  if (context.stack.length >= MAX_DELEGATION_DEPTH) throw new Error('pnpm delegation is nested too deeply')
+  const scripts = readManifest(context.projectRoot, packageDirectory).scripts ?? {}
+  const source = scripts[script]
+  if (typeof source !== 'string') throw new Error(`pnpm delegation target script is missing: ${packageDirectory}#${script}`)
+  if (typeof scripts[`pre${script}`] === 'string' || typeof scripts[`post${script}`] === 'string') {
+    throw new Error(`pnpm delegation target has pre/post lifecycle scripts the runner would not replay: ${packageDirectory}#${script}`)
+  }
+  return analyzePackageScript(source, {...context, packageDirectory, stack: [...context.stack, key]})
+}
+
+/**
+ * package script를 argv 명령 목록으로 분석한다. `context.projectRoot`를 주면 pnpm 위임을 풀어 펼친다 — 주지 않으면
+ * pnpm은 허용 실행 파일이 아니다. 멤버에서 실행될 명령은 `cwd`(프로젝트 기준 상대 경로)를 가진다.
+ */
+export const analyzePackageScript = (source, context = null) => {
   if (typeof source !== 'string' || source.trim() === '') return parseError('package script is empty')
   const commandTokens = []
   let tokens = []
@@ -127,12 +234,27 @@ export const analyzePackageScript = source => {
     }
     if (executableIndex >= segment.length) return parseError('environment assignments must be followed by an executable')
     const executable = normalizedExecutable(segment[executableIndex])
+    const args = segment.slice(executableIndex + 1)
+    if (executable === 'pnpm' && context?.projectRoot) {
+      if (assignments.length > 0) return parseError('environment assignments cannot prefix a pnpm delegation')
+      let delegated
+      try {
+        delegated = resolvePnpmDelegation(args, {packageDirectory: '.', stack: [], ...context})
+      } catch (error) {
+        return parseError(error instanceof Error ? error.message : String(error))
+      }
+      if (!delegated.ok) return delegated
+      commands.push(...delegated.commands)
+      executionCommands.push(...delegated.executionCommands)
+      continue
+    }
     if (!SIMPLE_EXECUTABLE.test(executable) || !SAFE_EXECUTABLES.has(executable)) {
       return parseError(`package script executable is not allowed: ${segment[executableIndex]}`)
     }
-    const args = segment.slice(executableIndex + 1)
-    commands.push({executable, args, assignments})
-    executionCommands.push({executable, args, assignments: executionAssignments})
+    // 루트 명령은 cwd를 싣지 않는다 — 위임이 없는 script의 명령 계약 digest는 그대로다.
+    const cwd = context?.packageDirectory && context.packageDirectory !== '.' ? {cwd: context.packageDirectory} : {}
+    commands.push({executable, args, assignments, ...cwd})
+    executionCommands.push({executable, args, assignments: executionAssignments, ...cwd})
   }
   return {ok: true, error: null, commands, executionCommands}
 }
@@ -141,6 +263,10 @@ const hasAny = (args, denied) => args.some(argument => denied.has(argument))
 const turboTask = args => args[0] === 'run' ? args[1] : args[0]
 const isTsc = command => command.executable === 'tsc' && !hasAny(command.args, new Set(['--help', '-h', '--init', '--showConfig', '--version', '-v']))
 const isEslint = command => command.executable === 'eslint' &&
+  command.args.some(argument => !argument.startsWith('-')) &&
+  !hasAny(command.args, new Set(['--help', '-h', '--print-config', '--version', '-v']))
+// stylelint는 eslint와 같은 등급이다(설정이 플러그인 코드를 불러온다) — lint에서 eslint 곁에서만 의미 있는 검사로 센다.
+const isStylelint = command => command.executable === 'stylelint' &&
   command.args.some(argument => !argument.startsWith('-')) &&
   !hasAny(command.args, new Set(['--help', '-h', '--print-config', '--version', '-v']))
 const isUnit = command =>
@@ -167,7 +293,8 @@ export const hasMeaningfulProfileScript = (id, definition, source, suppliedAnaly
   if (!analysis.ok) return false
   const {commands} = analysis
   if (id === 'quality.lint') {
-    return allCommandsMatch(commands, command => isEslint(command) || (command.executable === 'turbo' && turboTask(command.args) === 'lint'))
+    const isEslintLint = command => isEslint(command) || (command.executable === 'turbo' && turboTask(command.args) === 'lint')
+    return commands.some(isEslintLint) && allCommandsMatch(commands, command => isEslintLint(command) || isStylelint(command))
   }
   if (id === 'quality.typecheck') {
     return allCommandsMatch(commands, command => isTsc(command) || (command.executable === 'turbo' && turboTask(command.args) === 'typecheck'))
@@ -271,9 +398,12 @@ const protectedDependencyTarget = (projectRoot, target) => {
     ].includes(segment))
 }
 
-const installedPackageGraph = projectRoot => {
+// `storeRoot`를 주면 워크스페이스 멤버의 node_modules를 읽는다 — 멤버의 최상위 링크는 루트 가상 저장소를 가리키고,
+// 저장소 밖 워크스페이스 안을 가리키는 링크(멤버끼리의 workspace: 의존)는 실행 파일 공급자로 보지 않고 건너뛴다.
+const installedPackageGraph = (projectRoot, {storeRoot = null} = {}) => {
   const dependencyRoot = join(projectRoot, 'node_modules')
-  const virtualStoreRoot = join(dependencyRoot, '.pnpm')
+  const virtualStoreRoot = storeRoot ?? join(dependencyRoot, '.pnpm')
+  const workspaceRoot = storeRoot ? dirname(dirname(storeRoot)) : null
   if (!existsSync(dependencyRoot) || !existsSync(virtualStoreRoot)) return null
   if (!lstatSync(dependencyRoot).isDirectory() || lstatSync(dependencyRoot).isSymbolicLink()) {
     throw new Error('node_modules must be a real directory')
@@ -347,6 +477,8 @@ const installedPackageGraph = projectRoot => {
     if (!stats.isSymbolicLink()) throw new Error(`top-level installed package must be a pnpm virtual-store symlink: ${name}`)
     const rawTarget = readlinkSync(linkPath)
     const resolvedTarget = realpathSync(linkPath)
+    if (workspaceRoot && !within(virtualStoreRoot, resolvedTarget) && within(workspaceRoot, resolvedTarget) &&
+      !within(dependencyRoot, resolvedTarget)) return
     const targetClass = within(virtualStoreRoot, resolvedTarget) ? 'virtual-store' : null
     if (!targetClass) throw new Error(`top-level installed package must target the pnpm virtual-store graph: ${name}`)
     const {manifest, source: manifestSource} = readPackageManifest(name, resolvedTarget)
@@ -481,6 +613,9 @@ const dependencyInventory = projectRoot => {
   const graph = installedPackageGraph(projectRoot)
   if (!graph) return null
   const {dependencyRoot, packages, binEntries} = graph
+  // pnpm 워크스페이스는 멤버를 가상 저장소에 링크한다(`.pnpm/node_modules/<멤버>` → 멤버 디렉터리). 선언된 멤버를 정확히
+  // 가리키는 링크만 받고 따라 들어가지 않는다 — 멤버 내용은 소스 지문의 몫이다.
+  const workspaceMemberRoots = new Set(listWorkspaceMembers(projectRoot).map(member => realpathSync(join(projectRoot, member.directory))))
   const content = createHash('sha256')
   const metadata = createHash('sha256')
   const pending = [dependencyRoot]
@@ -514,7 +649,9 @@ const dependencyInventory = projectRoot => {
         const linkTarget = readlinkSync(absolute)
         const resolvedTarget = realpathSync(absolute)
         if (!within(dependencyRoot, resolvedTarget)) {
-          throw new Error(`installed dependency symlink escapes node_modules: ${path}`)
+          if (!workspaceMemberRoots.has(resolvedTarget)) throw new Error(`installed dependency symlink escapes node_modules: ${path}`)
+          updateDigest(content, [path, 'workspace-link', linkTarget, relative(projectRoot, resolvedTarget)])
+          continue
         }
         if (protectedDependencyTarget(projectRoot, resolvedTarget)) {
           throw new Error(`installed dependency symlink targets a protected project path: ${path}`)
@@ -661,10 +798,7 @@ export const readExecutionTargetBinding = ({projectRoot, analysis, pnpmExecutabl
     else if (command.executable === 'docker') addTarget('docker', findOnPath('docker', searchPath), 'system')
     else {
       try {
-        const graph = installedPackageGraph(projectRoot)
-        const owner = graph?.binaryOwners.get(command.executable)
-        if (!owner) throw new Error(`package binary is not linked to a top-level installed package: ${command.executable}`)
-        addTarget(command.executable, owner.path, 'package')
+        addTarget(command.executable, resolvePackageExecutionTarget(projectRoot, command.executable, command.cwd), 'package')
       } catch (error) {
         errors.push(error instanceof Error ? error.message : String(error))
       }
@@ -679,9 +813,12 @@ export const readExecutionTargetBinding = ({projectRoot, analysis, pnpmExecutabl
   }
 }
 
-export const resolvePackageExecutionTarget = (projectRoot, executable) => {
-  const graph = installedPackageGraph(projectRoot)
-  const owner = graph?.binaryOwners.get(executable)
+// 멤버 명령은 pnpm run과 같은 순서로 찾는다 — 멤버 node_modules/.bin, 그다음 워크스페이스 루트.
+export const resolvePackageExecutionTarget = (projectRoot, executable, cwd = undefined) => {
+  const memberOwner = cwd && cwd !== '.'
+    ? installedPackageGraph(join(projectRoot, cwd), {storeRoot: join(projectRoot, 'node_modules', '.pnpm')})?.binaryOwners.get(executable)
+    : null
+  const owner = memberOwner ?? installedPackageGraph(projectRoot)?.binaryOwners.get(executable)
   if (!owner) throw new Error(`package binary is not linked to a top-level installed package: ${executable}`)
   return owner.path
 }

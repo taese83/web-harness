@@ -113,7 +113,7 @@ export const readReceipt = (
 
   const packageScriptName = receipt.packageScript?.name
   const packageScriptSource = typeof packageScriptName === 'string' ? packageMetadata?.scripts?.[packageScriptName] : null
-  const packageScriptAnalysis = typeof packageScriptSource === 'string' ? analyzePackageScript(packageScriptSource) : null
+  const packageScriptAnalysis = typeof packageScriptSource === 'string' ? analyzePackageScript(packageScriptSource, {projectRoot}) : null
   if (checkId !== 'audit') {
     if (
       !packageScriptAnalysis?.ok ||

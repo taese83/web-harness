@@ -117,7 +117,7 @@ export const validateIsolatedCohort = ({projectRoot, declaredRevision}) => {
     } else {
       const scriptName = receipt.packageScript?.name
       const scriptSource = typeof scriptName === 'string' ? packageJson.scripts?.[scriptName] : null
-      const analysis = typeof scriptSource === 'string' ? analyzePackageScript(scriptSource) : null
+      const analysis = typeof scriptSource === 'string' ? analyzePackageScript(scriptSource, {projectRoot}) : null
       if (
         receipt.executionMode !== 'verified-package-argv' ||
         !analysis?.ok ||

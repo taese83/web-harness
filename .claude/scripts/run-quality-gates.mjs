@@ -526,7 +526,7 @@ const executeVerifiedPackageScript = ({analysis, timeoutMs}) => {
       executable = 'docker'
       args = command.args
     } else {
-      const packageTarget = resolvePackageExecutionTarget(projectRoot, command.executable)
+      const packageTarget = resolvePackageExecutionTarget(projectRoot, command.executable, command.cwd)
       const descriptor = openSync(packageTarget, 'r')
       const headerBuffer = Buffer.alloc(256)
       let header
@@ -540,7 +540,8 @@ const executeVerifiedPackageScript = ({analysis, timeoutMs}) => {
       args = nodeEntrypoint ? [packageTarget, ...command.args] : command.args
     }
     const result = spawnSync(executable, args, {
-      cwd: projectRoot,
+      // 위임된 멤버 명령은 pnpm run처럼 그 멤버 디렉터리에서 돈다.
+      cwd: command.cwd ? join(projectRoot, command.cwd) : projectRoot,
       encoding: 'utf8',
       env: {
         ...commandEnvironment,
@@ -653,7 +654,7 @@ const executeCheck = (id, definition) => {
   const command = definition.command ?? (selectedScript ? ['pnpm', selectedScript] : ['pnpm', definition.scripts?.[0] ?? id])
   const packageScriptName = definition.requiredScript ?? selectedScript ?? null
   const packageScriptSource = packageScriptName ? packageJson.scripts?.[packageScriptName] ?? null : null
-  const packageScriptAnalysis = packageScriptSource ? analyzePackageScript(packageScriptSource) : null
+  const packageScriptAnalysis = packageScriptSource ? analyzePackageScript(packageScriptSource, {projectRoot}) : null
   const requiresExternallyIsolatedDocker = packageScriptAnalysis?.commands?.some(command => command.executable === 'docker') === true
   const dependencyBindingBefore = readDependencyBinding(projectRoot, packageJson)
   const dependencyDriftBeforeCheck = JSON.stringify(dependencyBindingBefore) !== JSON.stringify(dependencyBindingAtStart)
@@ -822,6 +823,8 @@ const executeCheck = (id, definition) => {
       // 필수 스크립트가 없으면 BLOCKED 영수증을 쓴다 — 없는 원문을 해시하다 --all 전체가 죽지 않게.
       sha256: packageScriptSource === null ? null : sha256(packageScriptSource),
       commandContractSha256: packageScriptAnalysis?.ok ? sha256(JSON.stringify(packageScriptAnalysis.commands)) : null,
+      // 실제로 돈 argv와 디렉터리 — pnpm 위임이면 script 원문(`pnpm --filter …`)과 다르다.
+      ...(packageScriptAnalysis?.ok ? {commands: packageScriptAnalysis.commands.map(({executable, args, cwd}) => ({executable, args, cwd: cwd ?? '.'}))} : {}),
     } : null,
     cwd: '.',
     // 프로젝트 패키지 설정의 키 분류만 남긴다 — 값·해시·원래 키 이름(사내 호스트)은 싣지 않는다.

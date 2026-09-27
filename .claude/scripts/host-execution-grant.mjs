@@ -17,18 +17,19 @@ import {createHash} from 'node:crypto'
 import {existsSync, readFileSync} from 'node:fs'
 import {hostname} from 'node:os'
 import {join} from 'node:path'
+import {listWorkspaceMembers} from './quality-policy-lib.mjs'
 import {atomicWriteProjectFile, readOptionalProjectRegularFile} from './safe-project-file-lib.mjs'
 
 export const GRANT_RELATIVE = '_workspace/03_dev/host-execution-grant.json'
 export const grantPath = projectRoot => join(projectRoot, GRANT_RELATIVE)
-/** 승인 레코드 형식. 이전 판 승인은 명령 집합을 담지 않으므로 다시 묻는다. */
-export const GRANT_SCHEMA_VERSION = 2
+/** 승인 레코드 형식. 이전 판 승인은 이 판의 명령 집합(워크스페이스 멤버 script 포함)을 담지 않으므로 다시 묻는다. */
+export const GRANT_SCHEMA_VERSION = 3
 // 승인 레코드는 몇백 바이트다 — 상한은 심링크·거대 파일로 판정을 흔드는 것을 막는다.
 const GRANT_MAX_BYTES = 64 * 1024
 
 /**
- * 승인이 덮는 **명령 집합**의 digest — `package.json`의 `scripts` 전체.
- * 읽지 못하면 실제 명령 집합 digest와는 절대 같지 않은 표식을 돌려준다 — 깨진 `package.json`이 승인을 살려 두지 않는다.
+ * 승인이 덮는 **명령 집합**의 digest — `package.json`의 `scripts` 전체, 워크스페이스 루트면 멤버의 `scripts`까지
+ * (루트 script가 pnpm·turbo로 멤버 script를 실행한다). 읽지 못하면 실제 명령 집합 digest와는 절대 같지 않은 표식을 돌려준다 — 깨진 `package.json`이 승인을 살려 두지 않는다.
  */
 export function commandSetDigest(projectRoot, {read = null} = {}) {
   const path = join(projectRoot, 'package.json')
@@ -40,8 +41,20 @@ export function commandSetDigest(projectRoot, {read = null} = {}) {
   } catch {
     return 'unreadable:package.json'
   }
-  const entries = scripts && typeof scripts === 'object' && !Array.isArray(scripts) ? Object.entries(scripts) : []
-  const canonical = JSON.stringify(entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+  const sorted = value => (value && typeof value === 'object' && !Array.isArray(value) ? Object.entries(value) : [])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  let members
+  try {
+    members = listWorkspaceMembers(projectRoot).map(({directory}) => {
+      const manifestPath = join(projectRoot, directory, 'package.json')
+      const manifest = JSON.parse(read ? read(manifestPath) : readFileSync(manifestPath, 'utf8'))
+      return [directory, sorted(manifest.scripts)]
+    })
+  } catch {
+    return 'unreadable:workspace-members'
+  }
+  // 멤버가 없으면 종전 형식 그대로다 — 단일 패키지 프로젝트의 digest는 바뀌지 않는다.
+  const canonical = JSON.stringify(members.length > 0 ? {root: sorted(scripts), members} : sorted(scripts))
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`
 }
 
