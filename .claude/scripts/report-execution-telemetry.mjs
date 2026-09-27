@@ -17,6 +17,30 @@ const projectIndex = args.indexOf('--project')
 const projectRoot = resolve(projectIndex >= 0 && args[projectIndex + 1] ? args[projectIndex + 1] : '.')
 const telemetryPath = join(projectRoot, '_workspace', '04_qa', 'execution-telemetry.json')
 
+// 메인 세션 문맥 기록(record-context-telemetry 훅) — 도구·대상별 결과 바이트 합. 무엇이 문맥을 채우는지 본다.
+const contextPath = join(projectRoot, '_workspace', '04_qa', 'context-telemetry.jsonl')
+if (existsSync(contextPath)) {
+  const rows = readFileSync(contextPath, 'utf8').split('\n').flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
+  const sum = key => {
+    const totals = new Map()
+    for (const row of rows) {
+      const name = key(row)
+      const entry = totals.get(name) ?? {count: 0, bytes: 0}
+      entry.count += 1
+      entry.bytes += Number.isFinite(row.bytes) ? row.bytes : 0
+      totals.set(name, entry)
+    }
+    return [...totals.entries()].sort((left, right) => right[1].bytes - left[1].bytes)
+  }
+  const total = rows.reduce((acc, row) => acc + (Number.isFinite(row.bytes) ? row.bytes : 0), 0)
+  console.log(`=== 메인 세션 도구 결과: ${rows.length}회 · ${(total / 1024).toFixed(1)}KB ===`)
+  for (const [tool, entry] of sum(row => row.tool)) console.log(`  ${tool}: ${entry.count}회 · ${(entry.bytes / 1024).toFixed(1)}KB`)
+  console.log('  큰 대상 상위 10:')
+  for (const [target, entry] of sum(row => `${row.tool} ${row.target ?? ''}`).slice(0, 10)) {
+    console.log(`    ${target}: ${entry.count}회 · ${(entry.bytes / 1024).toFixed(1)}KB`)
+  }
+}
+
 if (!existsSync(telemetryPath)) {
   console.log(`telemetry 없음: ${telemetryPath} — 오케스트레이터가 아직 스폰을 기록하지 않았다.`)
   process.exit(0)

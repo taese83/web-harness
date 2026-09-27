@@ -69,6 +69,18 @@
       "command": "node .claude/scripts/run-quality-gates.mjs --help --json"
     },
     {
+      "id": "plan-lookup-read-only",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/plan-lookup.mjs --project . --id TC-002-1,SD-008 --context 2"
+    },
+    {
+      "id": "plan-lookup-rejects-unknown-argument",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/plan-lookup.mjs --project . --id TC-002-1 --write out.md"
+    },
+    {
       "id": "isolated-quality-check",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

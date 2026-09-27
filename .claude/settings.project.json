@@ -97,6 +97,16 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/record-context-telemetry.mjs"
+          }
+        ]
+      }
     ]
   }
 }

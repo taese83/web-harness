@@ -2981,8 +2981,8 @@
     {
       "id": "team-sharing-ignores-local-scope",
       "file": ".claude/scripts/validate-development-readiness.mjs",
-      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/04_qa/failure-summary.json', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
-      "replace": "  ignores: ['_workspace/04_qa/failure-summary.json', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
+      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/04_qa/failure-summary.json', '_workspace/04_qa/context-telemetry.jsonl', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
+      "replace": "  ignores: ['_workspace/04_qa/failure-summary.json', '_workspace/04_qa/context-telemetry.jsonl', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
       "test": ".claude/scripts/test-team-e2e.mjs",
       "why": "한 개발자의 작업 범위가 커밋되면 머지마다 충돌하고 받은 사람의 픽업을 막는다"
     },
@@ -4065,6 +4065,38 @@
       "replace": "phase: null}",
       "test": ".claude/scripts/test-ownership-hook.mjs",
       "why": "줄 표기 PHASE: plan이 읽히지 않아 계획 패스 차단이 꺼진다"
+    },
+    {
+      "id": "plan-lookup-token-boundary",
+      "file": ".claude/scripts/plan-lookup.mjs",
+      "find": "    const token = new RegExp(`(?<![A-Za-z0-9_-])${escape(id)}(?![A-Za-z0-9_-])`)",
+      "replace": "    const token = new RegExp(escape(id))",
+      "test": ".claude/scripts/test-plan-lookup.mjs",
+      "why": "TC-002-1 조회가 TC-002-10 행까지 끌어와 ✋에 엉뚱한 기준이 실린다"
+    },
+    {
+      "id": "context-telemetry-main-only",
+      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "find": "  if (!input.agent_type && !input.agent_id) {",
+      "replace": "  if (true) {",
+      "test": ".claude/scripts/test-context-telemetry.mjs",
+      "why": "서브에이전트 도구 결과까지 섞여 메인 문맥 측정이 틀린다"
+    },
+    {
+      "id": "context-telemetry-no-follow",
+      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "find": "    const realDirectory = path => existsSync(path) && lstatSync(path).isDirectory() && !lstatSync(path).isSymbolicLink()",
+      "replace": "    const realDirectory = path => existsSync(path)",
+      "test": ".claude/scripts/test-context-telemetry.mjs",
+      "why": "기록 자리의 심링크를 따라 프로젝트 밖 파일에 덧붙인다"
+    },
+    {
+      "id": "context-telemetry-masks-env",
+      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "find": "    const simple = /^[A-Za-z0-9._/-]+$/.test(executable) ? executable.split('/').at(-1) : '(env)'",
+      "replace": "    const simple = executable",
+      "test": ".claude/scripts/test-context-telemetry.mjs",
+      "why": "env 할당 값(토큰 등)이 텔레메트리에 평문으로 남는다"
     },
     {
       "id": "spec-conventions-exists",

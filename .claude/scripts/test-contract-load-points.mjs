@@ -68,7 +68,7 @@ test('Iterate 카드는 정본과 같은 필드·✋ 항목·단계·명령을 �
 
   // Iterate 루프의 단계 가운데 카드가 빠뜨리면 조용히 사라지는 것들
   for (const anchor of ['Gate 0', 'Runtime verifiability', 'Iterate evidence', 'CAPABILITY_ESCALATION', 'DOCS_TO_UPDATE', 'request-type-contract.md',
-    'developer` **1회**', '--failure-summary', 'review: none-required', 'retry-policy.md` Iterate 라운드']) {
+    'developer` **1회**', '--failure-summary', 'review: none-required', 'retry-policy.md` Iterate 라운드', '재검증 금지']) {
     assert.ok(card.includes(anchor), `카드에 ${anchor} 단계가 없다`)
   }
 
@@ -79,4 +79,34 @@ test('Iterate 카드는 정본과 같은 필드·✋ 항목·단계·명령을 �
       assert.ok(owners.some(owner => read(`${REFERENCES}/${owner}`).includes(`${script}.mjs`)), `카드 명령 ${script}.mjs가 정본(${owners.join(', ')})에 없다`)
     }
   }
+})
+
+// 카드는 라운드마다 통째로 읽힌다 — 상한은 현 크기에 고정한 ratchet이다(늘리려면 다른 줄을 걷어낸다).
+test('Iterate 카드는 9KB 안이다', () => {
+  const bytes = Buffer.byteLength(read(`${REFERENCES}/iterate-lane-card.md`), 'utf8')
+  assert.ok(bytes <= 9 * 1024, `카드가 ${bytes}B — 9,216B 상한을 넘었다`)
+})
+
+// 카드의 「첫 판단」은 계약의 요약이다 — 계약의 항목이 바뀌면 카드도 따라와야 한다.
+test('카드 첫 판단: fix 승격 5항목·CAPABILITY_ESCALATION 4신호가 계약과 같다', () => {
+  const card = read(`${REFERENCES}/iterate-lane-card.md`)
+  const first = card.slice(card.indexOf('## 첫 판단'), card.indexOf('## 순서'))
+  const requestType = read(`${REFERENCES}/request-type-contract.md`)
+  for (const item of ['새 route·화면', '새 데이터 계약', '새 권한·인증', '새 외부 의존', '기존 공개 계약']) {
+    assert.ok(requestType.includes(item), `request-type-contract에서 ${item}이 사라졌다 — 카드 첫 판단을 갱신하라`)
+    assert.ok(first.includes(item), `카드 첫 판단에 ${item}이 없다`)
+  }
+  const minimal = read(`${REFERENCES}/minimal-change-contract.md`)
+  for (const [inContract, inCard] of [['서버 실행 경로 신규 생성', '서버 실행 경로 신규'], ['인증·세션·DB·서버 SDK 의존성 추가', '인증·세션·DB·서버 SDK 의존 추가'],
+    ['자체 서버 엔드포인트로의 fetch/mutation', '자체 서버'], ['외부 API 키를 소비하는 코드', '외부 API 키 소비 코드']]) {
+    assert.ok(minimal.includes(inContract), `minimal-change-contract에서 「${inContract}」가 사라졌다 — 카드 첫 판단을 갱신하라`)
+    assert.ok(first.includes(inCard), `카드 첫 판단에 「${inCard}」가 없다`)
+  }
+})
+
+// 카드의 재검증 금지는 정본(qa-evidence-contract)의 미러다 — 카드에만 있는 규칙이 되지 않게.
+test('재검증 금지·diff-stat 대조는 qa-evidence-contract가 정본이다', () => {
+  const evidence = read(`${REFERENCES}/qa-evidence-contract.md`)
+  assert.match(evidence, /영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다/)
+  assert.match(evidence, /--operation diff-stat/)
 })

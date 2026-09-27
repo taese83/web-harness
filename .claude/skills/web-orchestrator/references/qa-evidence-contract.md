@@ -68,6 +68,8 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - **브라우저 스모크(관측 가능한 변경)**: dev/preview에서 대상 화면을 구동하고 **snapshot의 실제 콘텐츠**로 확인한다(콘솔 로그가 아니라). stale HMR은 `operational-gotchas.md`의 dev-server 신뢰 규약대로 하드 리로드 후 판정한다. 인증 뒤·serverless·server DB·sensor 경로는 `execution-contract.md`의 Runtime verifiability(`LOCAL_VERIFIABLE`/`DEPLOY_ONLY`)를 따르고 미검증 경로를 표면 PASS로 보고하지 않는다.
 - **생성 바이너리 자산(아이콘·이미지 등)**: `file`이 "정상 PNG"로 통과해도 내용은 blank/잘림일 수 있다 — **치수·픽셀 분포(예상 색 비율 등)·전송 SHA-256(생성원↔디스크)**을 대조하고, 배포에 복사되는 자산은 source↔dist 해시 일치를 확인한다. 큰 base64는 셸로 손복사하지 말고 파일 경유로 전달하며 SHA mismatch면 청크로 재전송한다. (실사고: 512 PNG가 하단 잘림·투명으로 생성됐고 `file`은 통과했으며, 단일 붙여넣기 손상을 SHA 가드가 잡았다.)
 - 경량 증거는 재현 절차(무엇을 구동해 무엇을 봤는지)를 한 줄로 남긴다. 모델 기억·화면 요약만으로 PASS하지 않는다.
+- **영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다** — 증거는 영수증과 새 컨텍스트 리뷰어다. 의심이 있으면 그 check를
+  러너로 다시 돌린다. 범위 대조는 변경 파일 목록(`run-git-inspection.mjs --operation diff-stat`) 한 번으로 `ALLOWED_PATHS`와 맞춘다.
 - **기존 receipt의 재발급**: 프로젝트에 이미 `_workspace/04_qa/evidence/`가 있으면, 경량 라운드도 소스를 바꾼 뒤 `run-quality-gates.mjs --project {root} --all`로 receipt를 재발급한다. attestation·manifest는 만들지 않지만 **receipt를 stale로 남기지도 않는다** — receipt는 발급 시점 소스에 fingerprint로 결속되므로, 소스를 고치고 그대로 두면 그 시점부터 저장된 모든 evidence가 검증 불가가 된다. 재발급이 불가한 환경이면 완료 보고에 `QA evidence: STALE (재발급 필요)`를 명시하고 완료로 선언하지 않는다.
 - **승격 QA**: change-scope의 `CAPABILITY_ESCALATION`이 `detected`면 경량 라운드에서도 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`도) 재투입이 의무다. 자세한 조건은 `execution-contract.md`의 **Iterate round exit gates**가 canonical이다(light는 아래 light 항목).
 - **위험 트리거 리뷰**: 아래 신호가 하나라도 있으면 새 문맥 리뷰어 1회 — 보안 신호는 `security-reviewer`, 그 밖은 `code-reviewer`, 둘 다면 둘 다(승격 QA에 **더한다**, 대체하지 않는다). 신호가 없으면 LLM 리뷰 없이 보고에 `review: none-required (신호 0)`를 적는다.

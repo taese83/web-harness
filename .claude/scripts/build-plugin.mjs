@@ -88,6 +88,8 @@ const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
 const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs', 'record-verdict.mjs']
 // 사용자가 `/wh`로 켠 세션만 이후 요청에 라우팅 안내를 붙인다(켜지 않은 세션에는 아무것도 붙지 않는다).
 const PLUGIN_USER_PROMPT_HOOKS = ['harness-session-mode.mjs']
+// PostToolUse — 메인 세션 도구 결과 크기 기록(막지 않는다). 하네스 프로젝트에서만 쓴다.
+const PLUGIN_POST_TOOL_HOOKS = ['record-context-telemetry.mjs']
 
 const SCRIPT_INVOCATION = /node (?:"\$CLAUDE_PROJECT_DIR"\/|\{[a-zA-Z]+\}\/)?\.claude\/scripts\/([a-z0-9/-]+\.mjs)/g
 const DOCUMENT_REFERENCE = /\.claude\/((?:skills|agents|adapters|schemas)\/[A-Za-z0-9._/-]*[A-Za-z0-9])/g
@@ -324,6 +326,9 @@ writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
     })),
     UserPromptSubmit: PLUGIN_USER_PROMPT_HOOKS.map(script => ({
+      hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
+    })),
+    PostToolUse: PLUGIN_POST_TOOL_HOOKS.map(script => ({
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
     })),
   },
