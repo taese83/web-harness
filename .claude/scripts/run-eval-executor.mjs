@@ -43,7 +43,9 @@ if (!['on', 'off'].includes(arm)) {
   console.error(`--arm 은 on|off 만 허용한다(받은 값: ${arm}) — 오타가 조용히 ON으로 떨어지면 암이 오염된다`)
   process.exit(2)
 }
-const permissionMode = valueAfter('--permission-mode') ?? 'bypassPermissions' // fixture는 격리 디렉터리이며 hook 정책은 permission mode와 무관하게 동작한다
+// fixture는 격리 디렉터리다. 차단 훅은 permission mode와 무관하게 동작하지만, 사용자 확인(`ask`) 훅은 비대화 실행에서
+// 거부로 떨어진다 — host 실행 승인이 필요한 품질 게이트까지 가는 시나리오는 그 지점에서 BLOCKED로 멈춘다.
+const permissionMode = valueAfter('--permission-mode') ?? 'bypassPermissions'
 const timeoutMs = Number(valueAfter('--timeout-minutes') ?? 30) * 60_000
 
 // ---------------------------------------------------------------- 시나리오 로드

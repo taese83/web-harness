@@ -3963,6 +3963,54 @@
       "why": "위임 영수증이 실행되지 않은 script 원문만 남기고 실제로 돈 명령·디렉터리를 숨긴다"
     },
     {
+      "id": "human-approval-flags-cover-workflow-acceptance",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "export const HUMAN_APPROVAL_FLAGS = ['--allow-host-execution', '--accept-workflow-findings']",
+      "replace": "export const HUMAN_APPROVAL_FLAGS = ['--allow-host-execution']",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "워크플로 finding 인수가 사람 확인 없이 기록된다"
+    },
+    {
+      "id": "runner-help",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "if (args.length === 1 && ['--help', '-h'].includes(args[0])) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "사용법을 알려고 러너 소스를 읽는 호출이 되살아난다"
+    },
+    {
+      "id": "human-approval-bash-asks",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (flags.length > 0) return ask(flags.join(' '))",
+      "replace": "    if (false) return ask(flags.join(' '))",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "에이전트가 승인 flag를 스스로 붙여 사람 확인 없이 프로젝트 코드를 실행하거나 보안 finding을 인수한다"
+    },
+    {
+      "id": "human-approval-record-write-asks",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (record) return ask(`승인 기록 직접 쓰기(${record})`)",
+      "replace": "    if (false) return ask(`승인 기록 직접 쓰기(${record})`)",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "flag 대신 승인 기록 파일을 직접 써서 사람 확인을 우회한다"
+    },
+    {
+      "id": "human-approval-hook-in-plugin",
+      "file": ".claude/scripts/build-plugin.mjs",
+      "find": "  ['Bash|Write|Edit', 'enforce-human-approval.mjs'],\n",
+      "replace": "  // ['Bash|Write|Edit', 'enforce-human-approval.mjs'],\n",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "플러그인 설치 사용자에게는 승인 확인이 동작하지 않는다"
+    },
+    {
+      "id": "human-approval-bash-record-names-ask",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (named) return ask(`승인 기록 파일을 다루는 명령(${named})`)",
+      "replace": "    if (false) return ask(`승인 기록 파일을 다루는 명령(${named})`)",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "Write가 막히면 셸 리다이렉트로 승인 기록을 만들어 사람 확인을 우회한다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

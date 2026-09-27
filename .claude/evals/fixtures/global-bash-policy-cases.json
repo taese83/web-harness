@@ -57,6 +57,18 @@
       "command": "node .claude/scripts/run-quality-gates.mjs --check typecheck --accept-workflow-findings"
     },
     {
+      "id": "subagent-quality-runner-help",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/run-quality-gates.mjs --help"
+    },
+    {
+      "id": "subagent-quality-runner-help-with-args-denied",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/run-quality-gates.mjs --help --json"
+    },
+    {
       "id": "isolated-quality-check",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

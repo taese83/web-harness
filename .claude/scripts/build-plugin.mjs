@@ -71,6 +71,8 @@ const DEV_ONLY_AGENTS = new Set(['harness-change-reviewer.md'])
 const PLUGIN_HOOKS = [
   ['Read|Grep|Glob', 'enforce-sensitive-access.mjs'],
   ['Bash', 'enforce-verifier-bash.mjs'],
+  // 승인 flag·승인 기록 쓰기는 사람 확인을 거친다 — 전역 Bash 정책이 없는 플러그인 판본에도 실어야 한다.
+  ['Bash|Write|Edit', 'enforce-human-approval.mjs'],
   ['Write|Edit', 'enforce-ai-safety.mjs'],
   ['Write|Edit', 'enforce-agent-ownership.mjs'],
   ['Write|Edit', 'enforce-release-gate.mjs'],

@@ -64,7 +64,7 @@ export const validateSettings = ({claudeDirectory, repositoryRoot, read, pass, f
       }
     }
     const projectHookSource = JSON.stringify(projectSettings.hooks ?? {})
-    for (const requiredHook of ['enforce-global-bash-policy.mjs', 'enforce-agent-ownership.mjs', 'enforce-verifier-bash.mjs', 'enforce-sensitive-access.mjs', 'enforce-ai-safety.mjs', 'enforce-release-gate.mjs']) {
+    for (const requiredHook of ['enforce-global-bash-policy.mjs', 'enforce-agent-ownership.mjs', 'enforce-verifier-bash.mjs', 'enforce-sensitive-access.mjs', 'enforce-ai-safety.mjs', 'enforce-release-gate.mjs', 'enforce-human-approval.mjs']) {
       if (!projectHookSource.includes(requiredHook)) fail(`Project settings do not register ${requiredHook}`)
     }
     for (const [label, source] of [['maintainer', settings], ['project', projectSettings]]) {
