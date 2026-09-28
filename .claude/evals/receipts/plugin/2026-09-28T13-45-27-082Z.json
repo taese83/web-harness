@@ -1,0 +1,151 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "f0f1d6698f5b3b61e695bbc355ac0bef0ff6c641",
+  "dirty": false,
+  "pluginVersion": "0.57.0",
+  "distDigest": "37ee2365e9e8c245ab65fe537d4b19b73b843b07a2735feebd848838a0c0690b",
+  "claudeVersion": "2.1.281",
+  "model": "claude-sonnet-5",
+  "startedAt": "2026-09-28T13:45:27.082Z",
+  "durationSeconds": 1501,
+  "costUsd": 7.397907900000002,
+  "partial": false,
+  "selection": {
+    "case": "change-lane-*",
+    "tag": null,
+    "runs": "1"
+  },
+  "runPlan": null,
+  "cases": [
+    {
+      "name": "change-lane-light-plan-pass",
+      "caseDigest": "69081090f779c3bca35ed66f72af4e8d9efc22caca9087c6a507afe73410f912",
+      "seedDigest": "321eb902003942c1d95e0d4ac20be7449f772f6404fc924c976a0a704b3ff0ff",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.7508412000000004,
+          "durationSeconds": 593,
+          "turns": 42,
+          "peakContextTokens": 108118,
+          "outputTokens": 20454,
+          "cacheReadTokens": 2647168,
+          "toolUses": {
+            "Bash": 19,
+            "Read": 16,
+            "Write": 1,
+            "Agent": 2,
+            "Edit": 2,
+            "Grep": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 2
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-light-ticket-plan-pass",
+      "caseDigest": "aef81960c9b959134f8612bde4455bd545069262670be2f05e18195aaac34c0c",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.2975558000000003,
+          "durationSeconds": 354,
+          "turns": 30,
+          "peakContextTokens": 121545,
+          "outputTokens": 25070,
+          "cacheReadTokens": 1680101,
+          "toolUses": {
+            "Bash": 9,
+            "Read": 17,
+            "Edit": 2,
+            "Agent": 1
+          },
+          "bashErrors": 0,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "caseDigest": "d0eda18d6de1a2cfca27b90bf89fe044c8662177255d2961952027ebf06f7b7c",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": false,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": false,
+          "gradersPassed": false,
+          "score": 0.8333333333333334,
+          "error": "timed out after 1500s",
+          "failedGraders": [
+            {
+              "name": "stops-at-approval-marker",
+              "explanation": "pattern not found in last_message"
+            }
+          ],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 3.349510900000001,
+          "durationSeconds": 1500,
+          "turns": 54,
+          "peakContextTokens": 118106,
+          "outputTokens": null,
+          "cacheReadTokens": null,
+          "toolUses": {
+            "Bash": 10,
+            "Read": 13,
+            "Grep": 2,
+            "Agent": 7
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:product-planner": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:component-designer": 2,
+            "web-harness:design-system-architect": 1,
+            "web-harness:layout-designer": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}

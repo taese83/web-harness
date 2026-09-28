@@ -1,0 +1,63 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "f0f1d6698f5b3b61e695bbc355ac0bef0ff6c641",
+  "dirty": true,
+  "pluginVersion": "0.57.0",
+  "distDigest": "37ee2365e9e8c245ab65fe537d4b19b73b843b07a2735feebd848838a0c0690b",
+  "claudeVersion": "2.1.281",
+  "model": "claude-sonnet-5",
+  "startedAt": "2026-09-28T14:10:28.322Z",
+  "durationSeconds": 478,
+  "costUsd": 1.6033821000000004,
+  "partial": false,
+  "selection": {
+    "case": "fix-lane-*",
+    "tag": null,
+    "runs": "1"
+  },
+  "runPlan": null,
+  "cases": [
+    {
+      "name": "fix-lane-promotes-new-route",
+      "caseDigest": "2f434de65e32f1608859c3a05eb75456a6817eba52b0175de624a0baf2fc7d79",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.6033821000000004,
+          "durationSeconds": 478,
+          "turns": 33,
+          "peakContextTokens": 92823,
+          "outputTokens": 22817,
+          "cacheReadTokens": 2105906,
+          "toolUses": {
+            "Bash": 20,
+            "Read": 8,
+            "Agent": 3,
+            "Write": 1
+          },
+          "bashErrors": 2,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:product-planner": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
