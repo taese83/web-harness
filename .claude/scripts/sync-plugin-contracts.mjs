@@ -55,6 +55,8 @@ export const syncContracts = ({projectRoot, payloadRoot = DEFAULT_PAYLOAD_ROOT})
   const digest = payloadDigest(payload)
   const current = () => readStamp(join(target, STAMP))?.digest === digest && payloadDigest(target) === digest
   if (current()) return {state: 'unchanged', version, path: CONTRACTS_DIR}
+  // 바꾸기 전 판본 — 버전이 바뀌었으면 SessionStart가 업그레이드 점검 요약을 낸다(null = 사본이 없던 옛 프로젝트).
+  const previousVersion = readStamp(join(target, STAMP))?.harnessVersion ?? null
 
   const suffix = `${process.pid}-${Date.now()}`
   const staging = `${target}.tmp-${suffix}`
@@ -77,7 +79,7 @@ export const syncContracts = ({projectRoot, payloadRoot = DEFAULT_PAYLOAD_ROOT})
       if (current()) return {state: 'unchanged', version, path: CONTRACTS_DIR}
       throw error
     }
-    return {state: 'synced', version, path: CONTRACTS_DIR}
+    return {state: 'synced', version, previousVersion, path: CONTRACTS_DIR}
   } finally {
     rmSync(staging, {recursive: true, force: true})
     rmSync(retired, {recursive: true, force: true})

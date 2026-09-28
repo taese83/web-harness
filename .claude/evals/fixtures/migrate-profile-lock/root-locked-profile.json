@@ -1,0 +1,87 @@
+{
+  "$schema": "https://web-harness.local/schemas/web-core/project-profile.schema.json",
+  "adapter": {
+    "id": "react-vite-spa",
+    "sha256": "e431cdd10e547072ba5ad5e3d6dd240daa5f5a48579a262a86feb1851af20ed0",
+    "supportLevel": "compatible",
+    "trustTier": "builtin",
+    "version": "1.2.1"
+  },
+  "backend": {
+    "shape": "external-api-or-none"
+  },
+  "capabilities": [
+    "client-routing",
+    "csr",
+    "static-build"
+  ],
+  "deployment": {
+    "artifacts": [
+      {
+        "id": "vite-dist",
+        "kind": "static-directory",
+        "path": "dist"
+      }
+    ],
+    "availableProviders": [
+      "generic",
+      "vercel"
+    ],
+    "availableTargets": [
+      "container-static",
+      "static-cdn"
+    ],
+    "provider": "generic",
+    "releaseTarget": "release.static-cdn",
+    "target": "static-cdn"
+  },
+  "frontend": {
+    "framework": "react",
+    "packageManager": "pnpm",
+    "rendering": [
+      "csr"
+    ],
+    "router": "react-router",
+    "variant": "vite-spa"
+  },
+  "ingestion": {
+    "contractsComplete": false,
+    "detected": true,
+    "evidence": [
+      "network-source:scripts/upload.mjs",
+      "network-source:scripts/api-client.mjs",
+      "uninspectable-source:CLAUDE.md"
+    ],
+    "inspectionErrors": [
+      "External ingestion detection could not safely inspect every security-relevant project file"
+    ]
+  },
+  "product": {
+    "kind": "spa"
+  },
+  "profileId": "react-vite-spa",
+  "resolution": {
+    "detected": null,
+    "evidence": [],
+    "requested": "react-vite-spa",
+    "source": "requested"
+  },
+  "risk": {
+    "level": "public"
+  },
+  "runtime": {
+    "primary": "browser",
+    "supported": [
+      "browser",
+      "container",
+      "node-build"
+    ]
+  },
+  "schemaVersion": 1,
+  "toolchain": {
+    "exactFrameworkVersions": false,
+    "nodeEngine": ">=24",
+    "packageDeclarations": {},
+    "packageManager": "pnpm@10.23.0"
+  }
+}

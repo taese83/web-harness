@@ -25,6 +25,8 @@ const decide = input => {
     const command = String(input.tool_input?.command ?? '')
     const flags = humanApprovalFlagsIn(command)
     if (flags.length > 0) return ask(flags.join(' '))
+    // 팀 소유 잠금을 지우고 스팩을 다시 확정하는 마이그레이션 적용 — 미리보기는 묻지 않는다.
+    if (/migrate-profile-lock/.test(command) && /(?:^|\s)--apply(?:\s|$)/.test(command)) return ask('migrate-profile-lock --apply(프로필 잠금 삭제·스팩 재확정)')
     // 셸 리다이렉트·복사로 기록 파일을 만드는 형제 경로 — 이름이 명령에 보이면 확인한다(읽기·삭제 오탐은 무해).
     const named = APPROVAL_RECORDS.find(path => command.includes(path.split('/').at(-1)))
     if (named) return ask(`승인 기록 파일을 다루는 명령(${named})`)

@@ -777,6 +777,14 @@ const validationScriptContract = (script, args, context) => {
     if (allIndex !== -1) tail.splice(allIndex, 1)
     return tail.length === 0 || (tail.length === 2 && tail[0] === '--context' && /^(?:[0-9]|1[0-9]|20)$/.test(tail[1]))
   }
+  // 읽기 전용 업그레이드 점검 — `--project-root <dir> [--json] [--fast]` 또는 단독 --help.
+  if (script === '.claude/scripts/upgrade-check.mjs') {
+    if (args.length === 1 && ['--help', '-h'].includes(args[0])) return true
+    const commandArgs = withoutDirectoryOption(args, '--project-root', context)
+    const allowed = new Set(['--json', '--fast'])
+    return args.includes('--project-root') && commandArgs.every(arg => allowed.has(arg))
+      && commandArgs.length === new Set(commandArgs).size
+  }
   if (script === '.claude/scripts/report-execution-telemetry.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)
     return args.includes('--project') && commandArgs.length === 0

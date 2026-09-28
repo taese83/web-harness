@@ -4187,6 +4187,46 @@
       "why": "기획이 결박되지 않은 프로젝트의 티켓 계획 패스가 feature-plan·requirements를 새로 세워, 기준이 티켓과 고아 기획 두 곳으로 갈린다"
     },
     {
+      "id": "session-start-upgrade-summary-only-on-version-change",
+      "file": ".claude/scripts/detect-harness-project.mjs",
+      "find": "    if (sync.state === 'synced' && sync.previousVersion !== sync.version) {",
+      "replace": "    if (sync.state !== 'not-plugin') {",
+      "test": ".claude/scripts/test-sync-plugin-contracts.mjs",
+      "why": "판본이 그대로인 매 세션에도 업그레이드 점검 요약이 붙어 고정 문맥 비용이 는다"
+    },
+    {
+      "id": "migrate-profile-lock-restores-on-failure",
+      "file": ".claude/scripts/migrate-profile-lock.mjs",
+      "find": "    renameSync(parked, path)\n    const code",
+      "replace": "    rmSync(parked, {force: true})\n    const code",
+      "test": ".claude/scripts/test-migrate-profile-lock.mjs",
+      "why": "스팩 재확정이 실패했는데 프로필만 사라져 스팩이 stale인 반쯤 옮긴 상태가 남는다"
+    },
+    {
+      "id": "upgrade-summary-lists-only-blocking",
+      "file": ".claude/scripts/upgrade-check.mjs",
+      "find": "  const lines = blocks.slice(0, 3).map(entry => `  - ${entry.id}: ${entry.detail.slice(0, 160)}`)",
+      "replace": "  const lines = report.items.map(entry => `  - ${entry.id}: ${entry.detail.slice(0, 160)}`)",
+      "test": ".claude/scripts/test-upgrade-check.mjs",
+      "why": "막지 않는 항목까지 SessionStart 요약에 실려 세션 문맥이 는다"
+    },
+    {
+      "id": "upgrade-check-reports-root-locked-profile",
+      "file": ".claude/scripts/upgrade-check.mjs",
+      "find": "    const rootLock = diagnoseRootLock(root, readJson(path))",
+      "replace": "    const rootLock = null",
+      "test": ".claude/scripts/test-upgrade-check.mjs",
+      "why": "러너를 멈추는 루트 잠금 프로필이 보고에서 원인·멤버 없이 흐려진다"
+    },
+    {
+      "id": "upgrade-check-gate0-only-when-developing",
+      "file": ".claude/scripts/upgrade-check.mjs",
+      "find": "  const developing = spec !== null || existsSync(join(root, SPEC_LEDGER_PATH))",
+      "replace": "  const developing = true",
+      "test": ".claude/scripts/test-upgrade-check.mjs",
+      "why": "기획 단계 프로젝트가 업그레이드 때마다 가짜 「충돌」을 받아 요약을 무시하게 된다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

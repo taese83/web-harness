@@ -1,0 +1,22 @@
+{
+  "provider": "jira",
+  "jira": {
+    "baseUrl": "https://tracker.example.invalid",
+    "apiVersion": "2",
+    "projectKey": "PF",
+    "issueType": "Task",
+    "assigneeField": "name",
+    "transitions": {
+      "in-progress": "31",
+      "done": "51",
+      "reopen": "11"
+    },
+    "componentAxis": {
+      "PLAN": "기획 입력",
+      "DESIGN": "디자인 입력",
+      "DEVELOP": "개발 티켓"
+    },
+    "components": [],
+    "labels": []
+  }
+}

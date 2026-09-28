@@ -39,6 +39,16 @@ try {
       process.stdout.write(`[web-harness] Could not refresh ${CONTRACTS_DIR}/ (${error instanceof Error ? error.message : String(error)}) — ` +
         `subagents may read stale or missing contracts. Run: web-harness-script sync-plugin-contracts --project-root .\n`)
     }
+    // 하네스 판본이 바뀐 첫 세션 — 이전 판본이 만든 산출물이 지금 규칙과 부딪히는 곳을 요약한다(없으면 침묵).
+    // 막는 것만 줄로 내고 나머지는 개수만 — 매 세션 문맥을 늘리지 않게 판본이 바뀔 때 한 번뿐이다.
+    if (sync.state === 'synced' && sync.previousVersion !== sync.version) {
+      try {
+        const {summarize, upgradeCheck} = await import('./upgrade-check.mjs')
+        process.stdout.write(summarize(upgradeCheck(projectDir, {fast: true}), {from: sync.previousVersion}))
+      } catch {
+        // 안내 층 — 점검이 실패해도 세션은 계속된다.
+      }
+    }
     const reentryMap = sync.state === 'not-plugin'
       ? join(dirname(fileURLToPath(import.meta.url)), '..', REENTRY_MAP)
       : join(projectDir, CONTRACTS_DIR, REENTRY_MAP)

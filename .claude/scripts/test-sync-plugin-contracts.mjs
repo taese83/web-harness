@@ -137,3 +137,38 @@ test('복사가 실패하면 임시 폴더를 남기지 않고 옛 사본을 지
     assert.ok(existsSync(join(project, CONTRACTS_DIR, 'skills/web-orchestrator/references/reentry-map.md')))
   })
 })
+
+test('판본이 바뀌면 이전 판본을 돌려준다(사본이 없던 옛 프로젝트는 null)', () => {
+  withPayload(({payload, project}) => {
+    assert.equal(syncContracts({projectRoot: project, payloadRoot: payload}).previousVersion, null)
+    writeFileSync(join(payload, '.claude-plugin/plugin.json'), JSON.stringify({name: 'web-harness', version: '10.0.0'}))
+    writeFileSync(join(payload, 'schemas/new.schema.json'), '{}\n')
+    const result = syncContracts({projectRoot: project, payloadRoot: payload})
+    assert.equal(result.state, 'synced')
+    assert.equal(result.previousVersion, '9.9.9')
+    assert.equal(result.version, '10.0.0')
+  })
+})
+
+test('세션 시작 훅은 판본이 바뀐 세션에서만 업그레이드 점검 요약을 낸다', () => {
+  withPayload(({payload, project}) => {
+    for (const script of ['detect-harness-project.mjs', 'sync-plugin-contracts.mjs', 'harness-version.mjs']) {
+      copyFileSync(join(here, script), join(payload, '.claude/scripts', script))
+    }
+    // 점검 자체는 test-upgrade-check가 고정한다 — 여기서는 훅이 언제 부르는지만 본다.
+    writeFileSync(join(payload, '.claude/scripts/upgrade-check.mjs'),
+      "export const upgradeCheck = () => ({managed: true, items: [{id: 'x', kind: 'blocks', detail: 'd'}]})\n"
+      + "export const summarize = (report, {from}) => `UPGRADE-SUMMARY from=${from}\\n`\n")
+    const session = () => spawnSync(process.execPath, [join(payload, '.claude/scripts/detect-harness-project.mjs')],
+      {env: {...process.env, CLAUDE_PROJECT_DIR: project}, encoding: 'utf8'}).stdout
+    assert.match(session(), /UPGRADE-SUMMARY from=null/, '사본이 없던 옛 프로젝트의 첫 세션')
+    assert.doesNotMatch(session(), /UPGRADE-SUMMARY/, '판본이 그대로인데 다시 냈다 — 매 세션 문맥이 는다')
+    writeFileSync(join(payload, '.claude-plugin/plugin.json'), JSON.stringify({name: 'web-harness', version: '10.0.0'}))
+    writeFileSync(join(payload, 'schemas/new.schema.json'), '{}\n')
+    assert.match(session(), /UPGRADE-SUMMARY from=9\.9\.9/)
+    writeFileSync(join(payload, '.claude/scripts/upgrade-check.mjs'), 'throw new Error("broken")\n')
+    writeFileSync(join(payload, 'schemas/newer.schema.json'), '{}\n')
+    writeFileSync(join(payload, '.claude-plugin/plugin.json'), JSON.stringify({name: 'web-harness', version: '10.1.0'}))
+    assert.match(session(), /Harness-managed project detected/, '점검이 깨져도 재진입 안내는 나온다')
+  })
+})

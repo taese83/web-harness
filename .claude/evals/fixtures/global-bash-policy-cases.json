@@ -81,6 +81,36 @@
       "command": "node .claude/scripts/plan-lookup.mjs --project . --id TC-002-1 --write out.md"
     },
     {
+      "id": "upgrade-check-read-only",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/upgrade-check.mjs --project-root . --json"
+    },
+    {
+      "id": "upgrade-check-fast-and-help",
+      "expect": "ALLOW",
+      "code": "ALLOW_VALIDATION",
+      "command": "node .claude/scripts/upgrade-check.mjs --project-root . --fast"
+    },
+    {
+      "id": "upgrade-check-rejects-duplicate-flag",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/upgrade-check.mjs --project-root . --json --json"
+    },
+    {
+      "id": "migrate-profile-lock-not-agent-runnable",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/migrate-profile-lock.mjs --project-root . --apply"
+    },
+    {
+      "id": "upgrade-check-rejects-unknown-argument",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/upgrade-check.mjs --project-root . --fix"
+    },
+    {
       "id": "isolated-quality-check",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",

@@ -66,3 +66,10 @@ test('러너 --help: 옵션·check·승인 규칙을 보여 주고 아무것도 
     assert.ok(result.stdout.includes(expected), `사용법에 ${expected}가 없다`)
   }
 })
+
+test('프로필 잠금 마이그레이션 적용은 사용자 확인이고, 미리보기는 관여하지 않는다', () => {
+  const decide = command => run({tool_name: 'Bash', tool_input: {command}, cwd: '/p'}).stdout
+  assert.match(decide('web-harness-script migrate-profile-lock --project-root . --apply'), /"permissionDecision":"ask"/)
+  assert.match(decide('node .claude/scripts/migrate-profile-lock.mjs --apply --project-root .'), /"permissionDecision":"ask"/)
+  assert.equal(decide('web-harness-script migrate-profile-lock --project-root .'), '')
+})
