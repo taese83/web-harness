@@ -1,0 +1,145 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "ab57fc87d17e99ac27a36120a310525cdb8db8e9",
+  "dirty": false,
+  "pluginVersion": "0.57.0",
+  "distDigest": "f798219d413c2a4a318dd6e2827daadf0648be30f298d0ed1384db2505000f6e",
+  "claudeVersion": "2.1.281",
+  "model": "claude-sonnet-5",
+  "startedAt": "2026-09-28T13:09:54.300Z",
+  "durationSeconds": 685,
+  "costUsd": 6.2803208999999995,
+  "partial": false,
+  "selection": {
+    "case": "change-lane-*",
+    "tag": null,
+    "runs": "1"
+  },
+  "runPlan": null,
+  "cases": [
+    {
+      "name": "change-lane-light-plan-pass",
+      "caseDigest": "69081090f779c3bca35ed66f72af4e8d9efc22caca9087c6a507afe73410f912",
+      "seedDigest": "321eb902003942c1d95e0d4ac20be7449f772f6404fc924c976a0a704b3ff0ff",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.5785796,
+          "durationSeconds": 685,
+          "turns": 45,
+          "peakContextTokens": 111093,
+          "outputTokens": 27172,
+          "cacheReadTokens": 2513449,
+          "toolUses": {
+            "Read": 17,
+            "Bash": 20,
+            "Grep": 3,
+            "Edit": 2,
+            "Write": 1,
+            "Agent": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-light-ticket-plan-pass",
+      "caseDigest": "aef81960c9b959134f8612bde4455bd545069262670be2f05e18195aaac34c0c",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 2.0323168,
+          "durationSeconds": 517,
+          "turns": 37,
+          "peakContextTokens": 108193,
+          "outputTokens": 20945,
+          "cacheReadTokens": 1921115,
+          "toolUses": {
+            "Read": 15,
+            "Glob": 2,
+            "Bash": 15,
+            "Edit": 2,
+            "Agent": 1,
+            "Write": 1
+          },
+          "bashErrors": 0,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "caseDigest": "d0eda18d6de1a2cfca27b90bf89fe044c8662177255d2961952027ebf06f7b7c",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.6694245000000003,
+          "durationSeconds": 492,
+          "turns": 31,
+          "peakContextTokens": 95189,
+          "outputTokens": 18810,
+          "cacheReadTokens": 1405865,
+          "toolUses": {
+            "Bash": 19,
+            "Read": 7,
+            "Agent": 3,
+            "Write": 1
+          },
+          "bashErrors": 0,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:product-planner": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
