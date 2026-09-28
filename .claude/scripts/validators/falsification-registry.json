@@ -4227,6 +4227,22 @@
       "why": "기획 단계 프로젝트가 업그레이드 때마다 가짜 「충돌」을 받아 요약을 무시하게 된다"
     },
     {
+      "id": "plugin-case-unsafe-plain-scalar",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    return PLAIN_BREAKER.test(value) ? [`${pair[1]}(평문 값에 YAML 표시자)`] : []",
+      "replace": "    return []",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "러너가 YAML로 못 읽는 머리말이 줄 단위 해석을 통과해 사례가 한 번도 실행되지 않은 채 CI가 green이다"
+    },
+    {
+      "id": "plugin-case-quoted-scalar-escapes",
+      "file": ".claude/scripts/validators/validate-workflows-and-evals.mjs",
+      "find": "    if (value.startsWith('\"')) return DOUBLE_QUOTED.test(value) ? [] : [`${pair[1]}(큰따옴표가 닫히지 않았거나 이스케이프가 틀렸다)`]",
+      "replace": "    if (value.startsWith('\"')) return []",
+      "test": ".claude/scripts/test-plugin-eval-cases.mjs",
+      "why": "채점기 정규식의 이스케이프(\\\\W 대신 \\\\W 한 번)가 큰따옴표 값에서 로드 실패인데 검사가 침묵한다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

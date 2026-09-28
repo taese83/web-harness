@@ -25,6 +25,29 @@ const frontmatterMap = text => {
   return {keys, body: block[2]}
 }
 
+// 러너는 머리말·case.yaml을 YAML로 읽는다 — 위 줄 단위 해석은 YAML이 거부하거나(로드 실패) 다르게 읽는(`#` 뒤 조용한 절단·
+// 첫 글자 `#`의 null) 값을 통과시킨다. 최상위 `key: value` 줄만 YAML 1.2 규칙으로 대조한다(목록 항목·중첩 키는 보지 않는다).
+const DOUBLE_QUOTED = /^"(?:[^"\\]|\\(?:[0abtnvfre "/\\N_LP\t]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}))*"(?:[ \t]+#.*)?$/
+const SINGLE_QUOTED = /^'(?:[^']|'')*'(?:[ \t]+#.*)?$/
+const FLOW = /^(?:\[.*\]|\{.*\})(?:[ \t]+#.*)?$/
+const PLAIN_BREAKER = /^[-?:](?:[ \t]|$)|^[,[\]{}#&*!%@`]|:(?:[ \t]|$)|[ \t]#/
+export const unsafeYamlLines = text => {
+  const source = String(text)
+  const block = source.startsWith('---') ? source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] : source
+  if (block === undefined) return []
+  return block.split(/\r?\n/).flatMap(line => {
+    if (/^[A-Za-z_]+:[^ \t]/.test(line)) return [`${line.split(':')[0]}(콜론 뒤 공백 없음)`]
+    const pair = line.match(/^([A-Za-z_]+):[ \t]+(.*?)[ \t]*$/)
+    if (!pair || pair[2] === '') return []
+    const value = pair[2]
+    if (value.startsWith('"')) return DOUBLE_QUOTED.test(value) ? [] : [`${pair[1]}(큰따옴표가 닫히지 않았거나 이스케이프가 틀렸다)`]
+    if (value.startsWith("'")) return SINGLE_QUOTED.test(value) ? [] : [`${pair[1]}(작은따옴표가 닫히지 않았다)`]
+    if (/^[[{]/.test(value)) return FLOW.test(value) ? [] : [`${pair[1]}(flow 값이 한 줄에서 닫히지 않았다)`]
+    if (/^[|>]/.test(value)) return /^[|>][-+1-9]*(?:[ \t]+#.*)?$/.test(value) ? [] : [`${pair[1]}(블록 표시자 뒤에 내용이 있다)`]
+    return PLAIN_BREAKER.test(value) ? [`${pair[1]}(평문 값에 YAML 표시자)`] : []
+  })
+}
+
 /**
  * 배포본 평가 사례(`claude plugin eval` 형식)를 실행 없이 검사한다. 알 수 없는 키는 러너가 거부하고, 짧은 턴·시간 상한은
  * 하네스 흐름을 중간에 끊어 실패를 플러그인 탓으로 보이게 한다. 진입은 배포본이 쓰는 이름공간 명령(`/web-harness:`)이어야 한다.
@@ -41,6 +64,7 @@ export const pluginEvalCaseProblems = casesDirectory => {
     const prompt = frontmatterMap(readFileSync(promptPath, 'utf8'))
     if (!prompt) { problems.push(`${name}: prompt.md 머리말이 없다`); continue }
     for (const key of prompt.keys.keys()) if (!PLUGIN_CASE_KEYS.has(key)) problems.push(`${name}: 알 수 없는 키 ${key}`)
+    for (const key of unsafeYamlLines(readFileSync(promptPath, 'utf8'))) problems.push(`${name}: 머리말 ${key} — YAML로 읽히지 않거나 다르게 읽힌다, 따옴표로 감싼다`)
     if (!(Number(prompt.keys.get('max_turns')) >= 20)) problems.push(`${name}: max_turns가 20 미만이거나 없다(기본 10은 하네스 흐름을 끊는다)`)
     if (!(Number(prompt.keys.get('timeout_seconds')) >= 600)) problems.push(`${name}: timeout_seconds가 600 미만이거나 없다`)
     if (!prompt.body.trimStart().startsWith('/web-harness:')) problems.push(`${name}: 진입이 배포본 이름공간 명령(/web-harness:)이 아니다`)
@@ -49,6 +73,7 @@ export const pluginEvalCaseProblems = casesDirectory => {
     const graders = existsSync(gradersDirectory) ? readdirSync(gradersDirectory).filter(file => file.endsWith('.md')) : []
     if (graders.length === 0) problems.push(`${name}: 채점기가 없다`)
     for (const file of graders) {
+      for (const key of unsafeYamlLines(readFileSync(join(gradersDirectory, file), 'utf8'))) problems.push(`${name}/graders/${file}: 머리말 ${key} — YAML로 읽히지 않거나 다르게 읽힌다`)
       const type = frontmatterMap(readFileSync(join(gradersDirectory, file), 'utf8'))?.keys.get('type')
       if (!GRADER_TYPES.has(type)) problems.push(`${name}/graders/${file}: 알 수 없는 채점기 type ${type}`)
     }
@@ -91,6 +116,7 @@ export const pluginEvalCaseProblems = casesDirectory => {
       problems.push(`${name}: 한 일을 보는 채점기·사후 검사가 없다 — 아무것도 하지 않은 실행도 통과한다`)
     }
     const casePath = join(caseDirectory, 'case.yaml')
+    if (existsSync(casePath)) for (const key of unsafeYamlLines(readFileSync(casePath, 'utf8'))) problems.push(`${name}/case.yaml: ${key} — YAML로 읽히지 않거나 다르게 읽힌다`)
     const scaffold = existsSync(casePath) ? readFileSync(casePath, 'utf8').match(/^\s*scaffold_script:\s*(\S+)/m)?.[1] : null
     if (scaffold && !existsSync(join(caseDirectory, scaffold))) problems.push(`${name}: scaffold_script ${scaffold}가 없다`)
   }
