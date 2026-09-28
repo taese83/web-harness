@@ -20,7 +20,23 @@ const telemetryPath = join(projectRoot, '_workspace', '04_qa', 'execution-teleme
 // 메인 세션 문맥 기록(record-context-telemetry 훅) — 도구·대상별 결과 바이트 합. 무엇이 문맥을 채우는지 본다.
 const contextPath = join(projectRoot, '_workspace', '04_qa', 'context-telemetry.jsonl')
 if (existsSync(contextPath)) {
-  const rows = readFileSync(contextPath, 'utf8').split('\n').flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
+  const all = readFileSync(contextPath, 'utf8').split('\n').flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
+  const rows = all.filter(row => row.kind !== 'deny')
+  // 훅 거부(hook-denial-log-lib) — 훅·코드별 건수와 같은 대상이 되풀이된 것(재시도로 새는 오탐 후보)을 본다.
+  const denials = all.filter(row => row.kind === 'deny')
+  if (denials.length > 0) {
+    const byCode = new Map()
+    for (const row of denials) { const key = `${row.hook} ${row.code}`; byCode.set(key, (byCode.get(key) ?? 0) + 1) }
+    console.log(`=== 훅 거부: ${denials.length}회 (메인 ${denials.filter(row => !row.agent).length} · 서브에이전트 ${denials.filter(row => row.agent).length}) ===`)
+    for (const [key, count] of [...byCode.entries()].sort((left, right) => right[1] - left[1]).slice(0, 10)) console.log(`  ${key}: ${count}회`)
+    const targets = new Map()
+    for (const row of denials) { const key = `${row.hook} ${row.target ?? ''}`; targets.set(key, (targets.get(key) ?? 0) + 1) }
+    const repeated = [...targets.entries()].filter(([, count]) => count > 1).sort((left, right) => right[1] - left[1]).slice(0, 5)
+    if (repeated.length > 0) {
+      console.log('  같은 대상 반복 거부(오탐 후보):')
+      for (const [key, count] of repeated) console.log(`    ${key}: ${count}회`)
+    }
+  }
   const sum = key => {
     const totals = new Map()
     for (const row of rows) {

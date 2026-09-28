@@ -57,6 +57,7 @@ const DEV_ONLY_SCRIPTS = new Set([
   'run-golden-profile.mjs',
   'validate-harness.mjs',
   'validate-toolchain.mjs',
+  'validate-plugin-official.mjs',
   'ticket/jira-memory-stub.mjs',
   'ticket/github-memory-stub.mjs',
 ])

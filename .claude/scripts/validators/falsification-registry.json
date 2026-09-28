@@ -4084,15 +4084,15 @@
     },
     {
       "id": "context-telemetry-no-follow",
-      "file": ".claude/scripts/record-context-telemetry.mjs",
-      "find": "    const realDirectory = path => existsSync(path) && lstatSync(path).isDirectory() && !lstatSync(path).isSymbolicLink()",
-      "replace": "    const realDirectory = path => existsSync(path)",
+      "file": ".claude/scripts/context-telemetry-lib.mjs",
+      "find": "  const realDirectory = path => existsSync(path) && lstatSync(path).isDirectory() && !lstatSync(path).isSymbolicLink()",
+      "replace": "  const realDirectory = path => existsSync(path)",
       "test": ".claude/scripts/test-context-telemetry.mjs",
       "why": "기록 자리의 심링크를 따라 프로젝트 밖 파일에 덧붙인다"
     },
     {
       "id": "context-telemetry-masks-env",
-      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "file": ".claude/scripts/context-telemetry-lib.mjs",
       "find": "    const simple = /^[A-Za-z0-9._/-]+$/.test(executable) ? executable.split('/').at(-1) : '(env)'",
       "replace": "    const simple = executable",
       "test": ".claude/scripts/test-context-telemetry.mjs",
@@ -4100,7 +4100,7 @@
     },
     {
       "id": "context-telemetry-strips-cd",
-      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "file": ".claude/scripts/context-telemetry-lib.mjs",
       "find": "    const command = String(toolInput?.command ?? '').trim().replace(/^(?:cd\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)\\s*(?:&&|;)\\s*)+/, '')",
       "replace": "    const command = String(toolInput?.command ?? '').trim()",
       "test": ".claude/scripts/test-context-telemetry.mjs",
@@ -4289,6 +4289,38 @@
       "replace": "  const patternSegments = normalized.split('/')",
       "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
       "why": "`././.g?t/config`의 `.` 세그먼트가 대조를 어긋나게 해 .git/config가 통과한다"
+    },
+    {
+      "id": "plugin-official-validate-no-claude-fails",
+      "file": ".claude/scripts/validate-plugin-official.mjs",
+      "find": "      + 'npm install -g @anthropic-ai/claude-code@<harness-ci.yml의 판본>\\n')\n    process.exit(1)",
+      "replace": "      + 'npm install -g @anthropic-ai/claude-code@<harness-ci.yml의 판본>\\n')\n    process.exit(0)",
+      "test": ".claude/scripts/test-validate-plugin-official.mjs",
+      "why": "claude가 없는 러너에서 공식 검증이 조용히 통과해 검사가 있는 척만 한다"
+    },
+    {
+      "id": "plugin-official-validate-strict",
+      "file": ".claude/scripts/validate-plugin-official.mjs",
+      "find": "spawnSync(CLAUDE, ['plugin', 'validate', '--strict', target]",
+      "replace": "spawnSync(CLAUDE, ['plugin', 'validate', target]",
+      "test": ".claude/scripts/test-validate-plugin-official.mjs",
+      "why": "--strict가 빠지면 런타임이 너그럽게 넘기는 경고(모르는 필드·빠진 메타데이터)가 CI를 통과한다"
+    },
+    {
+      "id": "hook-denial-recorded",
+      "file": ".claude/scripts/enforce-sensitive-access.mjs",
+      "find": "    recordHookDenial(input, {hook: 'enforce-sensitive-access', code: decision.code})\n",
+      "replace": "\n",
+      "test": ".claude/scripts/test-hook-denial-log.mjs",
+      "why": "훅 거부가 기록되지 않으면 오탐이 에이전트 재시도 비용으로만 새어 나가고 보이지 않는다"
+    },
+    {
+      "id": "hook-denial-stable-code",
+      "file": ".claude/scripts/enforce-agent-ownership.mjs",
+      "find": "  recordHookDenial(deniedInput, {hook: 'enforce-agent-ownership', code})",
+      "replace": "  recordHookDenial(deniedInput, {hook: 'enforce-agent-ownership'})",
+      "test": ".claude/scripts/test-hook-denial-log.mjs",
+      "why": "거부 자리의 코드가 전달되지 않으면 전부 UNCODED로 묶여 어느 규칙이 무엇을 막는지 집계할 수 없다"
     },
     {
       "id": "spec-conventions-exists",

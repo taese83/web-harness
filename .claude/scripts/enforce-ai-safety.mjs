@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {existsSync, readFileSync} from 'node:fs'
+import {recordHookDenial} from './hook-denial-log-lib.mjs'
 import {relative, resolve, sep} from 'node:path'
 
 const readInput = async () => {
@@ -9,8 +10,10 @@ const readInput = async () => {
   return JSON.parse(source)
 }
 
-const block = message => {
+let deniedInput = null  // 막을 때 무엇을 막았는지 남긴다(hook-denial-log-lib)
+const block = (message, code) => {
   process.stderr.write(message + '\n')
+  recordHookDenial(deniedInput, {hook: 'enforce-ai-safety', code})
   process.exit(2)
 }
 
@@ -21,6 +24,7 @@ const normalizePath = (projectRoot, filePath) => {
 
 try {
   const input = await readInput()
+  deniedInput = input
   if (!['Write', 'Edit'].includes(input.tool_name)) process.exit(0)
 
   const filePath = input.tool_input?.file_path
@@ -57,7 +61,7 @@ try {
     /\bdangerouslyAllowBrowser\s*:\s*true\b/,
   ]
   if (browserRuntimePath && browserSecretPatterns.some(pattern => pattern.test(proposedSource))) {
-    block('Blocked: ' + relativePath + ' exposes a model credential or enables a provider SDK in the browser.')
+    block('Blocked: ' + relativePath + ' exposes a model credential or enables a provider SDK in the browser.', 'BROWSER_CREDENTIAL')
   }
 
   const directProviderPatterns = [
@@ -66,7 +70,7 @@ try {
     /https:\/\/generativelanguage\.googleapis\.com\//,
   ]
   if (browserRuntimePath && directProviderPatterns.some(pattern => pattern.test(proposedSource))) {
-    block('Blocked: ' + relativePath + ' calls a model provider directly from browser-owned source.')
+    block('Blocked: ' + relativePath + ' calls a model provider directly from browser-owned source.', 'BROWSER_PROVIDER_CALL')
   }
 
   const toolContractChange =
@@ -78,8 +82,8 @@ try {
     (!/\brequiresApproval["']?\s*:\s*true\b/.test(proposedSource) ||
       !/\bidempotencyRequired["']?\s*:\s*true\b/.test(proposedSource))
   ) {
-    block('Blocked: ' + relativePath + ' declares a side-effect tool without approval and idempotency.')
+    block('Blocked: ' + relativePath + ' declares a side-effect tool without approval and idempotency.', 'UNSAFE_SIDE_EFFECT_TOOL')
   }
 } catch (error) {
-  block('Blocked: AI safety hook could not validate the operation: ' + (error instanceof Error ? error.message : String(error)))
+  block('Blocked: AI safety hook could not validate the operation: ' + (error instanceof Error ? error.message : String(error)), 'HOOK_ERROR')
 }

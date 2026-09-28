@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:fs'
+import {recordHookDenial} from './hook-denial-log-lib.mjs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {AGENT_OWNERSHIP, DEVELOPER_AGENT, developerPlanPhaseOwnership, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
@@ -42,35 +43,38 @@ const nearestExistingPath = targetPath => {
   return currentPath
 }
 
-const block = message => {
+let deniedInput = null  // 막을 때 무엇을 막았는지 남긴다(hook-denial-log-lib)
+const block = (message, code) => {
   process.stderr.write(`${message}\n`)
+  recordHookDenial(deniedInput, {hook: 'enforce-agent-ownership', code})
   process.exit(2)
 }
 
 try {
   const input = await readInput()
+  deniedInput = input
   if (!['Edit', 'Write'].includes(input.tool_name) || !input.agent_type) process.exit(0)
 
   const filePath = input.tool_input?.file_path
-  if (typeof filePath !== 'string' || !isAbsolute(filePath)) block('Blocked: Write/Edit requires an absolute file_path.')
+  if (typeof filePath !== 'string' || !isAbsolute(filePath)) block('Blocked: Write/Edit requires an absolute file_path.', 'RELATIVE_PATH')
 
   const projectRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
   const requestedPath = resolve(filePath)
   const existingPath = nearestExistingPath(requestedPath)
   let realExistingPath
   try { realExistingPath = realpathSync(existingPath) } catch {
-    block(`Blocked: ${input.agent_type} cannot write through a symlink whose target does not exist.`)
+    block(`Blocked: ${input.agent_type} cannot write through a symlink whose target does not exist.`, 'SYMLINK_DANGLING')
   }
   const realRelativePath = relative(projectRoot, realExistingPath)
   const outsideThroughSymlink = realRelativePath === '..' || realRelativePath.startsWith(`..${sep}`)
-  if (outsideThroughSymlink) block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
+  if (outsideThroughSymlink) block(`Blocked: ${input.agent_type} cannot write outside the project root.`, 'OUTSIDE_ROOT')
 
   // **판정은 실제로 쓰일 자리로 한다.** 종전에는 루트 밖으로 나가는 symlink만 막고 소유·범위는 요청 경로로
   // 판정해서, 프로젝트 **안**의 symlink(`src/pages/list/link → ../../entities`)를 거치면 범위 밖 파일이 범위
   // 안 경로로 통과했다(적대 리뷰 2026-09-14). 존재하는 가장 가까운 조상을 realpath로 풀고 나머지를 붙인다.
   const effectivePath = join(realExistingPath, relative(existingPath, requestedPath))
   const relativePath = relative(projectRoot, effectivePath).split(sep).join('/')
-  if (relativePath.startsWith('../') || relativePath === '..') block(`Blocked: ${input.agent_type} cannot write outside the project root.`)
+  if (relativePath.startsWith('../') || relativePath === '..') block(`Blocked: ${input.agent_type} cannot write outside the project root.`, 'OUTSIDE_ROOT')
 
   // change-scope.md의 ALLOWED_PATHS — 스폰별 범위. 없으면 범위 제한이 없다(소유권만 적용).
   // 해석은 change-scope-lib 하나다 — 개발 착수 점검의 예행도 같은 함수로 읽는다.
@@ -85,7 +89,7 @@ try {
     const scope = parseChangeScopeAllowedPaths(source)
     if (scope.error) {
       block('Blocked: _workspace/03_dev/change-scope.md의 change-scope 블록이 유효한 JSON이 아니다 '
-        + `(${scope.error}). 범위를 판정할 수 없으면 넓히지 않는다 — 블록을 고쳐라.`)
+        + `(${scope.error}). 범위를 판정할 수 없으면 넓히지 않는다 — 블록을 고쳐라.`, 'SCOPE_JSON_INVALID')
     }
     return scope
   }
@@ -110,7 +114,7 @@ try {
   const agentType = harnessAgentName(input.agent_type, {projectRoot})
 
   if (isProtectedWritePath(ownershipPath)) {
-    block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — dependency trees, VCS internals, the harness and agent/IDE/MCP settings are never agent-owned.`)
+    block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — dependency trees, VCS internals, the harness and agent/IDE/MCP settings are never agent-owned.`, 'PROTECTED_PATH')
   }
 
   // 오케스트레이터가 쓰는 산출물은 **어떤 스팩·범위보다 앞서** 막는다. 종전에는 "아무도
@@ -122,12 +126,12 @@ try {
     ? ownershipPath.startsWith(artifact)
     : ownershipPath === artifact)) {
     block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — it is orchestrator-authored `
-      + 'and owned by no agent. A spec or scope that names it does not grant ownership.')
+      + 'and owned by no agent. A spec or scope that names it does not grant ownership.', 'ORCHESTRATOR_ARTIFACT')
   }
 
   if (agentType === null) {
     block(`Blocked: ${input.agent_type} is not a web-harness agent — harness write ownership is granted only to `
-      + `web-harness:<agent> in the plugin build. A project agent with the same name does not inherit it.`)
+      + `web-harness:<agent> in the plugin build. A project agent with the same name does not inherit it.`, 'NOT_HARNESS_AGENT')
   }
   const spec = readSpecLock(ownershipRoot)
   const scope = agentType === DEVELOPER_AGENT ? readScope(ownershipRoot) : null
@@ -145,7 +149,7 @@ try {
           : 'the API contract doc (api-schema·api-design): the locked spec binds no feature-plan, so the ticket acceptance is the criterion — '
             + 'no plan documents are founded here — ')
       + 'not solution-design (design-decision changes go ESCALATE_TO_FULL). '
-      + 'Source waits for the spec approval (✋) and the implementation scope.')
+      + 'Source waits for the spec approval (✋) and the implementation scope.', 'PLAN_PASS_SCOPE')
   }
   const specPatterns = agentType === DEVELOPER_AGENT
     ? (scope.phase === 'plan' ? planPhaseOwnership : intersectWithScope(resolveDeveloperOwnership(spec) ?? [], scope.paths))
@@ -160,9 +164,9 @@ try {
     if (agentType === DEVELOPER_AGENT) {
       block(`Blocked: ${input.agent_type} has no write ownership because the spec lock is missing or its layerMap is empty `
         + `(_workspace/03_dev/spec.json). The developer agent owns nothing by default — the spec's layerMap supplies ownership. `
-        + `Confirm the spec before Phase 3 implementation spawns.`)
+        + `Confirm the spec before Phase 3 implementation spawns.`, 'NO_SPEC_OWNERSHIP')
     }
-    block(`Blocked: no write ownership is defined for ${input.agent_type}.`)
+    block(`Blocked: no write ownership is defined for ${input.agent_type}.`, 'NO_OWNERSHIP')
   }
   // **같은 체크아웃의 developer 스폰은 한 번에 하나만 쓴다(감사 FINDING-003).** 범위 파일
   // (`change-scope.md`)을 모든 스폰이 공유하므로 병렬로 쓰면 마지막 범위가 다른 스폰에도 적용된다.
@@ -173,10 +177,10 @@ try {
   // `SubagentStop`이 놓는다.
   if (agentType === DEVELOPER_AGENT && typeof input.agent_id === 'string' && input.agent_id) {
     const lease = acquireLease({projectRoot, agentId: input.agent_id, agentType, sessionId: input.session_id ?? null})
-    if (lease.held) block(leaseBlockMessage({held: lease.held, path: lease.path, agentType: input.agent_type}))
+    if (lease.held) block(leaseBlockMessage({held: lease.held, path: lease.path, agentType: input.agent_type}), 'LEASE_HELD')
     if (lease.unavailable) {
       block(`Blocked: ${input.agent_type} — write 임대를 만들 수 없어 같은 체크아웃의 직렬화를 보장할 수 없다 `
-        + `(${lease.unavailable.join(' · ')}). 보장할 수 없으면 쓰지 않는다.`)
+        + `(${lease.unavailable.join(' · ')}). 보장할 수 없으면 쓰지 않는다.`, 'LEASE_UNAVAILABLE')
     }
   }
   if (!allowedPatterns.some(pattern => pattern.test(ownershipPath))) {
@@ -184,9 +188,9 @@ try {
     // `spec-lock layerMap`이라 표시해 원인을 반대로 가리켰다(2026-08-30 실측).
     // 실제로 판정에 쓰인 근거를 그대로 적는다.
     const basis = specPatterns?.length ? 'spec-lock layerMap' : 'default registry'
-    block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}). Route the change to the owning agent.`)
+    block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}). Route the change to the owning agent.`, 'NOT_OWNED')
   }
 
 } catch (error) {
-  block(`Blocked: ownership hook could not validate the operation: ${error instanceof Error ? error.message : String(error)}`)
+  block(`Blocked: ownership hook could not validate the operation: ${error instanceof Error ? error.message : String(error)}`, 'HOOK_ERROR')
 }
