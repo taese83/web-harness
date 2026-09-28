@@ -306,7 +306,34 @@ test('계획 패스: developer는 기획 write-back 세트·API 계약만 쓰고
     assert.match(source.message, /ESCALATE_TO_FULL/)
     assert.equal(write('_workspace/01_plan/tech-stack.md').allowed, false, '계획 패스가 write-back 세트 밖 기획 문서까지 쓴다')
     assert.equal(write('_workspace/02_design/solution-design.md').allowed, false, '계획 패스가 설계 결정 블록을 쓴다')
-  }, {rawScope: planFence})
+  }, {rawScope: planFence, spec: {...SPEC, acceptanceSource: 'feature-plan'}})
+})
+
+// 기획이 결박되지 않은 스팩(사람 티켓 작업만 light)은 기준이 티켓 완료 조건이다 — 계획 패스는 기획 문서를 새로 세우지 않고 API 계약만 쓴다.
+test('계획 패스: 스팩이 feature-plan을 결박하지 않으면 API 계약만 쓰고 기획 문서는 막힌다', () => {
+  for (const spec of [{...SPEC, acceptanceSource: 'absent'}, SPEC]) {
+    withNestedProject(({harnessRoot, projectRoot}) => {
+      const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+      for (const path of ['_workspace/02_design/api-schema.md', '_workspace/02_design/api-design.md']) {
+        assert.equal(write(path).allowed, true, `${path}: ${write(path).message}`)
+      }
+      for (const path of ['_workspace/01_plan/feature-plan.md', '_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md',
+        '_workspace/01_plan/plan-delta/PC-003.json', '_workspace/01_plan/ux-brief.md', 'src/entities/track/model/schema.ts']) {
+        const result = write(path)
+        assert.equal(result.allowed, false, `기획이 없는 스팩에서 계획 패스가 ${path}를 쓴다`)
+        assert.match(result.message, /ticket acceptance/)
+      }
+    }, {rawScope: planFence, spec})
+  }
+})
+
+test('계획 패스: 스팩 잠금이 없으면 좁은 쪽이고, 거부 메시지는 티켓이 아니라 잠금 부재를 말한다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, '_workspace/01_plan/feature-plan.md')})
+    assert.equal(result.allowed, false)
+    assert.match(result.message, /spec lock .* missing or unreadable/)
+    assert.doesNotMatch(result.message, /ticket acceptance/)
+  }, {rawScope: planFence, spec: null})
 })
 
 test('계획 패스: 줄 표기(PHASE: plan)도 같은 차단이다', () => {

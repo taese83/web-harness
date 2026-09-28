@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: change-lane-light-ticket-plan-pass
+context:
+  scaffold_script: fixture.sh

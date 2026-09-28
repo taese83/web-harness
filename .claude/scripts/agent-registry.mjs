@@ -295,6 +295,15 @@ export const DEVELOPER_PLAN_PHASE_OWNERSHIP = [
   /^_workspace\/01_plan\/plan-delta\/PC-\d+\.json$/,
   /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/,
 ]
+// 수용 기준이 기획에 결박되지 않은 프로젝트(스팩 `acceptanceSource`가 `feature-plan`이 아님 — 사람 티켓 작업만 light다)에서
+// 계획 패스의 기준은 티켓 완료 조건·`TT-`다. 기획 문서를 새로 세우지 않고 API 계약만 쓴다. 판정은 잠긴 스팩에서 온다 —
+// 오케스트레이터가 쓰는 펜스가 아니다. 스팩이 없으면 좁은 쪽이다.
+const DEVELOPER_PLAN_PHASE_OWNERSHIP_UNPLANNED = [
+  /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/,
+]
+export const developerPlanPhaseOwnership = spec => (spec?.acceptanceSource === 'feature-plan'
+  ? DEVELOPER_PLAN_PHASE_OWNERSHIP
+  : DEVELOPER_PLAN_PHASE_OWNERSHIP_UNPLANNED)
 
 export const intersectWithScope = (patterns, allowedPaths) => {
   if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return patterns

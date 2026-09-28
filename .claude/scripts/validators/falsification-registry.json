@@ -4013,7 +4013,7 @@
     {
       "id": "developer-plan-pass-blocks-source",
       "file": ".claude/scripts/enforce-agent-ownership.mjs",
-      "find": "  if (scope?.phase === 'plan' && !DEVELOPER_PLAN_PHASE_OWNERSHIP.some(pattern => pattern.test(ownershipPath))) {",
+      "find": "  if (scope?.phase === 'plan' && !planPhaseOwnership.some(pattern => pattern.test(ownershipPath))) {",
       "replace": "  if (false) {",
       "test": ".claude/scripts/test-ownership-hook.mjs",
       "why": "계획 패스의 developer가 승인(✋) 전에 source를 쓴다"
@@ -4021,8 +4021,8 @@
     {
       "id": "developer-plan-pass-owns-plan-docs",
       "file": ".claude/scripts/enforce-agent-ownership.mjs",
-      "find": "    ? (scope.phase === 'plan' ? DEVELOPER_PLAN_PHASE_OWNERSHIP :",
-      "replace": "    ? (false ? DEVELOPER_PLAN_PHASE_OWNERSHIP :",
+      "find": "    ? (scope.phase === 'plan' ? planPhaseOwnership :",
+      "replace": "    ? (false ? planPhaseOwnership :",
       "test": ".claude/scripts/test-ownership-hook.mjs",
       "why": "계획 패스의 developer가 수용 기준 문서를 쓰지 못해 light 경로가 동작하지 않는다"
     },
@@ -4177,6 +4177,14 @@
       "replace": "    const still = []",
       "test": ".claude/scripts/test-development-readiness.mjs",
       "why": "--fix가 덧붙인 줄이 하위 `!` 규칙에 져도 「추가함」 PASS를 주장한다"
+    },
+    {
+      "id": "developer-plan-pass-unplanned-spec-narrows",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "export const developerPlanPhaseOwnership = spec => (spec?.acceptanceSource === 'feature-plan'",
+      "replace": "export const developerPlanPhaseOwnership = spec => (true",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "기획이 결박되지 않은 프로젝트의 티켓 계획 패스가 feature-plan·requirements를 새로 세워, 기준이 티켓과 고아 기획 두 곳으로 갈린다"
     },
     {
       "id": "spec-conventions-exists",

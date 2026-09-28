@@ -12,7 +12,12 @@
 
 - **판정(기본값):** 스팩 잠금(`03_dev/spec.json`)이 수용 기준을 결박하고(`acceptanceSource: feature-plan`) 요청이 제품 의도를
   새로 정하지 않으면(새 사용자 역할·새 화면군·새 외부 연동이 없으면) light다. `absent`면 full이다 — ①이 기획을 세우고 설계가
-  수용 기준을 결박해야 `verifiable`로 오른다. 사용자가 `full`을 말하면 아래 ①~③이다.
+  수용 기준을 결박해야 `verifiable`로 오른다. 예외는 **사람 티켓 작업**(change-scope `origin: ticket`)이다 — full의 ①도 기획을
+  세우지 않고 `specTier`가 그대로라(아래 ①) light와 결과가 같으므로 light다. 이때 계획 패스는 기획 문서를 쓰지 않고(훅이 잠긴
+  스팩을 보고 API 계약만 허용한다) 기준은 확인된 완료 조건·`TT-`, ①의 `ticket-acceptance` 라벨은 메인이 남긴다. 기획 write-back이
+  없으므로 `PC-NNN`·plan-delta snapshot/verify도 없다. 티켓 작업의 계획 패스는 feature-plan 프로젝트에서도 기획 문서를 쓰지
+  않는다 — 기준이 TC와 TT 두 곳으로 갈리지 않게(그 프로젝트에서는 훅이 막지 않으므로 developer 규칙이다). 사용자가 `full`을
+  말하면 아래 ①~③이다.
 - **계획 패스:** 메인이 다음 `PC-NNN`으로 `validate-plan-delta.mjs --snapshot`을 뜨고, change-scope.md에 아래 펜스를
   **그대로**(info-string `json change-scope`까지) append한 뒤 developer를 스폰한다. 그 범위가 현재인 동안 developer는 기획
   write-back 한 세트(`plan-history-contract.md` §2 — feature-plan 행·requirements 절·decision-log `PC-NNN`·plan-delta 선언)와
@@ -115,5 +120,6 @@ source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 �
   결박된 프로젝트에서 계획 패스가 변경 범위의 기획을 쓰고 ✋에서 멈춘다(평가 `change-lane-light-plan-pass`, 시드
   `brownfield-planned-project`). 두 평가 모두 이번 변경 뒤 재실행 전이다.
 - **사람 티켓 작업**(`origin: ticket`, `specApproval: required`) — 기준이 티켓 완료 조건·`TT-`라 ①이 기획을 세우지
-  않고 라벨만 남긴다. 명명 수준 — 평가 사례가 없다.
+  않고 라벨만 남긴다. light 계획 패스는 기획 없는 시드에 티켓 범위를 얹은 평가 `change-lane-light-ticket-plan-pass`로 고정하되
+  재실행 전이다.
 - **요구사항이 바뀌지 않는 변경**(`infrastructure`) — ①이 `none`과 사유를 남기고 ②~✋는 그대로 선다. 명명 수준.

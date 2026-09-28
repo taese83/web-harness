@@ -44,7 +44,10 @@ maxTurns: 45
 (양식은 `web-plan/references/design-readiness-contract.md` §3-1), `requirements.md` 해당 절, `decision-log.md`의 넘겨받은 `PC-NNN` 항목,
 `plan-delta/PC-NNN.json`의 declared, 화면 조건이 바뀌면 `ux-brief.md`. API 계약이 바뀌면 `02_design/api-schema.md`(라이브러리·CLI는
 `api-design.md`)를 개정한다. `solution-design.md`는 쓰지 않는다 — 설계 결정이 바뀌어야 하면 `ESCALATE_TO_FULL`에 그 사유를 적는다.
-각 TC는 관찰 가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`를 가진다. 반환은 짧게:
+각 TC는 관찰 가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`를 가진다. change-scope에 `origin: ticket`이 있는 사람 티켓
+작업이면(스팩 결박과 무관) 기준은 그 완료 조건(`checks` ACC)·`testCaseIds`(TT)다 — 기획 문서를 쓰지 않고 API 계약만 개정하며, TC 대신
+그 `TT-` ID를 반환한다. 잠긴 스팩이 feature-plan을 결박하지 않았는데 `origin: ticket`도 없으면 아무것도 쓰지 않고
+`SPAWN_RESULT: blocked` + `ESCALATE_TO_FULL: 기획 없는 스팩에 티켓 기준도 없다`로 돌려준다(기준을 세우는 것은 full ①이다). 반환은 짧게:
 
 - 추가한 TC ID · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`·
   `DOCS_TO_UPDATE: none (대조: 실재하는 02_design 문서 목록) | 개정한 문서` — ux-brief 「화면별 정보 위계」 행을 바꿨으면 여기에 적는다)

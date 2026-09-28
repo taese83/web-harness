@@ -65,7 +65,7 @@ node .claude/scripts/run-plugin-evals.mjs --case ticket-draft-team-form --runs 1
   dist를 다시 빌드한다(`distDigest`가 그 빌드다).
 - **보지 않는 것**: 비대화 규약이 첫 ✋에서 멈춘다. 앞 단계를 시드로 깐 사례(`predev-stops-at-api-decision`)로 착수 전 구간(⓪①②)까지는
   보지만, 구현·검증(Gate 0 이후)은 보지 않는다. 채점은 결정적이라 초안
-  문장의 품질(완료 조건이 관측 가능한지)은 판정하지 않는다 — 그런 판단은 능력 평가의 몫이다. 사례 5개·k=3이라 드문 회귀는 놓친다.
+  문장의 품질(완료 조건이 관측 가능한지)은 판정하지 않는다 — 그런 판단은 능력 평가의 몫이다. 사례마다 k=3이라 드문 회귀는 놓친다.
 - `run-eval-executor.mjs`의 시나리오(`scenarios.json`)는 저장소 모드 능력 평가로 남는다.
 
 ## 실행 receipt — 커밋 대상 (2026-08-23 신설)
