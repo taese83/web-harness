@@ -1,0 +1,65 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "3611cc271787a7cf5ef95bb222087ccb4defaea9",
+  "dirty": false,
+  "pluginVersion": "0.57.0",
+  "distDigest": "f0c266bfdaf0e75ef96013a2cc032bd21a54b57bd50009fc7b9de81e48423f59",
+  "claudeVersion": "2.1.281",
+  "model": "claude-sonnet-5",
+  "startedAt": "2026-09-28T14:35:25.643Z",
+  "durationSeconds": 777,
+  "costUsd": 1.9628875,
+  "partial": false,
+  "selection": {
+    "case": "change-lane-stops-at-spec-approval",
+    "tag": null,
+    "runs": "1"
+  },
+  "runPlan": null,
+  "cases": [
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "caseDigest": "62463d661b34e9ef28aabf1621ec2c95373a05620d4d4c631576e2b8b40d2f1b",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.9628875,
+          "durationSeconds": 777,
+          "turns": 5,
+          "peakContextTokens": 93593,
+          "outputTokens": 4723,
+          "cacheReadTokens": 352104,
+          "toolUses": {
+            "Read": 12,
+            "Glob": 1,
+            "Bash": 8,
+            "Agent": 4,
+            "Write": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:product-planner": 1,
+            "web-harness:feature-planner": 1,
+            "web-harness:state-contract-designer": 1,
+            "web-harness:system-architect": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
