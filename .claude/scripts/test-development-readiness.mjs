@@ -401,3 +401,97 @@ test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 �
     assert.match(tracked.remedy ?? tracked.detail ?? JSON.stringify(tracked), /git rm -r --cached/)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
+
+test('팀 공유 설정: 디렉터리·패턴 규칙으로 이미 덮인 줄은 빠진 것으로 치지 않고, 커밋되지 않는 로컬 규칙은 근거가 아니다', async () => {
+  const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
+  const {execFileSync} = await import('node:child_process')
+  const root = mkdtempSync(join(tmpdir(), 'wh-team-sharing-covered-'))
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']})
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/ticket-provider.json'), '{"provider":"jira"}')
+    git('init', '-q')
+    const rest = TEAM_SHARING.ignores.filter(line => !line.startsWith('_workspace/04_qa/'))
+    writeFileSync(join(root, '.gitignore'), `_workspace/04_qa/\n${rest.join('\n')}\n`)
+    writeFileSync(join(root, '.gitattributes'), '_workspace/**/*.jsonl merge=union\n')
+    const covered = checkTeamSharing(root)
+    assert.equal(covered.state, 'PASS', `상위 디렉터리·패턴 규칙이 덮는데 빠졌다고 했다: ${covered.detail}`)
+
+    // 커밋되지 않는 .git/info/exclude는 팀원에게 없다 — 여기에만 있는 규칙은 통과 근거가 아니다
+    writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
+    writeFileSync(join(root, '.git/info/exclude'), '_workspace/04_qa/\n')
+    const local = checkTeamSharing(root)
+    assert.equal(local.state, 'FAIL', '로컬 exclude만으로 통과했다')
+    assert.match(local.detail, /context-telemetry\.jsonl/)
+
+    // .git/info/attributes가 섞이면 출처를 가릴 수 없다 — 줄 대조로 돌아간다
+    writeFileSync(join(root, '.gitignore'), `_workspace/04_qa/\n${rest.join('\n')}\n`)
+    writeFileSync(join(root, '.git/info/attributes'), '*.jsonl merge=union\n')
+    writeFileSync(join(root, '.gitattributes'), '')
+    const attr = checkTeamSharing(root)
+    assert.equal(attr.state, 'FAIL', '로컬 attributes만으로 통과했다')
+    assert.match(attr.detail, /merge=union/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('팀 공유 설정: `!` 재포함·스스로 무시되는 하위 .gitignore·dot 규칙은 덮임이 아니고, --fix 뒤 여전히 안 덮이면 FAIL이다', async () => {
+  const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
+  const {execFileSync} = await import('node:child_process')
+  const root = mkdtempSync(join(tmpdir(), 'wh-team-sharing-negation-'))
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']})
+  const rest = TEAM_SHARING.ignores.filter(line => !line.startsWith('_workspace/04_qa/'))
+  const dirs = TEAM_SHARING.ignores.filter(line => line.endsWith('/'))
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    mkdirSync(join(root, '_workspace/04_qa'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/ticket-provider.json'), '{"provider":"jira"}')
+    writeFileSync(join(root, '.gitattributes'), `${TEAM_SHARING.attributes.join('\n')}\n`)
+    git('init', '-q')
+
+    // 마지막으로 맞은 규칙이 `!` 재포함이면 무시되지 않는다
+    writeFileSync(join(root, '.gitignore'), `_workspace/04_qa/*\n!_workspace/04_qa/failure-summary.json\n${rest.join('\n')}\n`)
+    const negated = checkTeamSharing(root)
+    assert.equal(negated.state, 'FAIL', '`!` 재포함 규칙을 덮임으로 셌다')
+    assert.match(negated.detail, /failure-summary\.json/)
+    assert.doesNotMatch(negated.detail, /context-telemetry/)
+
+    // 스스로 무시되는 하위 .gitignore는 팀원 클론에 없다
+    writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
+    writeFileSync(join(root, '_workspace/04_qa/.gitignore'), '*\n')
+    const selfIgnored = checkTeamSharing(root)
+    assert.equal(selfIgnored.state, 'FAIL', '커밋될 수 없는 하위 .gitignore를 근거로 셌다')
+    assert.match(selfIgnored.detail, /context-telemetry\.jsonl/)
+    rmSync(join(root, '_workspace/04_qa/.gitignore'))
+
+    // dot 파일 규칙이 디렉터리 줄을 덮은 것처럼 보이지 않는다
+    writeFileSync(join(root, '.gitignore'), `.*\n${TEAM_SHARING.ignores.filter(line => !dirs.includes(line)).join('\n')}\n`)
+    git('add', '-f', '.gitignore')  // `.*`가 .gitignore 자신도 덮는다 — 추적 중이어야 팀원에게 가는 규칙 파일이다
+    const dotted = checkTeamSharing(root)
+    assert.equal(dotted.state, 'FAIL', 'dot 규칙이 디렉터리 줄을 덮었다고 셌다')
+    for (const line of dirs) assert.ok(dotted.detail.includes(line), line)
+
+    // --fix가 줄을 덧붙여도 하위 .gitignore의 `!`가 이기면 PASS라고 하지 않는다
+    git('rm', '-q', '--cached', '.gitignore')
+    writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
+    writeFileSync(join(root, '_workspace/04_qa/.gitignore'), '!failure-summary.json\n')
+    const fixed = checkTeamSharing(root, {install: true})
+    assert.equal(fixed.state, 'FAIL', '덧붙인 줄이 듣지 않는데 PASS라고 했다')
+    assert.match(fixed.detail, /여전히 덮이지 않는다: .*failure-summary\.json/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('팀 공유 설정: 규칙 파일이 비ASCII 디렉터리 아래에 있어도 덮임을 읽는다(git 경로 인용에 막히지 않는다)', async () => {
+  const {checkTeamSharing, TEAM_SHARING} = await import('./validate-development-readiness.mjs')
+  const {execFileSync} = await import('node:child_process')
+  const top = mkdtempSync(join(tmpdir(), 'wh-team-sharing-quoted-'))
+  const root = join(top, '앱')
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    execFileSync('git', ['-C', top, 'init', '-q'])
+    writeFileSync(join(root, '_workspace/03_dev/ticket-provider.json'), '{"provider":"jira"}')
+    writeFileSync(join(root, '.gitignore'), `${TEAM_SHARING.ignores.join('\n')}\n`)
+    writeFileSync(join(root, '.gitattributes'), `${TEAM_SHARING.attributes.join('\n')}\n`)
+    const result = checkTeamSharing(root)
+    assert.equal(result.state, 'PASS', result.detail)
+  } finally { rmSync(top, {recursive: true, force: true}) }
+})

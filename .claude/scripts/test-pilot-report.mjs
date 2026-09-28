@@ -134,3 +134,14 @@ test('실행부: 티켓 키가 아닌 --keys는 읽기 전에 거부한다', asy
     assert.equal((await runPilotReport({root, flags: {keys: 'AOA-1,../x'}, io: {}})).phase, 'INVALID_KEYS')
   })
 })
+
+test('흐름 로그: git 저장소에서는 개발 준비 검사와 같은 판정 — 패턴으로 덮이면 기록하고, `!` 재포함이면 기록하지 않는다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-flow-log-pattern-'))
+  try {
+    spawnSync('git', ['init', '-q'], {cwd: root})
+    writeFileSync(join(root, '.gitignore'), '_workspace/03_dev/flow-*.jsonl\n')
+    assert.equal(recordFlow(root, {command: 'pickup'}).recorded, true, 'Gate 0이 통과시킨 패턴 규칙을 흐름 로그가 거부했다')
+    writeFileSync(join(root, '.gitignore'), `_workspace/03_dev/flow-*.jsonl\n!${FLOW_LOG_PATH}\n`)
+    assert.deepEqual(recordFlow(root, {command: 'pickup'}), {recorded: false, reason: 'not-gitignored'})
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})

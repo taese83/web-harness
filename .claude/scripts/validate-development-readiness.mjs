@@ -35,6 +35,7 @@ import {checkPlanAgainstSpec, readSpecAt, withinScope} from './validate-spawn-pl
 import {inspectPlanSpecBinding} from './resume-manifest.mjs'
 import {TICKET_CLOSE_ASSETS, installTicketCloseAssets, planTicketCloseInstall} from './ticket/cli.mjs'
 import {answerHelp} from './cli-help-lib.mjs'
+import {sharedAttributeCovers, sharedIgnoreCovers} from './git-shared-rules-lib.mjs'
 
 answerHelp(import.meta.url)
 
@@ -319,14 +320,19 @@ function trackedFiles(root, paths) {
       .split('\n').filter(Boolean)
   } catch { return [] }  // git 저장소가 아니면 추적 여부를 알 수 없다 — 줄 검사만 한다
 }
+// 이미 공유 규칙으로 덮였는지는 git이 판정한다(`git-shared-rules-lib.mjs`) — git이 답하지 못하면 줄 대조다.
+const covered = (root, file, line) => {
+  const byGit = file === '.gitignore' ? sharedIgnoreCovers(root, line) : sharedAttributeCovers(root, line)
+  return byGit ?? readLines(join(root, file)).includes(line)
+}
 export function checkTeamSharing(root, {install = false} = {}) {
   // 팀 흐름은 WORK 원장만이 아니다 — 사람이 만든 개발 티켓만 쓰는 팀도 트래커 설정과 로컬 판정 기록을 갖는다.
   const teamFlow = ['_workspace/03_dev/work-item-events.jsonl', '_workspace/03_dev/ticket-provider.json', '_workspace/03_dev/ticket-assessments']
     .some(relative => existsSync(join(root, relative)))
   if (!teamFlow) return skip('team-sharing', '팀 흐름(WORK 원장·트래커 설정)을 쓰지 않는 프로젝트다')
   const missing = [
-    ...TEAM_SHARING.attributes.filter(line => !readLines(join(root, '.gitattributes')).includes(line)).map(line => ['.gitattributes', line]),
-    ...TEAM_SHARING.ignores.filter(line => !readLines(join(root, '.gitignore')).includes(line)).map(line => ['.gitignore', line]),
+    ...TEAM_SHARING.attributes.filter(line => !covered(root, '.gitattributes', line)).map(line => ['.gitattributes', line]),
+    ...TEAM_SHARING.ignores.filter(line => !covered(root, '.gitignore', line)).map(line => ['.gitignore', line]),
   ]
   // 무시 규칙은 이미 추적 중인 파일에는 듣지 않는다 — 줄이 있어도 추적 중이면 충돌은 그대로다.
   const tracked = trackedFiles(root, TEAM_SHARING.ignores)
@@ -345,6 +351,12 @@ export function checkTeamSharing(root, {install = false} = {}) {
       writeFileSync(path, `${current}${current && !current.endsWith('\n') ? '\n' : ''}${lines.join('\n')}\n`)
     }
     if (untrack) return untrack
+    // 덧붙인 줄이 실제로 듣는지 다시 판정한다 — 하위 .gitignore의 `!` 재포함이 이기면 줄을 넣어도 덮이지 않는다.
+    const still = missing.filter(([file, line]) => !covered(root, file, line))
+    if (still.length > 0) {
+      return fail('team-sharing', `줄을 덧붙였지만 여전히 덮이지 않는다: ${still.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
+        '`git check-ignore -v --no-index <경로>`로 이기는 규칙(하위 .gitignore의 `!` 재포함 등)을 찾아 정리한다')
+    }
     return pass('team-sharing', `추가함: ${missing.map(([file, line]) => `${file} ← ${line}`).join(' · ')} — 커밋·push는 브랜치 소유자 몫이다`)
   }
   return fail('team-sharing', `여러 사람이 쓰면 충돌하는 설정이 빠졌다: ${missing.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,

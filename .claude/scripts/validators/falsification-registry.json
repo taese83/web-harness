@@ -4131,6 +4131,54 @@
       "why": "계획 패스가 solution-design 결정 블록을 고쳐 스팩의 layerMap, 곧 자기 쓰기 소유권을 넓힌다"
     },
     {
+      "id": "team-sharing-local-ignore-not-shared",
+      "file": ".claude/scripts/git-shared-rules-lib.mjs",
+      "find": "  if (!/(?:^|\\/)\\.gitignore$/.test(source) || source.split('/').includes('.git')) return false",
+      "replace": "  if (false) return false",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "커밋되지 않는 .git/info/exclude 규칙이 통과 근거가 되어 팀원 클론에서 로컬 기록이 커밋된다"
+    },
+    {
+      "id": "team-sharing-local-attributes-fallback",
+      "file": ".claude/scripts/git-shared-rules-lib.mjs",
+      "find": "  if (existsSync(localPath) && readFileSync(localPath, 'utf8').trim()) return null",
+      "replace": "  if (false) return null",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": ".git/info/attributes의 merge=union이 통과 근거가 되어 다른 사람의 병합에서 원장이 충돌한다"
+    },
+    {
+      "id": "team-sharing-negated-pattern-not-covered",
+      "file": ".claude/scripts/git-shared-rules-lib.mjs",
+      "find": "  if (pattern.startsWith('!')) return false",
+      "replace": "  if (pattern.startsWith('!!')) return false",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "`!` 재포함 규칙이 exit 0이라 덮임으로 세어져 재포함된 로컬 기록이 커밋된다"
+    },
+    {
+      "id": "team-sharing-rule-file-travels",
+      "file": ".claude/scripts/git-shared-rules-lib.mjs",
+      "find": "  return travels(top.out.trim(), source)",
+      "replace": "  return true",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "스스로 무시되는 하위 .gitignore(`*`)는 팀원 클론에 없는데 근거로 세어진다"
+    },
+    {
+      "id": "team-sharing-directory-probe-not-dotfile",
+      "file": ".claude/scripts/git-shared-rules-lib.mjs",
+      "find": "const DIRECTORY_PROBE = '__readiness_probe__'",
+      "replace": "const DIRECTORY_PROBE = '.probe'",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "`.*` 같은 무관한 dot 규칙이 모든 디렉터리 줄을 덮은 것처럼 보여 실제 기록 파일이 커밋된다"
+    },
+    {
+      "id": "team-sharing-fix-reverifies",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "    const still = missing.filter(([file, line]) => !covered(root, file, line))",
+      "replace": "    const still = []",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "--fix가 덧붙인 줄이 하위 `!` 규칙에 져도 「추가함」 PASS를 주장한다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

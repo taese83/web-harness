@@ -4,6 +4,7 @@
 // 로컬 파일(git 제외)이며 어디로도 보내지 않는다. 본문·코멘트 같은 티켓 내용은 싣지 않는다. 쓰기 실패는 흐름을 바꾸지 않는다.
 import {appendFileSync, existsSync, mkdirSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
+import {sharedIgnoreCovers} from '../git-shared-rules-lib.mjs'
 
 export const FLOW_LOG_PATH = '_workspace/03_dev/flow-log.jsonl'
 
@@ -22,8 +23,10 @@ export function flowEntry({command, ticketKey = null, developer = null, result =
   }
 }
 
-/** git이 이 파일을 제외하는가(순수 근사) — 개발 준비 검사(team-sharing)와 같은 줄 대조다. */
+/** git이 이 파일을 공유 규칙으로 제외하는가 — 개발 준비 검사(team-sharing)와 같은 판정이고, git이 답하지 못하면 줄 대조다. */
 const ignoredByGit = root => {
+  const byGit = sharedIgnoreCovers(root, FLOW_LOG_PATH)
+  if (byGit !== null) return byGit
   try {
     return readFileSync(join(root, '.gitignore'), 'utf8').split(/\r?\n/).map(line => line.trim()).includes(FLOW_LOG_PATH)
   } catch {
@@ -50,7 +53,7 @@ export function recordFlow(root, entry) {
 /** 기록하지 못했을 때 결과에 싣는 한 줄(순수) — 흐름은 그대로이고 실측에서 빠진다는 사실만 알린다. */
 export const flowRecordNote = written => (written.recorded ? {} : {flowRecorded: false,
   flowGuidance: written.reason === 'not-gitignored'
-    ? '실측 기록을 남기지 않았습니다 — .gitignore에 흐름 로그 줄이 없습니다. 개발 준비 검사를 --fix로 한 번 돌리세요.'
+    ? '실측 기록을 남기지 않았습니다 — 흐름 로그가 공유 .gitignore로 제외되지 않습니다. 개발 준비 검사를 --fix로 한 번 돌리세요.'
     : `실측 기록을 남기지 못했습니다(${written.reason}). 흐름에는 영향이 없습니다.`})
 
 /** 기록 읽기 — 깨진 줄은 건너뛰고 몇 줄인지 센다. */
