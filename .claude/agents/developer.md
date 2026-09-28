@@ -42,10 +42,12 @@ maxTurns: 45
 쓰지 않고 `SPAWN_RESULT: blocked (계획 펜스 없음)`으로 돌려준다. 계획 패스인 동안에는 **source·테스트를 쓰지 않는다**(훅이 막는다).
 코드와 기존 스펙을 읽고 이번 범위만큼 기획 write-back 한 세트를 쓴다(`plan-history-contract.md` §2): `feature-plan.md`의 FEAT/TC 행
 (양식은 `web-plan/references/design-readiness-contract.md` §3-1), `requirements.md` 해당 절, `decision-log.md`의 넘겨받은 `PC-NNN` 항목,
-`plan-delta/PC-NNN.json`의 declared. API 계약이 바뀌면 `02_design/api-schema.md`(라이브러리·CLI는 `api-design.md`)를 개정한다.
+`plan-delta/PC-NNN.json`의 declared, 화면 조건이 바뀌면 `ux-brief.md`. API 계약이 바뀌면 `02_design/api-schema.md`(라이브러리·CLI는
+`api-design.md`)를 개정한다. `solution-design.md`는 쓰지 않는다 — 설계 결정이 바뀌어야 하면 `ESCALATE_TO_FULL`에 그 사유를 적는다.
 각 TC는 관찰 가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`를 가진다. 반환은 짧게:
 
-- 추가한 TC ID · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`)
+- 추가한 TC ID · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`·
+  `DOCS_TO_UPDATE: none (대조: 실재하는 02_design 문서 목록) | 개정한 문서` — ux-brief 「화면별 정보 위계」 행을 바꿨으면 여기에 적는다)
 - 열린 질문 최대 3개(선택지·추천) — 요청이 정하지 않은 동작은 가정으로 삼지 말고 여기 올린다
 - `ESCALATE_TO_FULL: none | <사유>` — 새 레이어·라이브러리·형태가 필요하거나 제품 의도 결정이 남으면 사유를 적는다
 

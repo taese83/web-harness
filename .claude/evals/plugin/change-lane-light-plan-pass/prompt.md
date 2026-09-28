@@ -1,5 +1,5 @@
 ---
-description: change 레인 light 경로(스팩 잠금·solution-design이 있는 시드, 제품 의도를 새로 정하지 않는 요청)는 developer 계획 패스(change-scope `PHASE: plan`)로 수용 기준을 쓰고 ✋에서 멈춘다. 승인 전 source 변경 0은 시드 해시 대조와 소유권 훅으로 본다.
+description: change 레인 light 경로(기획·수용 기준이 스팩에 결박된 시드, 제품 의도를 새로 정하지 않는 요청)는 developer 계획 패스(change-scope `PHASE: plan`)로 수용 기준을 쓰고 ✋ 전에 스팩을 다시 확정한 뒤 멈춘다. 승인 전 source 변경 0은 시드 해시 대조와 소유권 훅으로 본다.
 tags: [regression, lane]
 runs: 3
 max_turns: 80

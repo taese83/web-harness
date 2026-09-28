@@ -34,18 +34,17 @@
 
 `fix`는 자기검사(`request-type-contract.md` — 하나라도 걸리면 `change`로 승격)를 통과한 뒤 2·3·5를 건너뛰고 유형별 보존 증거를 남긴다.
 
-## light — 기본값(스팩 잠금·solution-design이 있고 제품 의도를 새로 정하지 않을 때)
+## light — 기본값(스팩이 feature-plan 수용 기준을 결박하고 제품 의도를 새로 정하지 않을 때)
 
 1. 다음 `PC-NNN`으로 `validate-plan-delta.mjs --project {root} --change PC-NNN --snapshot` → change-scope.md에 아래 펜스를 **그대로**
-   append(info-string `json change-scope`까지 — 다른 표기는 차단이 켜지지 않는다. 계획 패스의 쓰기 소유는 이 ALLOWED_PATHS가 아니라
-   고정 세트다) → developer 계획 패스 스폰(PC 번호를 넘긴다). 첫 기획이라 snapshot이 안정 ID 0을 경고해도 `--allow-no-ids`를
-   쓰지 않는다 — 계획 패스가 ID를 더하면 `--verify`가 선다:
+   append(info-string까지 — 다른 표기는 차단이 켜지지 않는다. 쓰기 소유는 ALLOWED_PATHS가 아니라 고정 세트) → developer 계획
+   패스 스폰(PC 번호를 넘긴다). snapshot이 안정 ID 0을 경고해도 `--allow-no-ids`를 쓰지 않는다:
 
 ```json change-scope
 {"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md", "_workspace/01_plan/requirements.md", "_workspace/01_plan/decision-log.md"]}
 ```
 
-2. 반환 뒤 `--verify`. TC는 반환이 준 ID를 `plan-lookup`으로 꺼낸 행을 ✋에 싣는다. `ESCALATE_TO_FULL`이 `none`이 아니면 full. ✋에서 기준이 바뀌면 새 PC 항목이다.
+2. 반환 뒤 `--verify` → 3행 `spec.mjs`로 ✋ **전에** 재확정(digest·layerMap — refs는 그대로). TC는 `plan-lookup`으로 꺼낸 행을 싣는다. `ESCALATE_TO_FULL`(solution-design 변경 포함)이면 full. ✋에서 기준이 바뀌면 새 PC.
 3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 SendMessage로 이어서** 구현·수정시킨다. 반환한 스폰이 이어지지
    않거나(세션 종료·비대화 실행 포함) 응답이 없으면 `TaskStop` 뒤 새 스폰에 계획 반환·TC ID를 넘긴다. telemetry `mode: resume`.
 4. 리뷰는 라운드당 **한 스폰** — 규칙은 `qa-evidence-contract.md` Iterate evidence의 light 항목(9 ①도 그것이 채운다).

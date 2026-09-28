@@ -136,7 +136,8 @@ try {
   // 계획 패스(`PHASE: plan`)가 현재 범위면 source 소유는 없고 계획 문서만 쓴다 — 승인 전 source 변경 0을 훅이 보장한다.
   if (scope?.phase === 'plan' && !DEVELOPER_PLAN_PHASE_OWNERSHIP.some(pattern => pattern.test(ownershipPath))) {
     block(`Blocked: ${input.agent_type} is in the plan pass (change-scope PHASE: plan) — it writes only `
-      + 'the plan write-back set (01_plan feature-plan·requirements·decision-log·plan-delta) and the API contract doc. '
+      + 'the plan write-back set (01_plan feature-plan·requirements·decision-log·plan-delta·ux-brief) and the API contract doc — '
+      + 'not solution-design (design-decision changes go ESCALATE_TO_FULL). '
       + 'Source waits for the spec approval (✋) and the implementation scope.')
   }
   const specPatterns = agentType === DEVELOPER_AGENT

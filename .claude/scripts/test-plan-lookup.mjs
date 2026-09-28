@@ -56,3 +56,36 @@ test('심링크 문서는 따라가지 않는다', () => {
     assert.equal(run(root, '--id', 'TC-777-1').status, 1)
   })
 })
+
+test('기본은 정의 행만 — 여러 곳에 언급돼도 표 행·제목 하나를 낸다, --all은 모든 언급', () => {
+  withPlan(root => {
+    writeFileSync(join(root, '_workspace/01_plan/trace.md'), '추적: TC-002-1은 REQ-001을 덮는다\n| REQ-001 | TC-002-1 |\n')
+    const defined = run(root, '--id', 'TC-002-1')
+    assert.equal(defined.stdout.trim().split('\n').length, 2, defined.stdout)
+    assert.match(defined.stdout, /feature-plan\.md:2: \| TC-002-1 \|/)
+    assert.match(defined.stdout, /언급 3곳 — 전부 보려면 --all/)
+    const all = run(root, '--id', 'TC-002-1', '--all')
+    assert.match(all.stdout, /trace\.md:1:/)
+    assert.match(all.stdout, /trace\.md:2:/)
+  })
+})
+
+test('출력은 16KB 상한이고 넘으면 멈춘다고 말한다', () => {
+  withPlan(root => {
+    const ids = Array.from({length: 120}, (_, index) => `TC-900-${index + 1}`)
+    writeFileSync(join(root, '_workspace/01_plan/bulk.md'), ids.map(id => `| ${id} | ${'가'.repeat(80)} |`).join('\n'))
+    const result = run(root, '--id', ids.join(','))
+    assert.ok(Buffer.byteLength(result.stdout) <= 16 * 1024 + 200, `${Buffer.byteLength(result.stdout)}B`)
+    assert.match(result.stdout, /출력 상한/)
+  })
+})
+
+test('목록 항목으로 정의된 ID(REQ)는 그 항목이 정의 행이다 — 다른 파일의 언급이 대신 나오지 않는다', () => {
+  withPlan(root => {
+    writeFileSync(join(root, '_workspace/01_plan/decision-log.md'), '## PC-001 연장\n- 대상: REQ-F-001\n')
+    writeFileSync(join(root, '_workspace/01_plan/requirements.md'), '# 요구사항\n- [ ] REQ-F-001 사용자는 예약을 연장할 수 있다\n')
+    const result = run(root, '--id', 'REQ-F-001')
+    assert.match(result.stdout, /requirements\.md:2: - \[ \] REQ-F-001/)
+    assert.doesNotMatch(result.stdout, /decision-log\.md:2/)
+  })
+})

@@ -295,13 +295,16 @@ test('계획 패스: developer는 기획 write-back 세트·API 계약만 쓰고
     const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
     assert.equal(write('_workspace/01_plan/feature-plan.md').allowed, true, write('_workspace/01_plan/feature-plan.md').message)
     for (const path of ['_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md', '_workspace/01_plan/plan-delta/PC-003.json',
+      '_workspace/01_plan/ux-brief.md', '_workspace/01_plan/ux-brief/screens.md',
       '_workspace/02_design/api-schema.md', '_workspace/02_design/api-design.md']) {
       assert.equal(write(path).allowed, true, `${path}: ${write(path).message}`)
     }
     const source = write('src/entities/track/model/schema.ts')
     assert.equal(source.allowed, false)
     assert.match(source.message, /plan pass/)
-    assert.equal(write('_workspace/01_plan/ux-brief.md').allowed, false, '계획 패스가 write-back 세트 밖 기획 문서까지 쓴다')
+    assert.match(source.message, /ux-brief/, '거부 메시지가 계획 패스의 쓰기 세트를 말하지 않는다')
+    assert.match(source.message, /ESCALATE_TO_FULL/)
+    assert.equal(write('_workspace/01_plan/tech-stack.md').allowed, false, '계획 패스가 write-back 세트 밖 기획 문서까지 쓴다')
     assert.equal(write('_workspace/02_design/solution-design.md').allowed, false, '계획 패스가 설계 결정 블록을 쓴다')
   }, {rawScope: planFence})
 })

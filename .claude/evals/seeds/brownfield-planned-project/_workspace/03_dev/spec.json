@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "specTier": "verifiable",
+  "acceptanceSource": "feature-plan",
+  "acceptanceRefs": [
+    "TC-001-1"
+  ],
+  "constitution": {
+    "substrate": {
+      "packageManager": {
+        "value": "pnpm",
+        "source": "default"
+      },
+      "language": {
+        "value": "typescript",
+        "source": "default"
+      },
+      "bundler": {
+        "value": "vite",
+        "source": "default"
+      },
+      "testRunner": {
+        "value": "vitest",
+        "source": "default"
+      },
+      "lint": {
+        "value": "eslint",
+        "source": "default"
+      },
+      "formatter": {
+        "value": "prettier",
+        "source": "default"
+      },
+      "e2e": {
+        "value": "playwright",
+        "source": "default"
+      }
+    },
+    "conventions": []
+  },
+  "targetShapes": [
+    "web-app"
+  ],
+  "architecture": {
+    "pattern": "existing",
+    "rationale": "기존 관례 — 앱·화면·공유 세 층"
+  },
+  "communication": [],
+  "concurrency": [],
+  "layerMap": {
+    "app": "src/app",
+    "pages": "src/pages",
+    "shared": "src/shared"
+  },
+  "testLayers": {
+    "unit": "src",
+    "e2e": "e2e"
+  },
+  "libraries": {},
+  "moduleBoundaries": [],
+  "nonGoals": [],
+  "decisions": [],
+  "sourceDigest": {
+    "inputs": [
+      {
+        "path": "_workspace/00_source/design-binding.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/feature-plan.md",
+        "present": true,
+        "sha256": "9a2082e9492a8f97f70a1a3bff67cd9bc72165fb746e454b13acce949dfe0bb9"
+      },
+      {
+        "path": "_workspace/01_plan/tech-stack.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/01_plan/project-profile.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/api-schema.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/component-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/state-contract.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/integration-overlay.json",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/layout-spec.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/design-system.md",
+        "present": false
+      },
+      {
+        "path": "_workspace/02_design/solution-design.md",
+        "present": true,
+        "sha256": "d3cfe4b0024ebac6331f499600e8c10d3bb9e69131c20505978fb76458f77318"
+      }
+    ],
+    "combined": "c7969f7395616037c53d7f1314e11259952231bab044a1811266514b938aa951"
+  }
+}

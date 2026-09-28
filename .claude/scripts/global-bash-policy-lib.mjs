@@ -765,14 +765,17 @@ const validationScriptContract = (script, args, context) => {
     // 저장소 자신을 훑는 읽기 전용 감사 — 인자는 --json뿐이다.
     return args.length === 0 || (args.length === 1 && args[0] === '--json')
   }
-  // 읽기 전용 ID 조회 — `--project <dir> --id <ID,...> [--context <0-20>]` 또는 단독 --help.
+  // 읽기 전용 ID 조회 — `--project <dir> --id <ID,...> [--context <0-20>] [--all]` 또는 단독 --help.
   if (script === '.claude/scripts/plan-lookup.mjs') {
     if (args.length === 1 && ['--help', '-h'].includes(args[0])) return true
     const rest = withoutDirectoryOption(args, '--project', context)
     if (rest.length !== args.length - 2) return false
     const idIndex = rest.indexOf('--id')
     if (idIndex !== 0 || !/^[A-Z][A-Z0-9_]*(?:-[A-Z0-9]+)+(?:,[A-Z][A-Z0-9_]*(?:-[A-Z0-9]+)+)*$/.test(rest[1] ?? '')) return false
-    return rest.length === 2 || (rest.length === 4 && rest[2] === '--context' && /^(?:[0-9]|1[0-9]|20)$/.test(rest[3]))
+    const tail = rest.slice(2)
+    const allIndex = tail.indexOf('--all')
+    if (allIndex !== -1) tail.splice(allIndex, 1)
+    return tail.length === 0 || (tail.length === 2 && tail[0] === '--context' && /^(?:[0-9]|1[0-9]|20)$/.test(tail[1]))
   }
   if (script === '.claude/scripts/report-execution-telemetry.mjs') {
     const commandArgs = withoutDirectoryOption(args, '--project', context)

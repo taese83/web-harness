@@ -4099,6 +4099,38 @@
       "why": "env 할당 값(토큰 등)이 텔레메트리에 평문으로 남는다"
     },
     {
+      "id": "context-telemetry-strips-cd",
+      "file": ".claude/scripts/record-context-telemetry.mjs",
+      "find": "    const command = String(toolInput?.command ?? '').trim().replace(/^(?:cd\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)\\s*(?:&&|;)\\s*)+/, '')",
+      "replace": "    const command = String(toolInput?.command ?? '').trim()",
+      "test": ".claude/scripts/test-context-telemetry.mjs",
+      "why": "cd 접두 명령이 전부 bash:cd로 묶여 무엇이 문맥을 채웠는지 보이지 않는다"
+    },
+    {
+      "id": "plan-lookup-definition-rows-default",
+      "file": ".claude/scripts/plan-lookup.mjs",
+      "find": "    const chosen = all ? matches.slice(0, MAX_ROWS_PER_ID) : (definitions.length ? definitions : matches.slice(0, 1))",
+      "replace": "    const chosen = matches.slice(0, MAX_ROWS_PER_ID)",
+      "test": ".claude/scripts/test-plan-lookup.mjs",
+      "why": "모든 언급을 쏟아내 ✋ 조립 한 번에 수십 KB가 메인 문맥에 쌓인다"
+    },
+    {
+      "id": "plan-lookup-output-cap",
+      "file": ".claude/scripts/plan-lookup.mjs",
+      "find": "    if (written + Buffer.byteLength(block) > MAX_OUTPUT_BYTES) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-plan-lookup.mjs",
+      "why": "ID를 많이 주면 출력이 상한 없이 커진다"
+    },
+    {
+      "id": "developer-plan-pass-no-solution-design",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "  /^_workspace\\/01_plan\\/ux-brief(?:\\.md|\\/.+)$/,\n  /^_workspace\\/01_plan\\/plan-delta\\/PC-\\d+\\.json$/,",
+      "replace": "  /^_workspace\\/01_plan\\/ux-brief(?:\\.md|\\/.+)$/,\n  /^_workspace\\/02_design\\/solution-design\\.md$/,\n  /^_workspace\\/01_plan\\/plan-delta\\/PC-\\d+\\.json$/,",
+      "test": ".claude/scripts/test-ownership-hook.mjs",
+      "why": "계획 패스가 solution-design 결정 블록을 고쳐 스팩의 layerMap, 곧 자기 쓰기 소유권을 넓힌다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

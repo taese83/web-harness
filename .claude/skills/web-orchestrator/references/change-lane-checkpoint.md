@@ -10,19 +10,25 @@
 ①~③을 기획·설계 스폰 대신 **developer 계획 패스 1회**로 한다. ④ 스팩 확정과 ✋ 승인은 그대로다.
 기획·구현을 역할별 스폰으로 나누면 인계마다 결정이 새고 조정 비용이 커진다 — 한 컨텍스트가 계획하고 구현한다.
 
-- **판정(기본값):** 스팩 잠금(`03_dev/spec.json`)과 `02_design/solution-design.md`가 있고, 요청이 제품 의도를 새로 정하지
-  않으면(새 사용자 역할·새 화면군·새 외부 연동이 없으면) light다. 사용자가 `full`을 말하면 아래 ①~③이다.
+- **판정(기본값):** 스팩 잠금(`03_dev/spec.json`)이 수용 기준을 결박하고(`acceptanceSource: feature-plan`) 요청이 제품 의도를
+  새로 정하지 않으면(새 사용자 역할·새 화면군·새 외부 연동이 없으면) light다. `absent`면 full이다 — ①이 기획을 세우고 설계가
+  수용 기준을 결박해야 `verifiable`로 오른다. 사용자가 `full`을 말하면 아래 ①~③이다.
 - **계획 패스:** 메인이 다음 `PC-NNN`으로 `validate-plan-delta.mjs --snapshot`을 뜨고, change-scope.md에 아래 펜스를
   **그대로**(info-string `json change-scope`까지) append한 뒤 developer를 스폰한다. 그 범위가 현재인 동안 developer는 기획
   write-back 한 세트(`plan-history-contract.md` §2 — feature-plan 행·requirements 절·decision-log `PC-NNN`·plan-delta 선언)와
-  API 계약(웹 `api-schema.md`, 라이브러리·CLI `api-design.md`)만 쓴다 — 소유권 훅이 source를 막는다. 반환 뒤 `--verify`.
-  반환: 추가한 TC ID · change brief 필드 · 열린 질문(최대 3, 추천안 포함) · `ESCALATE_TO_FULL: none | <사유>`.
+  `ux-brief.md`, API 계약(웹 `api-schema.md`, 라이브러리·CLI `api-design.md`)만 쓴다 — 소유권 훅이 source를 막는다.
+  `solution-design.md`는 쓰지 않는다(결정 블록이 스팩의 layerMap, 곧 쓰기 소유권을 낳는다). 쓰기 소유는 펜스의 ALLOWED_PATHS가
+  아니라 이 고정 세트다. 반환 뒤 `--verify`하고 ④ 스팩을 **✋ 전에** 다시 확정한다 — 입력 digest·layerMap이 잠긴 상태로 승인받는다.
+  `acceptanceRefs`·`specTier`는 기존 그대로다(새 TC는 refs에 자동으로 들어가지 않는다 — §4 light 행).
+  반환: 추가한 TC ID · change brief 필드(`DOCS_TO_UPDATE: none (대조: …) | 목록` 포함) · 열린 질문(최대 3, 추천안 포함) ·
+  `ESCALATE_TO_FULL: none | <사유>`.
 
 ```json change-scope
 {"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md", "_workspace/01_plan/requirements.md", "_workspace/01_plan/decision-log.md"]}
 ```
 
-- **승격:** 새 레이어·라이브러리·형태가 필요하거나 제품 의도 결정이 남으면 developer가 `ESCALATE_TO_FULL`로 알리고,
+- **승격:** 새 레이어·라이브러리·형태, 그 밖의 `solution-design.md` 결정 변경이 필요하거나 제품 의도 결정이 남으면
+  developer가 `ESCALATE_TO_FULL`로 알리고,
   메인은 ①~③으로 넘어간다(계획 패스가 쓴 TC는 feature-planner 입력이 된다).
 - **✋ 뒤:** 메인이 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 이어서**(SendMessage) 구현시킨다. 이어가기가
   불가하면 새 developer 스폰에 계획 패스 반환과 TC 행을 넘긴다.
@@ -105,8 +111,9 @@ source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 �
 ## 일반화 근거
 
 - **기획·디자인 `absent`로 세운 브라운필드 웹 앱** — full은 ①이 변경 범위만큼 기획을 세우고(`product-planner`·
-  `feature-planner`) ✋에서 멈춘다(평가 `change-lane-stops-at-spec-approval` — 요청이 full을 지정). light는 계획 패스가
-  같은 일을 하고 ✋에서 멈춘다(평가 `change-lane-light-plan-pass`). 두 평가 모두 이번 변경 뒤 재실행 전이다.
+  `feature-planner`) ✋에서 멈춘다(평가 `change-lane-stops-at-spec-approval` — 요청이 full을 지정). light는 기획·수용 기준이 이미
+  결박된 프로젝트에서 계획 패스가 변경 범위의 기획을 쓰고 ✋에서 멈춘다(평가 `change-lane-light-plan-pass`, 시드
+  `brownfield-planned-project`). 두 평가 모두 이번 변경 뒤 재실행 전이다.
 - **사람 티켓 작업**(`origin: ticket`, `specApproval: required`) — 기준이 티켓 완료 조건·`TT-`라 ①이 기획을 세우지
   않고 라벨만 남긴다. 명명 수준 — 평가 사례가 없다.
 - **요구사항이 바뀌지 않는 변경**(`infrastructure`) — ①이 `none`과 사유를 남기고 ②~✋는 그대로 선다. 명명 수준.

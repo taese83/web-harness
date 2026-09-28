@@ -16,7 +16,8 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024
 const HARNESS_PATH = /\.claude\/scripts\/|_workspace\/\.contracts\/|\/references\/|\/\.claude\//
 const targetOf = (toolName, toolInput, projectRoot) => {
   if (toolName === 'Bash') {
-    const command = String(toolInput?.command ?? '').trim()
+    // `cd <dir> && …`·`cd <dir>; …` 접두는 벗긴다 — 실제로 무엇을 돌렸는지로 분류한다.
+    const command = String(toolInput?.command ?? '').trim().replace(/^(?:cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*(?:&&|;)\s*)+/, '')
     const executable = command.split(/\s+/)[0] ?? ''
     const simple = /^[A-Za-z0-9._/-]+$/.test(executable) ? executable.split('/').at(-1) : '(env)'
     const script = command.match(/^(?:node\s+\S*\.claude\/scripts\/|\S*web-harness-script\s+)([a-z0-9/-]+)/)

@@ -95,3 +95,12 @@ test('기록 디렉터리가 링크면 따라가 쓰지 않는다', () => {
     assert.equal(existsSync(join(outside, 'context-telemetry.jsonl')), false, '링크 너머 디렉터리에 기록했다')
   })
 })
+
+test('cd 접두는 벗기고 실제 명령으로 분류한다', () => {
+  withProject(root => {
+    run(root, {tool_name: 'Bash', tool_input: {command: 'cd /tmp/proj && node .claude/scripts/spec.mjs --project-root .'}, tool_response: 'a'})
+    run(root, {tool_name: 'Bash', tool_input: {command: 'cd "/tmp/a b"; cd sub && cat _workspace/.contracts/skills/x/references/y.md'}, tool_response: 'a'})
+    run(root, {tool_name: 'Bash', tool_input: {command: 'cd /tmp && git status'}, tool_response: 'a'})
+    assert.deepEqual(rowsOf(root).map(row => row.target), ['script:spec', 'bash:cat:harness-source', 'bash:git'])
+  })
+})
