@@ -86,10 +86,19 @@ change-scope 라운드 항목에 남긴다 — 기준의 출처가 티켓이라�
 component-spec, api-schema, design-system, state-contract)`처럼 **무엇을 대조했는지** 함께 적는다.
 비었다는 결론과 게으른 감지는 결과가 같아서, 대조 목록이 없으면 구분할 수 없다.
 
+**대조 대상은 `02_design/`에 실재하는 문서뿐이다**(`minimal-change-contract.md`) — 위 목록은 예시다. 시각 설계
+문서(design-system·layout-spec·component-spec)는 `DESIGN_SOURCE`가 다스린다: 디자인 `absent` 프로젝트에서 없는 시각 설계
+문서는 `DOCS_TO_UPDATE`에 넣지 않고 이 레인에서 세우지 않는다 — 화면 조건은 `phase-3-development.md` 「디자인 부채 청구」가
+첫 화면 스폰 전에 받는다. 모드 계약(state-contract·performance-budget)과 API 계약(api-schema·api-design)은 공급원과
+무관하다 — 이번 변경이 모드를 켜거나 계약을 만들면 그 설계자가 신설하고 `DOCS_TO_UPDATE`에 `신설 — 모드: …`로 적는다.
+라벨은 실제 대조 집합을 적는다: `none (대조: solution-design; 시각 설계 문서 없음 — DESIGN_SOURCE: absent)`.
+
 ## ③ 감지된 문서만 개정
 
 `DOCS_TO_UPDATE`에 나열된 문서만 그 문서의 설계 에이전트(API는 `api-schema-designer`)로 개정한다. 나열되지 않은 문서는 손대지
-않는다. 신규 화면·데이터 계약·아키텍처 변경이면 그 부분만 승격한다.
+않는다. 데이터 계약·아키텍처 변경은 각 설계자(`api-schema-designer`·`system-architect`)로 개정한다. 없는 시각 설계 문서를
+새로 만드는 것은 개정이 아니다 — 필요하다고 보면 ✋에 `NEEDS_DECISION`으로 올리고, 승인되면 `provenance-contract.md` §3
+지연 공급(그 단계 wave만) 뒤 ④를 재확정한다.
 
 ## ④ 스팩 확정
 
@@ -102,7 +111,7 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다(원장은 스�
 다음을 보여주고 확인한다. **확인 전에는 source edit를 시작하지 않는다.**
 
 - 기획 변경: 개정된 요구사항·Feature List 항목 (변경된 행만)
-- 디자인 변경: `DOCS_TO_UPDATE`와 **대조한 문서 목록**, 각 문서의 개정 요지 1줄
+- 디자인 변경: `DOCS_TO_UPDATE`와 **대조한 문서 목록**, 각 문서의 개정 요지 1줄. 디자인 `absent`면 유지한다고 적는다(청구는 첫 화면 스폰 전)
 - 스팩: 수용 기준과 TC, `LOCAL_VERIFIABLE | DEPLOY_ONLY` 라벨
 - change brief: `ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`
 - 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`

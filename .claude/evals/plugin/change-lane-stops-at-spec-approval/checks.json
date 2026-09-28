@@ -1,5 +1,5 @@
 {
-  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 쓴 에이전트와 무관하게 시드와의 해시 대조로 잡고, 변경 범위 기획이 실제로 산출물을 남겼는지는 feature-plan 존재로 본다(시드에는 01_plan이 없다 — 스폰 이름·✋ 글자만으로는 blocked 뒤 멈춘 실행도 통과한다)",
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 쓴 에이전트와 무관하게 시드와의 해시 대조로 잡고, 변경 범위 기획이 실제로 산출물을 남겼는지는 feature-plan 존재로 본다(시드에는 01_plan이 없다 — 스폰 이름·✋ 글자만으로는 blocked 뒤 멈춘 실행도 통과한다) · 채점기 no-design-doc-founding은 이 사례 전용이다 — 시드가 디자인 absent이고 Write가 없어 시각 설계 문서를 세울 경로가 설계자 스폰뿐이다(디자인 공급 시드에는 쓰지 않는다).",
   "seed": "brownfield-ticket-project",
   "checks": [
     {

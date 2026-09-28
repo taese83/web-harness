@@ -19,7 +19,7 @@
 | # | 단계 | 명령·산출 | 정본 |
 |---|---|---|---|
 | 1 | 공급 감지 — 요청에 문서·링크·시안이 붙었을 때만 | `00_source/` 기록 | `provenance-contract.md` §6 |
-| 2 | **`change`만**: light면 developer 계획 패스 1회(아래 「light」), full이면 ① 기획 개정 → ② 디자인 델타 감지 → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` light·①~③ |
+| 2 | **`change`만**: light면 developer 계획 패스 1회(아래 「light」), full이면 ① 기획 개정 → ② 디자인 델타 감지(실재 문서만) → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` light·①~③ |
 | 3 | **`change`만**: ④ 스팩 확정 | `node .claude/scripts/spec.mjs --project-root {root}` → stdout을 `_workspace/03_dev/spec.json`에 그대로 저장. `SPEC_NOT_SETTLED`면 그 결정을 ✋에 싣는다 | `change-lane-checkpoint.md` ④ |
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
@@ -58,7 +58,7 @@
 
 ## ✋에 싣는 것
 
-기획 변경(바뀐 행만) · 디자인 변경(`DOCS_TO_UPDATE`와 대조한 문서 목록, 문서별 요지 1줄) ·
+기획 변경(바뀐 행만) · 디자인 변경(`DOCS_TO_UPDATE`와 대조한 문서 목록, 문서별 요지 1줄; 디자인 `absent`면 유지) ·
 스팩(수용 기준·TC, `LOCAL_VERIFIABLE | DEPLOY_ONLY`) · change brief(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·
 `NON_GOALS`·`CAPABILITY_ESCALATION`) · 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`.
 
