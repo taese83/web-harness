@@ -4243,6 +4243,54 @@
       "why": "채점기 정규식의 이스케이프(\\\\W 대신 \\\\W 한 번)가 큰따옴표 값에서 로드 실패인데 검사가 침묵한다"
     },
     {
+      "id": "git-config-glob-braces-unbalanced-denied",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  return alternatives === null || alternatives.some(alternative => braceFreeGlobMaySelectGitConfig(alternative))",
+      "replace": "  return alternatives !== null && alternatives.some(alternative => braceFreeGlobMaySelectGitConfig(alternative))",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "짝이 안 맞는 중괄호 패턴을 펼치지 못하면 통과시켜 .git/config(자격 증명 URL)가 Glob으로 드러난다"
+    },
+    {
+      "id": "git-config-glob-braces-expansion-cap",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "    if (group === null || results.length * group.length > MAX_BRACE_EXPANSIONS) return null\n",
+      "replace": "    if (group === null) return null\n",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "대안 수 상한이 없으면 중괄호 곱으로 판정 비용이 폭증한다 — 상한을 넘으면 보수적으로 막아야 한다"
+    },
+    {
+      "id": "git-config-glob-brace-range-denied",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "        if (alternatives.some(alternative => alternative.includes('..'))) return null\n",
+      "replace": "\n",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "범위 표기 `.{a..z}it/config`를 리터럴로 읽어 통과시킨다 — 엔진은 `.git`을 포함한 대안으로 펼친다"
+    },
+    {
+      "id": "git-config-glob-any-alternative-denies",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  return alternatives === null || alternatives.some(alternative => braceFreeGlobMaySelectGitConfig(alternative))",
+      "replace": "  return alternatives === null || alternatives.every(alternative => braceFreeGlobMaySelectGitConfig(alternative))",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "대안 전부가 .git/config를 골라야 막으면 `{.git,src}/config`가 통과한다"
+    },
+    {
+      "id": "git-config-glob-extglob-prefix-denied",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  if (/[{}()|]/.test(pattern)) return true\n",
+      "replace": "\n",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "extglob 접두(`@(.git)`·`!(src)`)가 리터럴 비교에서 먼저 실패해 괄호에 닿지 못하고 통과한다"
+    },
+    {
+      "id": "git-config-glob-dot-segments-dropped",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  const patternSegments = normalized.split('/').filter(segment => segment !== '.')",
+      "replace": "  const patternSegments = normalized.split('/')",
+      "test": ".claude/scripts/test-sensitive-glob-braces.mjs",
+      "why": "`././.g?t/config`의 `.` 세그먼트가 대조를 어긋나게 해 .git/config가 통과한다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

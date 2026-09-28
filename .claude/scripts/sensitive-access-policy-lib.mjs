@@ -88,6 +88,9 @@ const isSecretPath = value => {
   })
 }
 const globSegmentMayMatch = (pattern, candidate) => {
+  // extglob(`!(…)`·`@(…)`·`+(…)`·`*(…)`·`?(…)`)·대안 기호는 해석하지 않고 무엇이든 맞는 것으로 본다 — 접두 글자가 리터럴 비교에서
+  // 먼저 실패해 괄호에 닿지 못하는 일이 없게 세그먼트 전체를 먼저 본다.
+  if (/[{}()|]/.test(pattern)) return true
   const memo = new Map()
   const visit = (patternIndex, candidateIndex) => {
     const key = `${patternIndex}:${candidateIndex}`
@@ -131,11 +134,60 @@ const globSegmentMayMatch = (pattern, candidate) => {
   }
   return visit(0, 0)
 }
-const globMaySelectGitConfig = patternValue => {
+// `{a,b}` 대안을 펼친다(중첩 포함) — 펼친 각 패턴을 따로 대조하면 `{src,e2e}/**`가 `.git/config`를 고를 수 있다고 보지 않는다.
+// 짝이 안 맞거나, 대안이 상한을 넘거나, 범위 표기(`{a..z}` — 엔진이 `.git`을 포함한 대안으로 펼친다)면 null(부른 쪽이 막는다).
+const MAX_BRACE_EXPANSIONS = 256
+const MAX_BRACE_PATTERN = 4096
+export const expandBraces = pattern => {
+  if (pattern.length > MAX_BRACE_PATTERN) return null
+  let results = ['']
+  let index = 0
+  const expandGroup = () => {
+    // pattern[index] === '{' — 최상위 쉼표로 나눈 대안 각각을 재귀로 펼친다.
+    let depth = 0
+    let start = index + 1
+    const alternatives = []
+    for (let cursor = index + 1; cursor < pattern.length; cursor += 1) {
+      const character = pattern[cursor]
+      if (character === '{') depth += 1
+      else if (character === '}' && depth > 0) depth -= 1
+      else if (character === ',' && depth === 0) { alternatives.push(pattern.slice(start, cursor)); start = cursor + 1 }
+      else if (character === '}' && depth === 0) {
+        alternatives.push(pattern.slice(start, cursor))
+        if (alternatives.some(alternative => alternative.includes('..'))) return null
+        index = cursor + 1
+        const expanded = []
+        for (const alternative of alternatives) {
+          const inner = expandBraces(alternative)
+          if (inner === null) return null
+          expanded.push(...inner)
+          if (expanded.length > MAX_BRACE_EXPANSIONS) return null
+        }
+        return expanded
+      }
+    }
+    return null
+  }
+  while (index < pattern.length) {
+    const character = pattern[index]
+    if (character === '}') return null
+    if (character !== '{') {
+      results = results.map(prefix => prefix + character)
+      index += 1
+      continue
+    }
+    const group = expandGroup()
+    if (group === null || results.length * group.length > MAX_BRACE_EXPANSIONS) return null
+    results = results.flatMap(prefix => group.map(alternative => prefix + alternative))
+  }
+  return results
+}
+const braceFreeGlobMaySelectGitConfig = patternValue => {
   if (typeof patternValue !== 'string' || patternValue.includes('\0') || patternValue.includes('\\')) return true
   const normalized = patternValue.replace(/^\.\/+/, '').replace(/\/{2,}/g, '/')
   if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) return true
-  const patternSegments = normalized.split('/')
+  // `.` 세그먼트는 경로를 바꾸지 않는다 — `././.g?t/config`가 `.`에 걸려 대조를 벗어나지 않게 버린다.
+  const patternSegments = normalized.split('/').filter(segment => segment !== '.')
   if (patternSegments.includes('..')) return true
   const candidateSegments = ['.git', 'config']
   const memo = new Map()
@@ -158,6 +210,11 @@ const globMaySelectGitConfig = patternValue => {
     return result
   }
   return visit(0, 0)
+}
+const globMaySelectGitConfig = patternValue => {
+  if (typeof patternValue !== 'string') return true
+  const alternatives = expandBraces(patternValue)
+  return alternatives === null || alternatives.some(alternative => braceFreeGlobMaySelectGitConfig(alternative))
 }
 export const scanDirectoryForSensitiveEntries = (projectRoot, start) => {
   const pending = [start]

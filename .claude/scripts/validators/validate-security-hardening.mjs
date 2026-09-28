@@ -49,8 +49,26 @@ try {
     {tool_name: 'Glob', tool_input: {path: '.', pattern: '[.]git/config'}},
     {tool_name: 'Glob', tool_input: {path: '.', pattern: '**/config'}},
     {tool_name: 'Glob', tool_input: {pattern: '{.git,src}/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '{src,{.g*,e2e}}/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '.git/{HEAD,config}'}},
+    {tool_name: 'Glob', tool_input: {pattern: '{src,**}/*'}},
+    {tool_name: 'Glob', tool_input: {pattern: '{src,.git/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '.{a..z}it/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '{x,.g{a..z}t}/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '!(src)/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '@(.git)/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '+(.git|src)/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '././.g?t/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: '{./,}{./,}.g?t/config'}},
+    {tool_name: 'Glob', tool_input: {pattern: `{${Array.from({length: 20}, (_, i) => `d${i}`).join(',')}}/{${Array.from({length: 20}, (_, i) => `e${i}`).join(',')}}/x`}},
   ]) {
-    assert.equal(evaluateSensitiveAccess(input, sensitiveEnvironment).allowed, false, `${input.tool_name} exposed .git/config`)
+    assert.equal(evaluateSensitiveAccess(input, sensitiveEnvironment).allowed, false, `${input.tool_name} exposed .git/config: ${JSON.stringify(input.tool_input)}`)
+  }
+  // 중괄호 대안 어느 것도 .git/config를 고를 수 없으면 막지 않는다 — 전부 막으면 흔한 탐색이 오탐으로 되풀이된다.
+  for (const pattern of ['{src,e2e}/**/*', '{src,e2e}/**/*.ts', 'src/**/*.{ts,tsx}', '{package.json,*.config.*,tsconfig*.json,index.html,e2e/**}',
+    '**/{package.json,playwright.config.*,vitest.config.*,vite.config.*,tsconfig*.json,index.html}', '{src,e2e}/**/*.{ts,tsx}', '{src,{e2e,tests}}/**/*.ts']) {
+    const result = evaluateSensitiveAccess({tool_name: 'Glob', tool_input: {pattern}}, sensitiveEnvironment)
+    assert.equal(result.allowed, true, `중괄호 Glob을 오탐으로 막았다: ${pattern} (${result.code})`)
   }
 
   const sourceProject = join(temporaryRoot, 'source-project')
