@@ -102,6 +102,15 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
       guidance: '개발 계획이 아직 없습니다. `claim`으로 계획을 만들어 검토하고 발행한 뒤 집으세요. '
         + '사람이 트래커에 직접 만든 개발 티켓을 바로 집고 싶으면, 트래커 설정에서 어떤 분류가 개발 티켓인지 먼저 정하세요.'}
   }
+  // `--developer me`는 트래커의 현재 계정으로 푼다 — 푸는 것도 트래커 호출이라 로컬 판정을 다 거친 뒤, 트래커를 처음 부르기
+  // 직전에 한다. 풀지 못하면 쓰기 전에 멈춘다(별칭 그대로 배정하면 트래커가 모르는 계정이다).
+  if (typeof io.resolveDeveloper === 'function') {
+    const who = await io.resolveDeveloper(developer)
+    if (who.unresolved) {
+      return {ok: false, mode: 'work', bounce: {reason: 'developer-unresolved'}, externalWrites: 0, guidance: who.guidance ?? who.unresolved, freshness}
+    }
+    developer = who.developer
+  }
   const fetchIssue = key => (io.resolveIssue ? io.resolveIssue({number: key}) : provider.resolveIssue(key))
   let issue = await fetchIssue(ticketKey)
   // 사람 티켓 작업의 등록은 **내 로컬 기록**이다 — 원장이 아니라 그 기록을 메모리 상태에 겹친다(선행 자리까지).

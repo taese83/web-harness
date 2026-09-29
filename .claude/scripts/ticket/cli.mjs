@@ -210,6 +210,27 @@ export async function ensureRemoteFreshness({root, flags, io}) {
  *
  * @returns {{provider?: Object, choice: Object, questions?: Array}}
  */
+// `--developer me`(또는 `@me`)는 지금 인증된 계정으로 푼다 — 그대로 보내면 트래커가 모르는 계정(`me`)으로 배정하려다
+// 멈추고(Jira Cloud 404), 담당자 목록과의 대조(이미 내 것인가)도 늘 어긋난다. 풀지 못하면 `developer: null`과 사유 —
+// 픽업은 쓰기 전에 멈추고, 보드(읽기)는 「내 것」 표시만 뺀다. 계정 식별자는 배정과 같은 어휘다(Jira Cloud accountId·서버 name·GitHub login).
+const SELF_ALIASES = new Set(['me', '@me'])
+export async function resolveDeveloperAlias(value, provider) {
+  if (value === undefined || value === null) return {developer: null}
+  // 값 없는 `--developer`는 파서가 true로 준다 — 문자열 'true'라는 계정으로 배정하지 않는다.
+  if (typeof value !== 'string' || !value.trim()) return {developer: null, unresolved: '`--developer`에 값이 없다'}
+  const raw = value.trim()
+  if (!SELF_ALIASES.has(raw.toLowerCase())) return {developer: raw}
+  if (typeof provider?.currentUser !== 'function') return {developer: null, unresolved: '트래커가 현재 계정을 알려 주지 않는다'}
+  try {
+    const identity = await provider.currentUser()
+    return identity ? {developer: String(identity)} : {developer: null, unresolved: '트래커가 현재 계정을 비워 돌려줬다'}
+  } catch (error) {
+    return {developer: null, unresolved: String(error?.message ?? error).slice(0, 160)}
+  }
+}
+export const developerGuidance = reason => `\`--developer me\`를 지금 계정으로 풀지 못했다(${reason}). 계정 식별자를 직접 준다 — `
+  + 'Jira Cloud는 accountId, Jira 서버는 username, GitHub은 login.'
+
 export function resolveTicketProvider({root, repo, flags = {}, io = {}}) {
   // 주입 경로도 **설정을 함께 돌려준다** — 실제 경로와 다르면 회귀가 실물을 시험하지 못한다.
   if (io.provider) return {provider: io.provider, choice: {provider: io.provider.name ?? 'test', needsChoice: false},
@@ -425,6 +446,7 @@ if (invokedDirectly) {
   const requireRepo = () => { if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('MISSING_REPO: --repo <owner/name> 필요') }
   // 트래커 사전 판정 — 발행·픽업·보드가 **같은 판정**을 쓴다(한곳만 다르면 GitHub 팀이 원시 INVALID_REPO를 본다).
   // 설정이 없으면 묻고, GitHub인데 `--repo`가 없으면 여기서 멈춘다.
+  const resolveDeveloper = provider => resolveDeveloperAlias(flags.developer, provider)
   const tracker = () => {
     const resolved = resolveTicketProvider({root, repo, flags, io: {}})
     if (resolved.choice?.needsChoice) return {resolved, missing: 'provider'}
@@ -460,12 +482,19 @@ if (invokedDirectly) {
             guidance: missing === 'provider' ? '티켓 provider 설정이 없다 — `configure`로 먼저 정한다' : 'GitHub 티켓을 집으려면 `--repo <owner/name>`가 필요하다'}
         }
         const {pickupOutcome, runWorkPickup} = await import('./work-pickup-run.mjs')
+        // `me`는 픽업이 로컬 판정 뒤, 트래커를 처음 부르기 직전에 푼다 — 여기서는 푸는 방법만 넘긴다.
+        let developerUsed = flags.developer ?? null
+        const resolveDeveloperForPickup = async value => {
+          const who = await resolveDeveloperAlias(value, resolved.provider)
+          if (!who.unresolved) developerUsed = who.developer
+          return who.unresolved ? {...who, guidance: developerGuidance(who.unresolved)} : who
+        }
         const picked = await runWorkPickup({root, ticketKey: args[0] ?? null,
-          developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config}})
+          developer: flags.developer, flags, io: {provider: resolved.provider, ticketConfig: resolved.config, resolveDeveloper: resolveDeveloperForPickup}})
         const result = {outcome: pickupOutcome(picked), ...picked}
         // 실측 기록(로컬, 게이트 아님) — dry-run은 흐름이 아니다.
         if (flags['dry-run']) return result
-        return {...result, ...flowRecordNote(recordFlow(root, flowEntry({command: 'pickup', ticketKey: args[0] ?? null, developer: flags.developer, result})))}
+        return {...result, ...flowRecordNote(recordFlow(root, flowEntry({command: 'pickup', ticketKey: args[0] ?? null, developer: developerUsed, result})))}
       }
       // 완료 주장(PR 연결) — 내 로컬에 기록하고 PR 본문 문단을 돌려준다. 머지는 기록하지 않는다(보드·픽업이 PR에서 읽는다).
       case 'link': {
@@ -483,8 +512,14 @@ if (invokedDirectly) {
         // `--by-feature`: 부모 FEAT 집계 — 머지·끝남은 트래커에서 읽는다(원장에는 완료가 없다).
         if (flags['by-feature']) return (await import('./work-aggregate-run.mjs')).runFeatureBoard({root, flags,
           io: {provider: missing ? null : resolved.provider, ticketConfig: resolved.config}})
-        return (await import('./work-board.mjs')).runWorkBoard({root, developer: flags.developer ?? null, flags,
+        // 보드는 읽기다 — `me`를 못 풀면 「내 것」 표시만 빼고 그 사실을 적는다. `--no-tracker`면 트래커를 부르지 않는다.
+        const who = flags['no-tracker'] === true && typeof flags.developer === 'string' && /^@?me$/i.test(flags.developer.trim())
+          ? {developer: null, unresolved: '`--no-tracker`라 트래커에 현재 계정을 묻지 않았다'}
+          : missing ? await resolveDeveloperAlias(flags.developer, {currentUser: async () => { throw new Error(`트래커 설정이 없다(${missing}) — configure·--repo를 먼저 정한다`) }})
+          : await resolveDeveloper(resolved.provider)
+        const board = await (await import('./work-board.mjs')).runWorkBoard({root, developer: who.developer, flags,
           io: {provider: missing ? null : resolved.provider, ticketConfig: resolved.config}})
+        return who.unresolved ? {...board, developerNote: developerGuidance(who.unresolved)} : board
       }
       case 'intake': requireRepo(); return runIntake({root, repo, ticketKey: positional[0], flags})
       case 'configure': return runConfigure({root, flags})

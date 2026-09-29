@@ -2893,8 +2893,8 @@
     {
       "id": "ticket-board-unassessed-not-blocked",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "      blockedReason: othersTicket ? 'assigned-to-other' : null,",
-      "replace": "      blockedReason: othersTicket ? 'assigned-to-other' : 'assessment-required',",
+      "find": "      blockedReason: othersTicket === 'unknown' ? 'assignment-unknown' : othersTicket ? 'assigned-to-other' : null,",
+      "replace": "      blockedReason: othersTicket === 'unknown' ? 'assignment-unknown' : othersTicket ? 'assigned-to-other' : 'assessment-required',",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "판정 전 티켓을 막힌 것으로 그리면 할 수 없는 일처럼 읽혀, 바로 시작할 수 있는 티켓을 아무도 집지 않는다"
     },
@@ -3005,8 +3005,8 @@
     {
       "id": "board-others-human-ticket-blocked",
       "file": ".claude/scripts/ticket/work-board.mjs",
-      "find": "const takenBySomeoneElse = (assignees, developer) => Array.isArray(assignees) && assignees.length > 0 && !assignees.includes(developer)",
-      "replace": "const takenBySomeoneElse = () => false",
+      "find": "  return !assignees.includes(developer)\n}",
+      "replace": "  return false\n}",
       "test": ".claude/scripts/test-ticket-work.mjs",
       "why": "남이 맡은 사람 티켓을 판정 전으로 보이면 다른 개발자가 판정 에이전트를 헛되이 띄운다"
     },
@@ -4345,6 +4345,30 @@
       "replace": "  const complete = seen >= (total ?? 0)\n",
       "test": ".claude/scripts/test-jira-enhanced-search.mjs",
       "why": "서버 응답에 total이 없을 때 0으로 읽어 완결로 접으면 「못 읽음」이 「같은 제목 없음」이 된다"
+    },
+    {
+      "id": "developer-alias-resolved",
+      "file": ".claude/scripts/ticket/cli.mjs",
+      "find": "const SELF_ALIASES = new Set(['me', '@me'])",
+      "replace": "const SELF_ALIASES = new Set([])",
+      "test": ".claude/scripts/test-developer-alias.mjs",
+      "why": "`--developer me`가 별칭 그대로 트래커로 가 Jira Cloud 배정이 404로 멈추고 「이미 내 것」 대조가 늘 어긋난다"
+    },
+    {
+      "id": "developer-alias-unresolved-stops-pickup",
+      "file": ".claude/scripts/ticket/work-pickup-run.mjs",
+      "find": "    if (who.unresolved) {\n      return {ok: false, mode: 'work', bounce: {reason: 'developer-unresolved'}",
+      "replace": "    if (false) {\n      return {ok: false, mode: 'work', bounce: {reason: 'developer-unresolved'}",
+      "test": ".claude/scripts/test-developer-alias.mjs",
+      "why": "현재 계정을 모르는 채 픽업이 계속돼 배정 주체가 비거나 틀린다"
+    },
+    {
+      "id": "board-unknown-developer-not-others",
+      "file": ".claude/scripts/ticket/work-board.mjs",
+      "find": "  if (!developer) return 'unknown'\n",
+      "replace": "\n",
+      "test": ".claude/scripts/test-developer-alias.mjs",
+      "why": "내 계정을 모를 때 담당자가 있는 티켓을 전부 「다른 개발자가 맡고 있다」로 그려, 내 티켓을 남의 것으로 보인다"
     },
     {
       "id": "spec-conventions-exists",

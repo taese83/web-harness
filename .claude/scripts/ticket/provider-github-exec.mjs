@@ -176,6 +176,11 @@ export function createGithubProvider({repo, host = 'github.com', exec = null}) {
     async resolveIssue(key) {
       return resolveIssue({repo, number: key, host, exec})
     },
+    /** 지금 인증된 계정의 login — `--developer me`를 푼다(담당자 목록은 login이라 `@me`를 그대로 대조할 수 없다). */
+    async currentUser() {
+      const login = String(await run(['api', 'user', '--jq', '.login']) ?? '').trim()
+      return login || null
+    },
     /** 배정. gh add-assignee는 additive라 CAS가 없다 — 사후 다중배정 감지는 호출자 몫이다. */
     async assign(key, login) {
       await run(assignArgs(repo, key, login))

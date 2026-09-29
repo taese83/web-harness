@@ -10,6 +10,7 @@ export function createJiraStub({gitIntegration = false, cloud = false} = {}) {
   const commits = new Map()
   const issues = new Map()
   const writes = []
+  const cloudAccounts = new Set(['acc-self', 'acc-other'])
   let clock = 0
   let sequence = 100
   const touch = issue => { issue.fields.updated = `2026-09-14T00:00:${String(++clock).padStart(2, '0')}.000+0000` }
@@ -76,6 +77,8 @@ export function createJiraStub({gitIntegration = false, cloud = false} = {}) {
       const max = Number(parsed.searchParams.get('maxResults') ?? 50)
       return respond(200, {startAt, maxResults: max, total: hits.length, issues: hits.slice(startAt, startAt + max).map(issue => select(issue, wanted))})
     }
+    // 인증된 계정 — Cloud는 accountId, 서버는 name으로 배정한다.
+    if (method === 'GET' && path === '/myself') return respond(200, cloud ? {accountId: 'acc-self', displayName: '나'} : {name: 'dev-self', displayName: '나'})
     if (method === 'POST' && path === '/issue') {
       const key = `PF-${++sequence}`
       const issue = {key, fields: {labels: [], components: [], issuelinks: [], comment: {total: 0, comments: []},
@@ -93,6 +96,12 @@ export function createJiraStub({gitIntegration = false, cloud = false} = {}) {
       return respond(200, parsed.searchParams.get('expand') === 'changelog' ? {...selected, changelog: {histories: structuredClone(issue.histories ?? [])}} : selected)
     }
     if ((match = path.match(/^\/issue\/([^/]+)\/assignee$/)) && method === 'PUT') {
+      if (cloud) {
+        // Cloud는 accountId로 배정한다 — 모르는 계정(예: 별칭 `me`)은 404다.
+        if (typeof data?.accountId !== 'string') return respond(400, {errorMessages: ['assignee에는 accountId가 필요하다(Cloud)']})
+        if (!cloudAccounts.has(data.accountId)) return respond(404, {errorMessages: [`User '${data.accountId}' does not exist.`]})
+        const issue = issues.get(match[1]); issue.fields.assignee = {accountId: data.accountId}; touch(issue); return respond(204, null)
+      }
       if (typeof data?.name !== 'string') return respond(400, {errorMessages: ['assignee에는 name이 필요하다(DC)']})
       const issue = issues.get(match[1]); issue.fields.assignee = {name: data.name}; touch(issue); return respond(204, null)
     }

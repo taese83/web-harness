@@ -118,7 +118,7 @@ export function fromAdf(doc) {
 }
 
 /** Jira 이슈 조회 응답 → pickup이 쓰는 형태(순수). GitHub `resolveIssue` 반환과 같은 모양이다. */
-export function parseIssueResponse(payload) {
+export function parseIssueResponse(payload, {assigneeField = null} = {}) {
   if (!payload?.key) return null
   const assignee = payload.fields?.assignee
   return {
@@ -134,7 +134,7 @@ export function parseIssueResponse(payload) {
     // 컴포넌트도 **근거**다 — 팀이 분류 매핑을 선언했을 때만 분류로 쓰인다.
     components: (payload.fields?.components ?? []).map(item => item?.name).filter(Boolean),
     // Jira의 assignee는 **단수다** — GitHub의 다중 배정 경합이 구조적으로 없다.
-    assignees: assignee ? [assigneeIdentity(assignee)] : [],
+    assignees: assignee ? [assigneeIdentity(assignee, assigneeField)] : [],
     // ── 티켓 맥락(2026-09-11) ── 본문 밖에 사는 결정이 개발 에이전트에 닿지 않았다: 기획자의
     // 답은 코멘트에, 선행·관련 티켓은 링크에 있다. **`null`은 「가져오지 않았다」, `[]`는
     // 「없다」** — 빠진 필드를 없음으로 읽으면 AOA-3의 `미분류`와 같은 침묵이 된다.

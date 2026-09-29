@@ -112,7 +112,13 @@ export function buildWorkBoard({plan, view, state, planDigest = null, issuesByWo
  *   specBoundary: 스팩(layerMap)이 있는가 — 판정이 수정 범위를 대조할 경계다(기획·specTier는 이 경로의 조건이 아니다)
  */
 // 담당자가 있고 내가 아니면 남의 티켓이다. 담당자를 모르면(null) 막지 않는다 — 픽업이 배정 직전에 다시 본다.
-const takenBySomeoneElse = (assignees, developer) => Array.isArray(assignees) && assignees.length > 0 && !assignees.includes(developer)
+// 내가 누구인지 모르면(`developer` 없음) 담당자가 있어도 남의 것이라 단정하지 않는다 — 'unknown'이다.
+const takenBySomeoneElse = (assignees, developer) => {
+  if (!Array.isArray(assignees) || assignees.length === 0) return false
+  if (!developer) return 'unknown'
+  return !assignees.includes(developer)
+}
+const OWNER_UNKNOWN_NEXT = '담당자가 있습니다 — 내 계정을 몰라 내 티켓인지 판단하지 못했습니다(`--developer`를 준다).'
 
 export function buildTicketBoard({state, issuesByKey = null, devTickets = null, developer = null, lookupComplete = false, specBoundary = null}) {
   const rows = []
@@ -157,8 +163,8 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     rows.push({ticketKey, workId: ticket.workId ?? null, title: listed?.summary ?? null,
       stage: 'assessed', verdict: ticket.verdict, pickupable: false, assignees: listed?.assignees ?? null,
       // 착수 가능 판정은 **막힌 것이 아니다** — 개발자가 미리보기를 확인하면 바로 시작한다.
-      blockedReason: othersTicket ? 'assigned-to-other' : startable ? null : `ticket-${ticket.verdict}`,
-      next: othersTicket ? '다른 개발자가 맡고 있습니다.'
+      blockedReason: othersTicket === 'unknown' ? 'assignment-unknown' : othersTicket ? 'assigned-to-other' : startable ? null : `ticket-${ticket.verdict}`,
+      next: othersTicket === 'unknown' ? OWNER_UNKNOWN_NEXT : othersTicket ? '다른 개발자가 맡고 있습니다.'
         : startable ? `\`pickup ${ticketKey}\`로 미리보기를 보고 확인하면 시작합니다.`
         : ticket.verdict === 'needs-design' ? '디자인이 정해져야 시작할 수 있습니다. 확인한 요청은 티켓 코멘트에 남깁니다.'
           : '먼저 정해야 할 것이 있습니다. 확인한 요청은 티켓 코멘트에 남깁니다.',
@@ -169,8 +175,9 @@ export function buildTicketBoard({state, issuesByKey = null, devTickets = null, 
     // 판정 전은 **막힌 상태가 아니다.** `pickup`이 판정부터 시작하므로, 여기에 이유를 적으면 할 수 없는 일처럼 읽힌다.
     const othersTicket = takenBySomeoneElse(item.assignees, developer)
     rows.push({ticketKey: String(item.ticketKey), workId: null, title: item.summary ?? null, stage: 'unassessed', pickupable: false,
-      blockedReason: othersTicket ? 'assigned-to-other' : null,
-      next: othersTicket ? '다른 개발자가 맡고 있습니다.' : `\`pickup ${item.ticketKey}\`로 판정부터 시작합니다.`, assignees: item.assignees ?? null})
+      blockedReason: othersTicket === 'unknown' ? 'assignment-unknown' : othersTicket ? 'assigned-to-other' : null,
+      next: othersTicket === 'unknown' ? OWNER_UNKNOWN_NEXT : othersTicket ? '다른 개발자가 맡고 있습니다.' : `\`pickup ${item.ticketKey}\`로 판정부터 시작합니다.`,
+      assignees: item.assignees ?? null})
   }
   const notes = []
   const waiting = rows.filter(row => row.stage === 'unassessed' && row.blockedReason === null).length

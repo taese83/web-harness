@@ -44,6 +44,8 @@ cli.mjs create --draft <초안.md> [--repo o/r] [--confirm --digest <지문>]  #
 cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # 실측 집계(읽기만) — 흐름 로그·판정·등록·연결 + 트래커·PR
 ```
 
+`--developer me`는 트래커의 현재 인증 계정(Jira Cloud accountId·서버 username·GitHub login)으로 풀린다 — 풀지 못하면 픽업은 쓰기 전에 멈춘다.
+
 `claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
 `pickup`·`link`·`intake`는 **사용자의 요청이 곧 승인**이다(미리보기는 `--dry-run`).
 

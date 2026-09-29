@@ -129,7 +129,7 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       // 본문 밖에 있어 개발 에이전트에 닿지 않았다.
       const payload = await call(config, `/issue/${encodeURIComponent(key)}`
         + `?fields=${ISSUE_FIELDS.join(',')}`, options)
-      const issue = parseIssueResponse(payload)
+      const issue = parseIssueResponse(payload, {assigneeField: config.assigneeField})
       if (!issue) throw new Error(`JIRA_ISSUE_NOT_FOUND: ${key}`)
       // WORK 마커는 이슈 속성에 산다 — 읽는 쪽(종류 판정·픽업·확정)은 본문 마커를 보므로 **본문 끝에 붙여** 돌려준다.
       // 속성이 없거나 읽지 못하면 붙이지 않는다(원장이 그 키를 알면 픽업이 `work-marker-missing`으로 막는다).
@@ -261,6 +261,11 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
         // 실패를 삼키지 않는다 — 무엇이 막혔는지 분류해 올린다(권한·설정·링크 타입 부재).
         return {applied: false, mode: 'unknown', error: String(error?.message ?? error).slice(0, 200), classified: classifyJiraError(String(error?.message ?? error))}
       }
+    },
+    /** 지금 인증된 계정 — 배정에 쓰는 어휘 그대로(Cloud accountId, 서버 name). `--developer me`를 푼다. */
+    async currentUser() {
+      const payload = await call(config, '/myself', options)
+      return assigneeIdentity(payload, config.assigneeField)
     },
     async assign(key, assignee) {
       const body = config.assigneeField === 'name' ? {name: assignee} : {accountId: assignee}
