@@ -92,3 +92,60 @@ test('없는 base ref는 git 원문과 함께 거부한다', () => {
     assert.match(result.stderr, /No common ancestor[\s\S]*no-such-branch/)
   })
 })
+
+// 플러그인 판본: 러너는 플러그인 캐시에 있고 사용자 프로젝트는 그 밖이다. 저장소 루트만 보면 모든 호출이 exit 2였다.
+const withPluginLayout = run => {
+  const root = mkdtempSync(join(tmpdir(), 'web-harness-git-inspection-plugin-'))
+  try {
+    const plugin = join(root, 'plugin-cache/web-harness/.claude/scripts')
+    mkdirSync(plugin, {recursive: true})
+    copyFileSync(RUNNER, join(plugin, 'run-git-inspection.mjs'))
+    copyFileSync(join(dirname(RUNNER), 'cli-help-lib.mjs'), join(plugin, 'cli-help-lib.mjs'))
+    const project = join(root, 'user-project')
+    mkdirSync(project)
+    const result = spawnSync('git', ['-C', project, 'init', '-q', '-b', 'main'], {encoding: 'utf8'})
+    assert.equal(result.status, 0, result.stderr)
+    writeFileSync(join(project, 'a.txt'), 'a\n')
+    const inspect = (target, {cwd, env = {}} = {}) => spawnSync(process.execPath,
+      [join(plugin, 'run-git-inspection.mjs'), '--project', target, '--operation', 'status'],
+      {encoding: 'utf8', cwd, env: {...process.env, CLAUDE_PROJECT_DIR: '', ...env}})
+    return run({root, project, inspect})
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+}
+
+test('회귀 반증: 플러그인 판본에서 세션 프로젝트(작업 디렉터리)를 조회한다', () => {
+  withPluginLayout(({project, inspect}) => {
+    const result = inspect(project, {cwd: project})
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /a\.txt/)
+  })
+})
+
+test('플러그인 판본에서 CLAUDE_PROJECT_DIR가 세션 프로젝트를 정한다', () => {
+  withPluginLayout(({root, project, inspect}) => {
+    const result = inspect(project, {cwd: root, env: {CLAUDE_PROJECT_DIR: project}})
+    assert.equal(result.status, 0, result.stderr)
+  })
+})
+
+test('세션 프로젝트 밖과 제어면 디렉터리는 계속 거부한다', () => {
+  withPluginLayout(({root, project, inspect}) => {
+    mkdirSync(join(project, '_workspace'))
+    const outside = inspect(root, {cwd: project})
+    assert.equal(outside.status, 2)
+    assert.match(outside.stderr, /must stay inside/)
+    const control = inspect(join(project, '_workspace'), {cwd: project})
+    assert.equal(control.status, 2)
+  })
+})
+
+test('회귀 반증: 파이프로 읽어도 64KB 넘는 diff를 자르지 않는다', () => {
+  withForkedRepo(({project, inspect}) => {
+    writeFileSync(join(project, 'mine.txt'), `${'x'.repeat(99)}\n`.repeat(2000))
+    const diff = inspect('diff')
+    assert.equal(diff.status, 0, diff.stderr)
+    assert.ok(Buffer.byteLength(diff.stdout) > 200_000, `잘렸다: ${Buffer.byteLength(diff.stdout)}B`)
+  })
+})

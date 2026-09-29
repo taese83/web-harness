@@ -4,9 +4,9 @@
 // 종료 코드: git 결과를 그대로 전달, 2 = 사용법 오류.
 
 import {spawnSync} from 'node:child_process'
-import {existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync} from 'node:fs'
+import {existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeSync} from 'node:fs'
 import {tmpdir} from 'node:os'
-import {delimiter, dirname, relative, resolve, sep} from 'node:path'
+import {delimiter, dirname, isAbsolute, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {answerHelp} from './cli-help-lib.mjs'
 
@@ -48,12 +48,25 @@ try {
   process.stderr.write('Git inspection project must be an existing directory.\n')
   process.exit(2)
 }
-const offset = relative(repositoryRoot, projectRoot)
+// 하니스 저장소 내부 또는 현재 세션 프로젝트 내부만 허용한다. 플러그인 판본에서 이 스크립트의 저장소 루트는
+// 플러그인 캐시라 사용자 프로젝트는 늘 그 밖이다 — 세션 프로젝트는 CLAUDE_PROJECT_DIR, Bash 도구에는 그 값이 없으므로
+// 작업 디렉터리다(validate-artifact-sharding과 같은 규칙). 읽기 전용 조회라 cwd 대체가 쓰기 표면을 넓히지 않는다.
+const normalOffsetWithin = root => {
+  if (!root) return null
+  let realRoot
+  try {
+    realRoot = realpathSync(resolve(root))
+  } catch {
+    return null
+  }
+  const offset = relative(realRoot, projectRoot)
+  if (offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)) return null
+  if (['.claude', '.git', '_workspace'].includes(offset.split(sep)[0])) return null
+  return offset
+}
 if (
   !statSync(projectRoot).isDirectory() ||
-  offset === '..' ||
-  offset.startsWith(`..${sep}`) ||
-  ['.claude', '.git', '_workspace'].includes(offset.split(sep)[0])
+  (normalOffsetWithin(repositoryRoot) === null && normalOffsetWithin(process.env.CLAUDE_PROJECT_DIR || process.cwd()) === null)
 ) {
   process.stderr.write('Git inspection must stay inside the harness or a normal child project.\n')
   process.exit(2)
@@ -109,15 +122,34 @@ const secretPath = value => {
     /\.(?:pem|key|p12|pfx|jks|keystore)$/.test(basename)
 }
 
+// 리뷰 묶음(prepare-review-packet)은 이 조회의 산출물이다 — 다음 조회의 변경 목록에 되먹이지 않는다.
+const REVIEW_PACKET = '_workspace/04_qa/review-packet/'
+const packetPath = value => value.replaceAll('\\', '/').includes(REVIEW_PACKET)
+
 const redact = source => String(source ?? '')
   .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/gi, '$1[REDACTED]@')
   .replace(/\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY|API_KEY))\s*[=:]\s*([^\s]+)/gi, '$1=[REDACTED]')
   .replace(/\b(?:ghp|github_pat|glpat|sk_live|sk_test|sk-proj)-?[A-Za-z0-9_\-]{12,}\b/g, '[REDACTED_TOKEN]')
 
+// 동기 쓰기 — 파이프로 읽히면 process.stdout.write는 비동기라 뒤따르는 process.exit가 64KB 뒤를 잘라 버린다.
+// 비차단 파이프의 EAGAIN은 잠깐 쉬고 다시 쓴다.
+const writeAll = (fd, text) => {
+  const buffer = Buffer.from(text)
+  let offset = 0
+  while (offset < buffer.length) {
+    try {
+      offset += writeSync(fd, buffer, offset, buffer.length - offset)
+    } catch (error) {
+      if (error.code === 'EPIPE') return   // 읽는 쪽이 먼저 닫았다(`| head`) — 더 쓸 곳이 없다
+      if (error.code !== 'EAGAIN') throw error
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5)
+    }
+  }
+}
 const finish = result => {
-  if (result.stdout) process.stdout.write(redact(result.stdout))
-  if (result.stderr) process.stderr.write(redact(result.stderr))
-  if (result.error) process.stderr.write(`${redact(result.error.message)}\n`)
+  if (result.stdout) writeAll(1, redact(result.stdout))
+  if (result.stderr) writeAll(2, redact(result.stderr))
+  if (result.error) writeAll(2, `${redact(result.error.message)}\n`)
   rmSync(isolatedHome, {recursive: true, force: true})
   process.exit(Number.isInteger(result.status) ? result.status : 1)
 }
@@ -139,7 +171,7 @@ const readStatus = () => {
 const statusEntries = readStatus()
 const displayPath = path => JSON.stringify(path)
 if (operation === 'status') {
-  const safeEntries = statusEntries.filter(entry => entry.paths.every(path => !secretPath(path))).slice(0, 500)
+  const safeEntries = statusEntries.filter(entry => entry.paths.every(path => !secretPath(path) && !packetPath(path))).slice(0, 500)
   const omitted = statusEntries.length - safeEntries.length
   finish({
     status: 0,
@@ -204,11 +236,11 @@ const runDiffs = (extra, paths = []) => {
 const trackedPaths = runDiffs(['--name-only', '-z']).split('\0').filter(Boolean)
 const untrackedPaths = statusEntries.filter(entry => entry.status === '??').flatMap(entry => entry.paths)
 const changedPaths = [...new Set([...trackedPaths, ...untrackedPaths])]
-const safePaths = changedPaths.filter(path => !secretPath(path)).slice(0, 500)
+const safePaths = changedPaths.filter(path => !secretPath(path) && !packetPath(path)).slice(0, 500)
 const safePathSet = new Set(safePaths)
 const safeTrackedPaths = trackedPaths.filter(path => safePathSet.has(path))
 const safeUntrackedPaths = untrackedPaths.filter(path => safePathSet.has(path))
-const omittedCount = changedPaths.length - safePaths.length
+const omittedCount = changedPaths.filter(path => secretPath(path)).length
 
 if (operation === 'diff-names') {
   finish({
