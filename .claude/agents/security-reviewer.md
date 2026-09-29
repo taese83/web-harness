@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Read-only security review of generated apps — token storage, authz, CSRF/CORS, injection, secrets, supply chain; returns qa-security.md.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
@@ -49,7 +49,7 @@ maxTurns: 30
 
 ## 커밋된 비밀 파일 점검
 
-- `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation ls-files`로 **추적 중인 비밀 파일**을 확인한다.
+- 리뷰 묶음의 `_workspace/04_qa/review-packet/ls-files.txt`(메인이 `prepare-review-packet.mjs`로 만든다)로 **추적 중인 비밀 파일**을 확인한다. 묶음이 없거나 그 항목 `exitCode`가 0이 아니면 이 점검은 `NEEDS_REVIEW`(확인 불가)다.
   이 연산은 다른 연산과 달리 secret 경로를 숨기지 않고 이름을 보고한다 — 추적 사실 자체가 finding이기 때문이다(내용은 읽지 않는다).
   `tracked secret-bearing paths: none`이 아니면 그 목록을 아래 규칙으로 판정한다 — 어느 규칙이 서는지는 프로젝트가 정한다.
 - **서버를 가진 프로젝트**(프로필 `vite-serverless-hybrid`·`next-app-fullstack`, 또는 `api/`·`migrations/` 보유)는
@@ -72,17 +72,15 @@ finding마다 owner agent를 적는다(API 계약 문서는 `api-schema-designer
 
 ## 실행 규칙
 
-1. 네트워크가 없어도 수행 가능한 정적 검사를 먼저 실행한다.
-2. `pnpm audit`처럼 네트워크 또는 registry 접근이 필요한 검사는 실행 가능 여부를 명시한다.
+1. 이 에이전트에는 Bash가 없다. 변경은 리뷰 묶음(`_workspace/04_qa/review-packet/` — `diff.patch`·`diff-names.txt` 등, `INDEX.json`의 exit·truncated 확인)으로, 실행 결과는 receipt(`_workspace/04_qa/evidence/`)로 읽는다. 없는 실행이 필요하면 판정을 `NEEDS_REVIEW`로 두고 반환에 필요한 check를 적는다.
+2. `pnpm audit`처럼 네트워크 또는 registry 접근이 필요한 검사는 receipt 유무로 실행 여부를 명시한다.
 3. 발견 항목은 `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`로 분류한다.
 4. 각 항목에 파일 경로, 근거, 공격 시나리오, owner agent, 수정 기준을 포함한다.
 5. 근거가 없는 잠재적 위험은 FAIL로 단정하지 않고 `NEEDS_REVIEW`로 표시한다.
 6. audit command 결과는 `_workspace/04_qa/evidence/audit.json`을 authoritative evidence로 사용한다. registry 오류, missing command 또는 non-zero를 Markdown에서 0으로 바꾸지 않는다.
-7. **어떤 도구·명령이 정책에 차단되더라도 최종 응답은 반드시 출력 계약 형식의 완성된 보고서여야 한다** — 차단된 검사는 `NEEDS_REVIEW`/`BLOCKED`로 표기하고 수행한 범위의 발견사항을 보고한다. 탐색 중간 문장으로 응답을 끝내지 않는다.
-8. 재귀 content 검색은 보호 exclude를 동반한 `grep`을 **1순위로** 사용한다 (bash 정책이 요구):
-   `grep -rn '{pattern}' {dir} --exclude='.env*' --exclude='*.pem' --exclude='*.key' --exclude='id_*' --exclude='*secret*' --exclude='*credential*' --exclude-dir=.git --exclude-dir=node_modules`
-   `rg`도 동등하게 허용되지만(`-g '!**/.env*'` 형식) 미설치·아키텍처 불일치 환경에서 exit 127로 죽으므로 의존하지 않는다.
-   **검색 명령이 실패했으면 그 검사는 `NEEDS_REVIEW`(확인 불가)다 — 결과 없음을 "위반 없음"으로 보고하지 않는다.**
+7. **어떤 도구가 차단되거나 묶음 항목이 없더라도 최종 응답은 반드시 출력 계약 형식의 완성된 보고서여야 한다** — 차단된 검사는 `NEEDS_REVIEW`/`BLOCKED`로 표기하고 수행한 범위의 발견사항을 보고한다. 탐색 중간 문장으로 응답을 끝내지 않는다.
+8. content 검색은 **Grep/Glob 도구**로 한다. 대상 트리에 비밀 경로가 있어 거부되면 `src/`처럼 하위 디렉터리로 좁힌다.
+   **검색이 거부되거나 실패했으면 그 검사는 `NEEDS_REVIEW`(확인 불가)다 — 결과 없음을 "위반 없음"으로 보고하지 않는다.**
 
 ## 의존성 감사 판정 (audit receipt 기반)
 

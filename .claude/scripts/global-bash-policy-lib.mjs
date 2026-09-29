@@ -578,6 +578,23 @@ const reuseInventoryContract = (args, context) => {
   return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
 }
 
+// 리뷰 묶음은 --project-root 하나와 선택 --base <ref>·--handoff design|development만 받는다. 쓰기는 스크립트가 고정 경로로 한정한다.
+const reviewPacketContract = (args, context) => {
+  if (args[0] !== '--project-root' || args.length < 2) return false
+  readablePath(args[1], context, 'directory')
+  const rest = args.slice(2)
+  const seen = new Set()
+  for (let index = 0; index < rest.length; index += 2) {
+    const [option, value] = [rest[index], rest[index + 1]]
+    if (seen.has(option) || value === undefined) return false
+    seen.add(option)
+    if (option === '--base') { if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(value) || value.includes('..')) return false }
+    else if (option === '--handoff') { if (!['design', 'development'].includes(value)) return false }
+    else return false
+  }
+  return true
+}
+
 // shape checks는 --project-root와 --shapes(쉼표 구분)를 요구한다.
 const shapeChecksContract = (args, context) => {
   if (args.length !== 4) return false
@@ -905,6 +922,7 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/reuse-inventory.mjs') return reuseInventoryContract(args, context)
+  if (script === '.claude/scripts/prepare-review-packet.mjs') return reviewPacketContract(args, context)
   if (script === '.claude/scripts/validate-layer-boundaries.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)

@@ -165,7 +165,7 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    하네스 산출물(`_workspace/`)과 코드는 따로 커밋한다 — `link`가 섞인 커밋을 `commitSplit`으로, 작업 범위 밖에서 고쳐 커밋한 파일을 `scopeDrift`로 알린다.
    **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
 4. **커밋 후 dev 브랜치에 푸시한다** — 그 작업 전용이고 공유 base가 아니다.
-5. **PR 직전에 리뷰한다.** `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
+5. **PR 직전에 리뷰한다.** 먼저 `node .claude/scripts/prepare-review-packet.mjs --project-root {root} --base {review.base}`로 리뷰 묶음을 만든다(리뷰어는 Bash가 없다). `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
    프로젝트 리뷰어(`reviewAgents`, 짧은 이름)를 **같은 범위**(`review.base`...`review.head`)로 부른다. 고칠 결함은 고친 뒤 다시 리뷰하고, 사용자 흐름을
    바꾸는데 e2e(`testLayers.e2e`) 테스트가 없으면 그 사실을 적는다(막지 않는다). 리뷰 결과는 요약하지 않고 결함·근거를 그대로 싣는다.
    `review.references`가 있으면 리뷰어에게 참고 문서로 넘긴다. `review.local`은 이 개발자만의 설정(`references/tracker-config.md`)이라 그렇다고 알리고,

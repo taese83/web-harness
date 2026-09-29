@@ -147,16 +147,16 @@ export const validateAgentBoundaries = ({
     ).status !== 0
   ) fail('verifier Bash hook blocked the typed quality runner')
   if (
-    runVerifierBashHook('code-reviewer', 'node .claude/scripts/run-git-inspection.mjs --project . --operation status').status !== 0
+    runVerifierBashHook('version-analyzer', 'node .claude/scripts/run-git-inspection.mjs --project . --operation status').status !== 0
   ) fail('verifier Bash hook blocked the typed Git inspection runner')
-  if (runVerifierBashHook('code-reviewer', "node -e 'process.exit(0)'").status !== 2) {
+  if (runVerifierBashHook('version-analyzer', "node -e 'process.exit(0)'").status !== 2) {
     fail('verifier Bash hook allowed arbitrary Node execution')
   }
   if (runVerifierBashHook('integration-verifier', 'pnpm test --update').status !== 2) fail('verifier Bash hook allowed snapshot update')
   if (
     runVerifierBashHook('integration-verifier', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status !== 2
   ) fail('verifier Bash hook allowed a mutating package operation')
-  if (runVerifierBashHook('security-reviewer', 'rm -rf src').status !== 2) fail('verifier Bash hook allowed a mutating command')
+  if (runVerifierBashHook('integration-verifier', 'rm -rf src').status !== 2) fail('verifier Bash hook allowed a mutating command')
   pass('verifier Bash allow/deny behavior checked')
 
   const ownershipHook = read('.claude/scripts/enforce-agent-ownership.mjs')

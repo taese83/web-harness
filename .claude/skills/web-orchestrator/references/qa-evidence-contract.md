@@ -75,13 +75,14 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - **위험 트리거 리뷰**: 아래 신호가 하나라도 있으면 새 문맥 리뷰어 1회 — 보안 신호는 `security-reviewer`, 그 밖은 `code-reviewer`, 둘 다면 둘 다(승격 QA에 **더한다**, 대체하지 않는다). 신호가 없으면 LLM 리뷰 없이 보고에 `review: none-required (신호 0)`를 적는다.
   - 형태 무관: `CAPABILITY_ESCALATION: detected` · 의존성 추가 · 삭제·마이그레이션·저장 데이터 · 계약 파일(API 스키마·공개 타입) · diff 300줄 이상 · 기존 테스트 수정·삭제·skip/only 추가·스냅샷 갱신 · 게이트 실패 후 수정된 check.
   - 형태별(`targetShapes`, 여럿이면 합집합): 웹 앱 — 인증·세션·토큰, 입력 → HTML/쿼리 sink, UI 레이어(접근성) / 라이브러리 — 공개 export / CLI — 명령·플래그·exit code / serverless — `api/` 핸들러.
-  - 리뷰어 입력은 이번 라운드 diff·수용 기준·change brief뿐이다(구현 대화는 주지 않는다). 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
+  - 리뷰어 입력은 이번 라운드 diff·수용 기준·change brief뿐이다(구현 대화는 주지 않는다). 리뷰어에게는 Bash가 없다 — 메인이 스폰 직전에
+    `node .claude/scripts/prepare-review-packet.mjs --project-root {root} [--base <ref>]`로 `_workspace/04_qa/review-packet/`(diff·상태·레이어 방향·재사용 목록)을 만든다. 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
   - **light 경로(`change-lane-checkpoint.md`)는 라운드당 리뷰 한 스폰이다 — light의 종료 게이트 ①과 위험 트리거 리뷰는 이 항목이
     정본이다.** 보안 신호나 `CAPABILITY_ESCALATION`이 있으면 `security-reviewer`, 없으면 `code-reviewer`가 발화한 신호의 체크리스트를
     모두 본다. 서버 계약이 생겼으면 API 계약·생성 타입·목 핸들러 일치를 포함하고, API 명세가 없으면 그 항목은 `BLOCKED`다. 항상
     「승인된 수용 기준이 요청을 덮는가」 한 줄을 본다. finding마다 owner agent를 적는다 — API 계약 문서는 `api-schema-designer`(라이브러리·CLI
     `lib-api-designer`), 코드는 developer(`retry-policy.md` 매핑 그대로). 판정 규칙(`CONFIRMED`만 산입)과 재확인 규칙은 같다.
-  - 수정은 developer 수정 스폰(`retry-policy.md` Iterate 상한), 재확인은 **마지막 수정 뒤 한 번** 같은 역할 새 스폰이 1차 finding의 처분(fixed·dismissed·open)을 낸다. 남은 FAIL이면 라운드는 `BLOCKED`, 증거 있는 HIGH 이상을 기각하려면 사용자 답이 필요하다.
+  - 수정은 developer 수정 스폰(`retry-policy.md` Iterate 상한), 재확인은 **마지막 수정 뒤 한 번**(스폰 직전 리뷰 묶음을 다시 만든다 — 묶음은 만든 시점의 트리만 담는다) 같은 역할 새 스폰이 1차 finding의 처분(fixed·dismissed·open)을 낸다. 남은 FAIL이면 라운드는 `BLOCKED`, 증거 있는 HIGH 이상을 기각하려면 사용자 답이 필요하다.
 
 ## Dev server note
 

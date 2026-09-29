@@ -1,7 +1,7 @@
 ---
 name: timeseries-verifier
 description: Read-only TIMESERIES_MODE verifier — stream contract completeness, bounded buffers, reconnect/gap coverage, chart performance evidence.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh

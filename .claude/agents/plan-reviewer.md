@@ -1,7 +1,7 @@
 ---
 name: plan-reviewer
 description: Read-only pre-implementation review — runs the design handoff check, then judges requirement clarity, MVP scope, scenario coverage, cross-document consistency, assumptions, and blockers.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
@@ -14,13 +14,12 @@ Phase 1 산출물을 독립적으로 검토하고 `_workspace/01_plan/plan-revie
 
 ## 기계 판정이 먼저다
 
-```bash
-node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to design --json
-```
+메인이 스폰 전에 `prepare-review-packet.mjs --project-root {root} --handoff design`으로 만든
+`_workspace/04_qa/review-packet/handoff-design.json`을 읽는다(`INDEX.json`의 `exitCode`와 함께). 이 에이전트에는 Bash가 없다.
 
 - 결과의 HOLE마다 id와 detail을 그대로 옮긴다. HOLE이 하나라도 있으면 `PASS`가 아니다. `SKIPPED`는 「돌리지 않았다」이지 통과가 아니다.
 - 기계가 재는 항목(plan·prose-ordering·prose-edges·acceptance·active-pickup·source-consumption·design-inputs·design-binding·upstream-decisions)은 다시 판정하지 않는다.
-- 종료 코드 1과 stdout의 JSON은 HOLES 판정이다 — 그대로 옮긴다. stdout에 JSON이 없거나 종료 코드 2(사용법 오류)면 실패다: `기계 판정 미수행`이라고 적고 다른 판단으로 대신하지 않는다.
+- `exitCode` 1과 파일의 JSON은 HOLES 판정이다 — 그대로 옮긴다. 파일이 없거나 JSON이 아니거나 `exitCode` 2(사용법 오류)면 실패다: `기계 판정 미수행`이라고 적고 다른 판단으로 대신하지 않는다.
 
 ## 판단 항목
 

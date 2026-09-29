@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: Reviews the change and its side effects on related code for correctness, spec layer boundaries, and project conventions; produces a QA report with file/line references.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
@@ -65,7 +65,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 `CHANGE_MODE: existing-change`이면 구현 품질 검사 전에 다음을 수행한다.
 
 1. `_workspace/03_dev/change-scope.md` 또는 전달된 brief에서 `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`을 읽는다. brief가 없고 기존 사용자 변경과 이번 변경을 구분할 수 없으면 `BLOCKED`다.
-2. `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation status`, `--operation diff-stat`, `--operation diff-names`, `--operation diff`를 사용해 변경을 읽는다. brief나 스폰 프롬프트에 base가 주어졌으면 `--base <base>`를 붙인다(공통 조상 기준 — base가 앞서 나가도 유령 삭제가 없다). 주어지지 않으면 base를 추정하지 말고 working tree 기준으로 읽은 사실을 리포트에 적는다. 직접 `git`을 실행하거나 source를 수정하거나 기존 변경을 되돌리지 않는다.
+2. 변경은 메인이 만든 리뷰 묶음 `_workspace/04_qa/review-packet/`(`INDEX.json`의 `status.txt`·`diff-stat.txt`·`diff-names.txt`·`diff.patch`)으로 읽는다. `INDEX.json`의 `base`가 null이면 working tree 기준으로 읽은 사실을 리포트에 적는다. 묶음이 없거나 git 항목의 `exitCode`가 0이 아니거나 `truncated`면 그 범위는 「확인 불가」다(항목별 exit 의미는 `INDEX.json`의 `exitMeaning`) — 묶음을 다시 만들어 달라고 반환에 적는다. source를 수정하거나 기존 변경을 되돌리지 않는다.
 3. 실제 changed path가 허용 범위를 벗어나면 scope expansion의 root-cause 근거와 사전 기록 여부를 확인한다.
 4. 요청과 무관한 rename/move, format-only noise, dependency upgrade, lockfile churn, broad rewrite, public API/schema/state 변경은 정당화되지 않으면 `FAIL`이다.
 5. 작은 diff만을 강제하지 않는다. 보안·데이터 무결성·공통 root cause를 해결하는 broader change는 brief에 blast radius와 대안이 기록되고 test evidence가 있으면 허용한다.
@@ -99,13 +99,13 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 ## 검사 순서
 
-콘텐츠 검색은 **Grep/Glob 도구** 또는 아래 보호 exclude를 붙인 재귀 `grep`으로 한다(대상 트리에 비밀 경로가 있으면 하위 디렉터리로 좁힌다). Bash는 그 밖에 typed runner(`node .claude/scripts/...`)와 bounded 파일 읽기에만 쓴다.
+콘텐츠 검색은 **Grep/Glob 도구**로 한다(대상 트리에 비밀 경로가 있으면 `src/`처럼 하위 디렉터리로 좁힌다). 이 에이전트에는 Bash가 없다 — 실행이 필요한 판정은 리뷰 묶음과 receipt를 읽는다.
 
 1. `_workspace/04_qa/evidence/typecheck.json`과 `lint.json`의 실제 command/exit/source fingerprint를 확인한다. receipt가 없거나 stale이면 `BLOCKED`다.
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.
 3. Grep 도구로 `export \*` 패턴을 `src/`에서 검색 — wildcard export 검사
 4. Grep 도구로 `class\*=|css-[a-zA-Z0-9]` 패턴을 `src/`에서 검색 — substring/generated selector 검사
-5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 `node .claude/scripts/validate-layer-boundaries.mjs --project-root {project-root}`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`은 통과가 아니라 "확인 불가"로 적는다
+5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 리뷰 묶음의 `layer-boundaries.json`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
    - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL과 **서버·모델·호스트가 준 payload의 URL**을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — 네이티브 스킴이 필요한 앱은 allowlist를 그 스킴까지 넓히고 사유를 한 줄 적는다(없애는 것이 아니다) — React는 `javascript:`만 막고 `data:`는 통과시킨다
@@ -181,7 +181,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 18. **중복·재사용성 검사** (리팩토링 제안 전용 — 결함 검사가 아님):
    - 오케스트레이터가 넘긴 `reuse-inventory.mjs --since` 결과(`UNUSED_NEW_EXPORT`·`DUPLICATE_NAME`)가
      있으면 그것부터 확인한다 — 이름 수준 신호이므로 실제로 같은 책임인지 코드를 열어 판정한다.
-     없으면 `node .claude/scripts/reuse-inventory.mjs --project-root {project-root}`(텍스트)로 목록을 얻어 변경점만 대조한다
+     없으면 리뷰 묶음의 `reuse-inventory.txt`로 변경점만 대조한다
    - 신규·변경 코드가 기존 코드베이스의 유틸/훅/컴포넌트/상수/정책과 중복되는지, 기존 자산을 재사용할 수
      있었는데 새로 만든 부분이 있는지 확인한다 (유사 이름·시그니처·패턴을 Grep 도구로 탐색해 근거를 남긴다)
    - 같은 diff 안에서 동일 스펙(치수, 키 목록, 정책 값 등)이 여러 곳에 하드코딩되어 한쪽만 수정하면
@@ -217,13 +217,9 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 판정: 전제 확인 + 반례 없음 → **CONFIRMED** / 반증도 확인도 불가 → **PLAUSIBLE**(판정 표기 + 우선순위 한 단계 강등) / 반증 성공 → 보고에서 제외.
 그럴듯하지만 틀린 지적(false positive)은 리뷰 신뢰를 갉아먹는다 — 판단성 발견 항목에는 판정과 반증에서 확인한 근거 한 줄을 붙인다.
 
-**보고 완결 규약**: 도구·명령이 bash 정책에 차단되거나 turn 예산이 소진되어도 최종 응답은 반드시 출력 구조의 완성된 리포트여야 한다 —
+**보고 완결 규약**: 도구가 차단되거나 묶음 항목이 없거나 turn 예산이 소진되어도 최종 응답은 반드시 출력 구조의 완성된 리포트여야 한다 —
 수행 못 한 검사는 "확인 불가(사유)"로 명시하고, 확인한 범위의 발견만 판정한다. 「발견 없음」은 확정하지 못한 범위를 함께 적어야 승인의 근거가 된다. 탐색 중간 서술로 응답을 끝내는 것은 리포트 미제출이다.
-재귀 content 검색은 보호 exclude를 동반한 `grep`을 **1순위로** 사용한다 (`grep`은 어디에나 있고, `rg`는 미설치·아키텍처 불일치 환경에서 exit 127로 조용히 죽는다 — 실사고로 전수 검사가 무력화된 적이 있다):
-`grep -rn '{pattern}' src --exclude='.env*' --exclude='*.pem' --exclude='*.key' --exclude='id_*' --exclude='*secret*' --exclude='*credential*' --exclude-dir=.git --exclude-dir=node_modules`
-`rg`가 실제로 동작하는 환경이면 동등한 대안으로 쓸 수 있다:
-`rg -n '{pattern}' src -g '!**/.env*' -g '!**/*.pem' -g '!**/*.key' -g '!**/id_*' -g '!**/*secret*' -g '!**/*credential*'`
-어느 쪽이든 **검색 명령이 실패했으면 그 검사는 "확인 불가"이지 "위반 없음"이 아니다.** exit code를 확인하고 보고에 남긴다.
+**검색이 거부되거나 실패했으면 그 검사는 "확인 불가"이지 "위반 없음"이 아니다.** 보고에 남긴다.
 
 ## 출력 구조
 

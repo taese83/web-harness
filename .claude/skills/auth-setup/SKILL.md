@@ -77,7 +77,7 @@ Secret이 유출되었거나 정기 회전이 필요한 경우 `references/secre
 
    서버가 이 프로젝트 밖(별도 BFF·IdP)이면 위 항목을 **서버 인가 계약**으로 문서화하고 완료 보고에 "서버 측 책임 — 확인 위임"으로 남긴다. 미확인 상태를 PASS로 표기하지 않는다.
 
-8. **code-reviewer 에이전트로 검사**
+8. **code-reviewer 에이전트로 검사** — 먼저 `node .claude/scripts/prepare-review-packet.mjs --project-root {project-root}`로 리뷰 묶음을 만든다
 
 ## 완료 조건
 

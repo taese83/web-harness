@@ -1,7 +1,7 @@
 ---
 name: state-invariant-verifier
 description: Read-only verification of local domain state invariants, destructive actions, persistence migration, and recovery.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh

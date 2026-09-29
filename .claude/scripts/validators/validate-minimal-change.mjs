@@ -59,7 +59,7 @@ export const validateMinimalChange = ({repositoryRoot, read, pass, fail}) => {
   }
 
   const reviewer = read('.claude/agents/code-reviewer.md')
-  for (const marker of ['run-git-inspection.mjs', '--operation diff-stat', '--operation diff-names', 'Change Scope Review', 'format-only noise', 'scope expansion']) {
+  for (const marker of ['review-packet/', 'diff-stat.txt', 'diff-names.txt', 'Change Scope Review', 'format-only noise', 'scope expansion']) {
     if (!reviewer.includes(marker)) fail(`code-reviewer does not enforce minimal change marker ${marker}`)
   }
   if (!reviewer.includes('disallowedTools: Write, Edit')) fail('code-reviewer minimal change review is not read-only')

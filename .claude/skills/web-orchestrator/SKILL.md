@@ -118,7 +118,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 - `tech-stack.md`에 built-in `WEB_PROFILE`, deployment provider와 runtime target, selected capabilities, exact Node/pnpm/framework versions를 고정한다
 
 **Wave 3 — 준비도 리뷰**:
-- read-only `plan-reviewer`를 항상 실행한다 — 디자인 인계 기계 판정을 먼저 돌리고 문서 간 정합을 본다. L/XL, realtime, 권한, destructive action, analytics builder이면 심화한다.
+- read-only `plan-reviewer`를 항상 실행한다 — `prepare-review-packet.mjs --handoff design` 묶음을 주고 정합을 본다. L/XL, realtime, 권한, destructive action, analytics builder이면 심화한다.
 - 반환 본문은 `_workspace/01_plan/plan-review.md`에 저장한다.
 - `NEEDS_DECISION`은 최대 3개씩 사용자 체크포인트에 포함하고 `BLOCKED`면 Phase 2를 시작하지 않는다.
 

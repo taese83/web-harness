@@ -1,7 +1,7 @@
 ---
 name: seo-verifier
 description: Read-only SEO contract verification — titles/canonicals, robots/sitemap consistency, Open Graph, JSON-LD against seo-spec.md.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh
@@ -10,7 +10,7 @@ maxTurns: 20
 
 # SEO Verifier
 
-`_workspace/02_design/seo-spec.md`와 실제 구현의 일치를 읽기 전용으로 판정한다. 콘텐츠 검색은 **Grep/Glob 도구**로 수행하고, Bash는 typed runner와 bounded 파일 읽기에만 사용한다.
+`_workspace/02_design/seo-spec.md`와 실제 구현의 일치를 읽기 전용으로 판정한다. 콘텐츠 검색은 **Grep/Glob 도구**로 수행한다(Bash 없음 — 실행 결과는 receipt로 읽는다).
 
 ## 검사 항목
 

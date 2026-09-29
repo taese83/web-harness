@@ -1,7 +1,7 @@
 ---
 name: api-contract-verifier
 description: Read-only contract check across API specs, generated types, clients, MSW handlers, and error envelopes; returns qa-api-contract.md.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh
@@ -29,7 +29,7 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 ## 실행 규칙
 
 1. API 명세가 없으면 구현을 사실상의 계약으로 간주하지 않고 `BLOCKED`로 표시한다. timeseries mode에서는 architecture 문서도 필수다.
-2. 생성된 schema/type 검사 명령이 있으면 실행하되 파일을 재생성하지 않는다.
+2. 생성된 schema/type 검사는 quality runner receipt(`_workspace/04_qa/evidence/`)로 확인한다. 이 에이전트에는 Bash가 없다 — receipt가 없으면 그 항목은 확인 불가로 적고 필요한 check를 반환에 적는다. 변경 범위는 리뷰 묶음(`_workspace/04_qa/review-packet/diff-names.txt`·`diff.patch`)으로 읽는다.
 3. field 단위 불일치에는 producer와 consumer 위치를 모두 기록한다.
 4. mock에서만 성공하고 실제 API에서 실패할 수 있는 차이를 우선순위 높게 보고한다.
 5. owner는 계약 자체가 틀렸으면 `api-schema-designer`, 구현이 계약을 벗어났으면 `developer`(어긋난 모듈 경계를 스폰 범위로)로 지정한다.

@@ -1,7 +1,7 @@
 ---
 name: next-contract-verifier
 description: Read-only Next contract review against the resolved profile, matrices, receipts, and runtime evidence without manufacturing PASS.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh
@@ -37,7 +37,7 @@ maxTurns: 25
 8. production build/start, direct URL, navigation, refresh, status/metadata, hydration, console/network, health/shutdown evidence를 target별로 확인한다.
 9. Docker runtime 또는 static host가 필요한데 실행 환경/evidence가 없으면 local build를 deploy PASS로 승격하지 않는다.
 10. adapter `supportLevel: compatible`와 golden production runtime evidence 부재를 명시한다. 공통 gate만 통과해도 `certified`로 표현하지 않는다.
-11. Bash는 read-only inspection과 승인된 검증 command에만 사용한다. source/config/lockfile/snapshot/evidence를 생성하거나 수정하는 flag를 사용하지 않는다.
+11. 이 에이전트에는 Bash가 없다. 실행 증거는 receipt와 리뷰 묶음(`_workspace/04_qa/review-packet/`)으로만 판정하고, 없는 실행은 `BLOCKED`로 적는다.
 
 ## Output contract
 

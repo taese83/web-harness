@@ -1,7 +1,7 @@
 ---
 name: analytics-verifier
 description: Read-only verifier for semantic query correctness, chart compatibility, and dashboard editing invariants.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh

@@ -78,6 +78,19 @@ test('재사용 목록: 프로젝트 안 root·이전 목록만 허용한다', (
   ]) assert.equal(decide(command).allowed, false, command)
 })
 
+test('리뷰 묶음: 프로젝트 안 root와 --base·--handoff만 허용한다', () => {
+  for (const command of [
+    'node .claude/scripts/prepare-review-packet.mjs --project-root .',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --base main --handoff design',
+  ]) assert.equal(decide(command).allowed, true, command)
+  for (const command of [
+    'node .claude/scripts/prepare-review-packet.mjs --project-root /etc',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --base ../x',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --handoff release',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --out x',
+  ]) assert.equal(decide(command).allowed, false, command)
+})
+
 test('레이어 방향 검사: --project-root(프로젝트 안)와 --json만 허용한다', () => {
   assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root . --json').allowed, true)
   assert.equal(decide('node .claude/scripts/validate-layer-boundaries.mjs --project-root /etc').allowed, false)

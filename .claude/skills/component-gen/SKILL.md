@@ -48,7 +48,7 @@ When this skill is applied without a target, start with:
    - `--fix`, formatter write, snapshot update로 QA 단계에서 source를 바꾸지 않는다.
 
    **6-3. 코드 리뷰** (Agent 도구로 `code-reviewer` subagent 실행):
-   - 생성/수정된 파일 경로 목록을 컨텍스트로 전달해 `code-reviewer`를 호출한다.
+   - `node .claude/scripts/prepare-review-packet.mjs --project-root {project-root}`로 리뷰 묶음을 만들고, 생성/수정된 파일 경로 목록을 컨텍스트로 전달해 `code-reviewer`를 호출한다.
    - `code-reviewer`는 source를 수정하지 않고 receipt, MUI selector, FSD import, CJK IME, a11y, 미사용 파일을 검사한다.
    - FAIL은 component owner가 수정하고 quality `--all`부터 다시 실행한다. WARN은 사용자에게 보고한다.
 

@@ -1,7 +1,7 @@
 ---
 name: ux-validator
 description: Compares implemented screens against ux-brief.md and component-spec.md to find missing screens and spec deviations.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
@@ -32,7 +32,7 @@ maxTurns: 20
 2. **컴포넌트 Props**: spec 인터페이스와 실제 구현이 일치하는가
 3. **상태 처리**: loading skeleton, error fallback, empty state가 있는가
 4. **네비게이션**: 모든 링크/버튼이 올바른 경로로 연결되는가
-5. **데이터 연결** (파일 기반 정적 검사 — 콘텐츠 검색은 Bash가 아니라 **Grep 도구**로 수행한다. 전역 Bash 정책이 `grep`과 디렉토리 재귀 `rg`를 차단한다):
+5. **데이터 연결** (파일 기반 정적 검사 — 콘텐츠 검색은 **Grep 도구**로 수행한다. 이 에이전트에는 Bash가 없다):
    - Grep 도구로 `useQuery|useInfiniteQuery` 패턴을 `src/pages/`, `src/widgets/`, `src/features/`에서 검색 — 데이터 훅 사용 여부
    - Grep 도구로 `hardcoded|dummy|TODO.*data` 패턴을 `src/pages/`, `src/widgets/`에서 검색 — 하드코딩 데이터 직접 사용 탐색
    - **브라우저 없이 런타임 렌더링 검증은 하지 않는다** — 해당 검증은 browser-verifier 담당

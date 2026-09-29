@@ -1,7 +1,7 @@
 ---
 name: data-quality-verifier
 description: Read-only verification of external ingestion contracts, quality thresholds, atomic promotion, and generated artifacts.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: sonnet
 effort: xhigh

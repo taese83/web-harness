@@ -4,7 +4,7 @@ description: Breaks requirements into vertical feature units — page groups, fe
 tools: Read, Glob, Grep, Write, Edit
 model: sonnet
 effort: high
-maxTurns: 20
+maxTurns: 30
 ---
 
 # Feature Planner
