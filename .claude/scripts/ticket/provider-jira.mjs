@@ -211,6 +211,9 @@ export function classifyJiraError(message = '') {
   if (/\b403\b|Forbidden/i.test(text)) {
     return {kind: 'forbidden', hint: 'Jira 권한 부족 — 프로젝트에 이슈 생성 권한이 필요합니다'}
   }
+  if (/\b410\b|has been removed/i.test(text)) {
+    return {kind: 'api-removed', hint: 'Jira가 이 REST API를 지웠습니다 — Cloud(커스텀 도메인 포함)면 apiVersion을 3으로 두세요. 3인데도 나면 하네스를 업데이트하세요'}
+  }
   if (/\b404\b|does not exist|Not Found/i.test(text)) {
     return {kind: 'not-found', hint: 'Jira 프로젝트·이슈를 찾을 수 없습니다 — projectKey를 확인하세요'}
   }

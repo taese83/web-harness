@@ -46,8 +46,10 @@ test('결과를 모르는 발행의 조회는 라벨이 아니라 시도 시각 
   assert.equal(cut.complete, false)
   // Cloud(v3)는 설명을 ADF 객체로 준다 — 문자열로 대조하면 늘 불일치라 「완전·0건」→재발행이 된다.
   const cloud = jira({...jiraConfig, apiVersion: '3'}, () => ({json: {issues: [{key: 'PF-40', fields: {summary: 's',
-    description: {type: 'doc', version: 1, content: [{type: 'paragraph', content: [{type: 'text', text: `작업 ID: ${WORK}`}]}]}}}], total: 1}}))
-  assert.deepEqual((await cloud.provider.findByWorkId({workId: WORK, since})).matches.map(item => item.ticketKey), ['PF-40'], 'ADF 설명에서 작업 ID를 찾지 못했다')
+    description: {type: 'doc', version: 1, content: [{type: 'paragraph', content: [{type: 'text', text: `작업 ID: ${WORK}`}]}]}}}], isLast: true}}))
+  const cloudFound = await cloud.provider.findByWorkId({workId: WORK, since})
+  assert.deepEqual(cloudFound.matches.map(item => item.ticketKey), ['PF-40'], 'ADF 설명에서 작업 ID를 찾지 못했다')
+  assert.equal(cloudFound.complete, true)
   // 시도 시각을 모르면 범위를 좁힐 수 없다 — 부재를 단정하지 않는다(트래커도 부르지 않는다).
   const blind = jira(jiraConfig, () => ({json: {issues: [], total: 0}}))
   assert.equal((await blind.provider.findByWorkId({workId: WORK})).complete, false)

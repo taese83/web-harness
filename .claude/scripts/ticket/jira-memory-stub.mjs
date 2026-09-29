@@ -1,10 +1,12 @@
 // jira-memory-stub.mjs — 메모리 Jira(REST v2의 쓰는 부분만). e2e 테스트들이 실제 `createJiraProvider`를 붙여 쓴다.
 // 모르는 요청은 던진다 — 조용히 200을 주면 회귀가 거짓 green이 된다. 테스트 전용이며 런타임 코드가 부르지 않는다.
 /**
- * @param {{gitIntegration?: boolean}} [options] gitIntegration: Jira Git Integration 애드온이 있는 인스턴스처럼 티켓 키 커밋을 돌려준다.
- *   없으면 그 경로는 404다(애드온 없는 인스턴스).
+ * @param {{gitIntegration?: boolean, cloud?: boolean}} [options] gitIntegration: Jira Git Integration 애드온이 있는 인스턴스처럼 티켓 키 커밋을 돌려준다.
+ *   없으면 그 경로는 404다(애드온 없는 인스턴스). cloud: Jira Cloud처럼 옛 검색(`/search`)은 410이고 강화 검색(`/search/jql`)만
+ *   답한다 — nextPageToken·isLast, total 없음, fields를 빼면 id만, 한 쪽 50건 상한. 「조건 없는 JQL은 400」은 `ORDER BY`로
+ *   시작하는 JQL만 근사한다.
  */
-export function createJiraStub({gitIntegration = false} = {}) {
+export function createJiraStub({gitIntegration = false, cloud = false} = {}) {
   const commits = new Map()
   const issues = new Map()
   const writes = []
@@ -26,7 +28,7 @@ export function createJiraStub({gitIntegration = false} = {}) {
     : structuredClone(issue))
   const fetchImpl = async (url, {method = 'GET', body = null} = {}) => {
     const parsed = new URL(url)
-    const path = parsed.pathname.replace(/^\/rest\/api\/2/, '')
+    const path = parsed.pathname.replace(/^\/rest\/api\/[23]/, '')
     const multipart = typeof FormData !== 'undefined' && body instanceof FormData
     const data = body && !multipart ? JSON.parse(body) : null
     if (method !== 'GET') writes.push({method, path, body: data})
@@ -36,8 +38,11 @@ export function createJiraStub({gitIntegration = false} = {}) {
       const list = commits.get(decodeURIComponent(match[1])) ?? []
       return respond(200, {success: true, total: list.length, count: list.length, commits: structuredClone(list)})
     }
-    if (method === 'GET' && path === '/search') {
+    if (method === 'GET' && path === '/search' && cloud) return respond(410, {errorMessages: ['The requested API has been removed. Please migrate to the /rest/api/3/search/jql API.']})
+    if (method === 'GET' && path === '/search/jql' && !cloud) return respond(404, {errorMessages: ['HTTP 404 Not Found']})
+    if (method === 'GET' && (path === '/search' || path === '/search/jql')) {
       const jql = parsed.searchParams.get('jql')
+      if (path === '/search/jql' && /^\s*ORDER BY/i.test(jql ?? '')) return respond(400, {errorMessages: ['Unbounded JQL queries are not allowed here.']})
       const wanted = parsed.searchParams.get('fields')
       let hits
       if ((match = jql.match(/^key in \(([^)]+)\)/))) {
@@ -57,6 +62,15 @@ export function createJiraStub({gitIntegration = false} = {}) {
       } else {
         // 실 Jira는 깨진 JQL에 400을 준다 — 빈 결과로 답하면 「없음 → 재발행」으로 조용히 지나간다.
         return respond(400, {errorMessages: [`stub이 모르는 JQL: ${jql}`]})
+      }
+      if (path === '/search/jql') {
+        // 강화 검색 — startAt은 무시하고 토큰으로 넘긴다. fields가 없으면 id만 준다.
+        const token = parsed.searchParams.get('nextPageToken')
+        const offset = token ? Number(Buffer.from(token, 'base64').toString('utf8').replace(/^offset:/, '')) : 0
+        const size = Math.min(Number(parsed.searchParams.get('maxResults') ?? 50), 50)
+        const page = hits.slice(offset, offset + size).map(issue => (wanted ? select(issue, wanted) : {id: issue.key}))
+        const isLast = offset + size >= hits.length
+        return respond(200, {issues: page, isLast, ...(isLast ? {} : {nextPageToken: Buffer.from(`offset:${offset + size}`).toString('base64')})})
       }
       const startAt = Number(parsed.searchParams.get('startAt') ?? 0)
       const max = Number(parsed.searchParams.get('maxResults') ?? 50)

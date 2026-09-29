@@ -4323,6 +4323,30 @@
       "why": "거부 자리의 코드가 전달되지 않으면 전부 UNCODED로 묶여 어느 규칙이 무엇을 막는지 집계할 수 없다"
     },
     {
+      "id": "jira-cloud-host-uses-enhanced-search",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "  return String(config.apiVersion ?? '3') === '3' || /\\.atlassian\\.net$/i.test(host)",
+      "replace": "  return String(config.apiVersion ?? '3') === '3'",
+      "test": ".claude/scripts/test-jira-enhanced-search.mjs",
+      "why": "Cloud에서 apiVersion을 2로 적으면 지워진 옛 검색(410)을 불러 같은 제목 검사·보드가 멈춘다"
+    },
+    {
+      "id": "jira-enhanced-search-complete-needs-islast",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "    const complete = payload?.isLast === true && !token",
+      "replace": "    const complete = !token",
+      "test": ".claude/scripts/test-jira-enhanced-search.mjs",
+      "why": "끝을 알리지 않은 응답을 완결로 읽어 「못 읽음」이 「같은 제목 없음」·「티켓 없음」으로 접힌다"
+    },
+    {
+      "id": "jira-legacy-search-null-total-incomplete",
+      "file": ".claude/scripts/ticket/provider-jira-exec.mjs",
+      "find": "  const complete = total !== null && seen >= total\n",
+      "replace": "  const complete = seen >= (total ?? 0)\n",
+      "test": ".claude/scripts/test-jira-enhanced-search.mjs",
+      "why": "서버 응답에 total이 없을 때 0으로 읽어 완결로 접으면 「못 읽음」이 「같은 제목 없음」이 된다"
+    },
+    {
       "id": "spec-conventions-exists",
       "file": ".claude/scripts/spec.mjs",
       "find": "if (!existsSync(candidate) || !statSync(candidate).isFile()) return true",

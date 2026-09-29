@@ -51,6 +51,39 @@ async function call(config, path, {method = 'GET', body = null, fetchImpl = null
 }
 
 /**
+ * 검색 한 페이지. Jira Cloud는 옛 검색(`/search`, startAt·total)을 v2·v3 모두 지웠다(410) — 강화 검색(`/search/jql`)만 남았고,
+ * 그 페이지는 `nextPageToken`·`isLast`로 넘기며 `total`이 없고 한 쪽은 50건까지다. Data Center(서버)에는 옛 검색뿐이다.
+ * 판본 3이거나 호스트가 `*.atlassian.net`이면 Cloud로 본다. `fields`는 늘 적는다(강화 검색은 빼면 id만 준다).
+ * 돌려주는 것: `{issues, nextCursor, complete, total}` — 끝을 모르면 `complete: false`다(「못 읽음」을 「없음」으로 접지 않는다).
+ * 커서는 불투명한 문자열이다(서버는 startAt 정수, Cloud는 토큰).
+ */
+export const usesEnhancedSearch = config => {
+  let host = ''
+  try { host = new URL(String(config.baseUrl)).hostname } catch {}
+  return String(config.apiVersion ?? '3') === '3' || /\.atlassian\.net$/i.test(host)
+}
+const ENHANCED_SEARCH_PAGE_MAX = 50
+async function searchPage(config, {jql, fields, maxResults = 50, cursor = null}, options) {
+  if (usesEnhancedSearch(config)) {
+    const query = `jql=${encodeURIComponent(jql)}&maxResults=${Math.min(maxResults, ENHANCED_SEARCH_PAGE_MAX)}&fields=${fields}`
+    const payload = await call(config, `/search/jql?${query}${cursor ? `&nextPageToken=${encodeURIComponent(cursor)}` : ''}`, options)
+    const issues = Array.isArray(payload?.issues) ? payload.issues : []
+    const token = typeof payload?.nextPageToken === 'string' && payload.nextPageToken ? payload.nextPageToken : null
+    const complete = payload?.isLast === true && !token
+    // 끝이 아닌데 다음 토큰도 없으면 더 읽을 수 없다 — 정체다.
+    return {payload, issues, nextCursor: complete ? null : token, complete, total: null, stalled: !complete && !token}
+  }
+  const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
+  const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}&fields=${fields}`, options)
+  const issues = Array.isArray(payload?.issues) ? payload.issues : []
+  const total = typeof payload?.total === 'number' && Number.isFinite(payload.total) ? payload.total : null
+  const seen = startAt + issues.length
+  const complete = total !== null && seen >= total
+  return {payload, issues, nextCursor: total !== null && !complete && issues.length > 0 ? String(seen) : null, complete, total, startAt,
+    stalled: total !== null && !complete && issues.length === 0}
+}
+
+/**
  * Jira TicketProvider를 만든다. `ticket-provider.mjs` 계약을 만족한다.
  *
  * **전이 능력은 설정이 정한다** — `transitions` 매핑이 없으면 `transition`을 **노출하지 않는다**.
@@ -114,19 +147,16 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       const minutes = Math.max(1, Math.ceil((Date.now() - Date.parse(since)) / 60000)) + 10
       const jql = `project = "${config.projectKey}" AND created >= -${minutes}m ORDER BY created ASC`
       const matches = []
-      let startAt = 0
+      let cursor = null
       for (let guard = 0; guard < 20; guard++) {
-        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,description`, options)
-        const issues = Array.isArray(payload?.issues) ? payload.issues : []
-        for (const issue of issues) {
+        const page = await searchPage(config, {jql, fields: 'summary,description', cursor}, options)
+        for (const issue of page.issues) {
           // Cloud(v3)는 설명을 ADF 객체로 준다 — 문자열로 대조하면 늘 불일치라 「완전·0건」→재발행이 된다.
           if (fromAdf(issue?.fields?.description ?? '').includes(workId)) matches.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null})
         }
-        startAt += issues.length
-        const total = Number(payload?.total)
-        if (!Number.isFinite(total)) return {matches, complete: false, total: null, nextCursor: null}
-        if (startAt >= total) return {matches, complete: true, total, nextCursor: null}
-        if (issues.length === 0) return {matches, complete: false, total, nextCursor: null, stalled: true}
+        if (page.complete) return {matches, complete: true, total: page.total, nextCursor: null}
+        if (!page.nextCursor) return {matches, complete: false, total: page.total, nextCursor: null, ...(page.stalled ? {stalled: true} : {})}
+        cursor = page.nextCursor
       }
       return {matches, complete: false, total: null, nextCursor: null, truncated: true}
     },
@@ -141,19 +171,16 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       const quoted = components.map(name => `"${String(name).replace(/"/g, '\\"')}"`).join(', ')
       const jql = `project = "${config.projectKey}" AND component in (${quoted}) AND statusCategory != Done ORDER BY created DESC`
       const items = []
-      let startAt = 0
+      let cursor = null
       for (let guard = 0; guard < 10; guard++) {
-        const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=50&fields=summary,assignee,labels,status`, options)
-        const issues = Array.isArray(payload?.issues) ? payload.issues : []
-        for (const issue of issues) {
+        const page = await searchPage(config, {jql, fields: 'summary,assignee,labels,status', cursor}, options)
+        for (const issue of page.issues) {
           items.push({ticketKey: issue.key, summary: issue.fields?.summary ?? null, labels: issue.fields?.labels ?? [], status: issue.fields?.status?.name ?? null,
             assignees: issue.fields?.assignee ? [assigneeIdentity(issue.fields.assignee, config.assigneeField)].filter(Boolean) : []})
         }
-        startAt += issues.length
-        const total = Number(payload?.total)
-        if (!Number.isFinite(total)) return {items, complete: false}
-        if (startAt >= total) return {items, complete: true}
-        if (issues.length === 0) return {items, complete: false, stalled: true}
+        if (page.complete) return {items, complete: true}
+        if (!page.nextCursor) return {items, complete: false, ...(page.stalled ? {stalled: true} : {})}
+        cursor = page.nextCursor
       }
       return {items, complete: false, truncated: true}
     },
@@ -164,10 +191,9 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
       if (components.length === 0) return {items: [], complete: true, reason: 'no-dev-ticket-axis'}
       const quoted = components.map(name => `"${String(name).replace(/"/g, '\\"')}"`).join(', ')
       const jql = `project = "${config.projectKey}" AND component in (${quoted}) AND statusCategory = Done ORDER BY updated DESC`
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=0&maxResults=${limit}&fields=summary,status`, options)
-      const issues = Array.isArray(payload?.issues) ? payload.issues : []
-      return {items: issues.map(issue => ({ticketKey: issue.key, summary: issue.fields?.summary ?? null, status: issue.fields?.status?.name ?? null})),
-        complete: Number(payload?.total) <= issues.length}
+      const page = await searchPage(config, {jql, fields: 'summary,status', maxResults: limit}, options)
+      return {items: page.issues.map(issue => ({ticketKey: issue.key, summary: issue.fields?.summary ?? null, status: issue.fields?.status?.name ?? null})),
+        complete: page.complete}
     },
     /** 키 목록을 페이지로 돈다. `cursor`는 다음 `startAt`이며 없으면 처음부터. */
     /**
@@ -206,10 +232,13 @@ export function createJiraProvider({config, fetchImpl = null, env = process.env}
         errors: settled.filter(item => item.error).map(item => ({ticketKey: item.key, error: item.error}))}
     },
     async listWorkIssues({keys, cursor = null, pageSize = 50}) {
-      const startAt = parseCursor(cursor) // 손상된 커서를 0으로 접지 않는다 — 1페이지를 다시 읽고 완결을 잘못 계산한다
       const jql = workKeysJql(keys)
-      const payload = await call(config, `/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${pageSize}&fields=summary,labels,status,resolution,resolutiondate,assignee`, options)
-      const parsed = parseWorkSearch(payload, {fetched: startAt})
+      const page = await searchPage(config, {jql, fields: 'summary,labels,status,resolution,resolutiondate,assignee', maxResults: pageSize, cursor}, options)
+      // 서버 판본은 total로 완결·정체를 판정한다(parseWorkSearch). Cloud 강화 검색은 total이 없어 isLast·토큰으로 판정한다.
+      const parsed = usesEnhancedSearch(config)
+        ? {...parseWorkSearch({issues: page.issues}), total: null, complete: page.complete, nextCursor: page.nextCursor,
+          ...(page.stalled ? {stalled: true} : {})}
+        : parseWorkSearch(page.payload, {fetched: page.startAt})
       // 요청한 키 중 **못 본 것**을 함께 돌려준다 — 「조회했는데 없다」와 「이 페이지에 없다」는 다르다.
       const observed = new Set(parsed.matches.map(item => item.ticketKey))
       // 배정 신원은 **쓰는 어휘와 같은 함수**로 고른다(픽업의 소유 판정과 갈라지지 않게).
