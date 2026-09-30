@@ -78,6 +78,19 @@ test('재사용 목록: 프로젝트 안 root·이전 목록만 허용한다', (
   ]) assert.equal(decide(command).allowed, false, command)
 })
 
+test('범위 넓히기: 상대 경로 --add와 --reason, 선택 --apply만 허용한다', () => {
+  for (const command of [
+    'node .claude/scripts/widen-change-scope.mjs --project-root . --add apps/user/src/app/styles/tokens.css --reason x',
+    'node .claude/scripts/widen-change-scope.mjs --project-root . --add src/a.ts --add src/b.ts --reason x --apply',
+  ]) assert.equal(decide(command).allowed, true, command)
+  for (const command of [
+    'node .claude/scripts/widen-change-scope.mjs --project-root .',
+    'node .claude/scripts/widen-change-scope.mjs --project-root . --add ../etc/passwd --reason x',
+    'node .claude/scripts/widen-change-scope.mjs --project-root . --add /etc/passwd --reason x',
+    'node .claude/scripts/widen-change-scope.mjs --project-root . --add src/a.ts --force',
+  ]) assert.equal(decide(command).allowed, false, command)
+})
+
 test('리뷰 묶음: 프로젝트 안 root와 --base·--handoff만 허용한다', () => {
   for (const command of [
     'node .claude/scripts/prepare-review-packet.mjs --project-root .',

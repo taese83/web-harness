@@ -19,6 +19,10 @@ import {planRevisionsOnRemote, resolveCurrentBranch, resolveWorktreeStatus} from
 import {readSpecAt, withinScope} from '../validate-spawn-plan.mjs'
 import {normalizeLayerPath, testLayerPaths} from '../agent-registry.mjs'
 
+// 티켓 경계는 세션 경계다 — 이어갈 상태는 파일(change-scope·판정·receipt·원장)에 있다. 한 세션에 여러 티켓을 이어 붙이면
+// 메인 문맥이 커져 호출마다 그 전체를 다시 읽는다(실측 2026-09-29: 14.5시간 한 세션, 메인이 비용의 51%·문맥 965K).
+export const SESSION_HINT = '새 티켓은 새 세션(/clear 또는 새 대화)에서 시작하면 비용이 준다 — 이어갈 상태는 _workspace 파일에 있다.'
+
 const readJson = (root, relative) => {
   const path = join(root, relative)
   return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null
@@ -246,5 +250,6 @@ export async function runWorkPickup({root, ticketKey, developer, flags = {}, io 
   if (ticketDefinition) pick.changeScope.definitionDigest = (await import('./ticket-work.mjs')).ticketDefinitionDigest(ticketDefinition)
   const written = cli.writeChangeScopeFile(root, pick.changeScope)
   // 무엇을 보고 판정했는지 결과에 남긴다 — 재지 못한 것(`statusUnknown`)을 「깨끗하다」로 접지 않는다.
-  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, trackerRead: trackerDone.read, worktree: working, ...(ticket.extra ?? {})}
+  return {ok: true, mode: 'work', dryRun: false, assignment, transition, changeScope: pick.changeScope, changeScopePath: written, freshness, trackerRead: trackerDone.read, worktree: working, ...(ticket.extra ?? {}),
+    sessionHint: SESSION_HINT}
 }

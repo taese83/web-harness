@@ -95,17 +95,18 @@ test('T16: 페이지가 남았으면 complete:false와 다음 커서다 — 빈 
   assert.equal(workKeysJql(['PF-1', 'PF-1']), 'key in (PF-1) ORDER BY created ASC')
 })
 
-test('T15: 관계 설정이 없으면 발행 전에 필요한 설정을 돌려준다 — 성공을 위장하지 않는다', async () => {
+test('T15: 관계 설정이 없으면 본문 참조(link-only)로 발행하고 그 사실을 드러낸다 — 관계가 걸렸다고 위장하지 않는다', async () => {
   const {provider, seen} = jira(jiraConfig, () => ({json: {}}))
-  const unsupported = await provider.linkRelated({parentKey: 'PF-1', childKey: 'PF-30'})
-  assert.equal(unsupported.applied, false)
-  assert.equal(unsupported.mode, 'unsupported')
-  assert.ok(unsupported.needsConfig.some(item => /workLink\.mode/.test(item)))
-  assert.equal(seen.length, 0, '설정도 없이 트래커를 불렀다')
+  const defaulted = await provider.linkRelated({parentKey: 'PF-1', childKey: 'PF-30'})
+  assert.equal(defaulted.applied, false, '관계 API를 부르지 않았는데 적용됐다고 했다')
+  assert.equal(defaulted.mode, 'link-only')
+  assert.equal(seen.length, 0, '설정도 없이 트래커 관계 API를 불렀다')
+  assert.equal(workRelationMode('jira', {}).defaulted, true, '기본값임을 드러내지 않았다')
+  assert.match(workRelationMode('jira', {}).note, /관계가 아니다/)
   // 하위 작업은 발행 시점의 부모 필드라 연결 시점에 붙일 수 없다 — 지원한다고 말하지 않는다.
   assert.equal(workRelationMode('jira', {workLink: {mode: 'subtask'}}).mode, 'unsupported')
-  // 본문 참조(link-only)도 **명시 선언**이라야 한다 — 트래커 이름으로 면제되지 않는다.
-  assert.equal(workRelationMode('github', {}).mode, 'unsupported', 'GitHub만 기본 통과를 받았다 — 게이트 강도가 트래커 이름으로 갈린다')
+  // 기본값은 트래커 이름과 무관하게 같다 — 한쪽만 면제되면 게이트 강도가 provider 이름으로 갈린다.
+  assert.deepEqual([workRelationMode('github', {}).mode, workRelationMode('jira', {}).mode], ['link-only', 'link-only'])
   assert.equal(workRelationMode('github', {workLink: {mode: 'link-only'}}).mode, 'link-only')
   assert.equal(workRelationMode('github', {workLink: {mode: 'issue-link', linkType: 'Relates'}}).mode, 'unsupported', 'GitHub에 없는 능력을 받아들였다')
   // 부모가 어느 쪽인지는 **가정**이다 — 설정으로 뒤집을 수 있어야 한다.
@@ -162,9 +163,15 @@ test('GitHub: 본문 검색은 색인 지연이라 부재를 단정하지 않고
 
 test('발행 전 능력 판정: 없는 것을 있다고 말하지 않고 무엇을 설정해야 하는지 댄다', () => {
   const {provider} = jira(jiraConfig, () => ({json: {}}))
+  // 관계 선언이 없으면 본문 참조로 발행할 수 있다 — 그 사실(defaulted)을 드러낸다.
   const bare = workProviderReadiness(provider, jiraConfig)
-  assert.equal(bare.ok, false)
-  assert.ok(bare.missing.some(item => /workLink/.test(item)), JSON.stringify(bare.missing))
+  assert.equal(bare.ok, true, JSON.stringify(bare.missing))
+  assert.equal(bare.relation.mode, 'link-only')
+  assert.equal(bare.relation.defaulted, true)
+  // 선언했는데 틀렸으면(링크 타입 없는 issue-link) 발행을 막고 무엇을 설정할지 댄다 — 기본값으로 덮지 않는다.
+  const misdeclared = workProviderReadiness(provider, {...jiraConfig, workLink: {mode: 'issue-link'}})
+  assert.equal(misdeclared.ok, false)
+  assert.ok(misdeclared.missing.some(item => /workLink\.linkType/.test(item)), JSON.stringify(misdeclared.missing))
   const ready = workProviderReadiness(provider, {...jiraConfig, workLink: {mode: 'issue-link', linkType: 'Relates'}})
   assert.deepEqual(ready.missing, [])
   assert.equal(ready.ok, true)
@@ -172,9 +179,9 @@ test('발행 전 능력 판정: 없는 것을 있다고 말하지 않고 무엇�
   const poor = workProviderReadiness({name: 'jira'}, jiraConfig)
   assert.ok(poor.missing.includes('provider.findByWorkId'))
   assert.ok(poor.missing.includes('provider.updateLabels'), '동기화할 수 없는 provider로 발행을 열었다 — 계획 개정 뒤 티켓이 영영 낡는다')
-  // GitHub도 선언 전에는 막힌다 — 선언하면 통과한다(면제가 아니라 opt-in).
+  // GitHub도 같은 기본이다 — 선언이 없으면 본문 참조(defaulted), 선언하면 그 방식.
   const github = createGithubProvider({repo: 'o/r', exec: async () => '[]'})
-  assert.equal(workProviderReadiness(github, {}).ok, false, 'GitHub이 선언 없이 발행 가능으로 통과했다')
+  assert.equal(workProviderReadiness(github, {}).relation.defaulted, true)
   const optedIn = workProviderReadiness(github, {workLink: {mode: 'link-only'}})
   assert.equal(optedIn.ok, true)
   assert.equal(optedIn.relation.mode, 'link-only')
@@ -327,3 +334,15 @@ test('Jira 코멘트: 위키 서식(v2)에서는 인라인 코드를 {{…}}로,
   assert.equal(JSON.stringify(sent[1]).includes('{{a}}'), false, 'ADF(v3)에는 위키 이스케이프를 섞지 않는다')
 })
 
+
+test('에픽: Cloud는 parent 필드, Data Center는 설정한 Epic Link 필드, 모르면 추측하지 않고 멈춘다', async () => {
+  const {buildWorkIssueFieldsFor} = await import('./ticket/provider-jira.mjs')
+  const draft = {title: 't', body: 'b', epicKey: 'AOA-30'}
+  const cloud = buildWorkIssueFieldsFor({projectKey: 'AOA', issueType: 'Task', baseUrl: 'https://kakao.atlassian.net', apiVersion: '3'}, draft)
+  assert.deepEqual(cloud.fields.parent, {key: 'AOA-30'})
+  const dc = buildWorkIssueFieldsFor({projectKey: 'PF', issueType: 'Task', baseUrl: 'https://jira.corp', apiVersion: '2', epicLinkField: 'customfield_10008'}, draft)
+  assert.equal(dc.fields.customfield_10008, 'AOA-30')
+  assert.equal(dc.fields.parent, undefined, 'Data Center에 Cloud 필드를 썼다')
+  assert.throws(() => buildWorkIssueFieldsFor({projectKey: 'PF', issueType: 'Task', baseUrl: 'https://jira.corp', apiVersion: '2'}, draft), /EPIC_FIELD_UNKNOWN/)
+  assert.equal(buildWorkIssueFieldsFor({projectKey: 'AOA', issueType: 'Task', apiVersion: '3'}, {title: 't', body: 'b'}).fields.parent, undefined)
+})

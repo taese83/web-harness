@@ -31,23 +31,23 @@ FEAT/TC는 요구사항(무엇이 되어야 하는가)이고, WORK는 실행 단
 
 ```
 cli.mjs claim [--features FEAT-001,…]                                   # 준비(P0)·검토(P1) — 외부 쓰기 없음
-cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--repo o/r] [--confirm]  # 확인한 판본만 발행 · 옛 판본 티켓은 동기화
+cli.mjs claim --publish [--work-ids a,b] [--parent <KEY>] [--epic <KEY>] [--repo o/r] [--confirm]  # 확인한 판본만 발행 · 옛 판본 티켓은 동기화 · --epic은 Jira 에픽(Cloud parent, DC epicLinkField) · workLink 미선언이면 본문 참조(link-only)
 cli.mjs board [--developer me] [--repo o/r]                             # 지금 집을 수 있는 WORK
 cli.mjs board --by-feature                                              # 부모 FEAT 집계(머지 ≠ 인수)
 cli.mjs claim --publish --aggregate [--features …] [--confirm]          # FEAT별 집계 티켓 발행·갱신
 cli.mjs claim --publish --resolve <WORK-ID|FEAT-ID> --ticket <키> [--confirm]  # 결과를 모르는 발행을 확정(본문 마커 확인)
-cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run] [--assessment <지문>]  # 게이트 → 배정 → change-scope 발급(사람 개발 티켓은 배정 → 판정 → 확인부터)
+cli.mjs pickup <티켓키> --developer me [--repo o/r] [--dry-run] [--assessment <지문>] [--reassess]  # 게이트 → 배정 → change-scope 발급(사람 개발 티켓은 배정 → 판정 → 확인부터). 본문을 고친 뒤 --reassess: 판정서를 이력으로 옮기고 바뀐 절만 다시 판정(손으로 치우지 않는다)
 cli.mjs link <티켓키> <pr-url> [--base <브랜치>] [--dry-run]              # 완료 주장(STALE·수용 기준·기대 base) → 로컬 기록 + PR 본문 문단
 cli.mjs intake <티켓키> --repo o/r                                         # 사람이 쓴 기획 티켓을 공급 원문으로
 cli.mjs configure --provider <github|jira> [--set k=v]… [--replace] [--confirm]  # 트래커 설정 기록
-cli.mjs create --draft <초안.md> [--repo o/r] [--confirm --digest <지문>]  # 기획 없이 기능만 구현하는 개발 티켓 생성(손 티켓과 같다)
+cli.mjs create --draft <초안.md> [--epic <KEY>] [--repo o/r] [--confirm --digest <지문>]  # 기획 없이 기능만 구현하는 개발 티켓 생성(손 티켓과 같다)
 cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # 실측 집계(읽기만) — 흐름 로그·판정·등록·연결 + 트래커·PR
 ```
 
 `--developer me`는 트래커의 현재 인증 계정(Jira Cloud accountId·서버 username·GitHub login)으로 풀린다 — 풀지 못하면 픽업은 쓰기 전에 멈춘다.
 
 `claim --publish`·`configure`는 `--confirm` 없이 미리보기다.
-`pickup`·`link`·`intake`는 **사용자의 요청이 곧 승인**이다(미리보기는 `--dry-run`).
+`pickup`·`link`·`intake`는 **사용자의 요청이 곧 승인**이다(미리보기는 `--dry-run`). 결과의 `sessionHint`대로 **티켓 경계(link 뒤·다음 pickup 전)에서 새 세션을 권한다** — 상태는 파일에 있다.
 
 ## Start — 자연어 의도 매핑
 
@@ -104,7 +104,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
 초안을 `_workspace/03_dev/ticket-drafts/<이름>.md`에 쓰게 한다(양식은 `references/ticket-work-contract.md` 「개발 티켓 양식」).
 `create --draft <파일>`은 쓰기 0의 미리보기이고, 사용자가 확인하면 미리보기의 `confirmWith`(`--confirm --digest <지문>`)로 만든다 —
 미리보기 뒤 초안이 바뀌면 멈춘다. 완료 조건은 이후 판정에서 티켓 출처가 되므로 미리보기에서 빠짐없이 보여 준다. 만든 티켓은 WORK 마커 없이 팀의
-개발 티켓 분류만 붙어 **손으로 만든 티켓과 같다** — 다음은 티켓마다 `pickup`의 판정이다. 같은 제목의 열린 개발 티켓은 만들지 않고
+개발 티켓 분류만 붙어 **손으로 만든 티켓과 같다** — 다음은 티켓마다 `pickup`의 판정이다. 초안 에이전트가 판정(`<이름>.assessments.json`)도
+썼으면 만든 티켓에 미리 두고, pickup은 트래커 본문·스팩·수정 범위 코드가 만든 때와 같으면 판정 에이전트 없이 미리보기로 간다(다르면 버리고 판정한다). 같은 제목의 열린 개발 티켓은 만들지 않고
 그 키를 돌려준다(다시 실행해도 두 번 만들지 않는다). **이미 끝낸 작업을 다시 만들지 않는다** — 초안 에이전트가 요청과 같은 일을 하는
 기존 코드·스팩 결정을 먼저 찾아 겹치면 차이만 쓰고, 미리보기의 `recentDone`(최근 끝난 개발 티켓)을 사용자에게 함께 보여 겹치는 것이 있으면
 만들지 않는다. 같은 제목 대조는 열린 티켓만 보므로 끝난 티켓과의 겹침은 이 두 겹이 가린다.

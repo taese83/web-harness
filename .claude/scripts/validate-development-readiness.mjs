@@ -46,6 +46,8 @@ const OWNERSHIP_HOOK = fileURLToPath(new URL('./enforce-agent-ownership.mjs', im
 const pass = (id, detail) => ({id, state: 'PASS', detail})
 const fail = (id, detail, remedy, {fixable = false} = {}) => ({id, state: 'FAIL', detail, remedy, fixable})
 const skip = (id, detail) => ({id, state: 'SKIPPED', detail})
+// 저장소 위생(자동 닫기 자산·팀 공유 설정)은 이번 변경의 코드를 올바르게 쓰는 것과 무관하다 — 보고하되 착수를 막지 않는다.
+const warn = (id, detail, remedy, {fixable = false} = {}) => ({id, state: 'WARN', detail, remedy, fixable})
 
 // 스팩이 기록한 입력과 지금을 대조해 **무엇이 어떻게** 달라졌는지 낸다.
 // `isSpecStale`은 참·거짓만 주는데, 그것만으로는 처방을 낼 수 없다.
@@ -277,6 +279,12 @@ export function checkDecisionsApplied(root, spec) {
     if (!deps.has(tool)) missing.push(`substrate.${key}: ${tool}`)
   }
   if (missing.length === 0) return pass('decisions', '확정된 라이브러리·도구가 매니페스트에 전부 있다')
+  // 이번 변경 범위에 매니페스트가 있으면 설치는 이 변경의 첫 단계다 — 착수 전에 따로 설치하라고 막지 않는다.
+  const scope = readAllowedPathsFromScope(root)
+  if (Array.isArray(scope) && scope.some(path => /(?:^|\/)package\.json$/.test(String(path)))) {
+    return warn('decisions', `스팩이 확정했는데 아직 설치되지 않았다: ${missing.join(', ')} — 이번 변경 범위에 매니페스트가 있다`,
+      '이번 변경의 첫 커밋에서 의존성을 추가한다(package.json·lockfile)')
+  }
   return fail('decisions', `스팩이 확정했는데 설치되지 않았다: ${missing.join(', ')}`,
     'environment-scaffolder로 의존성을 추가한 뒤 개발을 시작한다 — 이것을 쓰는 첫 티켓에서 막히는 것보다 낫다')
 }
@@ -291,7 +299,7 @@ export function checkTicketAssets(root, {install = false} = {}) {
   if (plan.missingAssets.length > 0) return skip('ticket-assets', `배포본에 자산이 없다: ${plan.missingAssets.join(', ')}`)
   // 옛 사본은 **자동으로 덮지 않는다** — 프로젝트가 손봤을 수 있다. 설치됨으로 세지도 않는다(WORK 티켓을 닫지 않는다).
   if (plan.outdated.length > 0) {
-    return fail('ticket-assets', `옛 자동 닫기 사본(청구 원장 기반): ${plan.outdated.join(', ')} — WORK 티켓을 닫지 않는다`,
+    return warn('ticket-assets', `옛 자동 닫기 사본(청구 원장 기반): ${plan.outdated.join(', ')} — WORK 티켓을 닫지 않는다`,
       '손본 곳이 있는지 확인한 뒤 파일을 지우고 --fix로 새 판본을 설치한다')
   }
   if (plan.install.length === 0) return pass('ticket-assets', `자동 닫기 자산 ${plan.present.length}개 설치됨`)
@@ -299,7 +307,7 @@ export function checkTicketAssets(root, {install = false} = {}) {
     const written = installTicketCloseAssets(root, plan)
     return pass('ticket-assets', `설치함: ${written.join(', ')} — 커밋·push는 브랜치 소유자 몫이다`)
   }
-  return fail('ticket-assets', `이슈 자동 닫기 자산 미설치: ${plan.install.map(e => e.target).join(', ')}`,
+  return warn('ticket-assets', `이슈 자동 닫기 자산 미설치: ${plan.install.map(e => e.target).join(', ')}`,
     '--fix로 설치한다. 없으면 청구 브랜치 머지에도 이슈가 열린 채 남아 보드와 어긋난다', {fixable: true})
 }
 
@@ -337,7 +345,7 @@ export function checkTeamSharing(root, {install = false} = {}) {
   // 무시 규칙은 이미 추적 중인 파일에는 듣지 않는다 — 줄이 있어도 추적 중이면 충돌은 그대로다.
   const tracked = trackedFiles(root, TEAM_SHARING.ignores)
   const untrack = tracked.length > 0
-    ? fail('team-sharing', `로컬 작업 파일이 커밋돼 있다: ${tracked.join(', ')}`,
+    ? warn('team-sharing', `로컬 작업 파일이 커밋돼 있다: ${tracked.join(', ')}`,
       `\`git rm -r --cached ${tracked.join(' ')}\`로 추적을 끊고 커밋한다`)
     : null
   if (missing.length === 0) return untrack ?? pass('team-sharing', '원장 병합 규칙과 로컬 작업 파일 제외가 설정돼 있다')
@@ -354,12 +362,12 @@ export function checkTeamSharing(root, {install = false} = {}) {
     // 덧붙인 줄이 실제로 듣는지 다시 판정한다 — 하위 .gitignore의 `!` 재포함이 이기면 줄을 넣어도 덮이지 않는다.
     const still = missing.filter(([file, line]) => !covered(root, file, line))
     if (still.length > 0) {
-      return fail('team-sharing', `줄을 덧붙였지만 여전히 덮이지 않는다: ${still.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
+      return warn('team-sharing', `줄을 덧붙였지만 여전히 덮이지 않는다: ${still.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
         '`git check-ignore -v --no-index <경로>`로 이기는 규칙(하위 .gitignore의 `!` 재포함 등)을 찾아 정리한다')
     }
     return pass('team-sharing', `추가함: ${missing.map(([file, line]) => `${file} ← ${line}`).join(' · ')} — 커밋·push는 브랜치 소유자 몫이다`)
   }
-  return fail('team-sharing', `여러 사람이 쓰면 충돌하는 설정이 빠졌다: ${missing.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
+  return warn('team-sharing', `여러 사람이 쓰면 충돌하는 설정이 빠졌다: ${missing.map(([file, line]) => `${file}의 ${line}`).join(' · ')}`,
     '--fix로 빠진 줄을 덧붙인다. 없으면 두 번째 PR부터 원장이 충돌하고, 받은 사람의 픽업이 남의 작업 범위에 막힌다', {fixable: true})
 }
 
@@ -382,6 +390,7 @@ export function analyzeDevelopmentReadiness(root, {install = false, hookRun = nu
     verdict: failures.length === 0 ? 'READY' : 'BLOCKED',
     results,
     failures,
+    warnings: results.filter(r => r.state === 'WARN'),
     skipped: results.filter(r => r.state === 'SKIPPED'),
   }
 }
@@ -401,9 +410,9 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   } else {
     process.stdout.write('개발 착수 준비 점검\n')
     for (const result of report.results) {
-      const mark = result.state === 'PASS' ? '✅' : result.state === 'FAIL' ? '❌' : '· '
+      const mark = result.state === 'PASS' ? '✅' : result.state === 'FAIL' ? '❌' : result.state === 'WARN' ? '⚠️ ' : '· '
       process.stdout.write(`  ${mark} ${result.id}: ${result.detail}\n`)
-      if (result.state === 'FAIL') process.stdout.write(`      → ${result.remedy}\n`)
+      if (result.state === 'FAIL' || result.state === 'WARN') process.stdout.write(`      → ${result.remedy}\n`)
     }
     if (report.verdict === 'READY') {
       process.stdout.write('\nREADY ✅ — 개발을 시작한다. 이 뒤로는 묻지 않는다.\n')

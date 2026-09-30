@@ -595,6 +595,42 @@ const reviewPacketContract = (args, context) => {
   return true
 }
 
+// 사용자 파일 들이기: --project-root, --from <절대 경로>(프로젝트 밖일 수 있다 — 승인 훅이 사람에게 묻는다), 선택 --as <이름>.
+const importSourceContract = (args, context) => {
+  if (args[0] !== '--project-root' || args.length < 4) return false
+  readablePath(args[1], context, 'directory')
+  const rest = args.slice(2)
+  const seen = new Set()
+  for (let index = 0; index < rest.length; index += 2) {
+    const [option, value] = [rest[index], rest[index + 1]]
+    if (seen.has(option) || value === undefined) return false
+    seen.add(option)
+    if (option === '--from') { if (!value.startsWith('/') || value.split('/').includes('..')) return false }
+    else if (option === '--as') { if (!/^[^/\\]+$/.test(value) || value.startsWith('.')) return false }
+    else return false
+  }
+  return seen.has('--from')
+}
+
+// 범위 넓히기: --project-root, 하나 이상의 --add <상대 경로>, --reason <한 줄>, 선택 --apply(승인 훅이 확인한다).
+const widenScopeContract = (args, context) => {
+  if (args[0] !== '--project-root' || args.length < 2) return false
+  readablePath(args[1], context, 'directory')
+  let adds = 0
+  for (let index = 2; index < args.length; index += 1) {
+    const option = args[index]
+    if (option === '--apply') continue
+    const value = args[index + 1]
+    if (value === undefined) return false
+    if (option === '--add') {
+      if (!/^(?:\.\/)?[A-Za-z0-9_@][A-Za-z0-9_./@-]*$/.test(value) || value.split('/').includes('..')) return false
+      adds += 1
+    } else if (option !== '--reason') return false
+    index += 1
+  }
+  return adds > 0
+}
+
 // shape checks는 --project-root와 --shapes(쉼표 구분)를 요구한다.
 const shapeChecksContract = (args, context) => {
   if (args.length !== 4) return false
@@ -923,6 +959,8 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/reuse-inventory.mjs') return reuseInventoryContract(args, context)
   if (script === '.claude/scripts/prepare-review-packet.mjs') return reviewPacketContract(args, context)
+  if (script === '.claude/scripts/widen-change-scope.mjs') return widenScopeContract(args, context)
+  if (script === '.claude/scripts/import-source.mjs') return importSourceContract(args, context)
   if (script === '.claude/scripts/validate-layer-boundaries.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)

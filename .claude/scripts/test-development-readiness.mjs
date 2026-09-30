@@ -217,6 +217,19 @@ test('확정한 라이브러리가 매니페스트에 없으면 막는다', () =
   }, {spec})
 })
 
+test('이번 변경 범위에 매니페스트가 있으면 설치는 이 변경의 첫 단계다 — 막지 않고 알린다', () => {
+  const spec = {...SPEC, libraries: {'ua-detection': {choice: '@kakao/agent', source: 'confirmed'}}}
+  withProject(root => {
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), '```json change-scope\n{"ALLOWED_PATHS": ["apps/user/src/app/", "apps/user/package.json"]}\n```\n')
+    const result = checkDecisionsApplied(root, spec)
+    assert.equal(result.state, 'WARN', result.detail)
+    assert.match(result.detail, /@kakao\/agent/)
+    // 범위에 매니페스트가 없으면 그대로 막는다 — 이 변경이 설치하지 않는다.
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), '```json change-scope\n{"ALLOWED_PATHS": ["apps/user/src/app/"]}\n```\n')
+    assert.equal(checkDecisionsApplied(root, spec).state, 'FAIL')
+  }, {spec})
+})
+
 test('substrate가 선언한 lint·formatter 도구도 실물을 요구한다', () => {
   const spec = {...SPEC, constitution: {substrate: {lint: {value: 'eslint', source: 'default'}, formatter: {value: 'prettier', source: 'default'}}}}
   withProject(root => {
@@ -362,7 +375,7 @@ test('팀 공유 설정: 사람 티켓만 쓰는 팀(원장 없이 트래커 설
   try {
     mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
     writeFileSync(join(root, '_workspace/03_dev/ticket-provider.json'), '{"provider":"jira"}')
-    assert.equal(checkTeamSharing(root).state, 'FAIL', '원장이 없다는 이유로 사람 티켓 팀의 로컬 기록 제외를 건너뛰었다')
+    assert.equal(checkTeamSharing(root).state, 'WARN', '원장이 없다는 이유로 사람 티켓 팀의 로컬 기록 제외를 건너뛰었다')
     assert.equal(checkTeamSharing(root, {install: true}).state, 'PASS')
     const ignore = readFileSync(join(root, '.gitignore'), 'utf8').split('\n')
     for (const line of ['_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/change-journal/']) {
@@ -383,7 +396,7 @@ test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 �
     mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
     writeFileSync(join(root, '_workspace/03_dev/work-item-events.jsonl'), '')
     writeFileSync(join(root, '.gitignore'), 'node_modules/\n_workspace/03_dev/change-scope.md')
-    assert.equal(checkTeamSharing(root).state, 'FAIL')
+    assert.equal(checkTeamSharing(root).state, 'WARN')
     assert.equal(checkTeamSharing(root, {install: true}).state, 'PASS')
     const ignore = readFileSync(join(root, '.gitignore'), 'utf8').split('\n')
     assert.equal(ignore[0], 'node_modules/', '사용자가 둔 규칙을 덮었다')
@@ -397,7 +410,7 @@ test('팀 공유 설정: 빠진 줄만 덧붙이고 사용자가 둔 규칙은 �
     writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'x')
     execFileSync('git', ['add', '-f', '_workspace/03_dev/change-scope.md'], {cwd: root})
     const tracked = checkTeamSharing(root, {install: true})
-    assert.equal(tracked.state, 'FAIL', '추적 중인 change-scope를 통과시켰다')
+    assert.equal(tracked.state, 'WARN', '추적 중인 change-scope를 통과시켰다')
     assert.match(tracked.remedy ?? tracked.detail ?? JSON.stringify(tracked), /git rm -r --cached/)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
@@ -421,7 +434,7 @@ test('팀 공유 설정: 디렉터리·패턴 규칙으로 이미 덮인 줄은 
     writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
     writeFileSync(join(root, '.git/info/exclude'), '_workspace/04_qa/\n')
     const local = checkTeamSharing(root)
-    assert.equal(local.state, 'FAIL', '로컬 exclude만으로 통과했다')
+    assert.equal(local.state, 'WARN', '로컬 exclude만으로 통과했다')
     assert.match(local.detail, /context-telemetry\.jsonl/)
 
     // .git/info/attributes가 섞이면 출처를 가릴 수 없다 — 줄 대조로 돌아간다
@@ -429,7 +442,7 @@ test('팀 공유 설정: 디렉터리·패턴 규칙으로 이미 덮인 줄은 
     writeFileSync(join(root, '.git/info/attributes'), '*.jsonl merge=union\n')
     writeFileSync(join(root, '.gitattributes'), '')
     const attr = checkTeamSharing(root)
-    assert.equal(attr.state, 'FAIL', '로컬 attributes만으로 통과했다')
+    assert.equal(attr.state, 'WARN', '로컬 attributes만으로 통과했다')
     assert.match(attr.detail, /merge=union/)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
@@ -451,7 +464,7 @@ test('팀 공유 설정: `!` 재포함·스스로 무시되는 하위 .gitignore
     // 마지막으로 맞은 규칙이 `!` 재포함이면 무시되지 않는다
     writeFileSync(join(root, '.gitignore'), `_workspace/04_qa/*\n!_workspace/04_qa/failure-summary.json\n${rest.join('\n')}\n`)
     const negated = checkTeamSharing(root)
-    assert.equal(negated.state, 'FAIL', '`!` 재포함 규칙을 덮임으로 셌다')
+    assert.equal(negated.state, 'WARN', '`!` 재포함 규칙을 덮임으로 셌다')
     assert.match(negated.detail, /failure-summary\.json/)
     assert.doesNotMatch(negated.detail, /context-telemetry/)
 
@@ -459,7 +472,7 @@ test('팀 공유 설정: `!` 재포함·스스로 무시되는 하위 .gitignore
     writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
     writeFileSync(join(root, '_workspace/04_qa/.gitignore'), '*\n')
     const selfIgnored = checkTeamSharing(root)
-    assert.equal(selfIgnored.state, 'FAIL', '커밋될 수 없는 하위 .gitignore를 근거로 셌다')
+    assert.equal(selfIgnored.state, 'WARN', '커밋될 수 없는 하위 .gitignore를 근거로 셌다')
     assert.match(selfIgnored.detail, /context-telemetry\.jsonl/)
     rmSync(join(root, '_workspace/04_qa/.gitignore'))
 
@@ -467,7 +480,7 @@ test('팀 공유 설정: `!` 재포함·스스로 무시되는 하위 .gitignore
     writeFileSync(join(root, '.gitignore'), `.*\n${TEAM_SHARING.ignores.filter(line => !dirs.includes(line)).join('\n')}\n`)
     git('add', '-f', '.gitignore')  // `.*`가 .gitignore 자신도 덮는다 — 추적 중이어야 팀원에게 가는 규칙 파일이다
     const dotted = checkTeamSharing(root)
-    assert.equal(dotted.state, 'FAIL', 'dot 규칙이 디렉터리 줄을 덮었다고 셌다')
+    assert.equal(dotted.state, 'WARN', 'dot 규칙이 디렉터리 줄을 덮었다고 셌다')
     for (const line of dirs) assert.ok(dotted.detail.includes(line), line)
 
     // --fix가 줄을 덧붙여도 하위 .gitignore의 `!`가 이기면 PASS라고 하지 않는다
@@ -475,7 +488,7 @@ test('팀 공유 설정: `!` 재포함·스스로 무시되는 하위 .gitignore
     writeFileSync(join(root, '.gitignore'), `${rest.join('\n')}\n`)
     writeFileSync(join(root, '_workspace/04_qa/.gitignore'), '!failure-summary.json\n')
     const fixed = checkTeamSharing(root, {install: true})
-    assert.equal(fixed.state, 'FAIL', '덧붙인 줄이 듣지 않는데 PASS라고 했다')
+    assert.equal(fixed.state, 'WARN', '덧붙인 줄이 듣지 않는데 PASS라고 했다')
     assert.match(fixed.detail, /여전히 덮이지 않는다: .*failure-summary\.json/)
   } finally { rmSync(root, {recursive: true, force: true}) }
 })

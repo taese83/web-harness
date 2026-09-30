@@ -31,10 +31,11 @@ test('0.28.0 산출물: 막는 것·건드릴 때·참고를 가르고, 목록�
     const ledgerBefore = readFileSync(join(root, '_workspace/03_dev/spec-ledger.jsonl'), 'utf8')
     const report = upgradeCheck(root)
     assert.deepEqual(report.items.map(item => `${item.kind}:${item.id}`),
-      ['blocks:gate0:team-sharing', 'on-touch:spec-relock', 'info:change-lane'],
+      ['on-touch:spec-relock', 'info:gate0:team-sharing', 'info:change-lane'],
       '옛 산출물과 부딪히는 항목이 바뀌었다 — 새 요구라면 목록과 릴리스 커밋에 적는다')
-    assert.match(report.items[0].fix, /validate-development-readiness\.mjs --project \. --fix/)
-    assert.match(report.items[1].detail, /constitution/)
+    // 팀 공유 설정은 저장소 위생이라 막지 않고 참고로 싣는다 — 고치는 명령은 그대로 알린다.
+    assert.match(report.items.find(item => item.id === 'gate0:team-sharing').fix, /validate-development-readiness\.mjs --project \. --fix/)
+    assert.match(report.items.find(item => item.id === 'spec-relock').detail, /constitution/)
     // 읽기 전용 — 스팩·원장·설정 파일을 건드리지 않는다
     assert.equal(readFileSync(join(root, '_workspace/03_dev/spec.json'), 'utf8'), before)
     assert.equal(readFileSync(join(root, '_workspace/03_dev/spec-ledger.jsonl'), 'utf8'), ledgerBefore)
@@ -54,9 +55,8 @@ test('SessionStart 요약: 막는 것만 줄로 내고, 깨끗하면 빈 문자�
   withLegacy(root => {
     const text = summarize(upgradeCheck(root, {fast: true}), {from: '0.28.0'})
     assert.match(text, /Upgraded 0\.28\.0 →/)
-    assert.match(text, /1 blocking, 2 other/)
-    assert.match(text, /gate0:team-sharing/)
-    assert.doesNotMatch(text, /spec-relock/, '막지 않는 항목은 줄로 내지 않는다')
+    assert.match(text, /0 blocking, 3 other/)
+    assert.doesNotMatch(text, /gate0:team-sharing|spec-relock/, '막지 않는 항목은 줄로 내지 않는다')
     assert.ok(text.split('\n').length <= 6, '세션 문맥을 늘리지 않는다')
   })
   assert.equal(summarize({managed: true, items: []}), '')
@@ -71,11 +71,11 @@ test('_workspace가 없으면 관할 밖이다', () => {
   } finally { rmSync(root, {recursive: true, force: true}) }
 })
 
-test('CLI: 막는 항목이 있으면 exit 1, --json은 같은 보고', () => {
+test('CLI: 막는 항목이 없으면 exit 0, --json은 같은 보고(참고 항목 포함)', () => {
   withLegacy(root => {
     const result = spawnSync(process.execPath, [join(here, 'upgrade-check.mjs'), '--project-root', root, '--json'], {encoding: 'utf8'})
-    assert.equal(result.status, 1)
-    assert.equal(JSON.parse(result.stdout).items[0].id, 'gate0:team-sharing')
+    assert.equal(result.status, 0, '저장소 위생 참고 항목을 막는 것으로 셌다')
+    assert.ok(JSON.parse(result.stdout).items.some(item => item.id === 'gate0:team-sharing' && item.kind === 'info'))
   })
 })
 

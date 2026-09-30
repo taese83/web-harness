@@ -89,6 +89,8 @@ export const readReceipt = (
   } else if (receipt.workflowSecurityAccepted.length > 0) {
     errors.push(`${relativePath}: release evidence cannot carry accepted workflow security findings`)
   }
+  // 개발 게이트가 낡은 루트 잠금을 건너뛰고 기본 검사로 돈 영수증 — 어댑터 검사가 빠졌으므로 배포 증거가 아니다.
+  if (receipt.profileLockIgnored) errors.push(`${relativePath}: release evidence cannot come from a run that ignored the locked project profile`)
   if (!/^[0-9a-f]{64}$/.test(receipt.environmentPolicy?.publicEnvironmentSha256 ?? '')) {
     errors.push(`${relativePath}: public build environment digest is missing`)
   }

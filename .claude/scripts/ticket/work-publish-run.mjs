@@ -70,6 +70,12 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
   const featuresOf = workId => list(plan.featureBindings).filter(binding => list(binding.requiredWorkIds).includes(workId)).map(binding => binding.featureId)
   const ownedTcs = workId => list(plan.featureBindings).flatMap(binding => list(binding.acceptanceOwners).filter(owner => owner.workId === workId).map(owner => owner.testCaseId))
   const relation = workRelationMode(provider?.name, config)
+  // 에픽(상위 이슈) — 관계 링크(`--parent`)와 다르다. 트래커가 에픽 필드를 가질 때만 받는다.
+  const epicKey = flags.epic ? String(flags.epic) : null
+  if (epicKey && provider?.name !== 'jira') {
+    return {ok: false, mode: 'publish', phase: 'EPIC_UNSUPPORTED', externalWrites: 0,
+      guidance: `${provider?.name ?? '이 트래커'}에는 에픽 필드가 없다 — 상위 이슈 참조는 --parent(본문 참조·링크)로 건다`}
+  }
   // 사람이 읽는 본문의 재료 — FEAT 제목과 TC 문장은 feature-plan에서 온다(없으면 ID만 적는다).
   const units = (() => { try { return parseFeaturePlanUnits(readFileSync(join(root, FEATURE_PLAN_PATH), 'utf8')) } catch { return [] } })()
   const tcTexts = testCaseTexts(units)
@@ -94,7 +100,8 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     const context = renderWorkContext({work, plan, planDigest, featureIds, testCases, dependsOn})
     return {featureIds, draft, marker, consumerDigest, testCases, lang, docDigest: canonicalDigest(normalizeDocBody(body)),
       context: {name: contextName, content: context, digest: canonicalDigest(context)},
-      fields: provider.buildWorkFields({title: draft.title, body: draft.body, marker, labels: draft.labels, components: draft.components})}
+      fields: provider.buildWorkFields({title: draft.title, body: draft.body, marker, labels: draft.labels, components: draft.components,
+        ...(epicKey ? {epicKey} : {})})}
   }
   // ── 동기화(T47): 이미 발행한 작업이 **다른 판본으로** 나가 있으면 본문(마커·소비 FEAT·TC)과 라벨을 맞춘다 ──
   // 맞추지 않으면 계획 개정 뒤 그 티켓은 픽업·보드에서 영영 `stale-plan`이고, 새로 소비하는 FEAT의 라벨도 없다.
@@ -144,6 +151,7 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
   const preview = {
     mode: 'work', phase: 'PUBLISH_PREVIEW', externalWrites: 0, planDigest,
     provider: {name: provider?.name ?? null, ready: readiness.ok, missing: readiness.missing, relation: readiness.relation},
+    ...(epicKey ? {epic: epicKey} : {}),
     publish: decision.publish.map(work => ({workId: work.workId, title: work.title, labels: [...list(work.roles), ...list(config.labels)]})),
     resume: decision.resume, reuse: decision.reuse, skipped: decision.skipped, errors: decision.errors,
     sync: syncs.map(({body, digest, contentDigest, consumerDigest, marker, docDigest, previousDocDigest, testCases, lang, work, context, previousContext, foreignTestCaseIds, ...rest}) => rest),
@@ -224,7 +232,8 @@ export async function runWorkPublish({root, flags = {}, io = {}}) {
     const {featureIds, draft, fields, consumerDigest} = drafted
     const operationId = randomUUID()
     const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',
-      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest}})
+      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest,
+        relation: {mode: relation.mode, defaulted: relation.defaulted === true}, ...(epicKey ? {epic: epicKey} : {})}})
     if (attemptFailed) {
       unresolved.add(work.workId)
       results.push({workId: work.workId, outcome: 'hold', reason: `원장에 시도를 남기지 못해 발행하지 않는다 — ${attemptFailed}`})

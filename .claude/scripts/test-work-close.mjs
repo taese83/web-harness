@@ -92,7 +92,7 @@ test('(4) 옛 청구 원장 기반 사본은 설치됨으로 세지 않고 알�
     assert.deepEqual(plan.outdated, ['.github/scripts/close-merged-tickets.mjs'])
     assert.deepEqual(plan.install, [])
     const verdict = checkTicketAssets(root, {install: true})
-    assert.equal(verdict.state, 'FAIL', '옛 사본을 설치됨으로 셌다')
+    assert.equal(verdict.state, 'WARN', '옛 사본을 설치됨으로 셌다')
     assert.equal(readFileSync(join(root, '.github/scripts/close-merged-tickets.mjs'), 'utf8'), old, '손봤을 수 있는 사본을 덮었다')
   } finally { rmSync(root, {recursive: true, force: true}) }
 })

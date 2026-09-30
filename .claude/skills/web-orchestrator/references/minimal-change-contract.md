@@ -63,7 +63,7 @@ canonical 문서의 대체물이 아니다 — 다음 라운드 에이전트는 
 
 다음 중 하나가 발생하면 확대된 경로를 수정하기 전에 change brief를 갱신한다.
 
-- `ALLOWED_PATHS` 밖의 파일 변경 필요
+- `ALLOWED_PATHS` 밖의 파일 변경 필요 — 스팩 layerMap 안이면 `widen-change-scope.mjs --add <경로> --reason …`(미리보기 → 사용자 확인 → `--apply`)로만 넓힌다. change-scope.md를 손으로 고치지 않는다. layerMap 밖이면 스팩 변경이다
 - public contract 또는 persisted data migration 변경
 - 새 runtime dependency, build tool, deployment 설정 필요
 - 여러 feature/entity에 걸친 구조 변경

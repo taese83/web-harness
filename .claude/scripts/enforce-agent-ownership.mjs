@@ -188,7 +188,13 @@ try {
     // `spec-lock layerMap`이라 표시해 원인을 반대로 가리켰다(2026-08-30 실측).
     // 실제로 판정에 쓰인 근거를 그대로 적는다.
     const basis = specPatterns?.length ? 'spec-lock layerMap' : 'default registry'
-    block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}). Route the change to the owning agent.`, 'NOT_OWNED')
+    // 어디로 보내야 풀리는지 말한다 — 소유자가 없는 경로에 「소유자에게 보내라」만 주면 에이전트끼리 서로를 가리킨다.
+    const inLayerMap = (resolveDeveloperOwnership(spec) ?? []).some(pattern => pattern.test(ownershipPath))
+    const remedy = inLayerMap
+      ? ' The path is inside the spec layerMap but outside this round\'s scope: stop and report it; the main thread widens the scope with '
+        + `\`node .claude/scripts/widen-change-scope.mjs --project-root . --add ${ownershipPath} --reason "<why>"\` (preview, then --apply after user confirmation) — do not edit change-scope.md by hand.`
+      : ' No layer in the spec layerMap covers this path: that is a spec change (SPEC_CHANGE_REQUEST to the developer, system-architect updates layerMap), not a scope change.'
+    block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}).${remedy}`, 'NOT_OWNED')
   }
 
 } catch (error) {

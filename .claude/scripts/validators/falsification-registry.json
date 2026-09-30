@@ -77,8 +77,8 @@
     {
       "id": "ticket-create-no-marker",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
-      "find": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components})",
-      "replace": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components, marker: 'x'})",
+      "find": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components,",
+      "replace": "provider.buildWorkFields({title: item.title, body: item.body, labels: item.labels, components: item.components, marker: 'x',",
       "test": ".claude/scripts/test-ticket-create.mjs",
       "why": "하네스가 만든 티켓에 WORK 마커를 달면 손 티켓과 다른 경로(계획 WORK)를 타서 판정을 건너뛴다"
     },
@@ -101,8 +101,8 @@
     {
       "id": "ticket-create-dev-classification",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
-      "find": "    labels, ...(provider.name === 'github' ? {} : {components})}))",
-      "replace": "    labels}))",
+      "find": "    labels, ...(provider.name === 'github' ? {} : {components}), draftTitle: draft.title}))",
+      "replace": "    labels, draftTitle: draft.title}))",
       "test": ".claude/scripts/test-ticket-create.mjs",
       "why": "개발 티켓 분류 없이 만들면 pickup이 그 티켓을 개발 티켓으로 알아보지 못한다"
     },
@@ -1581,10 +1581,10 @@
     {
       "id": "work-relation-needs-config",
       "file": ".claude/scripts/ticket/work-provider.mjs",
-      "find": "  if (!declared?.mode) {\n    return {mode: 'unsupported', needsConfig: [`workLink.mode(${available.join('|')})`,",
-      "replace": "  if (!declared?.mode) {\n    return {mode: 'link-only', needsConfig: [`workLink.mode(${available.join('|')})`,",
+      "find": "needsConfig: [], defaulted: true,",
+      "replace": "needsConfig: [],",
       "test": ".claude/scripts/test-work-provider.mjs",
-      "why": "설정 없는 관계를 지원한다고 말하면 실재하지 않는 링크 타입으로 발행이 실패하거나 관계 없는 티켓만 남는다(T15)"
+      "why": "관계 선언 없이 본문 참조로 발행한다는 사실(defaulted)을 숨기면 관계가 걸린 것처럼 보인다(T15)"
     },
     {
       "id": "work-relation-subtask-not-claimed",
@@ -1717,8 +1717,8 @@
     {
       "id": "work-publish-attempt-digest-recorded",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest}})",
-      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest}})",
+      "find": "      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest,\n        relation:",
+      "replace": "      payload: {payloadDigest: 'a'.repeat(64), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest,\n        relation:",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "시도에 실제 요청 지문이 없으면 같은 시도 id로 다른 본문을 보냈는지 가릴 수 없고, 외부 쓰기 시점의 시도 대조도 공허해진다"
     },
@@ -1757,7 +1757,7 @@
     {
       "id": "work-publish-attempt-before-write",
       "file": ".claude/scripts/ticket/work-publish-run.mjs",
-      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest}})",
+      "find": "    const attemptFailed = record({operationId, workId: work.workId, eventType: 'publish-attempted',\n      payload: {payloadDigest: payloadDigest(fields), title: draft.title, labels: draft.labels, workDigest: workContentDigest(work), consumerDigest, docDigest: drafted.docDigest,\n        relation: {mode: relation.mode, defaulted: relation.defaulted === true}, ...(epicKey ? {epic: epicKey} : {})}})",
       "replace": "    const attemptFailed = null",
       "test": ".claude/scripts/test-work-publish.mjs",
       "why": "외부 쓰기 전에 시도가 원장에 없으면 응답이 유실됐을 때 흔적 없이 사라진다 — 재개할 근거가 없다"
@@ -2917,10 +2917,10 @@
     {
       "id": "ticket-snapshot-removed-after-valid-assessment",
       "file": ".claude/scripts/ticket/ticket-work-run.mjs",
-      "find": "  if (!flags['dry-run']) rmSync(join(root, assessmentSnapshotPath(ticketKey)), {force: true})",
-      "replace": "  // (removed)",
+      "find": "    if (existsSync(snapshotFile)) renameSync(snapshotFile, join(root, assessedBodyPath(ticketKey)))",
+      "replace": "    if (false) renameSync(snapshotFile, join(root, assessedBodyPath(ticketKey)))",
       "test": ".claude/scripts/test-ticket-work.mjs",
-      "why": "판정이 끝난 격리 사본이 남으면 사용자 프로젝트에 읽히지 않는 트래커 원문 사본이 쌓인다"
+      "why": "판정이 끝난 격리 사본은 판정 기준 원문(`.assessed.md`)으로 옮겨진다 — 남으면 읽히지 않는 트래커 원문 사본이 쌓인다"
     },
     {
       "id": "ticket-assessment-removed-after-merge",
@@ -5297,6 +5297,86 @@
       "replace": "  if (false) {",
       "test": ".claude/scripts/web-core/test-web-core.mjs",
       "why": "워크스페이스 루트에서 멤버의 패키지로만 성립하는 프로필을 잠그면 러너가 영영 PROJECT_PROFILE_PACKAGE_MISSING으로 막힌다"
+    },
+    {
+      "id": "ticket-seed-body-change-stales",
+      "file": ".claude/scripts/ticket/ticket-seed.mjs",
+      "find": "  if (seed.bodyDigest !== ticketBodyDigest(body ?? '')) reasons.push('ticket-body-changed')",
+      "replace": "  if (false) reasons.push('ticket-body-changed')",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "트래커에서 사람이 고친 본문을 모른 채 만들 때의 판정을 쓰면 확인하지 않은 기준으로 착수한다"
+    },
+    {
+      "id": "ticket-seed-write-paths-stales",
+      "file": ".claude/scripts/ticket/ticket-seed.mjs",
+      "find": "  if (!seed.writePathsFingerprint || !now || seed.writePathsFingerprint !== now) reasons.push('write-paths-changed')",
+      "replace": "  if (false) reasons.push('write-paths-changed')",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "수정 범위 코드가 바뀐 뒤 옛 판정(자기검사 근거)을 쓰면 근거가 사실과 어긋난다"
+    },
+    {
+      "id": "ticket-reassess-archives-previous",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "    const previous = assessment && !flags['dry-run'] ? archiveAssessment(root, path, ticketKey) : assessment ? path : null",
+      "replace": "    const previous = null",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "재판정이 이전 판정서를 이력으로 남기지 않으면 바뀐 절만 고칠 기준이 사라져 처음부터 다시 판정한다"
+    },
+    {
+      "id": "widen-scope-refuses-outside-layer-map",
+      "file": ".claude/scripts/widen-change-scope.mjs",
+      "find": "  if (outside.length > 0) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-widen-change-scope.mjs",
+      "why": "layerMap 밖 경로를 범위로 넓히면 스팩 변경(사람 결정)을 범위 명령이 대신한다"
+    },
+    {
+      "id": "widen-scope-refuses-plan-phase",
+      "file": ".claude/scripts/widen-change-scope.mjs",
+      "find": "  if (scope.phase === 'plan') {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-widen-change-scope.mjs",
+      "why": "계획 패스 범위를 넓히면 ✋ 승인 전에 source를 쓰게 된다"
+    },
+    {
+      "id": "widen-scope-apply-asks-human",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (/widen-change-scope/.test(command) && /(?:^|\\s)--apply(?:\\s|$)/.test(command)) return ask(",
+      "replace": "    if (false) return ask(",
+      "test": ".claude/scripts/test-widen-change-scope.mjs",
+      "why": "범위 넓히기 적용은 developer 소유권을 넓히는 행위다 — 사용자 확인 없이 모델이 스스로 할 수 없어야 한다"
+    },
+    {
+      "id": "import-source-refuses-secret-path",
+      "file": ".claude/scripts/import-source.mjs",
+      "find": "const SECRET = /",
+      "replace": "const SECRET = /$^/ || /",
+      "test": ".claude/scripts/test-import-source.mjs",
+      "why": "비밀로 보이는 파일을 프로젝트 안으로 복사하면 에이전트가 읽을 수 있게 된다"
+    },
+    {
+      "id": "runner-profile-fallback-dev-gate-only",
+      "file": ".claude/scripts/run-quality-gates.mjs",
+      "find": "      if (!runAll) {\n        profileLockIgnored =",
+      "replace": "      if (true) {\n        profileLockIgnored =",
+      "test": ".claude/scripts/test-quality-runner-root-lock.mjs",
+      "why": "배포 증거(--all)가 어댑터 검사 없이 기본 검사로 돌면 프로필이 요구한 검사를 건너뛴 채 릴리스된다"
+    },
+    {
+      "id": "upgrade-check-warn-not-blocking",
+      "file": ".claude/scripts/upgrade-check.mjs",
+      "find": "result.state === 'FAIL' ? 'blocks' : 'info'",
+      "replace": "'blocks'",
+      "test": ".claude/scripts/test-upgrade-check.mjs",
+      "why": "저장소 위생 경고를 막는 항목으로 올리면 이번 변경과 무관한 문제가 착수를 다시 막는다"
+    },
+    {
+      "id": "gate0-decisions-warn-needs-manifest-in-scope",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "scope.some(path => /(?:^|\\/)package\\.json$/.test(String(path)))",
+      "replace": "scope.some(path => true)",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "매니페스트가 범위에 없는데도 미설치를 경고로 내리면 이 변경이 설치하지 않는 확정 의존이 착수 뒤에 터진다"
     }
   ]
 }

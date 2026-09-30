@@ -77,7 +77,7 @@ test('팀 흐름: 리드 1 + 개발자 3이 같은 저장소·같은 Jira로 발
     assert.equal(published.phase, 'PUBLISHED', JSON.stringify(published))
     const keyOf = workId => published.published.find(item => item.workId === workId).ticketKey
     // (2) 여러 사람이 쓰기 전에 공유 설정을 넣는다
-    assert.equal(checkTeamSharing(lead).state, 'FAIL', '공유 설정이 없는데 통과했다')
+    assert.equal(checkTeamSharing(lead).state, 'WARN', '공유 설정이 없는데 통과했다')
     assert.equal(checkTeamSharing(lead, {install: true}).state, 'PASS')
     commitSplit(lead, '계획 발행'); git(lead, 'push', '-q', 'origin', 'main')
 

@@ -315,6 +315,9 @@ const activeAdapterEntries = []
 const projectProfilePath = join(projectRoot, '_workspace/01_plan/project-profile.json')
 let lockedProfile = null
 let lockedExecutionPlan = null
+// 워크스페이스 루트에서 잠근 낡은 프로필(패키지는 멤버에만 있다)은 여기서 영영 충족되지 않는다. 개발 게이트(--check)는
+// 공유 파일을 지우게 하지 않고 기본 검사로 진행한다 — 그 사실을 알리고 영수증에 남긴다. 배포 증거(--all)는 그대로 거부한다.
+let profileLockIgnored = null
 if (existsSync(projectProfilePath)) {
   try {
     lockedProfile = readLockedProjectProfile(projectProfilePath)
@@ -360,12 +363,20 @@ if (existsSync(projectProfilePath)) {
     if (members.length > 0) {
       process.stderr.write(
         `The lock was resolved at the workspace root but ${error.details.missingPackages.join(', ')} are declared in workspace member(s) ` +
-        `${members.join(', ')}. It cannot be satisfied here: remove the stale _workspace/01_plan/project-profile.json ` +
-        '(the runner then uses the base checks; a locked spec lists this file as a lock input and will read as stale) ' +
-        'or run the profile resolution from the app root.\n',
+        `${members.join(', ')}. It cannot be satisfied here. Fix once with \`node .claude/scripts/migrate-profile-lock.mjs --project-root <root>\` ` +
+        '(preview; then --apply with user approval — it removes the stale lock and relocks the spec) or resolve the profile from the app root. ' +
+        'Do not delete the file by hand: the spec lists it as a lock input.\n',
       )
+      if (!runAll) {
+        profileLockIgnored = {reason: 'stale-workspace-root-lock', members, missingPackages: error.details.missingPackages}
+        lockedProfile = null
+        lockedExecutionPlan = null
+        adapterChecks.clear()
+        activeAdapterEntries.length = 0
+        process.stderr.write('Development gate (--check): continuing with the base checks and recording profileLockIgnored in the receipt. Release evidence (--all) still refuses.\n')
+      }
     }
-    process.exit(2)
+    if (!profileLockIgnored) process.exit(2)
   }
 }
 const ingestionInspection = inspectExternalIngestion(projectRoot)
@@ -458,7 +469,15 @@ try {
   workflowPolicyErrors.push(error instanceof Error ? error.message : String(error))
 }
 if (workflowPolicyErrors.length) {
-  process.stderr.write(`Workflow security validation failed: ${workflowPolicyErrors.join('; ')}\n`)
+  // 해법을 먼저, 목록은 요약으로 — 기존 저장소는 워크플로가 수십 개라 전체 목록이 해법을 밀어낸다. 전체는 파일로 남긴다.
+  const findingsPath = '_workspace/04_qa/workflow-security-findings.txt'
+  try {
+    mkdirSync(join(projectRoot, '_workspace/04_qa'), {recursive: true})
+    writeFileSync(join(projectRoot, findingsPath), `${workflowPolicyErrors.join('\n')}\n`)
+  } catch { /* 목록 파일을 못 써도 판정은 같다 */ }
+  process.stderr.write(`Workflow security validation failed: ${workflowPolicyErrors.length} finding(s) — full list: ${findingsPath}\n`)
+  for (const message of workflowPolicyErrors.slice(0, 5)) process.stderr.write(`  - ${String(message).slice(0, 240)}\n`)
+  if (workflowPolicyErrors.length > 5) process.stderr.write(`  … ${workflowPolicyErrors.length - 5} more\n`)
   if (!runAll && workflowAcceptance.state !== 'none') {
     process.stderr.write(
       `${ACCEPTANCE_RELATIVE}(${workflowAcceptance.state})가 이 finding을 덮지 않는다 — 인수 뒤 워크플로가 바뀌었거나 새 finding이다.\n` +
@@ -488,8 +507,9 @@ if (pendingWorkflowAcceptance.length) {
   acceptedWorkflowFindings.push(...pendingWorkflowAcceptance)
   process.stderr.write(`워크플로 finding ${pendingWorkflowAcceptance.length}건 인수를 기록했다 — 개발 게이트에서만 유효하고 워크플로가 바뀌면 무효다(되돌리려면 ${ACCEPTANCE_RELATIVE} 삭제).\n`)
 }
-for (const finding of acceptedWorkflowFindings) {
-  process.stderr.write(`workflow finding accepted (--check only): ${finding.workflowPath}${finding.line ? `:${finding.line}` : ''} [${finding.code}]\n`)
+if (acceptedWorkflowFindings.length > 0) {
+  const files = new Set(acceptedWorkflowFindings.map(finding => finding.workflowPath))
+  process.stderr.write(`workflow findings accepted (--check only): ${acceptedWorkflowFindings.length} in ${files.size} file(s) — recorded in the receipt\n`)
 }
 const normalizeVersion = source => {
   const match = String(source).match(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/)
@@ -857,6 +877,8 @@ const executeCheck = (id, definition) => {
     ingestionReadiness: {detected: ingestionInspection.detected, declared: ingestionDeclared, evidence: ingestionInspection.evidence},
     // 개발 게이트에서 인수된 워크플로 finding — 이 영수증은 single run이라 배포 증거가 될 수 없다.
     workflowSecurityAccepted: acceptedWorkflowFindings.map(({workflowPath, code, line}) => ({path: workflowPath, code, line})),
+    // 개발 게이트가 낡은 루트 잠금을 건너뛰고 기본 검사로 돌았다 — 어댑터 검사가 빠졌다는 사실을 남긴다.
+    ...(profileLockIgnored ? {profileLockIgnored} : {}),
     startedAt,
     durationMs: Math.round(durationMs),
     timeoutMs: definition.timeoutMs,

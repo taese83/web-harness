@@ -16,6 +16,7 @@ import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findO
 import {renderCloseReference} from './provider-github.mjs'
 import {prNamesKey, titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
 import {linkRecordPath, readLocalLinks} from './work-state-run.mjs'
+import {SESSION_HINT} from './work-pickup-run.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 const readJson = (root, relative) => {
@@ -188,6 +189,7 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   if (ticketWork) rmSync(join(root, (await import('./ticket-work.mjs')).assessmentPath(ticketKey)), {force: true})
   // 성공 경로에서도 판정을 돌려준다 — 인수로 넘긴 미충족이 사용자에게 보이지 않으면 침묵이다.
   return {ok: true, mode: 'work', dryRun: false, workId: decision.workId, review, completion, staleCheck: decision.staleCheck, closeLine, prBody, commitSplit, scopeDrift, freshness,
+    sessionHint: SESSION_HINT,
     prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance,
     ...(closeLine === null ? {note: '원장이 이 티켓을 어느 트래커에 냈는지 모른다 — 닫는 줄을 만들지 않았다(닫는 시늉을 하지 않는다)'} : {})}
 }

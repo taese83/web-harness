@@ -86,8 +86,9 @@ export function upgradeCheck(projectRoot, {fast = false} = {}) {
     : fast ? {results: [checkSpec(root), checkEnvironment(root, spec), ...(spec ? [checkPlans(root, spec), checkDecisionsApplied(root, spec)] : []),
       checkTicketAssets(root), checkTeamSharing(root)]}
       : analyzeDevelopmentReadiness(root)
-  for (const result of readiness.results.filter(r => r.state === 'FAIL')) {
-    items.push(item(`gate0:${result.id}`, 'blocks', result.detail, {
+  // FAIL만 막는다. WARN(저장소 위생)은 참고로 싣는다 — 고치는 명령은 그대로 알린다.
+  for (const result of readiness.results.filter(r => r.state === 'FAIL' || r.state === 'WARN')) {
+    items.push(item(`gate0:${result.id}`, result.state === 'FAIL' ? 'blocks' : 'info', result.detail, {
       fix: result.fixable ? command('validate-development-readiness', '--project . --fix') : (result.remedy ?? null),
       commits: result.fixable ? '덧붙인 설정 파일 — 브랜치 소유자' : null,
     }))

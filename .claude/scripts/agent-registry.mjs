@@ -131,7 +131,9 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/03_dev\/work-analysis\.json$/, /^_workspace\/03_dev\/work-plan\.json$/,
     /^_workspace\/03_dev\/ticket-assessments\/[A-Za-z0-9_-]+\.json$/,
     // 기획 없이 기능만 구현하는 개발 티켓 초안 — CLI(`create`)가 검사해 트래커에 만든다.
-    /^_workspace\/03_dev\/ticket-drafts\/[A-Za-z0-9_-]+\.md$/],
+    /^_workspace\/03_dev\/ticket-drafts\/[A-Za-z0-9_-]+\.md$/,
+    // 초안 판정 — `create`가 만든 티켓에 판정서로 미리 둔다(pickup이 만든 시점의 지문을 대조해 쓴다).
+    /^_workspace\/03_dev\/ticket-drafts\/[A-Za-z0-9_-]+\.assessments\.json$/],
   // 외부 원문(웹·Figma)을 읽는 에이전트라 쓰기를 **정규화 산출물로만** 좁힌다 — 승인·리뷰 기록(plan-review·design-review·
   // 시각 기준선·preview)과 다른 설계자의 산출물은 원문 속 지시로 오염되면 안 된다. 목록은 에이전트 문서 「출력 파일」과 같다.
   'source-artifact-ingestor': [/^_workspace\/00_source\//,

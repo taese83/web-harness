@@ -213,12 +213,14 @@ export function workRelationMode(providerName, config) {
   const declared = config?.workLink ?? null
   // **관계 방식은 트래커 이름이 아니라 선언이 정한다.** 한쪽 트래커만 기본 통과를 주면 게이트 강도가
   // provider 이름으로 갈린다 — GitHub 팀은 면제, Jira 팀은 설정 의무가 된다(적대 리뷰 2026-09-14).
-  // 본문 참조(`link-only`)도 **명시 opt-in**이다. 그것은 관계가 아니라 참조라는 사실을 사람이 받아들이는 것이다.
+  // 본문 참조(`link-only`)는 관계가 아니라 참조다 — 선언이 없을 때의 기본이며, 그 사실(`defaulted`)을 미리보기와 발행 기록이 드러낸다.
   const available = providerName === 'jira' ? ['issue-link', 'link-only'] : providerName === 'github' ? ['link-only'] : []
   if (available.length === 0) return {mode: 'unsupported', needsConfig: [`workLink.mode — ${providerName}의 관계 능력을 아직 모른다`]}
+  // 선언이 없으면 **본문 참조(link-only)**로 발행한다 — 관계가 아니라 참조라는 사실을 미리보기(`relation.defaulted`)가 사람에게
+  // 보여 주고 확인받는다. 두 트래커 모두 같은 기본이다(게이트 강도가 provider 이름으로 갈리지 않는다). 관계를 원하면 선언한다.
   if (!declared?.mode) {
-    return {mode: 'unsupported', needsConfig: [`workLink.mode(${available.join('|')})`,
-      ...(available.includes('issue-link') ? ['issue-link면 workLink.linkType(프로젝트에 실재하는 링크 타입 이름)'] : [])]}
+    return {mode: 'link-only', linkType: null, parentSide: 'outward', needsConfig: [], defaulted: true,
+      note: `workLink가 선언되지 않아 본문 참조(link-only)로 발행한다 — 관계가 아니다${available.includes('issue-link') ? '. 이슈 링크로 걸려면 workLink.mode=issue-link와 workLink.linkType을 설정한다' : ''}`}
   }
   if (!available.includes(declared.mode)) {
     // 하위 작업(subtask)은 **발행 시점의 부모 필드**라 연결 시점에 붙일 수 없다 — 지원한다고 말하지 않는다.
@@ -294,8 +296,8 @@ export function workProviderReadiness(provider, config) {
   }
   const relation = workRelationMode(name, config)
   const missing = Object.entries(capabilities).filter(([, present]) => !present).map(([key]) => `provider.${key}`)
-  // `ok`의 뜻은 「관계가 있다」가 아니라 **「선언된 방식으로 발행할 수 있다」**이다. `link-only`는 관계가
-  // 아니라 본문 참조이며, 그 사실을 사람이 명시 선언(opt-in)해야 통과한다 — 트래커 이름으로 면제되지 않는다.
+  // `ok`의 뜻은 「관계가 있다」가 아니라 **「정한 방식으로 발행할 수 있다」**이다. `link-only`는 관계가 아니라 본문 참조이고,
+  // 선언이 없을 때의 기본이다(`relation.defaulted` — 미리보기가 사람에게 보여 준다). 트래커 이름으로 갈리지 않는다.
   if (relation.mode === 'unsupported') missing.push(...relation.needsConfig.map(item => `config.${item}`))
   return {ok: missing.length === 0, missing, relation, provider: name, capabilities}
 }

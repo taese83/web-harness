@@ -66,6 +66,13 @@ export function buildWorkIssueFieldsFor(config, draft) {
     description: String(config.apiVersion ?? '3') === '2' ? text : toAdf(text),
     labels: [...new Set([...(draft.labels ?? [])].filter(Boolean))],
   }
+  // 에픽 — Cloud는 `parent` 필드, Data Center는 프로젝트가 정한 Epic Link 사용자 필드(`epicLinkField`)다. 모르면 추측하지 않는다.
+  if (draft.epicKey) {
+    const cloud = String(config.apiVersion ?? '3') === '3' || /\.atlassian\.net$/i.test(String(config.baseUrl ?? '').replace(/^https?:\/\//, '').split('/')[0])
+    if (cloud) fields.parent = {key: String(draft.epicKey)}
+    else if (config.epicLinkField) fields[config.epicLinkField] = String(draft.epicKey)
+    else throw new Error('EPIC_FIELD_UNKNOWN: Data Center는 에픽을 사용자 필드(Epic Link)로 건다 — 설정 jira.epicLinkField(예: customfield_10008)를 정한다')
+  }
   const components = [...(draft.components ?? []), ...(config.components ?? [])].filter(Boolean)
   if (components.length > 0) fields.components = [...new Set(components)].map(name => ({name}))
   // 기계 마커는 **본문이 아니라 이슈 속성**에 둔다 — Jira 위키 서식은 HTML 주석을 숨기지 못해 글자로 보였다.

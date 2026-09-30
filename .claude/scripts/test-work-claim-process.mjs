@@ -267,7 +267,7 @@ test('I3: GitHub 형태도 설정으로 열린다 — `link-only`를 선언하�
     assert.equal(preview.result.provider.name, 'github')
     assert.equal(preview.result.provider.relation.mode, 'link-only')
     assert.equal(preview.result.externalWrites, 0)
-    // 선언이 없으면 막힌다 — GitHub이라는 이름이 「관계 없음」을 면제하지 않는다.
+    // 선언이 없는 경우 — 본문 참조 기본값으로 연다(아래).
     const bare = within(copyFixture('editor'), other => {
       const onlyHost = spawnSync(process.execPath, [CLI, 'configure', '--provider', 'github', '--root', other, '--confirm',
         '--set', 'host=github.example.com'], {encoding: 'utf8', env: {PATH: process.env.PATH, HOME: process.env.HOME}, timeout: 30000})
@@ -275,7 +275,9 @@ test('I3: GitHub 형태도 설정으로 열린다 — `link-only`를 선언하�
       assert.equal(claim(other).result.phase, 'P1_REVIEW')
       return claim(other, '--publish', '--repo', 'acme/web').result
     })
-    assert.equal(bare.phase, 'PROVIDER_NOT_READY')
-    assert.ok(bare.provider.missing.some(item => item.startsWith('config.workLink.mode')), JSON.stringify(bare.provider))
+    // 선언이 없으면 본문 참조로 미리보기까지 가고, 기본값임을 드러낸다 — 트래커 이름과 무관하다.
+    assert.equal(bare.phase, 'PUBLISH_PREVIEW', JSON.stringify(bare.provider ?? bare))
+    assert.equal(bare.provider.relation.mode, 'link-only')
+    assert.equal(bare.provider.relation.defaulted, true)
   })
 })
