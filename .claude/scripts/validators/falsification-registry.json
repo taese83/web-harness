@@ -5409,6 +5409,22 @@
       "replace": "    if (false) return true",
       "test": ".claude/scripts/test-human-approval-hook.mjs",
       "why": "리다이렉트·heredoc은 어느 명령에 붙든 파일을 쓴다 — 읽기 명령(echo·cat) 뒤의 `>`도 승인 기록을 만든다"
+    },
+    {
+      "id": "link-harness-review-after-head",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const after = rows.filter(row => Date.parse(row.at) >= Date.parse(head))",
+      "replace": "  const after = rows",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "마지막 커밋 전의 리뷰를 세면 리뷰 뒤에 바꾼 코드가 리뷰 없이 PR로 나간다"
+    },
+    {
+      "id": "link-harness-review-ignores-workspace-commits",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "'--format=%cI', '--', '.', ':(exclude)_workspace']",
+      "replace": "'--format=%cI']",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "리뷰 뒤 따로 올린 `_workspace` 커밋(판정 기록 자체)을 리뷰 뒤 변경으로 세면 리뷰할 때마다 다시 리뷰를 요구한다"
     }
   ]
 }

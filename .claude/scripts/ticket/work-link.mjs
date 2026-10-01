@@ -93,6 +93,32 @@ export function findOutsideScope(logText, allowedPaths, layerPattern) {
   return [...files].filter(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX) && !patterns.some(pattern => pattern.test(file))).sort()
 }
 
+/**
+ * 하네스 code-reviewer가 **마지막 커밋 뒤에** 판정을 남겼는가(PR 직전 리뷰의 흔적). 판정 기록은 SubagentStop 훅이 하네스
+ * 리뷰어에게만 남긴다 — 프로젝트 자체 리뷰어는 세지 않는다. 막지 않고 알린다: 리뷰 내용의 적절성은 사람이 PR 확인에서 본다.
+ * headTime(ISO)은 주입 가능(테스트). 못 읽으면 reviewed: null(모른다) — 「리뷰함」으로 접지 않는다.
+ */
+export function harnessReviewCheck(root, {headTime = null} = {}) {
+  let head = headTime
+  if (!head) {
+    try {
+      // `_workspace` 커밋(판정 기록·산출물)은 리뷰 뒤에 따로 올리는 것이 규율이다 — 그것을 「리뷰 뒤 변경」으로 세지 않는다.
+      head = execFileSync('git', ['-C', root, 'log', '-1', '--format=%cI', '--', '.', ':(exclude)_workspace'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim()
+      if (!head) return {reviewed: null, guidance: '`_workspace` 밖 커밋이 없어 하네스 리뷰 여부를 판정하지 않았다'}
+    } catch { return {reviewed: null, guidance: '마지막 커밋 시각을 읽지 못해 하네스 리뷰 여부를 판정하지 못했다'} }
+  }
+  let rows = []
+  try {
+    rows = readFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'), 'utf8').split('\n').filter(Boolean)
+      .map(line => { try { return JSON.parse(line) } catch { return null } }).filter(Boolean)
+  } catch { /* 기록이 없다 = 리뷰하지 않았다 */ }
+  const after = rows.filter(row => Date.parse(row.at) >= Date.parse(head))
+  const latest = after.at(-1) ?? null
+  return latest
+    ? {reviewed: true, at: latest.at, status: latest.status ?? null}
+    : {reviewed: false, headAt: head, guidance: '마지막 커밋 뒤에 하네스 code-reviewer가 돌지 않았다 — PR 전에 리뷰 묶음을 만들고 리뷰한다(team-flow 5)'}
+}
+
 /** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */
 export function readCommitLog(root, baseRef) {
   for (const base of [`origin/${baseRef}`, baseRef]) {

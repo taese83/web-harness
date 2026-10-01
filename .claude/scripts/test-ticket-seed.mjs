@@ -171,3 +171,41 @@ test('바뀐 절 대조: 세 서식(markdown·Jira 위키·평문)을 읽고, �
   assert.deepEqual(changedTicketSections('[목적]\na\n[선행·협의]\nb', '[목적]\na'), [{section: '선행·협의', change: 'removed'}])
   assert.equal(changedTicketSections('자유 서술 티켓', '### 목적\na'), null)
 })
+
+test('PR 직전 하네스 리뷰: 마지막 커밋 뒤의 code-reviewer 판정 기록이 있어야 reviewed다', async () => {
+  const {harnessReviewCheck} = await import('./ticket/work-link.mjs')
+  const root = mkdtempSync(join(tmpdir(), 'wh-harness-review-'))
+  try {
+    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T08:00:00Z'}).reviewed, false, '기록이 없는데 리뷰했다고 했다')
+    mkdirSync(join(root, '_workspace/04_qa/evidence/verdicts'), {recursive: true})
+    writeFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
+      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: '2026-09-29T07:58:00Z'})}\n`)
+    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T08:00:00Z'}).reviewed, false, '마지막 커밋 전의 리뷰를 세었다')
+    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T07:00:00Z'}).reviewed, true)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('PR 직전 하네스 리뷰: 리뷰 뒤 `_workspace`만 커밋하면 리뷰 뒤 변경으로 세지 않고, 코드를 커밋하면 다시 요구한다', async () => {
+  const {harnessReviewCheck} = await import('./ticket/work-link.mjs')
+  const {execFileSync} = await import('node:child_process')
+  const root = mkdtempSync(join(tmpdir(), 'wh-harness-review-git-'))
+  const commit = (message, when) => execFileSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false',
+    'commit', '-q', '-m', message], {env: {...process.env, GIT_COMMITTER_DATE: when, GIT_AUTHOR_DATE: when}})
+  try {
+    execFileSync('git', ['-C', root, 'init', '-q'])
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'src/a.ts'), 'a\n')
+    execFileSync('git', ['-C', root, 'add', '.'])
+    commit('code', '2026-09-29T07:00:00Z')
+    mkdirSync(join(root, '_workspace/04_qa/evidence/verdicts'), {recursive: true})
+    writeFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
+      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: '2026-09-29T07:30:00Z'})}\n`)
+    execFileSync('git', ['-C', root, 'add', '.'])
+    commit('harness artifacts', '2026-09-29T08:00:00Z')
+    assert.equal(harnessReviewCheck(root).reviewed, true, '`_workspace` 커밋을 리뷰 뒤 변경으로 셌다 — 재리뷰 루프가 된다')
+    writeFileSync(join(root, 'src/a.ts'), 'b\n')
+    execFileSync('git', ['-C', root, 'add', '.'])
+    commit('code after review', '2026-09-29T09:00:00Z')
+    assert.equal(harnessReviewCheck(root).reviewed, false, '리뷰 뒤 코드 커밋을 놓쳤다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
