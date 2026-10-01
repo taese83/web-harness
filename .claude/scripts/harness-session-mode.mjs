@@ -17,6 +17,8 @@ import {fileURLToPath} from 'node:url'
 const PLUGIN = existsSync(new URL('../../.claude-plugin/plugin.json', import.meta.url))
 const entry = name => (PLUGIN ? `/web-harness:${name}` : `/${name}`)
 const ROUTER = fileURLToPath(new URL('../skills/wh/SKILL.md', import.meta.url))
+// 티켓 흐름 — 하네스 스킬은 모델 호출이 막혀 있어(disable-model-invocation) Skill 도구로 부르면 오류가 난다. 파일을 읽어 따른다.
+const TEAM_FLOW = fileURLToPath(new URL('../skills/team-flow/SKILL.md', import.meta.url))
 // `/wh`·`/web-harness:wh`·`/team-flow`·`/web-harness:team-flow` — 뒤따르는 인자는 `off` 판정에만 쓴다.
 const ENTRY = /^\s*\/(?:web-harness:)?(wh|team-flow)(?:\s+([\s\S]*))?$/
 const STALE_MS = 7 * 24 * 60 * 60 * 1000
@@ -51,7 +53,8 @@ export function handlePrompt(input, {home = homedir(), projectDir = process.env.
   // 켠 프로젝트에서만 — 같은 세션이 다른 디렉터리로 옮겨 가면 붙이지 않는다.
   if (recorded?.projectRoot !== projectRoot) return ''
   return `[web-harness] 이 세션은 하네스 모드다(${entry('wh')}로 켰다). 개발·티켓 요청은 슬래시 명령 없이도 ${ROUTER}의 라우팅`
-    + `(레인 판정·티켓 의도)으로 판정해 그 흐름으로 처리하라. 하네스와 무관한 질문은 그대로 답한다. 끝내려면 ${entry('wh')} off.\n`
+    + `(레인 판정·티켓 의도)으로 판정해 그 흐름으로 처리하라. 티켓 작업이면 ${TEAM_FLOW}를 Read로 읽어 그 절차를 따른다 — `
+    + `하네스 스킬은 Skill 도구로 부르지 않는다(모델 호출이 막혀 있어 오류가 난다). 하네스와 무관한 질문은 그대로 답한다. 끝내려면 ${entry('wh')} off.\n`
 }
 
 // 오래된 표시를 치운다 — 세션이 끝나도 표시가 남으므로, 켤 때 한 번 7일 넘은 것을 지운다.

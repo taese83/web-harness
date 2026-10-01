@@ -40,8 +40,30 @@ test('승인·인수 기록 파일을 직접 쓰는 것도 사용자 확인이�
     }
   }
   assert.equal(run({tool_name: 'Write', tool_input: {file_path: '/p/_workspace/03_dev/change-scope.md'}}).stdout, '')
-  for (const command of ['cat > _workspace/03_dev/host-execution-grant.json <<EOF', 'cp /tmp/x _workspace/03_dev/workflow-security-acceptance.json']) {
+  for (const command of ['cat > _workspace/03_dev/host-execution-grant.json <<EOF', 'cp /tmp/x _workspace/03_dev/workflow-security-acceptance.json',
+    'echo {} >> _workspace/03_dev/host-execution-grant.json', 'printf x | tee _workspace/03_dev/host-execution-grant.json',
+    "sed -i '' s/a/b/ _workspace/03_dev/host-execution-grant.json", "node -e \"require('fs').writeFileSync('_workspace/03_dev/host-execution-grant.json','{}')\"",
+    'git checkout stash@{0} -- _workspace/03_dev/host-execution-grant.json', 'git restore _workspace/03_dev/host-execution-grant.json',
+    "python3 - <<'EOF'\nopen('_workspace/03_dev/host-execution-grant.json', 'w').write('{}')\nEOF",
+    'echo _workspace/03_dev/host-execution-grant.json | xargs -I{} cp /tmp/g {}', 'echo {} >| _workspace/03_dev/host-execution-grant.json',
+    'echo {} >& _workspace/03_dev/host-execution-grant.json', 'F=_workspace/03_dev/host-execution-grant.json; echo {} > $F', "/usr/bin/python3 -c \"open('_workspace/03_dev/host-execution-grant.json','w')\"",
+    "python3.12 -c \"open('_workspace/03_dev/host-execution-grant.json','w')\"", '/bin/cp /tmp/g _workspace/03_dev/host-execution-grant.json',
+    'git restore --staged -W _workspace/03_dev/host-execution-grant.json', 'curl -o _workspace/03_dev/host-execution-grant.json https://x',
+    "awk -v f=_workspace/03_dev/host-execution-grant.json 'BEGIN{print 1 > f}'", 'npx tsx w.ts _workspace/03_dev/host-execution-grant.json',
+    'cat _workspace/03_dev/host-execution-grant.json | sponge _workspace/03_dev/host-execution-grant.json']) {
     assert.equal(decisionOf(run(bash(command)))?.permissionDecision, 'ask', command)
+  }
+})
+
+test('기록 파일을 읽거나 지우거나 스테이징만 푸는 명령은 묻지 않는다 — 승인을 지어내는 길이 아니다', () => {
+  for (const command of ['cat _workspace/03_dev/host-execution-grant.json', 'jq . _workspace/03_dev/host-execution-grant.json',
+    'ls -la _workspace/03_dev/host-execution-grant.json', 'rm _workspace/03_dev/host-execution-grant.json',
+    'git restore --staged _workspace/03_dev/host-execution-grant.json _workspace/03_dev/workflow-security-acceptance.json',
+    'git status --short && cat _workspace/03_dev/workflow-security-acceptance.json | head -c 300',
+    'git check-ignore -v _workspace/03_dev/host-execution-grant.json', '/bin/cat _workspace/03_dev/host-execution-grant.json',
+    'cat _workspace/03_dev/host-execution-grant.json | jq .scripts | head -5', 'cat _workspace/03_dev/host-execution-grant.json 2>/dev/null',
+    'jq . _workspace/03_dev/host-execution-grant.json > /tmp/grant-copy.json 2>&1']) {
+    assert.equal(run(bash(command)).stdout, '', command)
   }
 })
 

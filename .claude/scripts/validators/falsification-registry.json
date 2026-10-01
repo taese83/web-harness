@@ -4005,8 +4005,8 @@
     {
       "id": "human-approval-bash-record-names-ask",
       "file": ".claude/scripts/enforce-human-approval.mjs",
-      "find": "    if (named) return ask(`승인 기록 파일을 다루는 명령(${named})`)",
-      "replace": "    if (false) return ask(`승인 기록 파일을 다루는 명령(${named})`)",
+      "find": "    if (named) return ask(`승인 기록 파일을 쓸 수 있는 명령(${named})`)",
+      "replace": "    if (false) return ask(`승인 기록 파일을 쓸 수 있는 명령(${named})`)",
       "test": ".claude/scripts/test-human-approval-hook.mjs",
       "why": "Write가 막히면 셸 리다이렉트로 승인 기록을 만들어 사람 확인을 우회한다"
     },
@@ -5377,6 +5377,38 @@
       "replace": "scope.some(path => true)",
       "test": ".claude/scripts/test-development-readiness.mjs",
       "why": "매니페스트가 범위에 없는데도 미설치를 경고로 내리면 이 변경이 설치하지 않는 확정 의존이 착수 뒤에 터진다"
+    },
+    {
+      "id": "human-approval-read-only-record-commands-pass",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "  return READ_ONLY.has(word)",
+      "replace": "  return false",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "기록 파일을 읽기·삭제만 하는 명령까지 확인을 요구하면 사용자가 매번 눌러 확인 자체가 의미를 잃는다"
+    },
+    {
+      "id": "session-mode-routes-team-flow-by-read",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "티켓 작업이면 ${TEAM_FLOW}를 Read로 읽어 그 절차를 따른다",
+      "replace": "티켓 작업이면 team-flow를 따른다",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "경로 없이 「team-flow를 따르라」고만 하면 모델이 Skill 도구로 부르고, 모델 호출이 막힌 스킬이라 흐름이 멈춘다"
+    },
+    {
+      "id": "human-approval-pipeline-consumer-asks",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (stages.slice(at + 1).some(stage => !READ_CONSUMERS.has(head(stage).word))) return true",
+      "replace": "    if (false) return true",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "이름을 파이프로 넘긴 뒤 단계(xargs·sponge)가 쓰면 이름과 쓰기 동사가 다른 단계에 있어도 기록 파일을 지어낸다"
+    },
+    {
+      "id": "human-approval-redirect-variants-ask",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (target.includes(name) || /[$`]/.test(target)) return true",
+      "replace": "    if (false) return true",
+      "test": ".claude/scripts/test-human-approval-hook.mjs",
+      "why": "리다이렉트·heredoc은 어느 명령에 붙든 파일을 쓴다 — 읽기 명령(echo·cat) 뒤의 `>`도 승인 기록을 만든다"
     }
   ]
 }

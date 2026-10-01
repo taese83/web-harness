@@ -87,3 +87,10 @@ test('세션 ID는 파일 이름으로 정화된다 — 입력이 세션 폴더 
   assert.deepEqual(readdirSync(sessionsDirectory(home)), ['______escape.json'])
   assert.match(handlePrompt({session_id: hostile, prompt: '보드', cwd: project}, {home, projectDir: project}), /하네스 모드/)
 }))
+
+test('티켓 요청 안내는 team-flow 파일을 Read로 읽으라고 하고, Skill 도구로 부르지 말라고 한다 — 모델 호출이 막힌 스킬이다', () => withDirs(({home, project}) => {
+  handlePrompt({session_id: 's9', prompt: '/wh', cwd: project}, {home, projectDir: project})
+  const hint = handlePrompt({session_id: 's9', prompt: 'AOA-80 픽업해줘', cwd: project}, {home, projectDir: project})
+  assert.match(hint, /skills\/team-flow\/SKILL\.md를 Read로 읽어/)
+  assert.match(hint, /Skill 도구로 부르지 않는다/)
+}))
