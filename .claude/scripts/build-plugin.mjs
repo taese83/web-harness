@@ -366,7 +366,8 @@ These are the commands you invoke directly, and the only ones in the \`/${PLUGIN
 |---|---|
 | \`/${PLUGIN_NAME}:wh\` | **The single entry point.** Judges the lane and shows it: \`/${PLUGIN_NAME}:wh plan\` (planning only, stops at the plan-reviewer readiness gate) · \`/${PLUGIN_NAME}:wh new\` (plan → design → dev → QA) · \`/${PLUGIN_NAME}:wh change\` (add behaviour) · \`/${PLUGIN_NAME}:wh fix\` · \`/${PLUGIN_NAME}:wh verify\`. Force a lane by leading with it; plugin skills are always namespaced. |
 | \`/${PLUGIN_NAME}:team-flow\` | Ticket-based team development — decompose a reviewed plan into WORK items, publish them to GitHub Issues or Jira, pick them up and complete them with PRs. |
-| \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff. |
+| \`/${PLUGIN_NAME}:pr-drafter\` | Draft a PR description from the current branch diff, with before/after evidence and merge danger (one-way vs two-way door). |
+| \`/${PLUGIN_NAME}:retro\` | Review a finished session, PR, or QA round and propose environment fixes (checks, reviewer criteria, pointers) so the same finding is not made twice. |
 | \`/${PLUGIN_NAME}:web-console\` | Open the approval-gated local Console for the current project. |
 | \`/${PLUGIN_NAME}:project-init\` | Scaffold an empty project skeleton only (no planning/QA gates). |
 | \`/${PLUGIN_NAME}:version-bump\` | Recommend a semantic version bump from the git history and changes. |

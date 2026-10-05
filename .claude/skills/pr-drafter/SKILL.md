@@ -1,13 +1,13 @@
 ---
 name: pr-drafter
-description: Project-scoped PR draft writer for web-harness. Use this skill when the user asks to write a PR description, prepare a pull request, or summarize changes for a PR. Reads git diff and log from the current branch, then fills in the project's Korean PR template automatically.
+description: Project-scoped PR draft writer for web-harness. Use this skill when the user asks to write a PR description, prepare a pull request, or summarize changes for a PR. Reads git diff and log from the current branch, then fills in the project's Korean PR template automatically — including before/after evidence and merge danger (one-way vs two-way door, blast radius) so reviewers know where to spend effort.
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash
 argument-hint: "[비교 대상 브랜치/커밋 범위 (선택)]"
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   maturity: contract-only
-  updated: 2026-08-03
+  updated: 2026-10-05
 ---
 
 # PR Drafter
@@ -45,34 +45,23 @@ When the user invokes `/pr-drafter` alone, start with:
    - 어느 레이어/슬라이스가 변경됐는지 (FSD 기준)
    - 사용자에게 보이는 동작 변화가 무엇인지
    - 왜 이 방법을 선택했는지 코드에서 추론한다
+   - 머지 뒤 revert 하나로 완전히 되돌릴 수 있는지(문)와 잘못되면 어디까지 번지는지(영향 범위) — 기준은 `references/pr-guide.md` 「머지 위험 작성 원칙」
+   - 동작 근거로 인용할 실제 실행 결과가 있는지 — 이번 세션의 실행 출력, CI 결과, `_workspace/04_qa/`의 QA 보고서·영수증
 4. `references/pr-guide.md`의 템플릿을 채워 한국어 PR 초안을 작성한다. 사용한 base를 초안 머리에 한 줄로 남긴다
 5. 작성한 초안을 보여주고, 수정할 부분이 있으면 반영한다
 6. 확정되면 `gh pr create` 명령을 제안한다 (직접 실행하지 않고 명령만 출력)
 
 ## Output Format
 
-```markdown
-<!-- 사용하고 있는 채널만 사용하면 됩니다 -->
-* JIRA: [티켓_번호]()
-* Issue: #깃헙_이슈_번호
-* 관련 문서(선택): [링크]()
-
-## 작업 내용
-1. [변경 사항 요약]
-    > 왜 이렇게 해결했는지, 이 방법이 최선인 이유
-
-## 체크리스트
-- [ ] 테스트 통과 (`pnpm test`)
-- [ ] 정상 동작 확인
-- [ ] 코드 수정에 따른 주석, 문서 수정
-
-## 기타
-```
+`references/pr-guide.md` 「PR 템플릿 구조」가 유일한 템플릿이다 — 여기에 사본을 두지 않는다.
+섹션은 메타 링크 · 작업 내용 · 증거 · 머지 위험 · 체크리스트 · 기타 순서다.
 
 ## Gotchas
 
 - 이슈·관련 문서 링크는 알 수 없으면 `[작성 필요]`로 표시한다
 - 왜 이 방법인지 설명은 코드에서 최대한 추론하되, 확실하지 않으면 `[작성 필요]`로 남긴다
+- 증거에는 실제로 실행한 결과만 인용한다. 실행하지 않은 검증을 통과로 쓰지 않는다 — 근거가 없으면 `미실행`이다
+- 문을 판단할 수 없으면 단방향으로 적고 이유를 쓴다. `양방향 · 국소`는 리뷰어가 힘을 덜 써도 된다는 안내일 뿐, 테스트·리뷰·게이트를 면제하지 않는다
 - 현재 프로젝트의 `package.json` scripts를 확인해 실제 검증 명령을 체크리스트에 사용한다. 기본값은 `pnpm test`다
 - PR을 직접 열지 않는다. `gh pr create` 명령을 제안하는 것으로 끝낸다
 - 직접 `git`을 실행하지 않는다. broker는 repo/global/system Git config, pager, external diff, textconv를 신뢰하지 않고 secret-bearing 경로를 제외한다
