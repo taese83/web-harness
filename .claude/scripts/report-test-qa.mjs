@@ -9,6 +9,7 @@
 //   - cut되지 않은 Must 기능을 어떤 테스트도 FEAT·TC ID로 인용하지 않으면 BLOCKED(스팩 등급과 무관)
 //   - 커버리지(lines)가 70% 미만이거나 수를 읽지 못하면 WARN
 //   - 변이 표본은 보고만 한다(막지 않는다). 복원에 실패하면 BLOCKED — 커버리지는 실행만 측정한다. 무엇을 검증하는지는 변이 표본이 잰다
+//   - 테스트 정직성 신호(소스 텍스트 읽기·대상 mock·동어반복 상수)도 보고만 한다 — honest-test-lib.mjs
 // 브라우저 E2E·상태 시나리오·수집 픽스처는 각자의 보고서(qa-browser·qa-state·qa-data-quality)가 판정한다.
 //
 // 사용법: node .claude/scripts/report-test-qa.mjs --project <root> [--skip-mutation-sample] [--json]
@@ -22,6 +23,7 @@ import {resolveReleaseProfile} from './release-profile-lib.mjs'
 import {createReceiptValidationContext, readReceipt} from './receipt-validation-lib.mjs'
 import {VERDICT_REPORT_BY_SCRIPT, recordScriptVerdict} from './verdict-record-lib.mjs'
 import {answerHelp} from './cli-help-lib.mjs'
+import {HONESTY_KINDS, scanTestHonesty} from './honest-test-lib.mjs'
 
 answerHelp(import.meta.url)
 
@@ -129,12 +131,13 @@ export function evaluateTestQa(projectRoot, {mutationSample = true, receipts = n
   if (planSources.length > 0 && rows === 0) findings.push('BLOCKED — 기획서(feature-plan)가 있는데 기능 표(ID·Priority·Scope 머리글과 FEAT-NNN 행)를 읽지 못했다 — Must 인용을 판정할 수 없다 (owner: feature-planner)')
   const testFiles = [...new Set([...(test.raw?.discoveredTestFiles ?? []), ...(readJson(join(projectRoot, '_workspace/04_qa/evidence/browser.json'))?.discoveredTestFiles ?? [])])]
   const citations = citeMustFeatures(features, testFiles, file => { try { return readFileSync(join(projectRoot, file), 'utf8') } catch { return null } })
+  const honesty = scanTestHonesty(projectRoot, testFiles)
   const uncited = citations.filter(citation => citation.files.length === 0).map(citation => citation.feat)
   if (uncited.length > 0) findings.push(`BLOCKED — Must 기능을 인용한 테스트가 없다: ${uncited.join(', ')} (FEAT·TC ID를 테스트 이름이나 주석에 남긴다 — owner: developer)`)
   if (['RESTORE_FAILED', 'RESTORE_UNKNOWN'].includes(mutation.state)) findings.push(`BLOCKED — 변이 표본이 소스 복원을 증명하지 못했다: ${mutation.note} (git status로 확인한 뒤 품질 실행기를 다시 돌린다)`)
 
   const status = worst(findings.map(finding => finding.split(' ')[0]))
-  return {status, findings, test, coverage: {...coverage, row: coverageRow}, counts, percent, citations, featurePlanFound: features.size > 0, mutation}
+  return {status, findings, test, coverage: {...coverage, row: coverageRow}, counts, percent, citations, featurePlanFound: features.size > 0, mutation, honesty}
 }
 
 const commandRow = (checkId, judged, rowStatus = judged.status) => judged.raw
@@ -156,6 +159,8 @@ export function renderTestQa(result) {
   lines.push('', '## 변이 표본',
     mutation.state === 'MEASURED' ? `변이 표본 ${mutation.killed}/${mutation.sampled} (${mutation.score}%) — ${mutation.note}` : `변이 표본: ${mutation.state} — ${mutation.note}`,
     ...(mutation.survivors ?? []).map(item => `- 살아남음 ${item.file} [${item.label}]`),
+    '', '## 테스트 정직성 신호', '알림이다 — 판정에 반영하지 않는다. 정적 패턴이라 의도한 구조 검사도 걸린다(사람이 가린다).',
+    ...((result.honesty ?? []).length ? result.honesty.map(signal => `- ${signal.file}:${signal.line} [${signal.kind}] ${HONESTY_KINDS[signal.kind]} — \`${signal.evidence}\``) : ['- 없음']),
     '', '## 여기서 판정하지 않는 것',
     '- 브라우저 E2E: `qa-browser.md`(browser 영수증)', '- 상태 시나리오: `qa-state.md`', '- 수집 픽스처·승격: `qa-data-quality.md`',
     '', '_report-test-qa가 영수증에서 계산했다 — 손으로 고치면 판정 기록과 어긋나 릴리스 게이트가 막는다._', '')

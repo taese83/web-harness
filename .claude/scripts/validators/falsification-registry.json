@@ -5011,6 +5011,70 @@
       "why": "커버리지 기준을 지우면 낮은 커버리지가 PASS다"
     },
     {
+      "id": "test-qa-honesty-scan-wired",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "  const honesty = scanTestHonesty(projectRoot, testFiles)\n",
+      "replace": "  const honesty = []\n",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "정직성 스캔을 부르지 않으면 qa-test가 「신호 없음」을 조용히 싣는다"
+    },
+    {
+      "id": "test-qa-honesty-rendered",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "    ...((result.honesty ?? []).length ? result.honesty.map(",
+      "replace": "    ...([].length ? result.honesty.map(",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "찾은 신호를 보고서에 싣지 않으면 사람이 가릴 기회가 없다"
+    },
+    {
+      "id": "honest-source-text-read",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "    if (CODE_LITERAL.test(argument)) found.push(",
+      "replace": "    if (false) found.push(",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "소스 텍스트를 읽어 단언하는 테스트를 놓친다"
+    },
+    {
+      "id": "honest-mocks-subject",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "    if (subjects.has(resolveSpecifier(testFile, match[1], resolution))) found.push(",
+      "replace": "    if (false) found.push(",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "대상 모듈 자체를 mock한 테스트를 놓친다"
+    },
+    {
+      "id": "honest-tautological-constant",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "normalizeLiteral(defined) === normalizeLiteral(match[2])",
+      "replace": "false",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "구현 상수를 같은 값으로 단언하는 테스트를 놓친다"
+    },
+    {
+      "id": "test-qa-honesty-notify-only",
+      "file": ".claude/scripts/report-test-qa.mjs",
+      "find": "  const status = worst(findings.map(finding => finding.split(' ')[0]))\n  return {status, findings, test, coverage",
+      "replace": "  const status = worst([...findings, ...honesty.map(() => 'WARN')].map(finding => finding.split(' ')[0]))\n  return {status, findings, test, coverage",
+      "test": ".claude/scripts/test-report-test-qa.mjs",
+      "why": "알림 신호가 판정으로 새면 검증 없이 막는 규칙이 생긴다(rule-tiers 「새 규칙은 알림부터」 위반)"
+    },
+    {
+      "id": "honest-mocks-subject-no-overfire",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "    if (subjects.has(resolveSpecifier(testFile, match[1], resolution))) found.push(",
+      "replace": "    if (true) found.push(",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "협력자·패키지 mock까지 걸면 신호가 소음이 되어 아무도 읽지 않는다"
+    },
+    {
+      "id": "honest-source-text-read-call-bounded",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "    else if (text[index] === ')' && (depth -= 1) === 0) return text.slice(openIndex + 1, index)",
+      "replace": "    else if (false) return text.slice(openIndex + 1, index)",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "호출 뒤의 코드 리터럴까지 인자로 읽어 데이터 파일 읽기를 소스 읽기로 오탐한다"
+    },
+    {
       "id": "test-qa-must-citation",
       "file": ".claude/scripts/report-test-qa.mjs",
       "find": "if (uncited.length > 0) findings.push(",
