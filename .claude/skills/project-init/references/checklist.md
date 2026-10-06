@@ -78,7 +78,7 @@
 - `{app}/src/app/routes/RouteErrorBoundary.tsx` (template section: ROUTE_ERROR_BOUNDARY)
 - `{app}/src/shared/ui/ErrorFallback/ErrorFallback.tsx`와 `index.ts` (template section: ERROR_FALLBACK)
 - `{app}/src/pages/home/index.ts` (template section: HOME_INDEX)
-- `{app}/src/pages/not-found/ui/NotFoundPage.tsx`와 `index.ts` (template section: NOT_FOUND_PAGE)
+- `{app}/src/pages/not-found/ui/NotFoundPage.tsx` (template section: NOT_FOUND_PAGE)와 `index.ts` (template section: NOT_FOUND_INDEX)
 - `{app}/src/pages/home/ui/HomePage.tsx` (template section: HOME_PAGE)
 
 ### Shared 레이어 기본 파일

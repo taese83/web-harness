@@ -3645,10 +3645,58 @@
     {
       "id": "layer-boundaries-unresolved-not-pass",
       "file": ".claude/scripts/validate-layer-boundaries.mjs",
-      "find": "  const status = violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'",
-      "replace": "  const status = violations.length > 0 ? 'FAIL' : 'PASS'",
+      "find": "  const status = !directionDeclared ? 'NOT_DECLARED' : violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'",
+      "replace": "  const status = !directionDeclared ? 'NOT_DECLARED' : violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'PASS' : 'PASS'",
       "test": ".claude/scripts/test-layer-boundaries.mjs",
       "why": "해석 못 한 별칭을 PASS로 세면 번들러 전용 별칭만 두는 것으로 방향 검사를 통째로 벗어난다"
+    },
+    {
+      "id": "layer-boundaries-deep-import-detected",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "        if (otherSlice && hasIndex(to.slicePath) && bypassesEntry(to.slicePath, to.inner)) deepImports.push(",
+      "replace": "        if (false) deepImports.push(",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "다른 슬라이스의 내부로 들어가는 import를 알리지 않는다 — 공개 API 규칙이 다시 산문만 남는다"
+    },
+    {
+      "id": "layer-boundaries-deep-import-own-slice",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "        const otherSlice = to.slice && (to.layer !== from.layer || to.slice !== from.slice)",
+      "replace": "        const otherSlice = to.slice",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "자기 슬라이스 내부 import까지 걸면 신호가 소음이 된다"
+    },
+    {
+      "id": "layer-boundaries-deep-import-index-declares",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "otherSlice && hasIndex(to.slicePath) && ",
+      "replace": "otherSlice && ",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "공개 API(index)를 선언하지 않은 슬라이스까지 걸면 하네스가 FSD 관례를 강요한다(I3)"
+    },
+    {
+      "id": "layer-boundaries-deep-import-x-entry",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "  if (parts[0] === '@x') return false\n",
+      "replace": "  if (false) return false\n",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "FSD @x 교차 공개 API를 우회로 오탐한다"
+    },
+    {
+      "id": "layer-boundaries-deep-import-notify-only",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "  const status = !directionDeclared ? 'NOT_DECLARED' : violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'",
+      "replace": "  const status = !directionDeclared ? 'NOT_DECLARED' : violations.length + deepImports.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "알림이 판정으로 새면 실측 없이 막는 규칙이 생긴다(rule-tiers 「새 규칙은 알림부터」)"
+    },
+    {
+      "id": "layer-boundaries-deep-import-without-direction",
+      "file": ".claude/scripts/validate-layer-boundaries.mjs",
+      "find": "  const directionDeclared = Boolean(dependencies) && typeof dependencies === 'object'\n",
+      "replace": "  const directionDeclared = Boolean(dependencies) && typeof dependencies === 'object'\n  if (!directionDeclared) return {status: 'NOT_DECLARED', violations: [], unresolved: [], deepImports: [], checkedFiles: 0, notes: []}\n",
+      "test": ".claude/scripts/test-layer-boundaries.mjs",
+      "why": "방향 선언이 없는 흔한 프로젝트에서 공개 진입점 우회 알림이 조용히 꺼진다"
     },
     {
       "id": "seo-report-public-exposure-trigger",

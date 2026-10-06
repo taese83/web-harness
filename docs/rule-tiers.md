@@ -97,6 +97,7 @@
 | CSP Report-Only 위반(preview에서 e2e가 수집) ★ | `security-headers.md` |
 | 미사용 파일·export·의존성(knip, 있음/없음) ★ | `run-quality-gates --check deadcode` |
 | 테스트 정직성 — 소스 텍스트 읽기·대상 자체 mock·구현 상수 되읽기 | `honest-test-lib.mjs` → `qa-test.md` |
+| 공개 진입점(index) 우회 import — 다른 슬라이스의 하위 폴더, 레이어 트리 안 colocated 테스트 포함 | `validate-layer-boundaries.mjs` `deepImports` |
 | 레이어 방향 `NOT_DECLARED`·`INCOMPLETE` ★ | `validate-layer-boundaries.mjs` |
 | 디자인 부채 청구, 스펙 정합 note, 중복·재사용 리팩토링 제안 | 각 문서 |
 | code-reviewer·security-reviewer의 WARN | 각 에이전트 |

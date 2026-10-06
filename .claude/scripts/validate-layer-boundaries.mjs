@@ -10,7 +10,12 @@
 //   다른 레이어로의 import — 허용 목록에 그 레이어가 없으면 위반
 //   같은 레이어의 다른 슬라이스(레이어 경로 바로 아래 **디렉터리**)로의 import — 허용 목록에 자기
 //   레이어가 없으면 위반. 레이어 바로 아래 파일끼리(평면 레이어)는 슬라이스가 아니다
-// 테스트 파일은 대조하지 않는다. layerMap 밖으로의 import와 외부 패키지는 판정 대상이 아니다.
+// 테스트 파일은 방향을 대조하지 않는다. layerMap 밖으로의 import와 외부 패키지는 판정 대상이 아니다.
+//
+// 알림(판정·종료 코드에 반영하지 않는다) — `deepImports`: 다른 슬라이스의 **공개 진입점을 우회한** import.
+// 슬라이스 루트에 `index.*`가 있으면 그 슬라이스가 공개 API를 선언한 것으로 보고, 루트 파일·`@x/` 밖의
+// 하위 디렉터리로 들어가는 import를 싣는다(`@x/`는 FSD의 교차 공개 API 어휘 — 다른 형태에서는 쓰이지 않는다). 테스트 파일도 본다 — 테스트가 남의 내부를 붙잡으면 구현을
+// 바꿀 때 깨지고 동작은 못 잡는다(진입점이 테스트 표면이다). 자기 슬라이스 안은 대상이 아니다.
 // **해석하지 못한 별칭**(tsconfig에 없는 `@x/…`·`~/…`·`#…`)이 있으면 PASS가 아니라 INCOMPLETE다.
 //
 // 사용법:
@@ -33,19 +38,30 @@ const toPosix = path => path.split(sep).join('/')
 const stripExtension = path => path.replace(/\.[cm]?[jt]sx?$/, '')
 const isDirectory = path => existsSync(path) && statSync(path).isDirectory()
 
-const collectFiles = (path, out = []) => {
+const collectFiles = (path, out = [], {tests = false} = {}) => {
   if (!existsSync(path)) return out
   const stat = statSync(path)
   if (stat.isFile()) {
-    if (SOURCE_EXTENSION.test(path) && !TEST_FILE.test(path)) out.push(path)
+    if (SOURCE_EXTENSION.test(path) && (tests || !TEST_FILE.test(path)) && !path.endsWith('.d.ts')) out.push(path)
     return out
   }
   if (!stat.isDirectory()) return out
   for (const entry of readdirSync(path, {withFileTypes: true})) {
     if (entry.isSymbolicLink() || IGNORED_DIRECTORIES.has(entry.name)) continue
-    collectFiles(join(path, entry.name), out)
+    collectFiles(join(path, entry.name), out, {tests})
   }
   return out
+}
+
+const INDEX_FILES = ['index.ts', 'index.tsx', 'index.js', 'index.jsx', 'index.mjs']
+const hasIndex = directory => INDEX_FILES.some(name => existsSync(join(directory, name)))
+
+/** 슬라이스 안 경로(`inner`)가 공개 진입점 밖인가 — 루트 파일·index·`@x/`는 진입점이다(순수 + 디렉터리 확인). */
+export const bypassesEntry = (slicePath, inner) => {
+  if (!inner || inner === 'index') return false
+  const parts = inner.split('/')
+  if (parts[0] === '@x') return false
+  return parts.length >= 2 || isDirectory(join(slicePath, parts[0]))
 }
 
 // 주석을 공백으로 지운다 — 줄 번호가 원문과 맞도록 줄바꿈은 남긴다.
@@ -146,12 +162,11 @@ const readSpec = root => {
 export const inspectLayerBoundaries = ({projectRoot, spec = readSpec(resolve(projectRoot))}) => {
   const root = resolve(projectRoot)
   if (!spec?.layerMap || typeof spec.layerMap !== 'object') {
-    return {status: 'NO_SPEC', violations: [], unresolved: [], checkedFiles: 0, notes: [`${SPEC_LOCK_PATH}의 layerMap이 없다 — 대조할 규칙이 없다(통과가 아니다)`]}
+    return {status: 'NO_SPEC', violations: [], unresolved: [], deepImports: [], checkedFiles: 0, notes: [`${SPEC_LOCK_PATH}의 layerMap이 없다 — 대조할 규칙이 없다(통과가 아니다)`]}
   }
   const dependencies = spec.layerDependencies
-  if (!dependencies || typeof dependencies !== 'object') {
-    return {status: 'NOT_DECLARED', violations: [], unresolved: [], checkedFiles: 0, notes: ['스팩에 layerDependencies가 없다 — 레이어 방향을 대조하지 않았다(통과가 아니다)']}
-  }
+  // 방향 선언이 없어도 공개 진입점 우회(알림)는 layerMap만으로 잰다 — 방향 판정만 건너뛴다.
+  const directionDeclared = Boolean(dependencies) && typeof dependencies === 'object'
   const layers = Object.entries(spec.layerMap)
     .filter(([, value]) => isLayerPathDeclared(value))
     .map(([name, value]) => ({name, path: resolve(root, value.trim().replace(/\/\*{1,2}$/, '').replace(/\/+$/, ''))}))
@@ -167,7 +182,8 @@ export const inspectLayerBoundaries = ({projectRoot, spec = readSpec(resolve(pro
         const rest = bare.slice(layerPath.length + 1)
         const first = rest.split('/')[0]
         const slice = rest.includes('/') || isDirectory(join(layer.path, first)) ? first : ''
-        return {layer: layer.name, slice: slice === 'index' ? '' : slice}
+        if (slice === 'index' || slice === '') return {layer: layer.name, slice: ''}
+        return {layer: layer.name, slice, slicePath: join(layer.path, slice), inner: rest.slice(slice.length + 1)}
       }
     }
     return null
@@ -177,22 +193,27 @@ export const inspectLayerBoundaries = ({projectRoot, spec = readSpec(resolve(pro
   const packages = readPackages(root)
   const violations = []
   const unresolved = []
+  const deepImports = []
   let checkedFiles = 0
   for (const layer of layers) {
-    for (const file of collectFiles(layer.path)) {
+    for (const file of collectFiles(layer.path, [], {tests: true})) {
       const from = locate(file)
       if (!from || from.layer !== layer.name) continue
-      checkedFiles += 1
-      const allowed = new Set(dependencies[from.layer] ?? [])
+      const isTest = TEST_FILE.test(file)
+      if (!isTest && directionDeclared) checkedFiles += 1
+      const allowed = new Set(directionDeclared ? dependencies[from.layer] ?? [] : [])
       for (const {specifier, line} of importSpecifiers(readFileSync(file, 'utf8'))) {
         const target = resolveSpecifier(specifier, file, aliases)
         if (target === null) {
-          if (looksLikeAlias(specifier, packages)) unresolved.push({file: toPosix(relative(root, file)), line, specifier})
+          if (!isTest && directionDeclared && looksLikeAlias(specifier, packages)) unresolved.push({file: toPosix(relative(root, file)), line, specifier})
           continue
         }
         const to = locate(target)
         if (!to) continue
         const at = {file: toPosix(relative(root, file)), line, specifier, fromLayer: from.layer, toLayer: to.layer}
+        const otherSlice = to.slice && (to.layer !== from.layer || to.slice !== from.slice)
+        if (otherSlice && hasIndex(to.slicePath) && bypassesEntry(to.slicePath, to.inner)) deepImports.push({...at, toSlice: to.slice, test: isTest})
+        if (isTest || !directionDeclared) continue
         if (to.layer !== from.layer) {
           if (!allowed.has(to.layer)) violations.push({...at, reason: `${from.layer}는 ${to.layer}를 import할 수 없다`})
         } else if (from.slice && to.slice && from.slice !== to.slice && !allowed.has(from.layer)) {
@@ -202,9 +223,11 @@ export const inspectLayerBoundaries = ({projectRoot, spec = readSpec(resolve(pro
     }
   }
   const notes = []
+  if (!directionDeclared) notes.push('스팩에 layerDependencies가 없다 — 레이어 방향을 대조하지 않았다(통과가 아니다)')
   if (unresolved.length > 0) notes.push(`해석하지 못한 별칭 import ${unresolved.length}건 — 대조하지 않았다. tsconfig paths에 등록하면 판정된다`)
-  const status = violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'
-  return {status, violations, unresolved, checkedFiles, notes}
+  if (deepImports.length > 0) notes.push(`공개 진입점(index)을 우회한 import ${deepImports.length}건 — 알림이다(판정에 반영하지 않는다)`)
+  const status = !directionDeclared ? 'NOT_DECLARED' : violations.length > 0 ? 'FAIL' : unresolved.length > 0 ? 'INCOMPLETE' : 'PASS'
+  return {status, violations, unresolved, deepImports, checkedFiles, notes}
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -221,6 +244,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   } else {
     process.stdout.write(`layer boundaries: ${result.status} — 파일 ${result.checkedFiles}개\n`)
     for (const item of result.violations) process.stdout.write(`  FAIL ${item.file}:${item.line} '${item.specifier}' — ${item.reason}\n`)
+    for (const item of result.deepImports) process.stdout.write(`  NOTE ${item.file}:${item.line} '${item.specifier}' — ${item.toLayer}/${item.toSlice}의 공개 진입점을 우회한다${item.test ? '(테스트)' : ''}\n`)
     for (const note of result.notes) process.stdout.write(`  · ${note}\n`)
   }
   process.exitCode = {PASS: 0, FAIL: 1}[result.status] ?? 3

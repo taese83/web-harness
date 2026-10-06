@@ -105,7 +105,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.
 3. Grep 도구로 `export \*` 패턴을 `src/`에서 검색 — wildcard export 검사
 4. Grep 도구로 `class\*=|css-[a-zA-Z0-9]` 패턴을 `src/`에서 검색 — substring/generated selector 검사
-5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 리뷰 묶음의 `layer-boundaries.json`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다
+5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 리뷰 묶음의 `layer-boundaries.json`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다. `deepImports`(공개 진입점 우회)는 알림이다 — 이번 diff가 만든 것만 WARN으로 적고 대안(진입점에 export 추가 — lazy 라우트는 `import('<슬라이스>').then(m => ({default: m.X}))`, 테스트는 진입점에서 동작 확인)을 단다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
    - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL과 **서버·모델·호스트가 준 payload의 URL**을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — 네이티브 스킴이 필요한 앱은 allowlist를 그 스킴까지 넓히고 사유를 한 줄 적는다(없애는 것이 아니다) — React는 `javascript:`만 막고 `data:`는 통과시킨다

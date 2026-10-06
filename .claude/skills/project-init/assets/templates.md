@@ -932,8 +932,9 @@ import {Navigate} from 'react-router'
 import type {RouteObject} from 'react-router'
 import {RouteErrorBoundary} from './RouteErrorBoundary'
 
-const HomePage = lazy(() => import('@pages/home/ui/HomePage'))
-const NotFoundPage = lazy(() => import('@pages/not-found/ui/NotFoundPage'))
+// 페이지는 슬라이스 공개 진입점(index)으로만 들인다(fsd-rules §2) — lazy는 default를 요구하므로 named export를 감싼다.
+const HomePage = lazy(() => import('@pages/home').then(module => ({default: module.HomePage})))
+const NotFoundPage = lazy(() => import('@pages/not-found').then(module => ({default: module.NotFoundPage})))
 
 export const ROUTES: RouteObject[] = [
   {
@@ -1050,6 +1051,14 @@ export function RouteErrorBoundary() {
 
 ```ts
 export {default as HomePage} from './ui/HomePage'
+```
+
+---
+
+## NOT_FOUND_INDEX
+
+```ts
+export {default as NotFoundPage} from './ui/NotFoundPage'
 ```
 
 ---

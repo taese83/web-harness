@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {importSpecifiers, inspectLayerBoundaries} from './validate-layer-boundaries.mjs'
@@ -61,12 +61,98 @@ test('FSD 어휘: 별칭과 상대경로가 같은 위반을 내고, 슬라이�
   }
 })
 
+test('공개 진입점 우회(deepImports): 다른 슬라이스의 하위 폴더로 들어가면 싣고, 판정·종료 코드는 그대로다(알림)', () => {
+  const root = project({
+    'tsconfig.json': '{"compilerOptions": {"paths": {"@features/*": ["src/features/*"], "@entities/*": ["src/entities/*"]}}}',
+    'src/features/cart/index.ts': "export {useCart} from './model/store'\n",
+    'src/features/cart/model/store.ts': 'export const useCart = () => 1\n',
+    'src/features/cart/api.ts': 'export const fetchCart = () => 1\n',
+    'src/features/cart/cart.test.ts': "import {useCart} from './model/store'\n",
+    'src/features/auth/model/session.ts': 'export const session = 1\n',
+    'src/entities/user/index.ts': 'export const user = 1\n',
+    'src/entities/user/@x/order.ts': 'export const forOrder = 1\n',
+    'src/entities/order/index.ts': "import {forOrder} from '../user/@x/order'\nexport const order = forOrder\n",
+    'src/pages/home/index.tsx': [
+      "import {useCart} from '@features/cart'",
+      "import {fetchCart} from '@features/cart/api'",
+      "import {useCart as deep} from '@features/cart/model/store'",
+      "import * as model from '../../features/cart/model'",
+      "import {session} from '@features/auth/model/session'",
+    ].join('\n'),
+    'src/pages/home/home.test.tsx': "import {useCart} from '@features/cart/model/store'\n",
+  })
+  try {
+    const result = inspectLayerBoundaries({projectRoot: root, spec: {
+      layerMap: {pages: 'src/pages', features: 'src/features', entities: 'src/entities'},
+      layerDependencies: {pages: ['features', 'entities'], features: ['entities'], entities: ['entities']},
+    }})
+    assert.equal(result.status, 'PASS', '알림이 판정을 바꿨다')
+    assert.deepEqual(result.deepImports.map(item => `${item.file}:${item.line}:${item.toSlice}:${item.test}`).sort(), [
+      'src/pages/home/home.test.tsx:1:cart:true',
+      'src/pages/home/index.tsx:3:cart:false',
+      'src/pages/home/index.tsx:4:cart:false',
+    ])
+    assert.equal(result.checkedFiles, 8, '테스트 파일을 방향 대조 수에 넣었다')
+    const undeclared = inspectLayerBoundaries({projectRoot: root, spec: {layerMap: {pages: 'src/pages', features: 'src/features', entities: 'src/entities'}}})
+    assert.equal(undeclared.status, 'NOT_DECLARED')
+    assert.equal(undeclared.deepImports.length, 3, '방향 선언이 없다고 공개 진입점 우회까지 건너뛰었다')
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify({
+      layerMap: {pages: 'src/pages', features: 'src/features', entities: 'src/entities'},
+      layerDependencies: {pages: ['features', 'entities'], features: ['entities'], entities: ['entities']},
+    }))
+    const cli = spawnSync(process.execPath, [script, '--project-root', root], {encoding: 'utf8'})
+    assert.equal(cli.status, 0, '알림이 종료 코드를 바꿨다')
+    assert.match(cli.stdout, /NOTE src\/pages\/home\/index\.tsx:3 '@features\/cart\/model\/store'/)
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('project-init 템플릿의 라우트는 페이지 슬라이스의 공개 진입점으로만 들어간다(deepImports 0)', () => {
+  const templates = readFileSync(resolve(import.meta.dirname, '../skills/project-init/assets/templates.md'), 'utf8')
+  const block = name => {
+    const start = templates.indexOf(`\n## ${name}\n`)
+    assert.ok(start >= 0, `템플릿 섹션 ${name}이 없다`)
+    const open = templates.indexOf('```', start)
+    const body = templates.indexOf('\n', open) + 1
+    return templates.slice(body, templates.indexOf('\n```', body) + 1)
+  }
+  const files = {
+    'tsconfig.web.json': block('TSCONFIG_WEB'),
+    'src/app/routes/Routes.tsx': block('ROUTES_TSX'),
+    'src/app/routes/RouteErrorBoundary.tsx': 'export const RouteErrorBoundary = () => null\n',
+    'src/pages/home/index.ts': block('HOME_INDEX'),
+    'src/pages/home/ui/HomePage.tsx': 'export default function HomePage() { return null }\n',
+    'src/pages/not-found/index.ts': block('NOT_FOUND_INDEX'),
+    'src/pages/not-found/ui/NotFoundPage.tsx': 'export default function NotFoundPage() { return null }\n',
+  }
+  const spec = {layerMap: {app: 'src/app', pages: 'src/pages', shared: 'src/shared'}, layerDependencies: {app: ['pages', 'shared'], pages: ['shared'], shared: []}}
+  const root = project(files)
+  try {
+    const result = inspectLayerBoundaries({projectRoot: root, spec})
+    assert.equal(result.status, 'PASS', result.notes.join('\n'))
+    assert.deepEqual(result.deepImports, [], '하네스 템플릿이 자기 공개 API 규칙(fsd-rules §2)을 어긴다')
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+  const deep = project({...files, 'src/app/routes/Routes.tsx': files['src/app/routes/Routes.tsx'].replace("import('@pages/home')", "import('@pages/home/ui/HomePage')")})
+  try {
+    assert.equal(inspectLayerBoundaries({projectRoot: deep, spec}).deepImports.length, 1, '템플릿 블록을 읽었지만 우회를 재지 못한다')
+  } finally {
+    rmSync(deep, {recursive: true, force: true})
+  }
+})
+
 test('헥사고날 어휘: 레이어 이름·경로를 하네스가 정하지 않고, 평면 레이어 안 파일끼리는 슬라이스가 아니다', () => {
   const root = project({
     'lib/domain/order.ts': "import {db} from '../infrastructure/db'\nimport {Money} from './money'\nexport class Order {}\n",
     'lib/domain/money.ts': 'export class Money {}\n',
     'lib/application/place-order.ts': "import {Order} from '../domain/order'\n",
     'lib/infrastructure/db.ts': "import {Order} from '../domain/order'\nexport const db = 1\n",
+    'lib/domain/billing/index.ts': "export {invoice} from './internal/invoice'\n",
+    'lib/domain/billing/internal/invoice.ts': 'export const invoice = 1\n',
+    'lib/application/charge.ts': "import {invoice} from '../domain/billing/internal/invoice'\nimport {invoice as viaEntry} from '../domain/billing'\n",
   })
   const spec = {
     layerMap: {domain: 'lib/domain', application: 'lib/application', infrastructure: 'lib/infrastructure'},
@@ -75,6 +161,7 @@ test('헥사고날 어휘: 레이어 이름·경로를 하네스가 정하지 �
   try {
     const result = inspectLayerBoundaries({projectRoot: root, spec})
     assert.deepEqual(result.violations.map(item => `${item.fromLayer}→${item.toLayer}`), ['domain→infrastructure'])
+    assert.deepEqual(result.deepImports.map(item => `${item.file}:${item.line}`), ['lib/application/charge.ts:1'], '두 번째 어휘에서 공개 진입점 우회를 놓쳤다')
   } finally {
     rmSync(root, {recursive: true, force: true})
   }

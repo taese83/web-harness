@@ -42,6 +42,8 @@ export * from './ui/FeatureComponent'
 ```
 
 슬라이스 내부 구조를 아무리 바꿔도, 외부 코드는 `index.ts`의 공개 API만 바라보므로 수정 없이 유지된다.
+다른 슬라이스의 하위 폴더를 직접 import하면(레이어 트리 안의 colocated 테스트 포함) `validate-layer-boundaries`가 `deepImports`로 알린다 —
+판정에는 반영하지 않고 `code-reviewer`가 본다. 테스트도 진입점에서 동작을 확인한다(진입점이 테스트 표면이다).
 
 ### 3. 같은 레이어 간 cross-import
 같은 레이어의 슬라이스끼리 직접 import는 기본적으로 피한다.
