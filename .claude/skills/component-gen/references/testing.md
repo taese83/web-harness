@@ -2,7 +2,8 @@
 
 테스트를 쓰기 전에 읽는다(레인 공용). **[lint]** = `project-init` 템플릿(react-vite-spa)의 `eslint.config.js`가 테스트
 파일에 기계로 강제한다(`eslint-plugin-testing-library` `flat/react`, `eslint-plugin-playwright` `flat/recommended`).
-다른 형태·기존 프로젝트에서는 같은 규칙이 산문 규약이다.
+다른 형태·기존 프로젝트에서는 같은 규칙이 산문 규약이다. **[신호]** = `report-test-qa`가 `qa-test.md`에 위치를 싣는다
+(형태 무관, 판정에는 반영하지 않는다 — `honest-test-lib.mjs`).
 
 ## 무엇을 테스트하는가
 
@@ -47,6 +48,11 @@
 
 - 통과시키려고 단언을 약하게 바꾸지 않는다 — 막힌 것은 구현이다.
 - `--passWithNoTests`·빈 `describe`·`expect(true)`로 테스트를 채우지 않는다.
+- 소스 파일 텍스트를 읽어(`readFileSync('…/App.tsx')`·`?raw`) 순서·문자열을 단언하지 않는다 — 렌더하거나 실행해서 본다 **[신호]**.
+  금지 API 부재 같은 구조 검사가 목적이면 테스트가 아니라 lint 규칙이 그 집이다.
+- 테스트 대상 모듈 자체를 mock하지 않는다(`Foo.test.ts`의 `vi.mock('./Foo')`) — mock은 대상 바깥 경계(네트워크·시간·브라우저 API)에 둔다 **[신호]**.
+- 기대값을 구현에서 복사하지 않는다(`expect(MAX_LEN).toBe(280)`가 `export const MAX_LEN = 280`을 되읽는다) —
+  기대값은 스펙·예시처럼 구현과 독립된 출처에서 온다 **[신호]**.
 
 ## 일반화 근거
 
@@ -54,3 +60,4 @@
 - **Next 풀스택·서버리스 하이브리드** — 컴포넌트·브라우저 테스트 규칙이 산문으로 그대로 선다(lint 배선은 아직 없다).
 - **UI 없는 라이브러리·CLI** — 「무엇을 테스트하는가」의 관찰 가능한 동작·TC 인용·하지 않는 것만 적용된다(공개 API가 관찰 대상).
 - 진실 검증 수준: **명명 수준** — lint 규칙 발화는 플러그인 설치로 확인했고, 생성 프로젝트에서 테스트 품질이 나아졌는지는 미실측이다.
+- **[신호]** 셋은 `vi.*`·`jest.*`·Node `fs` 문법과 tsconfig `paths`만 보므로 Vitest·Jest 러너면 형태와 무관하게 선다. `node:test`의 `mock.module`은 보지 못한다(놓침). 적중·오탐은 심은 사례로만 확인했다 — golden 테스트 7개의 신호 0은 mock·readFile 호출이 없어 vacuous이고, 실제 생성 프로젝트에서의 적중률은 미실측이다.

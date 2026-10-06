@@ -96,6 +96,7 @@
 | 재사용 목록 대조 — 새 export 미사용·이름 중복 ★ | `reuse-inventory.mjs` |
 | CSP Report-Only 위반(preview에서 e2e가 수집) ★ | `security-headers.md` |
 | 미사용 파일·export·의존성(knip, 있음/없음) ★ | `run-quality-gates --check deadcode` |
+| 테스트 정직성 — 소스 텍스트 읽기·대상 자체 mock·구현 상수 되읽기 | `honest-test-lib.mjs` → `qa-test.md` |
 | 레이어 방향 `NOT_DECLARED`·`INCOMPLETE` ★ | `validate-layer-boundaries.mjs` |
 | 디자인 부채 청구, 스펙 정합 note, 중복·재사용 리팩토링 제안 | 각 문서 |
 | code-reviewer·security-reviewer의 WARN | 각 에이전트 |

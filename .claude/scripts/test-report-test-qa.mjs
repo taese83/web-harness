@@ -7,6 +7,7 @@
 //   - cut되지 않은 Must 기능을 어떤 테스트도 FEAT·TC ID로 인용하지 않으면 BLOCKED — 스팩 등급과 무관하다
 //   - 보고서는 릴리스 게이트가 읽는 형식(## Result, 명령 표)이고 판정 기록과 digest가 같다
 //   - 실제 품질 실행기 영수증을 게이트와 같은 검증으로 읽는다(진단용 --check 영수증은 --all 요건으로 BLOCKED)
+//   - 테스트 정직성 신호는 보고서에 위치를 싣지만 판정을 바꾸지 않는다(알림)
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {createHash} from 'node:crypto'
@@ -94,6 +95,23 @@ test('판정 경로: PASS·WARN·FAIL·BLOCKED가 영수증과 기획서에서 �
   assert.equal(uncited.status, 'BLOCKED', '인용 없는 Must 기능을 통과시켰다')
   assert.match(uncited.findings.join('\n'), /FEAT-001/)
   assert.equal(judge(root, {testErrors: ['t: source fingerprint is stale']}).status, 'BLOCKED')
+}))
+
+test('테스트 정직성 신호: 보고서에 위치를 싣되 판정은 바꾸지 않는다(알림)', () => withProject({
+  '_workspace/01_plan/feature-plan.md': PLAN,
+  'src/a.test.ts': "// TC-001-1 로그인\nvi.mock('./a')\n",
+  'src/b.test.ts': 'export {}\n',
+}, root => {
+  const flagged = judge(root)
+  assert.equal(flagged.status, 'PASS', '알림 신호가 판정을 바꿨다')
+  assert.deepEqual(flagged.honesty.map(signal => `${signal.file}:${signal.line}:${signal.kind}`), ['src/a.test.ts:2:mocks-subject'])
+  const report = renderTestQa(flagged)
+  assert.match(report, /^## 테스트 정직성 신호$/m)
+  assert.match(report, /^- src\/a\.test\.ts:2 \[mocks-subject\] /m, '스캔 결과가 보고서에 실리지 않았다')
+  assert.match(renderTestQa(judge(root, {test: {discoveredTestFiles: ['src/a.test.ts', 'src/b.test.ts']}})), /\[mocks-subject\]/)
+  const clean = judge(root, {test: {discoveredTestFiles: ['src/b.test.ts']}})
+  assert.deepEqual(clean.honesty, [])
+  assert.match(renderTestQa(clean), /^## 테스트 정직성 신호\n.*\n- 없음$/m)
 }))
 
 test('기획서가 있는데 기능 표를 못 읽으면 BLOCKED — Must 인용 검사가 조용히 꺼지지 않는다', () => withProject({
