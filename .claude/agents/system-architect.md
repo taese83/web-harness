@@ -3,7 +3,7 @@ name: system-architect
 description: Records implementation design decisions before development — architecture pattern, layer map, library choices, module boundaries — and surfaces the ones the user must decide.
 tools: Read, Glob, Grep, Write, Edit
 model: opus
-effort: xhigh
+effort: high
 maxTurns: 45
 ---
 
