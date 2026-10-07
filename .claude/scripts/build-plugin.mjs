@@ -15,7 +15,7 @@ const outputRoot = resolve(repositoryRoot, process.argv.includes('--out')
   : 'dist/web-harness-plugin')
 
 const PLUGIN_NAME = 'web-harness'
-const PLUGIN_VERSION = '0.63.0'
+const PLUGIN_VERSION = '0.64.0'
 
 // 배포 메타데이터는 소스에 특정 저장소·개인을 박지 않고 환경에서 파생한다.
 // WEB_HARNESS_PLUGIN_AUTHOR / _REPO_URL / _MARKETPLACE_GIT 로 override, 없으면 git remote,
@@ -86,7 +86,7 @@ const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
 // SubagentStop — 끝난 developer 스폰의 write 임대를 놓는다(`write-lease-lib.mjs`). 짝인 취득은
 // `enforce-agent-ownership.mjs`(PreToolUse)에 있다. 이것이 빠지면 첫 developer 스폰이 끝난 뒤에도
 // 임대가 남아 **두 번째 스폰이 영원히 막힌다** — 취득과 해제는 반드시 함께 배포한다.
-const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs', 'record-verdict.mjs']
+const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs', 'record-verdict.mjs', 'record-subagent-telemetry.mjs']
 // 사용자가 `/wh`로 켠 세션만 이후 요청에 라우팅 안내를 붙인다(켜지 않은 세션에는 아무것도 붙지 않는다).
 const PLUGIN_USER_PROMPT_HOOKS = ['harness-session-mode.mjs']
 // PostToolUse — 메인 세션 도구 결과 크기 기록(막지 않는다). 하네스 프로젝트에서만 쓴다.

@@ -6,8 +6,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 `system-architect`가 **구�
 ## 0. 이 단계의 지위 — 결정 기록
 
 설계자(`system-architect`)는 무엇도 막지 않는다 — 결정을 기록하고 사용자가 정할 것을 올린다. 막는 것은 다음 단계다:
-이 파일이 없거나 `open` 결정이 남으면 확정(§6)이 거부되고 개발 인계(`--to development`의 `design-decisions`)가 HOLE이다.
-그래서 이 단계는 건너뛸 수 없다.
+이 파일이 없거나 `open` 결정이 남으면 확정(§6)이 거부되고 개발 인계(`--to development`의 `design-decisions`)가 HOLE이다 — 건너뛸 수 없다.
 
 ## 0-1. 진입 경로 — 스팩은 언제 서는가
 
@@ -142,8 +141,8 @@ Phase 2 wave가 끝난 뒤, Phase 2 → 3 체크포인트 **앞에서** 밟는�
 
 **질의는 왕복이다 — 설계자가 스스로 닫지 않는다.** 설계자는 서브에이전트라 사용자에게 직접
 묻지 못한다. 갈리는 결정은 `openDecisions`에 `status: "open"`으로 남기고 **거기서 멈춘다**.
-오케스트레이터가 `interaction-contract.md`에 따라(한 번에 최대 3개, 추천안과 사유 첨부)
-사용자에게 묻고, 답을 설계자에게 돌려준다.
+오케스트레이터가 `interaction-contract.md`에 따라
+사용자에게 묻고, 답을 그 설계자에게 이어서(SendMessage) 돌려준다 — 불가하면(세션 경계·hang) 답과 SD ID만 실은 새 스폰이 그 항목만 고친다.
 
 - 사용자가 답했다 → `confirmed`
 - 사용자가 보류·거부했다 → 추천안을 `assumed`로 확정하고 그렇게 표기한다
@@ -257,7 +256,7 @@ protected-core에 기등록된 한계다.
 - `acceptanceSource`와 `acceptanceRefs`의 자기 모순
 - `architecture.rationale` 부재 — 무엇을 골랐는지만으로는 잠글 수 없다
 
-- `acceptanceRefs`가 `feature-plan.md`에 **실제로 없는 ID**를 가리킨다(`ACCEPTANCE_REF_NOT_FOUND`). ID를 적을 때는 기획에 그 ID가 있어야 한다.
+- `acceptanceRefs`가 `feature-plan.md`에 **실제로 없는 ID**를 가리킨다(`ACCEPTANCE_REF_NOT_FOUND`).
 
 **확정 이후에 대조되는 것**
 
