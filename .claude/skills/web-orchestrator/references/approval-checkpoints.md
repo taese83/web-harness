@@ -216,7 +216,7 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 - `moduleBoundaries`와 `nonGoals`
 - `openDecisions` 중 `assumed`로 닫힌 항목 — 사용자가 보류해 추천안으로 확정된 것
 
-수정 요청이 있으면 `system-architect`를 다시 실행하고(API면 ⓪부터, `solution-design-contract.md` §0-3) `spec.mjs`로 재확정한 뒤 이 절을 반복한다.
+수정 요청이 있으면 `system-architect`에 고칠 항목을 전하고(이어가기 우선 — `solution-design-contract.md` §4, API면 ⓪부터 §0-3) `spec.mjs`로 재확정한 뒤 이 절을 반복한다.
 **확인 전에는 Phase 3 source edit를 시작하지 않는다.** 확인받으면 Phase 2 → 3과 같은 `DEV_START_APPROVED` 줄을 적는다.
 
 ## change 레인 → 개발

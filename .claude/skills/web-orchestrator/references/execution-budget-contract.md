@@ -37,7 +37,8 @@
 - `outcome`은 "스폰 완결성 게이트" 판정 결과다: `complete` | `truncated` | `crashed` | `incomplete`. 값을 지어내지 않는다 — 게이트를 돌리지 않았으면 `outcome`을 생략한다(누락은 미판정이지 complete가 아니다).
 - 실행 환경이 usage를 제공하지 않으면 해당 필드를 `null`로 기록한다 — **값을 추정하거나 지어내지 않는다.** `tokens: null` 행도 스폰 수 집계에는 유효하다.
 - 이 파일은 QA receipt가 아니다. `evidence/` 디렉토리에 두지 않고(receipt 검증과 분리) `_workspace/04_qa/` 직하에 둔다 — release fingerprint 제외 경로라서 Phase 4 중 append가 source hash를 stale로 만들지 않는다.
-- 집계 보고: `node .claude/scripts/report-execution-telemetry.mjs --project {root}` — run·phase별 스폰/토큰 합계, 토큰 상위 agent, retry 비율을 출력한다. **advisory이며 gate가 아니다** — 이 수치로 release 판정을 바꾸지 않는다.
+- 소요 시간·턴은 `SubagentStop` 훅(`record-subagent-telemetry.mjs`)이 런타임 transcript에서 멈춤마다 따로 기록한다(지시 대기 제외, 이어받은 스폰은 직전 기록 이후만) — 위 자기보고가 빠져도 에이전트별 소요가 남는다. 토큰은 재지 않는다.
+- 집계 보고: `node .claude/scripts/report-execution-telemetry.mjs --project {root}` — run·phase별 스폰/토큰 합계, 토큰 상위 agent, retry 비율, 에이전트별 실측 소요를 출력한다. **advisory이며 gate가 아니다** — 이 수치로 release 판정을 바꾸지 않는다.
 
 ## 스폰 완결성 게이트
 

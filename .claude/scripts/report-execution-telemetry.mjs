@@ -21,7 +21,47 @@ const telemetryPath = join(projectRoot, '_workspace', '04_qa', 'execution-teleme
 const contextPath = join(projectRoot, '_workspace', '04_qa', 'context-telemetry.jsonl')
 if (existsSync(contextPath)) {
   const all = readFileSync(contextPath, 'utf8').split('\n').flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
-  const rows = all.filter(row => row.kind !== 'deny')
+  const rows = all.filter(row => row.kind !== 'deny' && row.kind !== 'subagent')
+  // 서브에이전트 실측(record-subagent-telemetry 훅) — 행은 멈춤 하나이고 서로 겹치지 않는다(이어받은 스폰은 멈출 때마다 직전 이후만).
+  // 스폰(agentId)별로 접어 스폰 수·소요(지시 대기 제외)·턴을 보인다. 어느 에이전트가 느린지 본다.
+  const subagents = all.filter(row => row.kind === 'subagent')
+  if (subagents.length > 0) {
+    const spawns = new Map()
+    for (const [index, row] of subagents.entries()) {
+      const key = typeof row.agentId === 'string' && row.agentId ? row.agentId : `(id 미기록 ${index})`
+      const spawn = spawns.get(key) ?? {agent: typeof row.agent === 'string' && row.agent ? row.agent : '(agent 미기록)', stops: 0, measured: false, durationMs: 0, turns: 0, tools: 0}
+      spawn.stops += 1
+      if (Number.isFinite(row.durationMs)) {
+        spawn.measured = true
+        spawn.durationMs += row.durationMs
+        spawn.turns += Number.isFinite(row.turns) ? row.turns : 0
+        spawn.tools += Object.values(row.toolUses ?? {}).reduce((sum, count) => sum + (Number.isFinite(count) ? count : 0), 0)
+      }
+      spawns.set(key, spawn)
+    }
+    const byAgent = new Map()
+    for (const spawn of spawns.values()) {
+      const entry = byAgent.get(spawn.agent) ?? {spawns: 0, stops: 0, measured: 0, durationMs: 0, maxMs: 0, turns: 0, tools: 0}
+      entry.spawns += 1
+      entry.stops += spawn.stops
+      if (spawn.measured) {
+        entry.measured += 1
+        entry.durationMs += spawn.durationMs
+        entry.maxMs = Math.max(entry.maxMs, spawn.durationMs)
+        entry.turns += spawn.turns
+        entry.tools += spawn.tools
+      }
+      byAgent.set(spawn.agent, entry)
+    }
+    const minutes = ms => (ms / 60000).toFixed(1)
+    console.log(`=== 서브에이전트 실측: 스폰 ${spawns.size} · 멈춤 ${subagents.length} (소요는 지시 대기 제외) ===`)
+    for (const [agent, entry] of [...byAgent.entries()].sort((left, right) => right[1].durationMs - left[1].durationMs)) {
+      const unmeasured = entry.spawns - entry.measured
+      const measured = entry.measured === 0 ? '미계측' : `합 ${minutes(entry.durationMs)}min · 평균 ${minutes(entry.durationMs / entry.measured)}min · 최대 ${minutes(entry.maxMs)}min · ` +
+        `평균 턴 ${(entry.turns / entry.measured).toFixed(1)} · 평균 도구 ${(entry.tools / entry.measured).toFixed(1)}`
+      console.log(`  ${agent}: 스폰 ${entry.spawns} · 멈춤 ${entry.stops} · ${measured}${unmeasured > 0 && entry.measured > 0 ? ` (미계측 ${unmeasured})` : ''}`)
+    }
+  }
   // 훅 거부(hook-denial-log-lib) — 훅·코드별 건수와 같은 대상이 되풀이된 것(재시도로 새는 오탐 후보)을 본다.
   const denials = all.filter(row => row.kind === 'deny')
   if (denials.length > 0) {
