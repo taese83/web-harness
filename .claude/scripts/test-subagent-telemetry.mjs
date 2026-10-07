@@ -101,7 +101,7 @@ test('집계: 스폰(agentId)별로 접어 에이전트별 소요를 보이고, 
 })
 
 test('배선: 저장소 설정과 플러그인 배포본 둘 다 SubagentStop에 건다', () => {
-  const settings = JSON.parse(readFileSync(fileURLToPath(new URL('../settings.json', import.meta.url)), 'utf8'))
+  const settings = JSON.parse(readFileSync(join(fileURLToPath(new URL('../..', import.meta.url)), '.claude/settings.json'), 'utf8'))
   const stopCommands = (settings.hooks?.SubagentStop ?? []).flatMap(entry => entry.hooks ?? []).map(hookEntry => hookEntry.command)
   assert.ok(stopCommands.some(command => command.includes('record-subagent-telemetry.mjs')), '저장소 설정의 SubagentStop에 없다')
   const build = readFileSync(fileURLToPath(new URL('./build-plugin.mjs', import.meta.url)), 'utf8')
