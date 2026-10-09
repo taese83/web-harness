@@ -59,17 +59,22 @@ const ask = subject => JSON.stringify({
   hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: `${subject}: ${REASON}`},
 })
 
+// 플래그 판정은 따옴표·백슬래시를 벗긴 문자열로 한다 — 셸은 `"--install"`을 `--install`로 넘긴다.
+const hasFlag = (command, flag) => new RegExp(`(?:^|\\s)${flag}(?:\\s|=|$)`).test(String(command).replace(/["'\\]/g, ''))
+
 const decide = input => {
   if (input?.tool_name === 'Bash') {
     const command = String(input.tool_input?.command ?? '')
     const flags = humanApprovalFlagsIn(command)
     if (flags.length > 0) return ask(flags.join(' '))
     // 팀 소유 잠금을 지우고 스팩을 다시 확정하는 마이그레이션 적용 — 미리보기는 묻지 않는다.
-    if (/migrate-profile-lock/.test(command) && /(?:^|\s)--apply(?:\s|$)/.test(command)) return ask('migrate-profile-lock --apply(프로필 잠금 삭제·스팩 재확정)')
+    if (/migrate-profile-lock/.test(command) && hasFlag(command, '--apply')) return ask('migrate-profile-lock --apply(프로필 잠금 삭제·스팩 재확정)')
     // 쓰기 범위 넓히기 적용 — developer 소유권(layerMap ∩ 범위)을 넓히는 행위다. 미리보기는 묻지 않는다.
     // 프로젝트 밖 파일 들이기 — 사용자가 준 파일인지 사람이 확인한다.
+    // Codex CLI 전역 설치 — 외부 패키지를 이 PC에 설치한다.
+    if (/codex-cross-review\.mjs/.test(command) && hasFlag(command, '--install')) return ask('codex-cross-review --install(Codex CLI 전역 설치)')
     if (/import-source\.mjs/.test(command)) return ask('import-source(프로젝트 밖 파일을 _workspace/00_source로 복사)')
-    if (/widen-change-scope/.test(command) && /(?:^|\s)--apply(?:\s|$)/.test(command)) return ask('widen-change-scope --apply(이번 라운드 쓰기 범위 넓히기)')
+    if (/widen-change-scope/.test(command) && hasFlag(command, '--apply')) return ask('widen-change-scope --apply(이번 라운드 쓰기 범위 넓히기)')
     // 셸 리다이렉트·복사로 기록 파일을 만드는 형제 경로 — 이름이 명령에 보이면 확인한다(읽기·삭제 오탐은 무해).
     const named = APPROVAL_RECORDS.find(path => mayWriteRecord(command, path.split('/').at(-1)))
     if (named) return ask(`승인 기록 파일을 쓸 수 있는 명령(${named})`)

@@ -5453,7 +5453,7 @@
     {
       "id": "widen-scope-apply-asks-human",
       "file": ".claude/scripts/enforce-human-approval.mjs",
-      "find": "    if (/widen-change-scope/.test(command) && /(?:^|\\s)--apply(?:\\s|$)/.test(command)) return ask(",
+      "find": "    if (/widen-change-scope/.test(command) && hasFlag(command, '--apply')) return ask(",
       "replace": "    if (false) return ask(",
       "test": ".claude/scripts/test-widen-change-scope.mjs",
       "why": "범위 넓히기 적용은 developer 소유권을 넓히는 행위다 — 사용자 확인 없이 모델이 스스로 할 수 없어야 한다"
@@ -5537,6 +5537,62 @@
       "replace": "'--format=%cI']",
       "test": ".claude/scripts/test-ticket-seed.mjs",
       "why": "리뷰 뒤 따로 올린 `_workspace` 커밋(판정 기록 자체)을 리뷰 뒤 변경으로 세면 리뷰할 때마다 다시 리뷰를 요구한다"
+    },
+    {
+      "id": "tree-grep-deny-unexcludable-secret",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  if (!tree.secrets.every(excludedBySecretGlob)) return",
+      "replace": "  if (false) return",
+      "test": ".claude/scripts/test-sensitive-tree-grep.mjs",
+      "why": "제외 glob으로 정확히 빠지지 않는 비밀(대소문자 다른 이름)을 열면 검색 결과에 비밀 내용이 나온다"
+    },
+    {
+      "id": "tree-grep-deny-symlink",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  if (tree.unsafe) return",
+      "replace": "  if (false) return",
+      "test": ".claude/scripts/test-sensitive-tree-grep.mjs",
+      "why": "링크는 트리 밖(비밀 디렉터리)을 가리킬 수 있어 이름 기반 제외 glob으로 막을 수 없다"
+    },
+    {
+      "id": "tree-grep-include-glob-must-miss-secrets",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": " && !tree.secrets.some(offset => includeGlobMatches(glob, offset))) {",
+      "replace": ") {",
+      "test": ".claude/scripts/test-sensitive-tree-grep.mjs",
+      "why": "포함 glob(`*.ts`)을 그대로 두면 그 glob에 걸리는 비밀 파일(`.env.ts`)이 검색된다 — Codex 교차 리뷰가 찾은 결함"
+    },
+    {
+      "id": "codex-review-requires-opt-in",
+      "file": ".claude/scripts/codex-cross-review.mjs",
+      "find": "  if (!enabled) return {status: 'disabled',",
+      "replace": "  if (false) return {status: 'disabled',",
+      "test": ".claude/scripts/test-codex-cross-review.mjs",
+      "why": "설정을 켜지 않았는데 명령을 직접 부르면 코드가 외부(OpenAI)로 나간다 — Codex 교차 리뷰가 찾은 결함"
+    },
+    {
+      "id": "codex-install-asks-human",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "    if (/codex-cross-review\\.mjs/.test(command) && hasFlag(command, '--install')) return ask(",
+      "replace": "    if (false) return ask(",
+      "test": ".claude/scripts/test-codex-cross-review.mjs",
+      "why": "외부 패키지 전역 설치를 사용자 확인 없이 하면 모델이 이 PC에 소프트웨어를 들인다"
+    },
+    {
+      "id": "tree-grep-skipped-dirs-excluded",
+      "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
+      "find": "  if (glob && tree.skipped === 0 && safeIncludeGlob(glob)",
+      "replace": "  if (glob && safeIncludeGlob(glob)",
+      "test": ".claude/scripts/test-sensitive-tree-grep.mjs",
+      "why": "검사가 건너뛴 디렉터리(dist) 안의 비밀은 판정하지 않았다 — 포함 glob을 그대로 두면 그 안의 비밀이 검색된다(Codex 교차 리뷰가 찾음)"
+    },
+    {
+      "id": "approval-flags-strip-quotes",
+      "file": ".claude/scripts/enforce-human-approval.mjs",
+      "find": "String(command).replace(/[\"'\\\\]/g, '')",
+      "replace": "String(command)",
+      "test": ".claude/scripts/test-codex-cross-review.mjs",
+      "why": "따옴표로 감싼 플래그(`\"--install\"`)를 못 알아보면 사용자 확인 없이 설치·적용된다(Codex 교차 리뷰가 찾음)"
     }
   ]
 }

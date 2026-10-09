@@ -595,6 +595,14 @@ const reviewPacketContract = (args, context) => {
   return true
 }
 
+// Codex 교차 리뷰: --project-root와 --base <브랜치 이름>만.
+const codexCrossReviewContract = (args, context) => {
+  if (args.length === 3 && args[0] === '--project-root' && args[2] === '--install') { readablePath(args[1], context, 'directory'); return true }
+  if (args.length !== 4 || args[0] !== '--project-root' || args[2] !== '--base') return false
+  readablePath(args[1], context, 'directory')
+  return /^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(args[3]) && !args[3].includes('..')
+}
+
 // 사용자 파일 들이기: --project-root, --from <절대 경로>(프로젝트 밖일 수 있다 — 승인 훅이 사람에게 묻는다), 선택 --as <이름>.
 const importSourceContract = (args, context) => {
   if (args[0] !== '--project-root' || args.length < 4) return false
@@ -961,6 +969,7 @@ const validationScriptContract = (script, args, context) => {
   if (script === '.claude/scripts/prepare-review-packet.mjs') return reviewPacketContract(args, context)
   if (script === '.claude/scripts/widen-change-scope.mjs') return widenScopeContract(args, context)
   if (script === '.claude/scripts/import-source.mjs') return importSourceContract(args, context)
+  if (script === '.claude/scripts/codex-cross-review.mjs') return codexCrossReviewContract(args, context)
   if (script === '.claude/scripts/validate-layer-boundaries.mjs') return specConformanceContract(args, context)
   if (script === '.claude/scripts/validate-shape-checks.mjs') return shapeChecksContract(args, context)
   if (script === '.claude/scripts/web-core/resolve-profile.mjs') return resolveProfileContract(args, context)

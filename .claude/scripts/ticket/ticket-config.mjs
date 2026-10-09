@@ -300,7 +300,13 @@ export function reviewPlanOf(config, {base = null, local = null} = {}) {
   const team = (Array.isArray(declared) ? declared : []).map(name => String(name).trim()).filter(Boolean)
   const project = [...new Set([...team, ...(local?.reviewAgents ?? [])])]
   // 범위는 link가 판정한 기대 base다 — 모르면 null로 둔다(리뷰어가 추정하지 않고 묻는다).
-  return {harness: HARNESS_REVIEW_AGENT, project, base: typeof base === 'string' && base ? base : null, head: 'HEAD',
+  const reviewBase = typeof base === 'string' && base ? base : null
+  // Codex 교차 리뷰 — 개발자가 로컬에서 켰을 때만. 하네스 리뷰와 병렬로 돌리고 지적을 대조한다(team-flow 5).
+  // 켜지 않았으면 싣지 않는다 — 리뷰 계획 모양은 그대로다.
+  const codex = local?.codexReview
+    ? {codex: {enabled: true, command: reviewBase ? `node .claude/scripts/codex-cross-review.mjs --project-root . --base ${reviewBase}` : null, output: '_workspace/04_qa/codex-review.md'}}
+    : {}
+  return {harness: HARNESS_REVIEW_AGENT, project, base: reviewBase, head: 'HEAD', ...codex,
     ...(local ? {references: local.reviewReferences, local: {path: local.path, reviewAgents: local.reviewAgents,
       ...(local.missingReferences.length ? {missingReferences: local.missingReferences} : {}),
       ...(local.errors.length ? {errors: local.errors} : {})}} : {})}

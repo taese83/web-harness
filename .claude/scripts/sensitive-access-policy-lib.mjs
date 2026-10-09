@@ -216,6 +216,105 @@ const globMaySelectGitConfig = patternValue => {
   const alternatives = expandBraces(patternValue)
   return alternatives === null || alternatives.some(alternative => braceFreeGlobMaySelectGitConfig(alternative))
 }
+// 비밀 경로를 빼는 ripgrep 제외 glob — Grep 대상 트리에 비밀 경로가 있어도 이 glob을 붙이면 그 파일은 검색되지 않는다.
+// rg의 glob은 대소문자를 가리므로, 실제로 찾은 비밀 경로가 이 표기로 정확히 빠지는지(excludedBySecretGlob) 먼저 확인한다.
+export const SECRET_EXCLUDE_GLOB = `!**/{${[
+  '.env', '.env.*', ...SECRET_NAMES, ...[...SECRET_EXTENSIONS].map(extension => `*${extension}`),
+  // 디렉터리 이름이 같은 일반 파일(`secrets`)도 빼야 한다 — `secrets/**`는 그 아래만 고른다.
+  ...[...SECRET_SEGMENTS].flatMap(segment => [segment, `${segment}/**`]),
+  // 트리 검사가 건너뛰는 디렉터리(빌드 산출물·의존성)는 안을 보지 않았으니 검색에서도 뺀다 — 그 안의 비밀을 판정하지 않았다.
+  ...[...SKIP_SCAN_DIRECTORIES].flatMap(directory => [directory, `${directory}/**`]),
+].join(',')}}`
+const excludedBySecretGlob = offset => {
+  const segments = offset.replaceAll('\\', '/').split('/').filter(Boolean)
+  const name = segments.at(-1) ?? ''
+  if (segments.slice(0, -1).some(segment => SECRET_SEGMENTS.has(segment))) return true
+  if (SECRET_SEGMENTS.has(name)) return true
+  if (name === '.env' || name.startsWith('.env.') || SECRET_NAMES.has(name)) return true
+  return SECRET_EXTENSIONS.has(name.slice(name.lastIndexOf('.')))
+}
+const secretByName = offset => {
+  const segments = offset.replaceAll('\\', '/').split('/').filter(Boolean).map(segment => segment.toLowerCase())
+  return !segments.some(segment => SECRET_SEGMENTS.has(segment))
+}
+// 이름만으로 비밀 파일을 고를 수 없는 확장자 — 이 확장자만 포함하는 glob(`*.ts`·`*.{ts,tsx}`)은 이름 기반 비밀 파일에 닿지 않는다.
+const SAFE_INCLUDE_EXTENSIONS = new Set(['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 'cts', 'css', 'scss', 'less', 'md', 'mdx', 'html',
+  'vue', 'svelte', 'yml', 'yaml', 'txt', 'sql', 'graphql', 'gql', 'py', 'go', 'java', 'kt', 'swift', 'sh', 'rb', 'rs', 'php', 'astro'])
+// 안전 포함 glob(`*.ext`·`*.{a,b}`, 선택적 디렉터리 접두)이 이 파일 이름을 고르는가 — 확장자만 본다.
+const includeGlobMatches = (glob, offset) => {
+  const match = String(glob).match(/\*\.(?:([a-z0-9]+)|\{([a-z0-9,]+)\})$/i)
+  if (!match) return true
+  const name = offset.replaceAll('\\', '/').split('/').at(-1).toLowerCase()
+  return (match[1] ? [match[1]] : match[2].split(',')).some(extension => name.endsWith(`.${extension.toLowerCase()}`))
+}
+// 포함 glob의 확장자들이 rg type 하나로 모이면 그 type — 제외 glob으로 바꿀 때 검색 범위를 지킨다. 모이지 않으면 null.
+const RG_TYPE_BY_EXTENSION = {ts: 'ts', tsx: 'ts', mts: 'ts', cts: 'ts', js: 'js', jsx: 'js', mjs: 'js', cjs: 'js', css: 'css',
+  scss: 'sass', less: 'less', md: 'markdown', mdx: 'markdown', html: 'html', vue: 'vue', svelte: 'svelte', yml: 'yaml', yaml: 'yaml',
+  py: 'py', go: 'go', java: 'java', kt: 'kotlin', swift: 'swift', sh: 'sh', rb: 'ruby', rs: 'rust', php: 'php', sql: 'sql'}
+const rgTypeOf = glob => {
+  const match = String(glob ?? '').match(/^(?:\*\*\/)?(?:[\w./-]+\/)*\*\.(?:([a-z0-9]+)|\{([a-z0-9,]+)\})$/i)
+  if (!match) return null
+  const types = new Set((match[1] ? [match[1]] : match[2].split(',')).map(extension => RG_TYPE_BY_EXTENSION[extension.toLowerCase()]))
+  return types.size === 1 && !types.has(undefined) ? [...types][0] : null
+}
+const safeIncludeGlob = glob => {
+  const match = String(glob ?? '').match(/^(?:\*\*\/)?(?:[\w./-]+\/)*\*\.(?:([a-z0-9]+)|\{([a-z0-9,]+)\})$/i)
+  if (!match) return false
+  return (match[1] ? [match[1]] : match[2].split(',')).every(extension => SAFE_INCLUDE_EXTENSIONS.has(extension.toLowerCase()))
+}
+
+/**
+ * Grep 대상 트리의 비밀 경로(최대 200개)와, glob으로 뺄 수 없는 위험(심볼릭 링크·5만 항목 초과)이 있는지.
+ */
+export const inspectSensitiveTree = (projectRoot, start) => {
+  const pending = [start]
+  const secrets = []
+  let skipped = 0
+  let visited = 0
+  while (pending.length) {
+    const directory = pending.pop()
+    for (const entry of readdirSync(directory, {withFileTypes: true})) {
+      const path = resolve(directory, entry.name)
+      const offset = relative(projectRoot, path)
+      if (entry.isSymbolicLink()) return {unsafe: 'symlink', secrets}
+      if (isSecretPath(offset)) {
+        secrets.push(offset)
+        if (secrets.length > 200) return {unsafe: 'too-many-secrets', secrets}
+        continue
+      }
+      if (SKIP_SCAN_DIRECTORIES.has(entry.name)) { skipped += 1; continue }
+      if (entry.isDirectory()) pending.push(path)
+      visited += 1
+      if (visited > 50_000) return {unsafe: 'too-large', secrets, skipped}
+    }
+  }
+  return {unsafe: null, secrets, skipped}
+}
+
+/**
+ * 비밀 경로가 있는 트리의 Grep 판정. 비밀 경로가 전부 제외 glob으로 정확히 빠질 때만 연다:
+ *   - 에이전트의 포함 glob(`*.ts`)이 찾은 비밀 어느 것에도 걸리지 않고 비밀이 전부 이름 기반이면 그대로 허용
+ *   - 그 밖(glob 없음·제외 glob·넓거나 비밀에 걸리는 포함 glob)은 제외 glob으로 바꿔 허용한다. 확장자 하나짜리 포함 glob이었고
+ *     `type`이 비어 있으면 그 확장자의 rg type을 넣어 범위를 지킨다(제외 glob이 type보다 먼저 판정돼 `.env.ts`는 그대로 빠진다)
+ *   - glob으로 정확히 뺄 수 없는 비밀(대소문자)·링크·초대형 트리는 거부
+ */
+export const decideSensitiveTreeGrep = (realRoot, real, toolInput) => {
+  const tree = inspectSensitiveTree(realRoot, real)
+  if (tree.unsafe) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: tree.unsafe}
+  if (tree.secrets.length === 0) return {allowed: true, code: 'ALLOW_TREE_CLEAN'}
+  if (!tree.secrets.every(excludedBySecretGlob)) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: 'secret-not-excludable'}
+  const glob = toolInput?.glob
+  // 포함 glob을 그대로 두는 것은 **실제로 찾은 비밀 파일 어느 것도 그 glob에 걸리지 않을 때만**이다(`.env.ts`는 `*.ts`에 걸린다).
+  // 건너뛴 디렉터리가 있으면 그 안은 판정하지 않았다 — 포함 glob을 그대로 두지 않고 제외 glob(그 디렉터리 포함)으로 바꾼다.
+  if (glob && tree.skipped === 0 && safeIncludeGlob(glob) && tree.secrets.every(secretByName) && !tree.secrets.some(offset => includeGlobMatches(glob, offset))) {
+    return {allowed: true, code: 'ALLOW_GREP_SAFE_INCLUDE'}
+  }
+  // 그 밖(넓은 포함 glob·비밀에 걸리는 포함 glob·제외 glob·glob 없음)은 비밀 제외 glob으로 바꿔 연다 — 막으면 에이전트가 재시도로 턴을 쓴다.
+  const type = toolInput?.type ?? rgTypeOf(glob)
+  return {allowed: true, code: 'ALLOW_GREP_SECRETS_EXCLUDED', ...(glob ? {replacedGlob: String(glob)} : {}),
+    updatedInput: {...toolInput, glob: SECRET_EXCLUDE_GLOB, ...(type ? {type} : {})}}
+}
+
 export const scanDirectoryForSensitiveEntries = (projectRoot, start) => {
   const pending = [start]
   let visited = 0
@@ -270,8 +369,9 @@ export const evaluateSensitiveAccess = (input, environment = process.env, {paylo
       if (input.tool_name === 'Read' && statSync(real).isFile() && statSync(real).size > 5 * 1024 * 1024) {
         return {allowed: false, code: 'DENY_FILE_TOO_LARGE'}
       }
-      if (input.tool_name === 'Grep' && lstatSync(real).isDirectory() && scanDirectoryForSensitiveEntries(realRoot, real)) {
-        return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP'}
+      if (input.tool_name === 'Grep' && lstatSync(real).isDirectory()) {
+        const decision = decideSensitiveTreeGrep(realRoot, real, input.tool_input)
+        if (!decision.allowed || decision.updatedInput) return decision
       }
     }
   }

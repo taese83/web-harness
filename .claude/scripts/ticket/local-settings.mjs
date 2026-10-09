@@ -5,13 +5,15 @@
 // 받는 것은 **개인 작업 방식**뿐이다 — 팀이 같아야 하는 값(제목 접두어·스팩·규약)은 받지 않는다(사람마다 갈리면
 // 같은 제목 대조와 같은 스팩 판정이 갈린다).
 //
-//   {"projects": {"/abs/project/root": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"]}}}
+//   {"projects": {"/abs/project/root": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"], "codexReview": true}}}
+// `codexReview`는 PR 직전 리뷰에 Codex 교차 리뷰를 더한다 — Codex는 하네스 훅 밖에서 작업 트리 전체(커밋 안 된 파일·`.env` 포함)를 읽고
+// OpenAI로 보낼 수 있으므로 개발자 본인이 켠다(팀 설정에 두지 않는다).
 import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {homedir} from 'node:os'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 
 export const LOCAL_SETTINGS_RELATIVE = '.claude/web-harness/local.json'
-export const LOCAL_SETTING_KEYS = ['reviewAgents', 'reviewReferences']
+export const LOCAL_SETTING_KEYS = ['reviewAgents', 'reviewReferences', 'codexReview']
 
 const stringList = value => (Array.isArray(value) ? [...new Set(value.map(item => String(item).trim()).filter(Boolean))] : null)
 const realOrSelf = path => { try { return realpathSync(path) } catch { return resolve(path) } }
@@ -54,5 +56,7 @@ export function readLocalReviewSettings(projectRoot, {home = homedir()} = {}) {
     if (inside && existsSync(target) && statSync(target).isFile()) reviewReferences.push(offset.split(sep).join('/'))
     else missingReferences.push(reference)
   }
-  return {path, reviewAgents: reviewAgents ?? [], reviewReferences: [...new Set(reviewReferences)], missingReferences, errors}
+  if (entry.codexReview !== undefined && typeof entry.codexReview !== 'boolean') errors.push('codexReview는 true 또는 false다')
+  return {path, reviewAgents: reviewAgents ?? [], reviewReferences: [...new Set(reviewReferences)], missingReferences, errors,
+    codexReview: entry.codexReview === true}
 }
