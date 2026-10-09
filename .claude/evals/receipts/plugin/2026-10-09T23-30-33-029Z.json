@@ -1,0 +1,141 @@
+{
+  "kind": "plugin-eval-receipt",
+  "schemaVersion": 4,
+  "harnessCommit": "a4a83f1a2d3934c3e3584ef80166e22351a441c4",
+  "dirty": false,
+  "pluginVersion": "0.68.0",
+  "distDigest": "ee2a63865cd5b6256fb730e7b3178d22f72a33be63e0d6db84e05db8a8fcc06a",
+  "claudeVersion": "2.1.281",
+  "model": "claude-opus-5-5[1m]",
+  "startedAt": "2026-10-09T23:30:33.029Z",
+  "durationSeconds": 286,
+  "costUsd": 3.5777495000000004,
+  "partial": false,
+  "selection": {
+    "case": "change-lane-*",
+    "tag": null,
+    "runs": "1"
+  },
+  "runPlan": null,
+  "cases": [
+    {
+      "name": "change-lane-light-plan-pass",
+      "caseDigest": "a41acfa4619d5f5b9660515950286ce3ad6906372a4a9a2973ed306070c6ce44",
+      "seedDigest": "321eb902003942c1d95e0d4ac20be7449f772f6404fc924c976a0a704b3ff0ff",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.3153412000000002,
+          "durationSeconds": 286,
+          "turns": 15,
+          "peakContextTokens": 54638,
+          "outputTokens": 9073,
+          "cacheReadTokens": 455669,
+          "toolUses": {
+            "Read": 3,
+            "Bash": 6,
+            "Grep": 1,
+            "Write": 2,
+            "Agent": 1,
+            "Edit": 1
+          },
+          "bashErrors": 0,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-light-ticket-plan-pass",
+      "caseDigest": "0a87719520b7e3873edff51e0b8ce0b7e688c7f9e1356c23f189b181736c1592",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.2197092,
+          "durationSeconds": 270,
+          "turns": 9,
+          "peakContextTokens": 52802,
+          "outputTokens": 6816,
+          "cacheReadTokens": 277020,
+          "toolUses": {
+            "Bash": 6,
+            "Read": 1,
+            "Agent": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:developer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    },
+    {
+      "name": "change-lane-stops-at-spec-approval",
+      "caseDigest": "7f9b544e3d29364e8a8c6373832020ae3d30413e853720ad060c8bdc282f5548",
+      "seedDigest": "7a9f405b6e1da57717075cf7e1845ccd2ef1cf5fcc3e5ccaa8bfccc78ba1d0b7",
+      "expectedRuns": 1,
+      "passAll": true,
+      "incomplete": false,
+      "environmentInvalid": false,
+      "runs": [
+        {
+          "passed": true,
+          "gradersPassed": true,
+          "score": 1,
+          "error": null,
+          "failedGraders": [],
+          "checkProblems": [],
+          "environmentErrors": [],
+          "costUsd": 1.0426991,
+          "durationSeconds": 271,
+          "turns": 18,
+          "peakContextTokens": 62541,
+          "outputTokens": 12915,
+          "cacheReadTokens": 685560,
+          "toolUses": {
+            "Read": 5,
+            "Bash": 8,
+            "Grep": 1,
+            "Write": 2,
+            "Agent": 1
+          },
+          "bashErrors": 1,
+          "dispatcherNotFound": 0,
+          "agentSpawns": {
+            "web-harness:state-contract-designer": 1
+          },
+          "scriptSourceReads": 0,
+          "scriptSourceReadSamples": []
+        }
+      ]
+    }
+  ]
+}
