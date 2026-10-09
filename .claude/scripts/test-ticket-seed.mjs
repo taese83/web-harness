@@ -217,9 +217,10 @@ test('커밋별 리뷰: 커밋 직전에 리뷰한 내용은 커밋 뒤에도 re
     git('add', 'src/a.ts'); git('commit', '-q', '-m', 'three')
     const check = harnessReviewCheck(root, {base: 'main'})
     assert.equal(check.reviewed, false, '리뷰 없이 커밋한 내용을 놓쳤다')
-    assert.deepEqual(check.commits.map(commit => [commit.subject, commit.reviewed]), [['one', true], ['two', false], ['three', false]],
+    assert.deepEqual(check.commits.map(commit => [commit.subject, commit.reviewed]), [['one', true], ['artifacts', null], ['two', false], ['three', false]],
       '묶음만 만들고 리뷰하지 않은 커밋(two)이나 리뷰 뒤 고친 커밋(three)을 리뷰한 것으로 셌다')
-    assert.deepEqual(check.commits[2].unreviewed, ['src/a.ts'])
+    assert.equal(check.commits[1].skipped, 'no-code-files', '코드 없는 커밋을 「리뷰함」과 구별하지 않았다')
+    assert.deepEqual(check.commits[3].unreviewed, ['src/a.ts'])
     assert.equal(harnessReviewCheck(root, {base: null}).reviewed, null, 'base를 모르는데 판정했다')
   } finally { rmSync(root, {recursive: true, force: true}) }
 })

@@ -72,6 +72,8 @@ const DEV_ONLY_AGENTS = new Set(['harness-change-reviewer.md'])
 const PLUGIN_HOOKS = [
   ['Read|Grep|Glob', 'enforce-sensitive-access.mjs'],
   ['Bash', 'enforce-verifier-bash.mjs'],
+  // 하네스 모드 세션의 `git commit` 직전에 리뷰 안 된 코드가 있으면 한 번 알린다(상기 장치, 두 번 막지 않는다).
+  ['Bash', 'remind-commit-review.mjs'],
   // 승인 flag·승인 기록 쓰기는 사람 확인을 거친다 — 전역 Bash 정책이 없는 플러그인 판본에도 실어야 한다.
   ['Bash|Write|Edit', 'enforce-human-approval.mjs'],
   ['Write|Edit', 'enforce-ai-safety.mjs'],

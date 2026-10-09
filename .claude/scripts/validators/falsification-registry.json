@@ -5617,6 +5617,54 @@
       "replace": "`node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base HEAD`를 QA와 병렬로",
       "test": ".claude/scripts/test-wh-lanes.mjs",
       "why": "Codex 범위를 HEAD로 고정하면 다 커밋한 브랜치의 「코드 리뷰해줘」에서 빈 diff를 리뷰한다(실사용 2026-10-09) — 묶음과 같은 base여야 한다"
+    },
+    {
+      "id": "commit-remind-code-files-only",
+      "file": ".claude/scripts/remind-commit-review.mjs",
+      "find": "[...changed, ...untracked].filter(Boolean))].filter(isCodeReviewTarget).sort()",
+      "replace": "[...changed, ...untracked].filter(Boolean))].sort()",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "문서·_workspace·lockfile까지 세면 문서 커밋에도 코드 리뷰를 요구한다(사용자 결정: 순수 코드 리뷰만)"
+    },
+    {
+      "id": "commit-remind-includes-untracked",
+      "file": ".claude/scripts/remind-commit-review.mjs",
+      "find": "[...changed, ...untracked]",
+      "replace": "[...changed]",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "같은 명령에서 git add하고 커밋하는 새 파일을 놓친다(실사용: 임시 파일이 커밋에 섞였다)"
+    },
+    {
+      "id": "commit-remind-once",
+      "file": ".claude/scripts/remind-commit-review.mjs",
+      "find": "if (JSON.parse(readFileSync(notice, 'utf8')).fingerprint === fingerprint) return null",
+      "replace": "void notice",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "같은 내용 재시도를 계속 막으면 상기 장치가 게이트가 되어 사용자가 리뷰 없이 커밋하라고 해도 못 한다"
+    },
+    {
+      "id": "commit-remind-harness-session-only",
+      "file": ".claude/scripts/remind-commit-review.mjs",
+      "find": "  if (!harnessSessionRoot(input.session_id, root, {home})) return null",
+      "replace": "  void harnessSessionRoot",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "하네스 모드가 아닌 세션(다른 개발자·하네스 밖 작업)의 커밋까지 돌려보낸다"
+    },
+    {
+      "id": "code-review-target-excludes-docs",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "!path.startsWith('docs/') && !NOT_CODE.test(path)",
+      "replace": "!NOT_CODE.test(path)",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "루트 docs/ 아래 파일(문서 사이트 소스 등)을 코드 리뷰 대상으로 세면 문서 커밋이 미리뷰로 나온다 — 사용자 결정: 순수 코드 리뷰"
+    },
+    {
+      "id": "review-ledger-counts-security-reviewer",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "['code', 'security'].flatMap(",
+      "replace": "['code'].flatMap(",
+      "test": ".claude/scripts/test-remind-commit-review.mjs",
+      "why": "light 레인의 커밋 전 리뷰는 보안 신호면 security-reviewer 한 스폰인데, code 판정만 세면 그 리뷰를 미리뷰로 알린다"
     }
   ]
 }

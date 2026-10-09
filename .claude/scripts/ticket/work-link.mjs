@@ -109,9 +109,28 @@ const readJsonLines = path => {
   } catch { return [] }
 }
 
+// 커밋 전 리뷰 대상은 **코드**다 — 문서(`.md`·`.mdx`·`.txt`·루트 `docs/`)·`_workspace` 산출물·이미지·폰트·lockfile만 뺀다.
+// 설정·스키마·워크플로(`package.json`·`*.yml`·`*.sql`)는 의존성·배포·보안 경로라 대상으로 남긴다(안전 하한).
+const NOT_CODE = /(?:\.(?:md|mdx|markdown|txt|rst|png|jpe?g|gif|webp|avif|ico|svg|pdf|woff2?|ttf|otf|eot|mp4|webm|mp3)|(?:^|\/)(?:pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|\.gitignore|\.gitattributes|\.nvmrc|\.node-version|\.editorconfig|LICENSE|CODEOWNERS))$/i
+export const isCodeReviewTarget = path => !path.startsWith('_workspace/') && !path.startsWith('docs/') && !NOT_CODE.test(path)
+
+/** 하네스 코드 리뷰(code-reviewer·security-reviewer — light는 보안 신호면 security-reviewer 한 스폰이다) 판정이 뒤따른 리뷰 묶음들.
+ * 판정은 그 직전에 만든 묶음 하나에 속한다(리뷰어는 가장 최근 묶음을 읽는다). */
+export function reviewedPackets(root) {
+  const verdicts = ['code', 'security'].flatMap(id => readJsonLines(join(root, `_workspace/04_qa/evidence/verdicts/${id}.jsonl`)))
+  const packets = readJsonLines(join(root, REVIEW_HISTORY_RELATIVE)).sort((left, right) => Date.parse(left.generatedAt) - Date.parse(right.generatedAt))
+  return packets.filter((packet, index) => {
+    const from = Date.parse(packet.generatedAt)
+    const until = index + 1 < packets.length ? Date.parse(packets[index + 1].generatedAt) : Infinity
+    return verdicts.some(verdict => Date.parse(verdict.at) >= from && Date.parse(verdict.at) < until)
+  })
+}
+/** 그 파일의 그 내용(blob, 지운 파일은 null)을 리뷰한 묶음이 있는가. */
+export const wasReviewed = (packets, path, blob) => packets.some(packet => Object.hasOwn(packet.files ?? {}, path) && (packet.files[path] ?? null) === blob)
+
 /**
- * 커밋마다 **커밋 전에 리뷰했는가**를 내용으로 대조한다(team-flow 3). 커밋이 바꾼 파일(`_workspace` 제외)마다 그 커밋 시점의 blob이,
- * 하네스 code-reviewer 판정 기록이 뒤따른 리뷰 묶음(`review-packets.jsonl`)에 같은 내용으로 있어야 한다. 리뷰 뒤 고치고 다시
+ * 커밋마다 **커밋 전에 리뷰했는가**를 내용으로 대조한다(team-flow 3). 커밋이 바꾼 코드 파일(`isCodeReviewTarget`)마다 그 커밋 시점의 blob이,
+ * 하네스 코드 리뷰 판정 기록이 뒤따른 리뷰 묶음(`history.jsonl`)에 같은 내용으로 있어야 한다. 리뷰 뒤 고치고 다시
  * 리뷰하지 않았거나 리뷰 없이 커밋한 파일은 그 커밋의 `unreviewed`로 나온다. 막지 않고 알린다. 판정 기록은 하네스 리뷰어에게만 남는다.
  * base를 모르거나 git을 못 읽으면 reviewed: null(모른다) — 「리뷰함」으로 접지 않는다.
  */
@@ -127,27 +146,20 @@ export function harnessReviewCheck(root, {base = null} = {}) {
       return {sha, subject: subject.join('\t')}
     }).reverse()
   } catch { return {reviewed: null, guidance: '커밋 목록을 읽지 못해 커밋별 리뷰 여부를 판정하지 않았다'} }
-  const verdicts = readJsonLines(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'))
-  // 판정은 그 직전에 만든 묶음 하나에 속한다(리뷰어는 가장 최근 묶음을 읽는다) — 다음 묶음 전에 판정이 있는 묶음만 「리뷰한 내용」이다.
-  const packets = readJsonLines(join(root, REVIEW_HISTORY_RELATIVE)).sort((left, right) => Date.parse(left.generatedAt) - Date.parse(right.generatedAt))
-  const reviewed = packets.filter((packet, index) => {
-    const from = Date.parse(packet.generatedAt)
-    const until = index + 1 < packets.length ? Date.parse(packets[index + 1].generatedAt) : Infinity
-    return verdicts.some(verdict => Date.parse(verdict.at) >= from && Date.parse(verdict.at) < until)
-  })
+  const reviewed = reviewedPackets(root)
   const results = []
   for (const commit of commits) {
     const changed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', `${commit.sha}^`, commit.sha]).split('\0').filter(Boolean)
-      .filter(path => !path.startsWith('_workspace/'))
-    if (changed.length === 0) continue  // 산출물만 바꾼 커밋은 코드 리뷰 대상이 아니다
+      .filter(isCodeReviewTarget)
+    if (changed.length === 0) { results.push({sha: commit.sha.slice(0, 12), subject: commit.subject, reviewed: null, skipped: 'no-code-files'}); continue }
     const unreviewed = changed.filter(path => {
       let blob = null
       try { blob = git(['rev-parse', `${commit.sha}:${path}`]).trim() } catch { blob = null }
-      return !reviewed.some(packet => Object.hasOwn(packet.files ?? {}, path) && (packet.files[path] ?? null) === blob)
+      return !wasReviewed(reviewed, path, blob)
     })
     results.push({sha: commit.sha.slice(0, 12), subject: commit.subject, reviewed: unreviewed.length === 0, ...(unreviewed.length ? {unreviewed} : {})})
   }
-  const missing = results.filter(result => !result.reviewed)
+  const missing = results.filter(result => result.reviewed === false)
   return missing.length === 0
     ? {reviewed: true, commits: results}
     : {reviewed: false, commits: results,
