@@ -4,7 +4,7 @@ description: Records implementation design decisions before development — arch
 tools: Read, Glob, Grep, Write, Edit
 model: opus
 effort: high
-maxTurns: 45
+maxTurns: 60
 ---
 
 # System Architect

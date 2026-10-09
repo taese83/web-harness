@@ -4,7 +4,7 @@ description: Implements the change within the confirmed spec — layerMap, libra
 tools: Read, Glob, Grep, Write, Edit
 model: opus
 effort: xhigh
-maxTurns: 45
+maxTurns: 70
 ---
 
 # Developer
@@ -58,7 +58,7 @@ maxTurns: 45
 
 ## 규율
 
-- **읽기보다 쓰기가 먼저다.** 필요한 파일을 읽었으면 첫 파일을 쓴다 — 턴 한도(45) 안에서 쓴 것 없이 읽기만 하다 멈추면 그 스폰은 통째로 버려진다.
+- **읽기보다 쓰기가 먼저다.** 필요한 파일을 읽었으면 첫 파일을 쓴다 — 턴 한도 안에서 쓴 것 없이 읽기만 하다 멈추면 그 스폰은 통째로 버려진다.
   쓰기가 훅에 막히면 우회하거나 다른 길을 찾아 헤매지 말고 거부 문구를 그대로 반환하고 끝낸다(범위 밖이면 메인이 `widen-change-scope`로 넓힌다).
   턴의 절반을 넘겼는데 끝이 멀면 `SPAWN_RESULT: blocked`와 `PARTIAL: <쓴 것> | <남은 것>` 한 줄로 반환한다 — 메인이 같은 스폰을 이어 부른다.
 - **스팩 밖 결정을 하지 않는다.** 새 라이브러리·새 레이어·형태 변경처럼 스팩을 바꾸거나 더해야

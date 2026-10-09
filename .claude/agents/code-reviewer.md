@@ -5,7 +5,7 @@ tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
 effort: xhigh
-maxTurns: 30
+maxTurns: 45
 ---
 
 # Code Reviewer
