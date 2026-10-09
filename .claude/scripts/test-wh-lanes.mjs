@@ -117,6 +117,12 @@ test('verify 레인이 쓰기 agent를 실행하면 그 사실을 표시한다',
     'web-verify가 준비 단계에서 승인을 요구하지 않는다 — 조용히 소스를 만든다')
 })
 
+// 「코드 리뷰해줘」는 verify로 온다 — 개발자가 켠 Codex 교차 리뷰가 team-flow·fix·change에만 있고 verify에서 빠지면 안 된다.
+test('verify 리뷰 단계에 Codex 교차 리뷰 명령이 있다', () => {
+  assert.match(skillBody('web-verify'), /codex-cross-review\.mjs --project-root \{project-root\} --base HEAD/,
+    'web-verify 리뷰 단계에 Codex 교차 리뷰가 없다 — 「코드 리뷰해줘」에서 Codex가 돌지 않는다')
+})
+
 // 계기(FINDING-002 후속, 2026-09-11): 승인은 `web-verify` 준비 단계에만 있었다. `visual-design-verify`도
 // 테스트 준비에서 `developer`에게 source를 쓰게 하는데 그 스킬 안의 승인은 baseline에 관한 것뿐이라,
 // 그 스킬로 바로 들어오면 쓰기 전 승인이 없었다. **프록시 세 겹이다**(protected-core §4 등록):

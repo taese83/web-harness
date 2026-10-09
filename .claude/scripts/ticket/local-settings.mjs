@@ -6,7 +6,7 @@
 // 같은 제목 대조와 같은 스팩 판정이 갈린다).
 //
 //   {"projects": {"/abs/project/root": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"], "codexReview": true}}}
-// `codexReview`는 PR 직전 리뷰에 Codex 교차 리뷰를 더한다 — Codex는 하네스 훅 밖에서 작업 트리 전체(커밋 안 된 파일·`.env` 포함)를 읽고
+// `codexReview`는 커밋 전·verify 리뷰에 Codex 교차 리뷰를 더한다 — Codex는 하네스 훅 밖에서 작업 트리 전체(커밋 안 된 파일·`.env` 포함)를 읽고
 // OpenAI로 보낼 수 있으므로 개발자 본인이 켠다(팀 설정에 두지 않는다).
 import {existsSync, readFileSync, realpathSync, statSync} from 'node:fs'
 import {homedir} from 'node:os'

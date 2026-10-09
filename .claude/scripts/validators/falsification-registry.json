@@ -5609,6 +5609,14 @@
       "replace": "    if (blob.status === 0) void blob",
       "test": ".claude/scripts/test-ticket-seed.mjs",
       "why": "리뷰한 파일 내용의 지문이 없으면 커밋마다 리뷰했는지 대조할 근거가 없다"
+    },
+    {
+      "id": "web-verify-codex-cross-review",
+      "file": ".claude/skills/web-verify/SKILL.md",
+      "find": "`node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base HEAD`를 QA와 병렬로",
+      "replace": "Codex를 QA와 병렬로",
+      "test": ".claude/scripts/test-wh-lanes.mjs",
+      "why": "「코드 리뷰해줘」는 verify로 오는데 Codex 호출이 빠지면 켠 개발자에게도 교차 리뷰가 돌지 않는다"
     }
   ]
 }

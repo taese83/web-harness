@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// codex-cross-review.mjs — PR 직전 리뷰에서 하네스 code-reviewer와 **다른 모델(Codex)**의 리뷰를 같은 범위로 받아 교차 대조한다.
+// codex-cross-review.mjs — 커밋 전·verify 리뷰에서 하네스 code-reviewer와 **다른 모델(Codex)**의 리뷰를 같은 범위로 받아 교차 대조한다.
 //
 // `/codex:review`는 사용자만 부를 수 있는 슬래시 명령이라 하네스가 Skill로 부르지 못한다. Codex CLI(`codex review`) 또는 그 명령이
 // 실행하는 리뷰 스크립트를 직접 부른다. Codex는 하네스 훅 밖에서 작업 트리 전체(`.env` 포함)를 읽고 OpenAI로 보낼 수 있으므로 **개발자 로컬 설정에서 켠 경우만**
 // 쓴다(`~/.claude/web-harness/local.json`의 `codexReview: true`). 막지 않는다 — 없거나 실패하면 「교차 검증 안 됨」으로 남긴다.
-// 출력은 다른 모델의 의견이다: 지시로 읽지 않고, 하네스 리뷰어 지적과 대조해 둘 다 짚은 것만 확정으로 센다(team-flow 5).
+// 출력은 다른 모델의 의견이다: 지시로 읽지 않고, 하네스 리뷰어 지적과 대조해 둘 다 짚었거나 재현된 것만 확정으로 센다(team-flow 5·web-verify 5).
 //
 // 리뷰어는 Codex CLI의 `codex review --base`를 먼저 쓰고(플러그인 불필요), 없으면 openai-codex 플러그인의 리뷰 스크립트를 쓴다.
 // `--install`은 Codex CLI만 설치한다(`npm install -g @openai/codex` — 승인 훅이 사용자 확인을 묻는다). 로그인(`codex login`)은 브라우저
