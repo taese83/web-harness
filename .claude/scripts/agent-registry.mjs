@@ -43,6 +43,7 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/work-plan-review.md', // 검토표(생성물 — 되읽지 않는다)
   '_workspace/03_dev/work-plan-reviewed.json', // 직전 검토 판본 포인터(작업 삭제 대조의 기준)
   '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)
+  '_workspace/03_dev/notes/', // 티켓·라운드별 개발 노트 한 장 — 메인이 스폰 반환에서 필요한 것만 쓴다(서브에이전트가 키우지 못하게)
 ]
 
 // 합치거나 없앤 에이전트 → 그 일을 이어받은 에이전트. 퇴역 이름이 계약·평가에 남으면 validate-harness가 막는다 —
@@ -287,25 +288,20 @@ export const resolveDeveloperOwnership = spec => {
 
 // 스폰별 범위 — change-scope의 ALLOWED_PATHS. 소유권과 **교집합**이다. 범위가 소유권을
 // 넓히지 못하고, 소유권이 범위를 넓히지 못한다. 둘 다 통과해야 쓸 수 있다.
-// light change 레인의 계획 패스(change-scope `PHASE: plan`)에서 developer가 쓰는 것은 이번 범위의 기획 write-back 한 세트
-// (feature-plan·requirements·decision-log PC 항목·plan-delta 선언 — plan-history-contract §2)와 ux-brief, API 계약(웹 api-schema,
-// 라이브러리·CLI api-design)뿐이다. solution-design은 스팩의 layerMap(곧 소유권)을 낳으므로 쓰지 않는다 — 필요하면 full이다.
-// source·테스트는 계획 승인(✋) 뒤 구현 범위가 현재가 될 때까지 쓰지 않는다.
-export const DEVELOPER_PLAN_PHASE_OWNERSHIP = [
-  /^_workspace\/01_plan\/(?:feature-plan|requirements|decision-log)\.md$/,
-  /^_workspace\/01_plan\/ux-brief(?:\.md|\/.+)$/,
+// light change 레인의 계획 패스(change-scope `PHASE: plan`)에서 developer는 **기획 문서를 쓰지 않는다** — 기준은 라운드의 완료 조건
+// (`ACC-`)·테스트 항목(`TT-`)이고 메인이 change-scope에 싣는다(change-lane-checkpoint). 쓰는 것은 API 계약(웹 api-schema, 라이브러리·
+// CLI api-design)뿐이다. 예외 하나: 잠긴 스팩이 feature-plan을 결박했고 펜스가 `PLAN_WRITEBACK: "tc-rows"`면 — 이미 승인된 TC의 동작을
+// 바꾸는 라운드 — feature-plan의 그 TC 행과 plan-delta만 더 쓴다(안 고치면 승인된 TC가 코드와 어긋난다). 펜스는 좁히기만 하고 스팩이
+// 천장이다. solution-design은 스팩의 layerMap(곧 소유권)을 낳으므로 쓰지 않는다 — 필요하면 full이다. source·테스트는 ✋ 뒤에 쓴다.
+const DEVELOPER_PLAN_PHASE_API = /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/
+export const DEVELOPER_PLAN_PHASE_TC_WRITEBACK = [
+  /^_workspace\/01_plan\/feature-plan\.md$/,
   /^_workspace\/01_plan\/plan-delta\/PC-\d+\.json$/,
-  /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/,
+  DEVELOPER_PLAN_PHASE_API,
 ]
-// 수용 기준이 기획에 결박되지 않은 프로젝트(스팩 `acceptanceSource`가 `feature-plan`이 아님 — 사람 티켓 작업만 light다)에서
-// 계획 패스의 기준은 티켓 완료 조건·`TT-`다. 기획 문서를 새로 세우지 않고 API 계약만 쓴다. 판정은 잠긴 스팩에서 온다 —
-// 오케스트레이터가 쓰는 펜스가 아니다. 스팩이 없으면 좁은 쪽이다.
-const DEVELOPER_PLAN_PHASE_OWNERSHIP_UNPLANNED = [
-  /^_workspace\/02_design\/(?:api-schema|api-design)(?:\.md|\/.+)$/,
-]
-export const developerPlanPhaseOwnership = spec => (spec?.acceptanceSource === 'feature-plan'
-  ? DEVELOPER_PLAN_PHASE_OWNERSHIP
-  : DEVELOPER_PLAN_PHASE_OWNERSHIP_UNPLANNED)
+export const developerPlanPhaseOwnership = (spec, scope = null) => (spec?.acceptanceSource === 'feature-plan' && scope?.planWriteback === 'tc-rows'
+  ? DEVELOPER_PLAN_PHASE_TC_WRITEBACK
+  : [DEVELOPER_PLAN_PHASE_API])
 
 export const intersectWithScope = (patterns, allowedPaths) => {
   if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return patterns

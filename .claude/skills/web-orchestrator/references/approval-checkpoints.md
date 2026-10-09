@@ -187,7 +187,8 @@ HOLE은 2건이며, 둘 다 `absent` 선언이 곧 원인이다 — 독립된 �
 
 `spec: unverifiable` HOLE 하나만 남았으면 그것을 **없는 것처럼 넘기지 않는다.** `provenance-contract.md` §2의 대가를
 그대로 제시하고 인수 여부를 묻는다. 예외: change-scope가 `origin: ticket`(사람 티켓을 판정해 완성한 작업)이면 묻지 않는다 —
-그 작업은 판정서의 완료 조건과 `TT-` 테스트 항목이 수용 기준이고, 개발자가 미리보기에서 이미 확인했다.
+그 작업은 판정서의 완료 조건과 `TT-` 테스트 항목이 수용 기준이고, 개발자가 미리보기에서 이미 확인했다. change 레인 라운드가
+`ACCEPTANCE`·`TEST_ITEMS`(`ACC-R<n>-`·`TT-R<n>-`)를 실었으면 그 라운드의 ✋ 승인이 인수다(`change-lane-checkpoint.md` ① `change-acceptance`) — 따로 묻지 않는다.
 
 ```
 ✋ 스팩 승인 — specTier: unverifiable

@@ -1,9 +1,17 @@
 {
-  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 시드와의 해시 대조로, 티켓 작업의 계획 패스가 기획 문서를 새로 세우지 않았는지는 feature-plan·requirements 부재로 본다. ✋ 전 스팩 재확정은 grader spec-relocked가, ✋에 티켓 기준이 실렸는지는 ticket-criteria-at-approval이 본다.",
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 시드와의 해시 대조로, 티켓 작업의 계획 패스가 기획 문서를 새로 세우지 않았는지는 feature-plan·requirements 부재로 본다. 스팩은 입력(API 계약)이 바뀌었을 때만 재확정한다 — ✋에 티켓 기준이 실렸는지는 ticket-criteria-at-approval이 본다.",
   "seed": "brownfield-ticket-project",
   "checks": [
-    {"type": "source-unchanged"},
-    {"type": "file-absent", "path": "_workspace/01_plan/feature-plan.md"},
-    {"type": "file-absent", "path": "_workspace/01_plan/requirements.md"}
+    {
+      "type": "source-unchanged"
+    },
+    {
+      "type": "file-absent",
+      "path": "_workspace/01_plan/feature-plan.md"
+    },
+    {
+      "type": "file-absent",
+      "path": "_workspace/01_plan/requirements.md"
+    }
   ]
 }

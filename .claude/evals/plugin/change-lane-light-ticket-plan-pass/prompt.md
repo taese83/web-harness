@@ -1,5 +1,5 @@
 ---
-description: 기획 없는(acceptanceSource absent) 프로젝트의 사람 티켓 작업(change-scope origin ticket, specApproval required)은 light로 간다 — developer 계획 패스(PHASE plan)가 기획 문서를 세우지 않고(feature-plan·requirements 부재) 티켓 완료 조건·TT를 기준으로 삼으며, ✋ 전에 스팩을 다시 확정하고 ✋에 TT를 실은 채 멈춘다. 승인 전 source 변경 0은 시드 해시 대조로 본다.
+description: 기획 없는(acceptanceSource absent) 프로젝트의 사람 티켓 작업(change-scope origin ticket, specApproval required)은 light로 간다 — developer 계획 패스(PHASE plan)가 기획 문서를 세우지 않고(feature-plan·requirements 부재) 티켓 완료 조건·TT를 기준으로 삼으며, ✋에 TT를 실은 채 멈춘다. 승인 전 source 변경 0은 시드 해시 대조로 본다.
 tags: [regression, lane]
 runs: 3
 max_turns: 80

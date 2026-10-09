@@ -40,21 +40,21 @@ maxTurns: 70
 
 첫 쓰기 전에 `_workspace/03_dev/change-scope.md`의 마지막 항목(`json change-scope` 펜스 또는 줄 표기)이 `PHASE: plan`인지 확인한다 — 아니면 아무것도
 쓰지 않고 `SPAWN_RESULT: blocked (계획 펜스 없음)`으로 돌려준다. 계획 패스인 동안에는 **source·테스트를 쓰지 않는다**(훅이 막는다).
-코드와 기존 스펙을 읽고 이번 범위만큼 기획 write-back 한 세트를 쓴다(`plan-history-contract.md` §2): `feature-plan.md`의 FEAT/TC 행
-(양식은 `web-plan/references/design-readiness-contract.md` §3-1), `requirements.md` 해당 절, `decision-log.md`의 넘겨받은 `PC-NNN` 항목,
-`plan-delta/PC-NNN.json`의 declared, 화면 조건이 바뀌면 `ux-brief.md`. API 계약이 바뀌면 `02_design/api-schema.md`(라이브러리·CLI는
-`api-design.md`)를 개정한다. `solution-design.md`는 쓰지 않는다 — 설계 결정이 바뀌어야 하면 `ESCALATE_TO_FULL`에 그 사유를 적는다.
-각 TC는 관찰 가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`를 가진다. change-scope에 `origin: ticket`이 있는 사람 티켓
-작업이면(스팩 결박과 무관) 기준은 그 완료 조건(`checks` ACC)·`testCaseIds`(TT)다 — 기획 문서를 쓰지 않고 API 계약만 개정하며, TC 대신
-그 `TT-` ID를 반환한다. 잠긴 스팩이 feature-plan을 결박하지 않았는데 `origin: ticket`도 없으면 아무것도 쓰지 않고
-`SPAWN_RESULT: blocked` + `ESCALATE_TO_FULL: 기획 없는 스팩에 티켓 기준도 없다`로 돌려준다(기준을 세우는 것은 full ①이다). 반환은 짧게:
+코드와 기존 스펙을 읽고 이번 라운드의 기준을 **반환한다 — 기획 문서는 쓰지 않는다**(훅이 막는다): 완료 조건 `ACC-R<n>-<k>`(관찰
+가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`)와 테스트 항목 `TT-R<n>-<k>`. 메인이 change-scope에 싣는다. API 계약이 바뀌면
+`02_design/api-schema.md`(라이브러리·CLI는 `api-design.md`)를 개정한다. 펜스에 `"PLAN_WRITEBACK": "tc-rows"`가 있을 때만 — 승인된 TC의
+동작을 바꾸는 라운드 — `feature-plan.md`의 그 TC 행(양식은 `web-plan/references/design-readiness-contract.md` §3-1)과
+`plan-delta/PC-NNN.json`의 declared를 고친다. `solution-design.md`는 쓰지 않는다 — 설계 결정이 바뀌어야 하면 `ESCALATE_TO_FULL`에 그
+사유를 적는다. change-scope에 `origin: ticket`이 있는 사람 티켓 작업이면 기준은 그 완료 조건(`checks` ACC)·`testCaseIds`(TT)다 — 새
+`ACC-`를 만들지 않고 그 `TT-` ID를 반환한다. 반환은 짧게:
 
-- 추가한 TC ID · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`·
-  `DOCS_TO_UPDATE: none (대조: 실재하는 02_design 문서 목록) | 개정한 문서` — ux-brief 「화면별 정보 위계」 행을 바꿨으면 여기에 적는다)
+- `ACC-`·`TT-` 항목(write-back이면 고친 TC ID) · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`·
+  `DOCS_TO_UPDATE: none (대조: 실재하는 02_design 문서 목록) | 개정한 문서` — 화면 조건이 바뀌면 ux-brief를 고치지 않고 `ACC-`로 적는다)
 - 열린 질문 최대 3개(선택지·추천) — 요청이 정하지 않은 동작은 가정으로 삼지 말고 여기 올린다
+- 개발 노트에 남길 것 — 코드만 보고 알 수 없는 결정(버린 대안)·제약·건드린 계약. 없으면 `none`(메인이 필요할 때만 한 장으로 쓴다)
 - `ESCALATE_TO_FULL: none | <사유>` — 새 레이어·라이브러리·형태가 필요하거나 제품 의도 결정이 남으면 사유를 적는다
 
-승인 뒤 같은 대화로 이어서 구현을 받으면 승인된 TC가 기준이다 — 계획 패스에서 쓴 기준을 구현하며 바꾸지 않는다.
+승인 뒤 같은 대화로 이어서 구현을 받으면 승인된 `ACC-`·`TT-`(또는 TC)가 기준이다 — 계획 패스에서 쓴 기준을 구현하며 바꾸지 않는다.
 
 ## 규율
 
@@ -80,7 +80,8 @@ maxTurns: 70
   이 규율의 유일한 이유다. 멈출 때는 재스폰 루프에 빠지지 않도록 **완결성 마커로 차단을
   보고한다**(`execution-budget-contract.md` 스폰 완결성 게이트).
 
-  **멈추지 않는 두 경우**: ⓐ 정보 위계 표에 내용이 있으면 그것이 근거다 — 그리는 방식은
+  **멈추지 않는 경우**: ⓒ change·티켓 라운드면 change-scope 현재 라운드의 ✋ 승인된 `ACC-`(티켓은 완료 조건)가 그 조건을
+  명명했으면 그것이 근거다(라운드는 ux-brief·decision-log를 쓰지 않는다). ⓐ 정보 위계 표에 내용이 있으면 그것이 근거다 — 그리는 방식은
   스스로 정하고 형상 규율대로 한 줄 보고한다. ⓑ 그 조건이 **인수됐으면** 멈추지 않는다 — 사용자가
   이미 "구현이 그 자리에서 정하는 것"을 받아들인 것이다. 인수의 정본은 `ux-brief` 표의 그
   자리에 적힌 **`ack:<ID>` 토큰**이며(조건 칸이면 그 조건, 이름·서술 칸이면 그 행 전부),

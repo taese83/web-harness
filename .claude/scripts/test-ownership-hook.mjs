@@ -187,7 +187,7 @@ test('스팩에 적어도 오케스트레이터 산출물은 쓰지 못한다 �
     testLayers: {unit: 'src'},
   }
   withNestedProject(({harnessRoot, projectRoot}) => {
-    for (const target of ['_workspace/03_dev/spec.json', '_workspace/03_dev/change-scope.md', '_workspace/03_dev/build-manifest/plan.json', '_workspace/03_dev/change-journal/developer.md']) {
+    for (const target of ['_workspace/03_dev/spec.json', '_workspace/03_dev/change-scope.md', '_workspace/03_dev/build-manifest/plan.json', '_workspace/03_dev/change-journal/developer.md', '_workspace/03_dev/notes/AOA-1.md']) {
       const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, target)})
       assert.equal(result.allowed, false, `${target}에 쓸 수 있다 — 스팩 자기수정으로 소유권을 넓힐 수 있다`)
       assert.match(result.message, /orchestrator-authored/)
@@ -289,29 +289,12 @@ test('레이어 패턴이 앞 세그먼트를 허용해도 의존성 트리·하
 // ── (8) light change 레인의 계획 패스 ─────────────────────────────────────────
 // 계획 패스가 현재 범위인 동안 developer는 수용 기준·API 계약만 쓴다 — 승인(✋) 전 source 변경 0을 훅이 보장한다.
 const planFence = ['# change-scope', '', '```json change-scope',
-  JSON.stringify({PHASE: 'plan', ALLOWED_PATHS: ['_workspace/01_plan/feature-plan.md', '_workspace/02_design/api-schema.md']}), '```', ''].join('\n')
-test('계획 패스: developer는 기획 write-back 세트·API 계약만 쓰고 source는 막힌다', () => {
-  withNestedProject(({harnessRoot, projectRoot}) => {
-    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
-    assert.equal(write('_workspace/01_plan/feature-plan.md').allowed, true, write('_workspace/01_plan/feature-plan.md').message)
-    for (const path of ['_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md', '_workspace/01_plan/plan-delta/PC-003.json',
-      '_workspace/01_plan/ux-brief.md', '_workspace/01_plan/ux-brief/screens.md',
-      '_workspace/02_design/api-schema.md', '_workspace/02_design/api-design.md']) {
-      assert.equal(write(path).allowed, true, `${path}: ${write(path).message}`)
-    }
-    const source = write('src/entities/track/model/schema.ts')
-    assert.equal(source.allowed, false)
-    assert.match(source.message, /plan pass/)
-    assert.match(source.message, /ux-brief/, '거부 메시지가 계획 패스의 쓰기 세트를 말하지 않는다')
-    assert.match(source.message, /ESCALATE_TO_FULL/)
-    assert.equal(write('_workspace/01_plan/tech-stack.md').allowed, false, '계획 패스가 write-back 세트 밖 기획 문서까지 쓴다')
-    assert.equal(write('_workspace/02_design/solution-design.md').allowed, false, '계획 패스가 설계 결정 블록을 쓴다')
-  }, {rawScope: planFence, spec: {...SPEC, acceptanceSource: 'feature-plan'}})
-})
-
-// 기획이 결박되지 않은 스팩(사람 티켓 작업만 light)은 기준이 티켓 완료 조건이다 — 계획 패스는 기획 문서를 새로 세우지 않고 API 계약만 쓴다.
-test('계획 패스: 스팩이 feature-plan을 결박하지 않으면 API 계약만 쓰고 기획 문서는 막힌다', () => {
-  for (const spec of [{...SPEC, acceptanceSource: 'absent'}, SPEC]) {
+  JSON.stringify({PHASE: 'plan', ALLOWED_PATHS: ['_workspace/02_design/api-schema.md']}), '```', ''].join('\n')
+const tcWritebackFence = ['# change-scope', '', '```json change-scope',
+  JSON.stringify({PHASE: 'plan', PLAN_WRITEBACK: 'tc-rows', ALLOWED_PATHS: ['_workspace/01_plan/feature-plan.md', '_workspace/02_design/api-schema.md']}), '```', ''].join('\n')
+// 기본: 계획 패스는 기획 문서를 쓰지 않는다 — 라운드 기준(ACC-/TT-)은 메인이 change-scope에 싣는다(문서 축소, 2026-10-10).
+test('계획 패스: 기본은 API 계약만 쓰고 기획 문서·source는 막힌다 — 스팩이 feature-plan을 결박해도', () => {
+  for (const spec of [{...SPEC, acceptanceSource: 'feature-plan'}, {...SPEC, acceptanceSource: 'absent'}, SPEC]) {
     withNestedProject(({harnessRoot, projectRoot}) => {
       const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
       for (const path of ['_workspace/02_design/api-schema.md', '_workspace/02_design/api-design.md']) {
@@ -320,11 +303,34 @@ test('계획 패스: 스팩이 feature-plan을 결박하지 않으면 API 계약
       for (const path of ['_workspace/01_plan/feature-plan.md', '_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md',
         '_workspace/01_plan/plan-delta/PC-003.json', '_workspace/01_plan/ux-brief.md', 'src/entities/track/model/schema.ts']) {
         const result = write(path)
-        assert.equal(result.allowed, false, `기획이 없는 스팩에서 계획 패스가 ${path}를 쓴다`)
-        assert.match(result.message, /ticket acceptance/)
+        assert.equal(result.allowed, false, `계획 패스가 기본으로 ${path}를 쓴다(${spec.acceptanceSource ?? 'none'})`)
+        assert.match(result.message, /change-scope, not in plan documents/)
       }
+      const source = write('src/entities/track/model/schema.ts')
+      assert.match(source.message, /plan pass/)
+      assert.match(source.message, /ESCALATE_TO_FULL/)
+      assert.equal(write('_workspace/02_design/solution-design.md').allowed, false, '계획 패스가 설계 결정 블록을 쓴다')
     }, {rawScope: planFence, spec})
   }
+})
+
+// 예외: 이미 승인된 TC의 동작을 바꾸는 라운드(펜스 PLAN_WRITEBACK: tc-rows)는 feature-plan TC 행·plan-delta만 더 쓴다 — 스팩이 천장이다.
+test('계획 패스: PLAN_WRITEBACK tc-rows면 feature-plan·plan-delta만 더 쓰고, 스팩이 기획을 결박하지 않으면 그것도 막힌다', () => {
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    for (const path of ['_workspace/01_plan/feature-plan.md', '_workspace/01_plan/plan-delta/PC-003.json', '_workspace/02_design/api-schema.md'])
+      assert.equal(write(path).allowed, true, `${path}: ${write(path).message}`)
+    for (const path of ['_workspace/01_plan/requirements.md', '_workspace/01_plan/decision-log.md', '_workspace/01_plan/ux-brief.md',
+      '_workspace/01_plan/tech-stack.md', '_workspace/02_design/solution-design.md', 'src/entities/track/model/schema.ts']) {
+      const result = write(path)
+      assert.equal(result.allowed, false, `TC 행 write-back 라운드가 ${path}까지 쓴다`)
+    }
+    assert.match(write('src/a.ts').message, /approved TC rows/)
+  }, {rawScope: tcWritebackFence, spec: {...SPEC, acceptanceSource: 'feature-plan'}})
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, '_workspace/01_plan/feature-plan.md')})
+    assert.equal(result.allowed, false, '기획을 결박하지 않은 스팩에서 펜스만으로 기획 쓰기가 열렸다 — 펜스는 좁히기만 한다')
+  }, {rawScope: tcWritebackFence, spec: {...SPEC, acceptanceSource: 'absent'}})
 })
 
 test('계획 패스: 스팩 잠금이 없으면 좁은 쪽이고, 거부 메시지는 티켓이 아니라 잠금 부재를 말한다', () => {
@@ -332,7 +338,7 @@ test('계획 패스: 스팩 잠금이 없으면 좁은 쪽이고, 거부 메시�
     const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, '_workspace/01_plan/feature-plan.md')})
     assert.equal(result.allowed, false)
     assert.match(result.message, /spec lock .* missing or unreadable/)
-    assert.doesNotMatch(result.message, /ticket acceptance/)
+    assert.doesNotMatch(result.message, /not in plan documents/)
   }, {rawScope: planFence, spec: null})
 })
 

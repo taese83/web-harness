@@ -30,21 +30,21 @@
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |
 | 8-2 | 커밋 전 리뷰 — 라운드마다 새 문맥 `code-reviewer` 1회(보안 신호면 `security-reviewer` 추가). 선별·수정 뒤 같은 역할 확인 리뷰 1회(처분만) | 입력은 `prepare-review-packet.mjs --project-root {root} --base HEAD` 묶음·수용 기준·brief뿐 | `qa-evidence-contract.md` Iterate evidence |
 | 9 | 라운드 종료 게이트 3종 | ① (light는 위 「light」 4) `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `_workspace/04_qa/evidence/`가 있으면 `node .claude/scripts/run-quality-gates.mjs --project {root} --all` ③ `DOCS_TO_UPDATE` 개정 완료 | `qa-evidence-contract.md` Iterate evidence |
-| 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 3종 상태 | `execution-contract.md` Iterate 6 |
+| 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 3종 상태 · 개발 노트(필요할 때만 한 장, `NOTE`) | `execution-contract.md` Iterate 6 |
 
 `fix`는 자기검사(`request-type-contract.md` — 하나라도 걸리면 `change`로 승격)를 통과한 뒤 2·3·5를 건너뛰고 유형별 보존 증거를 남긴다.
 
-## light — 기본값(스팩이 feature-plan을 결박했거나 사람 티켓 작업이고, 제품 의도를 새로 정하지 않을 때)
+## light — 기본값(제품 의도를 새로 정하지 않을 때)
 
-1. 다음 `PC-NNN`으로 `validate-plan-delta.mjs --project {root} --change PC-NNN --snapshot` → change-scope.md에 아래 펜스를 **그대로**
-   append(info-string까지 — 다른 표기는 차단이 켜지지 않는다. 쓰기 소유는 ALLOWED_PATHS가 아니라 고정 세트) → developer 계획
-   패스 스폰(PC 번호를 넘긴다 — 티켓 작업은 snapshot·PC 없이). 안정 ID 0 경고에도 `--allow-no-ids`를 쓰지 않는다:
+1. change-scope.md에 아래 펜스를 **그대로**(info-string까지) append → developer 계획 패스. 기획 문서를 쓰지 않고 라운드 `ACC-`·`TT-`를
+   반환한다 — 메인이 `ACCEPTANCE`·`TEST_ITEMS`에 싣는다(티켓은 완료 조건). 승인된 TC의 동작을 바꿀 때만 `validate-plan-delta.mjs
+   --project {root} --change PC-NNN --snapshot` 뒤 펜스에 `"PLAN_WRITEBACK": "tc-rows"`(그 TC 행·plan-delta만, `--allow-no-ids` 금지):
 
 ```json change-scope
-{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md", "_workspace/01_plan/requirements.md", "_workspace/01_plan/decision-log.md"]}
+{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/02_design/api-schema.md", "_workspace/02_design/api-design.md"]}
 ```
 
-2. 반환 뒤 `--verify`(티켓은 없음 — 기준은 change-scope의 ACC·TT) → 3행 `spec.mjs`로 ✋ **전에** 재확정(refs 그대로). TC는 `plan-lookup` 행을 싣는다. `ESCALATE_TO_FULL`(solution-design 변경 포함)이면 full. ✋에서 기준이 바뀌면 새 PC.
+2. 반환 뒤(write-back이면 `--verify`) 입력이 바뀌었을 때만 3행 `spec.mjs`로 ✋ 전 재확정. ✋에 `ACC-`·`TT-`. `ESCALATE_TO_FULL`이면 full.
 3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 SendMessage로 이어서** 구현·수정시킨다. 반환한 스폰이 이어지지
    않거나(세션 종료·비대화 실행 포함) 응답이 없으면 `TaskStop` 뒤 새 스폰에 계획 반환·TC ID를 넘긴다. telemetry `mode: resume`.
 4. 리뷰는 라운드당 **한 스폰** — 규칙은 `qa-evidence-contract.md` Iterate evidence의 light 항목(9 ①도 그것이 채운다).
@@ -58,8 +58,8 @@
 
 ## ✋에 싣는 것
 
-기획 변경(바뀐 행만) · 디자인 변경(`DOCS_TO_UPDATE`와 대조한 문서 목록, 문서별 요지 1줄; 디자인 `absent`면 유지) ·
-스팩(수용 기준·TC, `LOCAL_VERIFIABLE | DEPLOY_ONLY`) · change brief(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·
+기준(라운드 `ACC-`·`TT-`, 티켓은 완료 조건) · 디자인 변경(`DOCS_TO_UPDATE`와 대조한 문서 목록, 문서별 요지 1줄; 디자인 `absent`면 유지) ·
+스팩(`LOCAL_VERIFIABLE | DEPLOY_ONLY`) · change brief(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·
 `NON_GOALS`·`CAPABILITY_ESCALATION`) · 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`.
 
 ## change brief 양식
@@ -76,6 +76,9 @@ CHANGE_BUDGET: …
 TEST_EVIDENCE: …
 CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: none (대조: …) | 문서 목록
+ACCEPTANCE: ACC-R<n>-<k> … · LOCAL_VERIFIABLE | DEPLOY_ONLY
+TEST_ITEMS: TT-R<n>-<k> …
+NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none
 ```
 
 ## telemetry 1행

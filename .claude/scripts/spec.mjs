@@ -86,7 +86,7 @@ export const LOCK_ERROR_FIXES = Object.freeze({
   ACCEPTANCE_REF_NOT_FOUND: "acceptanceRefs의 없는 ID를 feature-plan.md에 추가하거나 블록에서 뺀다(solution-design-contract.md §6)",
   ACCEPTANCE_SOURCE_CONTRADICTS_REFS: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — feature-plan이면 acceptanceRefs에 TC id를, absent면 빈 배열을 적는다(solution-design-contract.md §6)",
   ACCEPTANCE_SOURCE_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — acceptanceSource를 feature-plan 또는 absent로 적는다(solution-design-contract.md §6)",
-  ACCEPTANCE_SOURCE_WITHOUT_PLAN: "feature-plan.md를 먼저 만든다(change light면 developer 계획 패스, full이면 feature-planner). 수용 기준 없이 가기로 했으면 결정 블록의 acceptanceSource를 absent로 적는다(solution-design-contract.md §6) — 그 뒤 다시 확정한다",
+  ACCEPTANCE_SOURCE_WITHOUT_PLAN: "feature-plan.md를 먼저 만든다(`plan` 레인 또는 기획이 있는 full의 feature-planner — change light 계획 패스는 기획 문서를 쓰지 않는다). 수용 기준 없이 가기로 했으면 결정 블록의 acceptanceSource를 absent로 적는다(solution-design-contract.md §6) — 그 뒤 다시 확정한다",
   ARCHITECTURE_PATTERN_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.pattern을 적는다(기존 관례면 existing)(solution-design-contract.md §1)",
   ARCHITECTURE_RATIONALE_MISSING: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — architecture.rationale을 적는다(solution-design-contract.md §1)",
   CONVENTIONS_INVALID: "system-architect가 `_workspace/02_design/solution-design.md`의 결정 블록을 고친다 — constitution.conventions를 규약 문서 경로 문자열 배열로 쓴다",

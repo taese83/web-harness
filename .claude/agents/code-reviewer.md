@@ -70,7 +70,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 4. 요청과 무관한 rename/move, format-only noise, dependency upgrade, lockfile churn, broad rewrite, public API/schema/state 변경은 정당화되지 않으면 `FAIL`이다.
 5. 작은 diff만을 강제하지 않는다. 보안·데이터 무결성·공통 root cause를 해결하는 broader change는 brief에 blast radius와 대안이 기록되고 test evidence가 있으면 허용한다.
 6. 이번 작업 전부터 존재한 사용자 변경은 finding에서 분리하고 구현 agent의 변경으로 오인하지 않는다.
-7. **기획 이력 검사** (`.claude/skills/web-plan/references/plan-history-contract.md`): 이번 diff에 `_workspace/01_plan/` 기획 문서 변경이 있는데 대응하는 `decision-log.md`의 `PC-NNN` 엔트리가 없으면 WARN(미기록 변경), 기존 PC 엔트리가 수정·삭제됐으면 FAIL(append-only 위반). 기능 추가·변경인데 Feature List가 현재화되지 않았으면 write-back 누락으로 WARN.
+7. **기획 이력 검사** (`.claude/skills/web-plan/references/plan-history-contract.md`): 이번 diff에 `_workspace/01_plan/` 기획 문서 변경이 있는데 대응하는 `PC-NNN`(`decision-log.md` 엔트리 또는 `plan-delta/PC-NNN.json`)이 없으면 WARN(미기록 변경), 기존 PC 엔트리가 수정·삭제됐으면 FAIL(append-only 위반). change-scope의 현재 라운드가 light 계획 패스(`PHASE: plan`)였거나 ① 라벨이 `change-acceptance`·`ticket-acceptance`면 기획 문서를 쓰지 않는 것이 정상이다 — Feature List 미현재화를 지적하지 않는다(기획이 있는 full 라운드는 해당하지 않는다). 그 밖의 기능 추가·변경인데 Feature List가 현재화되지 않았으면 write-back 누락으로 WARN.
 8. **canonical 문서 동기화 검사**: 이번 변경이 `_workspace/02_design/` canonical 계약(state-contract·api-schema·layout-spec·component-spec)과 충돌하는 동작을 구현했는데 해당 문서 개정이 diff에 없고 change-scope의 `DOCS_TO_UPDATE`에도 없으면 WARN(문서 드리프트 — 다음 라운드 에이전트가 낡은 계약을 믿게 된다). change-scope에 `CAPABILITY_ESCALATION: detected`가 기록됐는데 승격 QA(security-reviewer 재투입) 증거가 없으면 FAIL.
 
 ## 확정 스팩 대조 (2026-08-26)

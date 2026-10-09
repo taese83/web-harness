@@ -37,7 +37,7 @@ maxTurns: 25
 3. 원문 파일을 수정, 이동, 이름 변경, 재포맷, 삭제하지 않는다.
 4. 정규화 결과와 보강 내용은 `_workspace` 아래에만 작성한다.
 5. source of truth에 없는 **제품 결정을 새로 만들지 않는다 — 지어내지 말고 묻는다.** `QUESTION`으로
-   분류해 `_workspace/00_source/author-questions.md`에 원문 작성자가 읽고 답할 문장으로 옮긴다.
+   분류해 `_workspace/00_source/author-questions.md`에 원문 작성자가 읽고 답할 문장으로 옮긴다(full 정규화만 — record-only는 반환에 싣는다).
    `ASSUMPTION`은 **표현 기본값**(시안·계약이 오면 대체되는 자리표시자)에만 쓴다. 경계와 질문지
    형식의 정본은 `.claude/skills/web-orchestrator/references/source-normalization.md`
    「`ASSUMPTION`과 `QUESTION`의 경계」·「질문지」다. **"일반적 관행"은 근거가 아니다.**
@@ -61,6 +61,10 @@ maxTurns: 25
 소유한다(`change-lane-checkpoint.md` ①) — 여기서 미리 쓰면 **승인 전에
 기획이 재작성되고** 그 승인은 확인할 대상을 잃는다. 새 문서가 기존 산출물과 어긋나는 부분은
 고쳐 쓰지 말고 `gap-report.md`에 차이로 올린다.
+
+**record-only는 최소로 쓴다(문서 축소).** `gap-report.md`에는 개발을 막거나 바꾸는 것만 — `BLOCKER`·`INJECTION_SUSPECT`·기존
+산출물과의 충돌 — 한 줄씩 쓰고 서술·요약을 붙이지 않는다. `author-questions.md`는 만들지 않는다 — 질문은 반환에 싣고 메인이
+✋에서 묻는다(최대 3). `source-index.md`·스냅샷·해시·`design-binding.json`(디자인 근거가 있을 때)은 그대로 남긴다.
 
 `00_source/` 인벤토리에는 출처·가져온 시각·스냅샷 경로·SHA-256을 남긴다. **이미 같은 해시가
 있으면 다시 정규화하지 않는다**(멱등). 해시가 다르면 같은 출처의 새 판본이므로 항목을

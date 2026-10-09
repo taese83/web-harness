@@ -138,16 +138,16 @@ try {
   // 개발 에이전트는 layerMap 전체를 소유하고, 스폰 범위(change-scope ALLOWED_PATHS)가 그 위에서
   // 다시 좁힌다 — 병렬 격리가 에이전트 정체성이 아니라 모듈 경계에서 나온다(2026-08-26).
   // 계획 패스(`PHASE: plan`)가 현재 범위면 source 소유는 없고 계획 문서만 쓴다 — 승인 전 source 변경 0을 훅이 보장한다.
-  const planPhaseOwnership = developerPlanPhaseOwnership(spec)
+  const planPhaseOwnership = developerPlanPhaseOwnership(spec, scope)
   if (scope?.phase === 'plan' && !planPhaseOwnership.some(pattern => pattern.test(ownershipPath))) {
     block(`Blocked: ${input.agent_type} is in the plan pass (change-scope PHASE: plan) — it writes only `
-      + (spec?.acceptanceSource === 'feature-plan'
-        ? 'the plan write-back set (01_plan feature-plan·requirements·decision-log·plan-delta·ux-brief) and the API contract doc — '
+      + (spec?.acceptanceSource === 'feature-plan' && scope?.planWriteback === 'tc-rows'
+        ? 'the approved TC rows in 01_plan/feature-plan.md, plan-delta and the API contract doc — '
         : spec === null
           ? 'the API contract doc (api-schema·api-design) because the spec lock (_workspace/03_dev/spec.json) is missing or unreadable — '
             + 'confirm the spec (④) before the plan pass — '
-          : 'the API contract doc (api-schema·api-design): the locked spec binds no feature-plan, so the ticket acceptance is the criterion — '
-            + 'no plan documents are founded here — ')
+          : 'the API contract doc (api-schema·api-design): the round criteria (ACC-/TT-) live in change-scope, not in plan documents — '
+            + 'only a round that changes an approved TC adds PLAN_WRITEBACK: "tc-rows" to the fence — ')
       + 'not solution-design (design-decision changes go ESCALATE_TO_FULL). '
       + 'Source waits for the spec approval (✋) and the implementation scope.', 'PLAN_PASS_SCOPE')
   }

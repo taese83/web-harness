@@ -1,5 +1,5 @@
 ---
-description: change 레인 full 경로(사용자가 full을 지정)는 변경 범위만큼 기획을 개정(product-planner·feature-planner)한 뒤 ✋ 결정·승인 지점에서 멈추고, 승인 전에는 source를 고치지 않는다. 요청은 데이터 모델·저장 범위를 명시한다 — 모호하면 계약상 기획 전에 묻는 것이 정답이라 이 사례가 재려는 것을 못 잰다.
+description: change 레인 full 경로(사용자가 full을 지정)는 기획 없는 프로젝트에서 기획 문서를 세우지 않고 라운드 기준(change-acceptance — ACC-·TT-)을 남긴 뒤 ✋ 결정·승인 지점에서 멈추고, 승인 전에는 source를 고치지 않는다. 요청은 데이터 모델·저장 범위를 명시한다 — 모호하면 계약상 기획 전에 묻는 것이 정답이라 이 사례가 재려는 것을 못 잰다.
 tags: [regression, lane]
 runs: 3
 max_turns: 80

@@ -13,8 +13,9 @@ const asPathList = value => (Array.isArray(value)
   : [])
 
 // 펜스의 `"PHASE": "plan"`은 light change 레인의 계획 패스다 — 그 범위가 현재인 동안 developer는 계획 문서만 쓴다
-// (소유권 훅이 source를 막는다). 줄 표기에는 단계가 없다(구현 단계).
-/** @returns {{paths: string[], phase: string|null} | {error: string}} paths가 비었으면 범위 미발급이다. */
+// (소유권 훅이 source를 막는다). 줄 표기에는 단계가 없다(구현 단계). `"PLAN_WRITEBACK": "tc-rows"`는 이미 승인된 TC의 동작을
+// 바꾸는 라운드만 feature-plan TC 행·plan-delta를 쓰게 한다(기본은 기획 문서를 쓰지 않는다). 펜스에만 있다 — 좁히는 쪽이 기본이다.
+/** @returns {{paths: string[], phase: string|null, planWriteback?: 'tc-rows'} | {error: string}} paths가 비었으면 범위 미발급이다. */
 export function parseChangeScopeAllowedPaths(source) {
   const entries = []
   for (const fence of source.matchAll(/```json\s+change-scope\s*\n([\s\S]*?)\n```/g)) {
@@ -44,7 +45,7 @@ export function parseChangeScopeAllowedPaths(source) {
       return {error: error instanceof Error ? error.message : String(error)}
     }
     const paths = asPathList(parsed?.ALLOWED_PATHS)
-    if (paths.length > 0) return {paths, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE : null}
+    if (paths.length > 0) return {paths, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE : null, ...(parsed?.PLAN_WRITEBACK === 'tc-rows' ? {planWriteback: 'tc-rows'} : {})}
   }
   return {paths: [], phase: null}
 }
