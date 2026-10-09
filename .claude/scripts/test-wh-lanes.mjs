@@ -119,8 +119,12 @@ test('verify 레인이 쓰기 agent를 실행하면 그 사실을 표시한다',
 
 // 「코드 리뷰해줘」는 verify로 온다 — 개발자가 켠 Codex 교차 리뷰가 team-flow·fix·change에만 있고 verify에서 빠지면 안 된다.
 test('verify 리뷰 단계에 Codex 교차 리뷰 명령이 있다', () => {
-  assert.match(skillBody('web-verify'), /codex-cross-review\.mjs --project-root \{project-root\} --base HEAD/,
+  const body = skillBody('web-verify')
+  assert.match(body, /codex-cross-review\.mjs --project-root \{project-root\} --base \{base\}/,
     'web-verify 리뷰 단계에 Codex 교차 리뷰가 없다 — 「코드 리뷰해줘」에서 Codex가 돌지 않는다')
+  // 「코드 리뷰해줘」는 다 커밋한 브랜치에도 온다 — Codex 범위를 HEAD로 고정하면 빈 diff를 리뷰한다. 묶음과 같은 {base}를 쓴다.
+  assert.match(body, /prepare-review-packet\.mjs --project-root \{project-root\} --base \{base\}/,
+    'web-verify 리뷰 묶음과 Codex가 같은 범위({base})를 쓰지 않는다')
 })
 
 // 계기(FINDING-002 후속, 2026-09-11): 승인은 `web-verify` 준비 단계에만 있었다. `visual-design-verify`도

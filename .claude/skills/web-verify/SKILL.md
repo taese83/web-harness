@@ -86,7 +86,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.
 4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. `external-ingestion` capability에서는 `ingestion` receipt가 같은 cohort에 포함되지 않으면 `BLOCKED`다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
 5. 테스트 판정 스크립트를 실행한다: `node .claude/scripts/report-test-qa.mjs --project {project-root}` → `qa-test.md`와 판정 기록(에이전트 스폰 없음).
-   리뷰 묶음을 만든다: `node .claude/scripts/prepare-review-packet.mjs --project-root {project-root}` — 판단형 리뷰어는 Bash가 없어 이 묶음과 receipt만 읽는다.
+   리뷰 묶음을 만든다: `node .claude/scripts/prepare-review-packet.mjs --project-root {project-root} --base {base}` — `{base}`는 리뷰 범위다 — 브랜치 기준 이후 커밋이 있으면 그 기준(커밋 안 한 변경도 함께 잡힌다; 트래커 설정의 `review.base`가 있으면 그것, 없으면 묻는다 — 예 `origin/develop`), 커밋이 없으면 `HEAD`. 판단형 리뷰어는 Bash가 없어 이 묶음과 receipt만 읽는다.
    독립 QA 에이전트 실행 (병렬 가능):
    - code-reviewer
    - ux-validator
@@ -102,7 +102,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - browser-verifier
    - `VISUAL_QA_MODE`이면 visual-regression-verifier
 
-   **Codex 교차 리뷰**: 같은 범위로 `node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base HEAD`를 QA와 병렬로(Bash 백그라운드) 돌린다 — 개발자가 로컬에서 `codexReview`를 켠 프로젝트만 실행되고(아니면 `disabled`로 끝난다), 결과 `_workspace/04_qa/codex-review.md`는 다른 모델의 의견이다. code-reviewer 지적과 대조해 둘 다 짚었거나 재현된 것만 확정, 한쪽만 짚은 것은 「교차 미확인」으로 따로 싣는다(보안·접근성 지적은 한쪽만이어도 반증 근거 없이 빼지 않는다). 없거나 실패하면 「교차 검증 안 됨」으로 적는다(막지 않는다). 교차 표기는 보고의 표기일 뿐 `qa-code.md`의 `## Result`·FAIL 항목을 바꾸지 않는다(판정을 바꾸려면 code-reviewer를 다시 돌린다).
+   **Codex 교차 리뷰**: 묶음과 같은 범위로 `node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base {base}`를 QA와 병렬로(Bash 백그라운드) 돌린다 — 개발자가 로컬에서 `codexReview`를 켠 프로젝트만 실행되고(아니면 `disabled`로 끝난다), 결과 `_workspace/04_qa/codex-review.md`는 다른 모델의 의견이다. code-reviewer 지적과 대조해 둘 다 짚었거나 재현된 것만 확정, 한쪽만 짚은 것은 「교차 미확인」으로 따로 싣는다(보안·접근성 지적은 한쪽만이어도 반증 근거 없이 빼지 않는다). 없거나 실패하면 「교차 검증 안 됨」으로 적는다(막지 않는다). 교차 표기는 보고의 표기일 뿐 `qa-code.md`의 `## Result`·FAIL 항목을 바꾸지 않는다(판정을 바꾸려면 code-reviewer를 다시 돌린다).
 6. 다중 tenant 또는 서버 인가 경로가 있으면 data-access-verifier를 실행한다.
 7. release 후보이면 격리 CI receipt가 완성된 뒤 checkout 밖에서 보호된 trust-config digest와 repository/revision/workflow/issuer/run identity를 주입한다. `node .claude/scripts/prepare-quality-attestation.mjs --project {project-root} --issuer-run-id <trusted-ci-run-id>`의 unsigned request를 project 밖의 trusted attester가 CI/OIDC, 격리, frozen install과 독립 대조한다. 일치할 때만 final subject를 구성·서명해 `_workspace/04_qa/evidence/quality-attestation.json`을 작성한다. private key와 보호된 context를 project child process에 전달하지 않는다.
 8. locked profile이 `next-app-fullstack`이면 서명 완료 후 `node .claude/scripts/web-core/validate-next-contracts.mjs --project {project-root}`를 실행한다. 이어서 `next-contract-verifier`를 실행하고 반환 본문을 `_workspace/04_qa/qa-next-contract.md`에 저장한다. 로컬 진단, target-specific receipt·artifact digest 또는 trusted attestation이 없으면 `BLOCKED`로 남긴다.

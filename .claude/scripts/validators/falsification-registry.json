@@ -5613,10 +5613,10 @@
     {
       "id": "web-verify-codex-cross-review",
       "file": ".claude/skills/web-verify/SKILL.md",
-      "find": "`node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base HEAD`를 QA와 병렬로",
-      "replace": "Codex를 QA와 병렬로",
+      "find": "`node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base {base}`를 QA와 병렬로",
+      "replace": "`node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base HEAD`를 QA와 병렬로",
       "test": ".claude/scripts/test-wh-lanes.mjs",
-      "why": "「코드 리뷰해줘」는 verify로 오는데 Codex 호출이 빠지면 켠 개발자에게도 교차 리뷰가 돌지 않는다"
+      "why": "Codex 범위를 HEAD로 고정하면 다 커밋한 브랜치의 「코드 리뷰해줘」에서 빈 diff를 리뷰한다(실사용 2026-10-09) — 묶음과 같은 base여야 한다"
     }
   ]
 }
