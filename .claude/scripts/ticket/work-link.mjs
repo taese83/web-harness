@@ -12,7 +12,7 @@
 // (소스·테스트에 ID가 인용되는가)로, check는 **대상 경로가 실재하는가**로 잰다 — 둘 다 「아예 없음」의
 // 하한이지 의미 검증이 아니다(§4 등록). 완료는 기록하지 않는다 — 연결한 PR의 머지·트래커에서 계산한다
 // (work-state-run.mjs). 링크는 완료의 주장이지 완료가 아니다.
-import {existsSync, readFileSync, readdirSync, statSync} from 'node:fs'
+import {appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync} from 'node:fs'
 import {join, relative as relativePath, resolve, sep} from 'node:path'
 import {createHash, randomUUID} from 'node:crypto'
 import {execFileSync} from 'node:child_process'
@@ -93,30 +93,65 @@ export function findOutsideScope(logText, allowedPaths, layerPattern) {
   return [...files].filter(file => !file.startsWith(HARNESS_ARTIFACT_PREFIX) && !patterns.some(pattern => pattern.test(file))).sort()
 }
 
-/**
- * 하네스 code-reviewer가 **마지막 커밋 뒤에** 판정을 남겼는가(PR 직전 리뷰의 흔적). 판정 기록은 SubagentStop 훅이 하네스
- * 리뷰어에게만 남긴다 — 프로젝트 자체 리뷰어는 세지 않는다. 막지 않고 알린다: 리뷰 내용의 적절성은 사람이 PR 확인에서 본다.
- * headTime(ISO)은 주입 가능(테스트). 못 읽으면 reviewed: null(모른다) — 「리뷰함」으로 접지 않는다.
- */
-export function harnessReviewCheck(root, {headTime = null} = {}) {
-  let head = headTime
-  if (!head) {
-    try {
-      // `_workspace` 커밋(판정 기록·산출물)은 리뷰 뒤에 따로 올리는 것이 규율이다 — 그것을 「리뷰 뒤 변경」으로 세지 않는다.
-      head = execFileSync('git', ['-C', root, 'log', '-1', '--format=%cI', '--', '.', ':(exclude)_workspace'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim()
-      if (!head) return {reviewed: null, guidance: '`_workspace` 밖 커밋이 없어 하네스 리뷰 여부를 판정하지 않았다'}
-    } catch { return {reviewed: null, guidance: '마지막 커밋 시각을 읽지 못해 하네스 리뷰 여부를 판정하지 못했다'} }
-  }
-  let rows = []
+export const REVIEW_HISTORY_RELATIVE = '_workspace/04_qa/review-packet/history.jsonl'
+
+/** 리뷰 묶음 이력 한 줄을 남긴다(prepare-review-packet). 쓰지 못해도 묶음은 남는다 — 그때 link가 「리뷰 기록 없음」으로 알린다. */
+export function appendReviewHistory(root, record) {
   try {
-    rows = readFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'), 'utf8').split('\n').filter(Boolean)
-      .map(line => { try { return JSON.parse(line) } catch { return null } }).filter(Boolean)
-  } catch { /* 기록이 없다 = 리뷰하지 않았다 */ }
-  const after = rows.filter(row => Date.parse(row.at) >= Date.parse(head))
-  const latest = after.at(-1) ?? null
-  return latest
-    ? {reviewed: true, at: latest.at, status: latest.status ?? null}
-    : {reviewed: false, headAt: head, guidance: '마지막 커밋 뒤에 하네스 code-reviewer가 돌지 않았다 — PR 전에 리뷰 묶음을 만들고 리뷰한다(team-flow 5)'}
+    mkdirSync(join(root, '_workspace/04_qa/review-packet'), {recursive: true})
+    appendFileSync(join(root, REVIEW_HISTORY_RELATIVE), `${JSON.stringify(record)}\n`)
+  } catch { /* 이력 실패는 link가 드러낸다 */ }
+}
+
+const readJsonLines = path => {
+  try {
+    return readFileSync(path, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch { return null } }).filter(Boolean)
+  } catch { return [] }
+}
+
+/**
+ * 커밋마다 **커밋 전에 리뷰했는가**를 내용으로 대조한다(team-flow 3). 커밋이 바꾼 파일(`_workspace` 제외)마다 그 커밋 시점의 blob이,
+ * 하네스 code-reviewer 판정 기록이 뒤따른 리뷰 묶음(`review-packets.jsonl`)에 같은 내용으로 있어야 한다. 리뷰 뒤 고치고 다시
+ * 리뷰하지 않았거나 리뷰 없이 커밋한 파일은 그 커밋의 `unreviewed`로 나온다. 막지 않고 알린다. 판정 기록은 하네스 리뷰어에게만 남는다.
+ * base를 모르거나 git을 못 읽으면 reviewed: null(모른다) — 「리뷰함」으로 접지 않는다.
+ */
+export function harnessReviewCheck(root, {base = null} = {}) {
+  if (!base) return {reviewed: null, guidance: '기대 base를 몰라 커밋별 리뷰 여부를 판정하지 않았다'}
+  const git = args => execFileSync('git', ['-C', root, '-c', 'core.quotePath=false', ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 8 * 1024 * 1024})
+  let commits
+  try {
+    const range = [`origin/${base}`, base].map(ref => { try { git(['rev-parse', '--verify', '--quiet', ref]); return `${ref}..HEAD` } catch { return null } }).find(Boolean)
+    if (!range) return {reviewed: null, guidance: `base ${base}를 찾지 못해 커밋별 리뷰 여부를 판정하지 않았다`}
+    commits = git(['log', '--no-merges', '--format=%H%x09%s', range]).split('\n').filter(Boolean).map(line => {
+      const [sha, ...subject] = line.split('\t')
+      return {sha, subject: subject.join('\t')}
+    }).reverse()
+  } catch { return {reviewed: null, guidance: '커밋 목록을 읽지 못해 커밋별 리뷰 여부를 판정하지 않았다'} }
+  const verdicts = readJsonLines(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'))
+  // 판정은 그 직전에 만든 묶음 하나에 속한다(리뷰어는 가장 최근 묶음을 읽는다) — 다음 묶음 전에 판정이 있는 묶음만 「리뷰한 내용」이다.
+  const packets = readJsonLines(join(root, REVIEW_HISTORY_RELATIVE)).sort((left, right) => Date.parse(left.generatedAt) - Date.parse(right.generatedAt))
+  const reviewed = packets.filter((packet, index) => {
+    const from = Date.parse(packet.generatedAt)
+    const until = index + 1 < packets.length ? Date.parse(packets[index + 1].generatedAt) : Infinity
+    return verdicts.some(verdict => Date.parse(verdict.at) >= from && Date.parse(verdict.at) < until)
+  })
+  const results = []
+  for (const commit of commits) {
+    const changed = git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', `${commit.sha}^`, commit.sha]).split('\0').filter(Boolean)
+      .filter(path => !path.startsWith('_workspace/'))
+    if (changed.length === 0) continue  // 산출물만 바꾼 커밋은 코드 리뷰 대상이 아니다
+    const unreviewed = changed.filter(path => {
+      let blob = null
+      try { blob = git(['rev-parse', `${commit.sha}:${path}`]).trim() } catch { blob = null }
+      return !reviewed.some(packet => Object.hasOwn(packet.files ?? {}, path) && (packet.files[path] ?? null) === blob)
+    })
+    results.push({sha: commit.sha.slice(0, 12), subject: commit.subject, reviewed: unreviewed.length === 0, ...(unreviewed.length ? {unreviewed} : {})})
+  }
+  const missing = results.filter(result => !result.reviewed)
+  return missing.length === 0
+    ? {reviewed: true, commits: results}
+    : {reviewed: false, commits: results,
+      guidance: `커밋 전에 하네스 리뷰를 거치지 않은 내용이 있다(${missing.map(result => result.sha).join(', ')}) — 다음 커밋부터는 커밋 직전에 리뷰한다(team-flow 3). 이미 올린 커밋은 PR 전에 리뷰하고 확인 화면에 싣는다`}
 }
 
 /** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */

@@ -40,7 +40,7 @@ test('변경 조회와 기계 판정을 묶고 항목마다 exit·sha256을 적�
     assert.equal(result.status, 0, result.stderr)
     const index = readIndex(project)
     assert.deepEqual(index.entries.map(entry => entry.file),
-      ['status.txt', 'diff-stat.txt', 'diff-names.txt', 'diff.patch', 'ls-files.txt', 'layer-boundaries.json', 'reuse-inventory.txt'])
+      ['status.txt', 'diff-stat.txt', 'diff-names.txt', 'diff.patch', 'ls-files.txt', 'layer-boundaries.json', 'reuse-inventory.txt', 'impact.txt'])
     assert.match(readFileSync(join(project, PACKET, 'diff.patch'), 'utf8'), /\+export const a = 2/)
     for (const entry of index.entries) assert.match(entry.sha256, /^[0-9a-f]{64}$/)
   })
@@ -99,5 +99,20 @@ test('묶음은 폴더 안 .gitignore로 커밋에서 빠지고 항목별 exit �
     assert.equal(packet().status, 0)
     assert.equal(readFileSync(join(project, PACKET, '.gitignore'), 'utf8'), '*\n')
     assert.match(readIndex(project).exitMeaning['layer-boundaries.json'], /1 = FAIL/)
+  })
+})
+
+test('영향 범위: 바뀐 소스 파일을 import하는 파일(상대 경로·별칭)을 impact.txt에 싣는다 — diff 밖의 호출부를 열어 보게', () => {
+  withProject(({project, packet}) => {
+    writeFileSync(join(project, 'src/b.ts'), "import {a} from './a'\nexport const b = a\n")
+    writeFileSync(join(project, 'src/c.ts'), "import {a} from '@/a'\nexport const c = a\n")
+    writeFileSync(join(project, 'src/d.ts'), 'export const d = 1\n')
+    assert.equal(packet().status, 0)
+    const impact = readFileSync(join(project, PACKET, 'impact.txt'), 'utf8')
+    const section = impact.split('## ').find(part => part.startsWith('src/a.ts'))
+    assert.match(section, /^src\/a\.ts — 사용처 2개/)
+    assert.match(section, /- src\/b\.ts/)
+    assert.match(section, /- src\/c\.ts/)
+    assert.doesNotMatch(section, /src\/d\.ts/, 'a를 import하지 않는 파일을 사용처로 셌다')
   })
 })

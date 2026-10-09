@@ -72,17 +72,17 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
   러너로 다시 돌린다. 범위 대조는 변경 파일 목록(`run-git-inspection.mjs --operation diff-stat`) 한 번으로 `ALLOWED_PATHS`와 맞춘다.
 - **기존 receipt의 재발급**: 프로젝트에 이미 `_workspace/04_qa/evidence/`가 있으면, 경량 라운드도 소스를 바꾼 뒤 `run-quality-gates.mjs --project {root} --all`로 receipt를 재발급한다. attestation·manifest는 만들지 않지만 **receipt를 stale로 남기지도 않는다** — receipt는 발급 시점 소스에 fingerprint로 결속되므로, 소스를 고치고 그대로 두면 그 시점부터 저장된 모든 evidence가 검증 불가가 된다. 재발급이 불가한 환경이면 완료 보고에 `QA evidence: STALE (재발급 필요)`를 명시하고 완료로 선언하지 않는다.
 - **승격 QA**: change-scope의 `CAPABILITY_ESCALATION`이 `detected`면 경량 라운드에서도 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`도) 재투입이 의무다. 자세한 조건은 `execution-contract.md`의 **Iterate round exit gates**가 canonical이다(light는 아래 light 항목).
-- **위험 트리거 리뷰**: 아래 신호가 하나라도 있으면 새 문맥 리뷰어 1회 — 보안 신호는 `security-reviewer`, 그 밖은 `code-reviewer`, 둘 다면 둘 다(승격 QA에 **더한다**, 대체하지 않는다). 신호가 없으면 LLM 리뷰 없이 보고에 `review: none-required (신호 0)`를 적는다.
+- **커밋 전 리뷰(항상)**: fix·change 라운드는 커밋하기 전에 새 문맥 `code-reviewer`를 한 번 돌린다(light는 아래대로 한 스폰 — 보안 신호면 그 한 스폰이 `security-reviewer`다. 승격 QA에 **더한다**, 대체하지 않는다). 아래 신호는 리뷰를 할지가 아니라 **무엇을 더 볼지**를 정한다 — 보안 신호면 `security-reviewer`를 더하고, 개발자가 로컬에서 `codexReview`를 켰으면 Codex 교차 리뷰를 병렬로 돌린다(team-flow 5와 같다).
   - 형태 무관: `CAPABILITY_ESCALATION: detected` · 의존성 추가 · 삭제·마이그레이션·저장 데이터 · 계약 파일(API 스키마·공개 타입) · diff 300줄 이상 · 기존 테스트 수정·삭제·skip/only 추가·스냅샷 갱신 · 게이트 실패 후 수정된 check.
   - 형태별(`targetShapes`, 여럿이면 합집합): 웹 앱 — 인증·세션·토큰, 입력 → HTML/쿼리 sink, UI 레이어(접근성) / 라이브러리 — 공개 export / CLI — 명령·플래그·exit code / serverless — `api/` 핸들러.
   - 리뷰어 입력은 이번 라운드 diff·수용 기준·change brief뿐이다(구현 대화는 주지 않는다). 리뷰어에게는 Bash가 없다 — 메인이 스폰 직전에
     `node .claude/scripts/prepare-review-packet.mjs --project-root {root} [--base <ref>]`로 `_workspace/04_qa/review-packet/`(diff·상태·레이어 방향·재사용 목록)을 만든다. 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
-  - **light 경로(`change-lane-checkpoint.md`)는 라운드당 리뷰 한 스폰이다 — light의 종료 게이트 ①과 위험 트리거 리뷰는 이 항목이
+  - **light 경로(`change-lane-checkpoint.md`)는 라운드당 리뷰 한 스폰이다 — light의 종료 게이트 ①과 커밋 전 리뷰는 이 항목이
     정본이다.** 보안 신호나 `CAPABILITY_ESCALATION`이 있으면 `security-reviewer`, 없으면 `code-reviewer`가 발화한 신호의 체크리스트를
     모두 본다. 서버 계약이 생겼으면 API 계약·생성 타입·목 핸들러 일치를 포함하고, API 명세가 없으면 그 항목은 `BLOCKED`다. 항상
     「승인된 수용 기준이 요청을 덮는가」 한 줄을 본다. finding마다 owner agent를 적는다 — API 계약 문서는 `api-schema-designer`(라이브러리·CLI
-    `lib-api-designer`), 코드는 developer(`retry-policy.md` 매핑 그대로). 판정 규칙(`CONFIRMED`만 산입)과 재확인 규칙은 같다.
-  - 수정은 developer 수정 스폰(`retry-policy.md` Iterate 상한), 재확인은 **마지막 수정 뒤 한 번**(스폰 직전 리뷰 묶음을 다시 만든다 — 묶음은 만든 시점의 트리만 담는다) 같은 역할 새 스폰이 1차 finding의 처분(fixed·dismissed·open)을 낸다. 남은 FAIL이면 라운드는 `BLOCKED`, 증거 있는 HIGH 이상을 기각하려면 사용자 답이 필요하다.
+    `lib-api-designer`), 코드는 developer(`retry-policy.md` 매핑 그대로). 판정 규칙(`CONFIRMED`만 산입)과 선별·재현 재확인 규칙은 같다.
+  - **지적 선별·수정은 team-flow 5와 같다** — 메인이 재현·반증해 반드시 고침(재현된 크리티컬·HIGH, 보안·접근성 전부 — 반증 근거 없이 빼지 않는다, 완료 조건 위반, 회귀)·필요하면 고침(범위 안의 싼 것)·안 고침(취향·추측·범위 밖·스팩 충돌)으로 가른다. 수정은 developer 수정 스폰(`retry-policy.md` Iterate 상한)에 모으고, 고쳤으면 **확인 리뷰 한 번** — 스폰 직전 리뷰 묶음을 다시 만들고(묶음은 만든 시점의 트리만 담는다) 같은 역할 새 스폰이 1차 지적의 처분(고쳐짐·기각·남음)만 낸다. 남은 FAIL이면 라운드는 `BLOCKED`. 처분(고침·안 고침+이유·후속)을 보고에 싣는다. 증거 있는 HIGH 이상을 「안 고침」으로 두려면 사용자 답이 필요하다.
 
 ## Dev server note
 

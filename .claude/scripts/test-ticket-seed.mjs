@@ -9,7 +9,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
-import {join} from 'node:path'
+import {dirname, join} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {tmpdir} from 'node:os'
 import {runTicketCreate} from './ticket/ticket-create-run.mjs'
 import {runWorkPickup} from './ticket/work-pickup-run.mjs'
@@ -172,40 +173,53 @@ test('바뀐 절 대조: 세 서식(markdown·Jira 위키·평문)을 읽고, �
   assert.equal(changedTicketSections('자유 서술 티켓', '### 목적\na'), null)
 })
 
-test('PR 직전 하네스 리뷰: 마지막 커밋 뒤의 code-reviewer 판정 기록이 있어야 reviewed다', async () => {
-  const {harnessReviewCheck} = await import('./ticket/work-link.mjs')
-  const root = mkdtempSync(join(tmpdir(), 'wh-harness-review-'))
-  try {
-    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T08:00:00Z'}).reviewed, false, '기록이 없는데 리뷰했다고 했다')
+test('커밋별 리뷰: 커밋 직전에 리뷰한 내용은 커밋 뒤에도 reviewed, 리뷰 뒤 고친 커밋만 짚고, _workspace만 바꾼 커밋은 세지 않는다', async () => {
+  const {harnessReviewCheck, REVIEW_HISTORY_RELATIVE} = await import('./ticket/work-link.mjs')
+  const {execFileSync, spawnSync} = await import('node:child_process')
+  const {realpathSync, appendFileSync} = await import('node:fs')
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-per-commit-review-')))
+  const git = (...args) => execFileSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], {encoding: 'utf8'})
+  const packet = () => {
+    const result = spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'prepare-review-packet.mjs'), '--project-root', root, '--base', 'HEAD'],
+      {cwd: root, encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: ''}})
+    assert.equal(result.status, 0, result.stderr)
+  }
+  const verdict = () => {
     mkdirSync(join(root, '_workspace/04_qa/evidence/verdicts'), {recursive: true})
-    writeFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
-      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: '2026-09-29T07:58:00Z'})}\n`)
-    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T08:00:00Z'}).reviewed, false, '마지막 커밋 전의 리뷰를 세었다')
-    assert.equal(harnessReviewCheck(root, {headTime: '2026-09-29T07:00:00Z'}).reviewed, true)
-  } finally { rmSync(root, {recursive: true, force: true}) }
-})
-
-test('PR 직전 하네스 리뷰: 리뷰 뒤 `_workspace`만 커밋하면 리뷰 뒤 변경으로 세지 않고, 코드를 커밋하면 다시 요구한다', async () => {
-  const {harnessReviewCheck} = await import('./ticket/work-link.mjs')
-  const {execFileSync} = await import('node:child_process')
-  const root = mkdtempSync(join(tmpdir(), 'wh-harness-review-git-'))
-  const commit = (message, when) => execFileSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false',
-    'commit', '-q', '-m', message], {env: {...process.env, GIT_COMMITTER_DATE: when, GIT_AUTHOR_DATE: when}})
+    appendFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
+      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: new Date().toISOString()})}\n`)
+  }
   try {
-    execFileSync('git', ['-C', root, 'init', '-q'])
+    git('init', '-q', '-b', 'main')
     mkdirSync(join(root, 'src'))
     writeFileSync(join(root, 'src/a.ts'), 'a\n')
-    execFileSync('git', ['-C', root, 'add', '.'])
-    commit('code', '2026-09-29T07:00:00Z')
-    mkdirSync(join(root, '_workspace/04_qa/evidence/verdicts'), {recursive: true})
-    writeFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
-      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: '2026-09-29T07:30:00Z'})}\n`)
-    execFileSync('git', ['-C', root, 'add', '.'])
-    commit('harness artifacts', '2026-09-29T08:00:00Z')
-    assert.equal(harnessReviewCheck(root).reviewed, true, '`_workspace` 커밋을 리뷰 뒤 변경으로 셌다 — 재리뷰 루프가 된다')
-    writeFileSync(join(root, 'src/a.ts'), 'b\n')
-    execFileSync('git', ['-C', root, 'add', '.'])
-    commit('code after review', '2026-09-29T09:00:00Z')
-    assert.equal(harnessReviewCheck(root).reviewed, false, '리뷰 뒤 코드 커밋을 놓쳤다')
+    git('add', '.'); git('commit', '-q', '-m', 'base')
+    git('checkout', '-q', '-b', 'feature')
+    // 커밋 1 — 리뷰 묶음 + 판정 뒤 커밋
+    writeFileSync(join(root, 'src/a.ts'), 'a2\n')
+    packet(); verdict()
+    git('add', 'src/a.ts'); git('commit', '-q', '-m', 'one')
+    assert.equal(harnessReviewCheck(root, {base: 'main'}).reviewed, true, '커밋 직전에 리뷰한 내용을 리뷰하지 않았다고 했다')
+    assert.ok(readFileSync(join(root, REVIEW_HISTORY_RELATIVE), 'utf8').includes('src/a.ts'), '리뷰한 파일 지문을 이력에 남기지 않았다')
+    // 산출물만 바꾼 커밋은 대상이 아니다
+    git('add', '-f', '_workspace'); git('commit', '-q', '-m', 'artifacts')
+    assert.equal(harnessReviewCheck(root, {base: 'main'}).reviewed, true, '_workspace 커밋을 리뷰 대상으로 셌다')
+    // 커밋 2 — 묶음만 만들고 리뷰(판정)하지 않은 채 같은 내용을 커밋했다
+    await new Promise(done => setTimeout(done, 20))
+    writeFileSync(join(root, 'src/a.ts'), 'a3\n')
+    packet()
+    git('add', 'src/a.ts'); git('commit', '-q', '-m', 'two')
+    // 커밋 3 — 리뷰한 뒤 고쳤는데 다시 리뷰하지 않았다
+    await new Promise(done => setTimeout(done, 20))
+    writeFileSync(join(root, 'src/a.ts'), 'a4\n')
+    packet(); verdict()
+    writeFileSync(join(root, 'src/a.ts'), 'a5\n')
+    git('add', 'src/a.ts'); git('commit', '-q', '-m', 'three')
+    const check = harnessReviewCheck(root, {base: 'main'})
+    assert.equal(check.reviewed, false, '리뷰 없이 커밋한 내용을 놓쳤다')
+    assert.deepEqual(check.commits.map(commit => [commit.subject, commit.reviewed]), [['one', true], ['two', false], ['three', false]],
+      '묶음만 만들고 리뷰하지 않은 커밋(two)이나 리뷰 뒤 고친 커밋(three)을 리뷰한 것으로 셌다')
+    assert.deepEqual(check.commits[2].unreviewed, ['src/a.ts'])
+    assert.equal(harnessReviewCheck(root, {base: null}).reviewed, null, 'base를 모르는데 판정했다')
   } finally { rmSync(root, {recursive: true, force: true}) }
 })

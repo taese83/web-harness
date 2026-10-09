@@ -15,6 +15,8 @@ import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {answerHelp} from './cli-help-lib.mjs'
 import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
+import {appendReviewHistory} from './ticket/work-link.mjs'
+import {computeImpact, parseDiffNames, renderImpact} from './review-impact-lib.mjs'
 
 answerHelp(import.meta.url)
 
@@ -81,6 +83,7 @@ const OPTIONAL = ['handoff-design.json', 'handoff-development.json']
 
 const sha256 = content => createHash('sha256').update(content).digest('hex')
 const entries = []
+let diffNames = null
 for (const item of items) {
   const result = spawnSync(process.execPath, [join(scripts, item.script), ...item.args], {
     cwd: projectRoot,
@@ -92,6 +95,7 @@ for (const item of items) {
   const truncated = Buffer.byteLength(content) > MAX_BYTES
   if (truncated) content = Buffer.from(content).subarray(0, MAX_BYTES).toString('utf8')
   atomicWriteProjectFile(projectRoot, `${PACKET}/${item.file}`, content)
+  if (item.file === 'diff-names.txt' && result.status === 0) diffNames = content
   entries.push({
     file: item.file,
     command: item.command.map(part => (part === projectRoot ? '{project-root}' : part)).join(' '),
@@ -103,20 +107,50 @@ for (const item of items) {
     sha256: sha256(content),
   })
 }
+// 영향 범위 — 바뀐 소스 파일의 사용처. 리뷰가 diff 밖의 호출부까지 열어 보게 한다(diff-names를 못 읽었으면 확인 불가).
+{
+  let content
+  let exitCode = 0
+  try {
+    content = diffNames === null ? '바뀐 파일 목록(diff-names)을 읽지 못해 영향 범위를 계산하지 않았다 — 확인 불가.\n'
+      : renderImpact(computeImpact(projectRoot, parseDiffNames(diffNames)))
+    if (diffNames === null) exitCode = 2
+  } catch (error) {
+    content = `영향 범위 계산 실패: ${String(error?.message ?? error).slice(0, 200)}\n`
+    exitCode = 2
+  }
+  atomicWriteProjectFile(projectRoot, `${PACKET}/impact.txt`, content)
+  entries.push({file: 'impact.txt', command: 'review-impact-lib (diff-names 기반)', exitCode, bytes: Buffer.byteLength(content), truncated: false, sha256: sha256(content)})
+}
+// 리뷰한 내용의 지문 — 바뀐 파일마다 작업 트리 내용의 git blob id(지운 파일은 null). `link`가 커밋마다 「그 커밋의 파일 내용이
+// 하네스 리뷰가 뒤따른 묶음에 같은 내용으로 있었는가」를 대조한다(커밋 전 리뷰·커밋 여러 개). `_workspace`는 산출물이라 뺀다.
+const reviewedFiles = {}
+if (diffNames !== null) {
+  for (const path of parseDiffNames(diffNames)) {
+    if (path.startsWith('_workspace/')) continue
+    const absolute = join(projectRoot, path)
+    if (!existsSync(absolute)) { reviewedFiles[path] = null; continue }
+    const blob = spawnSync('git', ['-C', projectRoot, 'hash-object', '--', path], {encoding: 'utf8'})
+    if (blob.status === 0) reviewedFiles[path] = blob.stdout.trim()
+  }
+}
 // 이번에 만들지 않은 선택 항목은 지운다 — 지난 라운드 파일이 현재 판정처럼 읽히지 않게.
 for (const file of OPTIONAL) {
   if (entries.some(entry => entry.file === file)) continue
   const path = join(projectRoot, PACKET, file)
   if (existsSync(path) && lstatSync(path).isFile()) rmSync(path)
 }
+const generatedAt = new Date().toISOString()
 const index = {
   schemaVersion: 1,
-  generatedAt: new Date().toISOString(),
+  generatedAt,
   base: base ?? null,
+  files: reviewedFiles,
   exitMeaning: {
     git: '0 = 조회됨, 그 밖 = 확인 불가',
     'layer-boundaries.json': '0 = PASS, 1 = FAIL(방향 위반), 3 = 미판정(확인 불가 — 통과가 아니다), 2 = 확인 불가',
     'reuse-inventory.txt': '0 = 보고됨, 그 밖 = 확인 불가',
+    'impact.txt': '0 = 사용처 목록(근사), 2 = 확인 불가',
     'handoff-*.json': '0 = HOLE 없음, 1 = HOLES(파일의 JSON을 그대로 옮긴다), 2 = 기계 판정 미수행',
   },
   note: '묶음은 generatedAt 시점의 트리만 담는다 — 수정 뒤 재확인이면 메인이 다시 만든다.',
@@ -124,6 +158,8 @@ const index = {
 }
 // 묶음은 산출물이지 소스가 아니다 — 프로젝트 설정을 건드리지 않고 폴더 안 규칙으로 커밋에서 뺀다.
 atomicWriteProjectFile(projectRoot, `${PACKET}/.gitignore`, '*\n')
+// 이력은 묶음을 새로 만들어도 남는다 — 커밋마다 리뷰한 내용을 나중에 대조한다.
+appendReviewHistory(projectRoot, {generatedAt, base: base ?? null, files: reviewedFiles})
 atomicWriteProjectFile(projectRoot, `${PACKET}/INDEX.json`, `${JSON.stringify(index, null, 2)}\n`)
 const failed = entries.filter(entry => entry.exitCode !== 0).map(entry => `${entry.file}=${entry.exitCode}`)
 process.stdout.write(`review packet: ${PACKET}/ (${entries.length} items${failed.length ? `; non-zero: ${failed.join(', ')}` : ''})\n`)

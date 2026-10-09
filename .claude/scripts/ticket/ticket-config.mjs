@@ -304,7 +304,7 @@ export function reviewPlanOf(config, {base = null, local = null} = {}) {
   // Codex 교차 리뷰 — 개발자가 로컬에서 켰을 때만. 하네스 리뷰와 병렬로 돌리고 지적을 대조한다(team-flow 5).
   // 켜지 않았으면 싣지 않는다 — 리뷰 계획 모양은 그대로다.
   const codex = local?.codexReview
-    ? {codex: {enabled: true, command: reviewBase ? `node .claude/scripts/codex-cross-review.mjs --project-root . --base ${reviewBase}` : null, output: '_workspace/04_qa/codex-review.md'}}
+    ? {codex: {enabled: true, command: 'node .claude/scripts/codex-cross-review.mjs --project-root . --base HEAD', output: '_workspace/04_qa/codex-review.md'}}
     : {}
   return {harness: HARNESS_REVIEW_AGENT, project, base: reviewBase, head: 'HEAD', ...codex,
     ...(local ? {references: local.reviewReferences, local: {path: local.path, reviewAgents: local.reviewAgents,

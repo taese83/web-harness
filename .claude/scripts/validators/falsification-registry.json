@@ -5379,12 +5379,12 @@
       "why": "카드가 단일 구현 스폰 규칙을 잃으면 소스·테스트를 나눈 스폰이 같은 문맥을 두 번 세운다"
     },
     {
-      "id": "iterate-card-trigger-review-row",
+      "id": "iterate-card-commit-review-row",
       "file": ".claude/skills/web-orchestrator/references/iterate-lane-card.md",
-      "find": "신호 0이면 `review: none-required`",
-      "replace": "신호 0이면 생략",
+      "find": "| 8-2 | 커밋 전 리뷰 — 라운드마다",
+      "replace": "| 8-2 | 리뷰(선택) — 라운드마다",
       "test": ".claude/scripts/test-contract-load-points.mjs",
-      "why": "트리거 리뷰 단계가 카드에서 빠지면 카드만 따르는 라운드에서 위험 변경의 독립 리뷰가 사라진다"
+      "why": "커밋 전 리뷰 단계가 카드에서 빠지면 카드만 따르는 fix·change 라운드가 리뷰 없이 커밋한다"
     },
     {
       "id": "runner-ingestion-declared-requires-contracts",
@@ -5523,22 +5523,6 @@
       "why": "리다이렉트·heredoc은 어느 명령에 붙든 파일을 쓴다 — 읽기 명령(echo·cat) 뒤의 `>`도 승인 기록을 만든다"
     },
     {
-      "id": "link-harness-review-after-head",
-      "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "  const after = rows.filter(row => Date.parse(row.at) >= Date.parse(head))",
-      "replace": "  const after = rows",
-      "test": ".claude/scripts/test-ticket-seed.mjs",
-      "why": "마지막 커밋 전의 리뷰를 세면 리뷰 뒤에 바꾼 코드가 리뷰 없이 PR로 나간다"
-    },
-    {
-      "id": "link-harness-review-ignores-workspace-commits",
-      "file": ".claude/scripts/ticket/work-link.mjs",
-      "find": "'--format=%cI', '--', '.', ':(exclude)_workspace']",
-      "replace": "'--format=%cI']",
-      "test": ".claude/scripts/test-ticket-seed.mjs",
-      "why": "리뷰 뒤 따로 올린 `_workspace` 커밋(판정 기록 자체)을 리뷰 뒤 변경으로 세면 리뷰할 때마다 다시 리뷰를 요구한다"
-    },
-    {
       "id": "tree-grep-deny-unexcludable-secret",
       "file": ".claude/scripts/sensitive-access-policy-lib.mjs",
       "find": "  if (!tree.secrets.every(excludedBySecretGlob)) return",
@@ -5593,6 +5577,38 @@
       "replace": "String(command)",
       "test": ".claude/scripts/test-codex-cross-review.mjs",
       "why": "따옴표로 감싼 플래그(`\"--install\"`)를 못 알아보면 사용자 확인 없이 설치·적용된다(Codex 교차 리뷰가 찾음)"
+    },
+    {
+      "id": "review-impact-resolves-relative-imports",
+      "file": ".claude/scripts/review-impact-lib.mjs",
+      "find": "        hit = targets.get(withoutExtension(toPosix(relative(root, resolve(dirname(file), specifier)))))",
+      "replace": "        hit = null",
+      "test": ".claude/scripts/test-prepare-review-packet.mjs",
+      "why": "사용처를 못 찾으면 리뷰가 변경점만 보고 diff 밖의 호출부가 깨지는 것을 놓친다"
+    },
+    {
+      "id": "link-review-requires-verdict-after-packet",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    return verdicts.some(verdict => Date.parse(verdict.at) >= from && Date.parse(verdict.at) < until)",
+      "replace": "    return true",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "묶음만 만들고 리뷰하지 않은 내용을 리뷰한 것으로 세면 리뷰 없이 커밋해도 통과한다"
+    },
+    {
+      "id": "link-review-matches-committed-content",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "Object.hasOwn(packet.files ?? {}, path) && (packet.files[path] ?? null) === blob)",
+      "replace": "Object.hasOwn(packet.files ?? {}, path))",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "파일 이름만 대조하면 리뷰 뒤 고친 내용이 리뷰한 것으로 통과한다 — 커밋한 내용(blob)이 리뷰한 내용과 같아야 한다"
+    },
+    {
+      "id": "packet-records-reviewed-blobs",
+      "file": ".claude/scripts/prepare-review-packet.mjs",
+      "find": "    if (blob.status === 0) reviewedFiles[path] = blob.stdout.trim()",
+      "replace": "    if (blob.status === 0) void blob",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "리뷰한 파일 내용의 지문이 없으면 커밋마다 리뷰했는지 대조할 근거가 없다"
     }
   ]
 }

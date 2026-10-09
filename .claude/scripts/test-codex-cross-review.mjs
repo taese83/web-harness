@@ -80,7 +80,7 @@ test('리뷰 계획: 개발자가 로컬에서 codexReview를 켠 경우만 Code
     const local = readLocalReviewSettings(project, {home})
     assert.equal(local.codexReview, true)
     const plan = reviewPlanOf({provider: 'jira', jira: {}}, {base: 'develop', local})
-    assert.equal(plan.codex.command, 'node .claude/scripts/codex-cross-review.mjs --project-root . --base develop')
+    assert.equal(plan.codex.command, 'node .claude/scripts/codex-cross-review.mjs --project-root . --base HEAD', '커밋 전 변경을 리뷰하지 않는다')
     writeFileSync(join(home, '.claude/web-harness/local.json'), JSON.stringify({projects: {[project]: {codexReview: 'yes'}}}))
     assert.ok(readLocalReviewSettings(project, {home}).errors.some(error => /codexReview/.test(error)), '잘못된 값을 조용히 껐다')
   } finally { rmSync(home, {recursive: true, force: true}); rmSync(project, {recursive: true, force: true}) }

@@ -105,6 +105,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.
 3. Grep 도구로 `export \*` 패턴을 `src/`에서 검색 — wildcard export 검사
 4. Grep 도구로 `class\*=|css-[a-zA-Z0-9]` 패턴을 `src/`에서 검색 — substring/generated selector 검사
+5-1. **영향 범위:** 리뷰 묶음의 `impact.txt`(바뀐 소스 파일마다 그 파일을 import하는 파일)를 연다. 바뀐 export·시그니처·반환값·에러·부수효과가 그 사용처를 깨는지 **diff 밖의 호출부를 직접 읽어** 확인한다 — 변경점만 보고 끝내지 않는다. 목록이 근사라 「찾지 못함」이면 export 이름으로 Grep 한 번 더. 확인하지 못한 사용처는 그 사실을 적는다
 5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 리뷰 묶음의 `layer-boundaries.json`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다. `deepImports`(공개 진입점 우회)는 알림이다 — 이번 diff가 만든 것만 WARN으로 적고 대안(진입점에 export 추가 — lazy 라우트는 `import('<슬라이스>').then(m => ({default: m.X}))`, 테스트는 진입점에서 동작 확인)을 단다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색

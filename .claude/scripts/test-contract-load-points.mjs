@@ -68,7 +68,7 @@ test('Iterate 카드는 정본과 같은 필드·✋ 항목·단계·명령을 �
 
   // Iterate 루프의 단계 가운데 카드가 빠뜨리면 조용히 사라지는 것들
   for (const anchor of ['Gate 0', 'Runtime verifiability', 'Iterate evidence', 'CAPABILITY_ESCALATION', 'DOCS_TO_UPDATE', 'request-type-contract.md',
-    'developer` **1회**', '--failure-summary', 'review: none-required', 'retry-policy.md` Iterate 라운드', '재검증 금지']) {
+    'developer` **1회**', '--failure-summary', '커밋 전 리뷰', 'retry-policy.md` Iterate 라운드', '재검증 금지']) {
     assert.ok(card.includes(anchor), `카드에 ${anchor} 단계가 없다`)
   }
 

@@ -178,7 +178,7 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   // 연결 전 리뷰할 에이전트 — 스킬이 dry-run 결과로 리뷰한 뒤 연결한다(리뷰 수행은 CLI가 증명하지 못한다).
   const review = reviewPlanOf(io.ticketConfig ?? (() => { try { return readTicketConfig(root) } catch { return null } })(),
     {base: baseRef, local: readLocalReviewSettings(root, io.home ? {home: io.home} : {})})
-  const harnessReview = io.harnessReview ?? harnessReviewCheck(root)
+  const harnessReview = io.harnessReview ?? harnessReviewCheck(root, {base: baseRef ?? null})
   if (flags['dry-run']) return {ok: true, mode: 'work', dryRun: true, review, harnessReview, prBody, completion, staleCheck: decision.staleCheck, closeLine, commitSplit, scopeDrift, prTitle: prTitleCheck, ...(bodyCheck ? {ticketBodyCheck: bodyCheck} : {}), ...ticketAcceptance}
   const record = {schemaVersion: 1, ticketKey: String(titleKey), workId: decision.workId, prUrl, baseRef: payload.baseRef, accepted,
     // 이 PR이 **어느 티켓 개정**을 보고 개발됐는가 — 대조한 범위일 때만 싣는다.
