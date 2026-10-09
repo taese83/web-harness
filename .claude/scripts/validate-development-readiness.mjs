@@ -319,7 +319,12 @@ export const TEAM_SHARING = {
   attributes: ['_workspace/03_dev/work-item-events.jsonl merge=union'],
   // 개발자 로컬 기록 — 커밋하면 PR마다 충돌하고 남의 기록이 픽업·범위를 막는다. 초안은 트래커에 만든 뒤에는 티켓이 정본이다.
   ignores: ['_workspace/03_dev/change-scope.md', '_workspace/04_qa/failure-summary.json', '_workspace/04_qa/context-telemetry.jsonl', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',
-    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],
+    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl',
+    // 계획 판본 스냅샷(되읽지 않는 로컬 감사용)·승인 기록(개발자·호스트·경로에 결박) — PR을 수천 줄씩 키운다(실사용: 문서 PR +22,924줄).
+    // 원본 자료(`00_source/fetched·imported`)도 뺀다(사용자 결정) — 대가: 분석의 snapshotRef 실재 검사 때문에 작성자가 아닌 클론에서
+    // 계획을 다시 검토(claim)하면 멈춘다(pickup은 무관). 검사는 완화하지 않는다(protected-core §4).
+    '_workspace/03_dev/work-plan-revisions/', '_workspace/03_dev/work-analysis-revisions/', '_workspace/03_dev/host-execution-grant.json',
+    '_workspace/03_dev/workflow-security-acceptance.json', '_workspace/00_source/fetched/', '_workspace/00_source/imported/'],
 }
 const readLines = path => (existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).map(line => line.trim()) : [])
 function trackedFiles(root, paths) {

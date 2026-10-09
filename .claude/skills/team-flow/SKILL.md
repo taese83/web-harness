@@ -190,6 +190,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    `review.references`가 있으면 리뷰어에게 참고 문서로 넘긴다. `review.local`은 이 개발자만의 설정(`references/tracker-config.md`)이라 그렇다고 알리고,
    `missingReferences`·`errors`가 있으면 그대로 보여 준다.
 6. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·리뷰 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
+   `link --dry-run`의 `prSize.over`면(코드 파일 40개·변경 1,500줄 초과) 막지 않고 **나눌 지점**(커밋 묶음·WORK 단위 PR 여럿)을 제안해 묻는다 —
+   그대로 가기로 하면 PR 본문에 나누지 않은 이유를 한 줄 적는다. 커밋 계획(3)을 세울 때 이미 넘을 것 같으면 그때 PR을 나눌 지점을 함께 보인다.
    `link --dry-run`의 `harnessReview`는 커밋마다 커밋 전 리뷰를 거쳤는지(파일 내용 대조) 보여 준다 — `reviewed: false`인 커밋은 이미 커밋된
    내용이라 묶음과 Codex(`review.codex.command`의 `HEAD`를 `{review.base}`로 바꿔)를 `--base {review.base}`로 돌려 PR 전에 리뷰하고, 그 사실과 처분을 확인 화면에 싣는다.
 
@@ -207,7 +209,9 @@ PR 본문에 넣게 한다. 닫는 줄은 발행 원장의 트래커가 정한�
 `pickup`·`link`는 받지 않은 계획 개정이 원격에 있으면 멈춘다(`plan-behind-remote`) — 받은 뒤 다시 집는다.
 
 **여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
-`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`·`flow-log.jsonl`(개발자 로컬 기록)에 git 제외를 넣는다.
+`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`·`flow-log.jsonl`(개발자 로컬 기록)과 계획 판본 스냅샷(`*-revisions/`)·
+승인 기록·원본 자료(`00_source/fetched·imported`)에 git 제외를 넣는다 — 팀이 읽지 않는 기계 산출물로 PR을 키우지 않는다
+(원본이 없는 클론에서는 계획을 다시 `claim`하지 못한다 — 계획은 작성자가 고친다).
 사람이 만든 개발 티켓만 쓰는 팀(원장 없이 트래커 설정만)도 같은 검사를 받는다. 없으면 원장이 충돌하고 남의 로컬 기록이 픽업을 막는다.
 
 **머지 후 트래커 닫기**: GitHub은 `Closes #N`이 기본 브랜치 머지에서만 닫는다. 통합 브랜치 머지를 위해
@@ -240,7 +244,7 @@ CLI는 이미 사람이 읽을 문장(`guidance`·`notes`·`errors`·`bounce`)�
 | `pickup` 시작(`outcome: started`) | 무엇이 나갔는지(배정·전이·코멘트)와 다음 할 일 한 줄. change-scope 내용을 풀어 쓰지 않는다. `trackerRead.guidance`·`ticketWork.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `claim` 검토 | `phase`와 다음 할 일. 계획을 통째로 다시 설명하지 않는다 |
 | `claim --publish` 미리보기 | 무엇을 어디에 낼지 그대로 + 확인 한 줄 |
-| `link` | 충족·미충족 항목 그대로 + `prBody`(PR 본문에 넣을 문단). `--dry-run`이면 `review`의 리뷰어로 리뷰한 뒤 연결한다. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`·`prTitle.guidance`가 있으면 그 한 줄도 옮긴다 |
+| `link` | 충족·미충족 항목 그대로 + `prBody`(PR 본문에 넣을 문단). `--dry-run`이면 `review`의 리뷰어로 리뷰한 뒤 연결한다. 미충족마다 해법을 지어내지 않는다. `commitSplit.guidance`·`scopeDrift.guidance`·`prTitle.guidance`·`prSize.guidance`가 있으면 그 한 줄도 옮긴다 |
 | `*_INVALID` 오류 | `errors`를 목록으로 옮긴다. 해설·우회 제안을 붙이지 않는다 |
 
 ## 비협상

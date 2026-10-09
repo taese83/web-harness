@@ -2981,8 +2981,8 @@
     {
       "id": "team-sharing-ignores-local-scope",
       "file": ".claude/scripts/validate-development-readiness.mjs",
-      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/04_qa/failure-summary.json', '_workspace/04_qa/context-telemetry.jsonl', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
-      "replace": "  ignores: ['_workspace/04_qa/failure-summary.json', '_workspace/04_qa/context-telemetry.jsonl', '_workspace/03_dev/ticket-assessments/', '_workspace/03_dev/work-links/', '_workspace/03_dev/reuse-inventory.json',\n    '_workspace/03_dev/change-journal/', '_workspace/03_dev/ticket-drafts/', '_workspace/03_dev/flow-log.jsonl'],",
+      "find": "  ignores: ['_workspace/03_dev/change-scope.md', '_workspace/04_qa/failure-summary.json',",
+      "replace": "  ignores: ['_workspace/04_qa/failure-summary.json',",
       "test": ".claude/scripts/test-team-e2e.mjs",
       "why": "한 개발자의 작업 범위가 커밋되면 머지마다 충돌하고 받은 사람의 픽업을 막는다"
     },
@@ -5673,6 +5673,30 @@
       "replace": "if (false) {",
       "test": ".claude/scripts/test-prepare-review-packet.mjs",
       "why": "Codex 교차 리뷰 명령이 레인 문서에만 있으면 메인이 문서를 안 읽은 fix·change 커밋 전 리뷰에서 Codex가 빠진다(실사용 2026-10-09 — 사용자가 직접 시켰다)"
+    },
+    {
+      "id": "pr-size-code-files-only",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "    }).filter(row => isCodeReviewTarget(row.path))",
+      "replace": "    })",
+      "test": ".claude/scripts/test-pr-size.mjs",
+      "why": "문서·_workspace·lockfile까지 세면 코드 리뷰 부담과 무관한 숫자로 상한을 넘겨 경보가 무의미해진다"
+    },
+    {
+      "id": "pr-size-flags-over-limit",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "  const over = size.files > limits.files || size.lines > limits.lines",
+      "replace": "  const over = false",
+      "test": ".claude/scripts/test-pr-size.mjs",
+      "why": "상한을 넘은 PR을 알리지 않으면 181파일 PR이 그대로 리뷰에 올라간다"
+    },
+    {
+      "id": "team-sharing-ignores-machine-artifacts",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "    '_workspace/03_dev/workflow-security-acceptance.json', '_workspace/00_source/fetched/', '_workspace/00_source/imported/'],",
+      "replace": "    ],",
+      "test": ".claude/scripts/test-pr-size.mjs",
+      "why": "계획 판본 스냅샷·승인 기록·원본 자료가 커밋되면 문서 PR이 수만 줄이 되고, 다른 클론에서 무효인 인수 기록이 그 개발자의 재기록을 막는다"
     }
   ]
 }

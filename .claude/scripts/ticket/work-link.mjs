@@ -166,6 +166,31 @@ export function harnessReviewCheck(root, {base = null} = {}) {
       guidance: `커밋 전에 하네스 리뷰를 거치지 않은 내용이 있다(${missing.map(result => result.sha).join(', ')}) — 다음 커밋부터는 커밋 직전에 리뷰한다(team-flow 3). 이미 올린 커밋은 PR 전에 리뷰하고 확인 화면에 싣는다`}
 }
 
+// PR 크기 상한 — 넘으면 리뷰어가 실제로 읽지 못한다(실사용: 181파일·+6,926줄 PR). 코드 파일(isCodeReviewTarget)만, 추가+삭제 줄로 센다.
+// 막지 않는다 — 넘으면 나누기를 제안하고 사용자가 정한다. 그대로 가면 PR 본문에 이유를 적는다(team-flow 6).
+export const PR_SIZE_LIMITS = Object.freeze({files: 40, lines: 1500})
+const TEST_FILE = /(?:\.(?:test|spec)\.[cm]?[jt]sx?|(?:^|\/)__snapshots__\/.*)$/
+
+/** base 이후(merge-base...HEAD) 코드 변경의 크기. 못 읽으면 checked:false. */
+export function prSizeCheck(root, {base = null, limits = PR_SIZE_LIMITS} = {}) {
+  if (!base) return {checked: false, reason: '기대 base를 몰라 PR 크기를 재지 않았다'}
+  const git = args => execFileSync('git', ['-C', root, '-c', 'core.quotePath=false', ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024})
+  const ref = [`origin/${base}`, base].find(candidate => { try { git(['rev-parse', '--verify', '--quiet', candidate]); return true } catch { return false } })
+  if (!ref) return {checked: false, reason: `base ${base}를 찾지 못해 PR 크기를 재지 않았다`}
+  let rows
+  try {
+    rows = git(['diff', '--numstat', '--no-renames', `${ref}...HEAD`]).split('\n').filter(Boolean).map(line => {
+      const [added, deleted, ...path] = line.split('\t')
+      return {path: path.join('\t'), lines: (Number(added) || 0) + (Number(deleted) || 0)}
+    }).filter(row => isCodeReviewTarget(row.path))
+  } catch { return {checked: false, reason: 'git diff를 읽지 못해 PR 크기를 재지 않았다'} }
+  const tests = rows.filter(row => TEST_FILE.test(row.path))
+  const size = {files: rows.length, lines: rows.reduce((sum, row) => sum + row.lines, 0), testFiles: tests.length, testLines: tests.reduce((sum, row) => sum + row.lines, 0)}
+  const over = size.files > limits.files || size.lines > limits.lines
+  return {checked: true, ...size, limits, over,
+    ...(over ? {guidance: `PR이 크기 상한(코드 파일 ${limits.files}개·변경 ${limits.lines}줄)을 넘는다 — 파일 ${size.files}개·${size.lines}줄(테스트 ${size.testFiles}개·${size.testLines}줄). 리뷰어가 읽을 수 있게 나누기를 제안하고(커밋 묶음·WORK 단위로 PR 여럿) 사용자에게 묻는다. 그대로 가면 PR 본문에 나누지 않은 이유를 적는다`} : {})}
+}
+
 /** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */
 export function readCommitLog(root, baseRef) {
   for (const base of [`origin/${baseRef}`, baseRef]) {

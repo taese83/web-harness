@@ -20,6 +20,7 @@ import {appendWorkEvent, foldWorkState, readWorkEvents, WORK_EVENTS_PATH} from '
 
 export const WORK_REVIEW_PATH = '_workspace/03_dev/work-plan-review.md'
 export const WORK_REVIEWED_POINTER = '_workspace/03_dev/work-plan-reviewed.json'
+// 검토한 판본 스냅샷 — 로컬 감사용이고 코드가 되읽지 않는다(원장 이벤트가 digest를 든다). 팀 공유 검사가 git에서 뺀다.
 const REVISION_DIRS = {analysis: '_workspace/03_dev/work-analysis-revisions', plan: '_workspace/03_dev/work-plan-revisions'}
 const SOURCE_INDEX = '_workspace/00_source/source-index.md'
 const CONTRACT = '.claude/skills/team-flow/references/work-plan-contract.md'
