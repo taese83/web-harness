@@ -5665,6 +5665,14 @@
       "replace": "['code'].flatMap(",
       "test": ".claude/scripts/test-remind-commit-review.mjs",
       "why": "light 레인의 커밋 전 리뷰는 보안 신호면 security-reviewer 한 스폰인데, code 판정만 세면 그 리뷰를 미리뷰로 알린다"
+    },
+    {
+      "id": "packet-announces-codex-cross-review",
+      "file": ".claude/scripts/prepare-review-packet.mjs",
+      "find": "if (!handoff && readLocalReviewSettings(projectRoot)?.codexReview === true) {",
+      "replace": "if (false) {",
+      "test": ".claude/scripts/test-prepare-review-packet.mjs",
+      "why": "Codex 교차 리뷰 명령이 레인 문서에만 있으면 메인이 문서를 안 읽은 fix·change 커밋 전 리뷰에서 Codex가 빠진다(실사용 2026-10-09 — 사용자가 직접 시켰다)"
     }
   ]
 }

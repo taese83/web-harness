@@ -116,3 +116,19 @@ test('영향 범위: 바뀐 소스 파일을 import하는 파일(상대 경로·
     assert.doesNotMatch(section, /src\/d\.ts/, 'a를 import하지 않는 파일을 사용처로 셌다')
   })
 })
+
+test('Codex 교차 리뷰를 켠 프로젝트면 묶음 출력에 같은 범위의 실행 명령을 싣는다 — 레인 문서를 안 읽어도 리뷰와 함께 띄운다', () => {
+  withProject(({root, project, packet}) => {
+    const off = packet(['--base', 'HEAD'])
+    assert.equal(off.status, 0, off.stderr)
+    assert.doesNotMatch(off.stdout, /codex cross-review/, '켜지 않은 프로젝트에 Codex 명령을 실었다')
+    const home = join(root, 'home')
+    mkdirSync(join(home, '.claude/web-harness'), {recursive: true})
+    writeFileSync(join(home, '.claude/web-harness/local.json'), JSON.stringify({projects: {[project]: {codexReview: true}}}))
+    const on = spawnSync(process.execPath, [SCRIPT, '--project-root', project, '--base', 'origin/develop'],
+      {cwd: project, encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: '', HOME: home}})
+    assert.equal(on.status, 0, on.stderr)
+    assert.match(on.stdout, /codex cross-review: .*codex-cross-review\.mjs" --project-root ".*" --base origin\/develop/,
+      'Codex를 켠 프로젝트인데 묶음과 같은 범위의 Codex 명령을 알리지 않았다')
+  })
+})

@@ -16,6 +16,7 @@ import {fileURLToPath} from 'node:url'
 import {answerHelp} from './cli-help-lib.mjs'
 import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
 import {appendReviewHistory} from './ticket/work-link.mjs'
+import {readLocalReviewSettings} from './ticket/local-settings.mjs'
 import {computeImpact, parseDiffNames, renderImpact} from './review-impact-lib.mjs'
 
 answerHelp(import.meta.url)
@@ -163,3 +164,10 @@ appendReviewHistory(projectRoot, {generatedAt, base: base ?? null, files: review
 atomicWriteProjectFile(projectRoot, `${PACKET}/INDEX.json`, `${JSON.stringify(index, null, 2)}\n`)
 const failed = entries.filter(entry => entry.exitCode !== 0).map(entry => `${entry.file}=${entry.exitCode}`)
 process.stdout.write(`review packet: ${PACKET}/ (${entries.length} items${failed.length ? `; non-zero: ${failed.join(', ')}` : ''})\n`)
+// 개발자가 Codex 교차 리뷰를 켠 프로젝트면 같은 범위의 실행 명령을 여기서 알린다 — 어느 레인이든 리뷰 전에 묶음을 만들므로,
+// 레인 문서를 읽지 않아도 리뷰를 띄우는 순간에 Codex를 함께 띄운다(team-flow 5·web-verify 5·qa-evidence Iterate). handoff 묶음은 코드 리뷰가 아니라 뺀다.
+if (!handoff && readLocalReviewSettings(projectRoot)?.codexReview === true) {
+  const codex = fileURLToPath(new URL('./codex-cross-review.mjs', import.meta.url))
+  process.stdout.write(`codex cross-review: 이 프로젝트는 Codex 교차 리뷰가 켜져 있다 — 하네스 리뷰어와 병렬로(Bash 백그라운드) 같은 범위를 돌린다: `
+    + `node "${codex}" --project-root "${projectRoot}" --base ${base ?? 'HEAD'} → _workspace/04_qa/codex-review.md(다른 모델의 의견 — 하네스 리뷰 지적과 대조해 선별한다)\n`)
+}
