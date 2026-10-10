@@ -191,6 +191,78 @@ export function prSizeCheck(root, {base = null, limits = PR_SIZE_LIMITS} = {}) {
     ...(over ? {guidance: `PR이 크기 상한(코드 파일 ${limits.files}개·변경 ${limits.lines}줄)을 넘는다 — 파일 ${size.files}개·${size.lines}줄(테스트 ${size.testFiles}개·${size.testLines}줄). 리뷰어가 읽을 수 있게 나누기를 제안하고(커밋 묶음·WORK 단위로 PR 여럿) 사용자에게 묻는다. 그대로 가면 PR 본문에 나누지 않은 이유를 적는다`} : {})}
 }
 
+// PR 본문에 싣는 완료 기준 — 개발자가 PR만 읽고 이해하게 **번호와 문장**으로 싣고 내부 ID(`ACC-`)는 쓰지 않는다. 각 기준을 검증하는
+// 테스트 ID(`TT-`)는 테스트 이름에 있으므로 검색해 따라갈 수 있게 붙인다. 한 PR에는 그 작업이 실제로 쓴 기준 한 종류만 싣는다 —
+// 티켓·계획 작업은 그 완료 조건(`renderWorkCriteria`, link), 티켓 없는 change 라운드는 라운드 기준(`renderRoundCriteria`, pr-criteria.mjs).
+// 양: 기준·테스트 각각 최대 15줄, 넘으면 「외 N개」. 문장은 자르지 않는다(300자는 폭주 방지).
+export const PR_CRITERIA_LIMITS = Object.freeze({lines: 15, chars: 300})
+const cutText = (text, limits, lang) => (text.length > limits.chars
+  ? `${text.slice(0, limits.chars)}${lang === 'en' ? ' (truncated)' : ' (이하 생략)'}` : text)
+const more = (count, lang) => (lang === 'en' ? `- … and ${count} more` : `- … 외 ${count}개`)
+// ✓는 소스 트리 어딘가에 그 ID가 적혔다는 뜻이다(테스트 파일 여부는 재지 않는다 — protected-core §4 「TC 인용」).
+const ttFooter = lang => (lang === 'en' ? 'Search the repo for a test ID (TT-…) to find the test that verifies the item.'
+  : '테스트 ID(TT-…)로 저장소를 검색하면 그 기준을 검증하는 테스트가 나온다.')
+
+/**
+ * 티켓 없는 change 라운드: change-scope의 `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-…` 줄을 번호 목록으로.
+ * change-scope는 라운드마다 쌓이므로 **가장 최근 라운드(R 번호가 가장 큰 것)**의 기준만 싣는다 — 지난 라운드는 이미 다른 PR에 있다.
+ * 줄 안 어디에 있든 `TT-R…`를 검증 테스트로 뽑고, 없으면 「검증 테스트 미지정」을 적는다(조용히 빠지지 않게).
+ */
+export function renderRoundCriteria(source, {lang = 'ko', limits = PR_CRITERIA_LIMITS} = {}) {
+  const criteria = new Map()
+  for (const match of String(source ?? '').matchAll(/^\s*[-*]\s*(ACC-R(\d+)-\d+[a-z]?)\b[\s:：]*(.+)$/gm)) {
+    const tests = [...match[3].matchAll(/TT-R\d+-\d+[a-z]?/g)].map(hit => hit[0])
+    const deployOnly = /\bDEPLOY_ONLY\b/.test(match[3])
+    const text = match[3].replace(/\s*[—–-]+\s*(?:TT-R\d+-\d+[a-z]?[\s,]*)+$/, '').replace(/\(?\s*TT-R\d+-\d+[a-z]?\s*\)?/g, '')
+      .replace(/\s*·?\s*\b(?:LOCAL_VERIFIABLE|DEPLOY_ONLY)\b\s*/g, ' ').replace(/[\s·,—–-]+$/, '').replace(/\s{2,}/g, ' ').trim()
+    criteria.delete(match[1]); criteria.set(match[1], {round: Number(match[2]), text, tests, deployOnly})
+  }
+  if (criteria.size === 0) return []
+  const latest = Math.max(...[...criteria.values()].map(item => item.round))
+  const entries = [...criteria].filter(([, item]) => item.round === latest)
+    .sort(([left], [right]) => left.localeCompare(right, 'en', {numeric: true}))
+  const shown = entries.slice(0, limits.lines).map(([, item], index) => {
+    const deploy = item.deployOnly ? (lang === 'en' ? ' (verifiable only in a deployed environment)' : ' (배포 환경에서만 확인할 수 있다)') : ''
+    const tests = item.tests.length ? `${lang === 'en' ? 'verified by' : '검증 테스트'} ${item.tests.join(', ')}`
+      : (lang === 'en' ? 'no verifying test named' : '검증 테스트 미지정')
+    return `${index + 1}. ${cutText(item.text, limits, lang)}${deploy} — ${tests}`
+  })
+  return [lang === 'en' ? `Acceptance criteria (round ${latest}, confirmed at approval, ${entries.length}):`
+    : `완료 기준(라운드 ${latest}, 승인 단계에서 확인, ${entries.length}개):`,
+  ...shown, ...(entries.length > shown.length ? [more(entries.length - shown.length, lang)] : []), ttFooter(lang)]
+}
+
+const SENTINEL_EN = {'(대상 경로 없음)': '(no target path)', '(픽업 뒤 바뀌지 않음)': '(unchanged since pickup)'}
+/** 티켓·계획 작업: 그 작업의 완료 조건(checks)과 검증 테스트(testCases) — link의 판정(completion)을 함께 싣는다. */
+export function renderWorkCriteria({work, completion, label, lang = 'ko', limits = PR_CRITERIA_LIMITS}) {
+  const checks = list(work?.checks).filter(check => check?.expectedOutcome)
+  const missing = new Map(list(completion?.checks?.missing).map(item => [item.checkId, item.missingRefs]))
+  const cited = new Set(list(completion?.testCases?.cited))
+  const tests = list(work?.testCases).length ? list(work.testCases).map(item => ({id: item.id, text: item.text ?? ''}))
+    : [...cited, ...list(completion?.testCases?.missing)].map(id => ({id, text: ''}))
+  if (checks.length === 0 && tests.length === 0) return []
+  // 픽업 기준선이 있을 때만 「바뀌었다」를 쟀다 — 없으면 대상 경로가 있는지만 봤다(evaluateWorkCompletion).
+  const measured = completion?.checks?.baselineCheck === 'verified'
+  const ok = checks.length - missing.size
+  const lines = []
+  if (checks.length) {
+    lines.push(lang === 'en'
+      ? `Acceptance (${label}, ${ok}/${checks.length} ${measured ? 'target files changed' : 'target paths exist — change not measured (no pickup baseline)'}):`
+      : `완료 조건(${label}, ${checks.length}개 중 ${ok}개 ${measured ? '대상 파일 변경 확인' : '대상 경로 존재 확인 — 픽업 기준선이 없어 변경 여부는 미확인'}):`)
+    lines.push(...checks.slice(0, limits.lines).map((check, index) => `${index + 1}. ${missing.has(check.checkId)
+      ? `✗ (${list(missing.get(check.checkId)).map(ref => (lang === 'en' ? SENTINEL_EN[ref] ?? ref : ref)).join(', ')}) ` : ''}${cutText(String(check.expectedOutcome), limits, lang)}`))
+    if (checks.length > limits.lines) lines.push(more(checks.length - limits.lines, lang))
+  }
+  if (tests.length) {
+    lines.push(lang === 'en' ? `Verifying tests (${cited.size}/${tests.length} IDs found in the code — test files not checked):`
+      : `검증 테스트(${tests.length}개 중 ${cited.size}개의 ID가 코드에 인용됨 — 테스트 파일 여부는 미확인):`)
+    lines.push(...tests.slice(0, limits.lines).map(item => `- ${cited.has(item.id) ? '✓' : '✗'} ${item.id}${item.text ? ` ${cutText(item.text, limits, lang)}` : ''}`))
+    if (tests.length > limits.lines) lines.push(more(tests.length - limits.lines, lang))
+    lines.push(ttFooter(lang))
+  }
+  return lines
+}
+
 /** base 이후 로컬 커밋의 파일 목록을 읽는다 — 못 읽으면 null(점검하지 않았다고 적는다). */
 export function readCommitLog(root, baseRef) {
   for (const base of [`origin/${baseRef}`, baseRef]) {

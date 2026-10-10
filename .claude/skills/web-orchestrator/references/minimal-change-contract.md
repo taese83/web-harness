@@ -27,10 +27,13 @@ CHANGE_BUDGET: 예상 파일·component·dependency 범위
 TEST_EVIDENCE: 변경 전 재현과 변경 후 검증
 CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none — **대조한 문서 목록을 괄호로 병기한다**(`none (대조: layout-spec, component-spec, api-schema)`). change 레인은 개발 전 감지 단계에서 채운다(`approval-checkpoints.md`)
-ACCEPTANCE: ACC-R<n>-<k> 관찰 가능한 결과 · LOCAL_VERIFIABLE | DEPLOY_ONLY (change light·change-acceptance 라운드 — 기획 문서 대신 라운드의 기준. 티켓은 티켓 완료 조건, 기획이 있는 full은 `TC 행 (PC-NNN)`)
-TEST_ITEMS: TT-R<n>-<k> 이 기준을 검증하는 테스트 (테스트 이름에 ID를 인용한다)
+ACCEPTANCE: 아래 줄 — 관찰 가능한 결과를 개발자가 이해할 한 문장으로(축약 기호 아님 — PR 본문에 그대로 실린다) (change light·change-acceptance 라운드 — 기획 문서 대신 라운드의 기준. 티켓은 티켓 완료 조건, 기획이 있는 full은 `TC 행 (PC-NNN)`)
+TEST_ITEMS: TT-R<n>-<k> 범위 — 각 기준 줄 끝에 그 기준을 검증하는 ID를 단다(테스트 이름에 ID를 인용한다)
 NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none — 개발 노트(아래)
 ```
+
+기준은 `ACCEPTANCE:` 아래 한 줄에 하나 — `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>[, …]`. 티켓 없는 change의 PR 본문에는
+`node .claude/scripts/pr-criteria.mjs --project-root {root}` 출력(번호·문장·검증 테스트, 내부 ID 없음)을 넣는다 — 티켓 작업은 `link`의 `prBody`가 같은 일을 한다.
 
 **개발 노트 — 꼭 필요할 때만, 한 장.** change·fix·티켓 작업은 기획·설계 문서를 새로 쓰지 않는다. 다음 개발자가 코드만 보고는
 알 수 없는 것(비자명한 결정과 버린 대안, 지켜야 할 제약·불변식, 건드린 계약, 남긴 가정·부채, 후속)이 있을 때만 메인이

@@ -47,9 +47,11 @@ When the user invokes `/pr-drafter` alone, start with:
    - 왜 이 방법을 선택했는지 코드에서 추론한다
    - 머지 뒤 revert 하나로 완전히 되돌릴 수 있는지(문)와 잘못되면 어디까지 번지는지(영향 범위) — 기준은 `references/pr-guide.md` 「머지 위험 작성 원칙」
    - 동작 근거로 인용할 실제 실행 결과가 있는지 — 이번 세션의 실행 출력, CI 결과, `_workspace/04_qa/`의 QA 보고서·영수증
-4. `references/pr-guide.md`의 템플릿을 채워 한국어 PR 초안을 작성한다. 사용한 base를 초안 머리에 한 줄로 남긴다
-5. 작성한 초안을 보여주고, 수정할 부분이 있으면 반영한다
-6. 확정되면 `gh pr create` 명령을 제안한다 (직접 실행하지 않고 명령만 출력)
+4. 완료 기준을 모은다 — 티켓 작업이면 `/team-flow link --dry-run`의 `prBody`, 티켓 없는 `/wh change`면
+   `node .claude/scripts/pr-criteria.mjs --project-root .` 출력(번호·문장·검증 테스트). 둘 다 없으면 「완료 기준 없음」이라고 적는다
+5. `references/pr-guide.md`의 템플릿을 채워 한국어 PR 초안을 작성한다. 사용한 base를 초안 머리에 한 줄로 남긴다
+6. 작성한 초안을 보여주고, 수정할 부분이 있으면 반영한다
+7. 확정되면 `gh pr create` 명령을 제안한다 (직접 실행하지 않고 명령만 출력)
 
 ## Output Format
 

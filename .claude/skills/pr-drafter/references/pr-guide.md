@@ -33,8 +33,10 @@ PR 본문의 목적은 리뷰어가 **어디에 힘을 쓸지** 빨리 정하게
 - [ ] 정상 동작 확인
 - [ ] 이번 변경으로 어긋난 정본 문서 갱신 (코드 주석의 기본값은 **없음** — `developer.md` 「주석」)
 
+## 완료 기준
+[티켓 작업: `/team-flow link`가 돌려준 `prBody` 문단을 그대로. 티켓 없는 change: `node .claude/scripts/pr-criteria.mjs --project-root .` 출력을 그대로. 고쳐 쓰거나 요약하지 않는다]
+
 ## 기타
-[`/team-flow link`가 돌려준 `prBody` 문단이 있으면 여기에 그대로 싣는다]
 ```
 
 ## 작업 내용 작성 원칙

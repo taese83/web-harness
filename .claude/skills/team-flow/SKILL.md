@@ -191,7 +191,7 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    `review.references`가 있으면 리뷰어에게 참고 문서로 넘긴다. `review.local`은 이 개발자만의 설정(`references/tracker-config.md`)이라 그렇다고 알리고,
    `missingReferences`·`errors`가 있으면 그대로 보여 준다.
 6. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·리뷰 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
-   `link --dry-run`의 `prSize.over`면(코드 파일 40개·변경 1,500줄 초과) 막지 않고 **나눌 지점**(커밋 묶음·WORK 단위 PR 여럿)을 제안해 묻는다 —
+   `prBody`에는 그 작업의 완료 조건과 검증 테스트가 번호·문장으로 실린다(내부 ID 없음, 각 최대 15줄) — 개발자가 PR만 읽고 기준을 안다. `link --dry-run`의 `prSize.over`면(코드 파일 40개·변경 1,500줄 초과) 막지 않고 **나눌 지점**(커밋 묶음·WORK 단위 PR 여럿)을 제안해 묻는다 —
    그대로 가기로 하면 PR 본문에 나누지 않은 이유를 한 줄 적는다. 커밋 계획(3)을 세울 때 이미 넘을 것 같으면 그때 PR을 나눌 지점을 함께 보인다.
    `link --dry-run`의 `harnessReview`는 커밋마다 커밋 전 리뷰를 거쳤는지(파일 내용 대조) 보여 준다 — `reviewed: false`인 커밋은 이미 커밋된
    내용이라 묶음과 Codex(`review.codex.command`의 `HEAD`를 `{review.base}`로 바꿔)를 `--base {review.base}`로 돌려 PR 전에 리뷰하고, 그 사실과 처분을 확인 화면에 싣는다.

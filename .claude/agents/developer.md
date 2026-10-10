@@ -41,7 +41,9 @@ maxTurns: 70
 첫 쓰기 전에 `_workspace/03_dev/change-scope.md`의 마지막 항목(`json change-scope` 펜스 또는 줄 표기)이 `PHASE: plan`인지 확인한다 — 아니면 아무것도
 쓰지 않고 `SPAWN_RESULT: blocked (계획 펜스 없음)`으로 돌려준다. 계획 패스인 동안에는 **source·테스트를 쓰지 않는다**(훅이 막는다).
 코드와 기존 스펙을 읽고 이번 라운드의 기준을 **반환한다 — 기획 문서는 쓰지 않는다**(훅이 막는다): 완료 조건 `ACC-R<n>-<k>`(관찰
-가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`)와 테스트 항목 `TT-R<n>-<k>`. 메인이 change-scope에 싣는다. API 계약이 바뀌면
+가능한 결과 하나와 `LOCAL_VERIFIABLE | DEPLOY_ONLY`)와 테스트 항목 `TT-R<n>-<k>`. 메인이 change-scope에 싣고 PR 본문에 그대로 옮긴다 —
+각 `ACC-`는 축약 기호(`→`·`·` 나열)가 아니라 **PR만 읽는 개발자가 이해할 문장**으로 쓴다(조건·결과·사용자에게 보이는 것, 한 문장) —
+줄 형식 `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>[, …]`(그 기준을 검증하는 테스트 ID). API 계약이 바뀌면
 `02_design/api-schema.md`(라이브러리·CLI는 `api-design.md`)를 개정한다. 펜스에 `"PLAN_WRITEBACK": "tc-rows"`가 있을 때만 — 승인된 TC의
 동작을 바꾸는 라운드 — `feature-plan.md`의 그 TC 행(양식은 `web-plan/references/design-readiness-contract.md` §3-1)과
 `plan-delta/PC-NNN.json`의 declared를 고친다. `solution-design.md`는 쓰지 않는다 — 설계 결정이 바뀌어야 하면 `ESCALATE_TO_FULL`에 그

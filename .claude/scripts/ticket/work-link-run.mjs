@@ -12,7 +12,7 @@ import {layerPattern} from '../agent-registry.mjs'
 import {resolveCommentLanguage} from './readiness.mjs'
 import {readDeclaredLanguage, readTicketConfig, reviewPlanOf} from './ticket-config.mjs'
 import {readLocalReviewSettings} from './local-settings.mjs'
-import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, harnessReviewCheck, prSizeCheck, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
+import {collectCitedTestCaseIds, evaluateWorkCompletion, findMixedCommits, findOutsideScope, harnessReviewCheck, prSizeCheck, renderWorkCriteria, planWorkLink, projectPathExists, projectRefDigest, readCommitLog} from './work-link.mjs'
 import {renderCloseReference} from './provider-github.mjs'
 import {prNamesKey, titleStartsWithKey, withTrackerCompletion} from './work-provider.mjs'
 import {linkRecordPath, readLocalLinks} from './work-state-run.mjs'
@@ -172,7 +172,10 @@ export async function runWorkLink({root, ticketKey, prUrl, flags = {}, io = {}})
   const acceptedText = {incomplete: lang === 'en' ? 'accepted unmet acceptance (--accept-incomplete)' : '완료 조건 미충족을 인수했습니다(--accept-incomplete)',
     'unverified-scope': lang === 'en' ? 'accepted without the plan/scope check (--accept-unverified-scope)' : '범위 대조 없이 인수했습니다(--accept-unverified-scope)',
     'definition-change': lang === 'en' ? 'the ticket definition changed after pickup' : '집은 뒤 티켓 정의가 바뀌었습니다'}
-  const prBody = [closeLine, summary, ...accepted.map(item => `- ${acceptedText[item]}`),
+  // 완료 조건·검증 테스트를 문장으로 — 개발자가 PR만 읽고 기준을 안다(개수만 적으면 기준이 PR에 없다).
+  const criteria = renderWorkCriteria({work: ticketWork ? ticketWork.definition : work, completion, lang,
+    label: ticketWork ? (lang === 'en' ? `ticket ${ticketKey}` : `티켓 ${ticketKey}`) : (lang === 'en' ? 'plan work' : '계획 작업')})
+  const prBody = [closeLine, ...(criteria.length ? criteria : [summary]), ...accepted.map(item => `- ${acceptedText[item]}`),
     ...list(decision.ticketAcceptance?.items).map(item => `- ${lang === 'en' ? 'Added on the ticket (verify in review)' : '티켓에서 더한 조건(리뷰에서 확인)'}: ${item.text ?? item}`)]
     .filter(Boolean).join('\n')
   // 연결 전 리뷰할 에이전트 — 스킬이 dry-run 결과로 리뷰한 뒤 연결한다(리뷰 수행은 CLI가 증명하지 못한다).

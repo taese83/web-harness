@@ -232,6 +232,8 @@ test('실행부: 기반 작업을 연결하면 내 로컬에 판정과 함께 �
     assert.equal(blocked.blocked, 'completion:check-targets-missing', JSON.stringify(blocked))
     mkdirSync(join(root, 'src/entities/member'), {recursive: true})
     writeFileSync(join(root, 'src/entities/member/api.ts'), 'export type Member = {id: string}\n')
+    // 라운드 완료 기준은 PR 본문에 실린다(change-scope는 로컬이다)
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), `${readFileSync(join(root, '_workspace/03_dev/change-scope.md'), 'utf8')}\n- ACC-R1-1 회원 목록을 열면 각 회원의 이름이 보인다 · LOCAL_VERIFIABLE — TT-R1-1\n- ACC-R1-2 배포 환경에서 로그인 쿠키가 유지된다 · DEPLOY_ONLY — TT-R1-2\n`)
     const ledgerBefore = readFileSync(join(root, WORK_EVENTS_PATH), 'utf8')
     const linked = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {...titled, provider: tracker}})
     assert.equal(linked.ok, true, JSON.stringify(linked))
@@ -240,6 +242,8 @@ test('실행부: 기반 작업을 연결하면 내 로컬에 판정과 함께 �
     assert.equal(calls.includes('comment'), false, '연결을 티켓에 썼다')
     assert.equal(linkRecord(root, 'PF-101').baseRef, 'develop')
     assert.match(linked.prBody, /Relates to PF-101/)
+    assert.match(linked.prBody, /완료 조건\(계획 작업, \d+개 중 \d+개 (?:대상 파일 변경 확인|대상 경로 존재 확인[^)]*)\):\n1\. /, 'PR 본문에 티켓 완료 조건 문장을 싣지 않았다')
+    assert.doesNotMatch(linked.prBody, /ACC-R1-1/, '티켓 작업 PR에 라운드 기준을 섞었다 — 한 PR에는 그 작업의 기준 한 종류만')
     // 다시 연결하면 지나간 판정을 다시 심판하지 않는다 — 내 연결 기록을 읽는다.
     const again = await runWorkLink({root, ticketKey: 'PF-101', prUrl: PR, flags: {base: 'develop'}, io: {...titled, provider: tracker}})
     assert.equal(again.idempotent, true, JSON.stringify(again))
@@ -405,3 +409,46 @@ test('형상 규율: 하네스 산출물(_workspace)과 코드가 한 커밋에 
   assert.deepEqual(findMixedCommits(quoted).mixed, [], '따옴표 붙은 산출물 경로를 코드로 읽었다')
 })
 
+
+test('PR 완료 기준(티켓 없는 라운드): 번호·문장·검증 테스트로 싣고 내부 ID는 빼며, 문장은 자르지 않고 15개를 넘으면 「외 N개」', async () => {
+  const {renderRoundCriteria} = await import('./ticket/work-link.mjs')
+  assert.deepEqual(renderRoundCriteria('기준 없음'), [])
+  const long = '가'.repeat(200)
+  const many = Array.from({length: 17}, (_, index) => `- ACC-R3-${index + 1} ${index === 0 ? long : `조건 ${index + 1}이면 결과가 보인다`} · LOCAL_VERIFIABLE — TT-R3-${index + 1}`).join('\n')
+  const lines = renderRoundCriteria(`${many}\n- ACC-R3-2 배포한 화면에서 쿠키가 유지된다 · DEPLOY_ONLY — TT-R3-2, TT-R3-20\n`)
+  assert.equal(lines[0], '완료 기준(라운드 3, 승인 단계에서 확인, 17개):')
+  assert.equal(lines[1], `1. ${long} — 검증 테스트 TT-R3-1`, '200자 문장을 잘랐거나 형식이 다르다')
+  assert.equal(lines[2], '2. 배포한 화면에서 쿠키가 유지된다 (배포 환경에서만 확인할 수 있다) — 검증 테스트 TT-R3-2, TT-R3-20',
+    '같은 ID의 마지막 정의·배포 전용 안내·검증 테스트를 싣지 않았다')
+  assert.ok(!lines.join('\n').includes('ACC-'), '내부 ID(ACC-)를 PR 본문에 실었다 — 개발자가 따라갈 곳이 없다')
+  assert.equal(lines.at(-2), '- … 외 2개')
+  assert.match(lines.at(-1), /테스트 ID\(TT-…\)로 저장소를 검색하면/)
+})
+
+test('PR 완료 기준(티켓 작업): 완료 조건 문장과 검증 테스트를 싣고, 대상이 없는 조건·인용 안 된 테스트는 ✗', async () => {
+  const {renderWorkCriteria} = await import('./ticket/work-link.mjs')
+  const work = {checks: [{checkId: 'ACC-1', expectedOutcome: '내 예약 목록에서 「연장」으로 끝 시각을 1시간 늘린다.'},
+    {checkId: 'ACC-2', expectedOutcome: '다른 사람의 예약 연장은 서버가 403으로 거부한다.'}],
+  testCases: [{id: 'TT-AOA-1-1', text: '연장하면 끝 시각이 1시간 늘어난다'}, {id: 'TT-AOA-1-2', text: '남의 예약은 403'}]}
+  const completion = {checks: {missing: [{checkId: 'ACC-2', missingRefs: ['src/api.ts']}]}, testCases: {cited: ['TT-AOA-1-1'], missing: ['TT-AOA-1-2']}}
+  const lines = renderWorkCriteria({work, completion: {...completion, checks: {...completion.checks, baselineCheck: 'verified'}}, label: '티켓 AOA-1'})
+  assert.deepEqual(lines.slice(0, 6), ['완료 조건(티켓 AOA-1, 2개 중 1개 대상 파일 변경 확인):',
+    '1. 내 예약 목록에서 「연장」으로 끝 시각을 1시간 늘린다.', '2. ✗ (src/api.ts) 다른 사람의 예약 연장은 서버가 403으로 거부한다.',
+    '검증 테스트(2개 중 1개의 ID가 코드에 인용됨 — 테스트 파일 여부는 미확인):', '- ✓ TT-AOA-1-1 연장하면 끝 시각이 1시간 늘어난다', '- ✗ TT-AOA-1-2 남의 예약은 403'])
+  assert.ok(!lines.join('\n').includes('ACC-'), '내부 ID(ACC-)를 실었다')
+  // 픽업 기준선이 없으면 「변경 확인」이라 쓰지 않는다 — 대상 경로가 있는지만 봤다
+  assert.match(renderWorkCriteria({work, completion, label: '티켓 AOA-1'})[0], /대상 경로 존재 확인 — 픽업 기준선이 없어 변경 여부는 미확인/)
+  assert.match(renderWorkCriteria({work, completion, label: 'ticket AOA-1', lang: 'en'}).join('\n'), /\(no target path\)|src\/api\.ts/)
+})
+
+test('PR 완료 기준(라운드): 가장 최근 라운드만 싣고, 하이픈·괄호 TT 표기도 뽑고, 테스트 매핑이 없으면 「검증 테스트 미지정」', async () => {
+  const {renderRoundCriteria} = await import('./ticket/work-link.mjs')
+  const lines = renderRoundCriteria(['- ACC-R1-1 지난 라운드 기준이다 · LOCAL_VERIFIABLE — TT-R1-1',
+    '- ACC-R2-1 목록에서 끝 시각이 보인다 · LOCAL_VERIFIABLE - TT-R2-1',
+    '- ACC-R2-2 실패하면 오류를 알린다 (TT-R2-2) · LOCAL_VERIFIABLE',
+    '- ACC-R2-3 포커스가 제목으로 간다 · LOCAL_VERIFIABLE'].join('\n'))
+  assert.equal(lines[0], '완료 기준(라운드 2, 승인 단계에서 확인, 3개):', '지난 라운드 기준까지 실었다')
+  assert.deepEqual(lines.slice(1, 4), ['1. 목록에서 끝 시각이 보인다 — 검증 테스트 TT-R2-1', '2. 실패하면 오류를 알린다 — 검증 테스트 TT-R2-2',
+    '3. 포커스가 제목으로 간다 — 검증 테스트 미지정'])
+  assert.ok(!lines.join('\n').includes('LOCAL_VERIFIABLE'), '내부 검증 표시가 PR 본문에 샜다')
+})

@@ -76,8 +76,8 @@ CHANGE_BUDGET: …
 TEST_EVIDENCE: …
 CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: none (대조: …) | 문서 목록
-ACCEPTANCE: ACC-R<n>-<k> … · LOCAL_VERIFIABLE | DEPLOY_ONLY
-TEST_ITEMS: TT-R<n>-<k> …
+ACCEPTANCE: 아래 줄 — `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>`
+TEST_ITEMS: TT-R<n>-<k> 범위
 NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none
 ```
 
