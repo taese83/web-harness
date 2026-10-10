@@ -1,0 +1,71 @@
+{
+  "kind": "reference-source-check",
+  "checkedAt": "2026-10-10T13:23:49Z",
+  "method": "curl -L status + 내용 대조(WebFetch 요약, 세션 2026-10-10)",
+  "sources": [
+    {
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/",
+      "status": 200
+    },
+    {
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/",
+      "status": 200
+    },
+    {
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/menubar/",
+      "status": 200
+    },
+    {
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/tabs/",
+      "status": 200
+    },
+    {
+      "url": "https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/",
+      "status": 200
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/log_role",
+      "status": 200
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html",
+      "status": 200
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+      "status": 200
+    },
+    {
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+      "status": 200
+    },
+    {
+      "url": "https://datatracker.ietf.org/doc/rfc9700/",
+      "status": 200
+    },
+    {
+      "url": "https://react.dev/learn/you-might-not-need-an-effect",
+      "status": 200
+    },
+    {
+      "url": "https://feature-sliced.design/docs/reference/layers",
+      "status": 200
+    },
+    {
+      "url": "https://testing-library.com/docs/queries/about/",
+      "status": 200
+    },
+    {
+      "url": "https://web.dev/articles/vitals",
+      "status": 200
+    },
+    {
+      "url": "https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults",
+      "status": 200
+    },
+    {
+      "url": "https://tanstack.com/query/latest/docs/framework/react/guides/query-keys",
+      "status": 200
+    }
+  ]
+}

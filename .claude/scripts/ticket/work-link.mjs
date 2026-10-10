@@ -196,8 +196,12 @@ export function prSizeCheck(root, {base = null, limits = PR_SIZE_LIMITS} = {}) {
 // 티켓·계획 작업은 그 완료 조건(`renderWorkCriteria`, link), 티켓 없는 change 라운드는 라운드 기준(`renderRoundCriteria`, pr-criteria.mjs).
 // 양: 기준·테스트 각각 최대 15줄, 넘으면 「외 N개」. 문장은 자르지 않는다(300자는 폭주 방지).
 export const PR_CRITERIA_LIMITS = Object.freeze({lines: 15, chars: 300})
-const cutText = (text, limits, lang) => (text.length > limits.chars
-  ? `${text.slice(0, limits.chars)}${lang === 'en' ? ' (truncated)' : ' (이하 생략)'}` : text)
+// 판단에 쓴 외부 레퍼런스의 항목 ID(implementation-references.md — A11Y-·SEC-·STR-·DATA-)는 산출물에 드러내지 않는다(사용자 결정).
+// 괄호로 묶인 인용 형태만 지운다 — 맨 `SEC-12`는 트래커 키일 수 있어 건드리지 않는다(2차 그물 — 1차는 에이전트 규칙).
+export const stripReferenceIds = text => String(text)
+  .replace(/\s*[(（]\s*(?:A11Y|SEC|STR|DATA)-\d+(?:\s*[,·]\s*(?:A11Y|SEC|STR|DATA)-\d+)*\s*[)）]/g, '').trim()
+const cutText = (raw, limits, lang) => { const text = stripReferenceIds(raw)
+  return text.length > limits.chars ? `${text.slice(0, limits.chars)}${lang === 'en' ? ' (truncated)' : ' (이하 생략)'}` : text }
 const more = (count, lang) => (lang === 'en' ? `- … and ${count} more` : `- … 외 ${count}개`)
 // ✓는 소스 트리 어딘가에 그 ID가 적혔다는 뜻이다(테스트 파일 여부는 재지 않는다 — protected-core §4 「TC 인용」).
 const ttFooter = lang => (lang === 'en' ? 'Search the repo for a test ID (TT-…) to find the test that verifies the item.'

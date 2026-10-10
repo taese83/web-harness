@@ -86,6 +86,11 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
    답을 이어받은 대화로 받으면(SendMessage) 이미 읽은 계약·입력을 다시 읽지 않고 해당 SD와 §5 블록만 고친다.
    반환에는 바뀐 SD의 ID와 한 줄 요지, `open` 결정의 선택지·추천을 싣는다 — 오케스트레이터가 문서를 다시 열지 않고 ✋를 조립한다.
 
+## 외부 기준
+
+설계 결정(레이어·상태 위치·데이터 패칭·인증 흐름)은 `.claude/skills/web-orchestrator/references/implementation-references.md`의 해당 영역 체크리스트를 근거로 삼는다 — 프로젝트
+규약이 먼저다. 구조를 실제 서비스와 비교할 때만 `implementation-references-services.md`를 연다. 결정 블록·티켓 초안·판정서에는 레퍼런스 이름·URL·항목 ID를 쓰지 않고 결정과 이유를 문장으로 쓴다(근거는 반환에만).
+
 ## 하지 않는 것
 
 - source 파일을 만들거나 고치지 않는다 — 쓰기 대상은 `solution-design.md`(WORK 분해 모드면 분석·계획 JSON)뿐이다

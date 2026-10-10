@@ -5777,6 +5777,22 @@
       "replace": "  const codexModel = typeof entry.codexModel === 'string' ? entry.codexModel : null",
       "test": ".claude/scripts/test-codex-cross-review.mjs",
       "why": "모델 이름은 명령 인자로 넘어간다 — 형식을 좁히지 않으면 임의 설정 문자열이 Codex 실행에 섞인다"
+    },
+    {
+      "id": "pr-body-strips-reference-ids",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "const cutText = (raw, limits, lang) => { const text = stripReferenceIds(raw)",
+      "replace": "const cutText = (raw, limits, lang) => { const text = String(raw)",
+      "test": ".claude/scripts/test-implementation-references.mjs",
+      "why": "레퍼런스 항목 ID가 PR 본문에 새면 사용자 결정(산출물에 레퍼런스 비노출)을 어긴다"
+    },
+    {
+      "id": "code-reviewer-reads-references",
+      "file": ".claude/agents/code-reviewer.md",
+      "find": "닿으면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽고 대조한다.",
+      "replace": "닿으면 일반 지식으로 대조한다.",
+      "test": ".claude/scripts/test-implementation-references.mjs",
+      "why": "리뷰어가 외부 기준을 읽지 않으면 접근성·구조 지적이 다시 모델 일반 지식에 기댄다"
     }
   ]
 }

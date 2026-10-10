@@ -107,6 +107,9 @@ maxTurns: 70
 - **`nonGoals`를 만들지 않는다.**
 - HTML 문자열·사용자 URL은 출구로만 넣는다 — `<SafeHtml>`·`<JsonLd>`·`toSafeHref()`(템플릿 `SAFE_HTML`·`JSON_LD`·`SAFE_URL`, `security-headers.md`). `dompurify`가 없으면 스팩 변경으로 요청한다.
 - `tech-stack.md`가 `REACT_COMPILER: on`이면 새 코드에 수동 `useMemo`·`useCallback`·`memo`를 쓰지 않는다 — 기존 것은 지우지 않는다(`performance-patterns.md` §4).
+- **외부 기준으로 판단한다.** 대화상자·메뉴·탭·알림, 인증·토큰·외부 입력 출력, 새 모듈·Effect·상태 위치, 서버 상태 조회·변경을 만들거나
+  바꾸면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽고 따른다(프로젝트 규약이 먼저다). 산출물(코드 주석·개발 노트·완료 기준·커밋 메시지)에는
+  레퍼런스 이름·URL·항목 ID를 쓰지 않고 기준 자체를 문장으로 쓴다 — 근거는 스폰 반환에만.
 - **만들기 전에 재사용 목록을 본다.** 프롬프트로 받은 `_workspace/03_dev/reuse-inventory.json`의 `entries`에 같은
   책임의 훅·함수·컴포넌트가 있으면 그것을 쓴다. 공통화는 **두 번째 사용처가 생길 때** 한다 —
   같은 로직을 두 곳에 쓰게 되면 추출하고, 사용처가 하나뿐이면 미리 추상화하지 않는다.
