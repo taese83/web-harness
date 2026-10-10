@@ -5761,6 +5761,22 @@
       "replace": "  const measured = true",
       "test": ".claude/scripts/test-work-link.mjs",
       "why": "픽업 기준선 없이 「대상 파일 변경 확인」이라 쓰면 존재만 본 판정을 변경 확인으로 과장한다"
+    },
+    {
+      "id": "codex-model-override-passed",
+      "file": ".claude/scripts/codex-cross-review.mjs",
+      "find": "  let result = cli ? run(cli, [...overrides, 'review', '--base', base]) : null",
+      "replace": "  let result = cli ? run(cli, ['review', '--base', base]) : null",
+      "test": ".claude/scripts/test-codex-cross-review.mjs",
+      "why": "로컬에서 고른 리뷰 모델·추론 강도가 적용되지 않으면 기본 모델로 조용히 돈다"
+    },
+    {
+      "id": "codex-model-name-validated",
+      "file": ".claude/scripts/ticket/local-settings.mjs",
+      "find": "  const codexModel = typeof entry.codexModel === 'string' && CODEX_MODEL.test(entry.codexModel) ? entry.codexModel : null",
+      "replace": "  const codexModel = typeof entry.codexModel === 'string' ? entry.codexModel : null",
+      "test": ".claude/scripts/test-codex-cross-review.mjs",
+      "why": "모델 이름은 명령 인자로 넘어간다 — 형식을 좁히지 않으면 임의 설정 문자열이 Codex 실행에 섞인다"
     }
   ]
 }

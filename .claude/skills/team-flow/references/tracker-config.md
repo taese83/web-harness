@@ -38,10 +38,12 @@ cli.mjs configure --provider github --set host=github.example.com
 홈 디렉터리의 `.claude` 폴더 아래 `web-harness/local.json`에 프로젝트 절대 경로를 키로 둔다(코드: `ticket/local-settings.mjs`).
 
 ```json
-{"projects": {"/abs/project": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"]}}}
+{"projects": {"/abs/project": {"reviewAgents": ["code-reviewer"], "reviewReferences": ["docs/react.md"],
+  "codexReview": true, "codexModel": "<Codex 모델>", "codexEffort": "high"}}}
 ```
 
-받는 키는 이 둘뿐이다 — 팀이 같아야 하는 값(제목 접두어·스팩·규약)은 받지 않고 오류로 알린다. 참고 문서는 프로젝트 안의
+받는 키는 이 다섯뿐이다(`codexReview`는 Codex 교차 리뷰를 켠다 — 코드를 외부로 보내므로 개인이 켠다. `codexModel`·`codexEffort`는 그 리뷰에만
+쓰는 모델·추론 강도이고 없으면 Codex CLI 기본값이다 — 개인 `~/.codex/config.toml`은 건드리지 않는다) — 팀이 같아야 하는 값(제목 접두어·스팩·규약)은 받지 않고 오류로 알린다. 참고 문서는 프로젝트 안의
 실파일만 싣는다. 결과의 `review.local`이 출처를 남긴다. `reviewAgents`의 짧은 이름은 **프로젝트가 정의한** 에이전트다
 (예시의 `code-reviewer`는 저장소 자체 리뷰어 — 하네스 리뷰어는 늘 따로 부른다).
 

@@ -13,7 +13,10 @@ import {homedir} from 'node:os'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 
 export const LOCAL_SETTINGS_RELATIVE = '.claude/web-harness/local.json'
-export const LOCAL_SETTING_KEYS = ['reviewAgents', 'reviewReferences', 'codexReview']
+export const LOCAL_SETTING_KEYS = ['reviewAgents', 'reviewReferences', 'codexReview', 'codexModel', 'codexEffort']
+// Codex 교차 리뷰에만 쓰는 모델·추론 강도(개발자 개인 선택 — `~/.codex/config.toml`을 바꾸지 않는다). 없으면 Codex CLI 기본값.
+export const CODEX_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+const CODEX_MODEL = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 
 const stringList = value => (Array.isArray(value) ? [...new Set(value.map(item => String(item).trim()).filter(Boolean))] : null)
 const realOrSelf = path => { try { return realpathSync(path) } catch { return resolve(path) } }
@@ -57,6 +60,11 @@ export function readLocalReviewSettings(projectRoot, {home = homedir()} = {}) {
     else missingReferences.push(reference)
   }
   if (entry.codexReview !== undefined && typeof entry.codexReview !== 'boolean') errors.push('codexReview는 true 또는 false다')
+  // 모델 이름·강도는 명령 인자로 넘어가므로 형식을 좁힌다 — 틀리면 버리고 알린다(CLI 기본값으로 돈다).
+  const codexModel = typeof entry.codexModel === 'string' && CODEX_MODEL.test(entry.codexModel) ? entry.codexModel : null
+  if (entry.codexModel !== undefined && codexModel === null) errors.push('codexModel은 모델 이름(영문·숫자·.-_)이다')
+  const codexEffort = CODEX_EFFORTS.includes(entry.codexEffort) ? entry.codexEffort : null
+  if (entry.codexEffort !== undefined && codexEffort === null) errors.push(`codexEffort는 ${CODEX_EFFORTS.join('·')} 중 하나다`)
   return {path, reviewAgents: reviewAgents ?? [], reviewReferences: [...new Set(reviewReferences)], missingReferences, errors,
-    codexReview: entry.codexReview === true}
+    codexReview: entry.codexReview === true, codexModel, codexEffort}
 }

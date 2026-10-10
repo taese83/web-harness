@@ -58,6 +58,37 @@ test('Codex CLI가 있으면 플러그인 없이 `codex review --base`로 리뷰
   assert.match(readFileSync(join(root, CODEX_REVIEW_RELATIVE), 'utf8'), /cli args: review --base develop/)
 }))
 
+test('로컬 설정의 codexModel·codexEffort를 교차 리뷰에만 -c로 넘기고 머리말에 남긴다 — 없으면 CLI 기본값', () => withRepo(root => {
+  const cli = join(root, 'codex')
+  writeFileSync(cli, '#!/bin/sh\necho "cli args: $*"\n', {mode: 0o755})
+  runCodexCrossReview({projectRoot: root, base: 'develop', cli, companion: null, optedIn: true, settings: {codexModel: 'gpt-6-astra', codexEffort: 'high'}})
+  const text = readFileSync(join(root, CODEX_REVIEW_RELATIVE), 'utf8')
+  assert.match(text, /cli args: -c model="gpt-6-astra" -c model_reasoning_effort="high" review --base develop/, '모델·강도를 넘기지 않았다')
+  assert.match(text, /- 요청 모델: gpt-6-astra · 추론 high/)
+  runCodexCrossReview({projectRoot: root, base: 'develop', cli, companion: null, optedIn: true, settings: null})
+  const plain = readFileSync(join(root, CODEX_REVIEW_RELATIVE), 'utf8')
+  assert.match(plain, /cli args: review --base develop/)
+  assert.match(plain, /- 요청 모델: Codex CLI 기본값 · 추론 기본값/)
+  runCodexCrossReview({projectRoot: root, base: 'develop', cli, companion: null, optedIn: true, settings: {errors: ['codexEffort는 low·… 중 하나다']}})
+  assert.match(readFileSync(join(root, CODEX_REVIEW_RELATIVE), 'utf8'), /- 로컬 설정 오류: codexEffort는/, '설정 오류를 산출물에 남기지 않았다 — 조용히 기본값으로 돈다')
+}))
+
+test('로컬 설정: codexModel 형식·codexEffort 값이 틀리면 버리고 알린다', async () => {
+  const {readLocalReviewSettings} = await import('./ticket/local-settings.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'wh-codex-model-home-'))
+  const project = realpathSync(mkdtempSync(join(tmpdir(), 'wh-codex-model-proj-')))
+  try {
+    mkdirSync(join(home, '.claude/web-harness'), {recursive: true})
+    writeFileSync(join(home, '.claude/web-harness/local.json'), JSON.stringify({projects: {[project]: {codexReview: true, codexModel: 'gpt-6-astra', codexEffort: 'high'}}}))
+    const ok = readLocalReviewSettings(project, {home})
+    assert.deepEqual([ok.codexModel, ok.codexEffort, ok.errors], ['gpt-6-astra', 'high', []])
+    writeFileSync(join(home, '.claude/web-harness/local.json'), JSON.stringify({projects: {[project]: {codexReview: true, codexModel: 'x"; rm -rf /', codexEffort: 'turbo'}}}))
+    const bad = readLocalReviewSettings(project, {home})
+    assert.deepEqual([bad.codexModel, bad.codexEffort], [null, null], '형식이 틀린 모델·강도를 명령 인자로 넘길 수 있다')
+    assert.equal(bad.errors.length, 2)
+  } finally { rmSync(home, {recursive: true, force: true}); rmSync(project, {recursive: true, force: true}) }
+})
+
 test('설치 위치: 가장 높은 판본의 codex-companion을 고르고, 없으면 null', () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'wh-codex-home-')))
   try {
