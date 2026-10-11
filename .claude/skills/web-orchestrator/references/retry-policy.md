@@ -47,10 +47,17 @@ Use this reference before retrying after Phase 4 QA.
 
 스폰이 늘수록 같은 파일을 새 문맥이 다시 읽는다 — 라운드의 스폰을 줄이는 규칙이다.
 
-- **구현은 `developer` 1회 스폰이 코드와 그 테스트를 함께 쓴다**(소스·테스트를 스폰으로 나누지 않는다). 메인은 source를 쓰지 않는다 — 고칠 것은 developer 수정 스폰으로 보낸다. developer가 못 채운 것을 메인이 직접 완결하는 폴백(`execution-contract.md` Agent invocation)은 Iterate source에 적용하지 않는다 — 수정 스폰이거나 `BLOCKED`다.
+- **구현은 `developer` 1회 스폰이 코드와 그 테스트를 함께 쓴다**(소스·테스트를 스폰으로 나누지 않는다). **크면 모듈 단위로 나눈다** — 테스트 항목이
+  15개 또는 쓰기 경로(`ALLOWED_PATHS` 항목)가 8곳을 넘으면 모듈(`spec.json` `moduleBoundaries` 단위)마다 의존의 아래부터 developer를 순서대로
+  스폰한다. 스폰 직전에 그 모듈 경로만 담은 범위 펜스(라운드 범위의 부분집합)를 change-scope에 append해 훅이 그 모듈만 쓰게 하고, 그 모듈의
+  테스트 항목만 넘긴다(각 스폰이 그 모듈의 코드와 테스트를 함께 쓴다). 마지막 모듈 뒤에는 라운드 전체 범위 펜스를 다시 append한다 — 범위 대조·
+  확장이 라운드 기준으로 돌아간다. 게이트는 모든 모듈 뒤 한 번이다. 한 스폰에 다 맡기면 턴 한도에 걸려 이어 쓰기가 반복된다. 수치는 단일 실측
+  교정이라 재교정 전제다(Phase 3 빌더 분해는 `spawn-decomposition-contract.md`의 기계 게이트가 맡고, Iterate는 이 산문 규칙이다). 메인은 source를 쓰지 않는다 — 고칠 것은 developer 수정 스폰으로 보낸다. developer가 못 채운 것을 메인이 직접 완결하는 폴백(`execution-contract.md` Agent invocation)은 Iterate source에 적용하지 않는다 — 수정 스폰이거나 `BLOCKED`다.
 - 검사는 메인이 `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary`로 돌리고, 통과하지 못하면 `_workspace/04_qa/failure-summary.json`(실패 위치만 — 테스트 이름·파일:줄·규칙 id)을 수정 스폰의 입력으로 준다. 첫 실행은 사용자 승인 뒤 `--allow-host-execution`이다. 영수증 `status: BLOCKED`(스크립트 부재·engine·의존 그래프 등 환경 원인)는 수정 스폰의 입력이 아니다 — 라운드를 `BLOCKED (사유)`로 멈춘다.
-- light 경로에서는 수정도 **구현한 developer를 SendMessage로 이어서** 시킨다(같은 컨텍스트 — 불가하면 새 수정 스폰). 횟수 상한은 같다.
-- **구현 스폰 뒤의 developer 스폰은 종류(수정·이어 쓰기)와 무관하게 게이트 실패·리뷰 finding 합산 라운드당 최대 2회**이고 위 진전 조건을 따른다. 초과하거나 남은 FAIL이 있으면 라운드는 `BLOCKED`다 — 상한을 늘리지 않는다.
+- light 경로에서는 수정도 **구현한 developer를 SendMessage로 이어서** 시킨다(같은 컨텍스트 — 불가하면 새 수정 스폰). 횟수 상한은 같다. 모듈로
+  나눴으면 첫 모듈은 계획 패스 developer가 잇고 나머지는 새 스폰이며, 수정은 실패 위치가 속한 모듈의 developer가 맡는다.
+- **구현 스폰 뒤의 developer 스폰은 종류(수정·이어 쓰기)와 무관하게 게이트 실패·리뷰 finding 합산 라운드당 최대 2회**이고(모듈 스폰은 구현
+  스폰이라 세지 않는다 — 2회 상한은 모듈 수와 무관하게 라운드당이다) 위 진전 조건을 따른다. 초과하거나 남은 FAIL이 있으면 라운드는 `BLOCKED`다 — 상한을 늘리지 않는다.
 
 ## Hard Stop Conditions
 

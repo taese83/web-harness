@@ -24,8 +24,8 @@
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
 | 6 | Gate 0 — 첫 source edit 전 | `node .claude/scripts/validate-development-readiness.mjs --project {root}` | `development-gates-contract.md` Gate 0 |
-| 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). 메인은 source를 쓰지 않는다 | 스폰마다 telemetry 1행 append(아래) | `retry-policy.md` Iterate 라운드 |
-| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary` (첫 실행은 사용자 명시 승인 뒤 `--allow-host-execution` — 훅이 확인을 띄운다. 사용법 `--help`) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
+| 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). TT 15·경로 8 초과면 모듈별로 아래부터 순서대로. 메인은 source를 쓰지 않는다 | 스폰마다 telemetry 1행 append(아래) | `retry-policy.md` Iterate 라운드 |
+| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary` (첫 실행은 사용자 승인 뒤 `--allow-host-execution`) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
 | 8-0 | 재검증 금지 — 영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다 | 의심이면 그 check를 러너로 다시. 범위 대조는 `run-git-inspection.mjs --operation diff-stat` 한 번 | `qa-evidence-contract.md` Iterate evidence |
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |
 | 8-2 | 커밋 전 리뷰 — 라운드마다 새 문맥 `code-reviewer` 1회(보안 신호면 `security-reviewer` 추가). 선별·수정 뒤 같은 역할 확인 리뷰 1회(처분만) | 입력은 `prepare-review-packet.mjs --project-root {root} --base HEAD` 묶음·수용 기준·brief뿐 | `qa-evidence-contract.md` Iterate evidence |

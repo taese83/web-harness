@@ -5793,6 +5793,22 @@
       "replace": "닿으면 일반 지식으로 대조한다.",
       "test": ".claude/scripts/test-implementation-references.mjs",
       "why": "리뷰어가 외부 기준을 읽지 않으면 접근성·구조 지적이 다시 모델 일반 지식에 기댄다"
+    },
+    {
+      "id": "iterate-card-splits-large-developer-work",
+      "file": ".claude/skills/web-orchestrator/references/iterate-lane-card.md",
+      "find": " TT 15·경로 8 초과면 모듈별로 아래부터 순서대로.",
+      "replace": " 크기와 무관하게 한 번에.",
+      "test": ".claude/scripts/test-contract-load-points.mjs",
+      "why": "큰 작업(테스트 항목 41개)을 developer 한 스폰에 맡기면 턴 한도에 반복해 걸린다 — 카드만 따르는 메인이 나누지 않는다"
+    },
+    {
+      "id": "retry-policy-splits-large-developer-work",
+      "file": ".claude/skills/web-orchestrator/references/retry-policy.md",
+      "find": "15개 또는 쓰기 경로(`ALLOWED_PATHS` 항목)가 8곳을 넘으면 모듈",
+      "replace": "크기와 무관하게 한 번에 모듈",
+      "test": ".claude/scripts/test-contract-load-points.mjs",
+      "why": "정본에서 큰 작업 분할 규칙이 지워지면 카드 미러가 조용히 무효가 된다"
     }
   ]
 }
