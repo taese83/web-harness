@@ -88,7 +88,9 @@ const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
 // SubagentStop — 끝난 developer 스폰의 write 임대를 놓는다(`write-lease-lib.mjs`). 짝인 취득은
 // `enforce-agent-ownership.mjs`(PreToolUse)에 있다. 이것이 빠지면 첫 developer 스폰이 끝난 뒤에도
 // 임대가 남아 **두 번째 스폰이 영원히 막힌다** — 취득과 해제는 반드시 함께 배포한다.
-const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs', 'record-verdict.mjs', 'record-subagent-telemetry.mjs']
+const PLUGIN_SUBAGENT_STOP_HOOKS = ['release-write-lease.mjs', 'record-verdict.mjs', 'record-subagent-telemetry.mjs', 'check-references-used.mjs']
+// SubagentStart — 기준을 읽어야 하는 에이전트에 이번 변경 영역의 기준 파일을 건넨다. 짝인 확인(check-references-used)과 함께 배포한다.
+const PLUGIN_SUBAGENT_START_HOOKS = ['inject-implementation-references.mjs']
 // 사용자가 `/wh`로 켠 세션만 이후 요청에 라우팅 안내를 붙인다(켜지 않은 세션에는 아무것도 붙지 않는다).
 const PLUGIN_USER_PROMPT_HOOKS = ['harness-session-mode.mjs']
 // PostToolUse — 메인 세션 도구 결과 크기 기록(막지 않는다). 하네스 프로젝트에서만 쓴다.
@@ -323,6 +325,9 @@ writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
     })),
     PreToolUse: PLUGIN_HOOKS.map(([matcher, script]) => ({
       matcher,
+      hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
+    })),
+    SubagentStart: PLUGIN_SUBAGENT_START_HOOKS.map(script => ({
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
     })),
     SubagentStop: PLUGIN_SUBAGENT_STOP_HOOKS.map(script => ({

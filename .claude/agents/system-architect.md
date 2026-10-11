@@ -89,7 +89,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 ## 외부 기준
 
 설계 결정(레이어·상태 위치·데이터 패칭·인증 흐름)은 `.claude/skills/web-orchestrator/references/implementation-references.md`의 해당 영역 체크리스트를 근거로 삼는다 — 프로젝트
-규약이 먼저다. 구조를 실제 서비스와 비교할 때만 `implementation-references-services.md`를 연다. 결정 블록·티켓 초안·판정서에는 레퍼런스 이름·URL·항목 ID를 쓰지 않고 결정과 이유를 문장으로 쓴다(근거는 반환에만).
+규약이 먼저다. 구조를 실제 서비스와 비교할 때만 `implementation-references-services.md`를 연다. 결정 블록·티켓 초안·판정서에는 레퍼런스 이름·URL·항목 ID를 쓰지 않고 결정과 이유를 문장으로 쓴다(근거 항목 ID는 반환 끝 `REFERENCES_USED:` 줄에만).
 
 ## 하지 않는 것
 

@@ -4499,6 +4499,46 @@
       "why": "20KB를 넘는 에이전트·SKILL.md가 등록 크기보다 커지거나 새로 넘어도 통과한다 — 스폰마다 읽는 고정 비용이 아무도 모르게 는다"
     },
     {
+      "id": "reference-hook-injects",
+      "file": ".claude/scripts/inject-implementation-references.mjs",
+      "find": "  if (context) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "시작 훅이 기준 파일을 건네지 않으면 에이전트는 스폰 프롬프트 목록만 읽고 기준을 열지 않는다(실사용 23건 중 1건)"
+    },
+    {
+      "id": "reference-check-blocks-once",
+      "file": ".claude/scripts/check-references-used.mjs",
+      "find": "  const ask = !state.asked && input.stop_hook_active !== true && (!answered || leaked)",
+      "replace": "  const ask = false",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "반환에 근거 줄이 없어도 통과하면 기준을 읽었는지 아무도 모른다"
+    },
+    {
+      "id": "reference-check-assistant-only",
+      "file": ".claude/scripts/check-references-used.mjs",
+      "find": "    if (entry?.type !== 'assistant' || !Array.isArray(entry.message?.content)) continue",
+      "replace": "    if (!Array.isArray(entry?.message?.content)) continue",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "주입한 안내 문구에 든 REFERENCES_USED를 반환으로 세면 확인이 늘 통과한다"
+    },
+    {
+      "id": "reference-security-reviewer-scope",
+      "file": ".claude/scripts/reference-areas-lib.mjs",
+      "find": "  return kind === 'security' ? ['security'] : changeAreas(root)",
+      "replace": "  return changeAreas(root)",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "보안 리뷰에 모든 영역 파일을 건네면 읽을 양만 늘고 보안 기준이 묻힌다"
+    },
+    {
+      "id": "reference-check-leak",
+      "file": ".claude/scripts/check-references-used.mjs",
+      "find": "  const leaked = /REFERENCES_USED\\s*[:：]/.test(output.written)",
+      "replace": "  const leaked = false",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "근거 줄·항목 ID를 보고서·코드 파일에 쓰면(금지) 팀 저장소에 커밋된다 — 알아채지 못하면 산출물 비노출 규칙이 장식이 된다"
+    },
+    {
       "id": "ticket-create-recent-done-preview",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
       "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",
@@ -5837,8 +5877,8 @@
     {
       "id": "code-reviewer-reads-references",
       "file": ".claude/agents/code-reviewer.md",
-      "find": "닿으면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽고 대조한다.",
-      "replace": "닿으면 일반 지식으로 대조한다.",
+      "find": "없으면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표)을 읽고",
+      "replace": "없으면 일반 지식)을 읽고",
       "test": ".claude/scripts/test-implementation-references.mjs",
       "why": "리뷰어가 외부 기준을 읽지 않으면 접근성·구조 지적이 다시 모델 일반 지식에 기댄다"
     },

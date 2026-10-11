@@ -206,10 +206,9 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 ## 외부 기준 대조
 
-바뀐 코드가 대화상자·메뉴·탭·알림(접근성), 새 모듈·Effect·상태 위치·테스트(구조), 서버 상태 조회·변경(데이터 패칭)에
-닿으면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽고 대조한다. 보고서(`qa-code.md` — 팀
-저장소에 커밋된다)에는 기준을 문장으로 쓰고 레퍼런스 이름·URL·항목 ID를 쓰지 않는다 — 근거 항목 ID(`A11Y-2` 등)는 스폰 반환에만 붙인다.
-프로젝트 규약과 다르면 규약을 따르고 그렇다고 적는다. 허브의 하한 항목은 규약으로도 내리지 않는다.
+시작 때 훅이 건넨 기준 파일(이번 변경이 닿는 영역 — 없으면 `.claude/skills/web-orchestrator/references/implementation-references.md`의 표)을 읽고
+대조한다. 보고서(`qa-code.md` — 팀 저장소에 커밋된다)에는 기준을 문장으로 쓰고 레퍼런스 이름·URL·항목 ID를 쓰지 않는다 — 근거 항목 ID는
+반환 끝 `REFERENCES_USED:` 줄에만 둔다. 프로젝트 규약과 다르면 규약을 따르고 그렇다고 적는다. 허브의 하한 항목은 규약으로도 내리지 않는다.
 
 ## 판정 신뢰 규약 (적대적 검증)
 

@@ -37,7 +37,7 @@ test('소비자 네 에이전트가 허브를 읽고, 산출물에는 레퍼런�
   assert.match(hub, /## 산출물에 드러내지 않는다/)
   assert.match(hub, /QA 보고서\(`_workspace\/04_qa` — 팀 저장소에 커밋된다\)/, 'QA 보고서를 비노출 대상에서 뺐다')
   for (const agent of ['code-reviewer', 'security-reviewer']) {
-    assert.match(read(`${AGENTS}${agent}.md`), /항목 ID\(`(?:A11Y|SEC)-\d+` 등\)는 스폰 반환에만/, `${agent}가 보고서에 항목 ID를 쓴다`)
+    assert.match(read(`${AGENTS}${agent}.md`), /항목 ID(?:\(`(?:A11Y|SEC)-\d+` 등\))?는\s+반환 끝 `REFERENCES_USED:` 줄에만/, `${agent}가 보고서에 항목 ID를 쓴다`)
   }
   for (const agent of ['developer', 'system-architect']) {
     assert.match(read(`${AGENTS}${agent}.md`), /레퍼런스 이름·URL·항목 ID를 쓰지 않/, `${agent}가 산출물 비노출 규칙을 모른다`)

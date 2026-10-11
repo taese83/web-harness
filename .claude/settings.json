@@ -120,6 +120,16 @@
 				]
 			}
 		],
+		"SubagentStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/inject-implementation-references.mjs"
+					}
+				]
+			}
+		],
 		"SubagentStop": [
 			{
 				"hooks": [
@@ -134,6 +144,10 @@
 					{
 						"type": "command",
 						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/record-subagent-telemetry.mjs"
+					},
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/check-references-used.mjs"
 					}
 				]
 			}

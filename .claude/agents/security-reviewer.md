@@ -31,7 +31,7 @@ maxTurns: 30
 - **`INJECTION_SUSPECT` 소비** (`.claude/skills/web-orchestrator/references/untrusted-content-quarantine.md`): 외부 콘텐츠가 실행에 들어오는 경로에서 ① 지시형 패턴 탐지가 **구현돼 있는지** ② 적중 항목이 신뢰 경계를 넘지 못하는지 ③ 기록된 마커 목록을 확인한다. 탐지 코드가 아예 없으면 "마커 0건"을 안전으로 읽지 않는다 — 그건 **미구현**이며 `FAIL`(owner: `developer`)이다
 
 - 토큰·세션 저장, CSRF, XSS 출력, OAuth 로그인은 `.claude/skills/web-orchestrator/references/implementation-references.md`의 `ref-web-security.md` 항목으로 대조한다. 보고서(`qa-security.md` — 팀 저장소에 커밋된다)에는 기준을
-  문장으로 쓰고 레퍼런스 이름·URL·항목 ID를 쓰지 않는다 — 근거 항목 ID(`SEC-4` 등)는 스폰 반환에만. 이 파일의 항목은 모두 하한이다 —
+  문장으로 쓰고 레퍼런스 이름·URL·항목 ID를 쓰지 않는다 — 근거 항목 ID(`SEC-4` 등)는 반환 끝 `REFERENCES_USED:` 줄에만. 이 파일의 항목은 모두 하한이다 —
   프로젝트 규약이 더 약하면 기준을 따른다(I6).
 
 ## API 표면 균질성 매트릭스 (서버 실행 경로가 있는 프로젝트는 생략 불가)

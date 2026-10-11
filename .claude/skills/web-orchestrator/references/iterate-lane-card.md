@@ -1,8 +1,8 @@
 # Iterate 레인 카드 — `change`·`fix` 한 라운드의 순서·명령·양식
 
 오케스트레이터는 `change`·`fix` 라운드를 **이 카드로 시작한다.** 규칙의 정본은 각 단계에 적힌 계약이다 —
-그 계약은 **그 단계가 막히거나 카드로 판단이 서지 않을 때만** 해당 절을 연다. 계약을 미리 통째로 읽지 않는다
-(읽은 문서는 이후 모든 호출에 다시 실려 비용이 된다). 카드와 계약이 다르면 계약이 이긴다.
+그 계약은 **그 단계가 막히거나 카드로 판단이 서지 않을 때만** 해당 절을 연다. 계약을 미리 통째로 읽지 않는다.
+카드와 계약이 다르면 계약이 이긴다.
 
 ## 첫 판단 — 계약을 열기 전에
 
@@ -79,6 +79,7 @@ DOCS_TO_UPDATE: none (대조: …) | 문서 목록
 ACCEPTANCE: 아래 줄 — `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>`
 TEST_ITEMS: TT-R<n>-<k> 범위
 NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none
+REFERENCE_AREAS: a11y, security, structure, data-fetching | none
 ```
 
 ## telemetry 1행

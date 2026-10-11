@@ -50,6 +50,7 @@ test('배선: 플러그인 빌드가 닫힘 검사를 돌리고 걸리면 실패
 const HOOK_INPUT = {
   SessionStart: {hook_event_name: 'SessionStart', source: 'startup'},
   PreToolUse: {hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: {file_path: 'README.md'}},
+  SubagentStart: {hook_event_name: 'SubagentStart', agent_type: 'general-purpose', agent_id: 'import-closure-test'},
   SubagentStop: {hook_event_name: 'SubagentStop', agent_type: 'general-purpose', last_assistant_message: 'done'},
   UserPromptSubmit: {hook_event_name: 'UserPromptSubmit', prompt: 'hello', session_id: 'import-closure-test'},
 }

@@ -1,7 +1,7 @@
 {
   "comment": "grandfather baseline — always-read는 성장 시 fail(의식적 갱신 필요), references는 목록 밖 신규 파일에 일반화 근거 섹션 요구. 갱신은 CLAUDE.md 판단 게이트를 거친다. | alwaysReadBytes(2026-08-20): 선행 로드 앵커의 바이트 실측 상한 — 참조 수만으로 못 잡는 파일 비대를 막는다. 앵커 배치 스킬만 등록. referenceBytes: 20KB를 넘는 참조 문서의 현재 크기(ratchet 상한 — 더 커지지 못한다, 2026-09-24 등록). promptBytes: 20KB를 넘는 에이전트·SKILL.md의 현재 크기(같은 ratchet, validate-modularity가 잰다 — 줄 상한을 대신한다).",
   "promptBytes": {
-    ".claude/agents/code-reviewer.md": 28859,
+    ".claude/agents/code-reviewer.md": 28742,
     ".claude/agents/design-preview-builder.md": 21604,
     ".claude/skills/team-flow/SKILL.md": 28860
   },

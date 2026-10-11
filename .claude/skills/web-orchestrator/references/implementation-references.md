@@ -24,7 +24,9 @@
 | 데이터 패칭 | `ref-data-fetching.md` | 서버 상태 조회·변경·무효화·재조회 시점을 정할 때 |
 
 소비자: `developer`(계획 패스·구현), `system-architect`(설계 결정), `code-reviewer`, `security-reviewer`. 바뀌는 영역의 파일만 읽는다 —
-전체를 읽지 않는다. 근거 항목 ID(`A11Y-3` 등)는 **스폰 반환에만** 붙인다.
+전체를 읽지 않는다. 에이전트 정의의 지시만으로는 읽히지 않으므로, 시작 훅(`inject-implementation-references`)이 change-scope의
+`REFERENCE_AREAS`와 범위 경로·변경 파일 추정을 합쳐 영역 파일을 직접 건넨다(보안 리뷰는 보안만, 설계는 이 표). 근거 항목 ID(`A11Y-3` 등)는
+**반환 끝 `REFERENCES_USED: <ID들> | none(이유)` 줄에만** 붙인다 — 이 줄 없이 끝나면 종료 훅이 한 번 돌려보낸다. 메인은 이 줄을 보고서 파일로 옮기지 않는다.
 
 ## 산출물에 드러내지 않는다
 
