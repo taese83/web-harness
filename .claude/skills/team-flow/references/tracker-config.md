@@ -1,7 +1,6 @@
 # 트래커 설정 기록 — `configure`
 
 `claim`이 트래커를 물은 뒤(점 0-A) 답을 `_workspace/03_dev/ticket-provider.json`에 기록하는 방법이다.
-`team-flow/SKILL.md`에서 옮겨 왔다(2026-09-11 — 스킬 본문 300줄 한도를 줄 병합이 아니라 추출로 지킨다).
 
 **답을 받으면 `configure`로 기록한다** — 사람이 JSON을 손으로 만들게 두지 않는다:
 

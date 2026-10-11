@@ -4491,6 +4491,14 @@
       "why": "20KB를 넘는 참조 문서가 등록 크기보다 커지거나 새로 넘어도 contract-hygiene가 통과한다"
     },
     {
+      "id": "prompt-size-ratchet",
+      "file": ".claude/scripts/validators/validate-modularity.mjs",
+      "find": "  if (bytes <= PROMPT_BYTE_BUDGET || (ceiling !== undefined && bytes <= ceiling)) return []",
+      "replace": "  return []",
+      "test": ".claude/scripts/test-prompt-size.mjs",
+      "why": "20KB를 넘는 에이전트·SKILL.md가 등록 크기보다 커지거나 새로 넘어도 통과한다 — 스폰마다 읽는 고정 비용이 아무도 모르게 는다"
+    },
+    {
       "id": "ticket-create-recent-done-preview",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
       "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",

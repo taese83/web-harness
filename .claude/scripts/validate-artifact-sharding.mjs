@@ -2,7 +2,7 @@
 // artifact-sharding-contract.md의 §검증 4항목을 기계화한다.
 //
 // 배경: 계약은 모든 예산을 KB로 명시하는데 **KB를 측정하는 것이 하나도 없었다.** 유일한 강제는
-// validate-modularity의 300줄 상한이고 그 대상은 `.claude/skills/**`라서 `_workspace/**` 산출물을
+// validate-modularity의 크기 상한이고 그 대상은 `.claude/skills/**`라서 `_workspace/**` 산출물을
 // 한 번도 보지 않았다. 강제는 SKILL.md의 산문("예산을 넘었는데 분할되지 않았으면 designer를 다시
 // 실행한다")에 위임돼 있었는데, 바이트를 측정할 수단이 없는 판단은 지켜질 수 없다.
 // 하니스가 자기 카탈로그 2개에는 결정론적 분할기를 갖추고, 최대 18개 에이전트가 읽는 산출물에는

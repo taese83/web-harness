@@ -1,23 +1,22 @@
-import {existsSync} from 'node:fs'
+import {existsSync, readFileSync} from 'node:fs'
 import {basename, join} from 'node:path'
 
 const lineCount = source => source.split(/\r?\n/).length
 
+// 에이전트·SKILL.md·참조 문서의 크기는 줄이 아니라 바이트로 잰다 — 줄 상한은 같은 내용을 긴 줄로 밀어넣거나
+// 문장을 깎게 만들 뿐 읽기 비용을 줄이지 않는다. 예산(20KB)을 넘는 파일은 baseline `promptBytes`의 크기가 상한이고,
+// 더 키우려면 baseline을 의식적으로 갱신한다(JUDGMENT, I4). 참조 문서는 contract-hygiene `referenceBytes`가 같은 규칙으로 잰다.
+export const PROMPT_BYTE_BUDGET = 20 * 1024
+export const promptSizeFailures = (files, read, ceilings = {}) => files.flatMap(relativePath => {
+  const bytes = Buffer.byteLength(read(relativePath).replace(/\r\n/g, '\n'), 'utf8')
+  const ceiling = ceilings[relativePath]
+  if (bytes <= PROMPT_BYTE_BUDGET || (ceiling !== undefined && bytes <= ceiling)) return []
+  return [`${relativePath}: ${bytes.toLocaleString()}B > ${(ceiling ?? PROMPT_BYTE_BUDGET).toLocaleString()}B — 에이전트·스킬 본문이 예산을 넘었다. 덜어내거나 참조로 옮기고, 불가피하면 contract-hygiene-baseline promptBytes를 의식적으로 갱신하라(JUDGMENT, I4)`]
+})
+
 export const validateModularity = ({repositoryRoot, agentFiles, skillFiles, activeMarkdown, read, pass, fail}) => {
-  for (const relativePath of skillFiles) {
-    if (lineCount(read(relativePath)) > 300) fail(`${relativePath}: SKILL.md exceeds the 300-line core workflow limit`)
-  }
-  for (const relativePath of agentFiles) {
-    if (lineCount(read(relativePath)) > 300) fail(`${relativePath}: agent exceeds the 300-line single-role limit`)
-  }
-  // 참조 한도는 400줄이다(2026-08-26 상향, 사용자 결정). SKILL.md·에이전트는 300줄로 남긴다 —
-  // 그 둘은 always-read 고정 비용이고 참조는 시점 로드라 성격이 다르다.
-  // 프록시 표기: 줄 수는 읽기 비용의 대리 지표다. 실제 비용은 바이트이며 always-read는 이미
-  // contract-hygiene이 바이트로 잰다. 줄바꿈을 없애 같은 내용을 긴 줄로 밀어넣으면 이 게이트는
-  // 통과하는데 비용은 줄지 않는다 — 실측 확인된 우회이며 protected-core §4에 등록했다.
-  for (const relativePath of activeMarkdown.filter(path => path.includes('/references/'))) {
-    if (lineCount(read(relativePath)) > 400) fail(`${relativePath}: active reference exceeds 400 lines; split it or make it an asset`)
-  }
+  const baseline = JSON.parse(readFileSync(join(repositoryRoot, '.claude/scripts/validators/contract-hygiene-baseline.json'), 'utf8'))
+  for (const message of promptSizeFailures([...skillFiles, ...agentFiles], read, baseline.promptBytes)) fail(message)
 
   const movedCatalogs = [
     ['.claude/skills/project-init/references/templates.md', '.claude/skills/project-init/assets/templates.md'],

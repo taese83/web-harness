@@ -3,9 +3,6 @@
 `references/solution-design-contract.md`가 참조하는 블록 예시다. **형식을 임의로 바꾸지 않는다** —
 Stage 1에서 이 블록이 스팩 확정 아티팩트로 승격된다.
 
-계약 본문에서 여기로 옮긴 이유는 활성 참조 400줄 상한이다(`validate-modularity`가 제시한 두
-방법 중 「asset으로 만든다」). 내용은 한 줄도 바꾸지 않았다.
-
 ````
 ```json web-harness:solution-design
 {
