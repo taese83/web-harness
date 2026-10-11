@@ -51,7 +51,12 @@ export function unreviewedCodeFiles(root) {
     hashes = present.length ? execFileSync('git', ['-C', root, 'hash-object', '--stdin-paths'], {input: present.join('\n'), encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 8 * 1024 * 1024}).trim().split('\n') : []
   } catch { return null }
   const blobOf = new Map(present.map((path, index) => [path, hashes[index]]))
-  return paths.filter(path => blobOf.has(path) || !lstatExists(join(root, path))).map(path => ({path, blob: blobOf.get(path) ?? null})).filter(({path, blob}) => !wasReviewed(packets, path, blob))
+  // merge 커밋이면 묶음이 「들어온 쪽 그대로」로 적은 파일은 이 merge의 변경이 아니다 — 리뷰됨이 아니라 범위 밖으로 넘긴다.
+  let mergeHead = null
+  try { mergeHead = git(['rev-parse', '-q', '--verify', 'MERGE_HEAD']).trim() } catch { /* merge 중이 아니다 */ }
+  const outsideMerge = (path, blob) => mergeHead !== null && packets.some(packet => packet.mergeHead === mergeHead && Object.hasOwn(packet.mergeIncoming ?? {}, path) && packet.mergeIncoming[path] === blob)
+  return paths.filter(path => blobOf.has(path) || !lstatExists(join(root, path))).map(path => ({path, blob: blobOf.get(path) ?? null}))
+    .filter(({path, blob}) => !wasReviewed(packets, path, blob) && !outsideMerge(path, blob))
 }
 
 /** 판정. 돌려보낼 이유(문자열) 또는 null(통과). */

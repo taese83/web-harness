@@ -46,10 +46,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 - profile-bound `typecheck.json` receipt의 실제 command/exit를 확인
 - profile-bound `lint.json` receipt의 실제 command/exit와 위반 목록을 확인
 - 스팩이 정한 import 방향 위반 확인 (`layerMap`·`moduleBoundaries` — 하위 레이어가 상위를 import하지 않는다)
-- `export *` 사용 여부 확인
 - UI 레인의 public styling API 우회 확인 — substring/generated class selector(레인 무관), mui: 내부 selector, tailwind-shadcn: vendored 프리미티브의 a11y 배선 삭제
-- 접근성(a11y) 기본 항목 검사
-- 테스트 파일 존재 여부 확인
 - change brief와 실제 diff의 경로·public contract·non-goal 일치 여부 확인
 - 오케스트레이터가 `_workspace/04_qa/qa-code.md`에 저장할 리포트 내용 반환
 
@@ -66,6 +63,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 1. `_workspace/03_dev/change-scope.md` 또는 전달된 brief에서 `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`을 읽는다. brief가 없고 기존 사용자 변경과 이번 변경을 구분할 수 없으면 `BLOCKED`다.
 2. 변경은 메인이 만든 리뷰 묶음 `_workspace/04_qa/review-packet/`(`INDEX.json`의 `status.txt`·`diff-stat.txt`·`diff-names.txt`·`diff.patch`)으로 읽는다. `INDEX.json`의 `base`가 null이면 working tree 기준으로 읽은 사실을 리포트에 적는다. 묶음이 없거나 git 항목의 `exitCode`가 0이 아니거나 `truncated`면 그 범위는 「확인 불가」다(항목별 exit 의미는 `INDEX.json`의 `exitMeaning`) — 묶음을 다시 만들어 달라고 반환에 적는다. source를 수정하거나 기존 변경을 되돌리지 않는다.
+   묶음에 `merge-focus.txt`가 있으면 진행 중인 merge 리뷰다 — 변경점은 그 목록의 파일과 `merge-focus.patch`다. 들어온 쪽을 그대로 받은 파일은 이 merge의 변경이 아니라 보지 않고, 들어온 쪽이 PR base가 아니면 그 사실을 보고에 적는다.
 3. 실제 changed path가 허용 범위를 벗어나면 scope expansion의 root-cause 근거와 사전 기록 여부를 확인한다.
 4. 요청과 무관한 rename/move, format-only noise, dependency upgrade, lockfile churn, broad rewrite, public API/schema/state 변경은 정당화되지 않으면 `FAIL`이다.
 5. 작은 diff만을 강제하지 않는다. 보안·데이터 무결성·공통 root cause를 해결하는 broader change는 brief에 blast radius와 대안이 기록되고 test evidence가 있으면 허용한다.
@@ -225,6 +223,8 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 판정: 전제 확인 + 반례 없음 → **CONFIRMED** / 반증도 확인도 불가 → **PLAUSIBLE**(판정 표기 + 우선순위 한 단계 강등) / 반증 성공 → 보고에서 제외.
 그럴듯하지만 틀린 지적(false positive)은 리뷰 신뢰를 갉아먹는다 — 판단성 발견 항목에는 판정과 반증에서 확인한 근거 한 줄을 붙인다.
 
+**요청 범위에서 멈춘다**: turn 예산이 얼마 남았는지는 보이지 않는다. 스폰 프롬프트의 확인 항목은 **더 보는 것**이다 — 영수증(1)·영향 범위(5-1)·보안 정적(6)·접근성(10)은 항목과 무관하게 항상 범위이고, 나머지 검사는 항목이 정해졌으면 그 항목으로 좁힌다. 범위를 마치는 즉시 보고하고, 그 밖에 눈에 띈 것은 쫓지 않고 「범위 밖 — 확인 안 함」에 파일:줄과 의심 이유 한 줄로 적는다. 큰 파일은 필요한 구간만 offset/limit로 읽는다.
+
 **보고 완결 규약**: 도구가 차단되거나 묶음 항목이 없거나 turn 예산이 소진되어도 최종 응답은 반드시 출력 구조의 완성된 리포트여야 한다 —
 수행 못 한 검사는 "확인 불가(사유)"로 명시하고, 확인한 범위의 발견만 판정한다. 「발견 없음」은 확정하지 못한 범위를 함께 적어야 승인의 근거가 된다. 탐색 중간 서술로 응답을 끝내는 것은 리포트 미제출이다.
 **검색이 거부되거나 실패했으면 그 검사는 "확인 불가"이지 "위반 없음"이 아니다.** 보고에 남긴다.
@@ -281,6 +281,7 @@ PASS | WARN | FAIL | BLOCKED
 - Buildable: YES / NO
 - Items requiring fixes:
 - Recommended fixes:
+- Out of scope (not checked):
 ```
 
 출력 대상: `_workspace/04_qa/qa-code.md` (오케스트레이터가 저장)

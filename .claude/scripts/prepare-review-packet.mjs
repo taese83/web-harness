@@ -18,6 +18,7 @@ import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
 import {appendReviewHistory} from './ticket/work-link.mjs'
 import {readLocalReviewSettings} from './ticket/local-settings.mjs'
 import {computeImpact, parseDiffNames, renderImpact} from './review-impact-lib.mjs'
+import {computeMergeFocus, mergeFocusPatch, renderMergeFocus} from './review-merge-lib.mjs'
 
 answerHelp(import.meta.url)
 
@@ -80,7 +81,7 @@ const items = [
   {file: 'reuse-inventory.txt', ...node('reuse-inventory.mjs', ['--project-root', projectRoot])},
   ...(handoff ? [{file: `handoff-${handoff}.json`, ...node('validate-handoff-readiness.mjs', ['--project', projectRoot, '--to', handoff, '--json'])}] : []),
 ]
-const OPTIONAL = ['handoff-design.json', 'handoff-development.json']
+const OPTIONAL = ['handoff-design.json', 'handoff-development.json', 'merge-focus.txt', 'merge-focus.patch']
 
 const sha256 = content => createHash('sha256').update(content).digest('hex')
 const entries = []
@@ -123,12 +124,43 @@ for (const item of items) {
   atomicWriteProjectFile(projectRoot, `${PACKET}/impact.txt`, content)
   entries.push({file: 'impact.txt', command: 'review-impact-lib (diff-names 기반)', exitCode, bytes: Buffer.byteLength(content), truncated: false, sha256: sha256(content)})
 }
+// merge 범위 — 진행 중인 merge면 리뷰가 볼 파일(충돌·양쪽이 바꾼 파일·결과에서 고친 파일)만 따로 싣는다.
+// 들어온 쪽을 그대로 받은 파일까지 보면 리뷰가 들어온 브랜치 전체를 다시 읽다 턴 한도에 걸린다.
+let mergeFocus = null
+{
+  let focus = null
+  let failure = null
+  try { focus = computeMergeFocus(projectRoot, diffNames === null ? [] : parseDiffNames(diffNames)) } catch (error) { failure = error }
+  if (focus || failure) {
+    const write = (file, content, exitCode) => {
+      const truncated = Buffer.byteLength(content) > MAX_BYTES
+      if (truncated) content = Buffer.from(content).subarray(0, MAX_BYTES).toString('utf8')
+      atomicWriteProjectFile(projectRoot, `${PACKET}/${file}`, content)
+      entries.push({file, command: 'review-merge-lib (MERGE_HEAD 기준)', exitCode, bytes: Buffer.byteLength(content), truncated, sha256: sha256(content)})
+    }
+    if (failure) {
+      write('merge-focus.txt', `merge 범위 계산 실패: ${String(failure?.message ?? failure).slice(0, 200)} — 확인 불가, diff.patch 전체가 범위다.\n`, 2)
+    } else {
+      write('merge-focus.txt', renderMergeFocus(focus), 0)
+      let patch = ''
+      let exitCode = 0
+      try { patch = mergeFocusPatch(projectRoot, focus.focus) } catch (error) {
+        patch = `볼 파일 diff 실패: ${String(error?.message ?? error).slice(0, 200)} — 확인 불가\n`
+        exitCode = 2
+      }
+      write('merge-focus.patch', patch, exitCode)
+      mergeFocus = focus
+    }
+  }
+}
 // 리뷰한 내용의 지문 — 바뀐 파일마다 작업 트리 내용의 git blob id(지운 파일은 null). `link`가 커밋마다 「그 커밋의 파일 내용이
 // 하네스 리뷰가 뒤따른 묶음에 같은 내용으로 있었는가」를 대조한다(커밋 전 리뷰·커밋 여러 개). `_workspace`는 산출물이라 뺀다.
 const reviewedFiles = {}
 if (diffNames !== null) {
   for (const path of parseDiffNames(diffNames)) {
     if (path.startsWith('_workspace/')) continue
+    // merge로 그대로 받은 파일은 이번 리뷰가 보지 않는다 — 리뷰했다고 적지 않는다(커밋별 대조가 리뷰됨으로 읽지 않게).
+    if (mergeFocus && Object.hasOwn(mergeFocus.incomingAsIs, path)) continue
     const absolute = join(projectRoot, path)
     if (!existsSync(absolute)) { reviewedFiles[path] = null; continue }
     const blob = spawnSync('git', ['-C', projectRoot, 'hash-object', '--', path], {encoding: 'utf8'})
@@ -152,6 +184,7 @@ const index = {
     'layer-boundaries.json': '0 = PASS, 1 = FAIL(방향 위반), 3 = 미판정(확인 불가 — 통과가 아니다), 2 = 확인 불가',
     'reuse-inventory.txt': '0 = 보고됨, 그 밖 = 확인 불가',
     'impact.txt': '0 = 사용처 목록(근사), 2 = 확인 불가',
+    'merge-focus.*': '진행 중인 merge에만 있다. 0 = 볼 파일 목록·그 diff, 2 = 확인 불가(diff.patch 전체가 범위)',
     'handoff-*.json': '0 = HOLE 없음, 1 = HOLES(파일의 JSON을 그대로 옮긴다), 2 = 기계 판정 미수행',
   },
   note: '묶음은 generatedAt 시점의 트리만 담는다 — 수정 뒤 재확인이면 메인이 다시 만든다.',
@@ -160,10 +193,15 @@ const index = {
 // 묶음은 산출물이지 소스가 아니다 — 프로젝트 설정을 건드리지 않고 폴더 안 규칙으로 커밋에서 뺀다.
 atomicWriteProjectFile(projectRoot, `${PACKET}/.gitignore`, '*\n')
 // 이력은 묶음을 새로 만들어도 남는다 — 커밋마다 리뷰한 내용을 나중에 대조한다.
-appendReviewHistory(projectRoot, {generatedAt, base: base ?? null, files: reviewedFiles})
+// mergeIncoming은 리뷰 기록이 아니다 — 커밋 상기 훅이 merge 커밋에서 「이 merge의 변경이 아님」을 알아보는 데만 쓴다.
+appendReviewHistory(projectRoot, {generatedAt, base: base ?? null, files: reviewedFiles, ...(mergeFocus ? {mergeHead: mergeFocus.mergeHead, mergeIncoming: mergeFocus.incomingAsIs} : {})})
 atomicWriteProjectFile(projectRoot, `${PACKET}/INDEX.json`, `${JSON.stringify(index, null, 2)}\n`)
 const failed = entries.filter(entry => entry.exitCode !== 0).map(entry => `${entry.file}=${entry.exitCode}`)
 process.stdout.write(`review packet: ${PACKET}/ (${entries.length} items${failed.length ? `; non-zero: ${failed.join(', ')}` : ''})\n`)
+if (mergeFocus) {
+  process.stdout.write(`merge review: 진행 중인 merge다 — 볼 파일 ${mergeFocus.focus.length}개(들어온 쪽 그대로 ${Object.keys(mergeFocus.incomingAsIs).length}개 제외). `
+    + `리뷰어에게 ${PACKET}/merge-focus.txt와 merge-focus.patch만 보라고 넘긴다.\n`)
+}
 // 개발자가 Codex 교차 리뷰를 켠 프로젝트면 같은 범위의 실행 명령을 여기서 알린다 — 어느 레인이든 리뷰 전에 묶음을 만들므로,
 // 레인 문서를 읽지 않아도 리뷰를 띄우는 순간에 Codex를 함께 띄운다(team-flow 5·web-verify 5·qa-evidence Iterate). handoff 묶음은 코드 리뷰가 아니라 뺀다.
 if (!handoff && readLocalReviewSettings(projectRoot)?.codexReview === true) {

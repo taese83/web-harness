@@ -77,6 +77,7 @@ finding마다 owner agent를 적는다(API 계약 문서는 `api-schema-designer
 ## 실행 규칙
 
 1. 이 에이전트에는 Bash가 없다. 변경은 리뷰 묶음(`_workspace/04_qa/review-packet/` — `diff.patch`·`diff-names.txt` 등, `INDEX.json`의 exit·truncated 확인)으로, 실행 결과는 receipt(`_workspace/04_qa/evidence/`)로 읽는다. 없는 실행이 필요하면 판정을 `NEEDS_REVIEW`로 두고 반환에 필요한 check를 적는다.
+   묶음에 `merge-focus.txt`가 있으면 진행 중인 merge 리뷰다 — 변경점은 그 목록의 파일과 `merge-focus.patch`다(들어온 쪽을 그대로 받은 파일은 이 merge의 변경이 아니다). 비밀 파일 점검(`ls-files.txt`)은 그대로 트리 전체다.
 2. `pnpm audit`처럼 네트워크 또는 registry 접근이 필요한 검사는 receipt 유무로 실행 여부를 명시한다.
 3. 발견 항목은 `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`로 분류한다.
 4. 각 항목에 파일 경로, 근거, 공격 시나리오, owner agent, 수정 기준을 포함한다.

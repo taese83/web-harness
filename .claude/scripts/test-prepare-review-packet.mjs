@@ -132,3 +132,61 @@ test('Codex 교차 리뷰를 켠 프로젝트면 묶음 출력에 같은 범위�
       'Codex를 켠 프로젝트인데 묶음과 같은 범위의 Codex 명령을 알리지 않았다')
   })
 })
+
+test('진행 중인 merge면 이 merge가 만든 변경만 merge-focus에 싣고, 그대로 받은 파일은 리뷰했다고 적지 않는다', () => {
+  withProject(({project, packet}) => {
+    const git = (...args) => spawnSync('git', ['-C', project, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], {encoding: 'utf8'})
+    const write = (path, content) => writeFileSync(join(project, path), content)
+    const names = ['as-is', 'both', 'deleted', 'edited', 'theirs-wins', 'dropped', 'open', 'callee', 'caller']
+    write('src/a.ts', 'export const a = 1\n')
+    for (const name of names) write(`src/${name}.ts`, `export const v = 0\n`)
+    write('src/caller.ts', "import {v} from './callee'\nexport const caller = v\n")
+    git('add', '.'); git('commit', '-q', '-m', 'base')
+    git('checkout', '-q', '-b', 'develop')
+    for (const name of ['as-is', 'both', 'deleted', 'edited', 'theirs-wins', 'dropped', 'open', 'callee']) write(`src/${name}.ts`, 'export const v = 1\n')
+    git('commit', '-q', '-am', 'develop')
+    git('checkout', '-q', 'main')
+    for (const name of ['both', 'theirs-wins', 'open']) write(`src/${name}.ts`, 'export const v = 2\n')
+    write('src/caller.ts', "import {v} from './callee'\nexport const caller = v + 1\n")
+    rmSync(join(project, 'src/deleted.ts'))
+    git('commit', '-q', '-am', 'feature')
+    assert.notEqual(git('merge', '--no-commit', 'develop').status, 0, '충돌이 나야 하는 구성이다')
+    write('src/both.ts', 'export const v = 3\n')
+    rmSync(join(project, 'src/deleted.ts'), {force: true})
+    write('src/edited.ts', 'export const v = 9\n')
+    write('src/theirs-wins.ts', 'export const v = 1\n')
+    write('src/dropped.ts', 'export const v = 0\n')
+    git('add', 'src/both.ts', 'src/deleted.ts', 'src/edited.ts', 'src/theirs-wins.ts', 'src/dropped.ts')
+
+    const result = packet()
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout, /merge review: .*볼 파일 7개\(들어온 쪽 그대로 2개 제외\)/)
+    const focus = readFileSync(join(project, PACKET, 'merge-focus.txt'), 'utf8')
+    const expect = {
+      'both': '양쪽이 바꿈 — 두 변경을 합침',
+      'deleted': '양쪽이 바꿈 — 이쪽\\(HEAD\\) 내용을 남김',
+      'theirs-wins': '양쪽이 바꿈 — 들어온 쪽 내용을 받음',
+      'dropped': '들어온 쪽만 바꿈 — 그 변경을 받지 않았다',
+      'edited': 'merge 결과에서 새로 고침',
+      'open': '충돌 미해결',
+      'caller': '자동 병합 의미 충돌 후보.*src/callee\\.ts',
+    }
+    for (const [name, label] of Object.entries(expect)) assert.match(focus, new RegExp(`- src/${name}\\.ts — ${label}`), `${name}의 판정이 틀렸다`)
+    assert.doesNotMatch(focus, /src\/as-is\.ts/, '들어온 쪽을 그대로 받은 파일을 볼 파일에 넣었다')
+    assert.doesNotMatch(focus, /이미 리뷰됐다/, '들어온 브랜치가 리뷰됐다고 증명 없이 적었다')
+    const patch = readFileSync(join(project, PACKET, 'merge-focus.patch'), 'utf8')
+    assert.match(patch, /\+export const v = 3/)
+    assert.doesNotMatch(patch, /as-is\.ts/)
+    const index = readIndex(project)
+    assert.equal(index.entries.find(entry => entry.file === 'merge-focus.txt').exitCode, 0)
+    assert.equal(Object.hasOwn(index.files, 'src/as-is.ts'), false, '보지 않은 파일을 리뷰 지문에 적었다 — 커밋별 대조가 리뷰됨으로 읽는다')
+    assert.equal(Object.hasOwn(index.files, 'src/both.ts'), true)
+    const history = readFileSync(join(project, PACKET, 'history.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)).at(-1)
+    assert.equal(Object.hasOwn(history.files, 'src/as-is.ts'), false)
+    assert.equal(Object.hasOwn(history.mergeIncoming, 'src/as-is.ts'), true)
+
+    git('add', '-A'); git('commit', '-q', '--no-edit')
+    assert.equal(packet().status, 0)
+    assert.equal(existsSync(join(project, PACKET, 'merge-focus.txt')), false, 'merge가 끝났는데 지난 merge 범위가 남았다')
+  })
+})

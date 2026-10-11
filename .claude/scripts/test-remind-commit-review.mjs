@@ -85,3 +85,47 @@ test('하네스 모드 세션: 리뷰 안 된 코드면 한 번 알리고, 같�
     rmSync(root, {recursive: true, force: true}); rmSync(home, {recursive: true, force: true})
   }
 })
+
+test('merge 커밋: 묶음이 「들어온 쪽 그대로」로 적은 파일은 다시 리뷰하라고 하지 않고, merge가 만든 변경과 그 뒤 고친 파일은 알린다', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-remind-merge-')))
+  const home = mkdtempSync(join(tmpdir(), 'wh-remind-home-'))
+  const git = (...args) => spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], {encoding: 'utf8'})
+  const commit = () => decide({tool_name: 'Bash', tool_input: {command: 'git commit --no-edit'}, session_id: 's1', cwd: root}, {home, projectDir: root})
+  try {
+    git('init', '-q', '-b', 'main')
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'src/in.ts'), 'i0\n'); writeFileSync(join(root, 'src/both.ts'), 'b0\n')
+    git('add', '.'); git('commit', '-q', '-m', 'base')
+    git('checkout', '-q', '-b', 'develop')
+    writeFileSync(join(root, 'src/in.ts'), 'i1\n'); writeFileSync(join(root, 'src/both.ts'), 'b1\n')
+    git('commit', '-q', '-am', 'develop')
+    git('checkout', '-q', 'main')
+    writeFileSync(join(root, 'src/both.ts'), 'b2\n')
+    git('commit', '-q', '-am', 'feature')
+    git('merge', '--no-commit', 'develop')
+    writeFileSync(join(root, 'src/both.ts'), 'b3\n')
+    git('add', '-A')
+    mkdirSync(join(home, '.claude/web-harness/sessions'), {recursive: true})
+    writeFileSync(join(home, '.claude/web-harness/sessions/s1.json'), `${JSON.stringify({projectRoot: root, since: new Date().toISOString()})}\n`)
+
+    const result = spawnSync(process.execPath, [join(HERE, 'prepare-review-packet.mjs'), '--project-root', root, '--base', 'HEAD'],
+      {cwd: root, encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: ''}})
+    assert.equal(result.status, 0, result.stderr)
+    mkdirSync(join(root, '_workspace/04_qa/evidence/verdicts'), {recursive: true})
+    appendFileSync(join(root, '_workspace/04_qa/evidence/verdicts/code.jsonl'),
+      `${JSON.stringify({reportId: 'code', agent: 'code-reviewer', status: 'PASS', at: new Date().toISOString()})}\n`)
+    assert.equal(commit(), null, 'merge로 그대로 받은 파일까지 다시 리뷰하라고 했다')
+
+    writeFileSync(join(root, 'src/in.ts'), 'i2\n')
+    const reason = commit()
+    assert.ok(reason && reason.includes('src/in.ts') && !reason.includes('src/both.ts'), `merge 뒤 고친 파일을 알리지 않았다: ${reason}`)
+
+    // merge를 취소한 뒤 같은 내용을 일반 커밋으로 넣으면 들어온 쪽 기록은 근거가 아니다
+    git('reset', '-q', '--hard', 'HEAD')
+    writeFileSync(join(root, 'src/in.ts'), 'i1\n')
+    const plain = commit()
+    assert.ok(plain && plain.includes('src/in.ts'), `merge가 아닌 커밋에서 들어온 쪽 기록으로 리뷰를 건너뛰었다: ${plain}`)
+  } finally {
+    rmSync(root, {recursive: true, force: true}); rmSync(home, {recursive: true, force: true})
+  }
+})
