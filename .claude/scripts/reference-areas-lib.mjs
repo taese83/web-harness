@@ -131,7 +131,12 @@ export function referenceContext(root, agentName, {pluginBuild}) {
     : files.length
       ? `[web-harness] 외부 기준 — 이번 변경이 닿는 영역의 기준 파일을 작업 전에 읽는다: ${files.join(', ')}. 판단 순서·하한은 \`${directory}/${HUB}\`.`
       : `[web-harness] 외부 기준 — 이번 변경에서 기준 영역을 찾지 못했다. 대화상자·메뉴·알림, 인증·토큰·외부 입력 출력, 새 모듈·Effect·상태 위치, 서버 상태 조회·변경을 만들거나 바꾸면 \`${directory}/${HUB}\`의 표에서 그 영역 파일을 읽는다.`
-  return `${head} 프로젝트 규약이 먼저이고, 보안 항목 전부와 WCAG 하한은 규약으로도 내리지 않는다. `
+  // 설계·구현은 목록 밖 결정을 추측하지 않고 리서치를 요청한다(메인이 tech-advisor 구현 리서치 모드로 답을 구한다).
+  const research = agentName === 'developer' || agentName === 'system-architect'
+    ? '기준 목록과 저장소로 확인되지 않는 결정(플랫폼·웹뷰·외부 SDK·브라우저 API·라이브러리 동작)은 추측으로 정하지 않고 반환에 '
+      + '`RESEARCH_NEEDED: <질문>`(최대 5)을 올린다 — 메인이 구현 리서치로 답을 구해 온다. 스폰 프롬프트에 리서치 답이 있으면 그것을 따른다. '
+    : ''
+  return `${head} ${research}프로젝트 규약이 먼저이고, 보안 항목 전부와 WCAG 하한은 규약·리서치 답으로도 내리지 않는다. `
     + '반환 끝(`SPAWN_RESULT` 블록이 있으면 그 바로 앞)에 줄 머리부터 `REFERENCES_USED: <근거로 쓴 항목 ID들>` 또는 `REFERENCES_USED: none(이유)`를 적는다 — 이 줄과 항목 ID·레퍼런스 이름은 '
     + '반환에만 두고 코드·주석·노트·보고서 파일·커밋·PR에는 쓰지 않는다(기준 자체를 문장으로 쓴다).'
 }

@@ -24,7 +24,9 @@
   문서를 막는다. `solution-design.md`는 쓰지 않는다(결정 블록이 스팩의 layerMap, 곧 쓰기 소유권을 낳는다). 반환 뒤(write-back 라운드면
   `--verify` 뒤) ④ 스팩은 **입력이 바뀌었을 때만** ✋ 전에 다시 확정한다(API 계약·TC 행). `acceptanceRefs`·`specTier`는 그대로다.
   반환: `ACC-`·`TT-` 항목 · change brief 필드(`DOCS_TO_UPDATE: none (대조: …) | 목록` 포함) · 열린 질문(최대 3, 추천안 포함) ·
-  개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>`.
+  개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>`.
+- **구현 리서치:** 계획 패스나 ③ 설계 스폰의 반환에 `RESEARCH_NEEDED`가 있으면 ✋ 전에 `tech-advisor`를 구현 리서치 모드로 **한 번**
+  스폰한다(`implementation-references.md` 「목록 밖」). 답은 ✋에 질문별 한 줄로 싣고 구현 스폰에 그대로 넘긴다 — 파일로 남기지 않는다.
 
 ```json change-scope
 {"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/02_design/api-schema.md", "_workspace/02_design/api-design.md"]}
@@ -108,6 +110,7 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다(원장은 스�
 - 스팩: `LOCAL_VERIFIABLE | DEPLOY_ONLY` 라벨과 재확정 여부
 - change brief: `ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`
 - 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`
+- 구현 리서치가 있었으면 질문별 답과 근거 한 줄
 
 수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다. 논의 중 여러 결정·정정이 나오면 그때마다 스폰을 다시 부르지 않고
 결정 목록으로 모았다가 사용자가 목록을 승인하면 한 번에 반영한다(team-flow `pickup` 5와 같다).

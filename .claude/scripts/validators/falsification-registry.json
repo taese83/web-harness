@@ -4539,6 +4539,22 @@
       "why": "근거 줄·항목 ID를 보고서·코드 파일에 쓰면(금지) 팀 저장소에 커밋된다 — 알아채지 못하면 산출물 비노출 규칙이 장식이 된다"
     },
     {
+      "id": "reference-research-needed-for-designers",
+      "file": ".claude/scripts/reference-areas-lib.mjs",
+      "find": "  const research = agentName === 'developer' || agentName === 'system-architect'",
+      "replace": "  const research = false",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "설계·구현이 목록 밖 결정을 리서치로 요청하는 방법을 모르면 추측으로 정한다(AOA-47 진입 판정·브리지)"
+    },
+    {
+      "id": "team-flow-pickup-runs-research",
+      "file": ".claude/skills/team-flow/SKILL.md",
+      "find": "   판정 반환에 `RESEARCH_NEEDED`가 있으면 2의 확인 전에 `tech-advisor`를 구현 리서치 모드로 **한 번** 스폰해 답을 5의 결정 목록에 싣는다.\n",
+      "replace": "   판정 반환을 그대로 쓴다.\n",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "판정이 리서치를 요청해도 메인이 돌리지 않으면 요청이 버려지고 추측한 판정으로 확인을 받는다"
+    },
+    {
       "id": "ticket-create-recent-done-preview",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
       "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",

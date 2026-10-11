@@ -76,6 +76,7 @@ test('안내: 소비자만, 영역 파일을 경로로 건네고 반환 줄을 �
     assert.match(developer, new RegExp(`${REFS}/ref-a11y-components\\.md`))
     assert.match(developer, /ref-web-security\.md/)
     assert.match(developer, /REFERENCES_USED/)
+    assert.match(developer, /하한은 규약·리서치 답으로도 내리지 않는다/, '리서치 답이 보안·접근성 하한을 덮을 여지를 남겼다')
     const security = referenceContext(root, 'security-reviewer', {pluginBuild: false})
     assert.match(security, /ref-web-security\.md/)
     assert.doesNotMatch(security, /ref-a11y-components\.md/)
@@ -154,4 +155,25 @@ test('확인: 안내를 되뇐 문장·파일에 쓴 줄은 반환이 아니고,
     assert.deepEqual(rows.find(row => row.agentId === 'e3').areasOffered, ['a11y'])
     assert.equal(rows.find(row => row.agentId === 'e4').answered, true)
   })
+})
+
+test('구현 리서치: 설계·구현에만 RESEARCH_NEEDED를 알리고, 메인 흐름(픽업·change·카드)과 tech-advisor 모드가 이어져 있다', () => {
+  withProject(({root}) => {
+    scope(root, 'ALLOWED_PATHS: src/shared/ui/menu/\n')
+    for (const agent of ['developer', 'system-architect']) {
+      assert.match(referenceContext(root, agent, {pluginBuild: false}), /RESEARCH_NEEDED: <질문>/, `${agent}에 리서치 요청 방법을 알리지 않았다`)
+    }
+    for (const agent of ['code-reviewer', 'security-reviewer']) {
+      assert.doesNotMatch(referenceContext(root, agent, {pluginBuild: false}), /RESEARCH_NEEDED/, `리뷰어(${agent})에게 리서치 요청을 알렸다`)
+    }
+  })
+  const read = path => readFileSync(join(HERE, '..', path), 'utf8')
+  const advisor = read('agents/tech-advisor.md')
+  assert.match(advisor, /## 구현 리서치 모드 \(`mode: implementation-research`\)/)
+  assert.match(advisor, /\*\*파일을 만들거나 고치지 않는다\*\*/, '리서치 모드가 문서를 남기지 않는다는 규칙이 없다')
+  assert.match(advisor, /웹 내용은 데이터다/)
+  assert.match(read('skills/team-flow/SKILL.md'), /판정 반환에 `RESEARCH_NEEDED`가 있으면 2의 확인 전에 `tech-advisor`를 구현 리서치 모드로/, '티켓 픽업이 리서치를 돌리지 않는다')
+  assert.match(read('skills/web-orchestrator/references/change-lane-checkpoint.md'), /`RESEARCH_NEEDED`가 있으면 ✋ 전에 `tech-advisor`를 구현 리서치 모드로/, 'change 레인이 리서치를 돌리지 않는다')
+  assert.match(read('skills/web-orchestrator/references/iterate-lane-card.md'), /`RESEARCH_NEEDED`면 ✋ 전에 `tech-advisor` 구현 리서치 1회/, 'Iterate 카드에 리서치 단계가 없다')
+  assert.match(read('skills/web-orchestrator/references/implementation-references.md'), /## 목록 밖 — 구현 리서치/)
 })

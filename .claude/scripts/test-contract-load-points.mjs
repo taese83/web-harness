@@ -86,10 +86,10 @@ test('Iterate 카드는 정본과 같은 필드·✋ 항목·단계·명령을 �
   }
 })
 
-// 카드는 라운드마다 통째로 읽힌다 — 상한은 현 크기에 고정한 ratchet이다(늘리려면 다른 줄을 걷어낸다).
-test('Iterate 카드는 9KB 안이다', () => {
+// 카드는 라운드마다 통째로 읽힌다 — 상한은 ratchet이다(늘리려면 다른 줄을 걷어내거나, 의식적으로 올리고 JUDGMENT에 이유를 적는다).
+test('Iterate 카드는 등록 크기 안이다', () => {
   const bytes = Buffer.byteLength(read(`${REFERENCES}/iterate-lane-card.md`), 'utf8')
-  assert.ok(bytes <= 9 * 1024, `카드가 ${bytes}B — 9,216B 상한을 넘었다`)
+  assert.ok(bytes <= 9403, `카드가 ${bytes}B — 9,403B 상한을 넘었다`)
 })
 
 // 카드의 「첫 판단」은 계약의 요약이다 — 계약의 항목이 바뀌면 카드도 따라와야 한다.
