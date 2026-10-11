@@ -56,7 +56,8 @@
 기준은 이미 있다: 개발자가 픽업 미리보기에서 확인한 판정서의 완료 조건과 `TT-` 테스트 항목이다(`approval-checkpoints.md` 「기획·디자인 `absent`
 진입 → 개발」 ③의 티켓 예외와 같은 근거). ①에는 **`기획 개정: ticket-acceptance (<티켓 키> — 완료 조건 N · TT M)`**을
 change-scope 라운드 항목에 남긴다 — 기준의 출처가 티켓이라는 사실이 라벨로 남고 `specTier`는 그대로다(기준 원문은 티켓, 인용은 PR의 `TT-`). 완료 조건이 비어 있거나 개발자 확인 전이면
-이 예외는 서지 않는다(픽업이 이미 막는다). ②~④와 ✋승인은 그대로 선다 — ✋의 「스팩」 줄에는 그 완료 조건·TT를 싣는다.
+이 예외는 서지 않는다(픽업이 이미 막는다). 등록 기록(`ticket-assessments/<키>.registered.json`)에 `decisionsRef`가 있으면 그 결정 목록의
+설계 문서 결정(SD·solution-design·API 계약)을 ②의 대조와 ③의 개정 입력으로 읽는다 — 확인 전 논의에서 정한 설계가 여기서 반영된다. ②~④와 ✋승인은 그대로 선다 — ✋의 「스팩」 줄에는 그 완료 조건·TT를 싣는다.
 
 그 밖의 경우(기획 `absent`)도 **기획 문서를 세우지 않는다** — 이번 라운드의 완료 조건·테스트 항목(`ACC-R<n>-<k>`·`TT-R<n>-<k>`,
 light와 같은 형태)을 change-scope 라운드 항목에 싣고 ①에 **`기획 개정: change-acceptance (<라운드> — ACC N · TT M)`**을 남긴다.
@@ -108,7 +109,8 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다(원장은 스�
 - change brief: `ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`
 - 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`
 
-수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다.
+수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다. 논의 중 여러 결정·정정이 나오면 그때마다 스폰을 다시 부르지 않고
+결정 목록으로 모았다가 사용자가 목록을 승인하면 한 번에 반영한다(team-flow `pickup` 5와 같다).
 
 `fix`·`verify` 레인은 이 체크포인트를 거치지 않는다 — 동작을 새로 정의하지 않으므로 승인받을
 대상이 없다. 대신 유형별 보존 증거(`request-type-contract.md`)가 의무다. (`verify`의 준비 단계가

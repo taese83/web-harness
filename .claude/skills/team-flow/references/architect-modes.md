@@ -16,7 +16,10 @@
 
 **재판정(`next.mode: ticket-reassessment`)** — 티켓 본문을 고친 뒤다. `next.previous`(이전 판정서)에서 시작해 `changedSections`에 걸린
 항목만 고친다. 바뀌지 않은 절에 기댄 항목(자기검사 근거·수정 범위·완료 조건·TT ID)은 그대로 옮긴다 — 번호를 다시 매기지 않는다.
-`changedSections`가 `null`이면(양식 밖 본문) 처음부터 판정한다.
+`changedSections`가 `null`이면(양식 밖 본문) 처음부터 판정한다. `next.decisions`(확인 전 논의의 결정 목록)가 있으면 그 결정이 가리키는
+항목도 고친다 — 결정마다 판정서의 어느 필드(완료 조건·TT·가정·`designByImplementer`·nonGoals)를 바꿨는지 반환에 적고, 결정에 없는 변경은 하지 않는다.
+목록의 설계 문서 결정(SD·solution-design)은 판정서에 쓰지 않는다 — 확인 뒤 `/wh change`의 설계 단계가 반영한다. 첫 판정(`ticket-assessment`)에
+`next.decisions`가 있어도 같은 규칙이다.
 
 ## 티켓 초안 모드 (`team-flow create`)
 

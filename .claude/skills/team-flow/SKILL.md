@@ -136,6 +136,12 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
 3. 판정이 「디자인 필요」인데 사용자가 「디자인은 임의로」라고 지시하면 판정 에이전트에게 그 지시를 전해 다시 판정한다
    (`designByImplementer.source: developer`). 사용자가 지시하지 않았으면 넣지 않는다.
 4. 스팩 승인을 한 번 더 받는 조건은 `ticket-work-contract.md` 흐름 6이 정본이다(`specApproval: required`).
+5. **확인 전 논의의 결정은 모았다가 한 번에 반영한다.** 사용자의 결정·정정, 리서치(`tech-advisor`) 결과, 3의 「디자인은 임의로」 지시가
+   나오면 판정서·설계 문서를 그때마다 고치지 않는다 — 메인이 `_workspace/03_dev/ticket-assessments/<키>.decisions.md`(로컬, git 제외)에
+   번호·한 줄로 쌓고 대화에도 보여 준다. 사용자가 목록을 승인하면 `pickup <키> --reassess`로 `system-architect`를 **한 번** 불러 모두
+   반영한다(설계 문서 결정은 확인 뒤 `/wh change` 설계 단계 몫 — 확인하면 등록 기록의 `decisionsRef`가 그 목록을 가리킨다). 목록 승인은 2의 확인이 아니다 — 반영 뒤 이전 판정서(이력 사본) 대비
+   **판정서 전체의 바뀐 부분**(목록 밖 변화 포함)을 보여 2의 확인을 받고, 확인하면 목록은 이력으로 옮겨진다. 반영이 목록과 다르게
+   나오면(검증 실패·새 결정 필요) 그것만 묻는다.
 정본: `references/ticket-work-contract.md`.
 
 **묻지 않고 실행한다 — 픽업 요청이 곧 승인이다.** 승인 범위는 셋이다: 본인 배정 · `in-progress` 전이

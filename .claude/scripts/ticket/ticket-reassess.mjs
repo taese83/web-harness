@@ -56,6 +56,18 @@ export function archiveAssessment(root, assessmentRelative, ticketKey) {
   return target
 }
 
+/** 확인한 판정에 반영된 결정 목록을 이력으로 옮긴다(지우지 않는다) — 다음 논의는 새 목록에서 시작한다. 없으면 null. */
+export function archiveDecisions(root, decisionsRelative, ticketKey) {
+  if (!existsSync(join(root, decisionsRelative))) return null
+  const dir = join(root, ASSESSMENT_HISTORY_DIR)
+  mkdirSync(dir, {recursive: true})
+  const prefix = `${safeKey(ticketKey)}.decisions.`
+  const next = readdirSync(dir).filter(name => name.startsWith(prefix)).length + 1
+  const target = `${ASSESSMENT_HISTORY_DIR}/${safeKey(ticketKey)}.decisions.${next}.md`
+  renameSync(join(root, decisionsRelative), join(root, target))
+  return target
+}
+
 export const readAssessedBody = (root, ticketKey) => {
   const path = join(root, assessedBodyPath(ticketKey))
   return existsSync(path) ? readFileSync(path, 'utf8') : null

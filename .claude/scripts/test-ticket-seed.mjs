@@ -8,7 +8,7 @@
 //   - 판정 에이전트가 판정서를 새로 쓰면 지문 기록은 무관하다(일반 판정 경로)
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {tmpdir} from 'node:os'
@@ -163,6 +163,29 @@ test('재판정: 확인한 판정의 원문을 남기고, 본문을 고친 뒤 -
     assert.ok(existsSync(join(ctx.root, again.next.previous)), '이전 판정서를 이력으로 옮기지 않았다')
     assert.equal(existsSync(join(ctx.root, assessmentPath(ctx.key))), false)
     assert.deepEqual(again.reassess.changedSections, [{section: '완료 조건', change: 'modified'}])
+  } finally { rmSync(ctx.root, {recursive: true, force: true}) }
+})
+
+test('재판정: 확인 전 결정 목록이 있으면 본문이 그대로여도 --reassess가 함께 넘기고, 확인하면 목록을 이력으로 옮긴다', async () => {
+  const {decisionsPath} = await import('./ticket/ticket-work.mjs')
+  const ctx = await setup()
+  try {
+    const preview = await ctx.pickup()
+    assert.equal(preview.phase, 'TICKET_WORK_PREVIEW', JSON.stringify(preview.errors ?? preview))
+    writeFileSync(join(ctx.root, decisionsPath(ctx.key)), '1. 토스트는 info 3초·error 5초\n2. 메뉴는 스크롤 잠금 없이 같이 스크롤\n')
+    const again = await ctx.pickup({reassess: true})
+    assert.equal(again.next.mode, 'ticket-reassessment', JSON.stringify(again))
+    assert.equal(again.next.decisions, decisionsPath(ctx.key), '결정 목록을 재판정에 넘기지 않았다 — 결정마다 판정서를 다시 고치는 왕복이 된다')
+    assert.ok(again.next.reads.includes(decisionsPath(ctx.key)))
+    // 에이전트가 이전 판정서를 바탕으로 다시 쓴 것처럼 되돌려 놓고 확인한다
+    cpSync(join(ctx.root, again.next.previous), join(ctx.root, assessmentPath(ctx.key)))
+    const preview2 = await ctx.pickup()
+    await ctx.pickup({assessment: preview2.confirmWith.value})
+    assert.equal(existsSync(join(ctx.root, decisionsPath(ctx.key))), false, '확인한 뒤에도 결정 목록이 남아 다음 재판정이 같은 결정을 다시 적용한다')
+    assert.ok(readdirSync(join(ctx.root, ASSESSMENT_HISTORY_DIR)).some(name => /\.decisions\.1\.md$/.test(name)), '결정 목록을 이력으로 남기지 않았다')
+    const {registrationPath} = await import('./ticket/ticket-work.mjs')
+    assert.match(JSON.parse(readFileSync(join(ctx.root, registrationPath(ctx.key)), 'utf8')).decisionsRef ?? '', /\.decisions\.1\.md$/,
+      '등록 기록이 결정 목록을 가리키지 않는다 — 설계 문서 결정이 /wh change에 닿지 않는다')
   } finally { rmSync(ctx.root, {recursive: true, force: true}) }
 })
 

@@ -135,6 +135,7 @@ CLI가 막지 않고 **보여 주는** 것: 이 클론이 아는 진행 중 작�
 | 파일 | 지우는 때 |
 |---|---|
 | `<키>.ticket.md`(격리 사본) | 판정서가 검증을 통과하면 CLI가 `<키>.assessed.md`로 옮긴다. 검증에 실패하면 다시 판정하도록 남긴다 |
+| `<키>.decisions.md`(확인 전 결정 목록) | 메인이 쓴다(에이전트 아님). `pickup`(첫 판정·`--reassess`)이 판정에 넘기고, 확인하면(착수 가능·불가 모두) CLI가 `history/<키>.decisions.<n>.md`로 옮긴다 — 착수 가능이면 등록 기록 `decisionsRef`가 그 경로다(설계 결정을 `/wh change`가 읽는다) |
 | `<키>.assessed.md`(판정이 기댄 원문) | 지우지 않는다 — `pickup --reassess`가 바뀐 절을 가리는 기준이다 |
 | `history/<키>.<n>.json`(이전 판정서) | 지우지 않는다 — `--reassess`가 옮긴 판정서다. 재판정(`next.mode: ticket-reassessment`)이 여기서 시작해 바뀐 절에 걸린 항목만 고친다 |
 | `<키>.seed.json`(생성 시점 지문) | `create`가 초안 판정(`ticket-drafts/<이름>.assessments.json`)을 미리 둘 때 CLI가 쓴다. pickup이 트래커 본문·스팩·수정 범위 코드 지문을 대조해 하나라도 다르면 판정서와 함께 지운다. 확인하면 지운다 |

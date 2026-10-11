@@ -34,6 +34,8 @@ export const assessmentPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(t
 export const assessmentSnapshotPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.ticket.md`
 /** 확인한 판정 = 이 개발자의 등록 기록(로컬, git 제외). 티켓에는 쓰지 않는다 — 다른 클론은 배정·상태로만 안다. */
 export const registrationPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.registered.json`
+/** 확인 전 논의의 결정 목록(로컬, git 제외) — 메인이 번호·한 줄로 쌓고, `pickup --reassess`가 재판정에 한 번에 넘긴다. 에이전트는 쓰지 않는다. */
+export const decisionsPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.decisions.md`
 /** 요청 코멘트를 남긴 판정서 지문(로컬) — 같은 판정으로 다시 확인해도 코멘트를 쌓지 않는다. */
 export const notifiedPath = ticketKey => `${TICKET_ASSESSMENTS_DIR}/${String(ticketKey).replace(/[^A-Za-z0-9_-]/g, '_')}.notified.json`
 /** 티켓 원문 지문(순수) — 확인한 뒤 사람이 원문을 고쳤는지 link가 가린다. */

@@ -12,11 +12,11 @@ import {classifyByComponent, DEV_TICKET} from './intake.mjs'
 import {computeAssignmentPlan} from './assign.mjs'
 import {bounceComment, resolveCommentLanguage} from './readiness.mjs'
 import {readDeclaredLanguage} from './ticket-config.mjs'
-import {assessmentDigest, assessmentPath, assessmentSnapshotPath, notifiedPath, originalBodyOf, registrationPath, renderTicketWorkBody,
+import {assessmentDigest, assessmentPath, assessmentSnapshotPath, decisionsPath, notifiedPath, originalBodyOf, registrationPath, renderTicketWorkBody,
   overlapConfirmToken, resolveTicketDependencies,
   TICKET_ASSESSMENTS_DIR, ticketBodyDigest, ticketPlanId, ticketVirtualPlan, ticketWorkDefinition, ticketWorkId, validateTicketAssessment} from './ticket-work.mjs'
 import {seedMatches, seedPath, staleSeedReasons} from './ticket-seed.mjs'
-import {archiveAssessment, assessedBodyPath, changedTicketSections, readAssessedBody} from './ticket-reassess.mjs'
+import {archiveDecisions, archiveAssessment, assessedBodyPath, changedTicketSections, readAssessedBody} from './ticket-reassess.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 const readJson = (root, relative) => {
@@ -307,7 +307,9 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     const previousBody = readAssessedBody(root, ticketKey)
     const previous = assessment && !flags['dry-run'] ? archiveAssessment(root, path, ticketKey) : assessment ? path : null
     discard([seedPath(ticketKey)])
-    reassess = {previous, changedSections: previousBody ? changedTicketSections(previousBody, quarantined) : null}
+    // 확인 전 논의에서 모은 결정 목록이 있으면 함께 넘긴다 — 본문이 그대로여도 결정에 걸린 항목을 한 번에 고친다(team-flow pickup 5).
+    const decisions = existsSync(join(root, decisionsPath(ticketKey))) ? decisionsPath(ticketKey) : null
+    reassess = {previous, changedSections: previousBody ? changedTicketSections(previousBody, quarantined) : null, ...(decisions ? {decisions} : {})}
     assessment = null
   }
   const requireAssessment = extra => {
@@ -318,13 +320,15 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       writeFileSync(join(root, snapshot), `${quarantineExcerpt({...current, body: stripWorkMarker(current?.body ?? '')})}\n`)
     }
     // 재판정이면 이전 판정서에서 시작해 바뀐 절에 걸린 항목만 고친다 — 바뀌지 않은 항목(TT ID 포함)은 그대로 둔다.
-    const delta = reassess?.previous ? {mode: 'ticket-reassessment', previous: reassess.previous, changedSections: reassess.changedSections} : {mode: 'ticket-assessment'}
+    const pendingDecisions = reassess?.decisions ?? (existsSync(join(root, decisionsPath(ticketKey))) ? decisionsPath(ticketKey) : null)
+    const delta = reassess?.previous ? {mode: 'ticket-reassessment', previous: reassess.previous, changedSections: reassess.changedSections,
+      ...(pendingDecisions ? {decisions: pendingDecisions} : {})} : {mode: 'ticket-assessment', ...(pendingDecisions ? {decisions: pendingDecisions} : {})}
     return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_REQUIRED', ticketKey, externalWrites: claimed.assigned ? 1 : 0, ...claimedNote, ...extra,
       ...(reassess ? {reassess} : {}),
       bounce: {reason: 'ticket-assessment-required', by: registered || reassess ? 'reassess' : dev.by},
       next: {agent: 'system-architect', ...delta, writes: path,
         contract: '.claude/skills/team-flow/references/ticket-work-contract.md',
-        reads: [flags['dry-run'] ? '(dry-run — 격리 스냅샷을 쓰지 않았다)' : snapshot, ...(delta.previous ? [delta.previous] : []), '_workspace/03_dev/spec.json', '현재 코드', '_workspace/03_dev/work-plan.json(있으면)']},
+        reads: [flags['dry-run'] ? '(dry-run — 격리 스냅샷을 쓰지 않았다)' : snapshot, ...(delta.previous ? [delta.previous] : []), ...(delta.decisions ? [delta.decisions] : []), '_workspace/03_dev/spec.json', '현재 코드', '_workspace/03_dev/work-plan.json(있으면)']},
       guidance: `${extra?.seedStale ? `만들 때 둔 판정이 지금과 맞지 않아 버렸습니다(${extra.seedStale.join(', ')}). ` : ''}사람이 만든 개발 티켓입니다(${dev.by ?? '등록된 티켓 작업'}).${claimed.assigned ? ' 먼저 나로 배정했습니다.' : ''} 기획이나 디자인이 더 필요한지 판정합니다. system-architect가 ${path}를 쓴 뒤 다시 pickup을 부르세요.`}}
   }
   // 등록된 작업이고 판정서가 그대로면(또는 없으면) 계획 WORK처럼 이어서 픽업한다. 판정서를 새로 썼으면 다시 확인을 탄다.
@@ -393,6 +397,8 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
         ...claimedNote, bounce, requestComment: text, confirmWith: {flag: '--assessment', value: digest},
         guidance: '티켓에 남길 요청 코멘트입니다. 내용을 확인하고 고칠 것이 있으면 판정서를 고친 뒤 다시 부르세요. 확인하면 이 코멘트를 남깁니다(배정은 그대로 둡니다).'}}
     }
+    // 착수 불가로 확인해도 반영한 결정 목록은 이력으로 옮긴다 — 남기면 다음 재판정이 같은 결정을 다시 넘긴다.
+    if (!flags['dry-run']) archiveDecisions(root, decisionsPath(ticketKey), ticketKey)
     const notified = await postOnce({root, provider, ticketKey, id: `request:${digest}`, text, io})
     return {result: {ok: false, mode: 'work', phase: 'TICKET_NOT_STARTABLE', ticketKey, verdict: assessment.verdict, assessmentDigest: digest,
       externalWrites: notified.done ? 1 : 0, bounce, notified, ...(registered ? {withdrawn: true} : {}),
@@ -445,7 +451,10 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
   const registration = {schemaVersion: 1, ticketKey: String(ticketKey), provider: providerName, workId, planId: ticketPlanId(providerName, ticketKey),
     planDigest: digest, definition, dependsOnKeys: dependsOn.map(dep => dep.ticketKey ?? null), bodyDigest: ticketBodyDigest(current?.body ?? ''),
     ...(overlaps.length > 0 ? {acceptedOverlaps: overlaps} : {}), confirmedAt: new Date().toISOString()}
-  writeJson(root, registrationPath(ticketKey), registration)
+  // 확인한 판정에 반영된 결정 목록은 이력으로 옮기고 등록 기록에 그 경로를 남긴다 — 설계 문서 결정은 판정서에 없으므로
+  // `/wh change`의 설계 단계가 `decisionsRef`를 읽어 반영한다. 남겨 두면 다음 재판정이 같은 결정을 다시 적용한다.
+  const decisionsRef = flags['dry-run'] ? null : archiveDecisions(root, decisionsPath(ticketKey), ticketKey)
+  writeJson(root, registrationPath(ticketKey), decisionsRef ? {...registration, decisionsRef} : registration)
   discard([seedPath(ticketKey)])   // 확인했으면 지문 기록은 쓸모를 다했다 — 이후는 등록 기록이 정본이다
   const designNotified = designNotice ? await postOnce({root, provider, ticketKey, id: `design:${digest}`, text: designNotice, io}) : null
   const assumptionNotified = assumptionNotice ? await postOnce({root, provider, ticketKey, id: `assume:${digest}`, text: assumptionNotice, io}) : null

@@ -66,6 +66,9 @@ test('Iterate 카드는 정본과 같은 필드·✋ 항목·단계·명령을 �
     assert.ok(cardApproval.includes(token), `✋ 항목 ${token}이 카드에 없다`)
   }
 
+  // 확인 전 결정은 모았다가 한 번에 반영한다 — 결정마다 판정서를 다시 쓰는 왕복을 막는다(실사용: 판정서 수정 20회+).
+  assert.match(read('skills/team-flow/SKILL.md'), /확인 전 논의의 결정은 모았다가 한 번에 반영한다/, 'team-flow pickup에 결정 일괄 반영 규칙이 없다')
+  assert.match(read(`${REFERENCES}/change-lane-checkpoint.md`), /결정 목록으로 모았다가 사용자가 목록을 승인하면 한 번에 반영한다/, '✋ 수정 요청의 일괄 반영 규칙이 없다')
   // 큰 작업 분할의 정본은 retry-policy다 — 카드 미러만 고정하면 정본에서 규칙이 지워져도 아무것도 실패하지 않는다.
   assert.match(read(`${REFERENCES}/retry-policy.md`), /15개 또는 쓰기 경로\(`ALLOWED_PATHS` 항목\)가 8곳을 넘으면 모듈/, 'retry-policy에서 큰 작업 분할 규칙이 빠졌다')
   // Iterate 루프의 단계 가운데 카드가 빠뜨리면 조용히 사라지는 것들
