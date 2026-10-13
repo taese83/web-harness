@@ -28,7 +28,7 @@ TEST_EVIDENCE: 변경 전 재현과 변경 후 검증
 CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none — **대조한 문서 목록을 괄호로 병기한다**(`none (대조: layout-spec, component-spec, api-schema)`). change 레인은 개발 전 감지 단계에서 채운다(`approval-checkpoints.md`)
 ACCEPTANCE: 아래 줄 — 관찰 가능한 결과를 개발자가 이해할 한 문장으로(축약 기호 아님 — PR 본문에 그대로 실린다) (change light·change-acceptance 라운드 — 기획 문서 대신 라운드의 기준. 티켓은 티켓 완료 조건, 기획이 있는 full은 `TC 행 (PC-NNN)`)
-TEST_ITEMS: TT-R<n>-<k> 범위 — 각 기준 줄 끝에 그 기준을 검증하는 ID를 단다(테스트 이름에 ID를 인용한다)
+TEST_ITEMS: TT-R<n>-<k> 범위 — 테스트로 확인할 핵심·고위험 기준 줄 끝에만 그 기준을 검증하는 ID를 단다(테스트 이름에 ID를 인용한다, `testing.md` 「무엇을 테스트하는가」). 나머지 기준은 `— 검증: 리뷰|수동`(빠뜨린 것과 구별한다)
 NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none — 개발 노트(아래)
 REFERENCE_AREAS: a11y, security, structure, data-fetching 중 이번 변경이 닿는 것 | none — 판정서·설계에서 고른다. 훅이 범위 경로·변경 파일 추정과 합쳐 그 영역의 기준 파일을 developer·리뷰어 시작 때 건넨다(`implementation-references.md`)
 ```

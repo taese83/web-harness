@@ -19,8 +19,9 @@ export const HONESTY_KINDS = {
   'tautological-constant': '구현이 export한 상수를 같은 리터럴로 단언한다 — 기대값이 구현에서 왔으니 틀릴 수 없다',
 }
 
-const CODE_LITERAL = /['"`][^'"`\n]+\.(?:[cm]?[jt]sx?|vue|svelte)['"`]/
-const RAW_CODE_IMPORT = /(?:from\s+|import\s*\(\s*)['"][^'"\n]+\.(?:[cm]?[jt]sx?|vue|svelte)\?raw['"]/g
+// 코드·스타일시트·README — 마크다운 픽스처(`sample.md`)는 데이터라 걸지 않는다.
+const CODE_LITERAL = /['"`](?:[^'"`\n]+\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|less)|(?:[^'"`\n]*\/)?README\.md)['"`]/
+const RAW_CODE_IMPORT = /(?:from\s+|import\s*\(\s*)['"][^'"\n]+\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|less)\?raw['"]/g
 const READ_CALL = /\breadFile(?:Sync)?\s*\(/g
 const MOCK_CALL = /\b(?:vi|jest)\.(?:mock|doMock)\(\s*['"]([^'"\n]+)['"]/g
 const NAMED_IMPORT = /import\s*(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"\n]+)['"]/g
@@ -74,7 +75,7 @@ export function subjectCandidates(testFile) {
   return candidates.map(candidate => candidate.replace(/\/index$/, ''))
 }
 
-/** source-text-read (순수) — readFile 호출의 인자가 코드 파일 경로 리터럴이거나, 코드 파일을 `?raw`로 들인다. */
+/** source-text-read (순수) — readFile 호출의 인자가 코드·스타일시트·README 경로 리터럴이거나, 코드·스타일시트를 `?raw`로 들인다. */
 export function findSourceTextReads(text) {
   const found = []
   for (const match of text.matchAll(READ_CALL)) {

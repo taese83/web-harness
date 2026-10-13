@@ -210,16 +210,18 @@ const ttFooter = lang => (lang === 'en' ? 'Search the repo for a test ID (TT-…
 /**
  * 티켓 없는 change 라운드: change-scope의 `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-…` 줄을 번호 목록으로.
  * change-scope는 라운드마다 쌓이므로 **가장 최근 라운드(R 번호가 가장 큰 것)**의 기준만 싣는다 — 지난 라운드는 이미 다른 PR에 있다.
- * 줄 안 어디에 있든 `TT-R…`를 검증 테스트로 뽑고, 없으면 「검증 테스트 미지정」을 적는다(조용히 빠지지 않게).
+ * 줄 안 어디에 있든 `TT-R…`를 검증 테스트로 뽑는다. 테스트 대신 `검증: 리뷰|수동`을 적은 기준은 그 방법을 싣고(일부러 테스트하지 않은 것),
+ * 둘 다 없으면 「검증 테스트 미지정」을 적는다(빠뜨린 것이 조용히 정상으로 보이지 않게).
  */
 export function renderRoundCriteria(source, {lang = 'ko', limits = PR_CRITERIA_LIMITS} = {}) {
   const criteria = new Map()
   for (const match of String(source ?? '').matchAll(/^\s*[-*]\s*(ACC-R(\d+)-\d+[a-z]?)\b[\s:：]*(.+)$/gm)) {
     const tests = [...match[3].matchAll(/TT-R\d+-\d+[a-z]?/g)].map(hit => hit[0])
     const deployOnly = /\bDEPLOY_ONLY\b/.test(match[3])
-    const text = match[3].replace(/\s*[—–-]+\s*(?:TT-R\d+-\d+[a-z]?[\s,]*)+$/, '').replace(/\(?\s*TT-R\d+-\d+[a-z]?\s*\)?/g, '')
+    const method = /검증\s*[:：]\s*(리뷰|수동)/.exec(match[3])?.[1] ?? null
+    const text = match[3].replace(/\s*[—–-]*\s*검증\s*[:：]\s*(?:리뷰|수동)\s*/, ' ').replace(/\s*[—–-]+\s*(?:TT-R\d+-\d+[a-z]?[\s,]*)+$/, '').replace(/\(?\s*TT-R\d+-\d+[a-z]?\s*\)?/g, '')
       .replace(/\s*·?\s*\b(?:LOCAL_VERIFIABLE|DEPLOY_ONLY)\b\s*/g, ' ').replace(/[\s·,—–-]+$/, '').replace(/\s{2,}/g, ' ').trim()
-    criteria.delete(match[1]); criteria.set(match[1], {round: Number(match[2]), text, tests, deployOnly})
+    criteria.delete(match[1]); criteria.set(match[1], {round: Number(match[2]), text, tests, deployOnly, method})
   }
   if (criteria.size === 0) return []
   const latest = Math.max(...[...criteria.values()].map(item => item.round))
@@ -227,8 +229,10 @@ export function renderRoundCriteria(source, {lang = 'ko', limits = PR_CRITERIA_L
     .sort(([left], [right]) => left.localeCompare(right, 'en', {numeric: true}))
   const shown = entries.slice(0, limits.lines).map(([, item], index) => {
     const deploy = item.deployOnly ? (lang === 'en' ? ' (verifiable only in a deployed environment)' : ' (배포 환경에서만 확인할 수 있다)') : ''
+    const byMethod = {리뷰: lang === 'en' ? 'verified by review (no test)' : '리뷰로 확인(테스트 없음)',
+      수동: lang === 'en' ? 'verified manually (no test)' : '수동 확인(테스트 없음)'}
     const tests = item.tests.length ? `${lang === 'en' ? 'verified by' : '검증 테스트'} ${item.tests.join(', ')}`
-      : (lang === 'en' ? 'no verifying test named' : '검증 테스트 미지정')
+      : item.method ? byMethod[item.method] : (lang === 'en' ? 'no verifying test named' : '검증 테스트 미지정')
     return `${index + 1}. ${cutText(item.text, limits, lang)}${deploy} — ${tests}`
   })
   return [lang === 'en' ? `Acceptance criteria (round ${latest}, confirmed at approval, ${entries.length}):`

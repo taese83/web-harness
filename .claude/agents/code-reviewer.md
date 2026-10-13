@@ -165,6 +165,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - Glob 도구로 스팩 `testLayers`가 선언한 경로 아래의 `*.{test,spec}.*`를 조회한다(스팩이 없거나 `testLayers`가 없으면 저장소 관례 경로를 적고 확인 불가로 둔다)
    - 테스트 파일이 0개면 WARN으로 기록하고 테스트 판정(`report-test-qa`)이 BLOCKED로 막는다
    - 테스트 파일이 있으면 PASS로 기록 — 실제 실행과 커버리지 판정은 품질 실행기와 `report-test-qa`가 담당하므로 여기서는 실행하지 않는다
+   - 이번 변경이 더한 테스트가 핵심·고위험 로직에 집중했는지 `testing.md` 「무엇을 테스트하는가」로 본다 — 벗어난 테스트는 줄일 후보로, 테스트 없는 고위험 로직도 WARN
 15. **외부 데이터·아키텍처 드리프트 검사** (`runtime-data-contract.json`이 있을 때):
    - static snapshot/live API/hybrid mode와 README, runtime consumer, route, deployment config가 같은지 확인
    - schema parse 없는 generated JSON, empty fixture fallback, duplicated crawler/parser/API path, ignored `AbortSignal`을 검사

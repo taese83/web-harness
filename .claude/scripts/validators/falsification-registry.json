@@ -4555,6 +4555,38 @@
       "why": "판정이 리서치를 요청해도 메인이 돌리지 않으면 요청이 버려지고 추측한 판정으로 확인을 받는다"
     },
     {
+      "id": "honest-test-stylesheet-readme",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "[cm]?[jt]sx?|vue|svelte|css|scss|less)|(?:[^'\"`\\n]*\\/)?README\\.md)",
+      "replace": "[cm]?[jt]sx?|vue|svelte))",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "CSS·README 텍스트를 읽어 단언하는 테스트를 놓치면 aoa-web처럼 스타일·문서 단언이 테스트를 불린다"
+    },
+    {
+      "id": "testing-core-only-rule",
+      "file": ".claude/skills/component-gen/references/testing.md",
+      "find": "- **핵심 동작과 위험도가 높은 로직만 테스트한다.**",
+      "replace": "- 모든 동작을 테스트한다.",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "핵심만 테스트한다는 정본이 빠지면 TT·테스트가 완료 조건마다 다시 늘어난다"
+    },
+    {
+      "id": "pr-criteria-verify-method",
+      "file": ".claude/scripts/ticket/work-link.mjs",
+      "find": "      : item.method ? byMethod[item.method] : (lang === 'en'",
+      "replace": "      : (lang === 'en'",
+      "test": ".claude/scripts/test-work-link.mjs",
+      "why": "테스트 없이 리뷰·수동으로 확인하기로 한 기준이 「미지정」으로 찍히면 PR 독자가 결정과 누락을 가르지 못한다"
+    },
+    {
+      "id": "honest-test-raw-stylesheet",
+      "file": ".claude/scripts/honest-test-lib.mjs",
+      "find": "\\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|less)\\?raw",
+      "replace": "\\.(?:[cm]?[jt]sx?|vue|svelte)\\?raw",
+      "test": ".claude/scripts/test-honest-test-lib.mjs",
+      "why": "스타일시트를 `?raw`로 들여 텍스트를 단언하는 테스트를 놓친다"
+    },
+    {
       "id": "ticket-create-recent-done-preview",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
       "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",

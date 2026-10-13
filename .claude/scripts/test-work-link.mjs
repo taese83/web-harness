@@ -452,3 +452,14 @@ test('PR 완료 기준(라운드): 가장 최근 라운드만 싣고, 하이픈�
     '3. 포커스가 제목으로 간다 — 검증 테스트 미지정'])
   assert.ok(!lines.join('\n').includes('LOCAL_VERIFIABLE'), '내부 검증 표시가 PR 본문에 샜다')
 })
+
+test('PR 완료 기준(라운드): 테스트 대신 `검증: 리뷰|수동`을 적은 기준은 그 방법을 싣는다 — 빠뜨린 것(미지정)과 구별한다', async () => {
+  const {renderRoundCriteria} = await import('./ticket/work-link.mjs')
+  const lines = renderRoundCriteria(['- ACC-R1-1 설정 메뉴에 새 항목이 보인다 · LOCAL_VERIFIABLE — 검증: 리뷰',
+    '- ACC-R1-2 실기기에서 공유 시트가 열린다 · DEPLOY_ONLY — 검증: 수동',
+    '- ACC-R1-3 진입 환경을 판정한다 · LOCAL_VERIFIABLE — TT-R1-1',
+    '- ACC-R1-4 버튼 색이 바뀐다 · LOCAL_VERIFIABLE'].join('\n'))
+  assert.deepEqual(lines.slice(1, 5), ['1. 설정 메뉴에 새 항목이 보인다 — 리뷰로 확인(테스트 없음)',
+    '2. 실기기에서 공유 시트가 열린다 (배포 환경에서만 확인할 수 있다) — 수동 확인(테스트 없음)',
+    '3. 진입 환경을 판정한다 — 검증 테스트 TT-R1-1', '4. 버튼 색이 바뀐다 — 검증 테스트 미지정'])
+})
