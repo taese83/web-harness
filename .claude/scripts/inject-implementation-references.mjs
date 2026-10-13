@@ -8,7 +8,7 @@ import {join} from 'node:path'
 import {homedir} from 'node:os'
 import {harnessAgentName, isPluginBuild} from './agent-identity.mjs'
 import {sessionsDirectory} from './harness-session-mode.mjs'
-import {consumerAreas, markerPath, referenceContext} from './reference-areas-lib.mjs'
+import {consumerAreas, implementationGuidance, markerPath, referenceContext} from './reference-areas-lib.mjs'
 
 const STALE_MS = 24 * 60 * 60 * 1000
 
@@ -19,6 +19,7 @@ try {
   const projectRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
   const agentName = harnessAgentName(input.agent_type, {projectRoot})
   const context = agentName ? referenceContext(projectRoot, agentName, {pluginBuild: isPluginBuild()}) : null
+  const guidance = agentName ? implementationGuidance(agentName) : null
   if (context) {
     if (typeof input.agent_id === 'string' && input.agent_id) {
       try {
@@ -31,7 +32,8 @@ try {
         writeFileSync(markerPath(input.agent_id), `${JSON.stringify({agentName, areas: consumerAreas(projectRoot, agentName), at: new Date().toISOString(), asked: false})}\n`)
       } catch { /* 표시를 못 남기면 확인만 빠진다 */ }
     }
-    process.stdout.write(`${JSON.stringify({hookSpecificOutput: {hookEventName: 'SubagentStart', additionalContext: context}})}\n`)
   }
+  const additionalContext = [guidance, context].filter(Boolean).join('\n')
+  if (additionalContext) process.stdout.write(`${JSON.stringify({hookSpecificOutput: {hookEventName: 'SubagentStart', additionalContext}})}\n`)
 } catch { /* 안내 층 — 주입 실패로 스폰을 막지 않는다 */ }
 process.exit(0)

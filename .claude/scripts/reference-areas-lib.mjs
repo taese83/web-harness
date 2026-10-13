@@ -141,6 +141,14 @@ export function referenceContext(root, agentName, {pluginBuild}) {
     + '반환에만 두고 코드·주석·노트·보고서 파일·커밋·PR에는 쓰지 않는다(기준 자체를 문장으로 쓴다).'
 }
 
+// 구현은 기존 코드를 보존한다 — 보존 지시 하나로 초과 수정·추가 복잡도가 줄고 정답률은 오른다는 측정이 있다(최소 수정 과제 400개).
+// 지시를 에이전트 정의 문장으로만 두면 읽히지 않는다(외부 기준과 같은 교훈) — 시작 훅이 건넨다.
+export const PRESERVATION = '[web-harness] 수정 범위 — 기존 코드를 보존한다. 요청과 승인된 범위에 필요한 줄만 바꾸고, 이름 변경·리포맷·옮기기, '
+  + '요청에 없는 추상화·방어 코드·fallback·일어날 수 없는 경우의 처리를 더하지 않는다(✋에서 승인된 덧붙일 것만 예외). '
+  + '보안 항목·WCAG 하한·요청된 오류 처리는 덧붙임이 아니라 요구다 — 빼지 않는다. '
+  + '넣고 싶은 것이 있으면 코드에 넣지 말고 반환에 `EXTRAS: <목록>`으로 올린다.'
+export const implementationGuidance = agentName => (agentName === 'developer' ? PRESERVATION : null)
+
 /** 주입한 스폰의 표시 — 짝 훅(SubagentStop)이 이 스폰만 확인한다. */
 export const markerPath = (agentId, home = homedir()) => join(sessionsDirectory(home), `refs-${String(agentId).replace(/[^A-Za-z0-9_-]/g, '_')}.json`)
 

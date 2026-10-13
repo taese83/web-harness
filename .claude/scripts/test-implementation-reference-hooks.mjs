@@ -177,3 +177,26 @@ test('구현 리서치: 설계·구현에만 RESEARCH_NEEDED를 알리고, 메�
   assert.match(read('skills/web-orchestrator/references/iterate-lane-card.md'), /`RESEARCH_NEEDED`면 ✋ 전에 `tech-advisor` 구현 리서치 1회/, 'Iterate 카드에 리서치 단계가 없다')
   assert.match(read('skills/web-orchestrator/references/implementation-references.md'), /## 목록 밖 — 구현 리서치/)
 })
+
+test('최소 범위: 구현 developer에 보존 지시를 늘 건네고(기준 파일이 없어도), 계획·확인·선별이 설계안·덧붙일 것·과설계를 다룬다', () => {
+  withProject(({root, home}) => {
+    rmSync(join(root, REFS), {recursive: true, force: true})
+    const start = agent => hook('inject-implementation-references.mjs', {hook_event_name: 'SubagentStart', agent_type: agent, agent_id: `p-${agent}`}, {root, home}).stdout
+    const guidance = JSON.parse(start('developer')).hookSpecificOutput.additionalContext
+    assert.match(guidance, /기존 코드를 보존한다/, '기준 파일이 없는 프로젝트에서 보존 지시가 빠졌다')
+    assert.match(guidance, /보안 항목·WCAG 하한·요청된 오류 처리는 덧붙임이 아니라 요구다/, '보존 지시가 하한·요청된 오류 처리까지 빼게 한다')
+    assert.equal(start('code-reviewer'), '', '리뷰어에게 구현 보존 지시를 건넸다')
+    assert.equal(existsSync(markerPath('p-developer', home)), false, '기준을 건네지 않았는데 반환 확인 표시를 남겼다')
+  })
+  const read = path => readFileSync(join(HERE, '..', path), 'utf8')
+  const checkpoint = read('skills/web-orchestrator/references/change-lane-checkpoint.md')
+  assert.match(checkpoint, /\*\*최소 수정안과 구조 정리안\*\*/, '계획 패스가 설계안을 비교하지 않는다')
+  assert.match(checkpoint, /기본은 최소 수정안, 덧붙일 것은 넣지 않는다/)
+  assert.match(checkpoint, /설계안 비교와 추천\(있을 때\), 덧붙이고 싶은 것 목록 — 사용자가 고른 것만 구현한다/, '✋에 설계안·덧붙일 것이 없다')
+  assert.match(read('agents/developer.md'), /`DESIGN_OPTIONS`\), 요청에 없지만 넣고 싶은 것은\s+`EXTRAS`로 따로 올린다/)
+  assert.match(read('skills/web-orchestrator/references/iterate-lane-card.md'), /구현 지시에는 사용자가 고른 안과 승인한 덧붙일 것만 넣는다/)
+  assert.match(read('skills/team-flow/references/architect-modes.md'), /반환에 최소 수정안과 구조 정리안을 비교해 추천한다/)
+  assert.match(read('skills/team-flow/SKILL.md'), /판정 반환에 설계안 비교\(최소 수정안·구조 정리안\)가 있으면 2의 확인에 보이고/, '티켓 흐름에서 설계안이 사용자에게 닿지 않는다')
+  assert.match(read('skills/team-flow/SKILL.md'), /요청에 없는 추상화·방어 코드·일어날 수 없는 경우의 처리와 그 테스트/, '리뷰 지적 선별이 과설계 제안을 걸러내지 않는다')
+  assert.match(read('skills/web-orchestrator/references/qa-evidence-contract.md'), /요청에 없는 추상화·방어 코드·일어날 수 없는 경우의 처리와 그 테스트\)으로 가른다/)
+})

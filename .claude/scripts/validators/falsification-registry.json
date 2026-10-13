@@ -4587,6 +4587,22 @@
       "why": "스타일시트를 `?raw`로 들여 텍스트를 단언하는 테스트를 놓친다"
     },
     {
+      "id": "developer-preservation-guidance",
+      "file": ".claude/scripts/reference-areas-lib.mjs",
+      "find": "export const implementationGuidance = agentName => (agentName === 'developer' ? PRESERVATION : null)",
+      "replace": "export const implementationGuidance = () => null",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "구현이 기존 코드를 보존하라는 지시를 받지 못하면 요청보다 넓게 고치고 요청에 없는 추상화·방어 코드를 더한다"
+    },
+    {
+      "id": "triage-drops-overengineering",
+      "file": ".claude/skills/team-flow/SKILL.md",
+      "find": "     요청에 없는 추상화·방어 코드·일어날 수 없는 경우의 처리와 그 테스트(지적을 다 따르면 과설계가 된다).",
+      "replace": "     그 밖의 것.",
+      "test": ".claude/scripts/test-implementation-reference-hooks.mjs",
+      "why": "리뷰 지적을 다 따르면 추상화·방어 코드·불가능한 경우의 테스트가 쌓인다"
+    },
+    {
       "id": "ticket-create-recent-done-preview",
       "file": ".claude/scripts/ticket/ticket-create-run.mjs",
       "find": "    const recentDone = await readRecentDoneDevTickets({provider, config})",

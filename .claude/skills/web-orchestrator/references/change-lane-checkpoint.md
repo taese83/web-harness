@@ -24,7 +24,11 @@
   문서를 막는다. `solution-design.md`는 쓰지 않는다(결정 블록이 스팩의 layerMap, 곧 쓰기 소유권을 낳는다). 반환 뒤(write-back 라운드면
   `--verify` 뒤) ④ 스팩은 **입력이 바뀌었을 때만** ✋ 전에 다시 확정한다(API 계약·TC 행). `acceptanceRefs`·`specTier`는 그대로다.
   반환: `ACC-`·`TT-` 항목 · change brief 필드(`DOCS_TO_UPDATE: none (대조: …) | 목록` 포함) · 열린 질문(최대 3, 추천안 포함) ·
-  개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>`.
+  개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>` ·
+  `DESIGN_OPTIONS: none | <안 둘>` · `EXTRAS: none | <목록>`.
+- **설계안과 덧붙일 것:** 여러 파일에 걸치거나 새 모듈이 필요하면 계획 패스가 **최소 수정안과 구조 정리안**을 각각 바뀌는 파일·장단점 두 줄로
+  비교하고 추천을 단다(`DESIGN_OPTIONS`, 한 문장으로 설명되는 변경은 `none`). 요청에 없지만 넣고 싶은 것(추상화·방어 코드·리팩터링)은
+  `EXTRAS`로 따로 올린다. ✋에서 사용자가 고른 안과 승인한 덧붙일 것만 구현 지시에 넣는다 — 기본은 최소 수정안, 덧붙일 것은 넣지 않는다.
 - **구현 리서치:** 계획 패스나 ③ 설계 스폰의 반환에 `RESEARCH_NEEDED`가 있으면 ✋ 전에 `tech-advisor`를 구현 리서치 모드로 **한 번**
   스폰한다(`implementation-references.md` 「목록 밖」). 답은 ✋에 질문별 한 줄로 싣고 구현 스폰에 그대로 넘긴다 — 파일로 남기지 않는다.
 
@@ -111,6 +115,7 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다(원장은 스�
 - change brief: `ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`
 - 새 `ASSUMPTION`·`NEEDS_DECISION`·`BLOCKED`
 - 구현 리서치가 있었으면 질문별 답과 근거 한 줄
+- 설계안 비교와 추천(있을 때), 덧붙이고 싶은 것 목록 — 사용자가 고른 것만 구현한다
 
 수정 요청이 있으면 해당 단계만 다시 실행하고 체크포인트를 반복한다. 논의 중 여러 결정·정정이 나오면 그때마다 스폰을 다시 부르지 않고
 결정 목록으로 모았다가 사용자가 목록을 승인하면 한 번에 반영한다(team-flow `pickup` 5와 같다).
