@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 기획 없는(acceptanceSource: absent) 브라운필드 시드에 사람 티켓 작업을 얹고 git 기준점을 만든다 — change-scope와 로컬 등록 기록은
 # 실제 발급 코드(ticketWorkDefinition·ticketVirtualPlan·buildWorkChangeScope)로 만든 값이다(완료 조건 = checks ACC-n, 테스트 항목 = testCaseIds TT-).
-# 티켓 작업(origin: ticket, specApproval: required)이라 light 계획 패스가 기준을 티켓에서 받는다.
+# 티켓 작업(origin: ticket, specApproval: required)이라 계획 패스 없이 등록 기록·판정서(PF-12.json, 자기검사 포함)로 ✋에 선다.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cp -R "$here/../seeds/brownfield-ticket-project/." .
@@ -179,6 +179,39 @@ cat > _workspace/03_dev/ticket-assessments/PF-12.registered.json <<'REGISTRATION
   "confirmedAt": "2026-09-28T00:00:00.000Z"
 }
 REGISTRATION
+cat > _workspace/03_dev/ticket-assessments/PF-12.json <<'ASSESSMENT'
+{
+  "schemaVersion": 1,
+  "ticket": {"key": "PF-12", "provider": "jira"},
+  "verdict": "startable",
+  "lane": "change",
+  "objective": "홈 화면에서 메모 한 줄을 저장하고 새로고침 뒤에도 본다",
+  "roles": ["frontend"],
+  "selfCheck": [
+    {"id": "new-route", "answer": "no", "evidence": ["src/app/routes.tsx:1"]},
+    {"id": "new-data-contract", "answer": "no", "evidence": ["src/pages/home/HomePage.tsx:3"]},
+    {"id": "new-auth-path", "answer": "no", "evidence": ["src/app/routes.tsx:1"]},
+    {"id": "new-external-dependency", "answer": "no", "evidence": ["src/shared/lib/formatDate.ts:1"]},
+    {"id": "public-contract-change", "answer": "yes", "evidence": ["src/pages/home/HomePage.tsx:3"]}
+  ],
+  "planningNeeds": [],
+  "designNeeds": [],
+  "reasons": [],
+  "writePaths": ["src/pages/home", "src/shared/lib"],
+  "nonGoals": ["서버 동기화", "여러 줄 메모"],
+  "acceptance": [
+    {"text": "홈 화면에 메모 입력란과 저장 버튼이 있다", "source": "ticket"},
+    {"text": "저장한 메모는 이 브라우저의 localStorage에만 두고(서버 없음) 새로고침 뒤에도 보인다", "source": "ticket"},
+    {"text": "마지막으로 저장한 날짜를 shared의 formatDate로 표시한다", "source": "ticket"}
+  ],
+  "testItems": [
+    {"id": "TT-PF-12-1", "text": "메모를 저장하고 새로고침하면 같은 메모가 보인다", "source": "proposed"},
+    {"id": "TT-PF-12-2", "text": "저장 날짜가 formatDate 형식으로 보인다", "source": "proposed"}
+  ],
+  "dependsOn": [],
+  "assumptions": []
+}
+ASSESSMENT
 git init -q
 git add -A
 git -c user.email=eval@example.invalid -c user.name=eval commit -q -m seed

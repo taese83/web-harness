@@ -19,7 +19,7 @@
 | # | 단계 | 명령·산출 | 정본 |
 |---|---|---|---|
 | 1 | 공급 감지 — 요청에 문서·링크·시안이 붙었을 때만 | `00_source/` 기록 | `provenance-contract.md` §6 |
-| 2 | **`change`만**: light면 developer 계획 패스 1회(아래 「light」), full이면 ① 기획 개정 → ② 디자인 델타 감지(실재 문서만) → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` light·①~③ |
+| 2 | **`change`만**: light면 developer 계획 패스 1회(티켓은 스폰 없음 — 아래 「light」 0), full이면 ① 기획 개정 → ② 디자인 델타 감지(실재 문서만) → ③ 감지 문서만 개정 | 에이전트 스폰(아래 「반환」). 설계 에이전트는 `DOCS_TO_UPDATE`가 `none`이 아닐 때만 | `change-lane-checkpoint.md` light·①~③ |
 | 3 | **`change`만**: ④ 스팩 확정 | `node .claude/scripts/spec.mjs --project-root {root}` → stdout을 `_workspace/03_dev/spec.json`에 그대로 저장. `SPEC_NOT_SETTLED`면 그 결정을 ✋에 싣는다 | `change-lane-checkpoint.md` ④ |
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
@@ -36,8 +36,9 @@
 
 ## light — 기본값(제품 의도를 새로 정하지 않을 때)
 
+0. 티켓 작업(`origin: ticket`)은 1의 펜스만 append(✋ 전 스폰 잠금)하고 스폰하지 않는다 — 등록 기록이 반환이다(checkpoint light).
 1. change-scope.md에 아래 펜스를 **그대로**(info-string까지) append → developer 계획 패스. 기획 문서를 쓰지 않고 라운드 `ACC-`·`TT-`를
-   반환한다 — 메인이 `ACCEPTANCE`·`TEST_ITEMS`에 싣는다(티켓은 완료 조건). 승인된 TC의 동작을 바꿀 때만 `validate-plan-delta.mjs
+   반환한다 — 메인이 `ACCEPTANCE`·`TEST_ITEMS`에 싣는다. 승인된 TC의 동작을 바꿀 때만 `validate-plan-delta.mjs
    --project {root} --change PC-NNN --snapshot` 뒤 펜스에 `"PLAN_WRITEBACK": "tc-rows"`(그 TC 행·plan-delta만, `--allow-no-ids` 금지):
 
 ```json change-scope
@@ -45,18 +46,18 @@
 ```
 
 2. 반환 뒤(write-back이면 `--verify`) 입력이 바뀌었을 때만 3행 `spec.mjs`로 ✋ 전 재확정. ✋에 `ACC-`·`TT-`. `ESCALATE_TO_FULL`이면 full.
-   `RESEARCH_NEEDED`면 ✋ 전에 `tech-advisor` 구현 리서치 1회 — 답은 ✋ 요약과 3의 구현 지시에 싣는다(파일 없음). 구현 반환에 오면 같은 developer에 이어 준다.
+   `RESEARCH_NEEDED`면 ✋ 전에 `tech-advisor` 구현 리서치 1회 — 답은 ✋ 요약과 3의 구현 지시에(파일 없음).
    `DESIGN_OPTIONS`·`EXTRAS`는 ✋에 싣고, 3의 구현 지시에는 사용자가 고른 안과 승인한 덧붙일 것만 넣는다.
-3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 SendMessage로 이어서** 구현·수정시킨다. 반환한 스폰이 이어지지
-   않거나(세션 종료·비대화 실행 포함) 응답이 없으면 `TaskStop` 뒤 새 스폰에 계획 반환·TC ID를 넘긴다. telemetry `mode: resume`.
-4. 리뷰는 라운드당 **한 스폰** — 규칙은 `qa-evidence-contract.md` Iterate evidence의 light 항목(9 ①도 그것이 채운다).
+3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **새 developer 스폰**에 계획 반환·승인된 `ACC-`·`TT-`·고른 안·`KEY_FILES`를 넘긴다 —
+   SendMessage로 잇지 않는다. 수정도 새 스폰이다(이유 `retry-policy.md`).
+4. 리뷰는 라운드당 **한 스폰**(`qa-evidence-contract.md` Iterate evidence light — 9 ①도 채운다).
 
 ## 반환 — 산출물을 다시 읽지 않는다
 
 ✋와 보고는 **스폰 반환으로 조립한다.** 기획·설계 스폰 프롬프트에 반환 요구를 넣는다: 바뀐 행의 ID와
 한 줄 요지(REQ·FEAT·TC·SD), open 결정(선택지·추천), `DOCS_TO_UPDATE`와 대조한 문서 목록. 반환이 준 ID를
 `node .claude/scripts/plan-lookup.mjs --project {root} --id <ID,...>`로 꺼내 **그 행(산출물의 실제 행)을 ✋에 싣는다** —
-반환의 요지가 아니라. 파일을 통째로 다시 열지 않는다. 못 찾은 ID(exit 1)만 해당 절을 읽는다.
+파일을 통째로 다시 열지 않는다. 못 찾은 ID(exit 1)만 해당 절을 읽는다.
 
 ## ✋에 싣는 것
 

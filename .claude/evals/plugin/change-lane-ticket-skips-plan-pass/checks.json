@@ -1,0 +1,32 @@
+{
+  "$comment": "run-plugin-evals.mjs가 실행 뒤 작업 공간에서 보는 결정적 검사 — 승인 전 source 변경은 시드와의 해시 대조로, 기획 문서를 새로 세우지 않았는지는 feature-plan·requirements 부재로 본다. 계획 패스 없이도 계획 펜스(✋ 전 developer 스폰 잠금 — 계약이 펜스를 「그대로」 쓰라 하므로 JSON 표기만 받는다), ticket-acceptance 라벨, 판정서 자기검사로 대조한 DOCS_TO_UPDATE가 change-scope에 남는지 본다. fixture의 `ticketAcceptance`(camelCase)는 `ticket-acceptance`에 걸리지 않는다 — 정규식을 대소문자 무시로 느슨하게 하지 않는다. developer 스폰이 없었는지는 no-developer-spawn이, ✋에 티켓 기준이 실렸는지는 ticket-criteria-at-approval이 본다.",
+  "seed": "brownfield-ticket-project",
+  "checks": [
+    {
+      "type": "source-unchanged"
+    },
+    {
+      "type": "file-absent",
+      "path": "_workspace/01_plan/feature-plan.md"
+    },
+    {
+      "type": "file-absent",
+      "path": "_workspace/01_plan/requirements.md"
+    },
+    {
+      "type": "artifact-matches",
+      "path": "_workspace/03_dev/change-scope",
+      "pattern": "\"PHASE\"\\s*:\\s*\"plan\""
+    },
+    {
+      "type": "artifact-matches",
+      "path": "_workspace/03_dev/change-scope",
+      "pattern": "ticket-acceptance"
+    },
+    {
+      "type": "artifact-matches",
+      "path": "_workspace/03_dev/change-scope",
+      "pattern": "DOCS_TO_UPDATE[^\\n]*(?:자기검사|solution-design)"
+    }
+  ]
+}

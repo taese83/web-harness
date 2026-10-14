@@ -8,10 +8,20 @@
 ## light 경로 — 쓰는 에이전트 하나
 
 ①~③을 기획·설계 스폰 대신 **developer 계획 패스 1회**로 한다. ④ 스팩 확정과 ✋ 승인은 그대로다.
-기획·구현을 역할별 스폰으로 나누면 인계마다 결정이 새고 조정 비용이 커진다 — 한 컨텍스트가 계획하고 구현한다.
+기획·구현을 역할별 스폰으로 나누면 인계마다 결정이 새고 조정 비용이 커진다 — 구현하는 역할이 계획하고, 구현 스폰은 그 반환을 인계받는다.
 
 - **판정(기본값):** 요청이 제품 의도를 새로 정하지 않으면(새 사용자 역할·새 화면군·새 외부 연동이 없으면) light다. 사용자가 `full`을
   말하면 아래 ①~③이다.
+- **사람 티켓 작업(`origin: ticket`)은 계획 패스를 스폰하지 않는다.** 그 반환은 픽업 때 확인한 기록에 이미 있다 — 등록 기록
+  (`ticket-assessments/<키>.registered.json`)의 기준(`checks`·`testCases`)·`writePaths`(→ `ALLOWED_PATHS`)·`nonGoals`·가정·디자인 부채,
+  확인 전 결정(`decisionsRef` — 고른 설계안 포함). 판정이 같은 코드를 이미 읽었으니 다시 탐색하지 않는다. 아래 계획 펜스는 그대로
+  append한다 — ✋ 전 developer 스폰 잠금(조기 스폰·Gate 0을 막는다)이고 스폰만 하지 않는다. 판정서가 없으면(유실) ②를 `none`으로
+  넘기지 않고 `pickup --reassess`로 되돌린다. 메인이 등록 기록으로 change brief를
+  채우고 ①은 `ticket-acceptance` 라벨, ②는 판정서(`<키>.json`) 자기검사에서 「예」인 항목의 근거(`파일:줄`)를 `02_design/`에 실재하는
+  계약 문서와 대조해 `DOCS_TO_UPDATE`를 적는다(`none (대조: 자기검사 <id>… · <문서>)`). 목록이 있거나 `decisionsRef`에 설계 문서 결정이
+  있을 때만 ③ 그 문서의 설계 에이전트를 스폰하고, 입력이 바뀌었으면 ④ 재확정 뒤 ✋다. 완료 조건마다 `LOCAL_VERIFIABLE | DEPLOY_ONLY`와
+  `CAPABILITY_ESCALATION`은 메인이 판정서 근거로 단다(자기검사 `new-auth-path`·`new-external-dependency`·`new-data-contract` 「예」가 신호).
+  구현 스폰의 `KEY_FILES`는 자기검사 근거와 `writePaths`다.
 - **기준은 문서가 아니라 라운드에 싣는다(문서 축소):** 계획 패스는 **기획 문서를 쓰지 않는다** — 이번 라운드의 완료 조건
   `ACC-R<n>-<k>`(각각 `LOCAL_VERIFIABLE | DEPLOY_ONLY`)와 테스트 항목 `TT-R<n>-<k>`를 반환하고, 메인이 change-scope 라운드 항목의
   `ACCEPTANCE`·`TEST_ITEMS`에 싣는다(`minimal-change-contract.md`). 사람 티켓 작업(`origin: ticket`)은 티켓 완료 조건·`TT-`가 그
@@ -25,7 +35,7 @@
   `--verify` 뒤) ④ 스팩은 **입력이 바뀌었을 때만** ✋ 전에 다시 확정한다(API 계약·TC 행). `acceptanceRefs`·`specTier`는 그대로다.
   반환: `ACC-`·`TT-` 항목 · change brief 필드(`DOCS_TO_UPDATE: none (대조: …) | 목록` 포함) · 열린 질문(최대 3, 추천안 포함) ·
   개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>` ·
-  `DESIGN_OPTIONS: none | <안 둘>` · `EXTRAS: none | <목록>`.
+  `DESIGN_OPTIONS: none | <안 둘>` · `EXTRAS: none | <목록>` · `KEY_FILES:`(구현이 먼저 읽을 파일, 10개 이내).
 - **설계안과 덧붙일 것:** 여러 파일에 걸치거나 새 모듈이 필요하면 계획 패스가 **최소 수정안과 구조 정리안**을 각각 바뀌는 파일·장단점 두 줄로
   비교하고 추천을 단다(`DESIGN_OPTIONS`, 한 문장으로 설명되는 변경은 `none`). 요청에 없지만 넣고 싶은 것(추상화·방어 코드·리팩터링)은
   `EXTRAS`로 따로 올린다. ✋에서 사용자가 고른 안과 승인한 덧붙일 것만 구현 지시에 넣는다 — 기본은 최소 수정안, 덧붙일 것은 넣지 않는다.
@@ -39,8 +49,9 @@
 - **승격:** 새 레이어·라이브러리·형태, 그 밖의 `solution-design.md` 결정 변경이 필요하거나 제품 의도 결정이 남으면
   developer가 `ESCALATE_TO_FULL`로 알리고,
   메인은 ①~③으로 넘어간다(계획 패스가 반환한 `ACC-`·`TT-`는 ①의 입력이 된다).
-- **✋ 뒤:** 메인이 구현 범위 펜스(`PHASE` 없음)를 append하고 **같은 developer를 이어서**(SendMessage) 구현시킨다. 이어가기가
-  불가하면 새 developer 스폰에 계획 패스 반환과 승인된 `ACC-`·`TT-`를 넘긴다.
+- **✋ 뒤:** 메인이 구현 범위 펜스(`PHASE` 없음)를 append하고 **새 developer를 스폰해** 구현시킨다. 인계는 계획 반환(티켓은 등록
+  기록) · 승인된 `ACC-`·`TT-` · 고른 설계안·승인한 덧붙일 것 · 구현 리서치 답 · `KEY_FILES`다. 계획 패스 developer를 SendMessage로
+  잇지 않는다 — 이유와 예외는 `retry-policy.md` Iterate 라운드(수정도 같다).
 
 ## ① 기획 개정 — 항상(full)
 
@@ -132,6 +143,6 @@ source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 �
   두 평가 모두 이번 변경 뒤 재실행 전이다.
 - **라이브러리·CLI**(`api-design.md`) — 계획 패스가 쓰는 것은 API 계약뿐이고 기준은 같은 라운드 `ACC-`·`TT-`다. 명명 수준.
 - **사람 티켓 작업**(`origin: ticket`, `specApproval: required`) — 기준이 티켓 완료 조건·`TT-`라 ①이 기획을 세우지
-  않고 라벨만 남긴다. light 계획 패스는 기획 없는 시드에 티켓 범위를 얹은 평가 `change-lane-light-ticket-plan-pass`로 고정하되
-  재실행 전이다.
+  않고 라벨만 남기며, 계획 패스 없이 등록 기록으로 ✋에 선다 — 기획 없는 시드에 티켓 범위를 얹은 평가
+  `change-lane-ticket-skips-plan-pass`로 고정하되 재실행 전이다. 웹 앱 티켓 두 건(설정 메뉴 구조·가입 오류 처리)에서 관찰.
 - **요구사항이 바뀌지 않는 변경**(`infrastructure`) — ①이 `none`과 사유를 남기고 ②~✋는 그대로 선다. 명명 수준.
