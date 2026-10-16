@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
+import {bashPolicyRemedy, evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
 
 const readInput = async () => {
   let source = ''
@@ -16,7 +16,8 @@ try {
   if (!input?.agent_type) process.exit(0)
   const decision = evaluateGlobalBashPolicy(input)
   if (!decision.allowed) {
-    process.stderr.write(`Blocked [${decision.code}]: ${decision.reason}\n`)
+    const remedy = bashPolicyRemedy(decision.code)
+    process.stderr.write(`Blocked [${decision.code}]: ${decision.reason}${remedy ? ` — ${remedy}` : ''}\n`)
     process.exit(2)
   }
 } catch (error) {

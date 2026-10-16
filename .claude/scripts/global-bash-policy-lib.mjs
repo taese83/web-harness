@@ -1061,6 +1061,33 @@ export const evaluateGlobalBashPolicy = (input, options = {}) => {
   }
 }
 
+// 거부 뒤 갈 곳 — 판정 이유(reason) 뒤에 붙이는 허용 형태 예시. 판정은 바꾸지 않는다(문구만).
+// 예시 명령은 이 정책이 실제로 통과시키는 형태만 적는다(test-deny-remedies.mjs가 예시를 다시 판정해 고정한다).
+const READ_FORMS = "`cat FILE`, `head -n 200 FILE`, `rg -n 'PATTERN' FILE`, `ls DIR`"
+const BASH_POLICY_REMEDY = {
+  DENY_COMPOUND_SYNTAX: "Run one command per Bash call — no pipes, redirects, `&&`, `;` or newlines. Limit output with the command's own flags, e.g. `rg -n -m 20 'PATTERN' FILE` or `head -n 200 FILE`.",
+  DENY_SHELL_EXPANSION: "No `$VAR`, `$(…)`, backticks or backslash escapes — write literal paths and single-quote patterns, e.g. `rg -n 'PATTERN' FILE`.",
+  DENY_AMBIGUOUS_SYNTAX: "No unquoted `*`, `?`, braces, parentheses or `#` — single-quote the pattern and name paths explicitly, e.g. `rg -n 'PATTERN' FILE` or `ls DIR`.",
+  DENY_ARGUMENTS: `Fix the argument the reason names. Read forms that pass: ${READ_FORMS}; a directory search needs every exclusion flag the reason lists.`,
+  DENY_COMMAND: 'Allowed: pwd, ls, cat, head, tail, wc, rg, grep, `web-harness-read PATH` (plugin docs), and the approved `node .claude/scripts/<validator>.mjs` / `web-harness-script <name>` checks. '
+    + 'For anything else use the Read/Grep/Glob tools.',
+  DENY_NETWORK: 'Raw git/network/package commands are not available to subagents. For git use the typed runner: '
+    + '`node .claude/scripts/run-git-inspection.mjs --project . --operation diff-stat` (operations: status, diff-stat, diff-names, diff, log, ls-files; optional --base <ref>; '
+    + 'plugin form `web-harness-script run-git-inspection …`). Installs go through `run-package-operation.mjs` where your role allows it, else the main thread.',
+  DENY_DESTRUCTIVE: 'Not available to subagents — change files with the Edit/Write tools if your role allows it; otherwise leave it to the main thread and say so in your report.',
+  DENY_PNPM_DIRECT: 'If your spawn prompt names no quality check id, report the check as not run instead of retrying another form.',
+  DENY_PATH_OUTSIDE: 'Bash reads only inside the project, run from the project root. Harness contracts are under _workspace/.contracts/, plugin docs via `web-harness-read PATH`.',
+  DENY_SECRET_PATH: 'Secret files are never readable by any tool — do not retry. Read the template beside it (.env.example, .env.sample, .env.template) if one exists.',
+  DENY_PATH_MISSING: 'The path does not exist — list the parent first (`ls DIR`) and use the exact path.',
+  DENY_FILE_TOO_LARGE: 'Bash will not read files over 5 MiB — use the Grep tool on that file to get just the matching lines.',
+  DENY_SENSITIVE_TREE_GREP: 'Search a narrower directory (e.g. src/ rather than the app root) or name the specific files.',
+  DENY_VALIDATION_COMMAND: 'Run only the validator commands your spawn prompt or skill names, with exactly those arguments.',
+  DENY_CONTEXT: 'The project root is CLAUDE_PROJECT_DIR. If this session runs in a worktree or subfolder, typed `node` runners are unavailable here — use Read/Grep and say so in your report.',
+  DENY_INPUT: 'Send one plain foreground command (no run_in_background; timeout up to 120000 ms).',
+  DENY_POLICY_ERROR: 'The policy failed closed on this input — simplify to one command with quoted literals; report it if it repeats.',
+}
+export const bashPolicyRemedy = code => BASH_POLICY_REMEDY[code] ?? null
+
 // 사람의 승인을 대신하는 flag — 프로젝트 코드를 이 머신에서 실행하거나 보안 finding을 인수한다. 이 flag가 붙은
 // Bash는 에이전트 종류와 무관하게 사용자 확인을 거친다(`enforce-human-approval.mjs`).
 export const HUMAN_APPROVAL_FLAGS = ['--allow-host-execution', '--accept-workflow-findings']

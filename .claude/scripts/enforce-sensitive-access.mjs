@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {evaluateSensitiveAccess} from './sensitive-access-policy-lib.mjs'
+import {evaluateSensitiveAccess, sensitiveDenyRemedy} from './sensitive-access-policy-lib.mjs'
 import {recordHookDenial} from './hook-denial-log-lib.mjs'
 
 let source = ''
@@ -18,15 +18,9 @@ try {
   }
   if (!decision.allowed) {
     recordHookDenial(input, {hook: 'enforce-sensitive-access', code: decision.code})
-    // 막힌 뒤 어디로 가면 되는지 한 줄 — 모르면 같은 요청을 모양만 바꿔 되풀이한다.
-    const REMEDY = {
-      DENY_PATH_OUTSIDE: 'Outside the project. Harness contracts are synced under _workspace/.contracts/ — read them there, not in the plugin cache. '
-        + 'A file the user gave you (e.g. ~/Downloads/x.pdf): the main thread imports it with `node .claude/scripts/import-source.mjs --project-root . --from <absolute path>` (asks the user), then read _workspace/00_source/imported/.',
-      DENY_SENSITIVE_TREE_GREP: 'The directory has something a secret-excluding glob cannot cover (symlink, mixed-case secret name, or a huge tree) — '
-        + 'changing the glob will not help; search a narrower subdirectory that does not contain it (e.g. src/).',
-      DENY_RECURSIVE_ROOT_GREP: 'Grep needs an explicit path — pass the source directory you mean (e.g. path: src or apps/user/src), not the project root.',
-    }
-    process.stderr.write(`Blocked sensitive filesystem access: ${decision.code}${decision.reason ? ` (${decision.reason})` : ''}${REMEDY[decision.code] ? ` — ${REMEDY[decision.code]}` : ''}\n`)
+    // 막힌 뒤 어디로 가면 되는지 한 줄(sensitiveDenyRemedy) — 모르면 같은 요청을 모양만 바꿔 되풀이한다.
+    const remedy = sensitiveDenyRemedy(decision, input)
+    process.stderr.write(`Blocked sensitive filesystem access: ${decision.code}${decision.reason ? ` (${decision.reason})` : ''}${remedy ? ` — ${remedy}` : ''}\n`)
     process.exit(2)
   }
 } catch (error) {
