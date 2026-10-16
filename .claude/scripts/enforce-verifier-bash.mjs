@@ -3,7 +3,7 @@
 import {VERIFIER_AGENTS} from './agent-registry.mjs'
 import {recordHookDenial} from './hook-denial-log-lib.mjs'
 import {harnessAgentName} from './agent-identity.mjs'
-import {evaluateGlobalBashPolicy, tokenizeSimpleCommand} from './global-bash-policy-lib.mjs'
+import {bashPolicyRemedy, evaluateGlobalBashPolicy, tokenizeSimpleCommand} from './global-bash-policy-lib.mjs'
 
 const READ_COMMANDS = new Set(['pwd', 'ls', 'cat', 'head', 'tail', 'wc', 'rg', 'grep'])
 const VERIFIER_BLOCKED_SCRIPTS = new Set([
@@ -37,12 +37,17 @@ try {
   const command = input.tool_input?.command?.trim()
   if (!command) block('Blocked: verifier Bash requires a non-empty command.', 'EMPTY_COMMAND')
   const policy = evaluateGlobalBashPolicy(input)
-  if (!policy.allowed) block(`Blocked: ${input.agent_type} failed global Bash policy (${policy.code}).`, `GLOBAL_POLICY_${policy.code}`)
+  // 정책의 이유와 허용 형태를 그대로 넘긴다 — 코드만 받으면 같은 명령을 모양만 바꿔 되풀이한다.
+  if (!policy.allowed) {
+    const remedy = bashPolicyRemedy(policy.code)
+    block(`Blocked: ${input.agent_type} failed global Bash policy (${policy.code}): ${policy.reason}${remedy ? ` — ${remedy}` : ''}`, `GLOBAL_POLICY_${policy.code}`)
+  }
 
   const tokens = tokenizeSimpleCommand(command)
   if (READ_COMMANDS.has(tokens[0]) || tokens[0] === 'web-harness-read') process.exit(0)
   if (tokens[0] !== 'node' && tokens[0] !== 'web-harness-script') {
-    block(`Blocked: ${input.agent_type} must use a typed validation or inspection runner.`, 'UNTYPED_RUNNER')
+    block(`Blocked: ${input.agent_type} must use a typed validation or inspection runner — verifiers read (pwd ls cat head tail wc rg grep web-harness-read) `
+      + 'or run an approved `node .claude/scripts/<validator>.mjs` / `web-harness-script <name>` check; they create no files or directories.', 'UNTYPED_RUNNER')
   }
 
   // 플러그인 dispatcher 호출은 같은 스크립트 차단 집합으로 정규화해 판정한다.
@@ -50,10 +55,10 @@ try {
     ? `.claude/scripts/${tokens[1]}.mjs`
     : tokens[1] === '--check' ? null : tokens[1]
   if (script && VERIFIER_BLOCKED_SCRIPTS.has(script)) {
-    block(`Blocked: ${input.agent_type} cannot invoke mutating control-plane runner ${script}.`, 'MUTATING_RUNNER')
+    block(`Blocked: ${input.agent_type} cannot invoke mutating control-plane runner ${script} — leave it to the main thread and note it in your report.`, 'MUTATING_RUNNER')
   }
   if (script === '.claude/scripts/validate-release-gate.mjs' && tokens.includes('--write-manifest')) {
-    block(`Blocked: ${input.agent_type} cannot write a release manifest.`, 'RELEASE_MANIFEST_WRITE')
+    block(`Blocked: ${input.agent_type} cannot write a release manifest — run the gate without --write-manifest; the main thread writes it.`, 'RELEASE_MANIFEST_WRITE')
   }
 } catch (error) {
   block(`Blocked: verifier Bash hook could not validate the operation: ${error instanceof Error ? error.message : String(error)}`, 'HOOK_ERROR')

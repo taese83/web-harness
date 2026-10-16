@@ -276,7 +276,7 @@ export const inspectSensitiveTree = (projectRoot, start) => {
     for (const entry of readdirSync(directory, {withFileTypes: true})) {
       const path = resolve(directory, entry.name)
       const offset = relative(projectRoot, path)
-      if (entry.isSymbolicLink()) return {unsafe: 'symlink', secrets}
+      if (entry.isSymbolicLink()) return {unsafe: 'symlink', secrets, at: offset}
       if (isSecretPath(offset)) {
         secrets.push(offset)
         if (secrets.length > 200) return {unsafe: 'too-many-secrets', secrets}
@@ -300,9 +300,10 @@ export const inspectSensitiveTree = (projectRoot, start) => {
  */
 export const decideSensitiveTreeGrep = (realRoot, real, toolInput) => {
   const tree = inspectSensitiveTree(realRoot, real)
-  if (tree.unsafe) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: tree.unsafe}
+  if (tree.unsafe) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: tree.unsafe, ...(tree.at ? {at: tree.at} : {})}
   if (tree.secrets.length === 0) return {allowed: true, code: 'ALLOW_TREE_CLEAN'}
-  if (!tree.secrets.every(excludedBySecretGlob)) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: 'secret-not-excludable'}
+  if (!tree.secrets.every(excludedBySecretGlob)) return {allowed: false, code: 'DENY_SENSITIVE_TREE_GREP', reason: 'secret-not-excludable',
+    at: tree.secrets.find(offset => !excludedBySecretGlob(offset))}
   const glob = toolInput?.glob
   // 포함 glob을 그대로 두는 것은 **실제로 찾은 비밀 파일 어느 것도 그 glob에 걸리지 않을 때만**이다(`.env.ts`는 `*.ts`에 걸린다).
   // 건너뛴 디렉터리가 있으면 그 안은 판정하지 않았다 — 포함 glob을 그대로 두지 않고 제외 glob(그 디렉터리 포함)으로 바꾼다.
@@ -389,4 +390,41 @@ export const evaluateSensitiveAccess = (input, environment = process.env, {paylo
     return {allowed: false, code: 'DENY_SECRET_GLOB'}
   }
   return {allowed: true, code: 'ALLOW_SENSITIVE_ACCESS_POLICY'}
+}
+
+// 막힌 뒤 어디로 가면 되는지 한 줄 — 대안이 없으면 같은 요청을 모양만 바꿔 되풀이한다. 판정은 바꾸지 않는다(문구만).
+// 적은 대안은 이 정책이 실제로 여는 것만이다(test-deny-remedies.mjs가 대안 입력을 다시 판정해 고정한다).
+const TREE_GREP_REMEDY = {
+  'secret-not-excludable': at => `${at ? `${at} is` : 'A secret file here is'} named so the secret-excluding glob cannot match it (case differs) — `
+    + 'changing glob/type will not help. Grep a subdirectory that does not contain it, or Grep the specific files you need.',
+  symlink: at => `${at ? `${at} is` : 'Something here is'} a symlink, which may lead outside the project — changing glob/type will not help. `
+    + 'Grep a subdirectory that does not contain it, or Grep the specific files you need.',
+  'too-large': () => 'The tree has over 50,000 entries — pass a narrower path (e.g. path: apps/<app>/src), not a parent of several apps.',
+  'too-many-secrets': () => 'The tree holds over 200 secret files — pass a narrower path (e.g. path: apps/<app>/src) that holds source, not credentials.',
+}
+const SENSITIVE_REMEDY = {
+  DENY_PATH_OUTSIDE: 'Outside the project. Harness contracts are synced under _workspace/.contracts/ — read them there, not in the plugin cache. '
+    + 'A sibling repo is readable only if the user lists it under readRoots in .claude/workspace-roots.json — ask the user; retrying the path will not open it. '
+    + 'A file the user gave you (e.g. ~/Downloads/x.pdf): the main thread imports it with `node .claude/scripts/import-source.mjs --project-root . --from <absolute path>` (asks the user), then read _workspace/00_source/imported/.',
+  DENY_SECRET_PATH: 'Secret files are never readable by any tool, so no other path or tool will open it — do not retry. '
+    + 'Read the template beside it if one exists (.env.example, .env.sample, .env.template); for variable names, Grep the source for `import.meta.env.` or `process.env.`.',
+  DENY_FILE_TOO_LARGE: 'Read refuses files over 5 MiB even with offset/limit. Grep the file instead (path: <this file>, a pattern, output_mode: content, head_limit) to get just the lines you need.',
+  DENY_RECURSIVE_ROOT_GREP: 'Grep needs an explicit path — pass the source directory you mean (e.g. path: src or apps/<app>/src), not the project root.',
+  DENY_GIT_CONFIG_GLOB: 'A Glob from the project root whose pattern could match .git/config (e.g. `**/*`, `**`, `*/config`) is blocked. '
+    + 'Give it a fixed first directory or an extension: `src/**/*.ts`, `apps/**/*.{ts,tsx}`, `**/*.json`, or set path: apps/<app>.',
+  DENY_SECRET_GLOB: 'Globs that name secret files (.env*, *.pem, .ssh, secrets…) are blocked. To find env templates, Glob `**/*.example` or `**/*.sample` and Read them; '
+    + 'for variable names, Grep the source for `import.meta.env.` or `process.env.`.',
+  DENY_PATH_UNRESOLVED: 'The path exists but cannot be resolved (permission denied or a link loop) — skip it, or `ls` the parent and read a sibling.',
+  DENY_CONTEXT: 'The hook could not resolve the project root (CLAUDE_PROJECT_DIR / cwd). This is an environment problem, not your request — report it instead of retrying.',
+}
+// 하네스가 큰 도구 출력을 저장하는 자리(~/.claude/projects/…/tool-results/) — 프로젝트 밖이라 열 수 없다. 출력을 좁혀 다시 실행하는 것이 출구다.
+const TOOL_RESULTS_REMEDY = 'This is a saved oversized tool output, outside the project. Re-run the command with narrower output instead '
+  + '(rg -m / head -n / a narrower path, or Read with offset/limit on a project file).'
+
+export const sensitiveDenyRemedy = (decision, input = {}) => {
+  if (decision?.code === 'DENY_SENSITIVE_TREE_GREP') return TREE_GREP_REMEDY[decision.reason]?.(decision.at)
+    ?? 'Grep a narrower subdirectory, or the specific files you need — changing glob/type will not help.'
+  const rawPath = String(input?.tool_input?.file_path ?? input?.tool_input?.path ?? '').replaceAll('\\', '/')
+  if (decision?.code === 'DENY_PATH_OUTSIDE' && /\/\.claude\/projects\/.+\/tool-results\//.test(rawPath)) return TOOL_RESULTS_REMEDY
+  return SENSITIVE_REMEDY[decision?.code] ?? null
 }
