@@ -64,6 +64,15 @@
 						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/check-session-toolchain.mjs"
 					}
 				]
+			},
+			{
+				"matcher": "compact|clear",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/harness-session-mode.mjs"
+					}
+				]
 			}
 		],
 		"PreToolUse": [
