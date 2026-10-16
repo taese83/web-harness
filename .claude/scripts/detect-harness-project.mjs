@@ -22,6 +22,12 @@ const ENTRY_GUIDANCE = `Entry: development and ticket work (create/pickup/link) 
   `(${entry('team-flow')} also works for tickets). Once started, the session is in harness mode and later plain-text requests ` +
   `are routed by it until ${entry('wh')} off. If harness mode is not on and the user asks for ticket or development work in plain text, ` +
   `do not imitate the harness flow — ask them to start with ${entry('wh')}.\n`
+// 스크립트 실행 명령 — 경로를 몰라 파일시스템을 뒤지지 않게 한다. enforce-script-lookup.mjs `scriptRunCommand`와 같은 문장이다
+// (정적 import는 실패하면 세션을 깨므로 인라인 — 동일성은 test-detect-harness-project가 고정한다).
+const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
+const SCRIPT_GUIDANCE = `Harness scripts: run ${PLUGIN
+  ? `web-harness-script <script-name> [args] (not on PATH: ${join(SCRIPTS_DIR, '..', '..', 'bin', 'web-harness-script')})`
+  : `node ${SCRIPTS_DIR}/<script-name>.mjs [args]`} — never search for script files.\n`
 
 try {
   const projectDir = resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd())
@@ -50,7 +56,7 @@ try {
       }
     }
     const reentryMap = sync.state === 'not-plugin'
-      ? join(dirname(fileURLToPath(import.meta.url)), '..', REENTRY_MAP)
+      ? join(SCRIPTS_DIR, '..', REENTRY_MAP)
       : join(projectDir, CONTRACTS_DIR, REENTRY_MAP)
     if (existsSync(reentryMap)) {
       process.stdout.write(
@@ -58,12 +64,12 @@ try {
         `Re-entry guidance: for follow-up work on this project, do NOT reload the full web-orchestrator skill. ` +
         `Read the situation-matched minimal contract set from: ${resolve(reentryMap)} ` +
         `(A iterate round · B approval-surface change · C release promotion). ` +
-        `Fall back to ${entry('wh')} new only for a new service or when the situation is unclear.\n` + ENTRY_GUIDANCE,
+        `Fall back to ${entry('wh')} new only for a new service or when the situation is unclear.\n` + ENTRY_GUIDANCE + SCRIPT_GUIDANCE,
       )
     } else {
       process.stdout.write(
         `[web-harness] Harness-managed project detected (_workspace/ at project root). ` +
-        ENTRY_GUIDANCE,
+        ENTRY_GUIDANCE + SCRIPT_GUIDANCE,
       )
     }
   }
