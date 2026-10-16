@@ -4,14 +4,15 @@
 // 고정하는 사실: (1) 루트 `_workspace/` 디렉터리가 있으면 reentry-map 절대 경로를 포함한
 // 안내를 주입한다, (2) 없으면 stdout이 완전히 비어 있다(침묵), (3) `_workspace`가 파일이면
 // 디렉터리가 아니므로 침묵한다, (4) 어떤 경우에도 exit 0이다(안내 층의 fail-safe는 침묵 —
-// 훅 실패가 세션을 깨지 않는다).
+// 훅 실패가 세션을 깨지 않는다), (5) 스크립트 실행 명령(플러그인: bin 래퍼 절대 경로)을 함께 준다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {copyFileSync, mkdirSync, mkdtempSync, writeFileSync} from 'node:fs'
+import {copyFileSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {scriptRunCommand} from './enforce-script-lookup.mjs'
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'detect-harness-project.mjs')
 
@@ -30,6 +31,7 @@ test('루트 _workspace/ 존재: 안내 + reentry-map 절대 경로 주입, exit
   assert.match(result.stdout, /reentry-map\.md/)
   assert.match(result.stdout, /web-orchestrator/)
   assert.match(result.stdout, /ticket work \(create\/pickup\/link\) start with \/wh/, '티켓 작업 진입 명령 안내가 없다')
+  assert.ok(result.stdout.includes(`Harness scripts: run ${scriptRunCommand({plugin: false, root: join(dirname(script), '..', '..')})} —`), '저장소 배치의 스크립트 실행 명령 안내가 거부 훅 문장과 다르다')
 })
 
 test('_workspace 부재: 완전 침묵, exit 0', () => {
@@ -82,4 +84,5 @@ test('플러그인 배치: 진입 명령에 web-harness 네임스페이스가 �
   const result = spawnSync(process.execPath, [pluginScript], {env: {...process.env, CLAUDE_PROJECT_DIR: projectDir}, encoding: 'utf8'})
   assert.equal(result.status, 0)
   assert.match(result.stdout, /start with \/web-harness:wh <request>/, '플러그인 설치본에서 슬래시 명령에 네임스페이스가 빠졌다')
+  assert.ok(result.stdout.includes(`Harness scripts: run ${scriptRunCommand({plugin: true, root: realpathSync(pluginRoot)})} —`), '플러그인 래퍼 안내가 거부 훅 문장과 다르다')
 })

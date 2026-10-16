@@ -5827,6 +5827,38 @@
       "why": "하네스 모드가 아닌 세션(다른 개발자·하네스 밖 작업)의 커밋까지 돌려보낸다"
     },
     {
+      "id": "script-lookup-denies-broad-script-search",
+      "file": ".claude/scripts/enforce-script-lookup.mjs",
+      "find": "    if (broad && seeksScript(searched)) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-enforce-script-lookup.mjs",
+      "why": "넓은 경로에서 스크립트 파일을 찾는 검색이 통과하면 플러그인 캐시를 뒤지는 수십 분짜리 find가 돌아온다"
+    },
+    {
+      "id": "script-lookup-only-script-searches",
+      "file": ".claude/scripts/enforce-script-lookup.mjs",
+      "find": "    if (broad && seeksScript(searched)) {",
+      "replace": "    if (broad) {",
+      "test": ".claude/scripts/test-enforce-script-lookup.mjs",
+      "why": "스크립트가 아닌 넓은 검색까지 막으면 홈 설정 파일 확인 같은 정당한 명령이 오탐으로 막힌다"
+    },
+    {
+      "id": "script-lookup-plugin-cache-is-broad",
+      "file": ".claude/scripts/enforce-script-lookup.mjs",
+      "find": "  if (pluginDirs.some(dir => isWithin(path, dir))) return true",
+      "replace": "  void pluginDirs",
+      "test": ".claude/scripts/test-enforce-script-lookup.mjs",
+      "why": "플러그인 캐시 아래는 홈보다 깊어 다른 규칙에 안 걸린다 — 판본이 박힌 캐시 경로 검색이 그대로 통과한다"
+    },
+    {
+      "id": "script-lookup-hook-emits-deny",
+      "file": ".claude/scripts/enforce-script-lookup.mjs",
+      "find": "    if (reason) {",
+      "replace": "    if (false) {",
+      "test": ".claude/scripts/test-enforce-script-lookup.mjs",
+      "why": "판정 함수만 살아 있고 훅 프로세스가 deny를 내지 않으면 배선이 조용히 끊긴다"
+    },
+    {
       "id": "code-review-target-excludes-docs",
       "file": ".claude/scripts/ticket/work-link.mjs",
       "find": "!path.startsWith('docs/') && !NOT_CODE.test(path)",

@@ -12,6 +12,7 @@
 - destructive/side-effect tool은 approval, idempotency, authorization 계약이 필요하다.
 - source·design·test·config 변경은 기존 QA receipt와 manifest를 stale로 만든다.
 - final quality runner 이후 HANDOFF 외 release 대상 파일을 수정하지 않는다.
+- 하네스 스크립트는 이름으로 실행한다(플러그인: `web-harness-script <name>`) — 스크립트 파일을 찾지 않는다.
 - 기존 디렉터리 덮어쓰기, 외부 dependency 설치, Git 초기화, 장기 server, 배포·PR·삭제는 먼저 확인한다.
 - **다중 프로젝트 cwd**: harness 루트 밖 프로젝트(workspace/ 하위 등) 작업 시 모든 셸 명령은 명시적
   `cd` 또는 `--dir`/`--filter`/`--project`로 실행 위치를 고정하고, 검증 명령은 실행 위치를 증거에
@@ -22,8 +23,8 @@
 - **dev server 콘솔·HMR 신뢰**: 브라우저 콘솔 로그는 **누적 버퍼**라 수정·리로드 이후에도 과거 에러가 현재처럼 남는다.
   HMR의 `?t=<timestamp>` 모듈 에러는 stale일 수 있으니 타임스탬프로 판별하고, 판정 전 하드 리로드한다. 렌더 성공의
   증거는 **snapshot의 실제 콘텐츠(에러 폴백 아님)**이며, import·타입 오류 판정은 dev 콘솔보다 `tsc -b`/`build` exit를
-  우선한다. (실사고: import 추가·tsc 통과 후에도 콘솔 stale 에러로 FAIL 오판, 여러 사이클 낭비.)
-- **생성 바이너리 자산 검증**: 아이콘·이미지 등 생성 바이너리는 `file`이 "정상 PNG"로 통과해도 내용이 blank/깨짐일 수 있다
-  (실사고: 셸 base64 전송 중 512 PNG가 blank, `file` 통과). **치수·픽셀 분포·해시 같은 내용 검증**을 거치고, dist 복사본과
+  우선한다.
+- **생성 바이너리 자산 검증**: 아이콘·이미지 등 생성 바이너리는 `file`이 "정상 PNG"로 통과해도 내용이 blank/깨짐일 수 있다.
+  **치수·픽셀 분포·해시 같은 내용 검증**을 거치고, dist 복사본과
   source의 해시 일치를 확인한다. SVG→PNG rasterizer(sharp/rsvg/magick)가 없으면 브라우저 canvas 렌더 또는 `sips`(macOS)를
   fallback으로 쓰되, 큰 base64를 셸로 손복사하지 말고 파일 경유로 전달한다.
