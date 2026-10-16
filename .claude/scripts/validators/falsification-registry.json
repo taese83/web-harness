@@ -5613,10 +5613,34 @@
     {
       "id": "session-mode-routes-team-flow-by-read",
       "file": ".claude/scripts/harness-session-mode.mjs",
-      "find": "티켓 작업이면 ${TEAM_FLOW}를 Read로 읽어 그 절차를 따른다",
-      "replace": "티켓 작업이면 team-flow를 따른다",
+      "find": "  const teamFlow = skillDocument('team-flow', projectRoot, payloadRoot)",
+      "replace": "  const teamFlow = 'team-flow'",
       "test": ".claude/scripts/test-harness-session-mode.mjs",
       "why": "경로 없이 「team-flow를 따르라」고만 하면 모델이 Skill 도구로 부르고, 모델 호출이 막힌 스킬이라 흐름이 멈춘다"
+    },
+    {
+      "id": "session-mode-full-brief-once",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "  if (recorded.briefed) return",
+      "replace": "  if (false) return",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "하네스 모드 세션의 매 요청에 문서 경로가 든 전문이 붙어 문맥이 커지고 모델이 같은 SKILL을 거듭 다시 읽는다"
+    },
+    {
+      "id": "session-mode-rebrief-after-compact",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "  if (!['compact', 'clear'].includes(input?.source)) return",
+      "replace": "  return",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "대화가 요약된 뒤에도 짧은 표시만 붙어, 요약에서 빠진 라우팅 안내와 문서 경로를 모델이 다시 얻지 못한다"
+    },
+    {
+      "id": "session-mode-path-readable",
+      "file": ".claude/scripts/harness-session-mode.mjs",
+      "find": "    : [join(projectRoot, CONTRACTS_DIR, tail), join(payloadRoot, tail)]",
+      "replace": "    : [join(payloadRoot, '.claude', tail)]",
+      "test": ".claude/scripts/test-harness-session-mode.mjs",
+      "why": "안내가 읽기 정책이 막는 플러그인 .claude/skills 경로를 가리켜 모델의 Read가 DENY_PATH_OUTSIDE로 막힌다"
     },
     {
       "id": "human-approval-pipeline-consumer-asks",

@@ -83,7 +83,8 @@ const PLUGIN_HOOKS = [
 
 // SessionStart 안내 층 — `_workspace/`가 있는 프로젝트에서만 재진입 안내를 주입하고
 // 아니면 침묵한다. matcher 없음 = startup/resume/clear/compact 전부(압축 후 재진입 포함).
-const PLUGIN_SESSION_START_HOOKS = ['detect-harness-project.mjs']
+// harness-session-mode는 compact·clear 뒤 다음 요청에 하네스 모드 안내 전문을 다시 붙이게 표시만 고친다(출력 없음).
+const PLUGIN_SESSION_START_HOOKS = [[null, 'detect-harness-project.mjs'], ['compact|clear', 'harness-session-mode.mjs']]
 
 // SubagentStop — 끝난 developer 스폰의 write 임대를 놓는다(`write-lease-lib.mjs`). 짝인 취득은
 // `enforce-agent-ownership.mjs`(PreToolUse)에 있다. 이것이 빠지면 첫 developer 스폰이 끝난 뒤에도
@@ -320,7 +321,8 @@ writeFileSync(join(outputRoot, '.claude-plugin', 'plugin.json'), `${JSON.stringi
 mkdirSync(join(outputRoot, 'hooks'), {recursive: true})
 writeFileSync(join(outputRoot, 'hooks', 'hooks.json'), `${JSON.stringify({
   hooks: {
-    SessionStart: PLUGIN_SESSION_START_HOOKS.map(script => ({
+    SessionStart: PLUGIN_SESSION_START_HOOKS.map(([matcher, script]) => ({
+      ...(matcher ? {matcher} : {}),
       hooks: [{type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}"/.claude/scripts/${script}`}],
     })),
     PreToolUse: PLUGIN_HOOKS.map(([matcher, script]) => ({
