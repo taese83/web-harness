@@ -1,26 +1,42 @@
 #!/usr/bin/env node
 // report-execution-telemetry.mjs — 실행 telemetry 집계 (advisory, gate 아님).
-// 사용법: node .claude/scripts/report-execution-telemetry.mjs [--project <root>] — 0 = 집계 출력(파일 없음 포함), 1 = telemetry 파싱·형식 오류.
+// 사용법: node .claude/scripts/report-execution-telemetry.mjs --project <root> [--emit <path> [--run-suffix <+라벨>]]
+// 0 = 집계 출력(기록 없음 포함), 1 = --emit 쓰기 실패, 2 = 사용법 오류.
 //
-// execution-budget-contract.md의 telemetry 절이 정의한
-// _workspace/04_qa/execution-telemetry.json 을 run·phase별로 집계해 출력한다.
+// 원천은 `_workspace/04_qa/context-telemetry.jsonl` 하나다 — 스폰은 SubagentStop 훅(record-subagent-telemetry)이 기록하고
+// 오케스트레이터는 손으로 옮기지 않는다. run = 메인 세션, 스폰 = agentId(이어받은 멈춤은 접는다).
+// `--emit`은 같은 집계를 execution-telemetry 형식(schemaVersion 1 `spawns[]`)으로 쓴다 — 실험 분석기(analyze-ab) 입력용.
+// `tokens`는 스폰의 최대 contextTokens(런타임 스폰 보고와 같은 뜻)이고 `outcome`·`retry`는 기록되지 않는다(미판정 — 지어내지 않는다).
 // cap 판정·release gate와 무관하며, 스폰 예산 조정과 재읽기 비용 진단의 근거 자료다.
 
-import {existsSync, readFileSync} from 'node:fs'
-import {join, resolve} from 'node:path'
+import {closeSync, constants, existsSync, openSync, readFileSync, writeSync} from 'node:fs'
+import {join, relative, resolve, sep} from 'node:path'
 import {answerHelp} from './cli-help-lib.mjs'
 
 answerHelp(import.meta.url)
 
 const args = process.argv.slice(2)
-const projectIndex = args.indexOf('--project')
-const projectRoot = resolve(projectIndex >= 0 && args[projectIndex + 1] ? args[projectIndex + 1] : '.')
-const telemetryPath = join(projectRoot, '_workspace', '04_qa', 'execution-telemetry.json')
+const optionValue = name => {
+  const index = args.indexOf(name)
+  return index >= 0 ? args[index + 1] : undefined
+}
+const projectRoot = resolve(optionValue('--project') ?? '.')
+const emitPath = optionValue('--emit')
+const runSuffix = optionValue('--run-suffix') ?? ''
+if ((args.includes('--emit') && !emitPath) || (runSuffix && !/^\+[A-Za-z0-9-]+$/.test(runSuffix))) {
+  console.error('사용법: --emit <path> · --run-suffix는 `+라벨`(영숫자·-)이다')
+  process.exit(2)
+}
 
 // 메인 세션 문맥 기록(record-context-telemetry 훅) — 도구·대상별 결과 바이트 합. 무엇이 문맥을 채우는지 본다.
 const contextPath = join(projectRoot, '_workspace', '04_qa', 'context-telemetry.jsonl')
-if (existsSync(contextPath)) {
-  const all = readFileSync(contextPath, 'utf8').split('\n').flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
+if (!existsSync(contextPath)) {
+  console.log(`기록 없음: ${contextPath} — 하네스 훅이 아직 아무것도 기록하지 않았다.`)
+  if (!emitPath) process.exit(0)
+}
+const all = !existsSync(contextPath) ? [] : readFileSync(contextPath, 'utf8').split('\n')
+  .flatMap(line => { try { return line ? [JSON.parse(line)] : [] } catch { return [] } })
+{
   const rows = all.filter(row => row.kind !== 'deny' && row.kind !== 'subagent')
   // 서브에이전트 실측(record-subagent-telemetry 훅) — 행은 멈춤 하나이고 서로 겹치지 않는다(이어받은 스폰은 멈출 때마다 직전 이후만).
   // 스폰(agentId)별로 접어 스폰 수·소요(지시 대기 제외)·턴을 보인다. 어느 에이전트가 느린지 본다.
@@ -97,115 +113,77 @@ if (existsSync(contextPath)) {
   }
 }
 
-if (!existsSync(telemetryPath)) {
-  console.log(`telemetry 없음: ${telemetryPath} — 오케스트레이터가 아직 스폰을 기록하지 않았다.`)
-  process.exit(0)
-}
 
-let parsed
-try {
-  parsed = JSON.parse(readFileSync(telemetryPath, 'utf8'))
-} catch (error) {
-  console.error(`telemetry 파싱 실패: ${telemetryPath}: ${error.message}`)
-  process.exit(1)
-}
-
-const spawns = Array.isArray(parsed?.spawns) ? parsed.spawns.filter(entry => entry && typeof entry === 'object') : null
-if (parsed?.schemaVersion !== 1 || !spawns) {
-  console.error(`telemetry 형식 오류: schemaVersion 1 + spawns 배열이 필요하다 (${telemetryPath})`)
-  process.exit(1)
-}
-if (spawns.length === 0) {
-  console.log('telemetry 파일은 있으나 기록된 스폰이 없다.')
-  process.exit(0)
-}
-
-const asCount = value => (Number.isFinite(value) ? value : null)
-const formatTokens = (sum, measured, total) =>
-  measured === 0 ? '미계측' : `${sum.toLocaleString()} tokens (${measured}/${total} 스폰 계측)`
-
-// execution-budget-contract.md "스폰 완결성 게이트" Layer 3 — per-spawn 규모 임계.
+// run·스폰 보기 — 체크포인트의 토큰 합계와 Layer 3 runaway 임계(execution-budget-contract.md)의 데이터다.
+// execution-budget-contract.md "스폰 완결성 게이트" Layer 3 — per-spawn 규모 임계(최대 문맥 토큰 · 이어받은 멈춤까지 합한 소요).
 const RUNAWAY_TOKENS = 120_000
 const RUNAWAY_DURATION_MS = 20 * 60_000
-
+const finite = value => Number.isFinite(value)
+const spawnsById = new Map()
+for (const [index, row] of all.filter(entry => entry.kind === 'subagent').entries()) {
+  const key = typeof row.agentId === 'string' && row.agentId ? row.agentId : `(id 미기록 ${index})`
+  const spawn = spawnsById.get(key) ?? {
+    session: typeof row.session === 'string' && row.session ? row.session : '(session 미기록)', firstAt: row.at ?? '',
+    agent: typeof row.agent === 'string' && row.agent ? row.agent : '(agent 미기록)', agentId: row.agentId ?? null, description: null,
+    stops: 0, resumes: 0, durationMs: null, turns: null, toolUses: null, contextTokens: null, processedTokens: null, outputTokens: null,
+  }
+  spawn.stops += 1
+  if (row.resumed === true) spawn.resumes += 1
+  if (typeof row.description === 'string' && !spawn.description) spawn.description = row.description
+  const add = (field, value) => { if (finite(value)) spawn[field] = (spawn[field] ?? 0) + value }
+  add('durationMs', row.durationMs)
+  add('turns', row.turns)
+  add('processedTokens', row.processedTokens)
+  add('outputTokens', row.outputTokens)
+  if (row.toolUses && typeof row.toolUses === 'object') add('toolUses', Object.values(row.toolUses).reduce((sum, count) => sum + (finite(count) ? count : 0), 0))
+  if (finite(row.contextTokens)) spawn.contextTokens = Math.max(spawn.contextTokens ?? 0, row.contextTokens)
+  spawnsById.set(key, spawn)
+}
 const runs = new Map()
-for (const spawn of spawns) {
-  const runKey = typeof spawn.run === 'string' && spawn.run ? spawn.run : '(run 미기록)'
-  if (!runs.has(runKey)) runs.set(runKey, [])
-  runs.get(runKey).push(spawn)
+for (const spawn of spawnsById.values()) {
+  if (!runs.has(spawn.session)) runs.set(spawn.session, [])
+  runs.get(spawn.session).push(spawn)
+}
+const runLabel = runSpawns => `${runSpawns.map(spawn => spawn.firstAt).filter(Boolean).sort()[0] ?? '(시각 미기록)'}+${runSpawns[0].session.slice(0, 8)}${runSuffix}`
+const sumOf = (list, field) => list.reduce((sum, spawn) => sum + (spawn[field] ?? 0), 0)
+const spawnName = spawn => `${spawn.agent}${spawn.description ? ` 「${spawn.description}」` : ''}`
+
+for (const runSpawns of runs.values()) {
+  const measured = runSpawns.filter(spawn => spawn.contextTokens !== null)
+  console.log(`=== run: ${runLabel(runSpawns)} — 스폰 ${runSpawns.length} · 멈춤 ${sumOf(runSpawns, 'stops')} · 이어받기 ${sumOf(runSpawns, 'resumes')} ===`)
+  console.log(measured.length === 0 ? '  토큰: 미계측' : `  토큰: 문맥 합 ${sumOf(measured, 'contextTokens').toLocaleString()} · 처리 합 ${sumOf(measured, 'processedTokens').toLocaleString()} · ` +
+    `출력 합 ${sumOf(measured, 'outputTokens').toLocaleString()} (${measured.length}/${runSpawns.length} 스폰 계측)`)
+  const byAgent = new Map()
+  for (const spawn of measured) byAgent.set(spawn.agent, (byAgent.get(spawn.agent) ?? 0) + spawn.processedTokens)
+  const top = [...byAgent.entries()].sort(([, left], [, right]) => right - left).slice(0, 5)
+  if (top.length > 0) console.log(`  처리 토큰 상위 agent: ${top.map(([agent, tokens]) => `${agent} ${tokens.toLocaleString()}`).join(' · ')}`)
+  const runaway = runSpawns.filter(spawn => (spawn.contextTokens ?? 0) > RUNAWAY_TOKENS || (spawn.durationMs ?? 0) > RUNAWAY_DURATION_MS)
+  if (runaway.length > 0) {
+    console.log(`  🐘 runaway 스폰 ${runaway.length}개 (문맥 >${RUNAWAY_TOKENS.toLocaleString()} tokens 또는 >20min):`)
+    for (const spawn of runaway) {
+      const tokens = spawn.contextTokens !== null ? `문맥 ${spawn.contextTokens.toLocaleString()} tokens` : 'tokens 미계측'
+      const duration = spawn.durationMs !== null ? ` · ${(spawn.durationMs / 60000).toFixed(1)}min` : ''
+      console.log(`    ${spawnName(spawn)}: ${tokens}${duration}`)
+    }
+  }
 }
 
-for (const [runKey, runSpawns] of runs) {
-  console.log(`\n=== run: ${runKey} — 스폰 ${runSpawns.length}개 ===`)
-
-  const phases = new Map()
-  for (const spawn of runSpawns) {
-    const phaseKey = typeof spawn.phase === 'string' && spawn.phase ? spawn.phase : '(phase 미기록)'
-    if (!phases.has(phaseKey)) phases.set(phaseKey, {spawnCount: 0, retryCount: 0, tokenSum: 0, tokenMeasured: 0, durationMs: 0})
-    const phase = phases.get(phaseKey)
-    phase.spawnCount += 1
-    if (spawn.retry === true) phase.retryCount += 1
-    const tokens = asCount(spawn.tokens)
-    if (tokens !== null) {
-      phase.tokenSum += tokens
-      phase.tokenMeasured += 1
-    }
-    const duration = asCount(spawn.durationMs)
-    if (duration !== null) phase.durationMs += duration
+if (emitPath) {
+  const target = resolve(emitPath)
+  const spawns = [...runs.values()].flatMap(runSpawns => runSpawns.map(spawn => ({
+    run: runLabel(runSpawns), agent: spawn.agent, agentId: spawn.agentId, description: spawn.description,
+    stops: spawn.stops, resumes: spawn.resumes, tokens: spawn.contextTokens, processedTokens: spawn.processedTokens,
+    outputTokens: spawn.outputTokens, toolUses: spawn.toolUses, durationMs: spawn.durationMs,
+  })))
+  try {
+    const inside = relative(projectRoot, target)
+    if (!inside || inside === '..' || inside.startsWith(`..${sep}`)) throw new Error('프로젝트 밖에는 쓰지 않는다')
+    // 링크(끊긴 링크 포함)는 따라가지 않는다 — 다른 곳에 파일을 만든다.
+    const descriptor = openSync(target, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600)
+    try { writeSync(descriptor, JSON.stringify({schemaVersion: 1, source: 'context-telemetry.jsonl', spawns}, null, 2) + '\n') } finally { closeSync(descriptor) }
+  } catch (error) {
+    console.error(`--emit 실패: ${target}: ${error.message}`)
+    process.exit(1)
   }
-
-  for (const [phaseKey, phase] of [...phases.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const minutes = phase.durationMs > 0 ? ` · ${(phase.durationMs / 60000).toFixed(1)}min` : ''
-    console.log(
-      `  ${phaseKey}: 스폰 ${phase.spawnCount} (retry ${phase.retryCount}) · ` +
-      `${formatTokens(phase.tokenSum, phase.tokenMeasured, phase.spawnCount)}${minutes}`,
-    )
-  }
-
-  const agents = new Map()
-  for (const spawn of runSpawns) {
-    const agentKey = typeof spawn.agent === 'string' && spawn.agent ? spawn.agent : '(agent 미기록)'
-    const tokens = asCount(spawn.tokens)
-    if (tokens === null) continue
-    agents.set(agentKey, (agents.get(agentKey) ?? 0) + tokens)
-  }
-  const topAgents = [...agents.entries()].sort(([, a], [, b]) => b - a).slice(0, 5)
-  if (topAgents.length > 0) {
-    console.log('  토큰 상위 agent:')
-    for (const [agentKey, tokens] of topAgents) console.log(`    ${agentKey}: ${tokens.toLocaleString()}`)
-  }
-
-  const outcomes = new Map()
-  for (const spawn of runSpawns) {
-    const key = typeof spawn.outcome === 'string' && spawn.outcome ? spawn.outcome : '(미판정)'
-    outcomes.set(key, (outcomes.get(key) ?? 0) + 1)
-  }
-  const outcomeParts = [...outcomes.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k} ${v}`)
-  console.log(`  완결성 outcome: ${outcomeParts.join(' · ')}`)
-  const incompleteCount = ['truncated', 'crashed', 'incomplete'].reduce((sum, k) => sum + (outcomes.get(k) ?? 0), 0)
-  if (incompleteCount > 0) {
-    console.log(`    ⚠️  미완 스폰 ${incompleteCount}개 — 완결성 게이트 실패가 있었다. 깨진 산출물 위에 다음 단계를 쌓지 않았는지 확인.`)
-  }
-
-  const runaway = runSpawns.filter(
-    spawn => (asCount(spawn.tokens) ?? 0) > RUNAWAY_TOKENS || (asCount(spawn.durationMs) ?? 0) > RUNAWAY_DURATION_MS,
-  )
-  if (runaway.length > 0) {
-    console.log(`  🐘 runaway 스폰 ${runaway.length}개 (>${RUNAWAY_TOKENS.toLocaleString()} tokens 또는 >20min):`)
-    for (const spawn of runaway) {
-      const tokens = asCount(spawn.tokens)
-      const duration = asCount(spawn.durationMs)
-      const tokenLabel = tokens !== null ? `${tokens.toLocaleString()} tokens` : 'tokens 미계측'
-      const durationLabel = duration !== null ? ` · ${(duration / 60000).toFixed(1)}min` : ''
-      console.log(`    ${spawn.agent ?? '(agent 미기록)'} [${spawn.phase ?? '?'}]: ${tokenLabel}${durationLabel}`)
-    }
-  }
-
-  const totalRetries = runSpawns.filter(spawn => spawn.retry === true).length
-  const totalTokens = runSpawns.reduce((sum, spawn) => sum + (asCount(spawn.tokens) ?? 0), 0)
-  const totalMeasured = runSpawns.filter(spawn => asCount(spawn.tokens) !== null).length
-  console.log(
-    `  합계: 스폰 ${runSpawns.length} · retry ${totalRetries} (${((totalRetries / runSpawns.length) * 100).toFixed(0)}%) · ` +
-    formatTokens(totalTokens, totalMeasured, runSpawns.length),
-  )
+  console.log(`execution-telemetry 형식으로 썼다: ${target} (스폰 ${spawns.length})`)
 }

@@ -1,0 +1,19 @@
+{
+  "kind": "subagent-token-dedup",
+  "measuredAt": "2026-10-16",
+  "runtime": {
+    "claudeCode": "2.1.295"
+  },
+  "setup": "실사용 프로젝트 1개(세션 1개)의 서브에이전트 transcript 31건. 각 스폰을 런타임 스폰 보고(task-notification `subagent_tokens`) 시각까지의 줄로 자른 뒤 record-subagent-telemetry.mjs의 summarizeTranscript로 쟀다. 내용·경로·이름은 남기지 않는다 — 통계만.",
+  "observed": {
+    "spawns": 31,
+    "contextTokensVsRuntimePct": {"median": 4.4, "p90": 6.5, "max": 10.0, "signedMedian": -4.4},
+    "processedTokensOverRuntime": {"median": 18.3, "min": 3.4, "max": 47.3},
+    "undedupedOverDeduped": {"median": 2.32, "min": 1.84, "max": 3.56}
+  },
+  "reading": [
+    "런타임 스폰 보고의 토큰 수는 마지막 메시지의 입력+캐시+출력(최종 문맥)이다 — contextTokens가 중앙 4.4% 안에서 맞는다. 늘 낮은 쪽인 것은 마지막 메시지의 마지막 스트리밍 줄이 출력 중간값이라서다.",
+    "id 중복을 지우지 않고 더하면 1.8~3.6배 부풀어 오른다 — dedup이 필요하다.",
+    "dedup한 합(processedTokens)은 런타임 보고의 3.4~47배다 — 턴마다 다시 보내는 문맥의 합이라 같은 값이 아니다. runaway 임계(120k)는 contextTokens에 건다."
+  ]
+}
