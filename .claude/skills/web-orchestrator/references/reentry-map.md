@@ -40,7 +40,7 @@
 
 **카드 행의 정본(그 단계가 막히거나 카드로 판단이 서지 않을 때 그 절만 연다):** `execution-contract.md` §Iterate mode·§Runtime verifiability ·
 `minimal-change-contract.md`(change brief) · `development-gates-contract.md`(Gate 0·toolchain pin 게이트) ·
-`qa-evidence-contract.md` §Iterate evidence(라운드 종료 게이트 3종 정본).
+`qa-evidence-contract.md` §Iterate evidence(라운드 종료 게이트 2종 정본).
 
 **Conditional (트리거 성립 시 로드):**
 

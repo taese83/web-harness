@@ -91,6 +91,11 @@ test('나머지 거부 훅도 안정 코드로 남는다 — ai-safety·release-
         'enforce-ai-safety', 'BROWSER_CREDENTIAL'],
       ['enforce-release-gate.mjs', {tool_name: 'Write', tool_input: {file_path: join(root, '_workspace/04_qa/evidence/x.json'), content: '{}'}},
         'enforce-release-gate', 'RECEIPT_HAND_WRITE'],
+      // 리뷰어가 읽는 묶음 판정·목록도 손으로 못 쓴다 — PASS를 써 넣어 리뷰 게이트를 넘기지 못하게.
+      ['enforce-release-gate.mjs', {tool_name: 'Write', tool_input: {file_path: join(root, '_workspace/04_qa/review-packet/gates/typecheck.json'), content: '{"status":"PASS"}'}},
+        'enforce-release-gate', 'RECEIPT_HAND_WRITE'],
+      ['enforce-release-gate.mjs', {tool_name: 'Edit', tool_input: {file_path: join(root, '_workspace/04_qa/review-packet/INDEX.json'), old_string: 'a', new_string: 'b'}},
+        'enforce-release-gate', 'RECEIPT_HAND_WRITE'],
       ['enforce-verifier-bash.mjs', {tool_name: 'Bash', agent_type: 'code-reviewer', tool_input: {command: 'rm -rf src'}},
         'enforce-verifier-bash', /^GLOBAL_POLICY_/],
     ]

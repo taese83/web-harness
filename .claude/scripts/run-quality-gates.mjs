@@ -89,6 +89,8 @@ if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
                      a locked project profile adds its adapter checks.
   --all              Run every check as one cohort (release evidence). Same as omitting --check.
   --failure-summary  With --check: write failure locations to _workspace/04_qa/failure-summary.json.
+  --review-packet    With --check: write the receipt into _workspace/04_qa/review-packet/gates/ instead of
+                     evidence/ (prepare-review-packet uses this — the result lives only in that packet).
 
 Approval flags — only after the USER explicitly approved this action in this conversation.
 Approving the spec or "the recommended defaults" is not approval to run project code.
@@ -110,10 +112,11 @@ let allRequested = false
 let hostExecutionApproved = false
 let failureSummaryRequested = false
 let workflowAcceptanceRequested = false
+let reviewPacketRequested = false
 const seenOptions = new Set()
 for (let index = 0; index < args.length; index += 1) {
   const option = args[index]
-  if (!['--project', '--check', '--all', '--allow-host-execution', '--failure-summary', '--accept-workflow-findings'].includes(option) || seenOptions.has(option)) {
+  if (!['--project', '--check', '--all', '--allow-host-execution', '--failure-summary', '--accept-workflow-findings', '--review-packet'].includes(option) || seenOptions.has(option)) {
     process.stderr.write(`Unknown or duplicate quality runner option: ${option}\n`)
     process.exit(2)
   }
@@ -122,6 +125,7 @@ for (let index = 0; index < args.length; index += 1) {
   else if (option === '--allow-host-execution') hostExecutionApproved = true
   else if (option === '--failure-summary') failureSummaryRequested = true
   else if (option === '--accept-workflow-findings') workflowAcceptanceRequested = true
+  else if (option === '--review-packet') reviewPacketRequested = true
   else {
     const value = args[index + 1]
     if (!value || value.startsWith('--')) {
@@ -140,6 +144,11 @@ if (allRequested && selectedCheck) {
 // 실패 위치 목록은 수정 스폰의 입력이다 — 단일 check에서만 쓴다(--all 증거 실행에는 싣지 않는다).
 if (failureSummaryRequested && allRequested) {
   process.stderr.write('--failure-summary works with --check only.\n')
+  process.exit(2)
+}
+// 리뷰 묶음 판정은 리뷰 직전 트리의 단일 check다 — 배포 증거(--all)는 evidence/에만 남는다.
+if (reviewPacketRequested && (allRequested || selectedCheck === null)) {
+  process.stderr.write('--review-packet works with --check only.\n')
   process.exit(2)
 }
 // 워크플로 finding 인수는 개발 게이트 전용이다 — 배포 증거(--all)는 finding 0에서만 만들어진다.
@@ -199,7 +208,8 @@ if (existsSync(nvmrcPath)) {
     }
   }
 }
-const evidenceDirectory = ['_workspace', '04_qa', 'evidence'].reduce((parent, segment) => {
+const evidenceSegments = reviewPacketRequested ? ['_workspace', '04_qa', 'review-packet', 'gates'] : ['_workspace', '04_qa', 'evidence']
+const evidenceDirectory = evidenceSegments.reduce((parent, segment) => {
   const directory = join(parent, segment)
   if (!existsSync(directory)) mkdirSync(directory)
   const stats = lstatSync(directory)

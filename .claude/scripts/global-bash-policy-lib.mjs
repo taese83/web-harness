@@ -578,11 +578,13 @@ const reuseInventoryContract = (args, context) => {
   return rest.length === 0 || (rest.length === 1 && rest[0] === '--json')
 }
 
-// 리뷰 묶음은 --project-root 하나와 선택 --base <ref>·--handoff design|development만 받는다. 쓰기는 스크립트가 고정 경로로 한정한다.
+// 리뷰 묶음은 --project-root 하나와 선택 --base <ref>·--handoff design|development·--allow-host-execution(한 번)만 받는다.
+// 쓰기는 스크립트가 고정 경로로 한정하고, 승인 flag는 승인 훅이 사람에게 묻는다.
 const reviewPacketContract = (args, context) => {
   if (args[0] !== '--project-root' || args.length < 2) return false
   readablePath(args[1], context, 'directory')
-  const rest = args.slice(2)
+  if (args.slice(2).filter(value => value === '--allow-host-execution').length > 1) return false
+  const rest = args.slice(2).filter(value => value !== '--allow-host-execution')
   const seen = new Set()
   for (let index = 0; index < rest.length; index += 2) {
     const [option, value] = [rest[index], rest[index + 1]]

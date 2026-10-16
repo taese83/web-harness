@@ -76,7 +76,9 @@ export function decide(input, {home = homedir(), projectDir = process.env.CLAUDE
   const shown = unreviewed.slice(0, 10).map(({path}) => `\`${path}\``).join(', ') + (unreviewed.length > 10 ? ` 외 ${unreviewed.length - 10}개` : '')
   return '[web-harness] 하네스 훅의 상기다(사용자가 거부한 것이 아니다). '
     + `커밋 전 코드 리뷰가 없다 — 리뷰한 뒤 바뀌었거나 리뷰하지 않은 코드 파일: ${shown}. `
-    + '커밋 전에 리뷰 묶음(`prepare-review-packet.mjs --project-root {root} --base HEAD`)을 만들고 새 문맥 code-reviewer로 리뷰해 지적을 선별·수정한 뒤 커밋하라'
+    + '커밋 전에 리뷰 묶음(`prepare-review-packet.mjs --project-root {root} --base HEAD` — typecheck·lint도 돈다)을 만들고 새 문맥 하네스 리뷰어'
+    + '(플러그인이면 `web-harness:code-reviewer`, 묶음 출력이 `review scope: small`이면 effort medium)로 한 번 리뷰해 지적을 선별·수정한 뒤 커밋하라. '
+    + '묶음 없이 돌린 리뷰나 다른 리뷰어는 인정되지 않는다 — 다음부터는 처음부터 이 경로로 한 번만 돌린다'
     + '(team-flow 3·5, fix·change는 qa-evidence Iterate 「커밋 전 리뷰」). 묶음 출력에 Codex 교차 리뷰 명령이 나오면(개발자가 켠 프로젝트) 함께 병렬로 돌린다. 문서·`_workspace`·이미지·lockfile만 바꾼 커밋은 대상이 아니다. '
     + '사용자가 리뷰 없이 커밋하라고 했으면 같은 명령을 다시 실행하면 통과한다 — 그 사실을 보고에 적는다.'
 }

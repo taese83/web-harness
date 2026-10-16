@@ -2907,6 +2907,14 @@
       "why": "필요한 것을 한 줄에 몰아 적으면 어디서 끊기는지 보이지 않고, 어떻게 채우면 되는지도 말하지 못한다"
     },
     {
+      "id": "review-packet-gates-hand-write-blocked",
+      "file": ".claude/scripts/enforce-release-gate.mjs",
+      "find": "    normalizedPath.includes('/_workspace/04_qa/review-packet/gates/') ||",
+      "replace": "    false ||",
+      "test": ".claude/scripts/test-hook-denial-log.mjs",
+      "why": "리뷰어가 읽는 유일한 게이트 판정을 메인이 손으로 PASS로 쓰면 리뷰 게이트가 통과한다"
+    },
+    {
       "id": "change-journal-orchestrator-only",
       "file": ".claude/scripts/agent-registry.mjs",
       "find": "  '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)",
@@ -5493,8 +5501,8 @@
     {
       "id": "iterate-card-commit-review-row",
       "file": ".claude/skills/web-orchestrator/references/iterate-lane-card.md",
-      "find": "| 8-2 | 커밋 전 리뷰 — 라운드마다",
-      "replace": "| 8-2 | 리뷰(선택) — 라운드마다",
+      "find": "| 8-2 | 커밋 전 리뷰 — 묶음을 먼저",
+      "replace": "| 8-2 | 리뷰(선택) — 묶음을 먼저",
       "test": ".claude/scripts/test-contract-load-points.mjs",
       "why": "커밋 전 리뷰 단계가 카드에서 빠지면 카드만 따르는 fix·change 라운드가 리뷰 없이 커밋한다"
     },

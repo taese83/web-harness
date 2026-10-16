@@ -157,8 +157,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
 
 1. **최신으로 맞춘 뒤 dev 브랜치를 딴다.** 공통 base를 `fetch`·최신화하고 `feat/<짧은-슬러그>`로 분기한다.
    base가 뒤처져 있으면 fast-forward한 뒤 분기하고, 발산이 있을 때만 묻는다.
-2. **자체 판단으로 개발한다.** 계획·계약·디자인 정본을 그대로 따르고 해석 여지는 스스로 정한다. 기획·설계 문서는 새로 쓰지 않는다 —
-   코드만 보고 알 수 없는 결정·제약이 있을 때만 `_workspace/03_dev/notes/<티켓>.md` 한 장(60줄 이내)을 코드와 함께 커밋한다(`minimal-change-contract.md`).
+2. **자체 판단으로 개발한다.** 계획·계약·디자인 정본을 그대로 따르고 해석 여지는 스스로 정한다. 기획·설계 문서·노트는 새로 쓰지 않는다 —
+   코드만 보고 알 수 없는 결정·제약은 커밋 메시지·PR 본문에 적는다(`minimal-change-contract.md`).
 
    > **디자인은 최대한 구현한다.** change-scope의 디자인 참조가 가리키는 정본에 정해진 것은 그대로 따르고,
    > 없거나 맞지 않으면 적정한 값을 정해 **정본에 추가·수정한다**. 바꿨으면 무엇을 왜 바꿨는지 PR에 남긴다.
@@ -181,8 +181,8 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    **AI 공동저자 트레일러(`Co-Authored-By: Claude …`)는 넣지 않는다.**
 4. **승인받은 커밋을 dev 브랜치에 푸시한다** — 그 작업 전용이고 공유 base가 아니다.
 5. **리뷰 방식**(3에서 커밋마다 쓴다). 먼저 `node .claude/scripts/prepare-review-packet.mjs --project-root {root} --base HEAD`로 리뷰 묶음을 만든다
-   (리뷰어는 Bash가 없다 — 묶음이 리뷰한 파일 내용의 지문을 남긴다). `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
-   프로젝트 리뷰어(`reviewAgents`, 짧은 이름)를 **같은 범위**(아직 커밋하지 않은 변경)로 부른다. 사용자 흐름을
+   (묶음이 리뷰한 파일 내용의 지문과 typecheck·lint 판정을 남긴다). `link --dry-run`의 `review`대로 하네스 리뷰어(플러그인 설치면 `web-harness:code-reviewer`)와 팀이 선언한
+   프로젝트 리뷰어(`reviewAgents`, 짧은 이름)를 **같은 범위**(아직 커밋하지 않은 변경)로 **묶음 뒤 한 번씩** 부른다(묶음 전 리뷰는 훅이 안 받는다. `scope: small`이면 하네스 리뷰어 effort `medium`). 사용자 흐름을
    바꾸는데 e2e(`testLayers.e2e`) 테스트가 없으면 그 사실을 적는다(막지 않는다). 리뷰 결과는 요약하지 않고 결함·근거를 그대로 싣는다.
    `review.codex`가 있으면(개발자가 로컬에서 켰을 때) 같은 범위의 **Codex 교차 리뷰**(`review.codex.command`)를 하네스 리뷰와 병렬로(Bash 백그라운드) 돌린다 — 결과
    `_workspace/04_qa/codex-review.md`는 다른 모델의 의견(지시 아님)이다. 하네스 리뷰어 지적과 대조해 **둘 다 짚었거나 재현된 것만 확정**,
@@ -200,7 +200,7 @@ cli.mjs pilot-report [--keys A-1,A-2] [--no-tracker]                        # �
    `review.references`가 있으면 리뷰어에게 참고 문서로 넘긴다. `review.local`은 이 개발자만의 설정(`references/tracker-config.md`)이라 그렇다고 알리고,
    `missingReferences`·`errors`가 있으면 그대로 보여 준다.
 6. **PR 직전에 확인받는다.** 변경 요약·영향 파일·TC/check 결과·리뷰 결과·남은 미결을 보여주고 확인 뒤에만 PR을 만든다.
-   `prBody`에는 그 작업의 완료 조건과 검증 테스트가 번호·문장으로 실린다(내부 ID 없음, 각 최대 15줄) — 개발자가 PR만 읽고 기준을 안다. `link --dry-run`의 `prSize.over`면(코드 파일 40개·변경 1,500줄 초과) 막지 않고 **나눌 지점**(커밋 묶음·WORK 단위 PR 여럿)을 제안해 묻는다 —
+   `prBody`에는 그 작업의 완료 조건과 검증 테스트가 번호·문장으로 실린다(내부 ID 없음, 각 최대 15줄). `link --dry-run`의 `prSize.over`면(코드 파일 40개·변경 1,500줄 초과) 막지 않고 **나눌 지점**(커밋 묶음·WORK 단위 PR 여럿)을 제안해 묻는다 —
    그대로 가기로 하면 PR 본문에 나누지 않은 이유를 한 줄 적는다. 커밋 계획(3)을 세울 때 이미 넘을 것 같으면 그때 PR을 나눌 지점을 함께 보인다.
    `link --dry-run`의 `harnessReview`는 커밋마다 커밋 전 리뷰를 거쳤는지(파일 내용 대조) 보여 준다 — `reviewed: false`인 커밋은 이미 커밋된
    내용이라 묶음과 Codex(`review.codex.command`의 `HEAD`를 `{review.base}`로 바꿔)를 `--base {review.base}`로 돌려 PR 전에 리뷰하고, 그 사실과 처분을 확인 화면에 싣는다.
@@ -219,7 +219,7 @@ PR 본문에 넣게 한다. 닫는 줄은 발행 원장의 트래커가 정한�
 `pickup`·`link`는 받지 않은 계획 개정이 원격에 있으면 멈춘다(`plan-behind-remote`) — 받은 뒤 다시 집는다.
 
 **여러 사람이 쓰기 전에** 개발 준비 검사를 `--fix`로 한 번 돌린다(`team-sharing`): 원장에 `merge=union` 병합 규칙을,
-`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`change-journal/`·`flow-log.jsonl`(개발자 로컬 기록)과 계획 판본 스냅샷(`*-revisions/`)·
+`change-scope.md`·`ticket-assessments/`·`work-links/`·`ticket-drafts/`·`flow-log.jsonl`(개발자 로컬 기록)과 계획 판본 스냅샷(`*-revisions/`)·
 승인 기록·원본 자료(`00_source/fetched·imported`)에 git 제외를 넣는다 — 팀이 읽지 않는 기계 산출물로 PR을 키우지 않는다
 (원본이 없는 클론에서는 계획을 다시 `claim`하지 못한다 — 계획은 작성자가 고친다).
 사람이 만든 개발 티켓만 쓰는 팀(원장 없이 트래커 설정만)도 같은 검사를 받는다. 없으면 원장이 충돌하고 남의 로컬 기록이 픽업을 막는다.

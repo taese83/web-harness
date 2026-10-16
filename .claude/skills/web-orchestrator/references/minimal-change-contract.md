@@ -29,19 +29,15 @@ CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: 이 변경과 충돌하는 02_design canonical 문서 | none — **대조한 문서 목록을 괄호로 병기한다**(`none (대조: layout-spec, component-spec, api-schema)`). change 레인은 개발 전 감지 단계에서 채운다(`approval-checkpoints.md`)
 ACCEPTANCE: 아래 줄 — 관찰 가능한 결과를 개발자가 이해할 한 문장으로(축약 기호 아님 — PR 본문에 그대로 실린다) (change light·change-acceptance 라운드 — 기획 문서 대신 라운드의 기준. 티켓은 티켓 완료 조건, 기획이 있는 full은 `TC 행 (PC-NNN)`)
 TEST_ITEMS: TT-R<n>-<k> 범위 — 테스트로 확인할 핵심·고위험 기준 줄 끝에만 그 기준을 검증하는 ID를 단다(테스트 이름에 ID를 인용한다, `testing.md` 「무엇을 테스트하는가」). 나머지 기준은 `— 검증: 리뷰|수동`(빠뜨린 것과 구별한다)
-NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none — 개발 노트(아래)
 REFERENCE_AREAS: a11y, security, structure, data-fetching 중 이번 변경이 닿는 것 | none — 판정서·설계에서 고른다. 훅이 범위 경로·변경 파일 추정과 합쳐 그 영역의 기준 파일을 developer·리뷰어 시작 때 건넨다(`implementation-references.md`)
 ```
 
 기준은 `ACCEPTANCE:` 아래 한 줄에 하나 — `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>[, …]`. 티켓 없는 change의 PR 본문에는
 `node .claude/scripts/pr-criteria.mjs --project-root {root}` 출력(번호·문장·검증 테스트, 내부 ID 없음)을 넣는다 — 티켓 작업은 `link`의 `prBody`가 같은 일을 한다.
 
-**개발 노트 — 꼭 필요할 때만, 한 장.** change·fix·티켓 작업은 기획·설계 문서를 새로 쓰지 않는다. 다음 개발자가 코드만 보고는
-알 수 없는 것(비자명한 결정과 버린 대안, 지켜야 할 제약·불변식, 건드린 계약, 남긴 가정·부채, 후속)이 있을 때만 메인이
-스폰 반환에서 골라 `_workspace/03_dev/notes/<티켓 키 또는 R<n>>.md` **한 파일, 60줄 이내**로 쓰고 코드와 함께 커밋한다(서브에이전트는
-쓰지 못한다 — 훅). 없으면 `NOTE: none`이다. 절: 맥락(1–2줄) · 결정(무엇·왜·버린 대안, 한 줄씩) · 제약 · 건드린 계약(`경로#앵커`) ·
-가정·부채(`ack:` ID) · 후속. 코드·테스트·PR 본문으로 알 수 있는 것은 옮겨 적지 않는다. 판단에 쓴 외부 레퍼런스(`implementation-references.md`)의
-이름·URL·항목 ID는 노트·완료 기준·PR·티켓에 쓰지 않는다 — 기준 자체를 문장으로 쓴다.
+**별도 노트를 쓰지 않는다.** change·fix·티켓 작업은 기획·설계 문서나 개발 노트를 새로 쓰지 않는다. 다음 개발자가 코드만 보고는
+알 수 없는 것(비자명한 결정과 버린 대안, 지킬 제약)은 코드 주석 한 줄이나 커밋 메시지·PR 본문에 적는다. 판단에 쓴 외부 레퍼런스
+(`implementation-references.md`)의 이름·URL·항목 ID는 완료 기준·PR·티켓에 쓰지 않는다 — 기준 자체를 문장으로 쓴다.
 
 `CHANGE_BUDGET`은 line cap이 아니다. 예상 범위를 벗어나는 rewrite와 우발적 확장을 발견하기 위한 검토 기준이다.
 

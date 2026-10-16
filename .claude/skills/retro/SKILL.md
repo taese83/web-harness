@@ -28,7 +28,7 @@ When the user invokes `/retro` alone, start with:
 1. **1차 기록을 읽는다.** 요약이 아니라 원문이다. 있는 것만 읽는다:
    - 현재 세션 대화
    - PR 리뷰 코멘트 — 사용자가 붙여 준 본문, 또는 `gh pr view <번호> --comments`(읽기 전용, 있을 때만)
-   - `_workspace/04_qa/qa-*.md`, `_workspace/04_qa/failure-summary.json`, `_workspace/03_dev/change-journal/`
+   - `_workspace/04_qa/qa-*.md`(Phase 4 검증이 있었을 때), `_workspace/04_qa/failure-summary.json`
    - 커밋 — `node .claude/scripts/run-git-inspection.mjs --project . --operation log --base <base>` (git은 이 broker로만 읽는다)
 2. **있는 장치부터 확인한다.** `package.json`의 lint·typecheck·test 스크립트, CI 워크플로, pre-commit 훅,
    하네스 프로젝트면 `.claude/scripts/run-quality-gates.mjs`의 체크 목록. 이미 있는데 연결이 끊겼거나 조용히

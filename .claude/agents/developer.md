@@ -54,7 +54,7 @@ maxTurns: 70
 - `ACC-`·`TT-` 항목(write-back이면 고친 TC ID) · change brief 필드(`ALLOWED_PATHS`·`PUBLIC_CONTRACTS_TO_PRESERVE`·`NON_GOALS`·`CAPABILITY_ESCALATION`·
   `DOCS_TO_UPDATE: none (대조: 실재하는 02_design 문서 목록) | 개정한 문서` — 화면 조건이 바뀌면 ux-brief를 고치지 않고 `ACC-`로 적는다)
 - 열린 질문 최대 3개(선택지·추천) — 요청이 정하지 않은 동작은 가정으로 삼지 말고 여기 올린다
-- 개발 노트에 남길 것 — 코드만 보고 알 수 없는 결정(버린 대안)·제약·건드린 계약. 없으면 `none`(메인이 필요할 때만 한 장으로 쓴다)
+- 커밋 메시지·PR 본문에 남길 것 — 코드만 보고 알 수 없는 결정(버린 대안)·제약·건드린 계약. 없으면 `none`
 - `ESCALATE_TO_FULL: none | <사유>` — 새 레이어·라이브러리·형태가 필요하거나 제품 의도 결정이 남으면 사유를 적는다
 - `KEY_FILES:` 구현이 먼저 읽을 파일 10개 이내 — 구현은 새 스폰이 인계받는다
 
@@ -113,7 +113,7 @@ maxTurns: 70
 - `tech-stack.md`가 `REACT_COMPILER: on`이면 새 코드에 수동 `useMemo`·`useCallback`·`memo`를 쓰지 않는다 — 기존 것은 지우지 않는다(`performance-patterns.md` §4).
 - **외부 기준으로 판단한다.** 시작 때 훅이 건넨 기준 파일(이번 변경이 닿는 영역)을 작업 전에 읽고 따른다(프로젝트 규약이 먼저다). 건넨 파일이 없어도
   대화상자·메뉴·탭·알림, 인증·토큰·외부 입력 출력, 새 모듈·Effect·상태 위치, 서버 상태 조회·변경을 만들거나 바꾸면
-  `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽는다. 산출물(코드 주석·개발 노트·완료 기준·커밋 메시지)에는
+  `.claude/skills/web-orchestrator/references/implementation-references.md`의 표에서 **그 영역 파일만** 읽는다. 산출물(코드 주석·완료 기준·커밋 메시지)에는
   레퍼런스 이름·URL·항목 ID를 쓰지 않고 기준 자체를 문장으로 쓴다 — 근거 항목 ID는 반환 끝 `REFERENCES_USED:` 줄에만.
 - **만들기 전에 재사용 목록을 본다.** 프롬프트로 받은 `_workspace/03_dev/reuse-inventory.json`의 `entries`에 같은
   책임의 훅·함수·컴포넌트가 있으면 그것을 쓴다. 공통화는 **두 번째 사용처가 생길 때** 한다 —

@@ -68,15 +68,16 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - **브라우저 스모크(관측 가능한 변경)**: dev/preview에서 대상 화면을 구동하고 **snapshot의 실제 콘텐츠**로 확인한다(콘솔 로그가 아니라). stale HMR은 `operational-gotchas.md`의 dev-server 신뢰 규약대로 하드 리로드 후 판정한다. 인증 뒤·serverless·server DB·sensor 경로는 `execution-contract.md`의 Runtime verifiability(`LOCAL_VERIFIABLE`/`DEPLOY_ONLY`)를 따르고 미검증 경로를 표면 PASS로 보고하지 않는다.
 - **생성 바이너리 자산(아이콘·이미지 등)**: `file`이 "정상 PNG"로 통과해도 내용은 blank/잘림일 수 있다 — **치수·픽셀 분포(예상 색 비율 등)·전송 SHA-256(생성원↔디스크)**을 대조하고, 배포에 복사되는 자산은 source↔dist 해시 일치를 확인한다. 큰 base64는 셸로 손복사하지 말고 파일 경유로 전달하며 SHA mismatch면 청크로 재전송한다. (실사고: 512 PNG가 하단 잘림·투명으로 생성됐고 `file`은 통과했으며, 단일 붙여넣기 손상을 SHA 가드가 잡았다.)
 - 경량 증거는 재현 절차(무엇을 구동해 무엇을 봤는지)를 한 줄로 남긴다. 모델 기억·화면 요약만으로 PASS하지 않는다.
-- **영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다** — 증거는 영수증과 새 컨텍스트 리뷰어다. 의심이 있으면 그 check를
+- **게이트 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다** — 증거는 리뷰 묶음의 `gates/`와 새 컨텍스트 리뷰어다. 의심이 있으면 그 check를
   러너로 다시 돌린다. 범위 대조는 변경 파일 목록(`run-git-inspection.mjs --operation diff-stat`) 한 번으로 `ALLOWED_PATHS`와 맞춘다.
-- **기존 receipt의 재발급**: 프로젝트에 이미 `_workspace/04_qa/evidence/`가 있으면, 경량 라운드도 소스를 바꾼 뒤 `run-quality-gates.mjs --project {root} --all`로 receipt를 재발급한다. attestation·manifest는 만들지 않지만 **receipt를 stale로 남기지도 않는다** — receipt는 발급 시점 소스에 fingerprint로 결속되므로, 소스를 고치고 그대로 두면 그 시점부터 저장된 모든 evidence가 검증 불가가 된다. 재발급이 불가한 환경이면 완료 보고에 `QA evidence: STALE (재발급 필요)`를 명시하고 완료로 선언하지 않는다.
+- **검사 기록을 따로 남기지 않는다**: 경량 라운드는 `_workspace/04_qa/evidence/`를 쓰지도 재발급하지도 않는다 — 러너는 `--review-packet`으로 돌리고,
+  리뷰 판정의 정본은 리뷰 묶음이 그 트리에서 돌린 `gates/`다(묶음을 만들 때마다 새로 돈다). receipt는 배포 후보를 full runner(`--all`)로 승격할 때만 만든다.
 - **승격 QA**: change-scope의 `CAPABILITY_ESCALATION`이 `detected`면 경량 라운드에서도 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`도) 재투입이 의무다. 자세한 조건은 `execution-contract.md`의 **Iterate round exit gates**가 canonical이다(light는 아래 light 항목).
-- **커밋 전 리뷰(항상, 코드가 바뀐 커밋)**: fix·change 라운드는 코드 파일을 커밋하기 전에 새 문맥 `code-reviewer`를 한 번 돌린다(문서·`_workspace`만이면 대상 아님 — 하네스 모드의 `git commit` 훅이 리뷰 안 된 코드를 한 번 알린다. light는 아래대로 한 스폰 — 보안 신호면 그 한 스폰이 `security-reviewer`다. 승격 QA에 **더한다**, 대체하지 않는다). 아래 신호는 리뷰를 할지가 아니라 **무엇을 더 볼지**를 정한다 — 보안 신호면 `security-reviewer`를 더하고, 개발자가 로컬에서 `codexReview`를 켰으면 Codex 교차 리뷰를 병렬로 돌린다(명령은 리뷰 묶음 출력에 나온다 — team-flow 5와 같다).
+- **커밋 전 리뷰(항상, 코드가 바뀐 커밋)**: fix·change 라운드는 코드 파일을 커밋하기 전에 리뷰 묶음을 만들고 새 문맥 하네스 `code-reviewer`(플러그인이면 `web-harness:code-reviewer` — 짧은 이름은 같은 이름의 프로젝트 에이전트다)를 한 번 돌린다. 다른 리뷰어로 대신하거나 묶음 없이 먼저 돌리면 커밋 훅이 인정하지 않아 리뷰가 겹친다. 묶음 출력이 `review scope: small`이면 스폰 effort를 `medium`으로 준다(문서·`_workspace`만이면 대상 아님 — 하네스 모드의 `git commit` 훅이 리뷰 안 된 코드를 한 번 알린다. light는 아래대로 한 스폰 — 보안 신호면 그 한 스폰이 `security-reviewer`다. 승격 QA에 **더한다**, 대체하지 않는다). 아래 신호는 리뷰를 할지가 아니라 **무엇을 더 볼지**를 정한다 — 보안 신호면 `security-reviewer`를 더하고, 개발자가 로컬에서 `codexReview`를 켰으면 Codex 교차 리뷰를 병렬로 돌린다(명령은 리뷰 묶음 출력에 나온다 — team-flow 5와 같다).
   - 형태 무관: `CAPABILITY_ESCALATION: detected` · 의존성 추가 · 삭제·마이그레이션·저장 데이터 · 계약 파일(API 스키마·공개 타입) · diff 300줄 이상 · 기존 테스트 수정·삭제·skip/only 추가·스냅샷 갱신 · 게이트 실패 후 수정된 check.
   - 형태별(`targetShapes`, 여럿이면 합집합): 웹 앱 — 인증·세션·토큰, 입력 → HTML/쿼리 sink, UI 레이어(접근성) / 라이브러리 — 공개 export / CLI — 명령·플래그·exit code / serverless — `api/` 핸들러.
   - 리뷰어 입력은 이번 라운드 diff·수용 기준·change brief뿐이다(구현 대화는 주지 않는다). 리뷰어에게는 Bash가 없다 — 메인이 스폰 직전에
-    `node .claude/scripts/prepare-review-packet.mjs --project-root {root} [--base <ref>]`로 `_workspace/04_qa/review-packet/`(diff·상태·레이어 방향·재사용 목록)을 만든다. 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
+    `node .claude/scripts/prepare-review-packet.mjs --project-root {root} [--base <ref>]`로 `_workspace/04_qa/review-packet/`(diff·상태·레이어 방향·재사용 목록·이 트리에서 돌린 typecheck·lint 판정 `gates/`·변경 크기 `scope`)을 만든다. 판정에는 재현 근거가 있는 `CONFIRMED` finding만 산입한다(`security-reviewer`는 자기 심각도 분류를 쓰며 재현 근거가 있는 HIGH 이상을 같게 산입한다).
   - **light 경로(`change-lane-checkpoint.md`)는 라운드당 리뷰 한 스폰이다 — light의 종료 게이트 ①과 커밋 전 리뷰는 이 항목이
     정본이다.** 보안 신호나 `CAPABILITY_ESCALATION`이 있으면 `security-reviewer`, 없으면 `code-reviewer`가 발화한 신호의 체크리스트를
     모두 본다. 서버 계약이 생겼으면 API 계약·생성 타입·목 핸들러 일치를 포함하고, API 명세가 없으면 그 항목은 `BLOCKED`다. 항상

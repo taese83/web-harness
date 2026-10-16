@@ -40,7 +40,8 @@ test('변경 조회와 기계 판정을 묶고 항목마다 exit·sha256을 적�
     assert.equal(result.status, 0, result.stderr)
     const index = readIndex(project)
     assert.deepEqual(index.entries.map(entry => entry.file),
-      ['status.txt', 'diff-stat.txt', 'diff-names.txt', 'diff.patch', 'ls-files.txt', 'layer-boundaries.json', 'reuse-inventory.txt', 'impact.txt'])
+      ['status.txt', 'diff-stat.txt', 'diff-names.txt', 'diff.patch', 'ls-files.txt', 'layer-boundaries.json', 'reuse-inventory.txt',
+        'impact.txt', 'gates/typecheck.json', 'gates/lint.json'])
     assert.match(readFileSync(join(project, PACKET, 'diff.patch'), 'utf8'), /\+export const a = 2/)
     for (const entry of index.entries) assert.match(entry.sha256, /^[0-9a-f]{64}$/)
   })
@@ -69,6 +70,66 @@ test('이번에 만들지 않은 선택 항목(지난 라운드 handoff)은 지�
     writeFileSync(join(project, PACKET, 'handoff-development.json'), '{"stale":true}\n')
     assert.equal(packet().status, 0)
     assert.equal(existsSync(join(project, PACKET, 'handoff-development.json')), false)
+  })
+})
+
+test('검사 판정은 이 트리에서 돌려 묶음 gates/에만 싣고, 실행 못 하면 0으로 적지 않으며 evidence/에는 남기지 않는다', () => {
+  withProject(({project, packet}) => {
+    assert.equal(packet().status, 0)
+    const gates = readIndex(project).entries.filter(entry => entry.file.startsWith('gates/'))
+    assert.deepEqual(gates.map(entry => entry.file), ['gates/typecheck.json', 'gates/lint.json'])
+    // 테스트 프로젝트에는 package.json·호스트 실행 승인이 없다 — 실행기가 거부하거나 BLOCKED로 적고, 묶음은 그 exit를 그대로 싣는다.
+    for (const entry of gates) assert.notEqual(entry.exitCode, 0)
+    assert.match(gates[0].command, /run-quality-gates\.mjs --project \{project-root\} --check typecheck --review-packet/)
+    assert.equal(existsSync(join(project, '_workspace/04_qa/evidence')), false)
+  })
+})
+
+test('지난 묶음의 판정과 목록은 지운다 — 오래된 PASS가 이번 트리의 판정처럼 읽히지 않게', () => {
+  withProject(({project, packet}) => {
+    mkdirSync(join(project, PACKET, 'gates'), {recursive: true})
+    writeFileSync(join(project, PACKET, 'gates/typecheck.json'), '{"status":"PASS"}\n')
+    assert.equal(packet().status, 0)
+    // 테스트 프로젝트에서는 실행기가 판정을 못 쓴다 — 지난 PASS가 남아 있으면 안 된다.
+    assert.equal(existsSync(join(project, PACKET, 'gates/typecheck.json')), false)
+  })
+})
+
+test('작게 보지 않는 경우: 승격된 라운드, 생략 표식이 있는 diff', () => {
+  withProject(({project, packet}) => {
+    mkdirSync(join(project, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(project, '_workspace/03_dev/change-scope.md'), 'CAPABILITY_ESCALATION: none\n---\nCAPABILITY_ESCALATION: detected: 인증\n')
+    assert.equal(packet().status, 0)
+    assert.equal(readIndex(project).scope.value, 'full')
+  })
+  withProject(({project, packet}) => {
+    writeFileSync(join(project, 'src/big.bin'), Buffer.alloc(300 * 1024, 1))
+    assert.equal(packet().status, 0)
+    assert.equal(readIndex(project).scope.value, 'full')
+  })
+})
+
+test('handoff 묶음은 코드 리뷰가 아니라 검사를 돌리지 않는다', () => {
+  withProject(({project, packet}) => {
+    assert.equal(packet(['--handoff', 'development']).status, 0)
+    assert.equal(readIndex(project).entries.some(entry => entry.file.startsWith('gates/')), false)
+  })
+})
+
+test('작은 변경이면 scope small, 줄이나 파일이 많으면 full — 출력에도 싣는다', () => {
+  withProject(({project, packet}) => {
+    const result = packet()
+    assert.equal(result.status, 0, result.stderr)
+    const {scope} = readIndex(project)
+    assert.equal(scope.value, 'small')
+    assert.equal(scope.changedFiles, 1)
+    assert.equal(scope.changedLines, 2)
+    assert.match(result.stdout, /review scope: small/)
+  })
+  withProject(({project, packet}) => {
+    writeFileSync(join(project, 'src/a.ts'), Array.from({length: 50}, (_, index) => `export const a${index} = ${index}\n`).join(''))
+    assert.equal(packet().status, 0)
+    assert.equal(readIndex(project).scope.value, 'full')
   })
 })
 

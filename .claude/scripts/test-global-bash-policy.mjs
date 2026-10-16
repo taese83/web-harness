@@ -95,11 +95,13 @@ test('리뷰 묶음: 프로젝트 안 root와 --base·--handoff만 허용한다'
   for (const command of [
     'node .claude/scripts/prepare-review-packet.mjs --project-root .',
     'node .claude/scripts/prepare-review-packet.mjs --project-root . --base main --handoff design',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --allow-host-execution --base main',
   ]) assert.equal(decide(command).allowed, true, command)
   for (const command of [
     'node .claude/scripts/prepare-review-packet.mjs --project-root /etc',
     'node .claude/scripts/prepare-review-packet.mjs --project-root . --base ../x',
     'node .claude/scripts/prepare-review-packet.mjs --project-root . --handoff release',
+    'node .claude/scripts/prepare-review-packet.mjs --project-root . --allow-host-execution --allow-host-execution',
     'node .claude/scripts/prepare-review-packet.mjs --project-root . --out x',
   ]) assert.equal(decide(command).allowed, false, command)
 })

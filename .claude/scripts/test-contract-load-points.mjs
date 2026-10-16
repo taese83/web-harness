@@ -112,6 +112,6 @@ test('카드 첫 판단: fix 승격 5항목·CAPABILITY_ESCALATION 4신호가 �
 // 카드의 재검증 금지는 정본(qa-evidence-contract)의 미러다 — 카드에만 있는 규칙이 되지 않게.
 test('재검증 금지·diff-stat 대조는 qa-evidence-contract가 정본이다', () => {
   const evidence = read(`${REFERENCES}/qa-evidence-contract.md`)
-  assert.match(evidence, /영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다/)
+  assert.match(evidence, /게이트 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다/)
   assert.match(evidence, /--operation diff-stat/)
 })

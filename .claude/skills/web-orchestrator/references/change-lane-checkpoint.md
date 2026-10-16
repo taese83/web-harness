@@ -34,7 +34,7 @@
   문서를 막는다. `solution-design.md`는 쓰지 않는다(결정 블록이 스팩의 layerMap, 곧 쓰기 소유권을 낳는다). 반환 뒤(write-back 라운드면
   `--verify` 뒤) ④ 스팩은 **입력이 바뀌었을 때만** ✋ 전에 다시 확정한다(API 계약·TC 행). `acceptanceRefs`·`specTier`는 그대로다.
   반환: `ACC-`·`TT-` 항목 · change brief 필드(`DOCS_TO_UPDATE: none (대조: …) | 목록` 포함) · 열린 질문(최대 3, 추천안 포함) ·
-  개발 노트에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>` ·
+  커밋 메시지·PR 본문에 남길 것(결정·제약 — 없으면 `none`) · `ESCALATE_TO_FULL: none | <사유>` · `RESEARCH_NEEDED: none | <질문>` ·
   `DESIGN_OPTIONS: none | <안 둘>` · `EXTRAS: none | <목록>` · `KEY_FILES:`(구현이 먼저 읽을 파일, 10개 이내).
 - **설계안과 덧붙일 것:** 여러 파일에 걸치거나 새 모듈이 필요하면 계획 패스가 **최소 수정안과 구조 정리안**을 각각 바뀌는 파일·장단점 두 줄로
   비교하고 추천을 단다(`DESIGN_OPTIONS`, 한 문장으로 설명되는 변경은 `none`). 요청에 없지만 넣고 싶은 것(추상화·방어 코드·리팩터링)은

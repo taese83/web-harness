@@ -70,6 +70,7 @@ export function handlePrompt(input, {home = homedir(), projectDir = process.env.
   return `[web-harness] 이 세션은 하네스 모드다(${entry('wh')}로 켰다). 개발·티켓 요청은 슬래시 명령 없이도 ${router}의 라우팅`
     + `(레인 판정·티켓 의도)으로 판정해 그 흐름으로 처리하라. 티켓 작업이면 ${teamFlow}를 Read로 읽어 그 절차를 따른다 — `
     + `하네스 스킬은 Skill 도구로 부르지 않는다(모델 호출이 막혀 있어 오류가 난다). 이 세션에서 읽은 내용이 문맥에 남아 있으면 다시 읽지 않는다. `
+    + `커밋 전 리뷰는 리뷰 묶음(prepare-review-packet, Bash timeout 600000) 뒤 하네스 code-reviewer 한 번이다(팀이 선언한 reviewAgents는 같은 묶음 뒤 함께 — 묶음 전 리뷰는 커밋 훅이 인정하지 않는다). `
     + `하네스와 무관한 질문은 그대로 답한다. 끝내려면 ${entry('wh')} off.\n`
 }
 

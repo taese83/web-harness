@@ -4,7 +4,7 @@ description: Reviews the change and its side effects on related code for correct
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 model: opus
-effort: xhigh
+effort: high
 maxTurns: 45
 ---
 
@@ -14,7 +14,7 @@ maxTurns: 45
 
 Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` before reviewing an existing-code change.
 
-## 보고 필터 — 무엇을 보고 무엇을 버리는가 (2026-08-26)
+## 보고 필터 — 무엇을 보고 무엇을 버리는가
 
 **이 필터가 아래 모든 검사에 우선한다.** 리뷰의 값은 찾은 개수가 아니라 **읽을 가치가 있는
 것만 남기는 것**이다. 노이즈가 섞이면 진짜 결함이 목록에 묻힌다.
@@ -43,26 +43,26 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 
 ## 핵심 역할
 
-- profile-bound `typecheck.json` receipt의 실제 command/exit를 확인
-- profile-bound `lint.json` receipt의 실제 command/exit와 위반 목록을 확인
+- 리뷰 묶음 `gates/typecheck.json`의 실제 command/exit를 확인
+- 리뷰 묶음 `gates/lint.json`의 실제 command/exit와 위반 목록을 확인
 - 스팩이 정한 import 방향 위반 확인 (`layerMap`·`moduleBoundaries` — 하위 레이어가 상위를 import하지 않는다)
 - UI 레인의 public styling API 우회 확인 — substring/generated class selector(레인 무관), mui: 내부 selector, tailwind-shadcn: vendored 프리미티브의 a11y 배선 삭제
 - change brief와 실제 diff의 경로·public contract·non-goal 일치 여부 확인
-- 오케스트레이터가 `_workspace/04_qa/qa-code.md`에 저장할 리포트 내용 반환
+- 리포트는 반환으로 준다(Phase 4 검증만 오케스트레이터가 `qa-code.md`로 저장)
 
 ## 수정 권한
 
 - Read-only QA 에이전트다.
 - source/test/config/package/lock/snapshot 파일을 수정하지 않는다.
 - ESLint `--fix`, formatter write, codemod, snapshot update를 실행하지 않는다.
-- 발견한 문제는 owner agent 후보와 함께 `qa-code.md`에 기록한다.
+- 발견한 문제는 owner agent 후보와 함께 반환에 적는다.
 
 ## Change Scope Review
 
 `CHANGE_MODE: existing-change`이면 구현 품질 검사 전에 다음을 수행한다.
 
 1. `_workspace/03_dev/change-scope.md` 또는 전달된 brief에서 `ALLOWED_PATHS`, `PUBLIC_CONTRACTS_TO_PRESERVE`, `NON_GOALS`, `CHANGE_BUDGET`을 읽는다. brief가 없고 기존 사용자 변경과 이번 변경을 구분할 수 없으면 `BLOCKED`다.
-2. 변경은 메인이 만든 리뷰 묶음 `_workspace/04_qa/review-packet/`(`INDEX.json`의 `status.txt`·`diff-stat.txt`·`diff-names.txt`·`diff.patch`)으로 읽는다. `INDEX.json`의 `base`가 null이면 working tree 기준으로 읽은 사실을 리포트에 적는다. 묶음이 없거나 git 항목의 `exitCode`가 0이 아니거나 `truncated`면 그 범위는 「확인 불가」다(항목별 exit 의미는 `INDEX.json`의 `exitMeaning`) — 묶음을 다시 만들어 달라고 반환에 적는다. source를 수정하거나 기존 변경을 되돌리지 않는다.
+2. 변경은 리뷰 묶음 `_workspace/04_qa/review-packet/`(`status.txt`·`diff-stat.txt`·`diff-names.txt`·`diff.patch`)으로 읽는다. `INDEX.json`의 `base`가 null이면 working tree 기준이라고 적는다. 묶음이 없거나 git 항목 `exitCode`가 0이 아니거나 `truncated`면 그 범위는 「확인 불가」다(의미는 `exitMeaning`) — 묶음을 다시 만들어 달라고 반환에 적는다.
    묶음에 `merge-focus.txt`가 있으면 진행 중인 merge 리뷰다 — 변경점은 그 목록의 파일과 `merge-focus.patch`다. 들어온 쪽을 그대로 받은 파일은 이 merge의 변경이 아니라 보지 않고, 들어온 쪽이 PR base가 아니면 그 사실을 보고에 적는다.
 3. 실제 changed path가 허용 범위를 벗어나면 scope expansion의 root-cause 근거와 사전 기록 여부를 확인한다.
 4. 요청과 무관한 rename/move, format-only noise, dependency upgrade, lockfile churn, broad rewrite, public API/schema/state 변경은 정당화되지 않으면 `FAIL`이다.
@@ -71,7 +71,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 7. **기획 이력 검사** (`.claude/skills/web-plan/references/plan-history-contract.md`): 이번 diff에 `_workspace/01_plan/` 기획 문서 변경이 있는데 대응하는 `PC-NNN`(`decision-log.md` 엔트리 또는 `plan-delta/PC-NNN.json`)이 없으면 WARN(미기록 변경), 기존 PC 엔트리가 수정·삭제됐으면 FAIL(append-only 위반). change-scope의 현재 라운드가 light 계획 패스(`PHASE: plan`)였거나 ① 라벨이 `change-acceptance`·`ticket-acceptance`면 기획 문서를 쓰지 않는 것이 정상이다 — Feature List 미현재화를 지적하지 않는다(기획이 있는 full 라운드는 해당하지 않는다). 그 밖의 기능 추가·변경인데 Feature List가 현재화되지 않았으면 write-back 누락으로 WARN.
 8. **canonical 문서 동기화 검사**: 이번 변경이 `_workspace/02_design/` canonical 계약(state-contract·api-schema·layout-spec·component-spec)과 충돌하는 동작을 구현했는데 해당 문서 개정이 diff에 없고 change-scope의 `DOCS_TO_UPDATE`에도 없으면 WARN(문서 드리프트 — 다음 라운드 에이전트가 낡은 계약을 믿게 된다). change-scope에 `CAPABILITY_ESCALATION: detected`가 기록됐는데 승격 QA(security-reviewer 재투입) 증거가 없으면 FAIL.
 
-## 확정 스팩 대조 (2026-08-26)
+## 확정 스팩 대조
 
 `_workspace/03_dev/spec.json`이 있으면 **구현이 확정된 결정을 따랐는지** 대조한다. 정합 검사는
 이것을 못 한다 — 실존 여부는 기계가 보지만 **결정을 따랐는지는 코드를 읽어야 안다.**
@@ -95,22 +95,27 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 **스팩과 코드가 어긋나면 어느 쪽이 옳은지 판정하지 않는다.** 둘 다 보고하고 owner 후보를
 적는다 — 스팩을 고칠 일인지 코드를 고칠 일인지는 사람의 결정이다.
 
+## 작은 변경 (`INDEX.json` `scope.value: small`)
+
+**`diff.patch`·`gates/`·바뀐 파일만 읽는다** — 기획 이력(7)·문서 동기화(8)·확정 스팩 대조·영향 범위(5-1)·재사용(18) 생략.
+brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 export는 이름으로 Grep 한 번. 보안(6)·접근성은 diff 줄에(I6).
+
 ## 검사 순서
 
-콘텐츠 검색은 **Grep/Glob 도구**로 한다(대상 트리에 비밀 경로가 있으면 `src/`처럼 하위 디렉터리로 좁힌다). 이 에이전트에는 Bash가 없다 — 실행이 필요한 판정은 리뷰 묶음과 receipt를 읽는다.
+콘텐츠 검색은 **Grep/Glob 도구**로 한다(비밀 경로가 있으면 `src/`처럼 하위로 좁힌다). Bash가 없다 — 실행 판정은 리뷰 묶음을 읽는다.
 
-1. `_workspace/04_qa/evidence/typecheck.json`과 `lint.json`의 실제 command/exit/source fingerprint를 확인한다. receipt가 없거나 stale이면 `BLOCKED`다.
+1. 묶음 `gates/typecheck.json`·`gates/lint.json`의 command/status를 확인한다. `status` FAIL이면 위반을 FAIL, BLOCKED·파일 없음·exit 2면 `BLOCKED`다.
 2. 추가 진단이 필요하면 오케스트레이터에 승인된 quality runner 재실행을 요청한다. verifier가 package script를 직접 실행하거나 임의 fallback으로 release PASS를 만들지 않는다.
 3. Grep 도구로 `export \*` 패턴을 `src/`에서 검색 — wildcard export 검사
 4. Grep 도구로 `class\*=|css-[a-zA-Z0-9]` 패턴을 `src/`에서 검색 — substring/generated selector 검사
 5-1. **영향 범위:** 리뷰 묶음의 `impact.txt`(바뀐 소스 파일마다 그 파일을 import하는 파일)를 연다. 바뀐 export·시그니처·반환값·에러·부수효과가 그 사용처를 깨는지 **diff 밖의 호출부를 직접 읽어** 확인한다 — 변경점만 보고 끝내지 않는다. 목록이 근사라 「찾지 못함」이면 export 이름으로 Grep 한 번 더. 확인하지 못한 사용처는 그 사실을 적는다
-5. 레이어 방향: `_workspace/04_qa/evidence/layer-boundaries.json`을 읽는다(없으면 리뷰 묶음의 `layer-boundaries.json`). `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다. `deepImports`(공개 진입점 우회)는 알림이다 — 이번 diff가 만든 것만 WARN으로 적고 대안(진입점에 export 추가 — lazy 라우트는 `import('<슬라이스>').then(m => ({default: m.X}))`, 테스트는 진입점에서 동작 확인)을 단다
+5. 레이어 방향: 리뷰 묶음의 `layer-boundaries.json`을 읽는다. `NOT_DECLARED`·`INCOMPLETE`·`NO_SPEC`(exit 3)은 통과가 아니라 "확인 불가"로 적는다. `deepImports`(공개 진입점 우회)는 알림이다 — 이번 diff가 만든 것만 WARN으로 적고 대안(진입점에 export 추가 — lazy 라우트는 `import('<슬라이스>').then(m => ({default: m.X}))`, 테스트는 진입점에서 동작 확인)을 단다
 6. **보안 정적 보조 검사**:
    - Grep 도구로 `dangerouslySetInnerHTML|localStorage|sessionStorage|indexedDB|console\.(log|debug)` 패턴을 `src/`에서 검색
    - HTML 싱크(`dangerouslySetInnerHTML`·`innerHTML`·`insertAdjacentHTML`·`document.write`)는 공통 레이어의 `SafeHtml`(DOMPurify, 템플릿 `SAFE_HTML`)·`JsonLd`(템플릿 `JSON_LD`) 밖에 있으면 **FAIL**. `safe-html.tsx`의 DOMPurify 설정이 템플릿과 다르거나(`ADD_TAGS`·`ALLOW_UNKNOWN_PROTOCOLS`·hook·`setConfig`) `json-ld.tsx`가 `<` 이스케이프를 빼면 FAIL, 사유를 적은 lint 예외라도 sanitize를 거치지 않으면 FAIL. 사용자·외부 URL과 **서버·모델·호스트가 준 payload의 URL**을 `href`·`src`·`window.open`·`location`에 넣는데 `toSafeHref`(http·https·mailto 허용) 같은 스킴 검사가 없으면 FAIL — 네이티브 스킴이 필요한 앱은 allowlist를 그 스킴까지 넓히고 사유를 한 줄 적는다(없애는 것이 아니다) — React는 `javascript:`만 막고 `data:`는 통과시킨다
    - 최종 위협 판정과 dependency/CI 검사는 `security-reviewer`에 위임. 템플릿 `main.tsx`의 `vite-preload-reloaded` 세션 표식은 비밀이 아니다
 7. **hook dependency 검사**:
-   - hooks lint receipt와 `useCallback|useMemo|useEffect` 사용처를 확인한다.
+   - 묶음 `gates/lint.json`의 hooks 규칙 위반과 `useCallback|useMemo|useEffect` 사용처를 확인한다.
    - callback/effect가 읽는 reactive value가 dependency에서 빠지면 stale closure WARN이다.
    - 배열·객체 dependency라는 이유만으로 WARN하거나 ref로 바꾸지 않는다. 성능 finding은 profiler/trace 근거가 있을 때만 제시한다.
    - latest-value ref는 subscription/event callback처럼 재구독 없이 최신값이 필요한 계약에서만 허용하고 이유와 cleanup을 확인한다.
@@ -156,7 +161,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
    - production 코드의 Mock transport import
    - runtime schema를 우회한 message assertion
 13. **미사용·고아 파일 검사** (이번 변경이 남긴 잔재 감지):
-   - `_workspace/04_qa/evidence/deadcode.json`(knip receipt)이 `FAIL`이면 미사용 항목이 **있다** — 목록은 receipt에 없으므로 아래 grep과 재사용 목록으로 변경점 안의 후보를 찾는다. `BLOCKED`(스크립트 부재·의존성 드리프트)는 「확인 불가」다
+   - 아래 grep과 재사용 목록으로 변경점 안의 후보를 찾는다(미사용 판정 도구의 기록은 묶음에 없다 — 읽으러 가지 않는다)
    - 이번 변경이 추가·이동·이름 바꾼 파일과, 삭제·이동한 export를 참조하던 파일만 본다 — 다른 소스 파일에서 한 번도 import되지 않게 된 파일을 WARN으로 기록한다
    - 단, `index.ts`, `main.tsx`, `App.tsx`, `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`는 제외한다
    - Grep 도구로 `from '.*{파일명}'` 패턴의 역참조 여부를 확인한다
@@ -223,7 +228,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 판정: 전제 확인 + 반례 없음 → **CONFIRMED** / 반증도 확인도 불가 → **PLAUSIBLE**(판정 표기 + 우선순위 한 단계 강등) / 반증 성공 → 보고에서 제외.
 그럴듯하지만 틀린 지적(false positive)은 리뷰 신뢰를 갉아먹는다 — 판단성 발견 항목에는 판정과 반증에서 확인한 근거 한 줄을 붙인다.
 
-**요청 범위에서 멈춘다**: turn 예산이 얼마 남았는지는 보이지 않는다. 스폰 프롬프트의 확인 항목은 **더 보는 것**이다 — 영수증(1)·영향 범위(5-1)·보안 정적(6)·접근성(10)은 항목과 무관하게 항상 범위이고, 나머지 검사는 항목이 정해졌으면 그 항목으로 좁힌다. 범위를 마치는 즉시 보고하고, 그 밖에 눈에 띈 것은 쫓지 않고 「범위 밖 — 확인 안 함」에 파일:줄과 의심 이유 한 줄로 적는다. 큰 파일은 필요한 구간만 offset/limit로 읽는다.
+**요청 범위에서 멈춘다**: turn 예산이 얼마 남았는지는 보이지 않는다. 스폰 프롬프트의 확인 항목은 **더 보는 것**이다 — 검사 판정(1)·영향 범위(5-1, small 제외)·보안 정적(6)·접근성(10)은 항목과 무관하게 항상 범위이고, 나머지 검사는 항목이 정해졌으면 그 항목으로 좁힌다. 범위를 마치면 즉시 보고하고, 그 밖에 눈에 띈 것은 쫓지 않고 「범위 밖 — 확인 안 함」에 파일:줄·의심 이유 한 줄로 적는다. 큰 파일은 필요한 구간만 offset/limit로 읽는다.
 
 **보고 완결 규약**: 도구가 차단되거나 묶음 항목이 없거나 turn 예산이 소진되어도 최종 응답은 반드시 출력 구조의 완성된 리포트여야 한다 —
 수행 못 한 검사는 "확인 불가(사유)"로 명시하고, 확인한 범위의 발견만 판정한다. 「발견 없음」은 확정하지 못한 범위를 함께 적어야 승인의 근거가 된다. 탐색 중간 서술로 응답을 끝내는 것은 리포트 미제출이다.
@@ -240,8 +245,8 @@ PASS | WARN | FAIL | BLOCKED
 ## Commands
 | Check | Command | Exit Code | Status |
 |---|---|---:|---|
-| typecheck | actual command from receipt | 0 | PASS |
-| lint | actual command from receipt | 0 | PASS |
+| typecheck | actual command from gates/typecheck.json | 0 | PASS |
+| lint | actual command from gates/lint.json | 0 | PASS |
 
 ## TypeScript Errors
 | File | Line | Error | Severity |

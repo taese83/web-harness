@@ -25,12 +25,12 @@
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
 | 6 | Gate 0 — 첫 source edit 전 | `node .claude/scripts/validate-development-readiness.mjs --project {root}` | `development-gates-contract.md` Gate 0 |
 | 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). TT 15·경로 8 초과면 모듈별로 아래부터 순서대로. 메인은 source를 쓰지 않는다 | developer 스폰 | `retry-policy.md` Iterate 라운드 |
-| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 typecheck·lint·test·build | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary` (첫 실행은 사용자 승인 뒤 `--allow-host-execution`) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
-| 8-0 | 재검증 금지 — 영수증 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다 | 의심이면 그 check를 러너로 다시. 범위 대조는 `run-git-inspection.mjs --operation diff-stat` 한 번 | `qa-evidence-contract.md` Iterate evidence |
+| 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 test·build(typecheck·lint는 8-2 묶음이 돈다 — 실패 위치가 필요할 때만 여기서) | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary --review-packet` (첫 실행은 사용자 승인 뒤 `--allow-host-execution` — 판정은 묶음 `gates/`에만, `evidence/`에 남기지 않는다) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
+| 8-0 | 재검증 금지 — 게이트 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다 | 의심이면 그 check를 러너로 다시. 범위 대조는 `run-git-inspection.mjs --operation diff-stat` 한 번 | `qa-evidence-contract.md` Iterate evidence |
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |
-| 8-2 | 커밋 전 리뷰 — 라운드마다 새 문맥 `code-reviewer` 1회(보안 신호면 `security-reviewer` 추가). 선별·수정 뒤 같은 역할 확인 리뷰 1회(처분만) | 입력은 `prepare-review-packet.mjs --project-root {root} --base HEAD` 묶음·수용 기준·brief뿐 | `qa-evidence-contract.md` Iterate evidence |
-| 9 | 라운드 종료 게이트 3종 | ① (light는 위 「light」 4) `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `_workspace/04_qa/evidence/`가 있으면 `node .claude/scripts/run-quality-gates.mjs --project {root} --all` ③ `DOCS_TO_UPDATE` 개정 완료 | `qa-evidence-contract.md` Iterate evidence |
-| 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 3종 상태 · 개발 노트(필요할 때만 한 장, `NOTE`) | `execution-contract.md` Iterate 6 |
+| 8-2 | 커밋 전 리뷰 — 묶음을 먼저 만들고 하네스 `web-harness:code-reviewer` **1회만**(다른 리뷰어로 대신하면 커밋 훅이 인정하지 않는다. 보안 신호면 `security-reviewer` 추가). 묶음 출력이 `review scope: small`이면 effort `medium`. 선별·수정 뒤 같은 역할 확인 리뷰 1회(처분만) | 입력은 `prepare-review-packet.mjs --project-root {root} --base HEAD` 묶음(typecheck·lint 판정 포함)·수용 기준·brief뿐 | `qa-evidence-contract.md` Iterate evidence |
+| 9 | 라운드 종료 게이트 2종 | ① (light는 위 「light」 4) `CAPABILITY_ESCALATION: detected`면 `security-reviewer`(서버 계약이 생겼으면 `api-contract-verifier`) ② `DOCS_TO_UPDATE` 개정 완료(검사 기록 재발급은 하지 않는다 — 배포 후보 승격 때 full runner) | `qa-evidence-contract.md` Iterate evidence |
+| 10 | 완료 보고 | changed files · 보존 contract · scope deviation · 요청 외 변경 · evidence · 게이트 2종 상태 | `execution-contract.md` Iterate 6 |
 
 `fix`는 자기검사(`request-type-contract.md` — 하나라도 걸리면 `change`로 승격)를 통과한 뒤 2·3·5를 건너뛰고 유형별 보존 증거를 남긴다.
 
@@ -81,7 +81,6 @@ CAPABILITY_ESCALATION: none | detected: 신호 목록
 DOCS_TO_UPDATE: none (대조: …) | 문서 목록
 ACCEPTANCE: 아래 줄 — `- ACC-R<n>-<k> <문장> · <LOCAL_VERIFIABLE|DEPLOY_ONLY> — TT-R<n>-<k>`
 TEST_ITEMS: TT-R<n>-<k> 범위
-NOTE: _workspace/03_dev/notes/<티켓|R<n>>.md | none
 REFERENCE_AREAS: a11y, security, structure, data-fetching | none
 ```
 

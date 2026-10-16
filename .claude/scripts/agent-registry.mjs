@@ -43,7 +43,7 @@ export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/03_dev/work-plan-review.md', // 검토표(생성물 — 되읽지 않는다)
   '_workspace/03_dev/work-plan-reviewed.json', // 직전 검토 판본 포인터(작업 삭제 대조의 기준)
   '_workspace/03_dev/change-journal/', // 실패·미완 스폰의 복구 기록 — 오케스트레이터만 쓴다(죽은 스폰은 쓸 수 없다)
-  '_workspace/03_dev/notes/', // 티켓·라운드별 개발 노트 한 장 — 메인이 스폰 반환에서 필요한 것만 쓴다(서브에이전트가 키우지 못하게)
+  '_workspace/03_dev/notes/', // 예전 개발 노트(더 쓰지 않는다) — 남은 파일을 스폰이 고치지 못하게 둔다
 ]
 
 // 합치거나 없앤 에이전트 → 그 일을 이어받은 에이전트. 퇴역 이름이 계약·평가에 남으면 validate-harness가 막는다 —

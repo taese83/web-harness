@@ -31,7 +31,7 @@ append-only. 기존 엔트리의 수정·삭제는 금지이며, 정정도 새 �
 3. `decision-log.md`에 엔트리 append
 
 - 갱신 주체는 main thread가 아니라 **기존 owner agent의 경량 재호출**이다: `product-planner`(requirements.md·decision-log.md), `feature-planner`(feature-plan.md). 경량 재호출은 전체 재작성이 아니라 대상 절/행만 수정한다.
-- **change light·fix·티켓 작업은 이 세트를 쓰지 않는다**(문서 축소) — 기준은 change-scope 라운드의 `ACCEPTANCE`·`TEST_ITEMS`(티켓은 완료 조건)이고 결정은 필요할 때만 개발 노트 한 장이다(`minimal-change-contract.md`). 예외: 승인된 TC의 동작을 바꾸는 light 라운드는 펜스 `PLAN_WRITEBACK: "tc-rows"` 아래에서 그 TC 행과 plan-delta만 고친다(§2-1 대조는 그대로) — requirements·decision-log는 쓰지 않는다.
+- **change light·fix·티켓 작업은 이 세트를 쓰지 않는다**(문서 축소) — 기준은 change-scope 라운드의 `ACCEPTANCE`·`TEST_ITEMS`(티켓은 완료 조건)이고 결정은 커밋 메시지·PR 본문에 적는다(`minimal-change-contract.md`). 예외: 승인된 TC의 동작을 바꾸는 light 라운드는 펜스 `PLAN_WRITEBACK: "tc-rows"` 아래에서 그 TC 행과 plan-delta만 고친다(§2-1 대조는 그대로) — requirements·decision-log는 쓰지 않는다.
 3. 세 가지 중 하나라도 빠지면 그 변경은 미기록 변경이며 code-reviewer/plan-reviewer의 검사 대상이다.
 
 ### 2-1. 경량 재호출의 기계 검증 (OpenSpec delta 착안)
