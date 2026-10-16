@@ -55,8 +55,9 @@ Use this reference before retrying after Phase 4 QA.
   교정이라 재교정 전제다(Phase 3 빌더 분해는 `spawn-decomposition-contract.md`의 기계 게이트가 맡고, Iterate는 이 산문 규칙이다). 메인은 source를 쓰지 않는다 — 고칠 것은 developer 수정 스폰으로 보낸다. developer가 못 채운 것을 메인이 직접 완결하는 폴백(`execution-contract.md` Agent invocation)은 Iterate source에 적용하지 않는다 — 수정 스폰이거나 `BLOCKED`다.
 - 검사는 메인이 `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary`로 돌리고, 통과하지 못하면 `_workspace/04_qa/failure-summary.json`(실패 위치만 — 테스트 이름·파일:줄·규칙 id)을 수정 스폰의 입력으로 준다. 첫 실행은 사용자 승인 뒤 `--allow-host-execution`이다. 영수증 `status: BLOCKED`(스크립트 부재·engine·의존 그래프 등 환경 원인)는 수정 스폰의 입력이 아니다 — 라운드를 `BLOCKED (사유)`로 멈춘다.
 - 수정은 **새 수정 스폰**에 시킨다 — 입력은 실패 위치(`failure-summary.json`)나 finding(`파일:줄`), 이번 라운드에 바뀐 파일 목록, 승인된
-  기준과 범위다. 구현한 developer를 SendMessage로 잇는 것은 그 반환 직후 리뷰·사용자 대기 없이 바로 줄 때만이다 — 서브에이전트 문맥 캐시는
-  5분이면 만료돼, 그 뒤에 이어 주면 쌓인 문맥 전체를 다시 쓴다. 횟수 상한은 같다. 모듈로 나눴으면 모듈마다 새 스폰이고, 수정은 실패 위치가
+  기준과 범위다. 반환·`PARTIAL`·턴 한도로 멈춘 스폰(구현·수정 모두)을 SendMessage로 잇는 것은 멈춘 직후 5분 안에, 리뷰·사용자 대기 없이
+  줄 때만이다 — 서브에이전트 문맥 캐시는 5분이면 만료돼, 그 뒤에 이어 주면 쌓인 문맥 전체를 다시 쓴다. 그 밖(게이트 실행이 길었거나 모르면
+  포함)에는 `PARTIAL`의 남은 것(없으면 원 지시)과 바뀐 파일 목록을 넘겨 새로 스폰한다. SendMessage 이음도 1회로 센다 — 횟수 상한은 같다. 모듈로 나눴으면 모듈마다 새 스폰이고, 수정은 실패 위치가
   속한 모듈 범위로 스폰한다.
 - **구현 스폰 뒤의 developer 스폰은 종류(수정·이어 쓰기)와 무관하게 게이트 실패·리뷰 finding 합산 라운드당 최대 2회**이고(모듈 스폰은 구현
   스폰이라 세지 않는다 — 2회 상한은 모듈 수와 무관하게 라운드당이다) 위 진전 조건을 따른다. 초과하거나 남은 FAIL이 있으면 라운드는 `BLOCKED`다 — 상한을 늘리지 않는다.
