@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// record-subagent-telemetry.mjs — `SubagentStop`: 끝난 서브에이전트의 소요 시간·턴·도구 사용 수를 한 줄씩 남긴다(막지 않는다).
+// record-subagent-telemetry.mjs — `SubagentStop`: 끝난 서브에이전트의 소요·턴·도구·토큰을 한 줄씩 남긴다(막지 않는다).
 //
-// 오케스트레이터의 스폰 기록(execution-telemetry.json)은 자기보고라 빠질 수 있다 — 어느 에이전트가 느린지는 런타임 transcript로 잰다.
+// 스폰 기록의 단일 원천이다 — 오케스트레이터는 스폰 usage를 손으로 옮기지 않는다. 런타임 transcript로 잰다.
 // 창: 같은 agentId의 **직전 기록 이후** 줄만 본다 — 이어받은(SendMessage) 스폰은 멈출 때마다 한 줄이고 행을 더해도 겹치지 않는다.
 // 소요: 연속한 줄 사이 간격의 합이되 **다음 줄이 지시(도구 결과가 아닌 user 줄)인 간격은 뺀다** — 지시를 기다린 시간(사용자가 답하는
-// 동안)은 작업이 아니다. 턴 = assistant 메시지 id 수, 도구 = tool_use 블록 수. 토큰은 재지 않는다 — 스트리밍 줄의 usage는 중간값이다.
-// 내용은 남기지 않는다. 기록: context-telemetry.jsonl의 `kind: "subagent"` 행. 집계: report-execution-telemetry.mjs
+// 동안)은 작업이 아니다. 턴 = assistant 메시지 id 수, 도구 = tool_use 블록 수.
+// 토큰: 한 메시지는 같은 id로 여러 줄에 스트리밍되고 output_tokens는 줄마다 자란다 — **id마다 마지막 줄의 usage 하나만** 센다.
+// contextTokens = 창 마지막 메시지의 입력+캐시+출력(런타임 스폰 보고의 토큰 수와 같은 뜻 — runaway 임계의 대상),
+// processedTokens = 창 안 메시지마다 입력+캐시+출력의 합(턴마다 문맥을 다시 보내므로 비용 쪽 규모), outputTokens = 출력 합.
+// 내용은 남기지 않는다(설명은 런타임 meta의 짧은 라벨만). 기록: context-telemetry.jsonl의 `kind: "subagent"` 행. 집계: report-execution-telemetry.mjs
 import {lstatSync, readFileSync, realpathSync} from 'node:fs'
 import {pathToFileURL} from 'node:url'
 import {harnessAgentName} from './agent-identity.mjs'
@@ -13,13 +16,18 @@ import {appendEvidenceLine} from './evidence-log-lib.mjs'
 import {CONTEXT_TELEMETRY_MAX_BYTES, contextTelemetryPath} from './context-telemetry-lib.mjs'
 
 const TRANSCRIPT_MAX_BYTES = 32 * 1024 * 1024
+const META_MAX_BYTES = 64 * 1024
 
 // 지시 줄: 도구 결과가 아닌 user 줄(스폰 프롬프트·이어받은 메시지·런타임 재지시).
 const isInstruction = row => row.type === 'user' &&
   !(Array.isArray(row.message?.content) && row.message.content.some(block => block?.type === 'tool_result'))
 
+const usageTotal = usage => ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens']
+  .reduce((sum, key) => sum + (Number.isFinite(usage[key]) ? usage[key] : 0), 0)
+
 /**
- * transcript JSONL 본문 → `since`(직전 기록 시각, ms) 이후 창의 {durationMs, turns, toolUses}(순수). 창에 줄이 없으면 null.
+ * transcript JSONL 본문 → `since`(직전 기록 시각, ms) 이후 창의 {durationMs, turns, toolUses, contextTokens, processedTokens, outputTokens}(순수).
+ * 창에 줄이 없으면 null. 창에 usage가 하나도 없으면 토큰 셋은 null(미계측 — 0을 지어내지 않는다).
  * 창 첫 줄 앞 간격은 창 직전 줄을 기준으로 잰다 — 멈춤 기록보다 먼저 써진 줄(런타임 재지시) 뒤의 작업을 놓치지 않는다.
  */
 export const summarizeTranscript = (text, {since = null} = {}) => {
@@ -34,13 +42,17 @@ export const summarizeTranscript = (text, {since = null} = {}) => {
   if (start < 0 || rows.length === 0) return null
   let durationMs = 0
   const messages = new Set()
+  const usages = new Map() // 메시지 id → 마지막 줄의 usage(삽입 순서 = 메시지 순서)
   const toolUses = {}
   for (let index = start; index < rows.length; index += 1) {
     const {row, at} = rows[index]
     if (index > 0 && !isInstruction(row)) durationMs += Math.max(0, at - rows[index - 1].at)
     if (row.type !== 'assistant') continue
     const message = row.message ?? {}
-    if (typeof message.id === 'string') messages.add(message.id)
+    if (typeof message.id === 'string') {
+      messages.add(message.id)
+      if (message.usage && typeof message.usage === 'object') usages.set(message.id, message.usage)
+    }
     for (const block of Array.isArray(message.content) ? message.content : []) {
       if (block?.type === 'tool_use' && typeof block.name === 'string') {
         const name = block.name.slice(0, 60)
@@ -48,7 +60,13 @@ export const summarizeTranscript = (text, {since = null} = {}) => {
       }
     }
   }
-  return {durationMs, turns: messages.size, toolUses}
+  const counted = [...usages.values()]
+  const tokens = counted.length === 0 ? {contextTokens: null, processedTokens: null, outputTokens: null} : {
+    contextTokens: usageTotal(counted.at(-1)),
+    processedTokens: counted.reduce((sum, usage) => sum + usageTotal(usage), 0),
+    outputTokens: counted.reduce((sum, usage) => sum + (Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0), 0),
+  }
+  return {durationMs, turns: messages.size, toolUses, ...tokens}
 }
 
 /** 같은 agentId의 직전 기록 시각(ms) — 없으면 null. */
@@ -77,6 +95,18 @@ const readTranscript = path => {
   } catch { return null }
 }
 
+/** 런타임이 transcript 옆에 두는 `<이름>.meta.json`의 스폰 설명(짧은 라벨) — 없거나 링크·과대면 null. */
+export const readDescription = transcriptPath => {
+  if (typeof transcriptPath !== 'string' || !transcriptPath.endsWith('.jsonl')) return null
+  const path = transcriptPath.replace(/\.jsonl$/, '.meta.json')
+  try {
+    const stat = lstatSync(path)
+    if (!stat.isFile() || stat.size > META_MAX_BYTES) return null
+    const description = JSON.parse(readFileSync(path, 'utf8'))?.description
+    return typeof description === 'string' && description.trim() ? description.trim().slice(0, 120) : null
+  } catch { return null }
+}
+
 const main = async () => {
   let source = ''
   for await (const chunk of process.stdin) source += chunk
@@ -92,10 +122,11 @@ const main = async () => {
   appendEvidenceLine(path, {at: new Date().toISOString(), kind: 'subagent', session: input.session_id ?? null,
     // 플러그인(`web-harness:x`)과 저장소(`x`) 실행이 같은 키로 모이게 하네스 이름으로 정규화한다 — 하네스 밖 에이전트는 원래 이름.
     agent: (rawType && harnessAgentName(rawType, {projectRoot})) ?? rawType,
-    agentId, resumed: since !== null,
+    agentId, description: readDescription(input.agent_transcript_path), resumed: since !== null,
     // 잴 수 없었으면 숫자를 지어내지 않고 null로 남긴다 — 집계가 「미계측」으로 보인다.
     durationMs: summary?.durationMs ?? null, turns: summary?.turns ?? null,
-    toolUses: summary?.toolUses ?? null},
+    toolUses: summary?.toolUses ?? null, contextTokens: summary?.contextTokens ?? null,
+    processedTokens: summary?.processedTokens ?? null, outputTokens: summary?.outputTokens ?? null},
   {maxBytes: CONTEXT_TELEMETRY_MAX_BYTES})
 }
 

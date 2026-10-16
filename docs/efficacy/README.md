@@ -27,15 +27,15 @@
 
 ## 3. 지표 정의 (`report-execution-telemetry.mjs` 기준)
 
-`_workspace/04_qa/execution-telemetry.json`(`schemaVersion:1`, `spawns[]`)에서 산출:
+`_workspace/04_qa/execution-telemetry.json`(`schemaVersion:1`, `spawns[]`)에서 산출한다. 이 파일은 `report-execution-telemetry.mjs --emit`이
+SubagentStop 훅 기록에서 만든다(eval 실행기는 실행 뒤 자동) — `tokens`는 스폰 최대 문맥 토큰이고 `outcome`·`retry`는 없다(미판정):
 
-- **미완주율** = `(truncated + crashed + incomplete) / spawns`
-- **완주율** = `complete / spawns`
+- **미완주율**·**완주율** = `NOT_MEASURED` — 훅 telemetry에 `outcome`이 없다
 - **runaway-스폰 비율** = `(tokens>120k OR durationMs>20min) / spawns`
   — ⚠️ **주의: 이 임계는 관측자이지 예방자가 아니다.** ON 상태에서도 초과가 발생한다(§5 실측
   10/22). 예방을 담당하는 것은 pre-spawn `validate-spawn-plan`(whole-layer fanout REFUSE)과
   post-spawn `verify-spawn-completion`(미완 산출 → 재시도)이다.
-- **retry율** = `retry===true / spawns`
+- **retry율** = `NOT_MEASURED` — `retry`가 없다(이어받기는 `resumes`로 보인다)
 - **총 토큰** = `Σ tokens` (미계측은 `null`, 절대 날조하지 않음)
 
 ## 4. Part 1 — 탐지 효능 (저비용, **이미 실행됨**)

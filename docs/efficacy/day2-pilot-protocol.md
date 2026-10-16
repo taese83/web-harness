@@ -22,7 +22,7 @@
 
 | 항목 | 출처 |
 |---|---|
-| 스폰 수·토큰(스폰 합계) | 프로젝트 `_workspace/04_qa/execution-telemetry.json` (계약: null 허용, 위조 금지) |
+| 스폰 수·토큰(스폰 합계) | `report-execution-telemetry.mjs --project <root>`(SubagentStop 훅 기록, 미계측은 null) |
 | 벽시계 시간(요청→검증 완료) | 세션 기록 |
 | 실행 게이트·검증 목록 | 라운드 기록에 열거(생략은 생략이라 적는다) |
 | 산출 receipt | change-scope 항목·구현 검증 증거·(승인 표면 썼으면) 승인 레코드 |

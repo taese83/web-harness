@@ -102,14 +102,14 @@ const runScenario = ({scenario}) => {
     process.exit(1)
   }
   // 시나리오가 선언한 초기 프로젝트 상태(스팩·소스 등) — 행동 시나리오는 빈 fixture가 아니라 진행 중인 프로젝트에서 잰다.
-  // toolchain 재검증이 읽는 package.json·README.md는 위에서 만든 것을 유지한다.
+  // toolchain 재검증이 읽는 package.json·README.md는 위에서 만든 것을 유지한다. seed의 telemetry는 싣지 않는다 — 이번 암 라벨이 붙는다.
   if (scenario.seed) {
     const seedDirectory = join(repositoryRoot, '.claude/evals/seeds', scenario.seed)
     if (!/^[a-z0-9-]+$/.test(scenario.seed) || !existsSync(seedDirectory)) {
       console.error(`seed를 찾을 수 없다: ${scenario.seed}`)
       process.exit(1)
     }
-    cpSync(seedDirectory, fixture, {recursive: true, filter: source => !/\/(?:package\.json|README\.md)$/.test(source.slice(seedDirectory.length))})
+    cpSync(seedDirectory, fixture, {recursive: true, filter: source => !/\/(?:package\.json|README\.md|context-telemetry\.jsonl)$/.test(source.slice(seedDirectory.length))})
   }
 
   // 결과 효능 A/B(M2 Part 2, docs/efficacy/outcome-efficacy-ab-plan.md)의 암 지시문.
@@ -118,8 +118,8 @@ const runScenario = ({scenario}) => {
   // OFF 암은 **runaway 방어 3게이트만** 끈다. 품질 게이트(run-quality-gates)·소유권 훅은
   // 그대로 둔다 — 이 실험의 종속변수는 스폰 실패율이지 앱 품질이 아니다(계획서 §7).
   const armInstruction = arm === 'off'
-    ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 잠금) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt·telemetry 기록)은 평소대로 지킨다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOff`를 붙여 기록하라.'
-    : '\n\n[A/B 실험 지시 — 이 실행은 게이트 ON 암이다] 평소대로 runaway 방어 3게이트를 모두 사용한다. execution-telemetry.json의 `run` 라벨 끝에 반드시 `+gatesOn`을 붙여 기록하라.'
+    ? '\n\n[A/B 실험 지시 — 이 실행은 게이트 OFF 암이다] 이번 실행에서는 runaway 방어 3게이트를 호출하지 마라: (1) validate-spawn-plan.mjs(fit-gate·계획 잠금) (2) verify-spawn-completion.mjs(완결성 게이트) (3) resume-manifest.mjs(재개 판정). 스폰 계획 매니페스트도 만들지 마라. 그 외 모든 계약(품질 게이트·소유권·receipt)은 평소대로 지킨다.'
+    : '\n\n[A/B 실험 지시 — 이 실행은 게이트 ON 암이다] 평소대로 runaway 방어 3게이트를 모두 사용한다.'
 
   // 비대화 실행 규약 — **암과 무관하게 양쪽에 동일 적용**한다(교란 아님).
   // 배경(사전등록 변경 #2, 2026-08-26): executor는 `claude -p` 단일 턴이라 답할 사람이 없는데
@@ -149,6 +149,11 @@ const runScenario = ({scenario}) => {
   const execution = spawnSync(claudeBin, claudeArguments, {cwd: fixture, encoding: 'utf8', timeout: timeoutMs})
   writeFileSync(join(runDirectory, 'executor.log'),
     `# command: ${claudeBin} ${claudeArguments.join(' ')}\n# exit: ${execution.status}\n\n## stdout\n${execution.stdout ?? ''}\n\n## stderr\n${execution.stderr ?? ''}\n`)
+
+  // 스폰 기록은 훅(record-subagent-telemetry)이 남긴다 — 암 라벨은 실행기가 붙인다(실행 모델의 지시 순응에 기대지 않는다).
+  const telemetry = spawnSync(process.execPath, [join(scriptDirectory, 'report-execution-telemetry.mjs'), '--project', fixture,
+    '--emit', join(fixture, '_workspace/04_qa/execution-telemetry.json'), '--run-suffix', arm === 'off' ? '+gatesOff' : '+gatesOn'], {encoding: 'utf8'})
+  if (telemetry.status !== 0) console.error(`execution-telemetry 생성 실패 — ${telemetry.stderr.trim()}`)
 
   const cliVersion = spawnSync(claudeBin, ['--version'], {encoding: 'utf8'}).stdout?.trim() ?? 'unknown'
   const harnessRev = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {cwd: repositoryRoot, encoding: 'utf8'}).stdout?.trim() ?? 'unknown'
@@ -317,7 +322,7 @@ if (args.includes('--dry-run')) {
   console.log(`scenario: ${scenarioId} (${loaded.catalog} catalog, risk: ${loaded.scenario.risk ?? 'n/a'}, assertions: ${loaded.scenario.assertions.length})`)
   console.log(`1) fixture 배포: deploy-harness.mjs --target eval-runs/${scenarioId}/<run-id>/fixture${loaded.scenario.seed ? ` + seed .claude/evals/seeds/${loaded.scenario.seed}` : ''}`)
   console.log(`2) executor:     ${claudeBin} -p "${evalEntryText(loaded.scenario)} ${loaded.scenario.prompt}" --permission-mode ${permissionMode}${model ? ` --model ${model}` : ''}`)
-  console.log(`   A/B 암:       ${arm}${arm === 'off' ? ' — runaway 방어 3게이트 미호출 지시가 프롬프트에 추가된다(telemetry run 라벨 +gatesOff)' : ' (평소 동작, telemetry run 라벨 +gatesOn)'}`)
+  console.log(`   A/B 암:       ${arm}${arm === 'off' ? ' — runaway 방어 3게이트 미호출 지시가 프롬프트에 추가된다(실행 뒤 telemetry run 라벨 +gatesOff)' : ' (평소 동작, 실행 뒤 telemetry run 라벨 +gatesOn)'}`)
   console.log(`3) grader:       ${claudeBin} -p <grader-prompt> --allowedTools Read,Glob,Grep (read-only)`)
   console.log('주의: executor는 전체 앱 빌드를 수행할 수 있어 수십 분·상당한 토큰이 든다.')
 } else if (args.includes('--full')) {

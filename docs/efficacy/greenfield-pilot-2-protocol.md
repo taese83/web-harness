@@ -31,7 +31,7 @@ API는 Mock 우선 + 실연결 가이드(외부 키는 serverless proxy 뒤). �
 
 | 항목 | 출처 | 비교 기준 |
 |---|---|---|
-| 스폰 수·토큰·outcome·runaway | `_workspace/04_qa/execution-telemetry.json` | seminar-booking ON-암(22스폰·2.8M·미완 3·runaway 10) |
+| 스폰 수·토큰·runaway (outcome은 미판정) | `report-execution-telemetry.mjs --project <root>`(SubagentStop 훅 기록) | seminar-booking ON-암(22스폰·2.8M·미완 3·runaway 10) |
 | fit-gate 판정 분포 | validate-spawn-plan 실행 기록 | REFUSE/FITS와 실제 결과의 정합 |
 | UI 레인 일치 | `validate-ui-lane.mjs --project` | PASS 필수 (CROSS_LANE이면 그 자체가 발견) |
 | 발산 리서치 실행 흔적 | ux-brief Reference 표(축≥3·기각 기록·recency 출처·날짜) | 형식 충족 여부 — 미충족이면 프로토콜이 산문에 그친 것 |

@@ -18,27 +18,8 @@
 
 ## 실행 telemetry (실측 기록)
 
-- 오케스트레이터는 **스폰(Agent/Task 호출)이 끝날 때마다** 결과 metadata의 usage를 `_workspace/04_qa/execution-telemetry.json`에 append한다:
-
-```json
-{"schemaVersion": 1, "spawns": [
-  {"run": "2026-08-04T09:00+fresh", "phase": "P2", "agent": "layout-designer",
-   "retry": false, "mode": "fresh", "tokens": 51234, "toolUses": 18, "durationMs": 195912,
-   "outcome": "complete", "returnTruncated": false}
-]}
-```
-
-- `run`은 실행 시작 시각+모드(fresh/iterate/resume)로 한 번 정해 같은 실행의 모든 spawn에 동일하게 쓴다. retry 스폰은 `retry: true`로 같은 파일에 append한다.
-- `mode`는 `fresh` | `resume`다 — 새 스폰인지 이전 컨텍스트를 이어받은 재개인지. `resume`이면 `resumeOf`에 이어받은
-  스폰의 인덱스를 적는다. **이 둘이 없으면 재개 체인의 비용을 사후에 셀 수 없다** — `retry: true`는 실패 재스폰·
-  컨텍스트 재개·피드백 라운드·후속 작업을 전부 섞는다(2026-08 파일럿 34건이 그랬다).
-- `returnTruncated`는 반환 서사가 끊겼는지다. `outcome`과 독립이며, 산출물이 완결이면 `outcome: complete` + 
-  `returnTruncated: true`가 정상 조합이다.
-- `outcome`은 "스폰 완결성 게이트" 판정 결과다: `complete` | `truncated` | `crashed` | `incomplete`. 값을 지어내지 않는다 — 게이트를 돌리지 않았으면 `outcome`을 생략한다(누락은 미판정이지 complete가 아니다).
-- 실행 환경이 usage를 제공하지 않으면 해당 필드를 `null`로 기록한다 — **값을 추정하거나 지어내지 않는다.** `tokens: null` 행도 스폰 수 집계에는 유효하다.
-- 이 파일은 QA receipt가 아니다. `evidence/` 디렉토리에 두지 않고(receipt 검증과 분리) `_workspace/04_qa/` 직하에 둔다 — release fingerprint 제외 경로라서 Phase 4 중 append가 source hash를 stale로 만들지 않는다.
-- 소요 시간·턴은 `SubagentStop` 훅(`record-subagent-telemetry.mjs`)이 런타임 transcript에서 멈춤마다 따로 기록한다(지시 대기 제외, 이어받은 스폰은 직전 기록 이후만) — 위 자기보고가 빠져도 에이전트별 소요가 남는다. 토큰은 재지 않는다.
-- 집계 보고: `node .claude/scripts/report-execution-telemetry.mjs --project {root}` — run·phase별 스폰/토큰 합계, 토큰 상위 agent, retry 비율, 에이전트별 실측 소요를 출력한다. **advisory이며 gate가 아니다** — 이 수치로 release 판정을 바꾸지 않는다.
+- 스폰 usage는 `SubagentStop` 훅(`record-subagent-telemetry.mjs`)이 런타임 transcript에서 멈춤마다 `_workspace/04_qa/context-telemetry.jsonl`에 기록한다 — 오케스트레이터는 손으로 옮기지 않는다. 잴 수 없으면 `null`이다(지어내지 않는다).
+- 집계: `node .claude/scripts/report-execution-telemetry.mjs --project {root}` — run(세션)별 스폰·이어받기·토큰(문맥·처리·출력), runaway 스폰, 에이전트별 소요. **advisory이며 gate가 아니다** — 이 수치로 release 판정을 바꾸지 않는다.
 
 ## 스폰 완결성 게이트
 
@@ -68,10 +49,10 @@ SELF_CHECK: <자체 확인 요약 또는 none>
 - 반환이 작업 노트·문장 도중에서 끝남(요약 없이 종료 — truncation 신호)
 - 실행 환경이 조기 종료를 보고("terminated early", "API error", "connection closed")
 
-`outcome`은 truncation 계열이면 `truncated`, 환경 crash면 `crashed`, 그 외 미완이면 `incomplete`로 telemetry에 기록한다.
+미완은 truncation 계열이면 `truncated`, 환경 crash면 `crashed`, 그 외 `incomplete`로 부른다.
 
-**반환 서사의 절단과 산출물의 미완은 다른 일이다.** 아래를 **모두** 만족하면 `complete`로 적고 절단 사실은
-`returnTruncated: true`로 남긴다 — 반환 서사는 산출물이 아니다(규칙 5의 보고서형 스폰은 반대로 텍스트가 산출물이다).
+**반환 서사의 절단과 산출물의 미완은 다른 일이다.** 아래를 **모두** 만족하면 반환이 끊겼어도
+`complete`다 — 반환 서사는 산출물이 아니다(규칙 5의 보고서형 스폰은 반대로 텍스트가 산출물이다).
 
 - `verify-spawn-completion --paths/--expect`가 전건 OK
 - 잠금 매니페스트가 있으면 `resume-manifest`의 remaining 0
@@ -141,8 +122,8 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
    **transcript JSONL의 마지막 assistant 텍스트를 기계 추출**해 저장한다(컨텍스트 절약이자
    전사(轉寫) 변조 방지).
 
-   **한계**: 규칙 4·5는 프롬프트 산문이라 기계 강제가 없다(준수는 telemetry `outcome` 분포로만
-   사후 확인). 처음부터 적게 선언한 산출물은 어떤 게이트도 잡지 못한다 — 계약 몫이다.
+   **한계**: 규칙 4·5는 프롬프트 산문이라 기계 강제가 없다(준수는 사후
+   관측뿐이다). 처음부터 적게 선언한 산출물은 어떤 게이트도 잡지 못한다 — 계약 몫이다.
 
 이 규칙들은 `retry` 예산이 아니라 **첫 스폰 설계**에 적용한다 — 예방이 재시도보다 싸다.
 
@@ -167,7 +148,7 @@ per-spawn 규모 임계(Layer 3)와 무산출 가드는 runaway를 **사후 검�
 📊 실행 예산: 스폰 {사용}/{cap} · _workspace {누적 KB} · 토큰 {telemetry 누적 실측 | 미계측}
 ```
 
-토큰 값은 `execution-telemetry.json`의 해당 run 합계다. usage가 제공되지 않은 환경이면 "미계측"으로 표시하고 숫자를 지어내지 않는다.
+토큰 값은 집계 보고의 해당 run `문맥 합`이다. 미계측이면 "미계측"으로 표시하고 숫자를 지어내지 않는다.
 
 ## 초과 시 행동 규칙
 
