@@ -8,7 +8,7 @@ import {join} from 'node:path'
 import {homedir} from 'node:os'
 import {harnessAgentName, isPluginBuild} from './agent-identity.mjs'
 import {sessionsDirectory} from './harness-session-mode.mjs'
-import {consumerAreas, implementationGuidance, markerPath, referenceContext} from './reference-areas-lib.mjs'
+import {consumerAreas, implementationGuidance, markerPath, referenceContext, turnGuidance} from './reference-areas-lib.mjs'
 
 const STALE_MS = 24 * 60 * 60 * 1000
 
@@ -19,7 +19,7 @@ try {
   const projectRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
   const agentName = harnessAgentName(input.agent_type, {projectRoot})
   const context = agentName ? referenceContext(projectRoot, agentName, {pluginBuild: isPluginBuild()}) : null
-  const guidance = agentName ? implementationGuidance(agentName) : null
+  const guidance = agentName ? [implementationGuidance(agentName), turnGuidance(agentName)].filter(Boolean).join('\n') || null : null
   if (context) {
     if (typeof input.agent_id === 'string' && input.agent_id) {
       try {

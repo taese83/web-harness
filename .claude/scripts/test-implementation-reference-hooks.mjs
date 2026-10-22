@@ -178,14 +178,23 @@ test('구현 리서치: 설계·구현에만 RESEARCH_NEEDED를 알리고, 메�
   assert.match(read('skills/web-orchestrator/references/implementation-references.md'), /## 목록 밖 — 구현 리서치/)
 })
 
-test('최소 범위: 구현 developer에 보존 지시를 늘 건네고(기준 파일이 없어도), 계획·확인·선별이 설계안·덧붙일 것·과설계를 다룬다', () => {
+test('최소 범위: 구현 developer에 보존 지시를 늘 건네고(기준 파일이 없어도), 하네스 에이전트 모두에 조회 묶기를 건네며(밖은 제외), 계획·확인·선별이 설계안·덧붙일 것·과설계를 다룬다', () => {
   withProject(({root, home}) => {
     rmSync(join(root, REFS), {recursive: true, force: true})
     const start = agent => hook('inject-implementation-references.mjs', {hook_event_name: 'SubagentStart', agent_type: agent, agent_id: `p-${agent}`}, {root, home}).stdout
     const guidance = JSON.parse(start('developer')).hookSpecificOutput.additionalContext
     assert.match(guidance, /기존 코드를 보존한다/, '기준 파일이 없는 프로젝트에서 보존 지시가 빠졌다')
     assert.match(guidance, /보안 항목·WCAG 하한·요청된 오류 처리는 덧붙임이 아니라 요구다/, '보존 지시가 하한·요청된 오류 처리까지 빼게 한다')
-    assert.equal(start('code-reviewer'), '', '리뷰어에게 구현 보존 지시를 건넸다')
+    assert.match(guidance, /서로 기대지 않는 조회\(Read·Grep·Glob\)는 한 응답에 여러 개를 함께 부르고/, '구현자에게 조회 묶기 지시가 빠졌다')
+    assert.ok(guidance.indexOf('기존 코드를 보존한다') < guidance.indexOf('한 응답에 여러 개를'), '보존 지시가 턴 지시 뒤로 밀렸다')
+    assert.match(guidance, /Grep -n으로 줄을 찾아 그 구간만 읽는다/, '구현자에게 구간 읽기 지시가 빠졌다')
+    const reviewer = JSON.parse(start('code-reviewer')).hookSpecificOutput.additionalContext
+    assert.doesNotMatch(reviewer, /기존 코드를 보존한다/, '리뷰어에게 구현 보존 지시를 건넸다')
+    assert.doesNotMatch(reviewer, /그 구간만 읽는다/, '리뷰어에게 리뷰 대상을 구간만 읽게 했다')
+    for (const agent of ['code-reviewer', 'security-reviewer', 'system-architect']) {
+      assert.match(JSON.parse(start(agent)).hookSpecificOutput.additionalContext, /한 응답에 여러 개를 함께 부르고/, `${agent}에 조회 묶기 지시가 빠졌다`)
+    }
+    assert.equal(start('general-purpose'), '', '하네스 밖 에이전트에 하네스 지시를 건넸다')
     assert.equal(existsSync(markerPath('p-developer', home)), false, '기준을 건네지 않았는데 반환 확인 표시를 남겼다')
   })
   const read = path => readFileSync(join(HERE, '..', path), 'utf8')

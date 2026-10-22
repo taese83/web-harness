@@ -193,7 +193,7 @@ const excludeDevAgents = relativePath => DEV_ONLY_AGENTS.has(relativePath)
 copyTree(join(repositoryRoot, '.claude', 'skills'), join(outputRoot, 'skills'), {transform: true, exclude: excludeDevSkills})
 copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, 'agents'), {transform: true, exclude: excludeDevAgents})
 // 스크립트 호환용 원본 사본 — read-skill-section 등의 .claude/skills asset 참조와
-// knownAgents 해석이 플러그인 루트 기준으로 그대로 동작하게 한다.
+// knownAgents 해석·reference-areas-lib의 하네스 에이전트 판별(shipsAgent)이 플러그인 루트 기준으로 그대로 동작하게 한다.
 copyTree(join(repositoryRoot, '.claude', 'skills'), join(outputRoot, '.claude', 'skills'), {exclude: excludeDevSkills})
 copyTree(join(repositoryRoot, '.claude', 'agents'), join(outputRoot, '.claude', 'agents'), {exclude: excludeDevAgents})
 

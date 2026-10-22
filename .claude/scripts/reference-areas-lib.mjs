@@ -149,6 +149,16 @@ export const PRESERVATION = '[web-harness] 수정 범위 — 기존 코드를 �
   + '넣고 싶은 것이 있으면 코드에 넣지 말고 반환에 `EXTRAS: <목록>`으로 올린다.'
 export const implementationGuidance = agentName => (agentName === 'developer' ? PRESERVATION : null)
 
+// 턴 한도는 응답 수로 센다 — 독립 조회를 한 응답에 하나씩 부르면 쓰기 전에 한도가 찬다(실사용 2026-10 실측). 하네스가 배포한 에이전트 모두에 건넨다.
+// 구간 읽기는 구현에만 — 리뷰어는 리뷰 대상(diff.patch)을 끝까지 읽어야 한다.
+export const BATCHING = '[web-harness] 턴 — 턴 한도는 응답 수로 센다. 서로 기대지 않는 조회(Read·Grep·Glob)는 한 응답에 여러 개를 함께 부르고, '
+  + '다음 조회가 앞 결과에 기댈 때만 나눈다. 이미 읽은 구간은 다시 넘기지 않는다.'
+const DEVELOPER_RANGE = ' 큰 소스·테스트 파일은 Grep -n으로 줄을 찾아 그 구간만 읽는다.'
+// 하네스가 배포한 에이전트만 — 이름 판별(agent-identity)은 개발 판본에서 접두 없는 모든 이름을 하네스로 보므로 정의 파일로 좁힌다
+// (플러그인에서는 build-plugin의 .claude/agents 호환 사본에 기댄다).
+const shipsAgent = name => /^[a-z][a-z0-9-]*$/.test(String(name ?? '')) && existsSync(new URL(`../agents/${name}.md`, import.meta.url))
+export const turnGuidance = agentName => (agentName === 'developer' ? `${BATCHING}${DEVELOPER_RANGE}` : shipsAgent(agentName) ? BATCHING : null)
+
 /** 주입한 스폰의 표시 — 짝 훅(SubagentStop)이 이 스폰만 확인한다. */
 export const markerPath = (agentId, home = homedir()) => join(sessionsDirectory(home), `refs-${String(agentId).replace(/[^A-Za-z0-9_-]/g, '_')}.json`)
 
