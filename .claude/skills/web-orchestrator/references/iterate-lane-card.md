@@ -48,7 +48,7 @@
 2. 반환 뒤(write-back이면 `--verify`) 입력이 바뀌었을 때만 3행 `spec.mjs`로 ✋ 전 재확정. ✋에 `ACC-`·`TT-`. `ESCALATE_TO_FULL`이면 full.
    `RESEARCH_NEEDED`면 ✋ 전에 `tech-advisor` 구현 리서치 1회 — 답은 ✋ 요약과 3의 구현 지시에(파일 없음).
    `DESIGN_OPTIONS`·`EXTRAS`는 ✋에 싣고, 3의 구현 지시에는 사용자가 고른 안과 승인한 덧붙일 것만 넣는다.
-3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **새 developer 스폰**에 계획 반환·승인된 `ACC-`·`TT-`·고른 안·`KEY_FILES`를 넘긴다 —
+3. ✋ 뒤 구현 범위 펜스(`PHASE` 없음)를 append하고 **새 developer 스폰**에 계획 반환·승인된 `ACC-`·`TT-`와 조건별 검증 수단·고른 안·`KEY_FILES`를 넘긴다 —
    SendMessage로 잇지 않는다. 수정도 새 스폰이다(이유·예외 `retry-policy.md`).
 4. 리뷰는 라운드당 **한 스폰**(`qa-evidence-contract.md` Iterate evidence light — 9 ①도 채운다).
 

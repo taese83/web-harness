@@ -21,6 +21,8 @@
   계약 문서와 대조해 `DOCS_TO_UPDATE`를 적는다(`none (대조: 자기검사 <id>… · <문서>)`). 목록이 있거나 `decisionsRef`에 설계 문서 결정이
   있을 때만 ③ 그 문서의 설계 에이전트를 스폰하고, 입력이 바뀌었으면 ④ 재확정 뒤 ✋다. 완료 조건마다 `LOCAL_VERIFIABLE | DEPLOY_ONLY`와
   `CAPABILITY_ESCALATION`은 메인이 판정서 근거로 단다(자기검사 `new-auth-path`·`new-external-dependency`·`new-data-contract` 「예」가 신호).
+  검증 수단도 `ACCEPTANCE` 줄 형식(`minimal-change-contract.md`)으로 단다 — 그 조건을 확인하는 `TT-` ID, 짝이 분명하지 않으면 TT를
+  추정하지 않고 `— 검증: 리뷰|수동`.
   구현 스폰의 `KEY_FILES`는 자기검사 근거와 `writePaths`다.
 - **기준은 문서가 아니라 라운드에 싣는다(문서 축소):** 계획 패스는 **기획 문서를 쓰지 않는다** — 이번 라운드의 완료 조건
   `ACC-R<n>-<k>`(각각 `LOCAL_VERIFIABLE | DEPLOY_ONLY`)와 테스트 항목 `TT-R<n>-<k>`를 반환하고, 메인이 change-scope 라운드 항목의
@@ -50,7 +52,8 @@
   developer가 `ESCALATE_TO_FULL`로 알리고,
   메인은 ①~③으로 넘어간다(계획 패스가 반환한 `ACC-`·`TT-`는 ①의 입력이 된다).
 - **✋ 뒤:** 메인이 구현 범위 펜스(`PHASE` 없음)를 append하고 **새 developer를 스폰해** 구현시킨다. 인계는 계획 반환(티켓은 등록
-  기록) · 승인된 `ACC-`·`TT-` · 고른 설계안·승인한 덧붙일 것 · 구현 리서치 답 · `KEY_FILES`다. 계획 패스 developer를 SendMessage로
+  기록) · 승인된 `ACC-`·`TT-`와 **완료 조건별 검증 수단**(조건 줄의 `TT-` ID 또는 `— 검증: 리뷰|수동`과 `LOCAL_VERIFIABLE | DEPLOY_ONLY` — 줄에는 이 표식만 쓴다) ·
+  고른 설계안·승인한 덧붙일 것 · 구현 리서치 답 · `KEY_FILES`다. 계획 패스 developer를 SendMessage로
   잇지 않는다 — 이유와 예외는 `retry-policy.md` Iterate 라운드(수정도 같다).
 
 ## ① 기획 개정 — 항상(full)
