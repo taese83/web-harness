@@ -185,6 +185,7 @@ test('최소 범위: 구현 developer에 보존 지시를 늘 건네고(기준 �
     const guidance = JSON.parse(start('developer')).hookSpecificOutput.additionalContext
     assert.match(guidance, /기존 코드를 보존한다/, '기준 파일이 없는 프로젝트에서 보존 지시가 빠졌다')
     assert.match(guidance, /보안 항목·WCAG 하한·요청된 오류 처리는 덧붙임이 아니라 요구다/, '보존 지시가 하한·요청된 오류 처리까지 빼게 한다')
+    assert.match(guidance, /반환 전에 이번 변경만 다시 보고, 이번 변경으로 생긴 중복·안 쓰게 된 코드·임시 이름을 정리한다 — 이번 변경과 무관한 줄은 건드리지 않고, 지운 고아 코드는 반환에 적는다/, '구현 마무리 정리가 빠졌거나 범위가 이번 변경을 넘는다')
     assert.match(guidance, /서로 기대지 않는 조회\(Read·Grep·Glob\)는 한 응답에 여러 개를 함께 부르고/, '구현자에게 조회 묶기 지시가 빠졌다')
     assert.ok(guidance.indexOf('기존 코드를 보존한다') < guidance.indexOf('한 응답에 여러 개를'), '보존 지시가 턴 지시 뒤로 밀렸다')
     assert.match(guidance, /Grep -n으로 줄을 찾아 그 구간만 읽는다/, '구현자에게 구간 읽기 지시가 빠졌다')

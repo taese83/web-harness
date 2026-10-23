@@ -146,7 +146,8 @@ export function referenceContext(root, agentName, {pluginBuild}) {
 export const PRESERVATION = '[web-harness] 수정 범위 — 기존 코드를 보존한다. 요청과 승인된 범위에 필요한 줄만 바꾸고, 이름 변경·리포맷·옮기기, '
   + '요청에 없는 추상화·방어 코드·fallback·일어날 수 없는 경우의 처리를 더하지 않는다(✋에서 승인된 덧붙일 것만 예외). '
   + '보안 항목·WCAG 하한·요청된 오류 처리는 덧붙임이 아니라 요구다 — 빼지 않는다. '
-  + '넣고 싶은 것이 있으면 코드에 넣지 말고 반환에 `EXTRAS: <목록>`으로 올린다.'
+  + '넣고 싶은 것이 있으면 코드에 넣지 말고 반환에 `EXTRAS: <목록>`으로 올린다. '
+  + '반환 전에 이번 변경만 다시 보고, 이번 변경으로 생긴 중복·안 쓰게 된 코드·임시 이름을 정리한다 — 이번 변경과 무관한 줄은 건드리지 않고, 지운 고아 코드는 반환에 적는다.'
 export const implementationGuidance = agentName => (agentName === 'developer' ? PRESERVATION : null)
 
 // 턴 한도는 응답 수로 센다 — 독립 조회를 한 응답에 하나씩 부르면 쓰기 전에 한도가 찬다(실사용 2026-10 실측). 하네스가 배포한 에이전트 모두에 건넨다.
