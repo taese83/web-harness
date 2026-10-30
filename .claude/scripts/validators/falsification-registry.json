@@ -4603,6 +4603,22 @@
       "why": "구현이 기존 코드를 보존하라는 지시를 받지 못하면 요청보다 넓게 고치고 요청에 없는 추상화·방어 코드를 더한다"
     },
     {
+      "id": "developer-bash-restricted",
+      "file": ".claude/scripts/agent-registry.mjs",
+      "find": "export const RESTRICTED_BASH_WRITERS = new Set(['developer'])",
+      "replace": "export const RESTRICTED_BASH_WRITERS = new Set([])",
+      "test": ".claude/scripts/test-verifier-bash.mjs",
+      "why": "쓰는 에이전트의 셸이 typed 명령으로 좁혀지지 않으면 sed·rm·리다이렉트로 Write/Edit 소유권을 우회한다"
+    },
+    {
+      "id": "developer-bash-positive-allowlist",
+      "file": ".claude/scripts/enforce-verifier-bash.mjs",
+      "find": "  if (writer && (!script || !WRITER_ALLOWED_SCRIPTS.has(script))) {",
+      "replace": "  if (false) {",
+      "test": ".claude/scripts/test-verifier-bash.mjs",
+      "why": "쓰는 에이전트가 verifier 검사 스크립트 허용목록을 물려받으면 트래커 발행·--fix·스냅샷으로 소유권 밖 파일·외부 상태를 바꾼다"
+    },
+    {
       "id": "harness-agents-turn-batching",
       "file": ".claude/scripts/reference-areas-lib.mjs",
       "find": "export const turnGuidance = agentName => (agentName === 'developer' ? `${BATCHING}${DEVELOPER_RANGE}` : shipsAgent(agentName) ? BATCHING : null)",

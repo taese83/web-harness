@@ -21,8 +21,8 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --to comple
 사람이 전부 손으로 다시 확인하게 된다(2026-09-02 실측: 골격 단계가 "완료"로 보고됐는데
 build·test·lint 중 무엇도 실행된 적이 없었다).
 
-쓰는 에이전트(`developer`·`environment-scaffolder`)는 Bash가 없어 스스로 돌리지 못한다 —
-쓴 사람이 채점하면 테스트를 고쳐 통과시킬 수 있으므로 **의도된 분리**다. 그래서 검증자를
+쓰는 에이전트의 실행은 **피드백**이다 — `developer`는 품질 실행기로 스스로 돌려 고치지만(`environment-scaffolder`는 셸이 없다)
+쓴 사람이 채점하면 테스트를 고쳐 통과시킬 수 있으므로 채점은 검증자·리뷰가 한다(**의도된 분리**). 그래서 검증자를
 따로 띄워야 하고, 그 사실이 산문으로만 있으면 빠뜨린다. 이 검사가 그 자리를 막는다.
 
 release gate가 통과하지 않았으면 “완성”이라고 표현하지 않는다. 완료 상태는 `release-tier-contract.md`의 tier 라벨(`DIAGNOSTIC_VERIFIED` | `ISOLATED_VERIFIED` | `RELEASED`)을 그대로 사용하고, T2 미만이면 HANDOFF 링크 대신 `_workspace/RELEASE/release-readiness.md` 링크와 다음 tier 승급에 필요한 항목을 제공한다.

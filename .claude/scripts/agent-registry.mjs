@@ -24,6 +24,12 @@ export const VERIFIER_AGENTS = new Set([
   'visual-regression-verifier',
 ])
 
+// 쓰는 에이전트 중 셸을 받는 쪽 — Bash는 verifier와 같은 훅(enforce-verifier-bash)이 파일을 바꾸지 않는 typed 명령으로만 좁힌다
+// (읽기·품질 실행기 --check·읽기 전용 검사 스크립트·패키지 브로커 install·lockfile·`pnpm install --ignore-scripts`). 검사·설치를 스스로 못 돌리면
+// 메인 왕복과 의존성 추론으로 턴을 다 쓴다.
+export const RESTRICTED_BASH_WRITERS = new Set(['developer'])
+export const PACKAGE_OPERATIONS_FOR_WRITERS = new Set(['install', 'lockfile'])
+
 // 오케스트레이터 메인 스레드가 직접 작성하는 소수의 조율 산출물 선언.
 // 메인 스레드는 ownership hook 대상이 아니므로 이 목록은 강제가 아니라 감사 가능한
 // 명세다 — 여기 나열되지 않은 `_workspace` 설계 산출물은 소유 agent가 있어야 하며,

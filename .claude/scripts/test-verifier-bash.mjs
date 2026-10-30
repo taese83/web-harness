@@ -28,3 +28,43 @@ test('verifier는 여전히 프로젝트 스크립트를 직접 실행하지 못
   const result = run('integration-verifier', 'pnpm run lint')
   assert.equal(result.status, 2)
 })
+
+test('developer 셸은 양성 목록만 — 실행기 --check·브로커 install·lockfile·pnpm install --ignore-scripts·읽기 전용 검사·읽기는 통과하고, 파일·외부 상태를 바꾸는 명령은 막힌다', () => {
+  const allowed = [
+    'node .claude/scripts/run-quality-gates.mjs --project . --check test --failure-summary',
+    'web-harness-script run-quality-gates --project . --check typecheck --failure-summary',
+    'node .claude/scripts/run-package-operation.mjs --project . --operation install',
+    'web-harness-script run-package-operation --project . --operation lockfile',
+    "rg -n 'token' .claude/agents/developer.md",
+    'pnpm install --ignore-scripts',
+    'pnpm install --frozen-lockfile --ignore-scripts',
+    'node .claude/scripts/run-git-inspection.mjs --project . --operation diff-stat',
+  ]
+  for (const agent of ['developer', 'web-harness:developer']) {
+    for (const command of allowed) {
+      const result = run(agent, command)
+      assert.equal(result.status, 0, `${agent} ${command}: ${result.stderr}`)
+    }
+  }
+  const blocked = [
+    'pnpm test', 'pnpm install', 'git status', "sed -i 's/a/b/' package.json", 'rm package.json', 'echo x > package.json',
+    'cp package.json x.json', "node -e 'require(\"fs\").writeFileSync(\"x\",\"y\")'",
+    'node .claude/scripts/run-package-operation.mjs --project . --operation git-init',
+    'web-harness-script run-package-operation --project . --operation husky-init',
+    'node .claude/scripts/run-quality-gates.mjs --project . --all --failure-summary',
+    'node .claude/scripts/run-quality-gates.mjs --project . --all',
+    'pnpm install', 'pnpm add left-pad@1.3.0', 'pnpm install --ignore-scripts --filter user', 'pnpm install --ignore-scripts --ignore-scripts',
+    // verifier에게는 열린 검사 스크립트 중 파일·외부 상태를 바꾸는 것 — 쓰는 에이전트는 물려받지 않는다
+    'node .claude/scripts/validate-development-readiness.mjs --project . --fix',
+    'node .claude/scripts/validate-plan-delta.mjs --project . --change PC-001 --snapshot',
+    'node .claude/scripts/ticket/cli.mjs claim --repo o/r',
+  ]
+  for (const command of blocked) {
+    assert.equal(run('developer', command).status, 2, `developer에 허용됐다: ${command}`)
+  }
+  const background = spawnSync(process.execPath, [HOOK], {input: JSON.stringify({tool_name: 'Bash', agent_type: 'developer', cwd: ROOT,
+    tool_input: {command: 'pnpm install --ignore-scripts', run_in_background: true}}), cwd: ROOT, encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: ROOT}})
+  assert.equal(background.status, 2, 'developer가 설치를 백그라운드로 띄웠다')
+  assert.equal(run('integration-verifier', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status, 2,
+    'verifier가 패키지 브로커를 돌렸다')
+})

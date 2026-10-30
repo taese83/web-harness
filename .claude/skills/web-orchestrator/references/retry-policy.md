@@ -12,7 +12,7 @@ Use this reference before retrying after Phase 4 QA.
 
 | Failing report | Common signal | Retry owner |
 |---|---|---|
-| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `environment-scaffolder`(설정·의존성) 또는 `developer`(소스) |
+| `qa-code.md` | TypeScript, ESLint, import direction, missing dependency | `environment-scaffolder`(설정·도구 의존성) 또는 `developer`(소스·스팩이 정한 의존성 설치) |
 | `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer` · `component-designer` 우선, 그 다음 `developer` |
 | `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `environment-scaffolder`(빌드·설정) 또는 `developer`(라우트·MSW 배선) |
 | `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `developer` · `environment-scaffolder` · `auth-setup` 스킬 owner |
@@ -53,7 +53,7 @@ Use this reference before retrying after Phase 4 QA.
   테스트 항목만 넘긴다(각 스폰이 그 모듈의 코드와 테스트를 함께 쓴다). 마지막 모듈 뒤에는 라운드 전체 범위 펜스를 다시 append한다 — 범위 대조·
   확장이 라운드 기준으로 돌아간다. 게이트는 모든 모듈 뒤 한 번이다. 한 스폰에 다 맡기면 턴 한도에 걸려 이어 쓰기가 반복된다. 수치는 단일 실측
   교정이라 재교정 전제다(Phase 3 빌더 분해는 `spawn-decomposition-contract.md`의 기계 게이트가 맡고, Iterate는 이 산문 규칙이다). 메인은 source를 쓰지 않는다 — 고칠 것은 developer 수정 스폰으로 보낸다. developer가 못 채운 것을 메인이 직접 완결하는 폴백(`execution-contract.md` Agent invocation)은 Iterate source에 적용하지 않는다 — 수정 스폰이거나 `BLOCKED`다.
-- 검사는 메인이 `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary`로 돌리고, 통과하지 못하면 `_workspace/04_qa/failure-summary.json`(실패 위치만 — 테스트 이름·파일:줄·규칙 id)을 수정 스폰의 입력으로 준다. 첫 실행은 사용자 승인 뒤 `--allow-host-execution`이다. 영수증 `status: BLOCKED`(스크립트 부재·engine·의존 그래프 등 환경 원인)는 수정 스폰의 입력이 아니다 — 라운드를 `BLOCKED (사유)`로 멈춘다.
+- developer는 반환 전에 같은 실행기로 스스로 돌려 고친다(피드백 — `developer.md` 「실행」). 실행 승인 기록은 첫 구현 스폰 전에 받아 둔다 — 없으면 그 실행이 막혀 한 번 더 왕복한다. 채점하는 검사는 메인이 `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary`로 돌리고, 통과하지 못하면 `_workspace/04_qa/failure-summary.json`(실패 위치만 — 테스트 이름·파일:줄·규칙 id)을 수정 스폰의 입력으로 준다. 첫 실행은 사용자 승인 뒤 `--allow-host-execution`이다. 영수증 `status: BLOCKED`(스크립트 부재·engine·의존 그래프 등 환경 원인)는 수정 스폰의 입력이 아니다 — 라운드를 `BLOCKED (사유)`로 멈춘다.
 - 수정은 **새 수정 스폰**에 시킨다 — 입력은 실패 위치(`failure-summary.json`)나 finding(`파일:줄`), 이번 라운드에 바뀐 파일 목록, 승인된
   기준과 범위다. 반환·`PARTIAL`·턴 한도로 멈춘 스폰(구현·수정 모두)을 SendMessage로 잇는 것은 멈춘 직후 5분 안에, 리뷰·사용자 대기 없이
   줄 때만이다 — 서브에이전트 문맥 캐시는 5분이면 만료돼, 그 뒤에 이어 주면 쌓인 문맥 전체를 다시 쓴다. 그 밖(게이트 실행이 길었거나 모르면

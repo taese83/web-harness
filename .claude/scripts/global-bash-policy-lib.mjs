@@ -474,6 +474,8 @@ const qualityRunnerContract = (args, context) => {
     const index = approvalIndexes[0]
     commandArgs = [...commandArgs.slice(0, index), ...commandArgs.slice(index + 1)]
   }
+  // 실패 위치 목록(--failure-summary)은 --check 하나에만 붙는다 — 수정할 곳을 실행기 출력에서 받는다.
+  if (commandArgs.length === 3 && commandArgs[2] === '--failure-summary') commandArgs = commandArgs.slice(0, 2)
   return commandArgs.length === 0 ||
     (commandArgs.length === 1 && commandArgs[0] === '--all') ||
     exactPair(commandArgs, '--check', QUALITY_CHECKS)
@@ -1002,6 +1004,24 @@ const validateNodeCommand = (args, context) => {
   readablePath(args[0], context, 'file')
   if (!validationScriptContract(script, args.slice(1), context)) {
     fail('DENY_VALIDATION_COMMAND', `Node command is not an approved validation contract: ${script}`)
+  }
+}
+
+// 쓰는 에이전트(RESTRICTED_BASH_WRITERS)의 의존성 설치 — 프로젝트 루트에서 `pnpm install --ignore-scripts`[`--frozen-lockfile`]만.
+// 프로젝트 .npmrc(사내 레지스트리)와 범위 버전을 그대로 따르고(공개 레지스트리 브로커가 못 받는 저장소), 설치 스크립트는 돌리지 않는다.
+// package.json 편집은 Edit(소유권 훅)으로만 — `pnpm add`는 셸로 package.json을 바꾸므로 받지 않는다. 판정은 훅이 에이전트를 가린 뒤 부른다.
+export const isWriterInstallCommand = (input, options = {}) => {
+  try {
+    // 입력 형태 검사는 정책과 같다 — 백그라운드 설치(끝나기 전에 검사를 돌려 통과로 보고하는 경로)도 받지 않는다.
+    if (!input?.tool_input || typeof input.tool_input !== 'object' || input.tool_input.run_in_background === true) return false
+    requireNoUnexpectedToolInput(input.tool_input)
+    const context = createContext(input, options.environment ?? process.env, options.processCwd ?? process.cwd())
+    if (context.cwd !== context.projectRoot) return false
+    const [command, subcommand, ...flags] = tokenizeSimpleCommand(String(input?.tool_input?.command ?? ''))
+    return command === 'pnpm' && subcommand === 'install' && flags.includes('--ignore-scripts') &&
+      new Set(flags).size === flags.length && flags.every(flag => flag === '--ignore-scripts' || flag === '--frozen-lockfile')
+  } catch {
+    return false
   }
 }
 

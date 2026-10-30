@@ -1,7 +1,7 @@
 import {spawnSync} from 'node:child_process'
 import {existsSync, readdirSync, readFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
-import {AGENT_OWNERSHIP, VERIFIER_AGENTS} from '../agent-registry.mjs'
+import {AGENT_OWNERSHIP, RESTRICTED_BASH_WRITERS, VERIFIER_AGENTS} from '../agent-registry.mjs'
 import {evaluateGlobalBashPolicy} from '../global-bash-policy-lib.mjs'
 
 const frontmatterOf = text => String(text).match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
@@ -62,7 +62,7 @@ export const validateAgentBoundaries = ({
   for (const file of readdirSync(join(repositoryRoot, '.claude/agents')).filter(name => name.endsWith('.md')).sort()) {
     const name = file.slice(0, -'.md'.length)
     const frontmatter = parseFrontmatter(`.claude/agents/${file}`, read(`.claude/agents/${file}`))
-    if (!/\bBash\b/.test(frontmatter.tools ?? '') || VERIFIER_AGENTS.has(name)) continue
+    if (!/\bBash\b/.test(frontmatter.tools ?? '') || VERIFIER_AGENTS.has(name) || RESTRICTED_BASH_WRITERS.has(name)) continue
     if (devOnlyAgents.has(name)) continue
     fail(`.claude/agents/${file}: Bash를 가진 배포 에이전트가 VERIFIER_AGENTS 밖이다 — 플러그인에서는 셸이 제한되지 않아 소유권을 우회한다`)
   }
@@ -104,7 +104,7 @@ export const validateAgentBoundaries = ({
       })
       .join(' ')
   }
-  for (const agentName of readOnlyAgents) {
+  for (const agentName of [...readOnlyAgents, ...[...RESTRICTED_BASH_WRITERS].sort()]) {
     const relativePath = `.claude/agents/${agentName}.md`
     if (!existsSync(join(repositoryRoot, relativePath))) continue
     const source = read(relativePath)

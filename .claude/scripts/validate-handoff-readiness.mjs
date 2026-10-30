@@ -1469,9 +1469,8 @@ export function checkUpstreamDecisionsReachable(root) {
 // 전부 손으로 다시 확인하게 된다(2026-09-02 실측: 1단계 골격이 "완료"로 보고됐는데
 // build·test·lint 중 무엇도 실행된 적이 없었다).
 //
-// 쓰는 에이전트(developer·environment-scaffolder)는 Bash가 없어 스스로 못 돌린다 —
-// 의도된 분리다(쓴 사람이 채점하면 테스트를 고쳐 통과시킬 수 있다). 그래서 검증자를
-// 따로 띄워야 하는데, 그 사실이 산문으로만 있으면 빠뜨린다. 이 검사가 그 자리를 막는다.
+// 쓰는 에이전트의 실행은 피드백이다 — developer는 품질 실행기로 스스로 고치지만 채점은 검증자·리뷰가 한다(쓴 사람이
+// 채점하면 테스트를 고쳐 통과시킬 수 있다). 그래서 검증자를 따로 띄워야 하는데, 그 사실이 산문으로만 있으면 빠뜨린다.
 export function checkVerificationEvidence(root) {
   const spec = readSpecAt(root)
   if (!spec) return skip('evidence', '스팩이 없어 요구 검증 목록을 모른다')
@@ -1481,7 +1480,7 @@ export function checkVerificationEvidence(root) {
   }
   if (evidence.evidenceState === 'NOT_RUN') {
     return hole('evidence', `요구 검증 ${evidence.required.length}종이 하나도 수행되지 않았다(${evidence.required.join(', ')})`,
-      '검증자를 띄운다 — integration-verifier(build·라우트·dev 서버) · report-test-qa(테스트·커버리지 판정 — 품질 실행기 영수증) · code-reviewer. 쓰는 에이전트는 Bash가 없어 스스로 돌리지 못한다')
+      '검증자를 띄운다 — integration-verifier(build·라우트·dev 서버) · report-test-qa(테스트·커버리지 판정 — 품질 실행기 영수증) · code-reviewer. 쓰는 에이전트가 돌린 검사는 피드백이고 채점이 아니다')
   }
   const broken = [...evidence.missing.map(c => `${c}: receipt 없음`), ...evidence.failing.map(c => `${c}: PASS 아님`)]
   if (broken.length > 0) {

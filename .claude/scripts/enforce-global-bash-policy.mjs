@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-import {bashPolicyRemedy, evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
+import {bashPolicyRemedy, evaluateGlobalBashPolicy, isWriterInstallCommand} from './global-bash-policy-lib.mjs'
+import {RESTRICTED_BASH_WRITERS} from './agent-registry.mjs'
+import {harnessAgentName} from './agent-identity.mjs'
 
 const readInput = async () => {
   let source = ''
@@ -14,6 +16,7 @@ try {
   // 사람이 직접 감독하는 main session의 Bash는 면제 — 개발 명령(git/pnpm/pipe 등)을 막지 않는다.
   // 정책 엔진(global-bash-policy-lib)과 fixture 계약은 변경 없이 유지된다.
   if (!input?.agent_type) process.exit(0)
+  if (RESTRICTED_BASH_WRITERS.has(harnessAgentName(input.agent_type, {projectRoot: process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? null})) && isWriterInstallCommand(input)) process.exit(0)
   const decision = evaluateGlobalBashPolicy(input)
   if (!decision.allowed) {
     const remedy = bashPolicyRemedy(decision.code)

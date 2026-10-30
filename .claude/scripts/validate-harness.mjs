@@ -22,6 +22,7 @@ import {validateModularity} from './validators/validate-modularity.mjs'
 import {validatePlanningFacilitation} from './validators/validate-planning-facilitation.mjs'
 import {validateReleaseFixtures} from './validators/validate-release-fixtures.mjs'; import {validateSchemaParity} from './validators/validate-schema-parity.mjs'
 import {validateSettings} from './validators/validate-settings.mjs'
+import {RESTRICTED_BASH_WRITERS} from './agent-registry.mjs'
 import {validateWebCoreIntegration} from './validators/validate-web-core-integration.mjs'
 import {validateVisualDesign} from './validators/validate-visual-design.mjs'
 import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-evals.mjs'; import {validateContractHygiene} from './validators/validate-contract-hygiene.mjs'
@@ -100,7 +101,8 @@ for (const relativePath of [...agentFiles, ...skillFiles]) {
     for (const failure of agentRuntimeSettingFailures(relativePath, frontmatter)) fail(failure)
     if (!/^[1-9]\d*$/.test(frontmatter.maxTurns ?? '')) fail(`${relativePath}: maxTurns must be a positive integer`)
     if (/\bWrite\b/.test(frontmatter.tools ?? '')) writableAgents.push(name)
-    if (/\bWrite\b/.test(frontmatter.tools ?? '') && /\bBash\b/.test(frontmatter.tools ?? '')) {
+    // 예외는 셸이 파일을 바꾸지 않는 typed 명령으로만 좁혀진 쓰는 에이전트뿐이다(enforce-verifier-bash · RESTRICTED_BASH_WRITERS).
+    if (/\bWrite\b/.test(frontmatter.tools ?? '') && /\bBash\b/.test(frontmatter.tools ?? '') && !RESTRICTED_BASH_WRITERS.has(name)) {
       fail(`${relativePath}: writable agents must not have Bash because it bypasses path ownership hooks`)
     }
   } else {
