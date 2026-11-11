@@ -93,7 +93,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - integration-verifier
    - security-reviewer
    - api-contract-verifier
-   - `_workspace/02_design/analytics-architecture.md`가 있으면 analytics-verifier
    - `_workspace/02_design/state-contract.md`(또는 분할 디렉터리)가 있으면 state-invariant-verifier
    - locked profile에 `external-ingestion` capability가 있으면 data-quality-verifier
    - `_workspace/02_design/timeseries-architecture.md`가 있으면 timeseries-verifier
@@ -124,7 +123,6 @@ FAIL 항목은 아래 형식으로 출력한다:
 AI critical scenario의 FAIL·BLOCKED, ACL leak, approval bypass, unauthorized side effect는 release PASS로 바꾸지 않는다.
 일반 QA의 FAIL·BLOCKED·NEEDS_REVIEW와 필수 리포트 누락도 release PASS로 바꾸지 않는다.
 visual contract가 있으면 `qa-visual.md`, browser `visualEvidence`, 승인 baseline manifest 중 하나라도 누락·stale이면 release PASS로 바꾸지 않는다.
-analytics architecture가 있으면 `qa-analytics.md`의 FAIL·BLOCKED와 semantic/max fixture 누락도 release PASS로 바꾸지 않는다.
 local domain state의 데이터 손실 가능성, invariant 위반, migration/recovery 누락도 release PASS로 바꾸지 않는다.
 external ingestion의 missing/empty/schema-invalid artifact, architecture drift, production fixture fallback, atomic promotion 또는 clean-build evidence 누락도 release PASS로 바꾸지 않는다.
 Markdown command 표는 machine receipt와 일치해야 하며 source가 바뀌면 quality runner부터 다시 실행한다.

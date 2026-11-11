@@ -26,7 +26,7 @@ web-harness가 생성하는 모든 화면에 적용되는 디자인 원칙 지�
 | 위계·액션 | `design-principles-hierarchy-actions.md` | 시각 위계 5도구, 스캐닝, 버튼 위계·배치, Fitts, CTA, 정렬, 파괴적 액션 | layout-designer, component-designer, design-preview-builder, design-reviewer |
 | 내비게이션·IA | `design-principles-navigation-ia.md` | 내비 구조 선택, 메뉴 설계, 동선, 검색, 모바일 전환, 상태 표시 | product-planner, layout-designer |
 | 인터랙션·컨트롤 | `design-principles-interaction-controls.md` | 컨트롤 선택 매트릭스, 폼, 피드백, 로딩, 모달/드로어, 모션, DnD, hover/focus | component-designer, product-planner, design-preview-builder |
-| 데이터 시각화 | `design-principles-data-viz.md` | 차트 선택, Tufte, 색, 축·범례, 대시보드 구성, 숫자 표현, 실시간·상태 | component-designer, timeseries-architect, analytics-domain-architect, product-planner |
+| 데이터 시각화 | `design-principles-data-viz.md` | 차트 선택, Tufte, 색, 축·범례, 대시보드 구성, 숫자 표현, 실시간·상태 | component-designer, timeseries-architect, product-planner |
 | 디자인 리서치 | `design-principles-research.md` | 발산 축 4종(동종·이종·트렌드·시스템 릴리스), recency 규칙, 상투 회피, 단일 시안 수렴 | product-planner, design-system-architect |
 
 ## 소비 규칙

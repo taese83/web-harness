@@ -257,7 +257,7 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
    조건과 스폰 범위**다. 3단계의 모듈 경계 스폰과 달리 아래는 앞선 산출물을 기다리거나 모드
    플래그가 켜져야 돈다:
    - Mock handler·fixture 범위. `TIMESERIES_MODE`에서는 realtime interface 완료 후로 미룬다 <!-- marker:timeseries-realtime-build-order -->
-   - 차트·대시보드 범위(`TIMESERIES_MODE` · `ANALYTICS_BUILDER_MODE`) — 데이터 계층 완료 후
+   - 차트·대시보드 범위(`TIMESERIES_MODE`) — 데이터 계층 완료 후
    - 폼 범위 · 로컬 도메인 상태 범위(`LOCAL_DOMAIN_STATE_MODE`) — 스키마 확정 후
    - SEO 산출물 범위 — 공개 노출 요구일 때만
 5. browser Mock 사용 시 `public/mockServiceWorker.js`를 확인한다. dependency install이 승인·완료됐는데 파일이 없으면 실제 외부 격리가 적용된 setup job에서만 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-package-operation.mjs --project {project-root} --operation msw-init`을 실행한다. 사용자 승인만 있는 host 실행은 `BLOCKED`다

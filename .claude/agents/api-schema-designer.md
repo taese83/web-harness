@@ -56,7 +56,6 @@ endpoint에 연결한다.
 11. timeseries timestamp의 wire 단위와 내부 Unix ms 변환을 분리한다. ISO 입력은 `z.iso.datetime({offset: true})`로 먼저 검증하고, numeric 입력은 seconds/ms를 추측하지 않는다. historical과 stream schema 모두 `@shared/lib/timeseries/timestamp` 계약을 사용한다
 12. `runtime-data-contract.json`이 있으면 generated static file도 외부 API와 동일한 runtime boundary로 취급한다. artifact schema/version/source metadata/freshness/empty policy를 명세하고 API schema와 중복 타입을 만들지 않는다.
 13. static snapshot과 live API가 함께 있으면 `hybrid`의 source precedence와 merge/fallback을 명세한다. 미래 API 예시를 현재 runtime endpoint처럼 문서화하지 않는다.
-14. analytics architecture가 있으면 metric/dimension catalog, query validation/preview, chart-specific result, dashboard revision/conflict endpoint를 명세한다. Funnel/Retention/Flow 결과를 일반 series schema로 위장하지 않는다.
 
 ## 출력 구조
 

@@ -8,10 +8,6 @@ Phase 2를 시작하기 전에 `references/artifact-sharding-contract.md`를 읽
 **Wave 0 — TIMESERIES_MODE 조건부 선행**:
 - `timeseries-architect` → `_workspace/02_design/timeseries-architecture.md`
 
-**Wave 0-B — ANALYTICS_BUILDER_MODE 조건부 선행**:
-- `analytics-domain-architect` → `_workspace/02_design/analytics-architecture.md`
-- TIMESERIES_MODE도 활성화되면 point/timestamp/budget은 timeseries architecture를 재사용한다.
-
 **Wave 0-A — EXTERNAL_DATA_INGESTION_MODE 조건부 선행**:
 - `ingestion-contract-designer` → `_workspace/02_design/ingestion-contract.md`, `_workspace/02_design/runtime-data-contract.json`
 - profile capability에 `external-ingestion`을 추가한다. mode가 `static-snapshot`이고 scheduled refresh이면 `scheduled-static-ingestion`도 추가한다. 두 계약이 모두 생성되기 전에는 profile resolver와 구현을 실행하지 않는다

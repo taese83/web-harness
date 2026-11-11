@@ -34,7 +34,6 @@ maxTurns: 25
 - destructive action에서 hidden data count와 confirm/undo/rejection 피드백
 - external ingestion의 fresh/stale/last-known-good/empty/error UI, source attribution, manual refresh의 중복 요청 방지
 - 날짜-only 항목의 today/future/past 경계와 여러 URL filter를 한 번에 clear했을 때 atomic한 history/state
-- analytics builder의 metric/dimension 조합, chart compatibility reason, Funnel/Retention/Flow fixture, dashboard dirty/save/conflict/migration
 
 ## 실행 규칙
 
@@ -52,8 +51,7 @@ maxTurns: 25
 9. normal/max fixture와 측정 환경이 요구사항에 없으면 성능 PASS가 아니라 `BLOCKED`다.
 10. `_workspace/04_qa/evidence/browser.json`을 authoritative command evidence로 사용한다. receipt 누락·stale·test file 0개는 `BLOCKED`다.
 11. ingestion contract가 있으면 stale/partial/invalid artifact fixture와 current runtime mode를 검증한다. 정상 fixture 하나로 data freshness/error UX를 PASS하지 않는다.
-12. analytics architecture가 있으면 semantic/max-cardinality fixture와 chart별 acceptance criteria를 사용한다. fixture가 없으면 analytics browser 성능·정확성을 PASS하지 않는다.
-13. visual contract가 있으면 browser receipt의 `visualEvidence`가 contract·manifest·test·PNG hash와 일치해야 한다. verifier는 baseline을 생성·승인·갱신하지 않는다.
+12. visual contract가 있으면 browser receipt의 `visualEvidence`가 contract·manifest·test·PNG hash와 일치해야 한다. verifier는 baseline을 생성·승인·갱신하지 않는다.
 
 ## 출력 계약
 

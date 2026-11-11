@@ -4,7 +4,6 @@ const appPath = source => new RegExp(`^${appPrefix}${source}`)
 const exactAppFile = source => appPath(`${source}$`)
 
 export const VERIFIER_AGENTS = new Set([
-  'analytics-verifier',
   'api-contract-verifier',
   'browser-verifier',
   'code-reviewer',
@@ -113,7 +112,6 @@ export const AGENT_OWNERSHIP = {
   // 구조 지시 빌더 6종을 걷어낸 이유가 바로 그것이었다(2026-08-26).
   developer: [],
 
-  'analytics-domain-architect': [/^_workspace\/02_design\/analytics-architecture\.md$/],
   'api-schema-designer': [/^_workspace\/02_design\/api-schema(?:\.md|\/.+)$/],
   'component-designer': [/^_workspace\/02_design\/component-spec(?:\.md|\/.+)$/],
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],

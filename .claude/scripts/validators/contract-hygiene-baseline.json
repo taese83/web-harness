@@ -6,7 +6,6 @@
     ".claude/skills/team-flow/SKILL.md": 29383
   },
   "alwaysRead": {
-    "analytics-chart-builder": 5,
     "api-connect": 0,
     "api-contract-typegen": 0,
     "auth-setup": 0,
@@ -28,11 +27,6 @@
     "web-verify": 0
   },
   "references": [
-    ".claude/skills/analytics-chart-builder/references/analytics-test-matrix.md",
-    ".claude/skills/analytics-chart-builder/references/chart-compatibility.md",
-    ".claude/skills/analytics-chart-builder/references/dashboard-editor-contract.md",
-    ".claude/skills/analytics-chart-builder/references/detection-contract.md",
-    ".claude/skills/analytics-chart-builder/references/semantic-query-contract.md",
     ".claude/skills/api-connect/references/openapi-adoption-contract.md",
     ".claude/skills/api-contract-typegen/references/approach-selection.md",
     ".claude/skills/api-contract-typegen/references/drift-detection.md",
@@ -119,12 +113,12 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 46908
+    "web-orchestrator": 45971
   },
   "referenceBytes": {
     ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
     ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28305,
-    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30646,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30618,
     ".claude/skills/web-orchestrator/references/provenance-contract.md": 26116,
     ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26344,
     ".claude/skills/web-orchestrator/references/source-artifacts.md": 29091

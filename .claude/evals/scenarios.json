@@ -298,21 +298,6 @@
     ]
   },
   {
-    "id": "semantic-analytics-dashboard-builder",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "그라파나 유사 서비스를 만들어줘. WebSocket 실시간 시계열과 1분·10분·30분·1시간·6시간 조회가 필요해. API 데이터의 metric과 dimension을 골라 line, bar, funnel, retention, flow, table 차트를 만들고 저장한 차트를 대시보드에 배치하고 싶어.",
-    "assertions": [
-      "TIMESERIES_MODE and ANALYTICS_BUILDER_MODE are both enabled while transport and semantic-query ownership remain separate",
-      "intake asks no more than three staged questions and blocks only on unresolved metric meaning or query execution authority",
-      "analytics-domain-architect defines metric and dimension catalogs, query AST, cardinality budget, chart compatibility, dedicated funnel retention and flow results, and dashboard revision before API or component implementation",
-      "dashboard editing covers draft versus saved state, add move resize duplicate remove, unsaved changes, optimistic conflict, accessibility, and layout stability",
-      "analytics-verifier uses deterministic normal empty partial incompatible high-cardinality and revision-conflict fixtures, and missing qa-analytics.md blocks release"
-    ]
-  },
-  {
     "id": "selective-openapi-existing-change",
     "entrySkill": "/api-connect",
     "entryKind": "internal-unit",
@@ -598,22 +583,6 @@
       "the new screen uses the existing MUI theme and shared components — no tailwindcss, cva, or tailwind-merge dependency is introduced",
       "node .claude/scripts/validate-ui-lane.mjs --project reports PASS against the overlay-declared mui lane",
       "existing screens' observable appearance is preserved per the minimal-change baseline rule"
-    ]
-  },
-  {
-    "id": "analytics-builder-engine-inform-and-choose",
-    "entrySkill": "/analytics-chart-builder",
-    "entryKind": "internal-unit",
-    "covers": [
-      "analytics-chart-builder"
-    ],
-    "prompt": "메트릭·디멘션 기반 차트 빌더와 편집 가능한 대시보드를 만들어줘. 차트 품질이 중요하고 회사가 Highcharts 라이선스를 보유하고 있어.",
-    "assertions": [
-      "engine selection follows chart-engine-adapter inform-and-choose: the commercial-license requirement is disclosed, the user makes an explicit choice, and the choice lands in decision-log (free adapter remains the default otherwise)",
-      "domain and AST modules contain no chart-engine imports — the engine-agnostic renderer boundary holds",
-      "the semantic query AST validates metric/dimension allowlists and rejects unsupported chart-type transitions with a stated reason",
-      "reusable segment filters keep their reference id through save and reload — an empty operand never silently drops the filter",
-      "a metric-set control only targets views with two or more metric sets and resolves same-view conflicts first-wins deterministically"
     ]
   },
   {

@@ -29,9 +29,6 @@ Read `references/source-artifacts.md` only when ingesting existing planning/desi
 
 `.claude/skills/timeseries-dashboard/references/detection-contract.md`를 단일 판별 기준으로 사용한다. 시간축 series와 시각적 탐색이 핵심이고 historical range, realtime, high-volume 중 하나가 필요하면 `TIMESERIES_MODE: true`로 기록한다. realtime은 필수 조건이 아니며 한국어·영어 prompt와 기존 source artifact를 의미 기반으로 판별한다. 단순 WebSocket 채팅·알림·협업은 제외하고, 시간축 chart가 핵심인지 불명확할 때만 한 번 확인한다.
 
-`.claude/skills/analytics-chart-builder/references/detection-contract.md`를 semantic analytics 판별 기준으로 사용한다. metric/dimension/aggregation 선택과 chart type 또는 dashboard panel 편집이 핵심이면 `ANALYTICS_BUILDER_MODE: true`로 기록한다. 시계열도 있으면 transport/buffer는 timeseries, semantic query/chart compatibility/dashboard config는 analytics가 소유한다.
-
-
 `.claude/skills/web-orchestrator/references/local-domain-state.md`를 browser-owned domain state의 단일 판별 기준으로 사용한다. localStorage/IndexedDB/offline CRUD 또는 정렬·이동·다중선택·참조 불변식이 있으면 `LOCAL_DOMAIN_STATE_MODE: true`로 기록한다. 단순 theme/language persistence만 있으면 제외한다.
 
 `.claude/skills/web-orchestrator/references/external-data-ingestion.md`를 외부 데이터 수집의 단일 판별 기준으로 사용한다. 크롤링·스크래핑·RSS/CSV/import·scheduled third-party sync·build-generated runtime artifact가 있으면 `EXTERNAL_DATA_INGESTION_MODE: true`로 기록한다. 별도 수집·정규화·승격 단계 없이 일반 내부 API를 조회만 하면 제외한다.
@@ -50,9 +47,6 @@ Read `references/source-artifacts.md` only when ingesting existing planning/desi
 첫 intake는 `planning-facilitation-contract.md`에 따라 **대상 화면/기능 → 사용자와 끝내려는 업무 → 현재 pain과 관찰 가능한 성공 조건**에서 모르는 항목만 최대 3개 묻는다. API, branch, 파일, 라이브러리, 배포 방식은 제품 의도를 고정한 뒤 구조를 바꾸는 경우에만 묻는다. 프로젝트 이름·위치는 설명과 현재 디렉토리에서 추론하고 기존 PRD, Figma/export, API/OpenAPI, 주석이 있으면 근거로 먼저 읽는다. provider/runtime target, 인증, 다국어, 외부 수집은 다음 단계에서 `ASSUMPTION | NEEDS_DECISION | BLOCKER`로 기록한다.
 
 `TIMESERIES_MODE`이면 일반 intake 뒤 `.claude/skills/timeseries-dashboard/references/intake-and-slos.md`의 질문을 규모·SLO 단계에서 최대 3개씩 추가한다. 사용자가 모르는 값은 baseline을 제안하고 `ASSUMPTION`으로 requirements에 전달한다.
-
-`ANALYTICS_BUILDER_MODE`이면 metric/dimension catalog, MVP chart type, query budget, dashboard 저장·공유·revision을 단계적으로 확인한다. metric 의미나 query execution authority가 불명확하면 구현 전 `BLOCKER`다.
-
 
 `EXTERNAL_DATA_INGESTION_MODE`이면 source와 사용 권한, payload/문서 형식, 갱신 주기, freshness SLO, 최소 count·coverage, invalid candidate의 promotion rejection, serving fallback의 `last-known-good|unavailable`, `static-snapshot|live-api|hybrid`, root/provider build cwd를 한 번에 확인한다. scheduled refresh에는 manual recovery도 함께 요구한다. 모르는 운영 값은 보수적 baseline을 `ASSUMPTION`으로 제안하되 source 사용 권한과 authoritative source가 불명확하면 `BLOCKER`로 둔다.
 
@@ -73,7 +67,6 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 🔍 감지된 모드:
   REQUEST_TYPE: {request-type-contract의 값}
   TIMESERIES_MODE: true/false  (판별 근거 한 줄)
-  ANALYTICS_BUILDER_MODE: true/false (판별 근거 한 줄)
   LOCAL_DOMAIN_STATE_MODE: true/false
   EXTERNAL_DATA_INGESTION_MODE: true/false
   VISUAL_QA_MODE: true/false
@@ -118,7 +111,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 - `tech-stack.md`에 built-in `WEB_PROFILE`, deployment provider와 runtime target, selected capabilities, exact Node/pnpm/framework versions를 고정한다
 
 **Wave 3 — 준비도 리뷰**:
-- read-only `plan-reviewer`를 항상 실행한다 — `prepare-review-packet.mjs --handoff design` 묶음을 주고 정합을 본다. L/XL, realtime, 권한, destructive action, analytics builder이면 심화한다.
+- read-only `plan-reviewer`를 항상 실행한다 — `prepare-review-packet.mjs --handoff design` 묶음을 주고 정합을 본다. L/XL, realtime, 권한, destructive action이면 심화한다.
 - 반환 본문은 `_workspace/01_plan/plan-review.md`에 저장한다.
 - `NEEDS_DECISION`은 최대 3개씩 사용자 체크포인트에 포함하고 `BLOCKED`면 Phase 2를 시작하지 않는다.
 
@@ -130,7 +123,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 
 ### Phase 2 — 디자인
 
-**시점 로드**: `references/phase-2-design.md` — Wave 0/0-A/0-B(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
+**시점 로드**: `references/phase-2-design.md` — Wave 0/0-A(모드 조건부 선행) · Wave 1(디자인 시스템·레이아웃) · Wave 2(컴포넌트 + Design Preview Loop) · Wave 3(조건부 검토). 진입 시 읽지 않는다.
 
 ### 착수 전 — API 계약 · 구현 설계 · 스팩
 

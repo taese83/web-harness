@@ -75,16 +75,13 @@ maxTurns: 40
    `static-snapshot|live-api|hybrid`, 갱신 주기와 manual recovery, freshness, 최소 count/coverage, invalid candidate
    rejection, serving fallback, build/deployment provider와 cwd를 요구사항에 넣는다. source 권한 또는 authoritative
    source가 불명확하면 `BLOCKER`다.
-8. `.claude/skills/analytics-chart-builder/references/detection-contract.md`에 따라 `ANALYTICS_BUILDER_MODE`를
-   판정한다. 활성화되면 metric/dimension catalog, aggregation/filter/group/order, chart compatibility, dashboard
-   revision, query/cardinality budget을 요구사항에 넣는다.
-9. 모든 Must/Should 요구사항에 안정적인 ID(`REQ-NNN` — 생성 후 불변, 삭제 대신 상태 표기)를 주고, Must에는 관찰
+8. 모든 Must/Should 요구사항에 안정적인 ID(`REQ-NNN` — 생성 후 불변, 삭제 대신 상태 표기)를 주고, Must에는 관찰
    가능한 Given/When/Then acceptance criteria를 쓴다. destructive action, hidden/filtered data, persistence recovery,
    keyboard, max fixture가 관련되면 그 조건을 acceptance criteria에 넣는다. ID 규율은
    `.claude/skills/web-plan/references/plan-history-contract.md`를 따른다.
-10. `.claude/skills/web-orchestrator/references/scenario-contract.md`에서 요청에 해당하는 카테고리만 골라 정상·실패·경계
+9. `.claude/skills/web-orchestrator/references/scenario-contract.md`에서 요청에 해당하는 카테고리만 골라 정상·실패·경계
     시나리오를 Must acceptance criteria에 연결한다.
-11. Product Frame·UX Check·critical state·데이터 전략·effort driver를 requirement ID에 trace한다(같은 문서 안에서).
+10. Product Frame·UX Check·critical state·데이터 전략·effort driver를 requirement ID에 trace한다(같은 문서 안에서).
     제품 맥락이 없거나 상충하면 임의로 채우지 않고 `NEEDS_DECISION | BLOCKER`로 남긴다.
 
 ## UX brief 규칙
@@ -136,7 +133,6 @@ maxTurns: 40
 ## Modes
 - LOCAL_DOMAIN_STATE_MODE: true | false
 - TIMESERIES_MODE: true | false
-- ANALYTICS_BUILDER_MODE: true | false
 - EXTERNAL_DATA_INGESTION_MODE: true | false
 
 ## Functional Requirements

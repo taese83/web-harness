@@ -180,6 +180,8 @@ export const validateWorkflowsAndEvals = ({
       const scenarios = JSON.parse(readFileSync(evalPath, 'utf8'))
       const scenarioIds = new Set()
       if (!Array.isArray(scenarios) || scenarios.length < 20) fail('at least twenty eval scenarios are required')
+      // 기존 저장소 선택적 OpenAPI 도입은 brownfield 기본 경로라 시나리오가 조용히 빠지면 안 된다.
+      if (Array.isArray(scenarios) && !scenarios.some(scenario => scenario?.id === 'selective-openapi-existing-change')) fail('eval scenario selective-openapi-existing-change is required')
       for (const scenario of scenarios) {
         if (!scenario.id || scenarioIds.has(scenario.id)) fail(`invalid or duplicate eval id: ${scenario.id ?? '<missing>'}`)
         scenarioIds.add(scenario.id)

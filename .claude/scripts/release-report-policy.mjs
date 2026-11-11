@@ -14,7 +14,6 @@ const BASE_REPORTS = [
 const DATA_ACCESS_REPORTS = [['data-access', 'qa-data-access.md']]
 const LOCAL_STATE_REPORTS = [['state', 'qa-state.md']]
 const INGESTION_REPORTS = [['data-quality', 'qa-data-quality.md']]
-const ANALYTICS_REPORTS = [['analytics', 'qa-analytics.md']]
 const VISUAL_REPORTS = [['visual', 'qa-visual.md']]
 const PERFORMANCE_REPORTS = [['performance', 'qa-perf.md']]
 const SEO_REPORTS = [['seo', 'qa-seo.md']]
@@ -70,8 +69,6 @@ export const declaresMode = (projectRoot, mode) => {
 }
 const isLocalDomainStateProject = projectRoot =>
   hasDesignArtifact(projectRoot, 'state-contract') || declaresMode(projectRoot, 'LOCAL_DOMAIN_STATE_MODE')
-const isAnalyticsProject = projectRoot =>
-  hasDesignArtifact(projectRoot, 'analytics-architecture') || declaresMode(projectRoot, 'ANALYTICS_BUILDER_MODE')
 export const isVisualProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
 const isPerformanceProject = projectRoot => hasDesignArtifact(projectRoot, 'performance-budget')
@@ -106,7 +103,6 @@ const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
 export const releaseReportRequirements = (projectRoot, lockedProfile, phase, externalIngestion) => [
   ...BASE_REPORTS,
   ...(isLocalDomainStateProject(projectRoot) ? LOCAL_STATE_REPORTS : []),
-  ...(isAnalyticsProject(projectRoot) ? ANALYTICS_REPORTS : []),
   ...(isVisualProject(projectRoot) ? VISUAL_REPORTS : []),
   ...(isPerformanceProject(projectRoot) ? PERFORMANCE_REPORTS : []),
   ...(isSeoProject(projectRoot) ? SEO_REPORTS : []),

@@ -978,17 +978,6 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   rmSync(join(releaseQaDirectory, 'qa-state.md'))
   refreshReleaseReceipts()
   writeReleaseFixtureManifest()
-
-  writeFileSync(join(releaseDesignDirectory, 'analytics-architecture.md'), '# Analytics Architecture\n')
-  refreshReleaseReceipts()
-  if (runReleaseGateHook().status !== 2) fail('release hook allowed analytics without qa-analytics.md')
-  writeFileSync(join(releaseQaDirectory, 'qa-analytics.md'), '# Analytics QA\n\n## Result\nPASS\n')
-  writeReleaseFixtureManifest()
-  if (runReleaseGateHook().status !== 0) fail('release hook blocked passing analytics QA')
-  rmSync(join(releaseDesignDirectory, 'analytics-architecture.md'))
-  rmSync(join(releaseQaDirectory, 'qa-analytics.md'))
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
   
   const releaseIngestionContractPath = join(releaseDesignDirectory, 'runtime-data-contract.json')
   const releaseIngestionArtifactPath = join(releaseFixtureRoot, 'public/data.json')

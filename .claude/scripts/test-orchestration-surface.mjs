@@ -37,9 +37,6 @@ test('표면 본문에 검사들이 의존하는 계약 문자열이 실제로 �
     'TEST_EVIDENCE',
     'state-contract-designer',
     'ingestion-contract-designer',
-    'analytics-domain-architect',
-    'analytics-verifier',
-    'qa-analytics.md',
     'visual-contract-designer',
     'minimal-change-contract.md',
   ]) {

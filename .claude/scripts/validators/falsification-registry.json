@@ -5131,14 +5131,6 @@
       "why": "디자인 absent로 timeseries-architecture가 없으면 TIMESERIES 모드인데도 qa-timeseries 요구가 사라진다"
     },
     {
-      "id": "release-policy-analytics-mode-declared",
-      "file": ".claude/scripts/release-report-policy.mjs",
-      "find": "  hasDesignArtifact(projectRoot, 'analytics-architecture') || declaresMode(projectRoot, 'ANALYTICS_BUILDER_MODE')",
-      "replace": "  hasDesignArtifact(projectRoot, 'analytics-architecture')",
-      "test": ".claude/scripts/test-release-report-policy.mjs",
-      "why": "디자인 absent로 analytics-architecture가 없으면 분석 빌더 모드인데도 qa-analytics 요구가 사라진다"
-    },
-    {
       "id": "release-policy-mode-template-not-declaration",
       "file": ".claude/scripts/release-report-policy.mjs",
       "find": "*true\\\\b(?![\\`*]*[ \\\\t]*[|/])`, 'im')",

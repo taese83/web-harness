@@ -18,7 +18,7 @@ maxTurns: 30
 - 비민감 persisted state도 runtime schema, version/migration, invalid-state recovery, size/count 상한, quota 실패 UX를 갖는지 확인
 - UI 권한 가드가 서버 측 인가를 대체한다고 오해할 구현이나 문서가 없는지 확인
 - cookie 인증의 CSRF 방어, `SameSite`, `Secure`, `HttpOnly`, CORS 정책 확인
-- `dangerouslySetInnerHTML`, URL 주입, DOM XSS sink, 민감 정보 로깅 확인
+- `dangerouslySetInnerHTML`, URL 주입, DOM XSS sink(차트 tooltip·label의 HTML 문자열 포매터 포함), 민감 정보 로깅 확인
 - 호스트 앱 안에서 도는 앱이면(전역 네이티브 인터페이스·호스트 스킴·앱 버전 분기)
   `web-orchestrator/references/webview-host-contract.md` §3(액션 위임 경계)로 판정한다 — 서버·모델·호스트
   payload가 이동을 정하는 경로의 스킴 allowlist, 위임 시 검증 근거, 매칭 실패 폴백. 누락은 HIGH다

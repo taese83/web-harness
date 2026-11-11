@@ -12,7 +12,6 @@ import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {inspectShapeCatalog} from './validate-shape-checks.mjs'
 import {validateAdapterHygiene} from './validators/validate-adapter-hygiene.mjs'; import {validateAgentBoundaries} from './validators/validate-agent-boundaries.mjs'
-import {validateAnalyticsBuilder} from './validators/validate-analytics-builder.mjs'
 import {validateContentPolicy} from './validators/validate-content-policy.mjs'
 import {validateGoldenProfiles} from './validators/validate-golden-profiles.mjs'
 import {validateHardeningSelfTests} from './validators/validate-hardening-self-tests.mjs'
@@ -367,7 +366,7 @@ validateSettings({claudeDirectory, repositoryRoot, read, pass, fail})
 validateWebCoreIntegration({repositoryRoot, pass, fail})
 validateReleaseFixtures({claudeDirectory, repositoryRoot, pass, fail})
 
-validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateAnalyticsBuilder({repositoryRoot, read, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail});
+validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail});
 {
   const shapeCatalogErrors = inspectShapeCatalog();
   for (const message of shapeCatalogErrors) fail(message);

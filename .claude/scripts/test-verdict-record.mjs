@@ -41,7 +41,7 @@ test('판정 읽기(순수): `## Result` 다음 줄의 알려진 상태만 받�
 })
 
 test('필수 보고서마다 판정을 기록하는 검증 에이전트나 스크립트가 있다 — 없으면 그 보고서는 기록이 생긴 프로젝트에서 영영 통과하지 못한다', () => withProject(root => {
-  for (const file of ['state-contract.md', 'analytics-architecture.md', 'visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md', 'timeseries-architecture.md']) {
+  for (const file of ['state-contract.md', 'visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md', 'timeseries-architecture.md']) {
     mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
     writeFileSync(join(root, '_workspace/02_design', file), '')
   }

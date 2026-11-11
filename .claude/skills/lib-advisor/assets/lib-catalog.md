@@ -125,8 +125,7 @@ SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
 - **추천:** `recharts`
 - **이유:** React 컴포넌트 기반 API, SVG 렌더링, 번들 크기 합리적(~500KB gzip ~150KB). 선언적 구성.
 - **대안:** `Chart.js` + `react-chartjs-2` — 성숙하고 문서 풍부하나 React 통합이 어색.
-- **조건부(analytics-BI):** `highcharts` — 상업 라이선스 필요. 기본은 회피(무료 대안 우선)하되,
-  analytics-BI 부류에서 `analytics-chart-builder/references/chart-engine-adapter.md`의
+- **조건부(BI 대시보드):** `highcharts` — 상업 라이선스 필요. 기본은 회피(무료 대안 우선)하되,
   **inform-and-choose**(라이선스 필요 고지 → 사용자 선택 → `decision-log`에 근거 기록)를 거친 경우에만 채택.
   선택 결과일 뿐 기본값이 아니다 — 다른 프로젝트에 라이선스 의무를 자동 생성하지 않는다.
 

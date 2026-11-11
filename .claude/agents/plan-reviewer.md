@@ -46,7 +46,7 @@ requirements·ux-brief·feature-plan·tech-stack을 교차해 본다. 동일 근
 
 ## 판정
 
-모든 Phase 1에서 실행한다. 결과는 `PASS | NEEDS_DECISION | BLOCKED`로 판정하고, 기계 판정 한 줄(HOLE id 목록)과 결정이 필요한 항목만 최대 3개 — 우선순위·판정 근거·영향·권고안 — 를 반환한다. L/XL, realtime, 권한, destructive action, analytics builder는 관련 상태와 안전 경계를 심화 검토한다.
+모든 Phase 1에서 실행한다. 결과는 `PASS | NEEDS_DECISION | BLOCKED`로 판정하고, 기계 판정 한 줄(HOLE id 목록)과 결정이 필요한 항목만 최대 3개 — 우선순위·판정 근거·영향·권고안 — 를 반환한다. L/XL, realtime, 권한, destructive action은 관련 상태와 안전 경계를 심화 검토한다.
 
 ## 입력 읽기
 
