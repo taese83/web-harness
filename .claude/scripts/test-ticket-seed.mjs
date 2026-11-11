@@ -99,8 +99,8 @@ test('미리 둔 판정이 지금 검증을 통과하지 못하면 오류가 아
   try {
     const path = join(ctx.root, assessmentPath(ctx.key))
     const seeded = JSON.parse(readFileSync(path, 'utf8'))
-    // 경계를 좁혀 writePaths가 스팩 밖이 되게 한다 — 스팩 digest는 그대로(지문은 통과, 검증은 실패).
-    writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, layerMap: {shared: 'src/other'}}))
+    // 경계를 없애 판정이 경계를 모르게 한다 — 스팩 digest는 그대로(지문은 통과, 검증은 실패).
+    writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, layerMap: null}))
     const picked = await ctx.pickup()
     assert.equal(picked.phase, 'TICKET_ASSESSMENT_REQUIRED', JSON.stringify(picked))
     assert.ok(picked.seedStale?.includes('seeded-assessment-invalid'))

@@ -51,12 +51,15 @@ test('범위 밖·layerMap 안 파일: 훅이 이 명령을 안내하고, 적용
   })
 })
 
-test('layerMap 밖은 넓히지 않고 스팩 변경으로 보낸다 — 훅 메시지도 같다', () => {
+test('layerMap 밖은 검사 정의 파일이 아니면 사용자 확인으로 넓히고(승인 범위가 상한), 검사 정의 파일은 넓히지 않는다 — 훅 메시지도 같다', () => {
   withProject(root => {
-    const result = widen(root, '--add', 'scripts/deploy.mjs', '--reason', 'x', '--apply')
-    assert.equal(result.status, 1)
-    assert.equal(JSON.parse(result.stdout).code, 'OUTSIDE_LAYER_MAP')
-    assert.match(developerEdits(root, 'scripts/deploy.mjs').stderr, /spec change/)
+    const gate = widen(root, '--add', 'package.json', '--reason', 'x', '--apply')
+    assert.equal(gate.status, 1)
+    assert.equal(JSON.parse(gate.stdout).code, 'GATE_SURFACE')
+    assert.match(developerEdits(root, 'package.json').stderr, /defines checks/)
+    assert.notEqual(developerEdits(root, 'scripts/deploy.mjs').status, 0, '범위에 넣기 전에 layerMap 밖이 열렸다')
+    assert.equal(widen(root, '--add', 'scripts/deploy.mjs', '--reason', 'x', '--apply').status, 0)
+    assert.equal(developerEdits(root, 'scripts/deploy.mjs').status, 0, '승인 범위에 넣은 layerMap 밖 경로가 막혔다')
   })
 })
 
@@ -80,4 +83,18 @@ test('승인 훅: --apply는 사용자 확인을 묻고 미리보기는 묻지 �
   const decide = command => spawnSync(process.execPath, [approval], {encoding: 'utf8', input: JSON.stringify({tool_name: 'Bash', tool_input: {command}})}).stdout
   assert.match(decide(`node .claude/scripts/widen-change-scope.mjs --project-root . --add ${TOKENS} --reason x --apply`), /"permissionDecision":"ask"/)
   assert.equal(decide(`node .claude/scripts/widen-change-scope.mjs --project-root . --add ${TOKENS} --reason x`), '')
+})
+
+test('범위가 산문 한 줄 표기면 넓히기가 펜스로 다시 적어 layerMap 밖을 연다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'wh-widen-prose-'))
+  try {
+    mkdirSync(join(root, '_workspace/03_dev'), {recursive: true})
+    writeFileSync(join(root, '_workspace/03_dev/spec.json'), JSON.stringify(spec))
+    writeFileSync(join(root, '_workspace/03_dev/change-scope.md'), '# 범위\n\n- **ALLOWED_PATHS**: apps/user/src/pages/home/, README.md\n')
+    assert.notEqual(developerEdits(root, 'README.md').status, 0, '산문 범위가 layerMap 밖을 열었다')
+    const result = widen(root, '--add', 'README.md', '--reason', 'x', '--apply')
+    assert.equal(result.status, 0, result.stdout)
+    assert.equal(JSON.parse(result.stdout).action, 'applied')
+    assert.equal(developerEdits(root, 'README.md').status, 0, '펜스로 다시 적은 뒤에도 막혔다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
 })

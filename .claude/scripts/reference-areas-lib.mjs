@@ -155,6 +155,8 @@ export const implementationGuidance = agentName => (agentName === 'developer' ? 
 export const BATCHING = '[web-harness] 턴 — 턴 한도는 응답 수로 센다. 서로 기대지 않는 조회(Read·Grep·Glob)는 한 응답에 여러 개를 함께 부르고, '
   + '다음 조회가 앞 결과에 기댈 때만 나눈다. 이미 읽은 구간은 다시 넘기지 않는다.'
 const DEVELOPER_RANGE = ' 큰 소스·테스트 파일은 Grep -n으로 줄을 찾아 그 구간만 읽는다.'
+  + ' 셸은 검사 실행기·의존성 설치에만 쓴다 — 읽기·검색은 Read·Grep·Glob 도구로 하고(셸 읽기는 보호 옵션·한 명령 규칙에 자주 거부된다), 셸 명령은 한 번에 하나'
+  + '(파이프·`&&`·`$`·리다이렉트 없이), 실행기에는 `--project <프로젝트 루트 절대 경로>`를 붙인다.'
 // 하네스가 배포한 에이전트만 — 이름 판별(agent-identity)은 개발 판본에서 접두 없는 모든 이름을 하네스로 보므로 정의 파일로 좁힌다
 // (플러그인에서는 build-plugin의 .claude/agents 호환 사본에 기댄다).
 const shipsAgent = name => /^[a-z][a-z0-9-]*$/.test(String(name ?? '')) && existsSync(new URL(`../agents/${name}.md`, import.meta.url))

@@ -189,6 +189,7 @@ test('최소 범위: 구현 developer에 보존 지시를 늘 건네고(기준 �
     assert.match(guidance, /서로 기대지 않는 조회\(Read·Grep·Glob\)는 한 응답에 여러 개를 함께 부르고/, '구현자에게 조회 묶기 지시가 빠졌다')
     assert.ok(guidance.indexOf('기존 코드를 보존한다') < guidance.indexOf('한 응답에 여러 개를'), '보존 지시가 턴 지시 뒤로 밀렸다')
     assert.match(guidance, /Grep -n으로 줄을 찾아 그 구간만 읽는다/, '구현자에게 구간 읽기 지시가 빠졌다')
+    assert.match(guidance, /읽기·검색은 Read·Grep·Glob 도구로/, '구현자에게 셸 규칙이 빠졌다')
     const reviewer = JSON.parse(start('code-reviewer')).hookSpecificOutput.additionalContext
     assert.doesNotMatch(reviewer, /기존 코드를 보존한다/, '리뷰어에게 구현 보존 지시를 건넸다')
     assert.doesNotMatch(reviewer, /그 구간만 읽는다/, '리뷰어에게 리뷰 대상을 구간만 읽게 했다')

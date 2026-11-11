@@ -2,6 +2,7 @@
 
 import {spawnSync} from 'node:child_process'
 import {resolveProfileCommands} from './resolve-commands.mjs'
+import {siblingNodeFor} from './node-pin-lib.mjs'
 import {GRANT_RELATIVE, evaluateHostExecutionGrant, recordHostExecutionGrant} from './host-execution-grant.mjs'
 import {ACCEPTANCE_RELATIVE, acceptanceCovers, readWorkflowSecurityAcceptance, recordWorkflowSecurityAcceptance} from './workflow-security-acceptance.mjs'
 import {randomUUID} from 'node:crypto'
@@ -200,9 +201,19 @@ if (existsSync(nvmrcPath)) {
   if (pinMajor !== null) {
     const runningMajor = parseInt(process.versions.node.split('.')[0], 10)
     if (runningMajor < pinMajor) {
+      // 셸 PATH를 바꿀 수 없는 서브에이전트·훅에서도 고정 버전으로 돌게, 실행 Node 옆의 형제 설치(nvm 등 — 경로는 process.execPath에서
+      // 도출한다)에서 고정 major를 찾아 자신을 그 Node로 다시 실행한다. 찾지 못하면 그대로 막는다(낮은 Node의 green은 증거가 아니다).
+      const pinned = process.env.WEB_HARNESS_PINNED_NODE === '1' ? null : siblingNodeFor(pinMajor)
+      if (pinned) {
+        const rerun = spawnSync(pinned, [process.argv[1], ...process.argv.slice(2)], {
+          stdio: 'inherit',
+          env: {...process.env, WEB_HARNESS_PINNED_NODE: '1', PATH: [dirname(pinned), process.env.PATH].filter(Boolean).join(delimiter)},
+        })
+        process.exit(rerun.status ?? 1)
+      }
       process.stderr.write(
-        `Node ${process.versions.node} is older than the project pin (.nvmrc = ${pinMajor}). ` +
-          `Rerun gates under Node ${pinMajor}+ (e.g. nvm use ${pinMajor}); results from an older Node are not valid evidence.\n`,
+        `Node ${process.versions.node} is older than the project pin (.nvmrc = ${pinMajor}) and no installed Node ${pinMajor} was found beside it. ` +
+          `Install Node ${pinMajor} (e.g. nvm install ${pinMajor}) or rerun gates under it; results from an older Node are not valid evidence.\n`,
       )
       process.exit(2)
     }

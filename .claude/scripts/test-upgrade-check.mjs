@@ -31,7 +31,7 @@ test('0.28.0 산출물: 막는 것·건드릴 때·참고를 가르고, 목록�
     const ledgerBefore = readFileSync(join(root, '_workspace/03_dev/spec-ledger.jsonl'), 'utf8')
     const report = upgradeCheck(root)
     assert.deepEqual(report.items.map(item => `${item.kind}:${item.id}`),
-      ['on-touch:spec-relock', 'info:gate0:team-sharing', 'info:change-lane'],
+      ['on-touch:spec-relock', 'info:gate0:team-sharing', 'info:gate0:execution', 'info:change-lane'],
       '옛 산출물과 부딪히는 항목이 바뀌었다 — 새 요구라면 목록과 릴리스 커밋에 적는다')
     // 팀 공유 설정은 저장소 위생이라 막지 않고 참고로 싣는다 — 고치는 명령은 그대로 알린다.
     assert.match(report.items.find(item => item.id === 'gate0:team-sharing').fix, /validate-development-readiness\.mjs --project \. --fix/)

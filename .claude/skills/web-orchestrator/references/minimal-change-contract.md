@@ -60,7 +60,7 @@ canonical 문서의 대체물이 아니다 — 다음 라운드 에이전트는 
 5. public API, wire schema, route, persisted state, environment contract는 요청 또는 root-cause상 필수일 때만 변경한다.
 6. 테스트를 통과시키기 위해 production behavior를 약화하거나 broad fallback을 추가하지 않는다.
 7. dead code 삭제는 이번 변경으로 직접 고아가 된 코드에 한하고 증거를 남긴다.
-8. owner가 다른 경로는 해당 owner agent로 라우팅하며 한 agent의 편의를 위해 scope를 넓히지 않는다.
+8. owner가 다른 경로는 해당 owner agent로 라우팅한다 — 예외는 사용자가 승인한 범위 펜스에 명시된 경로(검사 정의 파일·설계 문서 제외)뿐이다.
 9. **Baseline 보존 (관측 가능한 외형·동작)** — 기존 화면·기능의 사용자 관측 가능한 상태(시각 속성, 문구,
    인터랙션 동작)는 보존 대상 계약이다. 요청에 없는 변경은 ASSUMPTION 대상이 아니며, 다른 화면이나 다른
    프로젝트의 패턴을 참조 이식할 때 따라오는 부수 속성도 마찬가지다. 필요하면 근거와 함께 사전 확인을
@@ -73,7 +73,7 @@ canonical 문서의 대체물이 아니다 — 다음 라운드 에이전트는 
 
 다음 중 하나가 발생하면 확대된 경로를 수정하기 전에 change brief를 갱신한다.
 
-- `ALLOWED_PATHS` 밖의 파일 변경 필요 — 스팩 layerMap 안이면 `widen-change-scope.mjs --add <경로> --reason …`(미리보기 → 사용자 확인 → `--apply`)로만 넓힌다. change-scope.md를 손으로 고치지 않는다. layerMap 밖이면 스팩 변경이다
+- `ALLOWED_PATHS` 밖의 파일 변경 필요 — `widen-change-scope.mjs --add <경로> --reason …`(미리보기 → 사용자 확인 → `--apply`)로만 넓힌다. change-scope.md를 손으로 고치지 않는다. layerMap 밖이어도 범위 펜스에 명시하면 쓴다 — 검사 정의 파일(패키지·도구 설정·CI·훅)·설계 문서는 범위로 열리지 않으니 스팩 변경이다
 - public contract 또는 persisted data migration 변경
 - 새 runtime dependency, build tool, deployment 설정 필요
 - 여러 feature/entity에 걸친 구조 변경

@@ -68,3 +68,16 @@ test('developer 셸은 양성 목록만 — 실행기 --check·브로커 install
   assert.equal(run('integration-verifier', 'node .claude/scripts/run-package-operation.mjs --project . --operation install').status, 2,
     'verifier가 패키지 브로커를 돌렸다')
 })
+
+test('하위 폴더에서 물려받은 위치에서도 루트를 --project로 명시한 실행기와 설치는 통과하고, 명시 없는 실행기는 막힌다', () => {
+  const sub = resolve(ROOT, '.claude/scripts')
+  const runAt = (command, cwd) => spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({tool_name: 'Bash', agent_type: 'developer', cwd, tool_input: {command}}),
+    cwd: ROOT, encoding: 'utf8', env: {...process.env, CLAUDE_PROJECT_DIR: ROOT},
+  })
+  assert.equal(runAt(`web-harness-script run-quality-gates --project ${ROOT} --check test --failure-summary`, sub).status, 0,
+    '하위 폴더에서 루트를 명시한 실행기가 막혔다')
+  assert.equal(runAt('pnpm install --ignore-scripts', sub).status, 0, '하위 폴더에서 설치가 막혔다')
+  assert.equal(runAt('web-harness-script run-quality-gates --check test', sub).status, 2, '루트 명시 없이 하위 폴더에서 실행기가 통과했다')
+  assert.equal(runAt('web-harness-script run-quality-gates --check test --project', sub).status, 2, '값 없는 --project를 루트 명시로 쳤다')
+})

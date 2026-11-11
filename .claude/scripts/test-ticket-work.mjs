@@ -80,9 +80,11 @@ test('임의 디자인: 티켓 지시는 원문 인용이 근거이고, 개발�
   expectError(check(newScreen({designByImplementer: {source: 'guess'}})), /designByImplementer\.source/)
 })
 
-test('수정 범위: 스팩 소유 경계 밖·스팩 없음·빈 범위를 막는다', () => {
-  expectError(check(startable({writePaths: ['infra/terraform/']})), /스팩 소유 경계 밖/)
-  expectError(check(startable({writePaths: ['srcx/pages/']})), /스팩 소유 경계 밖/)
+test('수정 범위: 경계 밖의 검사 정의 파일·설계 문서·스팩 없음·빈 범위를 막고, 경계 밖이라도 그 밖의 경로는 확인한 범위가 상한이다', () => {
+  expectError(check(startable({writePaths: ['package.json']})), /스팩 소유 경계 밖의 검사 정의 파일/)
+  expectError(check(startable({writePaths: ['.github/workflows/']})), /스팩 소유 경계 밖의 검사 정의 파일/)
+  expectError(check(startable({writePaths: ['_workspace/02_design/']})), /스팩 소유 경계 밖의 검사 정의 파일/)
+  assert.equal(check(startable({writePaths: ['infra/terraform/', 'README.md', '.changeset/']})).ok, true, '승인 범위로 열릴 경로를 막았다')
   expectError(check(startable({writePaths: []})), /writePaths가 비었다/)
   expectError(check(startable(), {spec: null}), /스팩\(layerMap\)이 없어/)
   expectError(check(startable({writePaths: ['../outside/']})), /프로젝트 상대 경로가 아니다/)
@@ -311,12 +313,15 @@ test('취소 경로: 등록한 작업을 착수 불가로 다시 판정해 확�
   })
 })
 
-test('수정 범위 경계는 소유권 훅과 같은 경로 모양으로 읽는다 — ./ 접두·글롭 꼬리·파일 항목 · 앱 접두는 받지 않는다', () => {
+test('수정 범위 경계는 소유권 훅과 같은 경로 모양으로 읽는다 — ./ 접두·글롭 꼬리·파일 항목 · 경계 밖 검사 정의 파일은 막는다', () => {
   const shaped = {layerMap: {ui: './src/**', config: 'vite.config.ts'}}
   assert.equal(check(startable({writePaths: ['src/pages/', 'src/a/b.tsx', 'vite.config.ts']}), {spec: shaped}).ok, true,
     check(startable({writePaths: ['src/pages/', 'src/a/b.tsx', 'vite.config.ts']}), {spec: shaped}).errors.join('\n'))
-  expectError(check(startable({writePaths: ['vite.config.tsx']}), {spec: shaped}), /스팩 소유 경계 밖/)
-  expectError(check(startable({writePaths: ['apps/web/src/pages/']}), {spec: shaped}), /스팩 소유 경계 밖/)
+  expectError(check(startable({writePaths: ['vite.config.mts']}), {spec: shaped}), /스팩 소유 경계 밖/)
+  // 글롭·./ 레이어가 덮는 검사 정의 파일은 경계 안이다 — 모양을 훅과 다르게 읽으면 경계 밖 검사 정의 파일로 거부된다.
+  assert.equal(check(startable({writePaths: ['apps/web/package.json']}), {spec: {layerMap: {apps: './apps/**'}}}).ok, true,
+    check(startable({writePaths: ['apps/web/package.json']}), {spec: {layerMap: {apps: './apps/**'}}}).errors.join('\n'))
+  expectError(check(startable({writePaths: ['apps/web/package.json']}), {spec: shaped}), /스팩 소유 경계 밖/)
 })
 
 test('진입 가드: 집계·마커 충돌 티켓이나 원장이 집계로 아는 키는 개발 분류가 붙어도 판정하지 않는다(쓰기 0)', async () => {
@@ -399,7 +404,7 @@ test('파일 수명: 격리 사본은 판정서가 검증을 통과하면 지우
     await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state: emptyState(), plan: null, flags: {}, io})
     const snapshot = join(root, assessmentSnapshotPath(KEY))
     assert.equal(existsSync(snapshot), true, '판정 요구 때 격리 사본을 만들지 않았다')
-    writeFileSync(join(root, assessmentPath(KEY)), JSON.stringify(startable({ticket: {key: KEY, provider: 'github'}, writePaths: ['infra/']})))
+    writeFileSync(join(root, assessmentPath(KEY)), JSON.stringify(startable({ticket: {key: KEY, provider: 'github'}, writePaths: ['package.json']})))
     const invalid = await resolveTicketPickup({root, ticketKey: KEY, developer: 'dev1', issue, state: emptyState(), plan: null, flags: {}, io})
     assert.equal(invalid.result?.phase, 'TICKET_ASSESSMENT_INVALID')
     assert.equal(existsSync(snapshot), true, '검증에 실패했는데 다시 판정할 사본을 지웠다')

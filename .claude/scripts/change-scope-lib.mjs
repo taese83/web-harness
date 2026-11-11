@@ -45,7 +45,7 @@ export function parseChangeScopeAllowedPaths(source) {
       return {error: error instanceof Error ? error.message : String(error)}
     }
     const paths = asPathList(parsed?.ALLOWED_PATHS)
-    if (paths.length > 0) return {paths, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE : null, ...(parsed?.PLAN_WRITEBACK === 'tc-rows' ? {planWriteback: 'tc-rows'} : {})}
+    if (paths.length > 0) return {paths, fenced: true, phase: typeof parsed?.PHASE === 'string' ? parsed.PHASE.toLowerCase() : null, ...(parsed?.PLAN_WRITEBACK === 'tc-rows' ? {planWriteback: 'tc-rows'} : {})}
   }
   return {paths: [], phase: null}
 }

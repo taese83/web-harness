@@ -13,7 +13,7 @@ import {canonicalDigest, safeRelativeScope} from './work-analysis.mjs'
 import {pathsOverlap, ROLE} from './work-plan.mjs'
 import {buildWorkDoc, formatWorkDoc, normalizeDocItem, ORIGINAL_TITLES} from './work-ticket-doc.mjs'
 import {isTicketKeyRef, normalizeTicketKeyRef as normalizeKeyRef, stripWorkMarker} from './work-refs.mjs'
-import {normalizeLayerPath} from '../agent-registry.mjs'
+import {isScopeGrantable, normalizeLayerPath} from '../agent-registry.mjs'
 
 const list = value => (Array.isArray(value) ? value : [])
 
@@ -185,8 +185,9 @@ export function validateTicketAssessment({assessment, ticketKey, provider, origi
       // 다만 앱 접두(모노레포 `apps/x/`)는 붙이지 않는다 — 판정서의 수정 범위는 스팩과 같은 기준 경로로 적는다.
       const shape = path => normalizeLayerPath(String(path).replace(/\/\*{1,2}$/, '/'))
       const covers = (root, path) => (root.endsWith('/') ? path.startsWith(root) : path === root)
-      const outside = writePaths.filter(path => !roots.some(root => covers(shape(root), shape(path))))
-      if (outside.length > 0) errors.push(`writePaths가 스팩 소유 경계 밖이다: ${outside.join(', ')}`)
+      // layerMap 밖이어도 검사 정의 표면이 아니면 확인한 수정 범위가 상한이다(agent-registry isScopeGrantable — 소유권 훅과 같은 판정).
+      const outside = writePaths.filter(path => !roots.some(root => covers(shape(root), shape(path))) && !isScopeGrantable(shape(path)))
+      if (outside.length > 0) errors.push(`writePaths가 스팩 소유 경계 밖의 검사 정의 파일·설계 문서다(범위로 열지 않는다): ${outside.join(', ')}`)
     }
     // 완료 조건: 티켓 출처는 원문에 그 문장이 있어야 한다 — 판정서가 조건을 지어내지 못한다.
     const original = normalizeDocItem(originalBody).toLowerCase()

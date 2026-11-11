@@ -2,6 +2,7 @@ import {existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync
 import {homedir} from 'node:os'
 import {join, relative, resolve, sep} from 'node:path'
 import {DEFAULT_PAYLOAD_ROOT, harnessVersion} from './harness-version.mjs'
+import {attachedWorktreeRoots} from './worktree-roots-lib.mjs'
 
 // 워크스페이스가 repo 하나로 끝나지 않는다 — 프론트 repo 옆에 API 서버 repo가 있는 구성이
 // 흔하고, 그 스키마·라우트·DTO를 읽지 못하면 계약 설계가 추측이 된다(2026-08-27 사용자 지적).
@@ -78,7 +79,7 @@ const isInside = (root, target) => {
 }
 // 비밀을 담지 않는 계약의 템플릿 — Bash 정책(hasSecretSegment)과 같은 예외다.
 const SAFE_ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template'])
-const isSecretPath = value => {
+export const isSecretPath = value => {
   const segments = value.replaceAll('\\', '/').split('/').filter(Boolean).map(segment => segment.toLowerCase())
   return segments.some(segment => SECRET_SEGMENTS.has(segment)) || segments.some((segment, index) => {
     if (index !== segments.length - 1) return false
@@ -345,9 +346,10 @@ export const evaluateSensitiveAccess = (input, environment = process.env, {paylo
   const toolInput = input.tool_input ?? {}
   const rawPath = input.tool_name === 'Read' ? toolInput.file_path : toolInput.path
   if (input.tool_name === 'Grep' && (!rawPath || rawPath === '.')) return {allowed: false, code: 'DENY_RECURSIVE_ROOT_GREP'}
-  const declaredRoots = [...readDeclaredRoots(projectRoot), ...readPayloadRoots(payloadRoot)]
-  // 어느 루트 안인가. 프로젝트 루트가 항상 첫 번째다(선언 없이도 성립).
-  const containingRoot = target => [projectRoot, ...declaredRoots].find(root => isInside(root, target)) ?? null
+  // 같은 저장소의 git worktree는 선언 없이도 읽기 루트다(같은 신뢰 경계 — worktree-roots-lib).
+  const declaredRoots = [...readDeclaredRoots(projectRoot), ...readPayloadRoots(payloadRoot), ...attachedWorktreeRoots(projectRoot)]
+  // 어느 루트 안인가 — 가장 깊은 루트로 잰다(`.claude/worktrees/<이름>/`은 프로젝트 안이지만 그 체크아웃 기준으로 판정한다).
+  const containingRoot = target => [projectRoot, ...declaredRoots].filter(root => isInside(root, target)).sort((a, b) => b.length - a.length)[0] ?? null
   if (typeof rawPath === 'string') {
     const target = resolve(projectRoot, rawPath)
     const root = containingRoot(target)

@@ -1,6 +1,7 @@
 import {realpathSync, statSync} from 'node:fs'
 import {extname, relative, resolve, sep} from 'node:path'
 import {scanDirectoryForSensitiveEntries} from './sensitive-access-policy-lib.mjs'
+import {attachedWorktreeRoots} from './worktree-roots-lib.mjs'
 
 const MAX_COMMAND_LENGTH = 8192
 const MAX_TOKENS = 128
@@ -91,22 +92,28 @@ const realDirectory = (candidate, label) => {
   return real
 }
 
+// 같은 저장소의 git worktree는 같은 신뢰 경계다 — cwd가 worktree 안이면 그 체크아웃이 프로젝트 root이고, 읽기는 세션 root·다른 worktree에도 열린다.
 const createContext = (input, environment, processCwd) => {
   const projectCandidate = resolve(environment.CLAUDE_PROJECT_DIR ?? input.cwd ?? processCwd)
-  const projectRoot = realDirectory(projectCandidate, 'Project root')
-  const cwdCandidate = resolve(input.tool_input?.cwd ?? input.cwd ?? projectRoot)
+  const sessionRoot = realDirectory(projectCandidate, 'Project root')
+  const cwdCandidate = resolve(input.tool_input?.cwd ?? input.cwd ?? sessionRoot)
   const cwd = realDirectory(cwdCandidate, 'Bash working directory')
+  const worktrees = attachedWorktreeRoots(sessionRoot)
+  const projectRoot = worktrees.filter(root => isInside(root, cwd)).sort((a, b) => b.length - a.length)[0] ?? sessionRoot
   if (!isInside(projectRoot, cwd)) fail('DENY_PATH_OUTSIDE', 'Bash working directory is outside the project root.')
-  return {projectRoot, cwd}
+  return {projectRoot, cwd, roots: [...new Set([projectRoot, sessionRoot, ...worktrees])]}
 }
+const containingRoot = (context, target) =>
+  (context.roots ?? [context.projectRoot]).filter(root => isInside(root, target)).sort((a, b) => b.length - a.length)[0] ?? null
 
 const readablePath = (value, context, kind = 'any') => {
   if (typeof value !== 'string' || value.length === 0 || value === '-') {
     fail('DENY_ARGUMENTS', 'Read commands require an explicit filesystem path and may not read stdin.')
   }
   const absolute = resolve(context.cwd, value)
-  if (!isInside(context.projectRoot, absolute)) fail('DENY_PATH_OUTSIDE', `Path is outside the project root: ${value}`)
-  const lexicalRelative = relative(context.projectRoot, absolute)
+  const lexicalRoot = containingRoot(context, absolute)
+  if (!lexicalRoot) fail('DENY_PATH_OUTSIDE', `Path is outside the project root: ${value}`)
+  const lexicalRelative = relative(lexicalRoot, absolute)
   if (hasSecretSegment(lexicalRelative)) fail('DENY_SECRET_PATH', `Secret-bearing path is blocked: ${value}`)
 
   let real
@@ -115,8 +122,9 @@ const readablePath = (value, context, kind = 'any') => {
   } catch {
     fail('DENY_PATH_MISSING', `Read target does not exist: ${value}`)
   }
-  if (!isInside(context.projectRoot, real)) fail('DENY_PATH_OUTSIDE', `Path resolves outside the project root: ${value}`)
-  const realRelative = relative(context.projectRoot, real)
+  const realRoot = containingRoot(context, real)
+  if (!realRoot) fail('DENY_PATH_OUTSIDE', `Path resolves outside the project root: ${value}`)
+  const realRelative = relative(realRoot, real)
   if (hasSecretSegment(realRelative)) fail('DENY_SECRET_PATH', `Secret-bearing path is blocked: ${value}`)
   const stat = statSync(real)
   if (stat.isFile() && stat.size > 5 * 1024 * 1024) fail('DENY_FILE_TOO_LARGE', `Read target exceeds 5 MiB: ${value}`)
@@ -1007,7 +1015,7 @@ const validateNodeCommand = (args, context) => {
   }
 }
 
-// 쓰는 에이전트(RESTRICTED_BASH_WRITERS)의 의존성 설치 — 프로젝트 루트에서 `pnpm install --ignore-scripts`[`--frozen-lockfile`]만.
+// 쓰는 에이전트(RESTRICTED_BASH_WRITERS)의 의존성 설치 — 프로젝트 안에서 `pnpm install --ignore-scripts`[`--frozen-lockfile`]만.
 // 프로젝트 .npmrc(사내 레지스트리)와 범위 버전을 그대로 따르고(공개 레지스트리 브로커가 못 받는 저장소), 설치 스크립트는 돌리지 않는다.
 // package.json 편집은 Edit(소유권 훅)으로만 — `pnpm add`는 셸로 package.json을 바꾸므로 받지 않는다. 판정은 훅이 에이전트를 가린 뒤 부른다.
 export const isWriterInstallCommand = (input, options = {}) => {
@@ -1015,8 +1023,8 @@ export const isWriterInstallCommand = (input, options = {}) => {
     // 입력 형태 검사는 정책과 같다 — 백그라운드 설치(끝나기 전에 검사를 돌려 통과로 보고하는 경로)도 받지 않는다.
     if (!input?.tool_input || typeof input.tool_input !== 'object' || input.tool_input.run_in_background === true) return false
     requireNoUnexpectedToolInput(input.tool_input)
-    const context = createContext(input, options.environment ?? process.env, options.processCwd ?? process.cwd())
-    if (context.cwd !== context.projectRoot) return false
+    // 프로젝트 안 어느 위치에서든 받는다(서브에이전트는 메인의 하위 폴더를 물려받는다 — pnpm은 가장 가까운 워크스페이스 루트를 찾는다).
+    createContext(input, options.environment ?? process.env, options.processCwd ?? process.cwd())
     const [command, subcommand, ...flags] = tokenizeSimpleCommand(String(input?.tool_input?.command ?? ''))
     return command === 'pnpm' && subcommand === 'install' && flags.includes('--ignore-scripts') &&
       new Set(flags).size === flags.length && flags.every(flag => flag === '--ignore-scripts' || flag === '--frozen-lockfile')
@@ -1060,8 +1068,12 @@ export const evaluateGlobalBashPolicy = (input, options = {}) => {
       // 플러그인 배포판 dispatcher — `node .claude/scripts/<name>.mjs`와 같은 인자 계약을
       // 적용한다. 스크립트 존재는 dispatcher가 payload 안에서 자체 검증하므로 여기서는
       // 이름 형식과 validation contract만 판정한다.
-      if (context.cwd !== context.projectRoot) fail('DENY_CONTEXT', 'Trusted validation commands must run from the project root.')
       const [scriptName, ...scriptArgs] = args
+      // 서브에이전트는 메인의 위치(하위 폴더)를 물려받고 `cd`는 막힌다 — 루트를 인자(--project·--project-root)로 명시하면 하위 폴더에서도 받는다.
+      const namesRoot = scriptArgs.some((arg, index) => (arg === '--project' || arg === '--project-root') && scriptArgs[index + 1] && !scriptArgs[index + 1].startsWith('--'))
+      if (context.cwd !== context.projectRoot && !namesRoot) {
+        fail('DENY_CONTEXT', 'Trusted validation commands must run from the project root, or name it with --project <project root>.')
+      }
       if (!scriptName || scriptName.includes('..') || !/^[a-z0-9][a-z0-9/-]*$/.test(scriptName)) {
         fail('DENY_ARGUMENTS', 'web-harness-script requires a valid script name.')
       }
@@ -1104,7 +1116,7 @@ const BASH_POLICY_REMEDY = {
   DENY_FILE_TOO_LARGE: 'Bash will not read files over 5 MiB — use the Grep tool on that file to get just the matching lines.',
   DENY_SENSITIVE_TREE_GREP: 'Search a narrower directory (e.g. src/ rather than the app root) or name the specific files.',
   DENY_VALIDATION_COMMAND: 'Run only the validator commands your spawn prompt or skill names, with exactly those arguments.',
-  DENY_CONTEXT: 'The project root is CLAUDE_PROJECT_DIR. If this session runs in a worktree or subfolder, typed `node` runners are unavailable here — use Read/Grep and say so in your report.',
+  DENY_CONTEXT: 'The project root is CLAUDE_PROJECT_DIR. From a subfolder, plugin runners work when the command names the root with --project (absolute path); read and search with the Read/Grep/Glob tools.',
   DENY_INPUT: 'Send one plain foreground command (no run_in_background; timeout up to 120000 ms).',
   DENY_POLICY_ERROR: 'The policy failed closed on this input — simplify to one command with quoted literals; report it if it repeats.',
 }

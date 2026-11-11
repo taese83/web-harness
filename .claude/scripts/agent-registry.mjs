@@ -1,3 +1,4 @@
+import {isSecretPath} from './sensitive-access-policy-lib.mjs'
 const appPrefix = '(?:(?:[^/]+/)+)?'
 const appPath = source => new RegExp(`^${appPrefix}${source}`)
 const exactAppFile = source => appPath(`${source}$`)
@@ -193,18 +194,14 @@ const UNUSED_DEFAULT_LAYER_MAP_NOTE = DEFAULT_LAYER_MAP
 // 호출자가 등록부로 폴백한다 — 그 경로(fail-closed)를 지우지 않는다.
 export const AGENT_LAYER_ROLES = {}
 
-// 경로를 정규화한다 — 선행 ./ 제거, 후행 / 보장(디렉토리 접두 매칭용).
-// layerMap 항목은 디렉토리일 수도 **파일**일 수도 있다. 실사용 확정 2호의 layerMap 17개 중
-// 6개가 파일이었다(`src/index.ts`·`src/ChatKit.ts` 등 — src/ 아래가 평면이라 루트 파일이 각각
-// 한 레이어다). 종전 구현은 무조건 `/`를 붙여 `src/ChatKit.ts/`를 만들었고, 그 파일 자신과는
-// 영원히 맞지 않았다 — **실사용 스팩의 3분의 1이 무소유였다**(2026-08-26 실측).
-//
-// 파일이면 그대로 두고 디렉토리면 `/`를 붙인다. 확장자 유무로 가른다 — 마지막 세그먼트에
-// 점이 있으면 파일로 본다. 프록시이며 확장자 없는 파일(`Makefile` 등)은 디렉토리로 오인된다.
+// 경로를 정규화한다 — 선행 ./ 제거, 디렉토리면 후행 /(접두 매칭), 파일이면 그대로(완전 일치 — layerMap 항목은 파일일 수 있다).
+// 파일은 점 앞에 이름이 있는 확장자뿐이다(`ChatKit.ts`·`.eslintrc.json`). 점으로 시작하는 이름(`.changeset`·`.github`)은 디렉토리 —
+// 확장자로 읽으면 그 아래 쓰기가 전부 막힌다. 끝의 `/`는 디렉토리 명시다. 프록시이며 오판은 protected-core §4에 적는다.
 export const normalizeLayerPath = value => {
-  const trimmed = String(value).trim().replace(/^\.\//, '').replace(/\/+$/, '')
+  const raw = String(value).trim().replace(/^\.\//, '')
+  const trimmed = raw.replace(/\/+$/, '')
   const last = trimmed.split('/').at(-1) ?? ''
-  return /\.[^.]+$/.test(last) ? trimmed : `${trimmed}/`
+  return !raw.endsWith('/') && /.\.[^.]+$/.test(last) ? trimmed : `${trimmed}/`
 }
 
 // 경로 → 정규식. 디렉토리는 **접두 일치**(하위 전부), 파일은 **완전 일치**다.
@@ -212,14 +209,18 @@ export const normalizeLayerPath = value => {
 // 스폰 계획 게이트가 **같은 판정**을 쓰도록 내보낸다. 두 곳이 각자 경로 판정을 구현하면
 // "계획은 통과했는데 훅이 막는다"가 나고, 그것이 바로 이 결속이 고치려는 문제다
 // (적대 리뷰 2026-08-30: appPrefix·파일/디렉터리 판별·`./` 접두 셋 다 어긋나 있었다).
-export const layerPattern = path => {
+export const layerPattern = (path, {anchored = false} = {}) => {
   // 글롭 꼬리(`/**`·`/*`)는 **디렉토리 접두**와 같은 뜻이다. normalize보다 **먼저** 걷어낸다 —
   // 뒤에 하면 `src/x/**`가 `src/x/**/`가 되어 잡히지 않는다. 이스케이프만 하면 정규식에
   // 이스케이프만 하면 정규식에 리터럴 `\*\*`가 박혀 아무것도 매칭하지 않는다 —
   // ALLOWED_PATHS를 `src/x/**`로 적은 스폰이 조용히 전부 거부됐다(2026-08-30 실측).
   const normalized = normalizeLayerPath(String(path).replace(/\/\*{1,2}$/, '/'))
   const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`^${appPrefix}${escaped}${normalized.endsWith('/') ? '' : '$'}`)
+  // 점으로 시작하고 확장자 없는 이름(`.changeset`)은 디렉터리로 읽되 같은 이름의 파일(`.nvmrc`)도 맞는다 — 끝의 `/`로 명시했으면 디렉터리만.
+  const dotName = normalized.endsWith('/') && !/\/$/.test(String(path).trim().replace(/\/\*{1,2}$/, '/')) && /(?:^|\/)\.[^./]+\/$/.test(normalized)
+  const prefix = anchored ? '' : appPrefix
+  if (dotName) return new RegExp(`^${prefix}${escaped.slice(0, -1)}(?:/|$)`)
+  return new RegExp(`^${prefix}${escaped}${normalized.endsWith('/') ? '' : '$'}`)
 }
 
 // 부재 표기(괄호 주석)와 빈 값은 경로가 아니다.
@@ -268,6 +269,26 @@ export const isProtectedWritePath = path => {
 }
 
 export const DEVELOPER_AGENT = 'developer'
+
+// 승인된 범위가 상한이다 — 사용자가 ✋·픽업 미리보기에서 승인한 ALLOWED_PATHS에 든 경로는 layerMap 밖·다른 에이전트 소유여도 developer가
+// 쓴다(진입 파일·README·.changeset 한 줄이 스팩 개정으로 번지지 않게). 검사를 정의하는 표면은 범위로도 열지 않는다 — 쓴 사람이 채점
+// 기준(스크립트·도구 설정·CI·훅)을 바꾸지 못하게. 보호 경로·오케스트레이터 산출물은 그보다 앞서 막힌다.
+const GATE_SURFACES = [
+  /(?:^|\/)(?:package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|turbo\.json|nx\.json|lerna\.json|\.node-version|\.pnpmfile\.[cm]?js|dockerfile|docker-compose\.ya?ml|makefile|jenkinsfile|\.gitlab-ci\.yml|azure-pipelines\.yml|bitbucket-pipelines\.yml)$/,
+  /(?:^|\/)[jt]sconfig(?:\.[^/]+)?\.json$/,
+  /(?:^|\/)[^/]+\.(?:config|workspace)\.(?:[cm]?[jt]s|json)$/, // vite·vitest·playwright·jest·eslint·next 등 도구 설정 부류
+  /(?:^|\/)(?:biome|knip|renovate)\.jsonc?$/,
+  /(?:^|\/)\.[a-z0-9-]+rc(?:\.[^/]+)?$/, /(?:^|\/)\.(?:nvmrc|eslintignore|prettierignore|stylelintignore)$/,
+  /(?:^|\/)\.(?:github|husky|circleci|gitlab|buildkite)(?:\/|$)/, /^_workspace(?:\/|$)/,
+]
+// 대소문자를 무시한다 — macOS·Windows 기본 파일시스템에서 `Package.json`은 `package.json`이다. 비밀 이름 파일(.env·키)도 범위로 만들지 않는다.
+export const isScopeGrantable = path => {
+  const clean = String(path).trim().replace(/^\.\//, '').toLowerCase()
+  return !isProtectedWritePath(clean) && !isSecretPath(clean) && !GATE_SURFACES.some(pattern => pattern.test(clean))
+}
+// 범위 펜스(json change-scope)에 적힌 것만 — 산문 한 줄 표기는 범위를 좁히기만 하고 layerMap 밖을 열지 않는다. 경로는 프로젝트 루트 기준(앞 세그먼트 허용 없음).
+export const scopeGrants = (scope, path) => scope?.fenced === true && Array.isArray(scope.paths) && scope.paths.length > 0 && isScopeGrantable(path) &&
+  scope.paths.filter(isLayerPathDeclared).some(entry => layerPattern(entry, {anchored: true}).test(path))
 
 // 개발 에이전트는 layerMap의 모든 선언 경로를 소유한다. 테스트·문서처럼 다른 에이전트가
 // 소유하는 레이어도 포함되지만, 스폰 범위가 그 위에서 다시 좁힌다.

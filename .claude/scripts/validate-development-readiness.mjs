@@ -28,6 +28,8 @@ import {join, resolve} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
 import {HARNESS_AGENT_PREFIX, isPluginBuild} from './agent-identity.mjs'
+import {isScopeGrantable} from './agent-registry.mjs'
+import {evaluateHostExecutionGrant} from './host-execution-grant.mjs'
 import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
 import {digestInputs, inspectSpecLedger, isSpecStale} from './spec.mjs'
 import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './validate-environment-closure.mjs'
@@ -130,7 +132,7 @@ export function effectiveProbePaths(root, spec, {allowedPaths = null} = {}) {
   if (!scope || scope.length === 0) return {paths: layers, narrowed: false}
   // 범위는 소유권을 넓히지 못한다 — 교집합만 예행한다(훅의 intersectWithScope와 같은 뜻).
   const inside = scope.filter(entry => layers.some(layer => withinScope(entry.replace(/\/+\*+$/, '').replace(/\/+$/, ''), layer)
-    || withinScope(layer, entry)))
+    || withinScope(layer, entry)) || isScopeGrantable(entry))
   return {paths: inside.length > 0 ? inside : layers, narrowed: inside.length > 0}
 }
 
@@ -376,7 +378,17 @@ export function checkTeamSharing(root, {install = false} = {}) {
     '--fix로 빠진 줄을 덧붙인다. 없으면 두 번째 PR부터 원장이 충돌하고, 받은 사람의 픽업이 남의 작업 범위에 막힌다', {fixable: true})
 }
 
-export const CHECKS = ['spec', 'ownership', 'plans', 'environment', 'decisions', 'ticket-assets', 'team-sharing']
+// ── 실행 승인 ─────────────────────────────────────────────────────────────
+// 승인이 없으면 developer가 검사를 스스로 돌리지 못해 첫 구현 스폰이 한 번 더 왕복한다 — 착수 전에 받는다(막지는 않는다).
+export function checkExecutionGrant(root) {
+  if (!existsSync(join(root, 'package.json'))) return skip('execution', 'package.json이 없어 실행할 프로젝트 스크립트가 없다')
+  const grant = evaluateHostExecutionGrant(root)
+  if (grant.granted) return pass('execution', '프로젝트 스크립트 실행 승인이 기록돼 있다')
+  return warn('execution', `프로젝트 스크립트 실행 승인이 없다(${grant.reason}) — developer가 검사를 스스로 돌리지 못한다`,
+    '첫 구현 스폰 전에 사용자에게 승인을 받아 `run-quality-gates --check typecheck --allow-host-execution`으로 기록한다')
+}
+
+export const CHECKS = ['spec', 'ownership', 'plans', 'environment', 'decisions', 'ticket-assets', 'team-sharing', 'execution']
 
 export function analyzeDevelopmentReadiness(root, {install = false, hookRun = null} = {}) {
   const specResult = checkSpec(root)
@@ -389,6 +401,7 @@ export function analyzeDevelopmentReadiness(root, {install = false, hookRun = nu
   results.push(spec ? checkDecisionsApplied(root, spec) : skip('decisions', '스팩이 없어 대조할 수 없다'))
   results.push(checkTicketAssets(root, {install}))
   results.push(checkTeamSharing(root, {install}))
+  results.push(checkExecutionGrant(root))
   const failures = results.filter(r => r.state === 'FAIL')
   return {
     schemaVersion: 1,

@@ -98,6 +98,83 @@ test('스팩 layerMap 밖은 중첩에서도 여전히 막힌다', () => {
   })
 })
 
+test('점으로 시작하는 레이어(.changeset·.storybook)는 디렉터리다 — 그 아래 새 파일을 쓸 수 있고 비슷한 이름은 막힌다', () => {
+  const spec = {...SPEC, layerMap: {...SPEC.layerMap, changesets: '.changeset', storybook: 'packages/ui/.storybook', entry: 'lib/ChatKit.ts'}}
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('.changeset/stt-input-lost-stop.md').allowed, true, '`.changeset` 레이어 아래 새 파일이 막혔다 — 확장자로 오인')
+    assert.equal(write('packages/ui/.storybook/main.ts').allowed, true, '중첩된 점 디렉터리 레이어가 막혔다')
+    assert.equal(write('lib/ChatKit.ts').allowed, true)
+    assert.equal(write('.changesetX/a.md').allowed, false, '접두만 같은 다른 경로를 열었다')
+    assert.equal(write('lib/ChatKit.tsx').allowed, false, '파일 레이어가 접두 일치로 넓어졌다')
+  }, {spec})
+  // 점 이름은 동명 파일도 맞고(`.nvmrc`), 끝 `/`로 명시하면 디렉토리만이다.
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('.nvmrc').allowed, true, '점 이름 레이어가 같은 이름의 파일을 막았다')
+    assert.equal(write('.husky/pre-commit').allowed, true)
+    assert.equal(write('.husky').allowed, false, '끝 / 로 디렉토리만 명시했는데 동명 파일이 열렸다')
+  }, {spec: {...SPEC, layerMap: {...SPEC.layerMap, nvm: '.nvmrc', hooks: '.husky/'}}})
+  // 보호 디렉터리를 레이어로 선언해도 열리지 않는다 — 보호 판정이 레이어 패턴보다 앞선다.
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('.claude/settings.json').allowed, false, '레이어로 선언한 .claude가 열렸다')
+    assert.equal(write('.git/config').allowed, false, '레이어로 선언한 .git이 열렸다')
+  }, {spec: {...SPEC, layerMap: {...SPEC.layerMap, harness: '.claude', vcs: '.git'}}})
+})
+
+test('중첩 프로젝트의 write 임대는 스폰 종료 뒤 풀린다 — 다음 developer가 막히지 않는다', () => {
+  const RELEASE = fileURLToPath(new URL('./release-write-lease.mjs', import.meta.url))
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const writeAs = (agentId, path) => {
+      try {
+        execFileSync(process.execPath, [HOOK], {input: JSON.stringify({tool_name: 'Write', agent_type: 'developer', agent_id: agentId, cwd: harnessRoot,
+          tool_input: {file_path: join(projectRoot, path)}}), cwd: harnessRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']})
+        return true
+      } catch { return false }
+    }
+    assert.equal(writeAs('n-1', 'src/entities/a.ts'), true)
+    assert.equal(writeAs('n-2', 'src/entities/b.ts'), false, '임대가 동시 쓰기를 막지 않았다')
+    execFileSync(process.execPath, [RELEASE], {input: JSON.stringify({agent_id: 'n-1', cwd: harnessRoot}), cwd: harnessRoot})
+    assert.equal(writeAs('n-2', 'src/entities/b.ts'), true, '중첩 프로젝트 임대가 스폰 종료 뒤에도 남았다')
+  })
+})
+
+test('승인 범위가 상한이다 — 범위에 명시된 layerMap 밖 경로는 쓰고, 검사 정의 파일·범위 밖·계획 패스는 막힌다', () => {
+  const scope = ['src/entities/', 'README.md', '.changeset/', 'packages/sdk/src/ChatKit.ts', 'package.json', 'tsconfig.json', '.github/workflows/']
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('README.md').allowed, true, '승인 범위의 README가 막혔다')
+    assert.equal(write('.changeset/stt-input-lost-stop.md').allowed, true, '승인 범위의 .changeset이 막혔다')
+    assert.equal(write('packages/sdk/src/ChatKit.ts').allowed, true, '승인 범위의 진입 파일이 막혔다')
+    for (const gate of ['package.json', 'tsconfig.json', '.github/workflows/ci.yml']) {
+      const result = write(gate)
+      assert.equal(result.allowed, false, `검사 정의 파일 ${gate}이 범위로 열렸다`)
+      assert.match(result.message, /defines checks/)
+    }
+    assert.equal(write('docs/notes.md').allowed, false, '범위에 없는 layerMap 밖 경로가 열렸다')
+    assert.equal(write('_workspace/02_design/solution-design.md').allowed, false)
+    assert.equal(write('packages/x/README.md').allowed, false, '범위의 README.md가 다른 위치의 README까지 열었다(루트 고정 아님)')
+  }, {scope})
+  // 디렉터리 범위가 덮어도 검사 정의 파일·비밀 파일은 열리지 않는다 — 대소문자 변형도 같다(macOS·Windows에서는 같은 파일).
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const write = path => runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, path)})
+    assert.equal(write('packages/sdk/README.md').allowed, true, '디렉터리 범위 안의 일반 파일이 막혔다')
+    for (const gate of ['package.json', 'Package.json', 'TSCONFIG.json', 'vitest.config.ts', 'next.config.mjs', '.pnpmfile.cjs', '.env.local', 'Dockerfile']) {
+      assert.equal(write(`packages/sdk/${gate}`).allowed, false, `디렉터리 범위가 ${gate}을 열었다`)
+    }
+  }, {scope: ['packages/sdk/']})
+  // 산문 한 줄 표기는 범위를 좁히기만 하고 layerMap 밖을 열지 않는다.
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    assert.equal(runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'README.md')}).allowed, false,
+      '산문 한 줄 범위가 layerMap 밖을 열었다')
+  }, {scope: ['README.md'], scopeForm: 'markdown'})
+  withNestedProject(({harnessRoot, projectRoot}) => {
+    const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'README.md')})
+    assert.equal(result.allowed, false, '계획 패스에서 범위 상한이 source를 열었다')
+  }, {rawScope: ['# change-scope', '', '```json change-scope', JSON.stringify({PHASE: 'plan', ALLOWED_PATHS: ['README.md']}), '```', ''].join('\n')})
+})
+
 test('중첩 경로 판정은 프로젝트 root 기준이다 — 접두가 사유 문구에 새지 않는다', () => {
   withNestedProject(({harnessRoot, projectRoot}) => {
     const result = runHook({cwd: harnessRoot, agentType: 'developer', filePath: join(projectRoot, 'docs/notes.md')})

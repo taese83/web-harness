@@ -3,10 +3,11 @@
 import {existsSync, readFileSync, realpathSync, statSync, lstatSync} from 'node:fs'
 import {recordHookDenial} from './hook-denial-log-lib.mjs'
 import {dirname, isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {AGENT_OWNERSHIP, DEVELOPER_AGENT, developerPlanPhaseOwnership, intersectWithScope, isProtectedWritePath, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership} from './agent-registry.mjs'
+import {AGENT_OWNERSHIP, DEVELOPER_AGENT, developerPlanPhaseOwnership, intersectWithScope, isProtectedWritePath, isScopeGrantable, ORCHESTRATOR_AUTHORED_ARTIFACTS, resolveDeveloperOwnership, resolveSpecOwnership, scopeGrants} from './agent-registry.mjs'
 import {acquireLease, leaseBlockMessage} from './write-lease-lib.mjs'
 import {harnessAgentName} from './agent-identity.mjs'
 import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
+import {worktreeRootFor} from './worktree-roots-lib.mjs'
 
 // 확정된 스팩의 layerMap이 있으면 소유권 경로를 그것에서 얻는다(Stage 3b).
 // 없거나 신뢰할 수 없으면 **기존 등록부로 돌아간다** — 절대 전체 허용이 되지 않는다.
@@ -58,13 +59,17 @@ try {
   const filePath = input.tool_input?.file_path
   if (typeof filePath !== 'string' || !isAbsolute(filePath)) block('Blocked: Write/Edit requires an absolute file_path.', 'RELATIVE_PATH')
 
-  const projectRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
+  const sessionRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
   const requestedPath = resolve(filePath)
   const existingPath = nearestExistingPath(requestedPath)
   let realExistingPath
   try { realExistingPath = realpathSync(existingPath) } catch {
     block(`Blocked: ${input.agent_type} cannot write through a symlink whose target does not exist.`, 'SYMLINK_DANGLING')
   }
+  // 같은 저장소의 git worktree(`.claude/worktrees/<이름>/`·형제 디렉터리)면 그 체크아웃이 판정 root다 — 세션 root 기준으로 재면
+  // `.claude` 보호 세그먼트나 프로젝트 밖으로 읽혀 한 줄도 못 쓴다. 스팩·범위는 아래에서 한 root로 함께 고른다.
+  const worktreeRoot = worktreeRootFor(sessionRoot, realExistingPath)
+  const projectRoot = worktreeRoot ?? sessionRoot
   const realRelativePath = relative(projectRoot, realExistingPath)
   const outsideThroughSymlink = realRelativePath === '..' || realRelativePath.startsWith(`..${sep}`)
   if (outsideThroughSymlink) block(`Blocked: ${input.agent_type} cannot write outside the project root.`, 'OUTSIDE_ROOT')
@@ -111,7 +116,7 @@ try {
 
   // 등록부는 하네스 에이전트의 bare 이름 기준이다. 플러그인 판본에서 프로젝트가 정의한 같은 이름은 프로젝트
   // 에이전트라 소유권을 물려받지 않는다(null → 아래에서 소유권 없음으로 막힌다). 판정은 agent-identity.mjs.
-  const agentType = harnessAgentName(input.agent_type, {projectRoot})
+  const agentType = harnessAgentName(input.agent_type, {projectRoot: sessionRoot})
 
   if (isProtectedWritePath(ownershipPath)) {
     block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — dependency trees, VCS internals, the harness and agent/IDE/MCP settings are never agent-owned.`, 'PROTECTED_PATH')
@@ -122,9 +127,10 @@ try {
   // 않고 레이어 패턴이 선행 세그먼트를 허용하므로 스팩에 그 경로를 적으면 developer가
   // spec.json을 고쳐 **자기 소유권을 스스로 넓힐** 수 있었다(적대 리뷰 2026-08-30).
   // 이 diff가 중첩 프로젝트에서 스팩 유래 소유권을 처음 활성화하므로 먼저 닫는다.
+  const lowerPath = ownershipPath.toLowerCase()
   if (ORCHESTRATOR_AUTHORED_ARTIFACTS.some(artifact => artifact.endsWith('/')
-    ? ownershipPath.startsWith(artifact)
-    : ownershipPath === artifact)) {
+    ? lowerPath.startsWith(artifact.toLowerCase())
+    : lowerPath === artifact.toLowerCase())) {
     block(`Blocked: ${input.agent_type} cannot write ${ownershipPath} — it is orchestrator-authored `
       + 'and owned by no agent. A spec or scope that names it does not grant ownership.', 'ORCHESTRATOR_ARTIFACT')
   }
@@ -133,8 +139,12 @@ try {
     block(`Blocked: ${input.agent_type} is not a web-harness agent — harness write ownership is granted only to `
       + `web-harness:<agent> in the plugin build. A project agent with the same name does not inherit it.`, 'NOT_HARNESS_AGENT')
   }
-  const spec = readSpecLock(ownershipRoot)
-  const scope = agentType === DEVELOPER_AGENT ? readScope(ownershipRoot) : null
+  // 스팩·범위·임대는 한 root에서 함께 읽는다 — worktree가 자기 스팩과 범위를 둘 다 가지면 그 root, 아니면 세션 root(파일별로 섞으면
+  // worktree에 남은 옛 범위가 세션의 계획 패스 잠금을 덮는다).
+  const workspaceRoot = worktreeRoot && !(existsSync(join(ownershipRoot, '_workspace/03_dev/spec.json'))
+    && existsSync(join(ownershipRoot, '_workspace/03_dev/change-scope.md'))) ? sessionRoot : ownershipRoot
+  const spec = readSpecLock(workspaceRoot)
+  const scope = agentType === DEVELOPER_AGENT ? readScope(workspaceRoot) : null
   // 개발 에이전트는 layerMap 전체를 소유하고, 스폰 범위(change-scope ALLOWED_PATHS)가 그 위에서
   // 다시 좁힌다 — 병렬 격리가 에이전트 정체성이 아니라 모듈 경계에서 나온다(2026-08-26).
   // 계획 패스(`PHASE: plan`)가 현재 범위면 source 소유는 없고 계획 문서만 쓴다 — 승인 전 source 변경 0을 훅이 보장한다.
@@ -176,24 +186,30 @@ try {
   // layerMap 밖 경로 쓰기는 임대를 잡은 뒤 아래에서 막힌다 — 이미 쓰려는 같은 스폰이므로 그 스폰의
   // `SubagentStop`이 놓는다.
   if (agentType === DEVELOPER_AGENT && typeof input.agent_id === 'string' && input.agent_id) {
-    const lease = acquireLease({projectRoot, agentId: input.agent_id, agentType, sessionId: input.session_id ?? null})
+    // 임대는 체크아웃 단위 — 범위를 공유하는 스폰끼리 한 파일에 모인다(worktree가 자기 범위를 가질 때만 worktree, 아니면 세션 root).
+    // 해제 훅(release-write-lease)이 세션 root와 worktree root만 열거하므로 중첩 프로젝트 root에는 두지 않는다.
+    const leaseRoot = worktreeRoot && workspaceRoot !== sessionRoot ? worktreeRoot : sessionRoot
+    const lease = acquireLease({projectRoot: leaseRoot, agentId: input.agent_id, agentType, sessionId: input.session_id ?? null})
     if (lease.held) block(leaseBlockMessage({held: lease.held, path: lease.path, agentType: input.agent_type}), 'LEASE_HELD')
     if (lease.unavailable) {
       block(`Blocked: ${input.agent_type} — write 임대를 만들 수 없어 같은 체크아웃의 직렬화를 보장할 수 없다 `
         + `(${lease.unavailable.join(' · ')}). 보장할 수 없으면 쓰지 않는다.`, 'LEASE_UNAVAILABLE')
     }
   }
-  if (!allowedPatterns.some(pattern => pattern.test(ownershipPath))) {
+  // 승인된 범위에 명시된 경로는 layerMap 밖이어도 쓴다(검사 정의 표면 제외 — agent-registry isScopeGrantable). 계획 패스는 위에서 막혔다.
+  const grantedByScope = agentType === DEVELOPER_AGENT && scope?.phase !== 'plan' && scopeGrants(scope, ownershipPath)
+  if (!grantedByScope && !allowedPatterns.some(pattern => pattern.test(ownershipPath))) {
     // `specPatterns`는 빈 배열일 수 있고 빈 배열은 truthy다 — 종전에는 폴백해 놓고도
     // `spec-lock layerMap`이라 표시해 원인을 반대로 가리켰다(2026-08-30 실측).
     // 실제로 판정에 쓰인 근거를 그대로 적는다.
     const basis = specPatterns?.length ? 'spec-lock layerMap' : 'default registry'
     // 어디로 보내야 풀리는지 말한다 — 소유자가 없는 경로에 「소유자에게 보내라」만 주면 에이전트끼리 서로를 가리킨다.
     const inLayerMap = (resolveDeveloperOwnership(spec) ?? []).some(pattern => pattern.test(ownershipPath))
-    const remedy = inLayerMap
-      ? ' The path is inside the spec layerMap but outside this round\'s scope: stop and report it; the main thread widens the scope with '
+    const remedy = inLayerMap || isScopeGrantable(ownershipPath)
+      ? ' The path is outside this round\'s approved scope (only a ```json change-scope fence opens paths outside the layerMap): stop and report it; the main thread widens the scope with '
         + `\`node .claude/scripts/widen-change-scope.mjs --project-root . --add ${ownershipPath} --reason "<why>"\` (preview, then --apply after user confirmation) — do not edit change-scope.md by hand.`
-      : ' No layer in the spec layerMap covers this path: that is a spec change (SPEC_CHANGE_REQUEST to the developer, system-architect updates layerMap), not a scope change.'
+      : ' It defines checks (package scripts, tool config, CI, hooks), carries a secret-like name, or is a design document, so an approved scope does not open it: '
+        + 'report it — environment-scaffolder (config) or the owning designer changes it, or system-architect adds a layer (SPEC_CHANGE_REQUEST).'
     block(`Blocked: ${input.agent_type} does not own ${ownershipPath} (basis: ${basis}).${remedy}`, 'NOT_OWNED')
   }
 

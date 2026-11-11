@@ -125,7 +125,7 @@ test('회귀 반증: 파일 항목은 완전 일치다 — 접두로 새지 않�
 })
 
 test('프록시 표기: 확장자 유무로 파일·디렉토리를 가른다', () => {
-  // 마지막 세그먼트에 점이 있으면 파일로 본다. 오판 두 방향을 고정한다 —
+  // 점 앞에 이름이 있는 확장자면 파일로 본다. 오판 두 방향을 고정한다 —
   // 발견하면 수정 대상이지 현재 동작은 이것이다(protected-core §4 등록).
   const dotted = resolveDeveloperOwnership({layerMap: {v: 'src/v1.2'}})
   assert.equal(owns(dotted, 'src/v1.2/x.ts'), false, '점 있는 디렉토리를 파일로 오인한다(알려진 프록시)')

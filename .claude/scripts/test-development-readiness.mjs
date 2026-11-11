@@ -168,19 +168,20 @@ test('범위 해석: 문서의 마지막 항목이 현재 범위다 — 표기(�
   const cases = [
     ['ALLOWED_PATHS: a.ts, b.ts', {paths: ['a.ts', 'b.ts']}],
     [`## r1\nALLOWED_PATHS: old.ts\n## r2\nALLOWED_PATHS: new.ts`, {paths: ['new.ts']}],
-    [`## r1\n${fence(['old.ts'])}\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts']}],
+    [`## r1\n${fence(['old.ts'])}\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts'], fenced: true}],
     [`## r1\n${fence(['old.ts'])}\n## r2\nALLOWED_PATHS: new.ts`, {paths: ['new.ts']}],
-    [`## r1\nALLOWED_PATHS: old.ts\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts']}],
-    [`${fence(['a.ts'])}\n\`\`\`json change-scope\n{"NOTE": 1}\n\`\`\``, {paths: ['a.ts']}],
+    [`## r1\nALLOWED_PATHS: old.ts\n## r2\n${fence(['new.ts'])}`, {paths: ['new.ts'], fenced: true}],
+    [`${fence(['a.ts'])}\n\`\`\`json change-scope\n{"NOTE": 1}\n\`\`\``, {paths: ['a.ts'], fenced: true}],
     ['없음', {paths: []}],
-    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md"]}\n\`\`\``, {paths: ['_workspace/01_plan/feature-plan.md'], phase: 'plan'}],
-    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["x.md"]}\n\`\`\`\n## r2\n${fence(['src/a.ts'])}`, {paths: ['src/a.ts']}],
+    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["_workspace/01_plan/feature-plan.md"]}\n\`\`\``, {paths: ['_workspace/01_plan/feature-plan.md'], phase: 'plan', fenced: true}],
+    [`## r1\n\`\`\`json change-scope\n{"PHASE": "plan", "ALLOWED_PATHS": ["x.md"]}\n\`\`\`\n## r2\n${fence(['src/a.ts'])}`, {paths: ['src/a.ts'], fenced: true}],
     ['## r1\nPHASE: plan\nALLOWED_PATHS: x.md', {paths: ['x.md'], phase: 'plan'}],
     ['## r1\nPHASE: plan\nALLOWED_PATHS: x.md\n## r2\nALLOWED_PATHS: src/a.ts', {paths: ['src/a.ts']}],
     ['## r1\nALLOWED_PATHS: x.md\nPHASE: plan\n## r2\nALLOWED_PATHS: src/a.ts', {paths: ['src/a.ts']}],
   ]
   for (const [source, expected] of cases) assert.deepEqual(parseChangeScopeAllowedPaths(source), {phase: null, ...expected}, source)
   assert.ok(parseChangeScopeAllowedPaths('```json change-scope\n{"ALLOWED_PATHS": [\n```').error, '깨진 마지막 펜스를 범위 미발급으로 넓혔다')
+  assert.equal(parseChangeScopeAllowedPaths('```json change-scope\n{"PHASE": "Plan", "ALLOWED_PATHS": ["x.md"]}\n```').phase, 'plan', '대소문자가 다른 PHASE가 계획 잠금을 건너뛰었다')
 })
 
 test('실제 훅: 두 번째 라운드의 범위로 예행한다', () => {

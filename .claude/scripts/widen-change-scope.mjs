@@ -3,7 +3,7 @@
 //
 // developer는 스팩 layerMap ∩ 범위만 쓴다. 범위 밖이지만 layerMap 안인 파일(예: 토큰 파일 한 줄)을 고쳐야 할 때 범위 문서를
 // 손으로 고치면 소유권을 스스로 넓히는 모양이라 막히거나(자동 모드) 흔적이 흐려진다. 이 명령이 그 넓히기의 유일한 길이다:
-//   - layerMap 밖 경로는 넓히지 않는다 — 그건 범위가 아니라 스팩 변경(SPEC_CHANGE_REQUEST)이다
+//   - layerMap 밖 경로는 검사 정의 표면(패키지·도구 설정·CI·훅)·설계 문서가 아닐 때만 넓힌다(승인 범위가 상한) — 그 표면은 스팩 변경이다
 //   - 계획 패스(`PHASE: plan`)에서는 넓히지 않는다 — source는 ✋ 뒤 구현 범위에서만 쓴다
 //   - 기본은 미리보기(쓰기 0), `--apply`만 새 범위 항목을 끝에 덧붙인다(사람 승인 훅이 사용자 확인으로 묻는다)
 //
@@ -14,7 +14,7 @@ import {join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {answerHelp} from './cli-help-lib.mjs'
 import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
-import {resolveDeveloperOwnership} from './agent-registry.mjs'
+import {isScopeGrantable, resolveDeveloperOwnership} from './agent-registry.mjs'
 
 export const SCOPE_PATH = '_workspace/03_dev/change-scope.md'
 const SPEC_PATH = '_workspace/03_dev/spec.json'
@@ -35,18 +35,20 @@ export function planScopeWidening({root, add, reason}) {
   const owned = resolveDeveloperOwnership(spec)
   if (!owned) return {ok: false, code: 'NO_SPEC_OWNERSHIP', guidance: `${SPEC_PATH}의 layerMap이 없다 — 스팩을 먼저 확정한다`}
   const requested = [...new Set(add.map(normalize).filter(Boolean))]
-  const outside = requested.filter(path => !owned.some(pattern => pattern.test(path)))
+  // layerMap 밖이어도 검사 정의 표면이 아니면 사용자 확인으로 범위에 넣는다(승인 범위가 상한 — agent-registry isScopeGrantable).
+  const outside = requested.filter(path => !owned.some(pattern => pattern.test(path)) && !isScopeGrantable(path))
   if (outside.length > 0) {
-    return {ok: false, code: 'OUTSIDE_LAYER_MAP', outside,
-      guidance: `스팩 layerMap 밖이다: ${outside.join(', ')} — 범위가 아니라 스팩 변경이다(개발자에게 묻고 system-architect가 layerMap을 고친 뒤 재확정)`}
+    return {ok: false, code: 'GATE_SURFACE', outside,
+      guidance: `검사를 정의하는 파일(패키지·도구 설정·CI·훅)·비밀 이름 파일·설계 문서다: ${outside.join(', ')} — 범위로 열지 않는다(environment-scaffolder·담당 설계자, 또는 system-architect가 레이어로 더한 뒤 재확정)`}
   }
-  const added = requested.filter(path => !scope.paths.includes(path))
+  // 범위가 산문 한 줄 표기면 layerMap 밖을 열지 못한다 — 요청 경로를 펜스로 다시 적는다(이미 적혀 있어도).
+  const added = scope.fenced ? requested.filter(path => !scope.paths.includes(path)) : requested
   if (!String(reason ?? '').trim()) return {ok: false, code: 'REASON_REQUIRED', guidance: '--reason <한 줄>로 왜 넓히는지 남긴다 — 리뷰가 범위 이탈과 구분한다'}
   // 사유는 범위 문서(파서가 읽는 마크다운)에 덧붙는다 — 줄바꿈·백틱이 섞이면 새 펜스·범위 줄을 흉내 낼 수 있다.
   if (/[\r\n`]/.test(String(reason)) || String(reason).length > 200) {
     return {ok: false, code: 'REASON_INVALID', guidance: '--reason은 200자 이내 한 줄, 백틱 없이 쓴다'}
   }
-  return {ok: true, current: scope.paths, added, next: [...scope.paths, ...added], reason: String(reason).trim()}
+  return {ok: true, current: scope.paths, added, next: [...new Set([...scope.paths, ...added])], reason: String(reason).trim()}
 }
 
 export function applyScopeWidening({root, plan, now = new Date()}) {

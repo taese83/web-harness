@@ -7,13 +7,16 @@
 // **남의 임대는 지우지 않는다** — `releaseLease`가 agent_id를 대조한다.
 import {realpathSync} from 'node:fs'
 import {releaseLease} from './write-lease-lib.mjs'
+import {attachedWorktreeRoots} from './worktree-roots-lib.mjs'
 
 try {
   let source = ''
   for await (const chunk of process.stdin) source += chunk
   const input = JSON.parse(source)
   if (typeof input.agent_id === 'string' && input.agent_id) {
-    releaseLease({projectRoot: realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd), agentId: input.agent_id})
+    // worktree에서 잡은 임대도 놓는다(소유권 훅은 범위를 공급한 root에서 잡는다).
+    const sessionRoot = realpathSync(process.env.CLAUDE_PROJECT_DIR ?? input.cwd)
+    for (const root of [sessionRoot, ...attachedWorktreeRoots(sessionRoot)]) releaseLease({projectRoot: root, agentId: input.agent_id})
   }
 } catch { /* 해제 실패로 종료를 막지 않는다 — 남은 임대는 다음 쓰기가 알린다 */ }
 process.exit(0)
