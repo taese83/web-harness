@@ -4699,6 +4699,46 @@
       "why": "같은 범위를 쓰는 메인 체크아웃과 worktree 스폰이 다른 임대를 잡으면 한 범위 파일 아래 동시 쓰기가 된다"
     },
     {
+      "id": "seed-spec-shape-only",
+      "file": ".claude/scripts/ticket/ticket-seed.mjs",
+      "find": "  const specChanged = seed.specShapeDigest ? seed.specShapeDigest !== specShapeDigest(spec) : (!seed.specDigest || seed.specDigest !== (spec?.digest ?? null))",
+      "replace": "  const specChanged = !seed.specDigest || seed.specDigest !== (spec?.digest ?? null)",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "스팩 파일에 없는 digest나 재확정마다 바뀌는 출처 지문으로 재면 초안 판정이 늘 낡은 것으로 읽혀 같은 코드를 다시 판정한다"
+    },
+    {
+      "id": "seed-stale-reassess",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "        seedReassess = {previous, changedSections: onlyBoundary ? [] : null, staleBecause: reasons}",
+      "replace": "        seedReassess = null",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "낡은 초안 판정을 버리고 처음부터 판정하게 하면 판정 에이전트가 같은 코드를 처음부터 다시 탐색한다"
+    },
+    {
+      "id": "seed-spec-change-detected",
+      "file": ".claude/scripts/ticket/ticket-seed.mjs",
+      "find": "  if (specChanged) reasons.push('spec-changed')",
+      "replace": "  if (false) reasons.push('spec-changed')",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "판정이 기대는 스팩(라이브러리·소유 경계)이 바뀌어도 미리 둔 판정을 그대로 쓰면 낡은 자기검사 답으로 착수한다"
+    },
+    {
+      "id": "seed-unreadable-full-reassess",
+      "file": ".claude/scripts/ticket/ticket-work-run.mjs",
+      "find": "        const onlyBoundary = reasons.every(reason => reason === 'spec-changed' || reason === 'write-paths-changed')",
+      "replace": "        const onlyBoundary = true",
+      "test": ".claude/scripts/test-ticket-seed.mjs",
+      "why": "지문 기록이 깨졌는데 바뀐 절이 없다고 넘기면 본문에 새로 들어간 요구가 조용히 빠진다"
+    },
+    {
+      "id": "gate0-workflow-findings-warn",
+      "file": ".claude/scripts/validate-development-readiness.mjs",
+      "find": "    ...(unaccepted.length ? [`인수되지 않은 기존 워크플로 보안 finding ${unaccepted.length}건(목록: 실행기가 _workspace/04_qa/workflow-security-findings.txt에 남긴다)`] : []),",
+      "replace": "    ...[],",
+      "test": ".claude/scripts/test-development-readiness.mjs",
+      "why": "인수되지 않은 워크플로 finding을 착수 전에 알리지 않으면 developer의 검사가 실행기에서 막혀 턴을 버린다"
+    },
+    {
       "id": "harness-agents-turn-batching",
       "file": ".claude/scripts/reference-areas-lib.mjs",
       "find": "export const turnGuidance = agentName => (agentName === 'developer' ? `${BATCHING}${DEVELOPER_RANGE}` : shipsAgent(agentName) ? BATCHING : null)",

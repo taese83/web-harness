@@ -137,8 +137,8 @@ CLI가 막지 않고 **보여 주는** 것: 이 클론이 아는 진행 중 작�
 | `<키>.ticket.md`(격리 사본) | 판정서가 검증을 통과하면 CLI가 `<키>.assessed.md`로 옮긴다. 검증에 실패하면 다시 판정하도록 남긴다 |
 | `<키>.decisions.md`(확인 전 결정 목록) | 메인이 쓴다(에이전트 아님). `pickup`(첫 판정·`--reassess`)이 판정에 넘기고, 확인하면(착수 가능·불가 모두) CLI가 `history/<키>.decisions.<n>.md`로 옮긴다 — 착수 가능이면 등록 기록 `decisionsRef`가 그 경로다(설계 결정을 `/wh change`가 읽는다) |
 | `<키>.assessed.md`(판정이 기댄 원문) | 지우지 않는다 — `pickup --reassess`가 바뀐 절을 가리는 기준이다 |
-| `history/<키>.<n>.json`(이전 판정서) | 지우지 않는다 — `--reassess`가 옮긴 판정서다. 재판정(`next.mode: ticket-reassessment`)이 여기서 시작해 바뀐 절에 걸린 항목만 고친다 |
-| `<키>.seed.json`(생성 시점 지문) | `create`가 초안 판정(`ticket-drafts/<이름>.assessments.json`)을 미리 둘 때 CLI가 쓴다. pickup이 트래커 본문·스팩·수정 범위 코드 지문을 대조해 하나라도 다르면 판정서와 함께 지운다. 확인하면 지운다 |
+| `history/<키>.<n>.json`(이전 판정서) | 지우지 않는다 — `--reassess`나 낡은 초안 판정이 옮긴 판정서다. 재판정(`next.mode: ticket-reassessment`)이 여기서 시작해 바뀐 절·`staleBecause`에 걸린 항목만 고친다 |
+| `<키>.seed.json`(생성 시점 지문) | `create`가 초안 판정(`ticket-drafts/<이름>.assessments.json`)을 미리 둘 때 CLI가 쓴다. pickup이 트래커 본문·스팩 판정 지문(재확정마다 바뀌는 출처·결정 기록 제외)·수정 범위 코드 지문을 대조해 하나라도 다르면 지우고, 판정서는 이력으로 옮겨 재판정으로 넘긴다. 확인하면 지운다 |
 | `<키>.json`(판정서) | `link`가 PR을 연결하면 지운다(확정한 정의는 등록 기록에 있다). 착수 불가 판정서는 남긴다 — 지우면 같은 티켓을 부를 때마다 다시 판정한다 |
 | `<키>.registered.json`(등록 기록) | 착수 불가로 다시 판정해 확인하면 지운다. 끝난 뒤에도 남는다(보드가 내 작업을 그린다) |
 | `<키>.notified.json`(남긴 코멘트 지문) | 지우지 않는다 — 지우면 같은 판정의 코멘트를 다시 남길 수 있다 |

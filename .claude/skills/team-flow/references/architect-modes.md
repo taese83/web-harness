@@ -16,9 +16,12 @@
 기획이 정하지 않은 세부는 `assumptions`(무엇·가정·이유)로 두고 착수 가능으로 판정할 수 있다. 새 사용자 흐름·정책을 가정으로 정하지 않는다.
 선행 작업이 사람 티켓이면 `dependsOn`에 티켓 키를 그대로 적는다.
 
-**재판정(`next.mode: ticket-reassessment`)** — 티켓 본문을 고친 뒤다. `next.previous`(이전 판정서)에서 시작해 `changedSections`에 걸린
+**재판정(`next.mode: ticket-reassessment`)** — 티켓 본문을 고쳤거나 초안 판정이 낡았을 때다. `next.previous`(이전 판정서)에서 시작해 `changedSections`에 걸린
 항목만 고친다. 바뀌지 않은 절에 기댄 항목(자기검사 근거·수정 범위·완료 조건·TT ID)은 그대로 옮긴다 — 번호를 다시 매기지 않는다.
-`changedSections`가 `null`이면(양식 밖 본문) 처음부터 판정한다. `next.decisions`(확인 전 논의의 결정 목록)가 있으면 그 결정이 가리키는
+`changedSections`가 `null`이면(양식 밖 본문·지문 기록 깨짐) 처음부터 판정한다 — `null`이 `staleBecause`보다 우선이고, `next.previous`가 있으면
+그 판정의 근거부터 다시 확인한다. `changedSections: []`와 `next.staleBecause`(`spec-changed`·`write-paths-changed`)면 자기검사 근거(`파일:줄`)와
+`writePaths`를 지금 스팩·코드와 대조하고, 근거가 뒤집힌 항목은 그에 기댄 답·레인·판정까지 고친다 — 나머지는 그대로 옮기고 같은 코드를 처음부터
+다시 탐색하지 않는다. `next.decisions`(확인 전 논의의 결정 목록)가 있으면 그 결정이 가리키는
 항목도 고친다 — 결정마다 판정서의 어느 필드(완료 조건·TT·가정·`designByImplementer`·nonGoals)를 바꿨는지 반환에 적고, 결정에 없는 변경은 하지 않는다.
 목록의 설계 문서 결정(SD·solution-design)은 판정서에 쓰지 않는다 — 확인 뒤 `/wh change`의 설계 단계가 반영한다. 첫 판정(`ticket-assessment`)에
 `next.decisions`가 있어도 같은 규칙이다.
@@ -35,7 +38,7 @@
 FEAT·TC ID를 달지 않는다. 트래커에 만드는 것은 CLI와 사용자 확인의 몫이다.
 **같은 대조로 판정도 쓴다** — 초안 옆 `<이름>.assessments.json`(`{"schemaVersion": 1, "tickets": {"<## 제목>": 판정서}}`)에 티켓마다
 판정 모드와 같은 판정서(`ticket`은 빼고, 테스트 항목 ID는 `TT-DRAFT-<n>`)를 쓴다. `create`가 만든 티켓에 미리 두고, pickup은 트래커 본문·
-스팩·수정 범위 코드가 그대로일 때만 다시 판정하지 않는다. 완료 조건 `source: ticket`은 초안의 「완료 조건」 문장 그대로여야 한다.
+스팩 판정 지문·수정 범위 코드가 그대로일 때만 다시 판정하지 않는다(어긋나면 재판정으로 넘긴다). 완료 조건 `source: ticket`은 초안의 「완료 조건」 문장 그대로여야 한다.
 
 ## WORK 분해 모드 (`team-flow claim`)
 
@@ -58,9 +61,9 @@ FEAT·TC ID를 달지 않는다. 트래커에 만드는 것은 CLI와 사용자 
 
 ## 일반화 근거
 
-에이전트 본문에서 옮긴 절차다 — 새 규칙은 없고, 형태 판단은 각 모드의 정본 계약(`ticket-work-contract.md`·`work-plan-contract.md`)이 진다.
+에이전트 본문에서 옮긴 절차다 — 형태 판단은 각 모드의 정본 계약(`ticket-work-contract.md`·`work-plan-contract.md`)이 진다. 재판정 범위(`staleBecause`)는 이 파일의 절차이고 판정서 형식 검증은 계약이 그대로 진다.
 
 - **웹앱 화면 작업** — 수정 범위·완료 조건이 화면 레이어와 스팩 `layerMap`에서 나온다
 - **API·CLI·라이브러리 작업** — 같은 절차가 서버·명령·공개 API 레이어에 그대로 걸린다(서비스 이름·트래커 종류를 인코딩하지 않는다)
 
-**진실 검증 수준**: 이 파일 자체는 새 규칙이 없다 — 정본 계약의 fixture와 eval `ticket-draft-team-form` 실행을 따른다.
+**진실 검증 수준**: 재판정 넘기기는 `test-ticket-seed`가 CLI 쪽(이력·`staleBecause`·바뀐 절)을 고정하고, 근거만 다시 보는지는 판정 에이전트의 자기신고다 — 그 밖은 정본 계약의 fixture와 eval `ticket-draft-team-form`을 따른다.

@@ -509,3 +509,44 @@ test('팀 공유 설정: 규칙 파일이 비ASCII 디렉터리 아래에 있어
     assert.equal(result.state, 'PASS', result.detail)
   } finally { rmSync(top, {recursive: true, force: true}) }
 })
+
+test('실행 승인: package.json이 있는데 승인이 없으면 착수 전에 경고한다(막지 않는다), 없으면 건너뛴다', async () => {
+  const {checkExecutionGrant} = await import('./validate-development-readiness.mjs')
+  const root = mkdtempSync(join(tmpdir(), 'wh-exec-grant-'))
+  try {
+    assert.equal(checkExecutionGrant(root).state, 'SKIPPED')
+    writeFileSync(join(root, 'package.json'), JSON.stringify({name: 'x', scripts: {test: 'vitest'}}))
+    const result = checkExecutionGrant(root)
+    assert.equal(result.state, 'WARN')
+    assert.match(result.detail, /실행 승인이 없다/)
+    assert.match(result.remedy, /--allow-host-execution/)
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('실행 승인: 승인이 있어도 인수되지 않은 워크플로 finding은 경고하고, 인수가 덮으면 통과, 워크플로가 바뀌면 기록을 지우라고 다시 경고한다', async () => {
+  const {checkExecutionGrant} = await import('./validate-development-readiness.mjs')
+  const {recordHostExecutionGrant} = await import('./host-execution-grant.mjs')
+  const {recordWorkflowSecurityAcceptance} = await import('./workflow-security-acceptance.mjs')
+  const {validateWorkflowSecurityProjects} = await import('./workflow-security-lib.mjs')
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wh-exec-wf-')))
+  try {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({name: 'x', packageManager: 'pnpm@11.18.0', scripts: {test: 'vitest'}}))
+    recordHostExecutionGrant(root)
+    mkdirSync(join(root, '.github/workflows'), {recursive: true})
+    writeFileSync(join(root, '.github/workflows/ci.yml'), 'on: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n')
+    const warned = checkExecutionGrant(root)
+    assert.equal(warned.state, 'WARN', JSON.stringify(warned))
+    assert.match(warned.detail, /인수되지 않은 기존 워크플로 보안 finding \d+건/)
+    assert.match(warned.remedy, /--accept-workflow-findings/)
+    assert.doesNotMatch(warned.remedy, /--allow-host-execution/, '승인이 이미 있는데 또 승인 플래그를 안내했다')
+    const findings = []
+    validateWorkflowSecurityProjects({repositoryRoot: root, manifest: {schemaVersion: 1, projects: [{root: '.', generatedPaths: [], trustedPromotionActions: []}]},
+      pass: () => {}, fail: () => {}, acceptFinding: finding => { findings.push(finding); return true }})
+    recordWorkflowSecurityAcceptance(root, findings)
+    assert.equal(checkExecutionGrant(root).state, 'PASS', '인수가 덮는데 경고했다')
+    writeFileSync(join(root, '.github/workflows/ci.yml'), 'on: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo changed\n')
+    const changed = checkExecutionGrant(root)
+    assert.equal(changed.state, 'WARN')
+    assert.match(changed.remedy, /지운 뒤/, '바뀐 워크플로에 flag만 안내했다 — 기록이 있으면 실행기는 flag로 덮어쓰지 않는다')
+  } finally { rmSync(root, {recursive: true, force: true}) }
+})

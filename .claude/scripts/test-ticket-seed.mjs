@@ -3,7 +3,8 @@
 //
 // 고정하는 사실:
 //   - 초안 판정이 있으면 만든 티켓마다 판정서와 지문 기록을 둔다(`TT-DRAFT-n` → `TT-<키>-n`) — pickup은 판정 에이전트 없이 미리보기로 간다
-//   - 트래커 본문·스팩·수정 범위 코드 중 하나라도 바뀌면 미리 둔 판정을 버리고 판정 에이전트를 부른다(fail-closed)
+//   - 트래커 본문·스팩 판정 지문·수정 범위 코드 중 하나라도 바뀌면 판정서를 이력으로 옮겨 재판정으로 넘긴다(fail-closed)
+//   - 재확정마다 바뀌는 출처·결정 기록만 달라지면 그대로 쓴다 · 지문 기록이 깨졌으면 바뀐 절을 처음부터(null)로 넘긴다
 //   - 미리 둔 판정이 지금 검증을 통과하지 못해도 오류로 멈추지 않고 판정 에이전트에게 넘긴다
 //   - 판정 에이전트가 판정서를 새로 쓰면 지문 기록은 무관하다(일반 판정 경로)
 import assert from 'node:assert/strict'
@@ -37,9 +38,10 @@ const draftAssessment = {verdict: 'startable', lane: 'fix', objective: '진입 �
   planningNeeds: [], designNeeds: [], writePaths: ['src/shared/entryContext/'], nonGoals: [],
   acceptance: [{text: 'userAgent 를 읽는 파일이 이 모듈뿐이다', source: 'ticket'}],
   testItems: [{id: 'TT-DRAFT-1', text: 'userAgent 접근이 한 파일뿐이다', source: 'ticket'}], dependsOn: []}
-const spec = {schemaVersion: 2, digest: 'd'.repeat(64), layerMap: {shared: 'src/shared'}, testLayers: {unit: 'tests'}}
+// 실물 형태 — 스팩 파일에는 digest 필드가 없고 출처 지문(sourceDigest)이 재확정마다 바뀐다.
+const spec = {schemaVersion: 2, sourceDigest: {plan: 'p1'}, layerMap: {shared: 'src/shared'}, testLayers: {unit: 'tests'}}
 
-const setup = async ({withAssessments = true} = {}) => {
+const setup = async ({withAssessments = true, assessment = draftAssessment} = {}) => {
   const root = mkdtempSync(join(tmpdir(), 'wh-ticket-seed-'))
   mkdirSync(join(root, '_workspace/03_dev/ticket-drafts'), {recursive: true})
   mkdirSync(join(root, 'src/shared/entryContext'), {recursive: true})
@@ -48,7 +50,7 @@ const setup = async ({withAssessments = true} = {}) => {
   writeFileSync(join(root, '_workspace/03_dev/ticket-drafts/entry.md'), draftText)
   if (withAssessments) {
     writeFileSync(join(root, '_workspace/03_dev/ticket-drafts/entry.assessments.json'),
-      JSON.stringify({schemaVersion: 1, tickets: {'진입 컨텍스트': draftAssessment}}))
+      JSON.stringify({schemaVersion: 1, tickets: {'진입 컨텍스트': assessment}}))
   }
   const jira = createJiraStub()
   const jiraConfig = {baseUrl: 'https://jira.test', projectKey: 'PF', issueType: 'Task', apiVersion: '2', assigneeField: 'name',
@@ -78,10 +80,10 @@ test('초안 판정을 만든 티켓에 미리 두면 pickup이 판정 에이전
 
 for (const [name, mutate, reason] of [
   ['트래커 본문을 고쳤다', ctx => { const issue = ctx.jira.issues.get(ctx.key); issue.fields.description += '\n추가 요구: 로그를 남긴다' }, 'ticket-body-changed'],
-  ['스팩이 바뀌었다', ctx => writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, digest: 'e'.repeat(64)})), 'spec-changed'],
+  ['스팩의 소유 경계가 바뀌었다', ctx => writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, sourceDigest: {plan: 'p2'}, layerMap: {...spec.layerMap, extra: 'src/extra'}})), 'spec-changed'],
   ['수정 범위 코드가 바뀌었다', ctx => writeFileSync(join(ctx.root, 'src/shared/entryContext/index.ts'), 'export const entry = 2\n'), 'write-paths-changed'],
 ]) {
-  test(`${name}면 미리 둔 판정을 버리고 판정 에이전트를 부른다`, async () => {
+  test(`${name}면 미리 둔 판정을 이력으로 옮기고 재판정(이전 판정에서 시작)으로 판정 에이전트를 부른다`, async () => {
     const ctx = await setup()
     try {
       mutate(ctx)
@@ -90,21 +92,23 @@ for (const [name, mutate, reason] of [
       assert.ok(picked.seedStale?.includes(reason), `이유를 싣지 않았다: ${JSON.stringify(picked.seedStale)}`)
       assert.equal(existsSync(join(ctx.root, assessmentPath(ctx.key))), false, '낡은 판정서를 남겼다 — 판정 에이전트가 새로 써야 한다')
       assert.equal(existsSync(join(ctx.root, seedPath(ctx.key))), false)
+      assert.equal(picked.next.mode, 'ticket-reassessment', '낡은 초안 판정을 버리고 처음부터 판정하게 했다')
+      assert.ok(picked.next.previous && existsSync(join(ctx.root, picked.next.previous)), '이전 판정을 재판정 입력으로 넘기지 않았다')
+      assert.deepEqual(picked.next.staleBecause, picked.seedStale)
+      assert.deepEqual(picked.next.changedSections, reason === 'ticket-body-changed' ? null : [], '본문이 그대로인데 바뀐 절을 비우지 않았다')
     } finally { rmSync(ctx.root, {recursive: true, force: true}) }
   })
 }
 
-test('미리 둔 판정이 지금 검증을 통과하지 못하면 오류가 아니라 판정 요구로 넘긴다', async () => {
+test('소유 경계가 사라지면(layerMap 없음) 오류가 아니라 재판정 요구로 넘긴다', async () => {
   const ctx = await setup()
   try {
-    const path = join(ctx.root, assessmentPath(ctx.key))
-    const seeded = JSON.parse(readFileSync(path, 'utf8'))
-    // 경계를 없애 판정이 경계를 모르게 한다 — 스팩 digest는 그대로(지문은 통과, 검증은 실패).
     writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, layerMap: null}))
+    // 소유 경계가 없으면 스팩 판정 지문이 달라져 재판정으로 간다(검증 실패 경로는 아래 선행 작업 테스트가 본다).
     const picked = await ctx.pickup()
     assert.equal(picked.phase, 'TICKET_ASSESSMENT_REQUIRED', JSON.stringify(picked))
-    assert.ok(picked.seedStale?.includes('seeded-assessment-invalid'))
-    assert.ok(seeded)
+    assert.ok(picked.seedStale?.includes('spec-changed'))
+    assert.equal(picked.next.mode, 'ticket-reassessment')
   } finally { rmSync(ctx.root, {recursive: true, force: true}) }
 })
 
@@ -246,4 +250,48 @@ test('커밋별 리뷰: 커밋 직전에 리뷰한 내용은 커밋 뒤에도 re
     assert.deepEqual(check.commits[3].unreviewed, ['src/a.ts'])
     assert.equal(harnessReviewCheck(root, {base: null}).reviewed, null, 'base를 모르는데 판정했다')
   } finally { rmSync(root, {recursive: true, force: true}) }
+})
+
+test('재확정마다 바뀌는 출처 지문만 달라진 스팩은 미리 둔 판정을 그대로 쓰고, 라이브러리·결정이 바뀌면 재판정한다', async () => {
+  const ctx = await setup()
+  try {
+    writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, sourceDigest: {plan: 'p9'}}))
+    const picked = await ctx.pickup()
+    assert.equal(picked.phase, 'TICKET_WORK_PREVIEW', `판정이 기대는 부분이 그대로인데 다시 판정했다: ${JSON.stringify(picked.seedStale ?? picked.phase)}`)
+    assert.match(picked.seededAssessment.guidance, /재확정마다 바뀌는 출처 지문 제외/, '미리보기가 확인하지 않은 「스팩이 같다」를 말한다')
+  } finally { rmSync(ctx.root, {recursive: true, force: true}) }
+  const changed = await setup()
+  try {
+    writeFileSync(join(changed.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, libraries: {router: 'x'}}))
+    const picked = await changed.pickup()
+    assert.equal(picked.next?.mode, 'ticket-reassessment', '라이브러리가 바뀌었는데 미리 둔 판정을 그대로 썼다')
+  } finally { rmSync(changed.root, {recursive: true, force: true}) }
+})
+
+test('지문 기록이 깨졌으면 바뀐 절을 「없음」이 아니라 처음부터(null)로 넘긴다', async () => {
+  const ctx = await setup()
+  try {
+    writeFileSync(join(ctx.root, seedPath(ctx.key)), '{깨진 지문 기록')
+    const picked = await ctx.pickup()
+    assert.equal(picked.next?.mode, 'ticket-reassessment', JSON.stringify(picked))
+    assert.equal(picked.next.changedSections, null, '셀 수 없는 지문인데 바뀐 절이 없다고 넘겼다')
+  } finally { rmSync(ctx.root, {recursive: true, force: true}) }
+})
+
+test('미리 둔 판정이 지문은 맞지만 지금 검증을 통과하지 못하면(모르는 선행 작업) 오류가 아니라 판정 요구로 넘긴다', async () => {
+  const ctx = await setup({assessment: {...draftAssessment, dependsOn: ['WORK-00000009-0000-4000-8000-000000000009']}})
+  try {
+    const picked = await ctx.pickup()
+    assert.equal(picked.phase, 'TICKET_ASSESSMENT_REQUIRED', JSON.stringify(picked))
+    assert.ok(picked.seedStale?.includes('seeded-assessment-invalid'), JSON.stringify(picked.seedStale))
+  } finally { rmSync(ctx.root, {recursive: true, force: true}) }
+})
+
+test('결정이 바뀐 스팩은 재판정으로 넘긴다 — 결정은 판정 지문에 든다', async () => {
+  const ctx = await setup()
+  try {
+    writeFileSync(join(ctx.root, '_workspace/03_dev/spec.json'), JSON.stringify({...spec, decisions: [{id: 'SD-9'}]}))
+    const picked = await ctx.pickup()
+    assert.equal(picked.next?.mode, 'ticket-reassessment', JSON.stringify(picked.phase))
+  } finally { rmSync(ctx.root, {recursive: true, force: true}) }
 })

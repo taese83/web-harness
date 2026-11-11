@@ -23,13 +23,15 @@
 // 사용법:
 //   node .claude/scripts/validate-development-readiness.mjs --project <root> [--json] [--fix]
 // 종료 코드: 0 = 착수 가능, 1 = 미해결 항목 있음, 2 = 사용법/입력 오류.
-import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs'
+import {existsSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync} from 'node:fs'
 import {join, resolve} from 'node:path'
 import {pathToFileURL, fileURLToPath} from 'node:url'
 import {execFileSync} from 'node:child_process'
 import {HARNESS_AGENT_PREFIX, isPluginBuild} from './agent-identity.mjs'
 import {isScopeGrantable} from './agent-registry.mjs'
 import {evaluateHostExecutionGrant} from './host-execution-grant.mjs'
+import {acceptanceCovers, readWorkflowSecurityAcceptance} from './workflow-security-acceptance.mjs'
+import {validateWorkflowSecurityProjects} from './workflow-security-lib.mjs'
 import {parseChangeScopeAllowedPaths} from './change-scope-lib.mjs'
 import {digestInputs, inspectSpecLedger, isSpecStale} from './spec.mjs'
 import {analyzeEnvironmentClosure, REQUIRED_SCRIPTS, WEB_APP_SCRIPTS} from './validate-environment-closure.mjs'
@@ -380,12 +382,37 @@ export function checkTeamSharing(root, {install = false} = {}) {
 
 // ── 실행 승인 ─────────────────────────────────────────────────────────────
 // 승인이 없으면 developer가 검사를 스스로 돌리지 못해 첫 구현 스폰이 한 번 더 왕복한다 — 착수 전에 받는다(막지는 않는다).
+// 기존 워크플로의 보안 finding이 인수되지 않았어도 개발 게이트(--check)가 막힌다 — 같은 자리에서 함께 알린다(인수는 사람만 한다).
+// 인수 판정은 실행기와 같은 실제 경로(realpath)로 한다 — 실행기가 그 경로로 기록한다.
 export function checkExecutionGrant(root) {
   if (!existsSync(join(root, 'package.json'))) return skip('execution', 'package.json이 없어 실행할 프로젝트 스크립트가 없다')
-  const grant = evaluateHostExecutionGrant(root)
-  if (grant.granted) return pass('execution', '프로젝트 스크립트 실행 승인이 기록돼 있다')
-  return warn('execution', `프로젝트 스크립트 실행 승인이 없다(${grant.reason}) — developer가 검사를 스스로 돌리지 못한다`,
-    '첫 구현 스폰 전에 사용자에게 승인을 받아 `run-quality-gates --check typecheck --allow-host-execution`으로 기록한다')
+  let real = root
+  try { real = realpathSync(root) } catch { /* 그대로 */ }
+  const grant = evaluateHostExecutionGrant(real)
+  const acceptance = readWorkflowSecurityAcceptance(real)
+  const unaccepted = []
+  let workflowError = null
+  try {
+    validateWorkflowSecurityProjects({repositoryRoot: real, manifest: {schemaVersion: 1, projects: [{root: '.', generatedPaths: [], trustedPromotionActions: []}]},
+      pass: () => {}, fail: message => unaccepted.push(message),
+      acceptFinding: finding => acceptance.state === 'valid' && acceptanceCovers(acceptance.record, finding)})
+  } catch (error) { workflowError = error instanceof Error ? error.message : String(error) }
+  const problems = [
+    ...(grant.granted ? [] : [`프로젝트 스크립트 실행 승인이 없다(${grant.reason})`]),
+    ...(unaccepted.length ? [`인수되지 않은 기존 워크플로 보안 finding ${unaccepted.length}건(목록: 실행기가 _workspace/04_qa/workflow-security-findings.txt에 남긴다)`] : []),
+    ...(workflowError ? [`워크플로 보안 검사를 하지 못했다(${workflowError.slice(0, 120)})`] : []),
+  ]
+  if (problems.length === 0) return pass('execution', '프로젝트 스크립트 실행 승인이 있고, 인수되지 않은 워크플로 finding이 없다')
+  // 기록이 이미 있는데 덮지 못하면(워크플로가 바뀜·다른 경로·형식 낡음) flag만으로는 다시 기록하지 않는다 — 사람이 그 파일을 먼저 지운다.
+  const acceptRemedy = !unaccepted.length ? ''
+    : acceptance.state === 'none' ? ' `--accept-workflow-findings`'
+    : ` — 기존 인수 기록(${acceptance.state})이 덮지 못하니 사람이 _workspace/03_dev/workflow-security-acceptance.json을 지운 뒤 \`--accept-workflow-findings\``
+  if (grant.granted && !unaccepted.length) {
+    return warn('execution', `${problems.join(' · ')}`, '실행기 `run-quality-gates --check typecheck`를 직접 돌려 워크플로 보안 검사 오류를 확인한다')
+  }
+  return warn('execution', `${problems.join(' · ')} — developer가 검사를 스스로 돌리지 못한다`,
+    `첫 구현 스폰 전에 사용자에게 승인을 받아 \`run-quality-gates --check typecheck${grant.granted ? '' : ' --allow-host-execution'}\`${acceptRemedy}로 기록한다`
+      + (unaccepted.length ? '(이 변경에서 고칠 워크플로가 아니면 — 목록을 보고 판단한다)' : ''))
 }
 
 export const CHECKS = ['spec', 'ownership', 'plans', 'environment', 'decisions', 'ticket-assets', 'team-sharing', 'execution']

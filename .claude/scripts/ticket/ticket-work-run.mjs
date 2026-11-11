@@ -283,11 +283,12 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       extra: {ticketWork: {note: `판정서를 읽지 못해 등록된 판정으로 이어간다: ${String(error?.message ?? error).slice(0, 120)}`}}}
     return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_INVALID', ticketKey, path, errors: [`판정서를 읽지 못했다: ${String(error?.message ?? error).slice(0, 160)}`]}}
   }
-  // `create`가 미리 둔 초안 판정 — 만든 시점의 지문(트래커 본문·스팩·수정 범위 코드)이 그대로일 때만 쓴다. 어긋나면 버리고 판정을 요구한다.
+  // `create`가 미리 둔 초안 판정 — 만든 시점의 지문(트래커 본문·스팩 판정 지문·수정 범위 코드)이 그대로일 때만 쓴다. 어긋나면 이력으로 옮겨 재판정으로 넘긴다.
   // 판정 에이전트가 판정서를 새로 썼으면(지문 기록의 판정서 digest와 다르면) 미리 둔 판정이 아니다 — 지문 기록만 치운다.
   const discard = paths => { if (!flags['dry-run']) for (const relative of paths) rmSync(join(root, relative), {force: true}) }
   let seeded = false
   let seedStale = null
+  let seedReassess = null
   if (!registered && assessment && existsSync(join(root, seedPath(ticketKey)))) {
     let seed = null
     try { seed = readJson(root, seedPath(ticketKey)) } catch { seed = null }
@@ -297,11 +298,19 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       try { spec = readJson(root, '_workspace/03_dev/spec.json') } catch { spec = null }
       const reasons = staleSeedReasons({root, seed, assessment, body: current?.body ?? '', spec})
       if (reasons.length === 0) seeded = true
-      else { discard([path, seedPath(ticketKey)]); assessment = null; seedStale = reasons }
+      else {
+        // 버리지 않고 재판정으로 넘긴다 — 이전 판정에서 시작해 어긋난 것(본문 절·소유 경계·수정 범위 코드)만 다시 본다(같은 코드를 처음부터 다시 읽지 않게).
+        const previous = !flags['dry-run'] ? archiveAssessment(root, path, ticketKey) : path
+        discard([seedPath(ticketKey)])
+        // 바뀐 절이 없다고 말할 수 있는 것은 본문 지문이 같고 어긋난 것이 스팩·수정 범위 코드뿐일 때다 — 그 밖(본문 변경·지문 기록 깨짐)은 처음부터(null).
+        const onlyBoundary = reasons.every(reason => reason === 'spec-changed' || reason === 'write-paths-changed')
+        seedReassess = {previous, changedSections: onlyBoundary ? [] : null, staleBecause: reasons}
+        assessment = null; seedStale = reasons
+      }
     }
   }
   // `--reassess` — 본문을 고친 뒤 다시 판정한다. 지금 판정서는 이력으로 옮기고(지우지 않는다), 바뀐 절만 넘긴다.
-  let reassess = null
+  let reassess = seedReassess
   if (flags.reassess) {
     const quarantined = quarantineExcerpt({...current, body: stripWorkMarker(current?.body ?? '')})
     const previousBody = readAssessedBody(root, ticketKey)
@@ -322,6 +331,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
     // 재판정이면 이전 판정서에서 시작해 바뀐 절에 걸린 항목만 고친다 — 바뀌지 않은 항목(TT ID 포함)은 그대로 둔다.
     const pendingDecisions = reassess?.decisions ?? (existsSync(join(root, decisionsPath(ticketKey))) ? decisionsPath(ticketKey) : null)
     const delta = reassess?.previous ? {mode: 'ticket-reassessment', previous: reassess.previous, changedSections: reassess.changedSections,
+      ...(reassess.staleBecause ? {staleBecause: reassess.staleBecause} : {}),
       ...(pendingDecisions ? {decisions: pendingDecisions} : {})} : {mode: 'ticket-assessment', ...(pendingDecisions ? {decisions: pendingDecisions} : {})}
     return {result: {ok: false, mode: 'work', phase: 'TICKET_ASSESSMENT_REQUIRED', ticketKey, externalWrites: claimed.assigned ? 1 : 0, ...claimedNote, ...extra,
       ...(reassess ? {reassess} : {}),
@@ -329,7 +339,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       next: {agent: 'system-architect', ...delta, writes: path,
         contract: '.claude/skills/team-flow/references/ticket-work-contract.md',
         reads: [flags['dry-run'] ? '(dry-run — 격리 스냅샷을 쓰지 않았다)' : snapshot, ...(delta.previous ? [delta.previous] : []), ...(delta.decisions ? [delta.decisions] : []), '_workspace/03_dev/spec.json', '현재 코드', '_workspace/03_dev/work-plan.json(있으면)']},
-      guidance: `${extra?.seedStale ? `만들 때 둔 판정이 지금과 맞지 않아 버렸습니다(${extra.seedStale.join(', ')}). ` : ''}사람이 만든 개발 티켓입니다(${dev.by ?? '등록된 티켓 작업'}).${claimed.assigned ? ' 먼저 나로 배정했습니다.' : ''} 기획이나 디자인이 더 필요한지 판정합니다. system-architect가 ${path}를 쓴 뒤 다시 pickup을 부르세요.`}}
+      guidance: `${extra?.seedStale ? `만들 때 둔 판정이 지금과 맞지 않아 이력으로 옮기고 재판정합니다(${extra.seedStale.join(', ')}). ` : ''}사람이 만든 개발 티켓입니다(${dev.by ?? '등록된 티켓 작업'}).${claimed.assigned ? ' 먼저 나로 배정했습니다.' : ''} 기획이나 디자인이 더 필요한지 판정합니다. system-architect가 ${path}를 쓴 뒤 다시 pickup을 부르세요.`}}
   }
   // 등록된 작업이고 판정서가 그대로면(또는 없으면) 계획 WORK처럼 이어서 픽업한다. 판정서를 새로 썼으면 다시 확인을 탄다.
   if (registered && !reassess && (!assessment || assessmentDigest(assessment) === registered.planDigest)) {
@@ -438,7 +448,7 @@ export async function resolveTicketPickup({root, ticketKey, developer, issue, st
       writePaths: definition.writePaths, specApproval: definition.specApproval, review: {...review, ...(peers.length > 0 ? {peers} : {})},
       confirmWith: {flag: '--assessment', value: expected},
       acceptance: assessment.acceptance, testItems: assessment.testItems, reregister: Boolean(registered), externalWrites: 0, ...claimedNote,
-      ...(seeded ? {seededAssessment: {guidance: '티켓을 만들 때 쓴 판정입니다 — 트래커 본문·스팩·수정 범위 코드가 그때와 같아 판정을 다시 하지 않았습니다.'}} : {}),
+      ...(seeded ? {seededAssessment: {guidance: '티켓을 만들 때 쓴 판정입니다 — 트래커 본문·스팩 판정 지문(재확정마다 바뀌는 출처 지문 제외)·수정 범위 코드가 그때와 같아 판정을 다시 하지 않았습니다.'}} : {}),
       ...(overlapNote ? {overlapCheck: {guidance: `끝난 작업을 모두 확인하지 못했습니다: ${overlapNote}`}} : {}), ...(flags['dry-run'] ? {dryRun: true} : {}),
       ...(peerRead.checked ? {} : {peersCheck: {guidance: `동료가 진행 중인 개발 티켓을 모두 읽지 못했습니다${peerRead.reason ? `: ${peerRead.reason}` : ''} — 없다는 뜻이 아닙니다.`}}),
       guidance: '확인하면 이 판정으로 착수합니다. 판정은 내 컴퓨터에만 기록하고 티켓 본문은 고치지 않습니다.'

@@ -3,11 +3,12 @@
 // 초안 에이전트(system-architect 티켓 초안 모드)는 이미 요청·코드·스팩을 대조했다. 만들고 바로 집는 흔한 경우에 판정 에이전트를
 // 한 번 더 부르면 같은 대조를 되풀이한다. 그래서 초안 판정을 판정서 자리에 두고 **만든 시점의 지문**을 따로 남긴다:
 //   - 트래커가 돌려준 티켓 본문 지문(사람이 트래커에서 고쳤는가)
-//   - 스팩 digest(소유 경계·결정이 바뀌었는가)
+//   - 스팩 판정 지문(재확정마다 바뀌는 출처 지문을 뺀 스팩 — 소유 경계·라이브러리·형태·결정이 바뀌었는가)
 //   - 수정 범위(writePaths) 아래 파일 지문(그 코드가 바뀌었는가)
-// 하나라도 다르거나 셀 수 없으면 미리 둔 판정을 버리고 판정 에이전트를 부른다(fail-closed). 형식 검증(validateTicketAssessment)은
+// 하나라도 다르거나 셀 수 없으면 판정서를 이력으로 옮겨 재판정(이전 판정에서 시작)으로 넘긴다(fail-closed). 형식 검증(validateTicketAssessment)은
 // 어느 경로든 그대로다 — 달라지는 것은 판정을 쓴 시점뿐이다. 지문 기록(`.seed.json`)은 CLI만 쓴다(에이전트 소유 패턴은 `<키>.json`뿐).
 import {createHash} from 'node:crypto'
+import {canonicalDigest} from './work-analysis.mjs'
 import {existsSync, lstatSync, readdirSync, readFileSync} from 'node:fs'
 import {join, relative, resolve, sep} from 'node:path'
 import {assessmentDigest, TICKET_ASSESSMENTS_DIR, testItemPrefix, ticketBodyDigest} from './ticket-work.mjs'
@@ -71,10 +72,17 @@ export function seededAssessment({draftAssessment, ticketKey, provider}) {
     })}
 }
 
+// 재확정마다 바뀌는 출처 지문(`sourceDigest`)만 뺀 스팩의 지문 — 판정이 기댈 수 있는 나머지는 모두 넣는다(어긋나면 재판정이라 넓게 넣는 비용이 작다).
+// 키 순서와 무관하다. 없으면 null. (스팩 파일에는 digest 필드가 저장되지 않는다 — 그것을 비교하면 늘 낡은 것으로 읽힌다.)
+const SPEC_CHURN_FIELDS = new Set(['sourceDigest', 'digest'])
+export const specShapeDigest = spec => (spec && typeof spec === 'object'
+  ? canonicalDigest(Object.fromEntries(Object.entries(spec).filter(([key]) => !SPEC_CHURN_FIELDS.has(key))))
+  : null)
+
 /** 만든 시점의 지문(순수 입력 + 파일 지문). */
 export function buildSeed({root, ticketKey, provider, body, spec, assessment}) {
   return {schemaVersion: 1, ticketKey: String(ticketKey), provider, assessmentDigest: assessmentDigest(assessment), bodyDigest: ticketBodyDigest(body ?? ''),
-    specDigest: spec?.digest ?? null, writePathsFingerprint: writePathsFingerprint(root, assessment?.writePaths),
+    specDigest: spec?.digest ?? null, specShapeDigest: specShapeDigest(spec), writePathsFingerprint: writePathsFingerprint(root, assessment?.writePaths),
     seededAt: new Date().toISOString()}
 }
 
@@ -83,13 +91,15 @@ export const seedMatches = (seed, assessment) => Boolean(seed && assessment && s
 
 /**
  * 미리 둔 판정이 아직 유효한가. 어긋난 지문 이름 목록을 돌려준다 — 비었으면 유효하다.
- * 스팩 digest나 파일 지문을 모르면(null) 어긋난 것으로 센다.
+ * 스팩 판정 지문이나 파일 지문을 모르면(null) 어긋난 것으로 센다.
  */
 export function staleSeedReasons({root, seed, assessment, body, spec}) {
   const reasons = []
   if (!seed || seed.schemaVersion !== 1) return ['seed-unreadable']
   if (seed.bodyDigest !== ticketBodyDigest(body ?? '')) reasons.push('ticket-body-changed')
-  if (!seed.specDigest || seed.specDigest !== (spec?.digest ?? null)) reasons.push('spec-changed')
+  // 스팩 판정 지문이 있으면 그것을 본다. 옛 지문 기록(specDigest)은 스팩 파일에 없는 digest라 늘 어긋난다 — 재판정으로 넘어간다.
+  const specChanged = seed.specShapeDigest ? seed.specShapeDigest !== specShapeDigest(spec) : (!seed.specDigest || seed.specDigest !== (spec?.digest ?? null))
+  if (specChanged) reasons.push('spec-changed')
   const now = writePathsFingerprint(root, assessment?.writePaths)
   if (!seed.writePathsFingerprint || !now || seed.writePathsFingerprint !== now) reasons.push('write-paths-changed')
   return reasons
