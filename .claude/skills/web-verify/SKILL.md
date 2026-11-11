@@ -95,7 +95,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - api-contract-verifier
    - `_workspace/02_design/state-contract.md`(또는 분할 디렉터리)가 있으면 state-invariant-verifier
    - locked profile에 `external-ingestion` capability가 있으면 data-quality-verifier
-   - `_workspace/02_design/timeseries-architecture.md`가 있으면 timeseries-verifier
    - `_workspace/02_design/seo-spec.md`가 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 seo-verifier
    - `_workspace/02_design/performance-budget.md`가 있으면 performance-verifier
    - browser-verifier

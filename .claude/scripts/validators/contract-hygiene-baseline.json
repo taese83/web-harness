@@ -18,7 +18,6 @@
     "project-init": 0,
     "retro": 0,
     "server-db-migration": 0,
-    "timeseries-dashboard": 2,
     "version-bump": 0,
     "visual-design-verify": 0,
     "vite-serverless-hybrid": 0,
@@ -53,11 +52,6 @@
     ".claude/skills/server-db-migration/references/migration-contract.md",
     ".claude/skills/server-db-migration/references/runner-strategy.md",
     ".claude/skills/server-db-migration/references/seeding-contract.md",
-    ".claude/skills/timeseries-dashboard/references/chart-performance.md",
-    ".claude/skills/timeseries-dashboard/references/detection-contract.md",
-    ".claude/skills/timeseries-dashboard/references/intake-and-slos.md",
-    ".claude/skills/timeseries-dashboard/references/mock-and-migration.md",
-    ".claude/skills/timeseries-dashboard/references/streaming-contract.md",
     ".claude/skills/version-bump/references/semver-rules.md",
     ".claude/skills/visual-design-verify/references/baseline-governance.md",
     ".claude/skills/visual-design-verify/references/render-matrix.md",
@@ -113,14 +107,14 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 45971
+    "web-orchestrator": 44990
   },
   "referenceBytes": {
     ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
     ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28305,
-    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30618,
-    ".claude/skills/web-orchestrator/references/provenance-contract.md": 26116,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 30480,
+    ".claude/skills/web-orchestrator/references/provenance-contract.md": 26108,
     ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26344,
-    ".claude/skills/web-orchestrator/references/source-artifacts.md": 29091
+    ".claude/skills/web-orchestrator/references/source-artifacts.md": 28828
   }
 }

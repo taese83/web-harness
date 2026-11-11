@@ -5,6 +5,7 @@
 
 import {resolve} from 'node:path'
 import {buildReleaseManifest, validateReleaseGate} from './release-gate-lib.mjs'
+import {retiredModeDeclarations} from './release-report-policy.mjs'
 import {atomicWriteProjectFile} from './safe-project-file-lib.mjs'
 import {answerHelp} from './cli-help-lib.mjs'
 
@@ -40,6 +41,7 @@ if (writeManifest) {
   }
 }
 
+for (const notice of retiredModeDeclarations(projectRoot)) process.stderr.write(`알림: ${notice}\n`)
 const {errors} = validateReleaseGate(projectRoot)
 if (errors.length > 0) {
   process.stderr.write(`Release gate blocked with ${errors.length} error(s):\n`)

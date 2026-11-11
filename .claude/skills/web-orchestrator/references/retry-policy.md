@@ -16,13 +16,12 @@ Use this reference before retrying after Phase 4 QA.
 | `qa-ux.md` | missing screen, wrong flow, missing loading/error/empty state | `layout-designer` · `component-designer` 우선, 그 다음 `developer` |
 | `qa-integration.md` | build fails, dev server fails, MSW missing, route not reachable | `environment-scaffolder`(빌드·설정) 또는 `developer`(라우트·MSW 배선) |
 | `qa-security.md` | credential storage, authz, CSRF/CORS, XSS, secret, CI supply-chain issue | `developer` · `environment-scaffolder` · `auth-setup` 스킬 owner |
-| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `api-schema-designer` · `timeseries-architect` 우선, 그 다음 `developer` |
+| `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `api-schema-designer` 우선, 그 다음 `developer` |
 | `qa-state.md` | invariant, filtered-view mutation, destructive guard, stale ID, persistence migration/recovery | `state-contract-designer` 우선, 그 다음 `developer` |
 | `qa-data-quality.md` | source drift, schema/count/freshness failure, architecture mismatch, unsafe promotion, clean-build mismatch | `ingestion-contract-designer` 우선, 그 다음 `developer` · `environment-scaffolder` |
 | `qa-test.md` | test failures (not WARN) | `environment-scaffolder`(테스트 인프라) 또는 `developer`(테스트·구현) |
-| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/timeseries performance failure | `timeseries-architect` 우선(TIMESERIES_MODE), 그 다음 `developer` · `environment-scaffolder` |
+| `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/performance failure | `developer` · `environment-scaffolder` |
 | `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer` 우선, 그 다음 `developer` · `visual-baseline-manager` · `environment-scaffolder` |
-| `qa-timeseries.md` | stream contract, unbounded buffer, reconnect/resume/gap, mock isolation, chart performance evidence | `timeseries-architect` 우선, 그 다음 `developer` |
 | `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `developer` |
 | `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer` 우선, 그 다음 `environment-scaffolder` · `developer` |
 

@@ -21,7 +21,6 @@ maxTurns: 20
 - 주요 라우트 접근 가능 여부
 - package script/config/entrypoint 일관성과 production artifact 확인
 - 기존 bundle baseline 대비 route별 증가 확인
-- timeseries transport가 production/mock adapter로 분리되고 production bundle에서 Mock generator가 제외되는지 확인
 - subscription/timer/worker/chart cleanup 계약 정적 확인
 - 오케스트레이터가 `_workspace/04_qa/qa-integration.md`에 저장할 리포트 내용 반환
 
@@ -45,8 +44,7 @@ maxTurns: 20
 9. 라우트별 컴포넌트 파일과 명시적 404 route 존재 확인
 10. `package.json` scripts와 Vite/Vitest/Playwright config가 같은 port/mode/path를 사용하는지 확인
 11. 실제 route, console, network, accessibility 검증은 `browser-verifier` 결과를 참조한다
-12. timeseries architecture가 있으면 `src/shared/realtime`, live-mode, realtime Mock, historical query 산출물과 package dependency를 교차 확인한다
-13. `eslint.config.*`, Vitest/Playwright config, 최소 unit test, critical E2E spec과 package script closure를 확인한다. script만 있고 대상 파일이 없으면 FAIL이다.
+12. `eslint.config.*`, Vitest/Playwright config, 최소 unit test, critical E2E spec과 package script closure를 확인한다. script만 있고 대상 파일이 없으면 FAIL이다.
 13b. **선언-이행 정합성 (config가 가리키는 실체 확인)**: 설정 파일이 참조하는 경로가 실제로 존재하고 비어 있지 않은지 확인한다 —
     Playwright `testDir`가 존재하고 `*.spec.*` ≥ 1건인지(디렉터리 자체가 없으면 FAIL — "정교한 config + spec 0개"는 검증이 없는 상태다),
     `package.json`의 모든 test 계열 script가 매칭 파일을 갖는지, tsconfig `references`/`include` 경로가 실존하는지.
@@ -55,10 +53,10 @@ maxTurns: 20
     stale이면 해당 항목 `BLOCKED`. receipt 부분 존재는 "나머지는 통과 못 했다"가 아니라 "나머지는 **검증되지 않았다**"로 보고한다.
 13d. **릴리스 문서 존재**: release 판정 시 `HANDOFF.md`(또는 profile의 release 문서 계약)와 README가 존재하는지 확인한다.
     없으면 READY_FOR_RELEASE 대신 `NEEDS_FIX — release-manager 미실행`으로 기록한다.
-14. lockfile resolved dependency의 engine/peer와 현재 Node, package.json engine, tech-stack matrix를 교차 확인한다.
-15. `_workspace/01_plan/requirements.md`의 Must ID가 구현/test evidence에 연결되지 않으면 READY_FOR_RELEASE로 판정하지 않는다.
-16. external ingestion contract가 있으면 clean clone root/workspace/provider build matrix, generated artifact schema/minCount/freshness, current runtime consumer를 교차 확인한다. static target은 promoted `public/` required/validated optional/last-known-good snapshot과 `dist/|out/` 복사본 digest도 비교한다. required artifact 없이 exit 0이거나 parity가 다르면 `FAIL`이다.
-17. static snapshot 문서인데 runtime API가 authoritative이거나 반대인 architecture drift, 독립 package/lockfile로 root build가 일부를 누락하는 구조를 `FAIL`로 기록한다.
+13. lockfile resolved dependency의 engine/peer와 현재 Node, package.json engine, tech-stack matrix를 교차 확인한다.
+14. `_workspace/01_plan/requirements.md`의 Must ID가 구현/test evidence에 연결되지 않으면 READY_FOR_RELEASE로 판정하지 않는다.
+15. external ingestion contract가 있으면 clean clone root/workspace/provider build matrix, generated artifact schema/minCount/freshness, current runtime consumer를 교차 확인한다. static target은 promoted `public/` required/validated optional/last-known-good snapshot과 `dist/|out/` 복사본 digest도 비교한다. required artifact 없이 exit 0이거나 parity가 다르면 `FAIL`이다.
+16. static snapshot 문서인데 runtime API가 authoritative이거나 반대인 architecture drift, 독립 package/lockfile로 root build가 일부를 누락하는 구조를 `FAIL`로 기록한다.
 
 ## 출력 구조
 

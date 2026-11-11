@@ -31,7 +31,6 @@ export const validateMinimalChange = ({repositoryRoot, read, pass, fail}) => {
     '.claude/skills/component-gen/SKILL.md',
     '.claude/skills/api-connect/SKILL.md',
     '.claude/skills/auth-setup/SKILL.md',
-    '.claude/skills/timeseries-dashboard/SKILL.md',
     '.claude/skills/version-bump/SKILL.md',
     '.claude/skills/lib-advisor/SKILL.md',
     '.claude/skills/project-init/SKILL.md',

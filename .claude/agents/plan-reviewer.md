@@ -42,7 +42,7 @@ requirements·ux-brief·feature-plan·tech-stack을 교차해 본다. 동일 근
 
 - 사용자 목표·범위·데이터·권한이 문서끼리 충돌하면 `NEEDS_DECISION | BLOCKED`로 둔다 — 한쪽을 골라 해소하지 않는다.
 - crawler/scheduled sync/generated artifact가 있는데 requirements 또는 tech-stack에 `EXTERNAL_DATA_INGESTION_MODE`, 수집 계약의 선행 조건, `external-ingestion` capability가 빠졌으면 `BLOCKED`다.
-- timeseries·external ingestion의 SLO·`ASSUMPTION`·`BLOCKER`가 문서끼리 어긋나면 `NEEDS_DECISION`이다.
+- external ingestion의 SLO·`ASSUMPTION`·`BLOCKER`가 문서끼리 어긋나면 `NEEDS_DECISION`이다.
 
 ## 판정
 

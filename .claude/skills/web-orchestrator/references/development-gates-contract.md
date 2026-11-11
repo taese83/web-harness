@@ -162,7 +162,6 @@ API contract/auth, route, Mock, component가 완료된 뒤:
 3. production build에서 Mock activation이 가능한 구조인지 정적 확인
 4. `typecheck`, `lint`, 레이어 방향(`node .claude/scripts/validate-layer-boundaries.mjs --project-root {root} --json`)
 
-TIMESERIES_MODE에서 Mock이 의도적으로 뒤로 미뤄졌으면 transport interface와 지연 근거를 기록하고 Mock 항목만 `DEFERRED`로 둔다.
 
 ## Gate C — Integrated Source
 

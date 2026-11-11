@@ -44,7 +44,7 @@
 | 레이어 방향 위반 ★ | Gate B·C | 선언이 없으면 `NOT_DECLARED`(막지 않음) | `validate-layer-boundaries.mjs` |
 | Gate R 요구사항 표기 · Gate D 디자인 토큰 · Gate L 산출물 언어 | 해당 단계 | Gate D는 `designSource` 선언 시만 | 같은 문서 |
 | 스폰 완결 마커(`SPAWN_RESULT`) | 스폰마다 | — | `execution-budget-contract.md` |
-| 릴리스 필수 QA 리포트(기본 7종 + 조건부: 상태·분석·시각·성능·SEO ★·시계열·수집·데이터 접근) | 릴리스 | 조건 산출물·선언이 없으면 요구 안 함 | `release-report-policy.mjs` |
+| 릴리스 필수 QA 리포트(기본 7종 + 조건부: 상태·시각·성능·SEO ★·수집·데이터 접근) | 릴리스 | 조건 산출물·선언이 없으면 요구 안 함 | `release-report-policy.mjs` |
 | 공개 노출 선언이면 SEO QA 필수 ★ | 릴리스 | `PUBLIC_EXPOSURE: no` | 같은 파일 |
 | CI에서 재시도로 통과한 테스트는 실패 ★ | 브라우저 테스트 | — | 템플릿 `PLAYWRIGHT_CONFIG` |
 

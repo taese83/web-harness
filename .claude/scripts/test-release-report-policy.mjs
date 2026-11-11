@@ -14,7 +14,7 @@ import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
-import {releaseReportRequirements} from './release-report-policy.mjs'
+import {releaseReportRequirements, retiredModeDeclarations} from './release-report-policy.mjs'
 
 const PROFILE = {adapter: {id: 'react-vite-spa'}}
 
@@ -88,10 +88,12 @@ test('모드 선언만 있어도 그 모드의 QA를 요구한다 — 모드 계
     const ids = () => releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
     const requirements = join(root, '_workspace/01_plan/requirements.md')
     assert.ok(!ids().includes('state'))
-    writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: true — 브라우저 저장소가 정본\n- TIMESERIES_MODE: true\n')
-    for (const id of ['state', 'timeseries']) assert.ok(ids().includes(id), `선언된 모드의 ${id} QA 요구가 빠졌다: ${ids().join(', ')}`)
-    writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: true/false\n- TIMESERIES_MODE: true | false\n')
-    for (const id of ['state', 'timeseries']) assert.ok(!ids().includes(id), `선언하지 않은 모드(${id})를 요구했다 — false·템플릿은 선언이 아니다`)
+    writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: true — 브라우저 저장소가 정본\n')
+    assert.ok(ids().includes('state'), `선언된 모드의 state QA 요구가 빠졌다: ${ids().join(', ')}`)
+    for (const template of ['true/false', 'true | false', 'false — API가 정본']) {
+      writeFileSync(requirements, `## Modes\n- LOCAL_DOMAIN_STATE_MODE: ${template}\n`)
+      assert.ok(!ids().includes('state'), `선언하지 않은 모드(${template})를 요구했다 — false·템플릿은 선언이 아니다`)
+    }
   })
 })
 
@@ -100,5 +102,18 @@ test('분할된 requirements/ 디렉터리의 모드 선언도 읽는다', () =>
     writeFileSync(join(root, '_workspace/01_plan/requirements/INDEX.md'), '# index\n')
     writeFileSync(join(root, '_workspace/01_plan/requirements/modes.md'), '- **LOCAL_DOMAIN_STATE_MODE**: **true**\n')
     assert.ok(releaseReportRequirements(root, PROFILE, 'final', false).some(([id]) => id === 'state'))
+  })
+})
+
+test('은퇴한 모드 선언·설계 산출물은 QA를 요구하지 않고 알림으로 드러낸다', () => {
+  withProject(['_workspace/01_plan', '_workspace/02_design'], root => {
+    assert.deepEqual(retiredModeDeclarations(root), [])
+    writeFileSync(join(root, '_workspace/01_plan/requirements.md'), '## Modes\n- TIMESERIES_MODE: true\n- ANALYTICS_BUILDER_MODE: true/false\n')
+    writeFileSync(join(root, '_workspace/02_design/analytics-architecture.md'), '# Analytics\n')
+    const notices = retiredModeDeclarations(root)
+    assert.equal(notices.length, 2, notices.join(' | '))
+    assert.ok(notices.some(notice => notice.startsWith('TIMESERIES_MODE')) && notices.some(notice => notice.startsWith('ANALYTICS_BUILDER_MODE')))
+    const ids = releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
+    assert.ok(!ids.includes('timeseries') && !ids.includes('analytics'), ids.join(', '))
   })
 })

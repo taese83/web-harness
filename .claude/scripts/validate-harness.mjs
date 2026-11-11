@@ -185,28 +185,6 @@ pass('Markdown code fences and document references checked')
 validateModularity({repositoryRoot, agentFiles, skillFiles, activeMarkdown, read, pass, fail})
 validateMinimalChange({repositoryRoot, read, pass, fail})
 
-// 배치-류 마커: 존재 + 코드펜스 밖 배치까지 검사한다(존재-류는 validate-marker-integrity
-// 레지스트리 몫). needle은 언어 중립 앵커 — 지시 산문은 자유 번역 가능(M1 ④).
-const instructionPlacementChecks = [
-  ['.claude/agents/product-planner.md', '<!-- marker:detect-timeseries -->'],
-]
-for (const [relativePath, marker] of instructionPlacementChecks) {
-  const lines = read(relativePath).split(/\r?\n/)
-  let insideFence = false
-  let found = false
-  for (const line of lines) {
-    if (line.startsWith('```')) {
-      insideFence = !insideFence
-      continue
-    }
-    if (!line.includes(marker)) continue
-    found = true
-    if (insideFence) fail(`${relativePath}: required instruction is inside a fenced code block: ${marker}`)
-  }
-  if (!found) fail(`${relativePath}: required instruction marker is missing: ${marker}`)
-}
-pass('critical instruction placement outside fenced examples checked')
-
 for (const agentName of legacyAgents) {
   if (activeSource.includes(agentName)) fail(`active harness still references legacy agent: ${agentName}`)
 }
@@ -287,7 +265,6 @@ for (const agentName of [
   'api-contract-verifier',
   'browser-verifier',
   'security-reviewer',
-  'timeseries-architect',
   'data-access-verifier',
   'state-contract-designer',
   'state-invariant-verifier',
@@ -296,10 +273,9 @@ for (const agentName of [
 ]) {
   if (!webOrchestrationSource.includes(agentName)) fail(`web orchestrators do not invoke ${agentName}`)
 }
-for (const modeName of ['TIMESERIES_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
+for (const modeName of ['LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
   if (!webOrchestrationSource.includes(modeName)) fail(`web orchestrators do not define ${modeName}`)
 }
-if (!existsSync(join(claudeDirectory, 'skills', 'timeseries-dashboard', 'SKILL.md'))) fail('timeseries-dashboard skill is missing')
 pass('canonical web orchestration and dev delegation checked')
 
 const localStateReference = '.claude/skills/web-orchestrator/references/local-domain-state.md'
@@ -325,38 +301,6 @@ for (const marker of ['static-snapshot', 'last-known-good', 'atomic publish', 'q
   if (!read(externalIngestionReference).includes(marker)) fail(`external ingestion contract is missing ${marker}`)
 }
 pass('external ingestion detection, quality, and promotion contracts checked')
-
-const detectionReference = '.claude/skills/timeseries-dashboard/references/detection-contract.md'
-if (!existsSync(join(repositoryRoot, detectionReference))) fail('timeseries detection contract is missing')
-const detectionSource = existsSync(join(repositoryRoot, detectionReference)) ? read(detectionReference) : ''
-if (!webOrchestrationSource.includes(detectionReference)) {
-  fail('web orchestration surface: canonical timeseries detection contract is not referenced')
-}
-for (const keyword of ['그라파나', '시계열', '날짜별', '실시간', '빅데이터', '채팅']) {
-  if (!detectionSource.includes(keyword)) fail(`timeseries detection contract is missing Korean case: ${keyword}`)
-}
-// historical-only 허용 규칙의 존속은 validate-marker-integrity가 앵커
-// (timeseries-historical-only)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
-pass('bilingual timeseries detection contract checked')
-
-const streamingSource = read('.claude/skills/timeseries-dashboard/references/streaming-contract.md')
-  // entity-query-builder는 2026-08-26에 제거됐다(구조 지시 빌더 6종). 종전에는 그것과
-  // shared-foundation-builder의 timestamp 스키마 소유 선언이 **일치하는지**를 봤다.
-  // 이제 소유자가 하나이므로 그 선언의 존속만 확인한다.
-  // shared-foundation-builder는 2026-08-26에 제거됐다(5범주 밖 26종). 그 본문을 읽던
-  // timestamp 소유 선언 검사도 함께 사라진다 — streaming contract 검사는 그대로다.
-for (const requiredStreamingPattern of [
-  '.pipe(unixMsSchema)',
-  'protocolVersion: 1',
-  'packedPoints[index * 2] = point.timestamp',
-  'globalThis.crossOriginIsolated === true',
-]) {
-  if (!streamingSource.includes(requiredStreamingPattern)) fail(`streaming contract is missing ${requiredStreamingPattern}`)
-}
-if (streamingSource.includes("src/shared/realtime/timestamp.ts")) fail('timestamp schema is still owned by the later realtime phase')
-// realtime Mock 빌드 순서 규칙의 존속은 validate-marker-integrity가 앵커
-// (timeseries-realtime-build-order)로 지킨다 — 한국어 문장 인라인 매칭에서 이관(M1 ④).
-pass('timeseries timestamp and Worker contracts checked')
 
   // deploy-ci-writer는 2026-08-26에 제거됐다. 워크플로 하드닝 검사는 그 본문을 읽던
   // 검사였으므로 함께 사라진다 — 계약 산문은 skills 쪽에 남는다.

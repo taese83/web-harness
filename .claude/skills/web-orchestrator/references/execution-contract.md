@@ -82,7 +82,6 @@ buildable한 기존 프로젝트에 `request-type-contract.md`가 `change`·`fix
 
 - local domain state: `local-domain-state.md`
 - external ingestion: `external-data-ingestion.md`
-- timeseries: `.claude/skills/timeseries-dashboard/references/`
 
 같은 규칙을 이 파일에 복제하지 않고 각 canonical contract를 따른다. Phase별 조건부 reference 로딩도 SKILL.md의 읽기 지시가 canonical이다.
 

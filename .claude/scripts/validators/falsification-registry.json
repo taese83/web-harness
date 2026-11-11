@@ -5123,14 +5123,6 @@
       "why": "디자인 absent로 state-contract가 없으면 LOCAL_DOMAIN_STATE 모드인데도 qa-state 요구가 조용히 사라진다"
     },
     {
-      "id": "release-policy-timeseries-mode-declared",
-      "file": ".claude/scripts/release-report-policy.mjs",
-      "find": "  hasDesignArtifact(projectRoot, 'timeseries-architecture') || declaresMode(projectRoot, 'TIMESERIES_MODE')",
-      "replace": "  hasDesignArtifact(projectRoot, 'timeseries-architecture')",
-      "test": ".claude/scripts/test-release-report-policy.mjs",
-      "why": "디자인 absent로 timeseries-architecture가 없으면 TIMESERIES 모드인데도 qa-timeseries 요구가 사라진다"
-    },
-    {
       "id": "release-policy-mode-template-not-declaration",
       "file": ".claude/scripts/release-report-policy.mjs",
       "find": "*true\\\\b(?![\\`*]*[ \\\\t]*[|/])`, 'im')",

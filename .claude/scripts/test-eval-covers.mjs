@@ -27,7 +27,7 @@ const run = scenarios => {
 test('텍스트 언급은 커버가 아니다 — covers에 선언된 것만 센다', () => {
   const covered = coveredSkillsFrom([
     {covers: ['web-plan'], assertions: ['does not route to web-verify']},
-    {assertions: ['mentions timeseries-dashboard only in prose']},
+    {assertions: ['mentions api-connect only in prose']},
   ])
   assert.deepEqual([...covered], ['web-plan'], '부정 단언이나 서술 속 이름을 커버로 셌다')
 })

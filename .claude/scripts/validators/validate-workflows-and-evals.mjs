@@ -200,8 +200,6 @@ export const validateWorkflowsAndEvals = ({
       for (const {id, problem} of staleScenarioReferences({scenarios, skillNames, agentNames, retiredAgents: RETIRED_AGENTS})) fail(`${id}: ${problem}`)
       for (const problem of pluginEvalCaseProblems(join(claudeDirectory, 'evals', 'plugin'))) fail(`.claude/evals/plugin/${problem}`)
       for (const routingScenario of [
-        'grafana-timeseries-dashboard',
-        'historical-timeseries-routing',
         'realtime-chat-routing',
         'local-domain-state-workflow',
         'preference-persistence-routing',

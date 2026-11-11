@@ -40,7 +40,7 @@ OpenAPI가 입력되거나 발견되면 `references/openapi-adoption-contract.md
 5. 해당 entity의 `api/queries.ts`와 `api/mutations.ts`에서 URL 확인
 6. real mode에서는 MSW 핸들러를 `bypass`한다. Mock mode 유지가 요구되면 삭제하지 않고 선택 endpoint의 동일 request/response/error contract로 갱신한다
 7. 실제 API 호출 테스트
-8. `_workspace/02_design/timeseries-architecture.md`가 있으면 `.claude/skills/timeseries-dashboard/references/mock-and-migration.md`를 읽고 snapshot과 realtime transport를 함께 전환한다
+8. realtime stream(WebSocket/SSE)이 있으면 snapshot과 realtime transport를 함께 전환한다
 9. `runtime-data-contract.json`이 있거나 static snapshot에서 live API로 전환하면 `external-data-ingestion.md`를 읽는다. `ingestion-contract-designer`가 current mode, authoritative source, source precedence, freshness/fallback, build/deployment 계약을 먼저 갱신한다
 10. 응답은 `unknown`에서 runtime schema로 parse하고 query cancellation `AbortSignal`을 실제 client까지 전달한다
 11. 변경 후 `developer`가 success/empty/malformed/timeout/auth/schema drift fixture를 보강하고 사용자 승인 후 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다
@@ -68,16 +68,14 @@ cookie 방식을 선택한 경우:
 - 상태 변경 요청에 CSRF 헤더를 붙인다
 - access/refresh token은 브라우저 JavaScript 저장소에 저장하지 않는다
 
-## Timeseries 연결
+## Realtime stream 연결
 
-시계열 architecture가 있으면 다음을 추가로 확인한다.
+WebSocket/SSE stream이 있으면 다음을 추가로 확인한다.
 
-1. historical endpoint의 `from`, `to`, `resolution`, `seriesIds`, cursor
-2. WebSocket/SSE URL, protocol/subprotocol, cookie 또는 in-memory credential
-3. message version, sequence, resume cursor, heartbeat, proxy timeout
-4. server aggregation과 resume retention
-5. staging normal/max/burst fixture
-6. production config에서 Mock adapter가 선택되지 않는지 확인
+1. WebSocket/SSE URL, protocol/subprotocol, cookie 또는 in-memory credential
+2. message version, sequence, resume cursor, heartbeat, proxy timeout
+3. resume retention과 reconnect 시 정본 refetch
+4. production config에서 Mock adapter가 선택되지 않는지 확인
 
 실제 backend가 resume/gap recovery를 제공하지 않으면 무손실 실시간으로 표시하지 않고 제한사항을 HANDOFF에 기록한다.
 
@@ -86,6 +84,6 @@ cookie 방식을 선택한 경우:
 - 실제 API에서 데이터가 정상 반환된다
 - 브라우저 Network 탭에서 실제 요청이 확인된다
 - 오류 케이스 (401, 404, 500)가 올바르게 처리된다
-- timeseries가 있으면 reconnect/resume/gap/duplicate와 Mock→real adapter 전환이 검증된다
+- realtime stream이 있으면 reconnect/resume/gap/duplicate와 Mock→real adapter 전환이 검증된다
 - static/live/hybrid current mode와 README·runtime consumer·deployment가 일치한다
 - machine receipt가 현재 source fingerprint와 일치하고 API/data quality verifier가 PASS다

@@ -24,7 +24,6 @@ export const VERDICT_REPORT_BY_AGENT = {
   'visual-regression-verifier': 'visual',
   'performance-verifier': 'performance',
   'seo-verifier': 'seo',
-  'timeseries-verifier': 'timeseries',
   'next-contract-verifier': 'next-contract',
 }
 

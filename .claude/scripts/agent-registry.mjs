@@ -18,7 +18,6 @@ export const VERIFIER_AGENTS = new Set([
   'security-reviewer',
   'seo-verifier',
   'state-invariant-verifier',
-  'timeseries-verifier',
   'ux-validator',
   'version-analyzer',
   'visual-regression-verifier',
@@ -146,7 +145,6 @@ export const AGENT_OWNERSHIP = {
     /^_workspace\/01_plan\/(?:decision-log|requirements|ux-brief|tech-stack|feature-plan)(?:\.md|\/.+)$/,
     /^_workspace\/02_design\/(?:design-system|layout-spec|component-spec|api-schema)(?:\.md|\/.+)$/],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
-  'timeseries-architect': [/^_workspace\/02_design\/timeseries-architecture\.md$/],
   'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
   'visual-contract-designer': [
     /^_workspace\/02_design\/visual-qa-contract\.json$/,

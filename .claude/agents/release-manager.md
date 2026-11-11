@@ -76,8 +76,6 @@ node .claude/scripts/preview-server.mjs --project .   # http://localhost:4173
 2. `/wh change GET /api/metrics를 실제 API로 연동해줘` 실행(플러그인 설치면 `/web-harness:wh change …`)
 3. The src/mocks/ folder is enabled only in development, so production is unaffected
 
-timeseries architecture가 있으면 snapshot endpoint, stream endpoint, message version, cursor/resume retention, heartbeat, aggregation resolution, staging performance fixture를 함께 문서화한다.
-
 AI architecture가 있으면 model gateway, provider와 prompt version, tool scope·approval, data source·ACL, runtime budget, trace·redaction, eval baseline, Mock에서 실제 provider·tool로 전환하는 순서와 rollback을 함께 문서화한다.
 
 ## Modify the design (/wh change)

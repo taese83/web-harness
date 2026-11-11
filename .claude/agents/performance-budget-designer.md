@@ -14,7 +14,7 @@ maxTurns: 25
 ## 입력
 
 - `_workspace/01_plan/requirements.md`, `ux-brief.md`, `tech-stack.md`
-- `_workspace/02_design/layout-spec.md`, `timeseries-architecture.md`(있을 때)
+- `_workspace/02_design/layout-spec.md`
 - `.claude/skills/web-orchestrator/references/performance-patterns.md`
 
 ## 출력: `_workspace/02_design/performance-budget.md`
@@ -22,7 +22,7 @@ maxTurns: 25
 1. `## Core Web Vitals Targets` — LCP/INP/CLS/TTFB 목표를 대상 기기·네트워크 전제와 함께. 근거 없는 값은 보수적 baseline + `ASSUMPTION`.
 2. `## Bundle Budget` — route별 initial JS/CSS byte 상한, 공유 vendor chunk 상한, 초과 시 대응(측정 후 split — 기계적 lazy 금지).
 3. `## Asset Policy` — 이미지 포맷/최대 크기, 폰트 로딩 전략(FOIT/FOUT), 3rd-party script 예산.
-4. `## Runtime Budget` — long task, 메모리 상한(시계열이면 timeseries-architecture의 buffer/heap 예산을 재사용하고 중복 정의하지 않는다), 인터랙션 응답.
+4. `## Runtime Budget` — long task, 메모리 상한, 인터랙션 응답.
 5. `## Measurement Matrix` — 각 지표의 evidence source: `evidence/build.json`(번들 크기), `evidence/browser.json`(CLS/long task/heap — 수집되는 경우), RUM(현재 하니스 범위 밖이면 `NOT_MEASURED` + 도입 가이드), 사용자 실행 명령.
 
 ## 원칙

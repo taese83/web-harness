@@ -117,7 +117,6 @@ build: {assetsInlineLimit: 4096},
 - axe fixture와 console/network failure 수집 helper가 설정됐다.
 - visual contract가 있으면 Storybook/Vitest browser 또는 Playwright visual helper, deterministic screenshot style과 320px project가 설정됐다.
 - test scaffolder는 snapshot PNG와 baseline manifest를 생성하거나 갱신하지 않는다.
-- timeseries fixture는 normal/max/burst/reconnect 입력을 같은 seed로 재현한다.
 - source feature/entity 로직은 수정하지 않았다.
 
 ## 하지 않는 것

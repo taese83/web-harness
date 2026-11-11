@@ -16,7 +16,6 @@ maxTurns: 25
 - 사용자 제공 문서, 로컬 파일, 기존 `_workspace` 산출물을 수집한다.
 - 기획 문서를 `_workspace/01_plan/*.md`로 정규화한다.
 - 디자인 문서를 `_workspace/02_design/*.md`로 정규화한다.
-- 기존 metric schema, dashboard query, stream protocol, retention/SLO 문서는 timeseries 요구로 분류하고 source trace를 유지한다.
 - 출처, 누락, 충돌, 가정을 `_workspace/00_source/`에 기록한다.
 
 ## 입력 우선순위

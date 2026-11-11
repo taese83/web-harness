@@ -36,7 +36,6 @@ endpoint에 연결한다.
 - 현실적인 샘플 데이터 (빈 배열 금지, 최소 5개)
 - 에러 케이스 핸들러 (400, 404, 500)
 - endpoint별 authentication, role/scope, idempotency, pagination, error code 계약
-- timeseries architecture가 있으면 snapshot range/resolution/cursor와 stream envelope/sequence/heartbeat/resume 계약
 
 ## 작업 원칙
 
@@ -51,11 +50,9 @@ endpoint에 연결한다.
 6. MSW v2(`msw/browser`, `http`, `HttpResponse`) 문법을 사용한다
 7. 외부 입력의 타입을 interface만으로 신뢰하지 않고 response/request Zod schema를 명세한다
 8. 목록 pagination, nullable/optional, date/time timezone, enum evolution 규칙을 명시한다
-9. `_workspace/02_design/timeseries-architecture.md`가 있으면 반드시 읽고 REST snapshot과 realtime message가 동일 point schema를 사용하게 한다
-10. stream message의 protocol version, sequence, cursor, emittedAt, gap/reset/error event를 명세한다
-11. timeseries timestamp의 wire 단위와 내부 Unix ms 변환을 분리한다. ISO 입력은 `z.iso.datetime({offset: true})`로 먼저 검증하고, numeric 입력은 seconds/ms를 추측하지 않는다. historical과 stream schema 모두 `@shared/lib/timeseries/timestamp` 계약을 사용한다
-12. `runtime-data-contract.json`이 있으면 generated static file도 외부 API와 동일한 runtime boundary로 취급한다. artifact schema/version/source metadata/freshness/empty policy를 명세하고 API schema와 중복 타입을 만들지 않는다.
-13. static snapshot과 live API가 함께 있으면 `hybrid`의 source precedence와 merge/fallback을 명세한다. 미래 API 예시를 현재 runtime endpoint처럼 문서화하지 않는다.
+9. stream message의 protocol version, sequence, cursor, emittedAt, gap/reset/error event를 명세한다
+10. `runtime-data-contract.json`이 있으면 generated static file도 외부 API와 동일한 runtime boundary로 취급한다. artifact schema/version/source metadata/freshness/empty policy를 명세하고 API schema와 중복 타입을 만들지 않는다.
+11. static snapshot과 live API가 함께 있으면 `hybrid`의 source precedence와 merge/fallback을 명세한다. 미래 API 예시를 현재 runtime endpoint처럼 문서화하지 않는다.
 
 ## 출력 구조
 
@@ -89,8 +86,6 @@ export const metricSchema = z.object({
 
 export type Metric = z.infer<typeof metricSchema>
 ```
-
-TIMESERIES_MODE에서는 위 일반 예시 대신 `timestampInputSchema`를 point schema에 사용하고 parse 결과 타입이 Unix ms `number`인지 명시한다.
 
 ## MSW Handlers
 ```ts

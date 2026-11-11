@@ -21,23 +21,20 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 - MSW handler의 method/path/status/body와 실제 client 요청의 일치
 - pagination, nullable/optional field, date/time, enum, error envelope 처리
 - 인증/인가가 필요한 endpoint의 credential 정책
-- timeseries snapshot point schema와 stream point schema의 일치
 - stream protocol version, sequence, cursor, heartbeat, reset/error event, reconnect/resume 계약
 - localStorage/IndexedDB를 사용하면 저장 schema, version, migration, invalid-state recovery 계약
 - `runtime-data-contract.json`이 있으면 generated artifact/API의 schema version, required field, minCount, freshness metadata, empty policy와 실제 consumer 일치
 
 ## 실행 규칙
 
-1. API 명세가 없으면 구현을 사실상의 계약으로 간주하지 않고 `BLOCKED`로 표시한다. timeseries mode에서는 architecture 문서도 필수다.
+1. API 명세가 없으면 구현을 사실상의 계약으로 간주하지 않고 `BLOCKED`로 표시한다.
 2. 생성된 schema/type 검사는 quality runner receipt(`_workspace/04_qa/evidence/`)로 확인한다. 이 에이전트에는 Bash가 없다 — receipt가 없으면 그 항목은 확인 불가로 적고 필요한 check를 반환에 적는다. 변경 범위는 리뷰 묶음(`_workspace/04_qa/review-packet/diff-names.txt`·`diff.patch`)으로 읽는다.
 3. field 단위 불일치에는 producer와 consumer 위치를 모두 기록한다.
 4. mock에서만 성공하고 실제 API에서 실패할 수 있는 차이를 우선순위 높게 보고한다.
 5. owner는 계약 자체가 틀렸으면 `api-schema-designer`, 구현이 계약을 벗어났으면 `developer`(어긋난 모듈 경계를 스폰 범위로)로 지정한다.
-6. timeseries architecture가 있으면 Mock/real transport adapter와 buffer가 architecture의 ordering/gap/budget 계약을 지키는지 확인한다.
-7. stream 관련 owner로 `timeseries-architect`, `developer`를 사용할 수 있다.
-8. browser storage는 TypeScript interface만으로 신뢰하지 않고 runtime schema와 실제 rehydrate 경로를 교차 검증한다.
-9. static snapshot도 외부 contract로 취급한다. API spec과 artifact schema가 중복 정의되거나 현재 runtime mode와 다른 producer를 사실상의 source로 사용하면 `FAIL`이다.
-10. external ingestion mismatch owner로 `ingestion-contract-designer`와 `developer`를 사용할 수 있다.
+6. browser storage는 TypeScript interface만으로 신뢰하지 않고 runtime schema와 실제 rehydrate 경로를 교차 검증한다.
+7. static snapshot도 외부 contract로 취급한다. API spec과 artifact schema가 중복 정의되거나 현재 runtime mode와 다른 producer를 사실상의 source로 사용하면 `FAIL`이다.
+8. external ingestion mismatch owner로 `ingestion-contract-designer`와 `developer`를 사용할 수 있다.
 
 ## 출력 계약
 

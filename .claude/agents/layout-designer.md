@@ -112,7 +112,6 @@ eval fixture 미등록 — 명명 수준이다.
 3. 라우팅 코드와 페이지 컴포넌트 코드는 `layout-spec.md` 안에 코드 블록으로 작성한다. `src/` 파일은 직접 생성하지 않는다 — Phase 3의 `developer`가 담당한다
 4. 페이지별 컴포넌트 파일 경로와 역할을 명세에 명시한다
 5. 고정 pixel desktop layout만 제시하지 않고 320 CSS px/400% reflow, 200% text resize, keyboard focus order를 포함한다
-6. timeseries dashboard면 chart grid resize, 최소 panel 크기, collapsed/hidden panel, mobile summary/table fallback, shared time-range 위치를 명세한다
 
 ## 출력 구조
 

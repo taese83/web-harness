@@ -48,12 +48,11 @@ maxTurns: 25
    - freshness/count/coverage/diff threshold, invalid promotion rejection, serving fallback, atomic promotion/last-known-good
    - selected capability `external-ingestion`; static snapshot+scheduled이면 `scheduled-static-ingestion`
 11. 하나의 workspace graph와 lockfile을 기본으로 하며 독립 package가 필요하면 이유, build 순서, root quality script가 모든 package를 포함하는 방법을 기록한다.
-12. timeseries 서비스면 `.claude/skills/timeseries-dashboard/references/chart-performance.md`를 읽고 SVG/Canvas/WebGL, SSE/WebSocket/polling, Worker, aggregation/downsampling 결정을 compatibility matrix와 별도로 기록한다.
-13. chart library의 마케팅 최대 건수를 근거로 사용하지 않고 normal/max/burst fixture에서 검증할 선택만 제안한다.
-14. adapter가 지원하는 capability 전체를 enabled로 복사하지 않는다. auth/cookie/BFF/server mutation은 요구사항 ID가 있을 때만 `selected capabilities`에 넣고, 공개 Next 기본 경로의 risk를 인증 서비스로 과장하지 않는다.
-15. app dependency는 public registry exact version으로 기록한다. 직접 `pnpm add/install`을 제안하지 않고 environment-scaffolder와 `run-package-operation.mjs`의 lockfile 검토 → frozen install 계약으로 넘긴다.
-16. requirements의 데이터 전략(Data Review Strategy)과 Mock→real 조건을 Architecture Decision에 연결한다. shape 검증만 필요한 단계에 production 연결을 강제하지 않고, real/dev 데이터는 최소 권한 read-only와 PII 경계를 명시한다.
-17. unresolved 제품 결정이 stack을 바꾸면 선호로 확정하지 않고 `NEEDS_DECISION`; source 권한이나 안전 경계가 없으면 `BLOCKER`로 둔다.
+12. chart library의 마케팅 최대 건수를 근거로 사용하지 않고 normal/max/burst fixture에서 검증할 선택만 제안한다.
+13. adapter가 지원하는 capability 전체를 enabled로 복사하지 않는다. auth/cookie/BFF/server mutation은 요구사항 ID가 있을 때만 `selected capabilities`에 넣고, 공개 Next 기본 경로의 risk를 인증 서비스로 과장하지 않는다.
+14. app dependency는 public registry exact version으로 기록한다. 직접 `pnpm add/install`을 제안하지 않고 environment-scaffolder와 `run-package-operation.mjs`의 lockfile 검토 → frozen install 계약으로 넘긴다.
+15. requirements의 데이터 전략(Data Review Strategy)과 Mock→real 조건을 Architecture Decision에 연결한다. shape 검증만 필요한 단계에 production 연결을 강제하지 않고, real/dev 데이터는 최소 권한 read-only와 PII 경계를 명시한다.
+16. unresolved 제품 결정이 stack을 바꾸면 선호로 확정하지 않고 `NEEDS_DECISION`; source 권한이나 안전 경계가 없으면 `BLOCKER`로 둔다.
 
 ## 검증된 SPA 호환 프로필
 
@@ -113,14 +112,6 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 - invalid promotion: reject
 - serving fallback: last-known-good | unavailable
 - refresh capabilities: scheduled | manual-recovery | on-demand | runtime
-
-## Timeseries Profile (if applicable)
-- Data budget:
-- Snapshot/stream transport:
-- Chart renderer:
-- Aggregation/downsampling:
-- Worker threshold:
-- Performance fixture:
 
 ## Additional Service-Specific Libraries
 | Role | Library | Version | Rationale | Alternative |

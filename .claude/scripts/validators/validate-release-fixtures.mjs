@@ -65,7 +65,6 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   const conditionalReports = [
     ['performance-budget.md', 'qa-perf.md'],
     ['seo-spec.md', 'qa-seo.md'],
-    ['timeseries-architecture.md', 'qa-timeseries.md'],
   ]
   if (conditionalReports.some(([, report]) => reportNames().has(report))) {
     fail('conditional release reports were required without their design activation artifacts')

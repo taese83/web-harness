@@ -190,7 +190,6 @@ export const validateAgentBoundaries = ({
     ['environment scaffolder cannot write user CLAUDE.md', 'environment-scaffolder', join(repositoryRoot, 'CLAUDE.md'), 2],
     ['environment scaffolder vite-env stub', 'environment-scaffolder', join(repositoryRoot, 'src/vite-env.d.ts'), 0],
     ['environment scaffolder app eslint config', 'environment-scaffolder', join(repositoryRoot, 'apps/web/eslint.config.js'), 0],
-    ['timeseries architecture output', 'timeseries-architect', join(repositoryRoot, '_workspace/02_design/timeseries-architecture.md'), 0],
     // 결함 13호 fix의 부정 회귀(적대 검토 HIGH) — 루트 api/만 소유하고 타 agent 소유 api/ 경로는 배제
     // 결함 15호 — 루트 tests/(서버 unit·가드·production-boundary)는 test-writer 소유, src 내부 tests/ 세그먼트는 배제
     ['environment vitest variant config owned', 'environment-scaffolder', join(repositoryRoot, 'vitest.production.config.ts'), 0],

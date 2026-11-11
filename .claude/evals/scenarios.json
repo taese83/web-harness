@@ -118,62 +118,6 @@
     ]
   },
   {
-    "id": "grafana-timeseries-dashboard",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "그라파나와 같은 빅데이터 그래프 사이트를 만들어줘. 날짜별 조회 대시보드와 실시간 시계열 데이터가 필요하고 성능 문제가 없어야 해. API는 Mock으로 만들고 실제 연결 가이드도 제공해줘. 부족한 정보는 질문해줘.",
-    "assertions": [
-      "TIMESERIES_MODE asks for series, point rate, visible points, historical range, transport, latency, recovery, timezone, and browser budgets",
-      "timeseries-architect produces a bounded snapshot plus stream architecture before API and component design",
-      "the implementation includes historical range queries, deterministic realtime Mock transport, bounded buffer, batched updates, live pause and return-to-live behavior",
-      "HANDOFF documents real snapshot and stream endpoints, authentication, cursor, heartbeat, aggregation, performance fixtures, and known backend limitations"
-    ]
-  },
-  {
-    "id": "timeseries-stream-recovery",
-    "entrySkill": "/timeseries-dashboard",
-    "entryKind": "internal-unit",
-    "covers": [
-      "timeseries-dashboard"
-    ],
-    "prompt": "WebSocket이 끊기거나 데이터가 중복·역순·누락되는 경우에도 복구되는 실시간 메트릭 계층을 기존 앱에 추가해줘.",
-    "assertions": [
-      "the stream contract defines protocol version, sequence, cursor, heartbeat, duplicate, out-of-order, gap, reset, and error behavior",
-      "the realtime stream client that developer implements uses bounded backoff, bounded ring buffers, idempotent cleanup, resume cursors, and deterministic ordering",
-      "tests cover disconnect, resume, duplicate, out-of-order, sequence gap, terminal failure, and unmount cleanup without unbounded timers"
-    ]
-  },
-  {
-    "id": "timeseries-performance-budget",
-    "entrySkill": "/timeseries-dashboard",
-    "entryKind": "internal-unit",
-    "covers": [
-      "timeseries-dashboard"
-    ],
-    "prompt": "8시간 동안 실행되는 6개 차트, 차트당 8개 시리즈의 실시간 대시보드를 성능 예산과 함께 구현하고 검증해줘.",
-    "assertions": [
-      "normal, maximum, and burst fixtures define visible-point, render-cadence, interaction, long-task, and heap-trend acceptance criteria",
-      "raw events are validated, ordered, downsampled or aggregated, bounded, and batch-flushed without React state updates per tick",
-      "browser verification checks initial render, update cadence, zoom interaction, reconnect recovery, buffer bounds, and sustained heap growth",
-      "chart engine selection is based on measured fixtures rather than marketing data-volume claims"
-    ]
-  },
-  {
-    "id": "historical-timeseries-routing",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "최근 1년의 매출 지표를 일·주·월 단위로 바꿔가며 비교하는 날짜별 시계열 대시보드를 만들어줘. 실시간 갱신은 필요 없어.",
-    "assertions": [
-      "TIMESERIES_MODE is enabled for historical time-series exploration even though realtime is explicitly excluded",
-      "the intake asks for range, resolution, series cardinality, visible points, timezone, and historical query SLO",
-      "no realtime stream client or reconnect code is planned while bounded historical aggregation and chart performance contracts remain active"
-    ]
-  },
-  {
     "id": "realtime-chat-routing",
     "entrySkill": "/wh new",
     "covers": [
@@ -181,8 +125,8 @@
     ],
     "prompt": "WebSocket으로 실시간 채팅, 읽음 상태, 접속자 presence를 구현해줘. 차트나 시간축 데이터는 없어.",
     "assertions": [
-      "TIMESERIES_MODE remains disabled because a time-axis chart is not a core requirement",
-      "the general realtime feature path is used without timeseries-architect or chart performance intake"
+      "the realtime provider contract path is used — managed provider consumption, connection state shown as UI state, canonical refetch on reconnect",
+      "code-reviewer applies the stream static check (unbounded buffers, listener/timer cleanup, Mock transport import, unvalidated messages) because a WebSocket stream exists"
     ]
   },
   {
@@ -451,20 +395,6 @@
       "all locale catalogs under src/shared/lang/ share an identical key set and untranslated values carry TODO_TRANSLATE instead of invented translations",
       "locale routing segments are only specified in i18n-spec.md and are implemented by the developer spawn that owns the routing scope, not by the i18n-setup spawn",
       "ux-validator checks translation completeness and hardcoded user-facing strings when i18n-spec.md exists"
-    ]
-  },
-  {
-    "id": "timeseries-dedicated-verifier",
-    "entrySkill": "/wh verify",
-    "covers": [
-      "web-verify"
-    ],
-    "prompt": "실시간 시계열 대시보드 프로젝트의 스트림 계약과 버퍼 상한, 재연결 복구를 검증해줘.",
-    "assertions": [
-      "timeseries-verifier runs when timeseries-architecture.md exists and returns qa-timeseries.md as the single timeseries release verdict",
-      "unbounded buffers, missing reconnect/resume/gap coverage, and mock transport imports in production code are reported as FAIL with owner candidates",
-      "performance evidence absent from browser receipts is reported as NOT_MEASURED, not PASS",
-      "once timeseries-architecture.md exists, qa-timeseries.md is a required release report and its absence or non-passing result blocks the release manifest"
     ]
   },
   {

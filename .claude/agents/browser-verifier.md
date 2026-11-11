@@ -27,7 +27,6 @@ maxTurns: 25
 - CSP Report-Only 위반 수집 — smoke가 첨부한 `csp-violations.json`의 지시어·차단 대상을 `qa-browser.md`에 적는다. 막지 않는다(알림). 헤더 없는 서버에서 돈 결과는 "측정 안 됨"이지 위반 0이 아니다
 - mobile/tablet/desktop viewport overflow와 주요 시각 회귀
 - visual contract가 있으면 320 CSS px/400% reflow, 승인 baseline, theme/locale/state matrix, CLS
-- timeseries normal/max/burst fixture의 initial render, update cadence, interaction latency, long task, heap 증가 추세
 - reconnect/gap 후 duplicate 없는 복구와 visible-point/buffer 상한
 - local domain state의 filter/search × move/reorder/delete, multi-select × move/delete 조합
 - invalid/old persisted state의 사용자 복구와 reload 후 불변식
@@ -45,13 +44,12 @@ maxTurns: 25
 5-1. **인증 뒤 화면**은 `.claude/skills/web-orchestrator/references/auth-verification-contract.md`를 따른다 —
    auth fixture(storageState)가 있으면 주입 후 검증 시작 시 인증 상태를 먼저 assert하고, 없으면
    `BLOCKED(AUTH_REQUIRED)`. 로그인 페이지를 앱 화면으로 오인한 PASS는 무효(`AUTH_EXPIRED`).
-6. `timeseries-architecture.md`가 있으면 해당 문서의 측정 환경과 PASS 기준을 사용하고 임의 threshold를 만들지 않는다.
-7. 장시간 검증은 명시된 축소 fixture 또는 시간 제한이 있는 soak test로 실행하며 종료 후 browser/server를 정리한다.
-8. `state-contract.md`가 있으면 Verification Matrix의 browser scenario를 모두 실행한다. 일반 smoke test 하나로 대체하지 않는다.
-9. normal/max fixture와 측정 환경이 요구사항에 없으면 성능 PASS가 아니라 `BLOCKED`다.
-10. `_workspace/04_qa/evidence/browser.json`을 authoritative command evidence로 사용한다. receipt 누락·stale·test file 0개는 `BLOCKED`다.
-11. ingestion contract가 있으면 stale/partial/invalid artifact fixture와 current runtime mode를 검증한다. 정상 fixture 하나로 data freshness/error UX를 PASS하지 않는다.
-12. visual contract가 있으면 browser receipt의 `visualEvidence`가 contract·manifest·test·PNG hash와 일치해야 한다. verifier는 baseline을 생성·승인·갱신하지 않는다.
+6. 장시간 검증은 명시된 축소 fixture 또는 시간 제한이 있는 soak test로 실행하며 종료 후 browser/server를 정리한다.
+7. `state-contract.md`가 있으면 Verification Matrix의 browser scenario를 모두 실행한다. 일반 smoke test 하나로 대체하지 않는다.
+8. normal/max fixture와 측정 환경이 요구사항에 없으면 성능 PASS가 아니라 `BLOCKED`다.
+9. `_workspace/04_qa/evidence/browser.json`을 authoritative command evidence로 사용한다. receipt 누락·stale·test file 0개는 `BLOCKED`다.
+10. ingestion contract가 있으면 stale/partial/invalid artifact fixture와 current runtime mode를 검증한다. 정상 fixture 하나로 data freshness/error UX를 PASS하지 않는다.
+11. visual contract가 있으면 browser receipt의 `visualEvidence`가 contract·manifest·test·PNG hash와 일치해야 한다. verifier는 baseline을 생성·승인·갱신하지 않는다.
 
 ## 출력 계약
 
@@ -69,10 +67,6 @@ PASS | FAIL | BLOCKED
 ## Findings
 | Route | Check | Evidence | Owner | Acceptance Criteria |
 |---|---|---|---|---|
-
-## Timeseries Performance
-| Fixture | Initial Render | Update Cadence | Interaction | Long Tasks | Heap Trend | Budget |
-|---|---|---|---|---|---|---|
 
 ## Commands
 | Check | Command | Exit Code | Status |

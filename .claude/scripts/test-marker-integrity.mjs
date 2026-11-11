@@ -96,14 +96,10 @@ test('부분 손실 시나리오: current < baseline이면 게이트 로직상 F
   // 고정이므로 실제 baseline이 적용된다. 이 숫자는 의식적 baseline 갱신 시 함께 갱신한다(canary).
   // 28이 된 경위: 최초 일괄 편집이 26개(어미 "…프로토콜이다." 패턴)만 잡았고, 리뷰가
   // component-designer.md(어미 "…따른다.")의 누락을 발견해 27번째 에이전트로 추가했다.
-  // 존재-류 마커 2종(M1 ④)과 즉시-쓰기 짝(2026-08-20 추가, baseline 2 = 게이트 스크립트 +
+  // 즉시-쓰기 짝(2026-08-20 추가, baseline 2 = 게이트 스크립트 +
   // 계약 산문)은 온전한 상태로 포함 — consumer 마커의 부분 손실만 검사한다.
   const root = makeTree({
     '.claude/agents/only-one.md': `한 줄만 남음 ${ANCHOR}\n`,
-    '.claude/skills/timeseries-dashboard/references/detection-contract.md':
-      'realtime is not required. <!-- marker:timeseries-historical-only -->\n',
-    '.claude/skills/web-orchestrator/references/phase-3-development.md':
-      'defer mock-api-builder. <!-- marker:timeseries-realtime-build-order -->\n',
     '.claude/scripts/validate-spawn-plan.mjs':
       '// reminder <!-- marker:immediate-write-contract -->\n',
     '.claude/skills/web-orchestrator/references/execution-budget-contract.md':

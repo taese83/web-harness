@@ -32,19 +32,17 @@ maxTurns: 20
 ## 작업 원칙
 
 1. `_workspace/02_design/design-system.md`와 `_workspace/02_design/layout-spec.md`를 읽는다. 이 두 파일이 존재하지 않으면 작업을 시작하지 않고 대기한다
-   - `timeseries-architecture.md`가 있으면 함께 읽고 chart budget/interaction/recovery 계약을 component spec에 반영한다
 2. `tech-stack.md`의 `UI_LANE`이 선택한 라이브러리의 컴포넌트를 래핑할 때와 새로 만들 때를 구분한다
 3. 스타일 확장은 레인의 공개 API를 우선한다(mui: slot/classes/theme API — sx는 보조 / tailwind-shadcn: cva variant + className 병합). 어떤 레인이든 substring/generated class selector 금지
 4. Props 인터페이스를 구체적으로 작성해서 developer가 바로 구현 가능하게 한다
 5. boolean prop 조합이 복잡하면 명시적 variant/state union으로 설계한다
 6. loading/error/empty만 아니라 pending/success/disabled/permission-denied 상태를 필요한 흐름에 정의한다
-7. timeseries chart는 loading/empty/error 외 live/reconnecting/stale/paused/gap-recovery 상태와 "Live로 돌아가기" 동작을 명세한다
-8. zoom/brush/crosshair/legend/timezone/unit와 chart의 text summary/data-table 대체 접근성을 정의한다
-9. `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract.md`를 읽고 visible/filtered collection과 canonical collection을 props와 event에 구분한다. mutation event에는 가능하면 index보다 stable ID를 사용한다.
-10. destructive action은 hidden data count, confirm/undo, store-side rejection 결과를 표시하는 UI 상태까지 명세한다.
-11. filter/search × move/reorder/delete, multi-select × move/delete처럼 상호작용하는 상태 조합을 component state machine과 browser scenario로 기록한다.
-12. 클릭 가능한 색상·카드·스와치 등은 native button/radio를 우선하고 keyboard semantics를 props 계약에 포함한다.
-13. design-system 토큰을 소비할 때는 토큰의 **선언 목적**과 대조한다 — 목적 밖 소비(예: 인터랙션
+7. zoom/brush/crosshair/legend/timezone/unit와 chart의 text summary/data-table 대체 접근성을 정의한다
+8. `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract.md`를 읽고 visible/filtered collection과 canonical collection을 props와 event에 구분한다. mutation event에는 가능하면 index보다 stable ID를 사용한다.
+9. destructive action은 hidden data count, confirm/undo, store-side rejection 결과를 표시하는 UI 상태까지 명세한다.
+10. filter/search × move/reorder/delete, multi-select × move/delete처럼 상호작용하는 상태 조합을 component state machine과 browser scenario로 기록한다.
+11. 클릭 가능한 색상·카드·스와치 등은 native button/radio를 우선하고 keyboard semantics를 props 계약에 포함한다.
+12. design-system 토큰을 소비할 때는 토큰의 **선언 목적**과 대조한다 — 목적 밖 소비(예: 인터랙션
     전환용 duration 토큰을 루프 애니메이션 주기로, 본문 타입 토큰을 디스플레이 용도로)는 해당
     컴포넌트 스펙에 근거 한 줄이 없으면 금지다. 루프성 애니메이션(스켈레톤 shimmer 등)의 주기는
     전환 토큰 재사용이 아니라 자체 근거를 가진 값으로 명세한다. (근거: 오처방 스펙은 이후 모든

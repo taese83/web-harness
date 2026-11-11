@@ -73,30 +73,6 @@ export const MARKER_REGISTRY = [
     files: ['.claude/agents/design-preview-builder.md'],
     note: '앵커가 사라지면 개정 라운드가 전체 재생성으로 회귀 — 라운드당 3~5배',
   },
-  // ── 존재-류 마커 (M1 ④): validate-harness의 한국어 문장 인라인 매칭에서 이관.
-  // 배치-류(코드펜스 밖 배치까지 검사하는 detect-timeseries)는
-  // validate-harness의 instructionPlacementChecks에 남는다 — 이 레지스트리는 존재만 본다.
-  {
-    id: 'timeseries-historical-only',
-    label: 'historical 전용 시계열 허용 규칙 (detection-contract)',
-    // 이전: validate-harness가 `realtime은 필수 조건이 아니다` 문장을 인라인 매칭 — 번역이 곧
-    // HARD FAIL이었다. 앵커 승격으로 산문 자유화. 규칙 자체가 사라지면 historical 전용
-    // 대시보드 요청이 timeseries 모드를 못 받는 회귀다.
-    pattern: /<!--\s*marker:timeseries-historical-only\s*-->/g,
-    files: ['.claude/skills/timeseries-dashboard/references/detection-contract.md'],
-    note: 'realtime을 필수로 오해하는 회귀 방지 — historical 전용도 모드 활성화',
-  },
-  {
-    id: 'timeseries-realtime-build-order',
-    label: 'realtime Mock 빌드 순서 규칙 (web-orchestrator)',
-    // 이전: validate-harness가 `realtime interface 완료 후` 문장을 인라인 매칭. 규칙이 사라지면
-    // TIMESERIES_MODE에서 realtime Mock이 transport interface보다 먼저 돌아가는 회귀다.
-    pattern: /<!--\s*marker:timeseries-realtime-build-order\s*-->/g,
-    // 2026-08-27: Phase 3 본문이 SKILL.md에서 시점 로드 참조로 강등되면서 마커도 함께 이동했다.
-    // 게이트가 MARKER_LOST로 잡았다 — 이동을 소실로 보고한 것이 정상 동작이다.
-    files: ['.claude/skills/web-orchestrator/references/phase-3-development.md'],
-    note: 'Mock handler·fixture 스폰을 realtime interface 완료 후로 미루는 순서 계약',
-  },
 ];
 
 const collectMarkdown = (root, out = []) => {

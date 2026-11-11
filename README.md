@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 45,971 bytes <!-- inventory:entry-cost --> —
+- **Fixed contract load per orchestrator run**: 44,990 bytes <!-- inventory:entry-cost --> —
   the orchestrator skill file plus its always-read contract files. That is a *byte* measurement of exactly those files — roughly 15.6k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the per-spawn
   agent definitions, runtime hook injection, and everything
@@ -58,8 +58,8 @@ pnpm run ci
 
 A green run verifies:
 
-- 22 skills <!-- inventory:skills -->
-- 40 agents <!-- inventory:agents -->
+- 21 skills <!-- inventory:skills -->
+- 38 agents <!-- inventory:agents -->
 - 3 built-in profiles: `vite-serverless-hybrid` is `certified`; `react-vite-spa` and
   `next-app-fullstack` are `compatible`. The `certified` label is machine-bound to isolated-CI
   evidence (`validate-certified-evidence`): the hybrid lane's receipt is

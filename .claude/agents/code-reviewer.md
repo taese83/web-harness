@@ -154,7 +154,7 @@ brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 
    - filtered/visible array의 index가 canonical move/reorder/delete command로 직접 전달되면 FAIL
    - debounce/timer cleanup과 clear/cancel race, stale selection 정리를 검사
    - 최종 invariant 판정은 `state-invariant-verifier`에 전달
-12. **timeseries 정적 검사** (`timeseries-architecture.md`가 있을 때):
+12. **스트림 정적 검사** (WebSocket·SSE·구독 stream이 있을 때):
    - stream callback 내부의 매 event React state/Query cache 전체 갱신
    - 상한 없는 `push`, queue, Map, reconnect counter
    - cleanup 없는 interval/timeout/listener/ResizeObserver/Worker/chart instance

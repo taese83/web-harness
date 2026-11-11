@@ -24,14 +24,12 @@ runner가 non-zero여도 보고서를 생략하지 않는다. `_workspace/04_qa/
 - `security-reviewer` → `_workspace/04_qa/qa-security.md`
 - `api-contract-verifier` → `_workspace/04_qa/qa-api-contract.md`
 - `LOCAL_DOMAIN_STATE_MODE`이면 `state-invariant-verifier` → `_workspace/04_qa/qa-state.md`
-- `EXTERNAL_DATA_INGESTION_MODE`이면 `data-quality-verifier` → `_workspace/04_qa/qa-data-quality.md`. 공개 노출 요구이면 `seo-verifier` → `qa-seo.md`, `performance-budget.md`가 있으면 `performance-verifier` → `qa-perf.md`, `TIMESERIES_MODE`이면 `timeseries-verifier` → `qa-timeseries.md` (모두 `_workspace/04_qa/`)
+- `EXTERNAL_DATA_INGESTION_MODE`이면 `data-quality-verifier` → `_workspace/04_qa/qa-data-quality.md`. 공개 노출 요구이면 `seo-verifier` → `qa-seo.md`, `performance-budget.md`가 있으면 `performance-verifier` → `qa-perf.md` (모두 `_workspace/04_qa/`)
 - 다중 tenant·서버 인가 경로가 있으면 `data-access-verifier` → `_workspace/04_qa/qa-data-access.md`
 - `browser-verifier` → `_workspace/04_qa/qa-browser.md`
 - `VISUAL_QA_MODE`이면 `visual-regression-verifier` → `_workspace/04_qa/qa-visual.md`
 
 테스트 판정은 에이전트가 아니라 스크립트가 한다 — quality runner 뒤에 `node .claude/scripts/report-test-qa.mjs --project {root}`를 실행하면 영수증에서 판정을 계산해 `_workspace/04_qa/qa-test.md`와 판정 기록을 남긴다(옮겨 적지 않는다). 변이 표본도 함께 돈다.
-
-`TIMESERIES_MODE`에서는 API contract에 stream schema/cursor를 포함하고 browser QA에 normal/max/burst, reconnect/gap, visible-point, render cadence, heap trend를 포함한다.
 
 `LOCAL_DOMAIN_STATE_MODE`에서는 state-contract의 invariant와 filter/search × mutation matrix를 unit/browser QA에 포함한다. 데이터 손실 가능성, 구조 필드 broad patch, hidden-data destructive action, migration/recovery 누락은 release hard stop이다.
 
@@ -50,7 +48,7 @@ node .claude/scripts/validate-release-gate.mjs --write-manifest
 node .claude/scripts/validate-release-gate.mjs
 ```
 
-필수 리포트 누락, `FAIL`, `BLOCKED`, `NEEDS_REVIEW`, receipt 누락·stale·non-zero exit, test file 0개, source/manifest hash 불일치 중 하나라도 있으면 release-manager를 실행하지 않는다. Markdown 표만 PASS로 바꿔서는 gate를 통과할 수 없다.
+필수 리포트 누락, `FAIL`, `BLOCKED`, `NEEDS_REVIEW`, receipt 누락·stale·non-zero exit, test file 0개, source/manifest hash 불일치 중 하나라도 있으면 release-manager를 실행하지 않는다. Markdown 표만 PASS로 바꿔서는 gate를 통과할 수 없다. gate가 낸 `알림:` 줄(은퇴한 모드 선언 등)은 release-manager 프롬프트에 넘겨 HANDOFF 제한사항에 적게 한다.
 
 완료 후 `release-manager` 실행:
 - FAIL 항목 있으면 해당 에이전트 재실행 (retry-policy.md 기준, 보고서별 최대 2회)
