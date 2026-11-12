@@ -18,7 +18,6 @@ export const VERIFIER_AGENTS = new Set([
   'seo-verifier',
   'ux-validator',
   'version-analyzer',
-  'visual-regression-verifier',
 ])
 
 // 쓰는 에이전트 중 셸을 받는 쪽 — Bash는 verifier와 같은 훅(enforce-verifier-bash)이 파일을 바꾸지 않는 typed 명령으로만 좁힌다
@@ -131,15 +130,11 @@ export const AGENT_OWNERSHIP = {
     // 초안 판정 — `create`가 만든 티켓에 판정서로 미리 둔다(pickup이 만든 시점의 지문을 대조해 쓴다).
     /^_workspace\/03_dev\/ticket-drafts\/[A-Za-z0-9_-]+\.assessments\.json$/],
   // 외부 원문(웹·Figma)을 읽는 에이전트라 쓰기를 **정규화 산출물로만** 좁힌다 — 승인·리뷰 기록(plan-review·design-review·
-  // 시각 기준선·preview)과 다른 설계자의 산출물은 원문 속 지시로 오염되면 안 된다. 목록은 에이전트 문서 「출력 파일」과 같다.
+  // preview)과 다른 설계자의 산출물은 원문 속 지시로 오염되면 안 된다. 목록은 에이전트 문서 「출력 파일」과 같다.
   'source-artifact-ingestor': [/^_workspace\/00_source\//,
     /^_workspace\/01_plan\/(?:decision-log|requirements|ux-brief|tech-stack|feature-plan)(?:\.md|\/.+)$/,
     /^_workspace\/02_design\/(?:design-system|layout-spec|component-spec|api-schema)(?:\.md|\/.+)$/],
   'tech-advisor': [/^_workspace\/01_plan\/tech-stack(?:\.md|\/.+)$/],
-  'visual-baseline-manager': [/^_workspace\/02_design\/visual-baseline-manifest\.json$/],
-  'visual-contract-designer': [
-    /^_workspace\/02_design\/visual-qa-contract\.json$/,
-  ],
 }
 
 // ── 스팩 유래 소유권 (Stage 3b) ───────────────────────────────────────────────

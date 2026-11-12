@@ -1,6 +1,6 @@
 ---
 name: browser-verifier
-description: Read-only Playwright verification — routes, responsive, keyboard, axe, console/network errors, visual regressions; returns qa-browser.md.
+description: Read-only Playwright verification — routes, responsive, keyboard, axe, console/network errors, existing screenshot assertions; returns qa-browser.md.
 tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit
 model: sonnet
@@ -25,8 +25,7 @@ maxTurns: 25
   — `web-orchestrator/references/webview-host-contract.md` §8. **UA 위장과 브리지 스텁으로 도는 e2e는
   호스트 검증이 아니다** — 호스트가 있는 환경은 실기기 확인이며 하네스 범위 밖이라는 사실을 보고에 적는다
 - CSP Report-Only 위반 수집 — smoke가 첨부한 `csp-violations.json`의 지시어·차단 대상을 `qa-browser.md`에 적는다. 막지 않는다(알림). 헤더 없는 서버에서 돈 결과는 "측정 안 됨"이지 위반 0이 아니다
-- mobile/tablet/desktop viewport overflow와 주요 시각 회귀
-- visual contract가 있으면 320 CSS px/400% reflow, 승인 baseline, theme/locale/state matrix, CLS
+- mobile/tablet/desktop viewport overflow와 320 CSS px reflow(WCAG 1.4.10 — 데이터 표·차트·지도 같은 2차원 콘텐츠는 예외). 가로 overflow 단언이 없으면 「측정 안 됨」이다
 - reconnect/gap 후 duplicate 없는 복구와 visible-point/buffer 상한
 - 브라우저 저장소가 정본인 앱의 filter/search × move/reorder/delete, multi-select × move/delete 조합
 - invalid/old persisted state의 사용자 복구와 reload 후 불변식
@@ -47,7 +46,7 @@ maxTurns: 25
 7. 브라우저 저장소가 정본인 앱이면 위 조합과 손상·구버전 저장 데이터 복구를 각각 실행한다. 일반 smoke test 하나로 대체하지 않는다.
 8. normal/max fixture와 측정 환경이 요구사항에 없으면 성능 PASS가 아니라 `BLOCKED`다.
 9. `_workspace/04_qa/evidence/browser.json`을 authoritative command evidence로 사용한다. receipt 누락·stale·test file 0개는 `BLOCKED`다.
-10. visual contract가 있으면 browser receipt의 `visualEvidence`가 contract·manifest·test·PNG hash와 일치해야 한다. verifier는 baseline을 생성·승인·갱신하지 않는다.
+10. 스크린샷 단언(`toHaveScreenshot`)은 있는 그대로 실행 결과만 보고한다. `node .claude/scripts/run-git-inspection.mjs --project {project-root} --operation diff-names [--base {base}]`에 snapshot PNG가 있으면 Findings에 「baseline 변경 — 사용자 승인 필요」로 적어 오케스트레이터가 승인 체크포인트에 올리게 한다(조회 불가면 「확인 불가」). verifier는 baseline을 생성·승인·갱신하지 않는다.
 
 ## 출력 계약
 

@@ -35,7 +35,7 @@ test('표면 본문에 검사들이 의존하는 계약 문자열이 실제로 �
     'TARGET_BEHAVIOR',
     'PUBLIC_CONTRACTS_TO_PRESERVE',
     'TEST_EVIDENCE',
-    'visual-contract-designer',
+    'performance-budget-designer',
     'minimal-change-contract.md',
   ]) {
     assert.ok(surface.includes(needle), `표면에 '${needle}'가 없다 — 검사가 눈이 먼다`)

@@ -122,3 +122,19 @@ test('은퇴한 모드 선언·설계 산출물은 QA를 요구하지 않고 알
     for (const id of ['timeseries', 'analytics', 'state', 'data-quality']) assert.ok(!ids.includes(id), ids.join(', '))
   })
 })
+
+test('은퇴한 시각 QA 모드: 계약·manifest·선언 어느 하나만 남아도 알림이고 qa-visual을 요구하지 않는다', () => {
+  for (const setup of [
+    root => writeFileSync(join(root, '_workspace/02_design/visual-qa-contract.json'), '{}\n'),
+    root => writeFileSync(join(root, '_workspace/02_design/visual-baseline-manifest.json'), '{}\n'),
+    root => writeFileSync(join(root, '_workspace/01_plan/requirements.md'), '## Modes\n- VISUAL_QA_MODE: true\n'),
+  ]) {
+    withProject(['_workspace/01_plan', '_workspace/02_design'], root => {
+      assert.ok(!retiredModeDeclarations(root).some(notice => notice.startsWith('VISUAL_QA_MODE')))
+      setup(root)
+      const notices = retiredModeDeclarations(root)
+      assert.ok(notices.some(notice => notice.startsWith('VISUAL_QA_MODE') && notice.includes('qa-visual.md')), notices.join(' | '))
+      assert.ok(!releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'visual'))
+    })
+  }
+})

@@ -19,7 +19,6 @@
     "retro": 0,
     "server-db-migration": 0,
     "version-bump": 0,
-    "visual-design-verify": 0,
     "vite-serverless-hybrid": 0,
     "web-orchestrator": 6,
     "web-plan": 0,
@@ -53,9 +52,6 @@
     ".claude/skills/server-db-migration/references/runner-strategy.md",
     ".claude/skills/server-db-migration/references/seeding-contract.md",
     ".claude/skills/version-bump/references/semver-rules.md",
-    ".claude/skills/visual-design-verify/references/baseline-governance.md",
-    ".claude/skills/visual-design-verify/references/render-matrix.md",
-    ".claude/skills/visual-design-verify/references/visual-qa-contract.md",
     ".claude/skills/vite-serverless-hybrid/references/architecture.md",
     ".claude/skills/vite-serverless-hybrid/references/dev-middleware.md",
     ".claude/skills/vite-serverless-hybrid/references/env-management-hybrid.md",
@@ -105,14 +101,14 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 41683
+    "web-orchestrator": 41446
   },
   "referenceBytes": {
     ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
-    ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28305,
-    ".claude/skills/web-orchestrator/references/phase-3-development.md": 29868,
-    ".claude/skills/web-orchestrator/references/provenance-contract.md": 26108,
+    ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28016,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 29701,
+    ".claude/skills/web-orchestrator/references/provenance-contract.md": 25988,
     ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26321,
-    ".claude/skills/web-orchestrator/references/source-artifacts.md": 28828
+    ".claude/skills/web-orchestrator/references/source-artifacts.md": 28591
   }
 }

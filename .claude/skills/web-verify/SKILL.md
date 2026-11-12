@@ -16,7 +16,6 @@ metadata:
 검증 단계만 독립적으로 실행한다. 이미 구현된 프로젝트의 코드/UX/통합을 검사한다.
 
 Read `../web-orchestrator/references/execution-contract.md` and `../web-orchestrator/references/qa-evidence-contract.md` before QA. Read `../web-orchestrator/references/minimal-change-contract.md` and `../web-orchestrator/references/retry-policy.md` before recommending retries.
-`_workspace/02_design/visual-qa-contract.json`이 있으면 `../visual-design-verify/SKILL.md`와 세 reference를 읽고 `VISUAL_QA_MODE`를 유지한다.
 
 Apply the QA Immutability Contract: verifier agents do not modify source/test/config files. They return report content, and the orchestrator persists it before routing fixes to owner agents.
 
@@ -82,7 +81,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    준비 없이 진행하며, 준비가 필요했던 검사는 `BLOCKED`로 보고한다 — 조용히 만들지 않는다.
    - environment-scaffolder
    - developer
-   - `VISUAL_QA_MODE`이면 `developer`를 시각 test/story 범위로 실행한다. baseline은 갱신하지 않는다.
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.
 4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
 5. 테스트 판정 스크립트를 실행한다: `node .claude/scripts/report-test-qa.mjs --project {project-root}` → `qa-test.md`와 판정 기록(에이전트 스폰 없음).
@@ -96,7 +94,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - `_workspace/02_design/seo-spec.md`가 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 seo-verifier
    - `_workspace/02_design/performance-budget.md`가 있으면 performance-verifier
    - browser-verifier
-   - `VISUAL_QA_MODE`이면 visual-regression-verifier
 
    **Codex 교차 리뷰**: 묶음과 같은 범위로 `node .claude/scripts/codex-cross-review.mjs --project-root {project-root} --base {base}`를 QA와 병렬로(Bash 백그라운드) 돌린다 — 개발자가 로컬에서 `codexReview`를 켠 프로젝트만 실행되고(아니면 `disabled`로 끝난다), 결과 `_workspace/04_qa/codex-review.md`는 다른 모델의 의견이다. code-reviewer 지적과 대조해 둘 다 짚었거나 재현된 것만 확정, 한쪽만 짚은 것은 「교차 미확인」으로 따로 싣는다(보안·접근성 지적은 한쪽만이어도 반증 근거 없이 빼지 않는다). 없거나 실패하면 「교차 검증 안 됨」, 보고 시점까지 안 끝났으면 `timeout`으로 적는다(막지 않는다 — 머리말의 HEAD가 지금과 다르면 지난 결과라 쓰지 않는다). 교차 표기는 보고의 표기일 뿐 `qa-code.md`의 `## Result`·FAIL 항목을 바꾸지 않는다(판정을 바꾸려면 code-reviewer를 다시 돌린다).
 6. 다중 tenant 또는 서버 인가 경로가 있으면 data-access-verifier를 실행한다.
@@ -119,5 +116,4 @@ FAIL 항목은 아래 형식으로 출력한다:
 
 AI critical scenario의 FAIL·BLOCKED, ACL leak, approval bypass, unauthorized side effect는 release PASS로 바꾸지 않는다.
 일반 QA의 FAIL·BLOCKED·NEEDS_REVIEW와 필수 리포트 누락도 release PASS로 바꾸지 않는다.
-visual contract가 있으면 `qa-visual.md`, browser `visualEvidence`, 승인 baseline manifest 중 하나라도 누락·stale이면 release PASS로 바꾸지 않는다.
 Markdown command 표는 machine receipt와 일치해야 하며 source가 바뀌면 quality runner부터 다시 실행한다.

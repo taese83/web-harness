@@ -1115,14 +1115,6 @@
       "why": "해제 훅이 배포에서 빠지면 첫 developer 스폰 뒤 임대가 남아 두 번째 스폰부터 영원히 막힌다"
     },
     {
-      "id": "visual-verify-test-prep-approval",
-      "file": ".claude/skills/visual-design-verify/SKILL.md",
-      "find": "**이 단계는 source를 만든다** — 무엇을 만들 것인지(story·spec 파일과 대상 target/state)를 보여주고 착수 전 승인을 받는다.",
-      "replace": "**이 단계는 테스트 파일을 만든다.**",
-      "test": ".claude/scripts/test-wh-lanes.mjs",
-      "why": "시각 검증 스킬로 바로 들어오면 developer가 승인 없이 story·spec을 쓴다 — 승인이 web-verify 준비 단계에만 있었다(FINDING-002 후속)"
-    },
-    {
       "id": "web-verify-prep-approval-in-body",
       "file": ".claude/skills/web-verify/SKILL.md",
       "find": "   **무엇을 만들 것인지 보여주고 착수 전 승인을 받는다.** 사용자가 거절하면",
@@ -5121,6 +5113,14 @@
       "replace": "  RETIRED_MODES.filter(([, artifacts]) => hasRetiredArtifact(projectRoot, artifacts))",
       "test": ".claude/scripts/test-release-report-policy.mjs",
       "why": "설계 산출물 없이 선언만 한 은퇴 모드가 알림 없이 조용히 QA를 잃는다"
+    },
+    {
+      "id": "retired-visual-mode-notice",
+      "file": ".claude/scripts/release-report-policy.mjs",
+      "find": "  ['VISUAL_QA_MODE', ['visual-qa-contract.json', 'visual-baseline-manifest.json'], 'qa-visual.md'],\n",
+      "replace": "  // VISUAL_QA_MODE 행 제거\n",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "시각 QA 모드 행이 빠지면 계약·manifest가 남은 옛 프로젝트가 qa-visual 강제를 잃은 사실을 아무도 알리지 않는다"
     },
     {
       "id": "release-policy-mode-template-not-declaration",

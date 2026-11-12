@@ -21,7 +21,6 @@ Phase 2 산출물과 prototype/screenshot을 검토해 `_workspace/02_design/des
 - keyboard/focus/accessible name/contrast/data-table 대안
 - 기존 UI library, theme, shared component와 일관성
 - 320 CSS px/400% reflow, 200% text resize와 고밀도 정보 구조
-- `VISUAL_QA_MODE`의 target/state/mode, reference, baseline 승인 경계
 
 ## 디자인 원칙 준수 검토
 

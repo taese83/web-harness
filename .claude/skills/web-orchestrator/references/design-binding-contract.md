@@ -1,8 +1,7 @@
 # Design Binding Contract — 이 기획의 이 조건은 어느 디자인 근거를 갖는가
 
-공급된 디자인(Figma 노드·시안 이미지·화면 명세)은 `00_source/`에 스냅샷으로 남고, 시각 검증은
-`visual-qa-contract.json`의 `targets[].referenceId`로 근거를 묶는다. **두 끝은 있었는데 가운데가
-산문이었다** — 어느 프레임이 어느 화면의 어느 조건인지가 `## Source Trace` 문장에만 있어 기계가
+공급된 디자인(Figma 노드·시안 이미지·화면 명세)은 `00_source/`에 스냅샷으로 남는다. 그런데 **어느
+근거가 어느 화면 조건의 것인지는 산문이었다** — 어느 프레임이 어느 화면의 어느 조건인지가 `## Source Trace` 문장에만 있어 기계가
 승계하지 못했다. 그래서 조건 분기(권한 없음·빈 상태·모바일)는 구현 단계에서 즉흥으로 결정됐다.
 
 이 계약은 그 한 칸을 채운다. **사람이 한 번 선언하고, 그 뒤로는 기계가 승계한다.**
@@ -15,9 +14,8 @@
 같은 계약이 서로 다른 형태에서 성립함을 확인한 근거:
 
 - **Figma MCP 공급** — `references`가 `figma-node`로 찬다. 해시를 낼 수단이 없어 재현성이
-  스냅샷 + 가져온 시각에 달리고, 그래서 `sha256` 칸이 금지된다. **fixture 실측(2026-09-03)** —
-  `validate-visual-design.mjs`가 한 PAGE에 `supplied`·`derive`·`reuse` 세 조건이 병존하는 문서를
-  통과시키고, 위조 해시와 발산 참조를 거부하는 것을 확인했다.
+  스냅샷 + 가져온 시각에 달리고, 그래서 `sha256` 칸이 금지된다. `test-design-binding.mjs`가 한 화면의
+  조건별 다중 근거를 통과시키고 figma-node 해시를 거부하는 것을 확인한다.
 - **Figma 없는 공급(시안 이미지 · 화면 명세)** — `references`가 `image`·`specification`으로 차고
   **제약이 반대로 선다**: locator가 프로젝트 상대 경로여야 하고, `sha256`은 선택이되 적히면
   실물과 대조된다. 조건도 `state`가 아니라 `variant`(도메인 어휘)로 갈리는 것이 자연스럽다.
@@ -49,12 +47,12 @@ ingestor의 full 정규화와 record-only는 **형태가 아니라 같은 형태
 
 ## 2. 조건의 어휘 — 새로 만들지 않는다
 
-조건 축은 이미 양쪽에 있다. 여기서 하는 일은 잇는 것뿐이다.
+조건 축은 기획에 이미 있다. 여기서 하는 일은 잇는 것뿐이다.
 
 | 키 | 어디서 오는가 | 성격 |
 |---|---|---|
-| `state` | `visual-qa-contract.json`의 `targets[].state` | 두 파일에서 **문자열이 같아야 한다** |
-| `modeId` | 같은 파일의 `modes[].id` (뷰포트·테마) | 같음 |
+| `state` | `ux-brief` 「화면별 정보 위계」 표의 상태 조건 | 표와 **문자열이 같아야 한다** |
+| `modeId` | 뷰포트·테마 id (소문자·숫자·하이픈) | 형식만 본다 |
 | `variant` | 기획 문서의 표현 그대로 (역할·플랜·기능 플래그) | **자유 문자열** |
 
 `variant`를 enum으로 박지 않는 이유는 I3다 — 역할·등급 어휘는 서비스마다 다르고, 박으면 그
@@ -98,10 +96,6 @@ empty·error 파생 · 모바일 재사용)`.
 
   **누가 계산하는가**: `source-artifacts.md` 「인증이 필요한 URL」의 규칙을 그대로 쓴다 —
   **Bash를 가진 주체가 수집 시점에 계산하고, ingestor는 받은 값을 옮길 뿐 만들어내지 않는다.**
-  이것이 선택으로 끝나지 않는 이유가 하나 있다: `visual-qa-contract.json`은 `image` reference에
-  **`sha256`을 필수로 요구한다**(`visual-evidence-lib`, 이 계약보다 앞선 규칙). 그래서 시각
-  검증까지 올라갈 로컬 근거는 그 전에 해시가 채워져 있어야 하고, 비어 있으면
-  `visual-contract-designer`가 지어내는 것이 아니라 **오케스트레이터에 계산을 요청한다.**
 - **자기신고다 — `declaredBy`의 어휘는 `user | carried` 둘뿐이고 `inferred`가 없다.** 이것이
   없애는 것은 추론이 아니라 **추론을 정직하게 적을 자리**다. 프레임 이름이 「주문 상세」라서
   `PAGE-002`로 묶고 `user`라고 적으면 어떤 검사도 구별하지 못한다 — `provenance-contract.md`의
@@ -119,7 +113,6 @@ empty·error 파생 · 모바일 재사용)`.
 | 미선언분 | 같음 | `unbound`에 넣고 `gap-report.md`에 `NEEDS_DECISION` |
 | Phase 1 → 2 체크포인트 | 오케스트레이터 | `unbound`와 `pending`을 그대로 보여주고 확정받는다 |
 | 소비 | `layout-designer` | 라우팅 맵에 route ↔ `PAGE-NNN` ↔ `referenceId`를 잇는다 |
-| 소비 | `visual-contract-designer` | `references[]`의 `id`·`kind`·`locator`를 옮긴다 — 재발명하지 않되 **객체를 통째로 복사하지도 않는다**(`capturedAt`·`snapshot`은 이 계약의 필드이고 visual-qa 스키마가 거부한다) |
 
 **체크포인트에서 정해진 것을 파일에 반영하는 주체도 ingestor다.** `unbound → bindings`,
 `pending → derive` 전이는 오케스트레이터가 직접 쓰지 않고 record-only로 재스폰해 반영한다 —
@@ -151,8 +144,6 @@ default 없이 error 프레임만 남은 상태가 만들어진다.
 - 기획 ↔ 기록의 화면 집합을 **양방향으로** 대조한다 (`PAGE-000` 제외 — 전역 책임은 화면 근거를
   요구하지 않는다). 기획에 있으나 기록에 없는 화면과, **기획에 없는데 기록에만 있는 화면**
   둘 다 구멍이다 — 후자를 안 보면 유령 화면에 근거를 붙여 `unbound`를 비우는 우회가 열린다
-- 발산 — `visual-qa-contract.json`과 같은 id가 서로 다른 것을 가리키면 receipt 단계에서 거부
-  (`visual-evidence-lib.mjs`)
 
 **못 잡는 것 — 프록시임을 먼저 적는다.** 전부 `protected-core.md` §4에 등록한다.
 
@@ -173,11 +164,8 @@ default 없이 error 프레임만 남은 상태가 만들어진다.
    공급물이 하나도 붙지 않은 채 통과한다. `derive`는 결정이므로 원칙상 허용되나, 그 결정을
    받는 자리는 지금 `layout-designer`의 산문 지시뿐이다 — `design-approval-contract.md`의
    B-목록 승인으로 올리는 배선은 **단방향 참조이며 미구현**이다.
-6. **조건 어휘의 실제 일치.** §2는 `state`·`modeId`가 `visual-qa-contract.json`과 같은
-   문자열이어야 한다고 정하지만, 대조하는 것은 `references`뿐이다 — 조건 낱말이 어긋나도
-   기계는 모른다.
-7. **receipt는 바인딩 내용을 잡지 않는다.** `visual-evidence-lib`가 넣는 것은 발산 오류이며,
-   binding 문서의 해시는 receipt payload에 없다. 승인 뒤 스냅샷 경로나 조건을 바꿔도 조용하다.
+6. **`modeId`는 형식만 본다.** 실제 뷰포트·테마 정의와 대조하지 않는다.
+7. **receipt는 바인딩 내용을 잡지 않는다.** binding 문서의 해시는 receipt payload에 없다. 승인 뒤 스냅샷 경로나 조건을 바꿔도 조용하다.
 
 **조건 커버리지는 이제 게이트다**(2026-09-04). 분모는 `ux-brief` 「화면별 정보 위계」 표이고,
 그 표의 각 행이 선언한 조건 — 그리고 Primary·Secondary가 서술하는 `state:default` — 마다

@@ -33,8 +33,6 @@ refused — align them first.
    integration overlay
 4. Internal skills are hidden from the slash menu (`user-invocable: false`) and read **by `/wh`** —
    the lane banner and its gates always apply
-6. For Figma/reference images, visual regression, and theme/viewport checks,
-   `VISUAL_QA_MODE` (via `/wh verify`) adds contracts and approved baselines
 
 ## Path rules
 

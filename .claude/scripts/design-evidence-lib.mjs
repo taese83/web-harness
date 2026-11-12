@@ -18,7 +18,7 @@ import {createRequire} from 'node:module'
 // 기계가 없었다**(`docs/protected-core.md` §4 「시안 구현 축별 대조표」 — "순수 자기 기록").
 //
 // 활성 조건은 `RENDER-VERDICT.md`의 `SELECTED_CANDIDATE:` 마커다 — 시안이 선정되지 않았으면
-// 구현할 시안도 없다. `visual-qa-contract.json` 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
+// 구현할 시안도 없다. `performance-budget.md` 존재가 성능 QA를 활성화하는 것과 같은 관용구다.
 //
 // **강도를 나눈다.** 표가 **아예 없는 것**은 계약 의무 불이행이고 모호하지 않으므로 errors다
 // (그리고 그것이 motor-lab 사고 당시의 상태였다). **행 수·빈 칸**은 부실 기재의 *신호*이지
@@ -193,7 +193,7 @@ export const routeBindingSummary = projectPath => {
 
 // 확정된 스팩이 있으면 릴리스가 그 스팩에 묶인다(Stage 2b 배선).
 // **스팩이 없으면 발화하지 않는다** — 스팩은 opt-in이고, 한 번 확정하면 구속력을 갖는다.
-// visual-qa-contract.json 존재가 시각 QA를 활성화하는 것과 같은 관용구다.
+// performance-budget.md 존재가 성능 QA를 활성화하는 것과 같은 관용구다.
 // 정합 검사가 판정하지 못한 것(unverifiable)은 여기서 errors로 올리지 않는다 — 미판정을
 // 실패로 바꾸는 것도, 통과로 바꾸는 것도 아니다.
 // 릴리스 산출물에 **수용 기준의 상태**를 남긴다.

@@ -263,4 +263,3 @@ node .claude/scripts/validate-handoff-readiness.mjs --project {root} --design-de
 각 1·3·4단계 뒤 `development-gates-contract.md`의 Gate A·B·C를 실행하고 `FAIL|BLOCKED`면 다음 단계로 진행하지 않는다. 중간 receipt는 이후 source 변경 시 stale이며 Phase 4 release evidence를 대신하지 않는다. 이와 별개로 각 builder 스폰 직후 `execution-budget-contract.md`의 **스폰 완결성 게이트**(완결성 마커·`verify-spawn-completion.mjs`·runaway 임계)를 통과시킨다 — 실패면 re-spawn 또는 `NEEDS_DECISION`, 불완전 산출물 위에 다음 단계를 쌓지 않는다(품질 Gate A/B/C와 보완).
 6. 배포 CI가 요구됐거나 `tech-stack.md`에 배포 target이 있으면 `environment-scaffolder`를 실행한다.
 7. provider가 Vercel이면 `environment-scaffolder`가 root/app `vercel.json`, build/output/root 계약만 작성한다. workflow와 provider config를 일반 deploy agent가 임의 경로에 만들지 않는다. 모든 workflow/config는 source fingerprint 대상이므로 Phase 4 quality runner보다 먼저 완료한다.
-8. `VISUAL_QA_MODE`이면 UI와 fixture 완료 후 `developer`를 시각 test/story 범위로 실행하고 baseline은 별도 승인 전까지 갱신하지 않는다.

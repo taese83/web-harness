@@ -214,8 +214,8 @@ test('validateEntryPoints가 메뉴 숨김 불일치를 실제로 막는다 — 
 })
 
 test('internal-unit eval은 슬래시가 아니라 SKILL.md를 읽게 해서 들어간다 — 숨긴 명령은 아무것도 돌리지 않는다', () => {
-  const unit = evalEntryText({entrySkill: '/visual-design-verify', entryKind: 'internal-unit'})
-  assert.match(unit, /^`\.claude\/skills\/visual-design-verify\/SKILL\.md`를 읽고/)
+  const unit = evalEntryText({entrySkill: '/api-connect', entryKind: 'internal-unit'})
+  assert.match(unit, /^`\.claude\/skills\/api-connect\/SKILL\.md`를 읽고/)
   assert.equal(evalEntryText({entrySkill: '/wh change'}), '/wh change', '공개 진입점은 그대로 슬래시로 넣는다')
 })
 

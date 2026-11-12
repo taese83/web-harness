@@ -48,7 +48,6 @@ import {
   parseTrustedPromotionActions,
   validateWorkflowSecurityProjects,
 } from './workflow-security-lib.mjs'
-import {collectVisualEvidence} from './visual-evidence-lib.mjs'
 import {parseCoverageSummary, parseFailureLocations, parseTestSummary} from './quality-output-summary-lib.mjs'
 const BASE_CHECKS = new Map([
   ['build', {scripts: ['build'], timeoutMs: 600_000}],
@@ -644,9 +643,6 @@ const executeCheck = (id, definition) => {
     excludePaths: allowedMutationPaths,
   })
   const discoveredTestFiles = discoveredTests(definition.testKind)
-  const visualEvidenceBefore = definition.testKind === 'browser'
-    ? collectVisualEvidence(projectRoot, discoveredTestFiles)
-    : null
   const artifactInventoryBefore = collectDeploymentArtifacts(
     projectRoot,
     lockedProfile?.selection.artifacts ?? [],
@@ -708,9 +704,6 @@ const executeCheck = (id, definition) => {
   } else if (definition.testKind && discoveredTestFiles.length === 0) {
     status = 'BLOCKED'
     blockedReason = `No ${definition.testKind} test files were discovered`
-  } else if (visualEvidenceBefore?.required && visualEvidenceBefore.errors.length > 0) {
-    status = 'BLOCKED'
-    blockedReason = `Visual evidence preflight failed: ${visualEvidenceBefore.errors.join('; ')}`
   } else {
     try {
       if (lockedProfile && definition.kind === 'build') {
@@ -753,13 +746,6 @@ const executeCheck = (id, definition) => {
     lockedProfile?.selection.artifacts ?? [],
     {requireAll: Boolean(lockedProfile) && ['build', 'artifact', 'browser', 'runtime'].includes(definition.kind)},
   )
-  const visualEvidenceAfter = definition.testKind === 'browser'
-    ? collectVisualEvidence(projectRoot, discoveredTestFiles)
-    : null
-  if (status !== 'BLOCKED' && visualEvidenceAfter?.required && visualEvidenceAfter.errors.length > 0) {
-    status = 'FAIL'
-    blockedReason = `Visual evidence validation failed: ${visualEvidenceAfter.errors.join('; ')}`
-  }
   if (sourceMutationDetected) {
     status = 'FAIL'
     blockedReason = 'Quality command mutated protected source files; cache/output paths must be excluded explicitly'
@@ -837,7 +823,6 @@ const executeCheck = (id, definition) => {
     artifactInventoryBefore: artifactInventoryBefore.artifacts,
     artifactInventoryAfter: artifactInventoryAfter.artifacts,
     cleanBuildArtifacts,
-    ...(visualEvidenceAfter?.required ? {visualEvidence: visualEvidenceAfter} : {}),
     exitCode: Number.isInteger(result?.status) ? result.status : null,
     signal: result?.signal ?? null,
     status,

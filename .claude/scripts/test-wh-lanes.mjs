@@ -127,9 +127,7 @@ test('verify 리뷰 단계에 Codex 교차 리뷰 명령이 있다', () => {
     'web-verify 리뷰 묶음과 Codex가 같은 범위({base})를 쓰지 않는다')
 })
 
-// 계기(FINDING-002 후속, 2026-09-11): 승인은 `web-verify` 준비 단계에만 있었다. `visual-design-verify`도
-// 테스트 준비에서 `developer`에게 source를 쓰게 하는데 그 스킬 안의 승인은 baseline에 관한 것뿐이라,
-// 그 스킬로 바로 들어오면 쓰기 전 승인이 없었다. **프록시 세 겹이다**(protected-core §4 등록):
+// 검증 스킬로 바로 들어와도 source를 쓰기 전 승인이 있어야 한다. **프록시 세 겹이다**(protected-core §4 등록):
 // 「검증 스킬」은 디렉터리 이름(`*-verify`), 「부른다」는 이름 언급, 승인 문구는 본문 어디든 있으면 된다
 // (writer를 부르는 단계에 결속되지 않는다).
 
@@ -137,7 +135,7 @@ test('검증 스킬이 source를 쓰는 agent를 부르면 착수 전 승인을 
   const skills = readdirSync(join(root, '.claude/skills')).filter(name => name.endsWith('-verify'))
   // 추출 건강성: 선택자와 이름 추출이 살아 있는가. writer **수**는 단언하지 않는다 — 준비를 정당하게
   // read-only로 바꾸면 그 수가 줄고, 숫자를 내리는 것이 대응이 되면 게이트 완화 유인이 된다.
-  assert.ok(skills.length >= 2, `검증 스킬이 ${skills.length}개로 읽혔다 — 선택자가 무너졌다`)
+  assert.ok(skills.includes('web-verify'), `검증 스킬이 ${skills.length}개로 읽혔고 web-verify가 없다 — 선택자가 무너졌다`)
   for (const skill of skills) {
     const body = skillBody(skill)
     // 부르는 agent: 백틱 이름과 목록 항목 이름 — 둘 다 agent 파일이 실재하는 것만.

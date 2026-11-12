@@ -115,8 +115,7 @@ build: {assetsInlineLimit: 4096},
 - `pnpm test:e2e`가 deterministic `webServer`와 Chromium project를 사용한다.
 - Testing Library와 MSW lifecycle이 설정됐다.
 - axe fixture와 console/network failure 수집 helper가 설정됐다.
-- visual contract가 있으면 Storybook/Vitest browser 또는 Playwright visual helper, deterministic screenshot style과 320px project가 설정됐다.
-- test scaffolder는 snapshot PNG와 baseline manifest를 생성하거나 갱신하지 않는다.
+- test scaffolder는 snapshot PNG를 생성하거나 갱신하지 않는다.
 - source feature/entity 로직은 수정하지 않았다.
 
 ## 하지 않는 것

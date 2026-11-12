@@ -46,7 +46,6 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 - AI architecture가 있으면 AI eval, security, data access, cost/latency, trace reports
 - performance budget이 있으면 `qa-perf.md`; browser receipt가 제공하지 않은 runtime 지표는 `NOT_MEASURED`이며 PASS로 승격하지 않는다
 - SEO spec이 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 `qa-seo.md`
-- visual contract가 있으면 `qa-visual.md`와 browser receipt의 `visualEvidence`; 승인 baseline manifest와 현재 PNG hash가 일치해야 한다
 
 ## Retry and release
 

@@ -15,14 +15,13 @@ import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {tmpdir} from 'node:os'
 import {
-  DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, crossCheckVisualReferences, validateDesignBinding,
+  DESIGN_BINDING_PATH, collectDesignBinding, conditionKey, validateDesignBinding,
 } from './design-binding-lib.mjs'
 import {
   analyzeHandoffReadiness, checkDesignBinding, checkDesignInputs, checkMotionRoleTokens, designDebtReport, pageGroupIdsIn, readDecisionLog,
   parseInformationHierarchy, parsePageGroups,
 } from './validate-handoff-readiness.mjs'
 import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
-import {validateVisualContract} from './visual-evidence-lib.mjs'
 import {hasUserInterface} from './spec.mjs'
 
 const AT = '2026-01-01T00:00:00.000Z'
@@ -154,19 +153,6 @@ test('로컬 원본에는 snapshot을 적지 않는다 — 정본이 둘이 되�
   assert.match(errorsOf(document), /snapshot을 적지 않는다/)
 })
 
-test('시각 계약으로 옮기는 것은 세 값뿐이다 — 객체를 통째로 넣으면 거부된다', () => {
-  // 이 계약의 capturedAt·snapshot은 visual-qa 스키마에 없는 키다. 통째로 복사하면
-  // 스키마상 무효한 계약이 되고, 그 거부는 visual-evidence-lib이 실제로 수행한다
-  // (배선 fixture는 validate-visual-design.mjs에 있다).
-  const {id, kind, locator} = binding().references[0]
-  assert.deepEqual(crossCheckVisualReferences(binding(), [{id, kind, locator}]), [])
-  const errors = []
-  validateVisualContract({
-    schemaVersion: 1, references: [{...binding().references[0]}], modes: [], targets: [],
-  }, errors)
-  assert.ok(errors.some(e => /unknown keys: capturedAt, snapshot/.test(e)), errors.join('\n'))
-})
-
 test('조건 값에 구분자가 들어가도 서로 다른 조건이다', () => {
   assert.notEqual(conditionKey({state: 'a&variant=b'}), conditionKey({state: 'a', variant: 'b'}))
   const document = binding()
@@ -202,16 +188,6 @@ test('unbound는 선언이며 실제와 어긋나면 거부한다', () => {
   const lying = binding()
   lying.unbound.references = ['order-detail']
   assert.match(errorsOf(lying), /실제로는 바인딩된/)
-})
-
-test('같은 id가 시각 계약에서 다른 것을 가리키면 발산이다', () => {
-  const document = binding()
-  assert.deepEqual(crossCheckVisualReferences(document, [{id: 'order-detail', kind: 'figma-node', locator: 'node-id=412:9037'}]), [])
-  // 시각 계약이 고르지 않은 근거는 정상이다 — 부분집합을 요구하지 않는다.
-  assert.deepEqual(crossCheckVisualReferences(document, [{id: 'approved-prototype', kind: 'none', locator: 'preview'}]), [])
-  const diverged = crossCheckVisualReferences(document, [{id: 'order-detail', kind: 'figma-node', locator: 'node-id=999:1'}])
-  assert.equal(diverged.length, 1)
-  assert.match(diverged[0], /다른 것을 가리킨다/)
 })
 
 test('선언 집합은 Page Groups 표다 — 산문의 언급은 선언이 아니다', () => {

@@ -16,7 +16,7 @@ maxTurns: 20
 
 1. `_workspace/04_qa/evidence/build.json` — build receipt의 실제 command/exit/fingerprint. receipt가 없거나 stale이면 번들 판정은 `BLOCKED`.
 2. 배포 artifact(`dist/`, `.next/`)의 파일 크기 — `ls`로 확인한 실제 byte를 Bundle Budget과 대조.
-3. `_workspace/04_qa/evidence/browser.json` — CLS/long task/heap이 수집된 경우에만 Runtime Budget 판정. 수집되지 않았으면 `NOT_MEASURED`로 기록하고 측정 활성화 방법(visual contract)을 안내.
+3. `_workspace/04_qa/evidence/browser.json` — CLS/long task/heap이 수집된 경우에만 Runtime Budget 판정. 수집되지 않았으면 `NOT_MEASURED`로 기록한다(하네스 러너는 CLS·heap을 수집하지 않는다).
 4. RUM/실사용자 지표 — 현재 하니스 범위 밖. 항상 `NOT_MEASURED`이며 budget 문서의 도입 가이드를 재인용한다.
 
 ## 검사 항목

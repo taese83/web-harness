@@ -104,7 +104,6 @@ runaway에 더 노출된다 — 이 사실을 사용자에게 알리지 않고 �
 | `specTier` 영향 없음 | `spec.mjs` | 기획이 있으면 `verifiable` 유지. 디자인은 tier 축이 아니다 |
 | `LOCK_INPUTS` 8종 중 **3종이 디자인 소유**(`component-spec`·`state-contract`·`integration-overlay`), 전부 `present: false` | `digestInputs` | 부재가 **기록은 된다** — 이것이 §3 승격의 발화점이다 |
 | 나중에 붙이면 `sourceDigest` 변화 → 스팩 stale | 같은 곳 | **승격 배관은 기계로 작동한다** |
-| 시각 QA | `release-gate-lib.mjs` | `visual-qa-contract.json` 존재로 활성 — 디자인 `absent`면 비활성 |
 | 안전 하한(접근성·보안·receipt) | Phase 4 무조건 verifier | **그대로 돈다**(I6) |
 
 읽는 법: **기획 `absent`는 팀 인계에서 막히고, 디자인 `absent`는 아무 데서도 막히지 않는다.**

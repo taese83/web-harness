@@ -177,7 +177,7 @@ entity query, mutation/form/domain/realtime owner와 `developer`가 완료된 �
    (비밀 유출 방지) 체크포인트 보고에 「미사용 코드 있음」으로 적고, 목록은 사람이 `pnpm deadcode`로 본다
 5. source mutation, unexpected lockfile/config change, production Mock boundary
 
-Gate C 통과 뒤 deployment/visual test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.
+Gate C 통과 뒤 deployment/browser test source가 바뀌면 Phase 4에서 전체 profile과 evidence를 다시 확정한다.
 
 ## Gate R — 요구사항 표기 (의무 진술의 존재)
 

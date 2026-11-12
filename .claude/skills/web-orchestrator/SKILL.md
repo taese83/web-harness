@@ -27,8 +27,6 @@ metadata:
 
 Read `references/source-artifacts.md` only when ingesting existing planning/design/API documents. Read `references/minimal-change-contract.md`, `references/buildable-app-contract.md`, and `references/development-gates-contract.md` before Phase 3, and `references/qa-evidence-contract.md` before Phase 4. Read `references/retry-policy.md` before deciding any QA retry. Read `references/untrusted-content-quarantine.md` whenever external content enters the run (crawling/import, RAG, browser agent, support transcripts, user-supplied external files) and **pass its path to every collecting agent's prompt** — that contract's `INJECTION_SUSPECT` marker is release-blocking, so an unwired round leaves the rule permanently unfired. Read `references/error-handling-patterns.md` before generating `src/shared/api/api.ts`. Read `references/env-management.md` before generating any `.env` file. Read `references/performance-patterns.md` before configuring Vite build options or writing any lazy-loaded route or component. Read `references/background-jobs-contract.md` when 예약·주기 작업 또는 응답 후 완료가 보장되어야 하는 후처리(웹훅·발송·집계)가 감지될 때 — outbox + scheduled runner가 기본 구조다. Read `references/realtime-provider-contract.md` when 실시간 알림·presence·라이브 반영이 요구될 때 — managed provider 소비만 지원하며 WS 서버 구축은 범위 밖이다.
 
-시각 QA, Figma/reference image, `DESIGN_PROTOTYPE_MODE`, 브랜드 핵심 화면, theme/locale matrix가 있으면 `.claude/skills/visual-design-verify/SKILL.md`를 읽고 `VISUAL_QA_MODE: true`로 기록한다. 기존 `visual-qa-contract.json`도 활성 조건이다.
-
 **보조 skill은 확정된 스팩이 고른다** — 소비 지점이 전부 Phase 3이고 그때 스팩(`libraries`·`targetShapes`·`communication`)이 더 정확하게 답한다. Phase 3에서 `references/shape-routing-contract.md`와 스팩을 읽어 필요한 companion skill을 고른다. **`UI_LANE`**(mui | tailwind-shadcn)은 감지가 아니라 **결정**이다 — 그린필드는 tech-advisor가 lib-catalog §UI 판단 축으로 정해 tech-stack.md에 기록하고, 브라운필드는 integration-overlay `uiLane` 실측이 우선한다. Phase 3 완료 시 `validate-ui-lane.mjs`로 방출-선택 일치를 검사한다.
 
 ## Start
@@ -41,7 +39,7 @@ Read `references/source-artifacts.md` only when ingesting existing planning/desi
 
 첫 intake는 `planning-facilitation-contract.md`에 따라 **대상 화면/기능 → 사용자와 끝내려는 업무 → 현재 pain과 관찰 가능한 성공 조건**에서 모르는 항목만 최대 3개 묻는다. API, branch, 파일, 라이브러리, 배포 방식은 제품 의도를 고정한 뒤 구조를 바꾸는 경우에만 묻는다. 프로젝트 이름·위치는 설명과 현재 디렉토리에서 추론하고 기존 PRD, Figma/export, API/OpenAPI, 주석이 있으면 근거로 먼저 읽는다. provider/runtime target, 인증, 다국어, 외부 수집은 다음 단계에서 `ASSUMPTION | NEEDS_DECISION | BLOCKER`로 기록한다.
 
-외부 데이터 수집(크롤링·import·scheduled sync)이나 브라우저가 정본인 도메인 데이터(localStorage·IndexedDB CRUD)가 있으면 하네스에 전용 설계·검증이 없다 — 일반 규칙만 적용된다는 한계를 사용자에게 알리고 Open Decisions에 적는다. source 사용 권한이 불명확하면 `BLOCKER`다.
+외부 데이터 수집(크롤링·import·scheduled sync), 브라우저가 정본인 도메인 데이터(localStorage·IndexedDB CRUD), 스크린샷 baseline 시각 회귀(픽셀 단위 시안 일치)가 요구되면 하네스에 전용 설계·검증이 없다 — 일반 규칙만 적용된다는 한계를 사용자에게 알리고 Open Decisions에 적는다. source 사용 권한이 불명확하면 `BLOCKER`다.
 
 ## Workspace 초기화 — 최소 환경
 
@@ -59,7 +57,6 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 ```
 🔍 감지된 모드:
   REQUEST_TYPE: {request-type-contract의 값}
-  VISUAL_QA_MODE: true/false
   WEB_PROFILE: react-vite-spa | next-app-fullstack | vite-serverless-hybrid  (판별 근거 한 줄)
   PLAN_SOURCE: generated | supplied | absent      (사용자 선택)
   DESIGN_SOURCE: generated | supplied | absent    (사용자 선택)

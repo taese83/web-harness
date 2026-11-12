@@ -1,8 +1,7 @@
 // design-binding-lib.mjs — **이 기획 단위의 이 조건은 어느 디자인 근거를 갖는가.**
 //
-// 배경: 공급된 시안·Figma 노드는 `00_source/`에 스냅샷으로 남고, 시각 검증은
-// `visual-qa-contract.json`의 `targets[].referenceId`로 근거를 묶는다. 두 끝은 있는데
-// **가운데가 산문이었다** — 어느 프레임이 어느 PAGE의 어느 조건인지가 `## Source Trace`
+// 배경: 공급된 시안·Figma 노드는 `00_source/`에 스냅샷으로 남는데, 어느 근거가 어느 화면 조건의
+// 것인지는 **산문이었다** — 어느 프레임이 어느 PAGE의 어느 조건인지가 `## Source Trace`
 // 문장에만 있어 기계가 승계하지 못했다. 그래서 조건 분기(권한 없음·빈 상태·모바일)는
 // 구현 단계에서 즉흥으로 결정됐다.
 //
@@ -142,7 +141,7 @@ export const validateDesignBinding = document => {
       for (const key of keys) {
         if (!CONDITION_KEYS.includes(key)) push(`binding ${label}: 알 수 없는 조건 키 ${key}`)
         else if (typeof condition[key] !== 'string' || condition[key] === '') push(`binding ${label}: 조건 ${key}가 비었다`)
-        else if (key === 'modeId' && !matches(ID, condition[key])) push(`binding ${label}: modeId는 visual-qa modes[].id와 같은 형식이어야 한다`)
+        else if (key === 'modeId' && !matches(ID, condition[key])) push(`binding ${label}: modeId는 소문자·숫자·하이픈 id여야 한다`)
       }
       const key = `${binding?.pageGroup} ${conditionKey(condition)}`
       if (seenConditions.has(key)) {
@@ -250,26 +249,6 @@ export const verifyReferenceFiles = (projectRoot, document) => {
     }
     if (reference.sha256 !== undefined && sha256(source) !== reference.sha256) {
       errors.push(`${path}: 적힌 sha256이 실물과 다르다 — 계산하지 않은 해시이거나 원본이 바뀌었다`)
-    }
-  }
-  return errors
-}
-
-// 두 파일이 같은 id를 쓰면 같은 것을 가리켜야 한다. 부분집합을 요구하지 않는다 —
-// visual-qa는 critical/brand/layout-risk target만 고르므로(render-matrix: 전체 조합 금지)
-// 공급된 근거 전부가 시각 검증에 오르는 것이 정상이 아니다. 그러나 같은 이름이 서로 다른
-// 것을 가리키면 정본이 둘이 되고, 그것은 어느 쪽도 근거가 아니게 된다.
-export const crossCheckVisualReferences = (bindingDocument, visualReferences) => {
-  const errors = []
-  const byId = new Map()
-  for (const reference of Array.isArray(visualReferences) ? visualReferences : []) {
-    if (typeof reference?.id === 'string') byId.set(reference.id, reference)
-  }
-  for (const reference of Array.isArray(bindingDocument?.references) ? bindingDocument.references : []) {
-    const counterpart = byId.get(reference?.id)
-    if (counterpart === undefined) continue
-    if (counterpart.kind !== reference.kind || counterpart.locator !== reference.locator) {
-      errors.push(`${DESIGN_BINDING_PATH}: reference ${reference.id}가 visual-qa-contract의 같은 id와 다른 것을 가리킨다 (${reference.kind}:${reference.locator} vs ${String(counterpart.kind)}:${String(counterpart.locator)})`)
     }
   }
   return errors

@@ -207,11 +207,9 @@ export 경로로 간다. **fixture 검증은 아직 없다 — 명명 수준이�
 | 화면 ↔ route 매핑 | `layout-spec.md`의 라우팅 맵 (`SURFACE_MODEL: overlay`면 서피스 맵) |
 | 화면·조건 ↔ 시안 매핑 | `00_source/design-binding.json` (`design-binding-contract.md`) |
 
-**픽셀 단위 동일은 보장하지 않는다.** `visual-design-verify`의 `visual-qa-contract.md`가
-"Pixel-perfect Figma 일치를 범용 hard gate로 사용하지 않는다"를 이미 결정했다 — 텍스트 렌더링과
-responsive semantic change는 픽셀 비교로 판정되지 않기 때문이다. 대신 시안이 들어오면
-`VISUAL_QA_MODE: true`로 올리고 **structural assertion + token mapping + threshold 있는
-controlled screenshot diff + 사람 리뷰**를 건다. 사용자에게도 이 범위를 그대로 말한다.
+**픽셀 단위 동일은 보장하지 않는다** — 스크린샷 baseline 비교 검증이 없다. 시안 대조는 토큰 매핑,
+design-preview 승인, `ux-validator`·`browser-verifier`의 구조 검사와 사람 리뷰가 맡는다. 사용자에게도
+이 범위를 그대로 말한다.
 
 토큰을 읽을 수 없는 시안(저해상도·부분 캡처)은 기본값을 `ASSUMPTION`으로 표기하고
 `gap-report.md`에 올린다. 시안에서 읽은 척하지 않는다.
@@ -222,7 +220,7 @@ controlled screenshot diff + 사람 리뷰**를 건다. 사용자에게도 이 �
 (목록의 기계 진실은 그 에이전트의 frontmatter다 — 여기에 열거하지 않는다).
 오케스트레이터가 대신 뽑아 전사하지 않는다 — 그러면 `00_source/`의 기록 주체가 둘이 된다.
 
-variable → design token → CSS variable → UI-lane consumer 체인은 `visual-qa-contract.md`가 정본이다.
+variable → design token → CSS variable → UI-lane consumer 체인을 끊지 않는다(토큰 정본은 `design-system.md`).
 seat/plan 제약과 화면·디자인 데이터의 외부 전송 경계를 사용 전에 확인한다.
 
 #### 절차

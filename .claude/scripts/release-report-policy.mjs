@@ -12,7 +12,6 @@ const BASE_REPORTS = [
   ['browser', 'qa-browser.md'],
 ]
 const DATA_ACCESS_REPORTS = [['data-access', 'qa-data-access.md']]
-const VISUAL_REPORTS = [['visual', 'qa-visual.md']]
 const PERFORMANCE_REPORTS = [['performance', 'qa-perf.md']]
 const SEO_REPORTS = [['seo', 'qa-seo.md']]
 
@@ -63,8 +62,6 @@ export const declaresMode = (projectRoot, mode) => {
     }
   })
 }
-export const isVisualProject = projectRoot =>
-  hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
 const isPerformanceProject = projectRoot => hasDesignArtifact(projectRoot, 'performance-budget')
 // 공개 노출은 tech-stack.md의 `PUBLIC_EXPOSURE: yes` 선언으로도 켠다. 스펙 파일만 트리거로 쓰면 생산자가
 // 빠졌을 때 SEO QA가 조용히 사라진다 — 선언이 있으면 qa-seo가 필수이고, 스펙이 없으면 seo-verifier가 BLOCKED다.
@@ -95,6 +92,7 @@ const RETIRED_MODES = [
   ['TIMESERIES_MODE', ['timeseries-architecture'], 'qa-timeseries.md'],
   ['LOCAL_DOMAIN_STATE_MODE', ['state-contract'], 'qa-state.md'],
   ['EXTERNAL_DATA_INGESTION_MODE', ['ingestion-contract', 'runtime-data-contract.json'], 'qa-data-quality.md'],
+  ['VISUAL_QA_MODE', ['visual-qa-contract.json', 'visual-baseline-manifest.json'], 'qa-visual.md'],
 ]
 const hasRetiredArtifact = (projectRoot, names) => names.some(name =>
   name.includes('.') ? hasArtifact(projectRoot, `_workspace/02_design/${name}`) : hasDesignArtifact(projectRoot, name))
@@ -106,7 +104,6 @@ const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
 
 export const releaseReportRequirements = (projectRoot, lockedProfile, phase) => [
   ...BASE_REPORTS,
-  ...(isVisualProject(projectRoot) ? VISUAL_REPORTS : []),
   ...(isPerformanceProject(projectRoot) ? PERFORMANCE_REPORTS : []),
   ...(isSeoProject(projectRoot) ? SEO_REPORTS : []),
   ...(isServerOwnedDataProject(projectRoot) ? DATA_ACCESS_REPORTS : []),

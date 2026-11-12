@@ -136,7 +136,7 @@ stdout을 `_workspace/03_dev/spec.json`에 그대로 저장한다(원장은 스�
 
 `fix`·`verify` 레인은 이 체크포인트를 거치지 않는다 — 동작을 새로 정의하지 않으므로 승인받을
 대상이 없다. 대신 유형별 보존 증거(`request-type-contract.md`)가 의무다. (`verify`의 준비 단계가
-source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 — `web-verify`·`visual-design-verify`가 소유한다.)
+source를 만들 때의 **착수** 승인은 이 체크포인트와 별개다 — `web-verify`가 소유한다.)
 
 ## 일반화 근거
 

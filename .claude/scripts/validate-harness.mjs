@@ -23,7 +23,6 @@ import {validateReleaseFixtures} from './validators/validate-release-fixtures.mj
 import {validateSettings} from './validators/validate-settings.mjs'
 import {RESTRICTED_BASH_WRITERS} from './agent-registry.mjs'
 import {validateWebCoreIntegration} from './validators/validate-web-core-integration.mjs'
-import {validateVisualDesign} from './validators/validate-visual-design.mjs'
 import {validateWorkflowsAndEvals} from './validators/validate-workflows-and-evals.mjs'; import {validateContractHygiene} from './validators/validate-contract-hygiene.mjs'
 import {validateMarkerIntegrity} from './validators/validate-marker-integrity.mjs'; import {validateCertifiedEvidence} from './validators/validate-certified-evidence.mjs'
 import {validateSectionReaders} from './validators/validate-section-readers.mjs'
@@ -279,7 +278,7 @@ validateSettings({claudeDirectory, repositoryRoot, read, pass, fail})
 validateWebCoreIntegration({repositoryRoot, pass, fail})
 validateReleaseFixtures({claudeDirectory, repositoryRoot, pass, fail})
 
-validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validateVisualDesign({repositoryRoot, read, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail});
+validateWorkflowsAndEvals({claudeDirectory, repositoryRoot, pass, fail}); validatePlanningFacilitation({repositoryRoot, read, pass, fail}); validateAdapterHygiene({repositoryRoot, pass, fail});
 {
   const shapeCatalogErrors = inspectShapeCatalog();
   for (const message of shapeCatalogErrors) fail(message);

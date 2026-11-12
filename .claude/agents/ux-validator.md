@@ -40,7 +40,6 @@ maxTurns: 20
 7. **i18n 검사** (`_workspace/02_design/i18n-spec.md`가 있을 때):
    - locale catalog(`src/shared/lang/*/`)의 key를 Read로 대조한다 — 기준 locale의 기본 key(복수형 접미사를 뗀 key)가 모든 locale에 있다(누락은 FAIL). 복수형 접미사(`_one`·`_other` 등)는 그 locale의 CLDR 범주(`new Intl.PluralRules(locale).resolvedOptions().pluralCategories`)로 대조한다 — 한국어는 `other`만 있어 `_one`이 없는 게 정상이다. ICU MessageFormat이면 복수형이 한 key 안에 있으므로 key 집합이 같아야 한다
    - Grep 도구로 UI 파일의 사용자 노출 하드코딩 문자열 잔존을 검출한다 — spec의 승인된 예외 목록과 대조하고 예외 밖 잔존은 WARN
-   - spec의 locale 목록이 visual contract locale matrix(있을 때)와 일치하는가
    - `TODO_TRANSLATE` 잔여 수를 집계해 보고한다 (release 판정은 spec의 번역 완료 정책을 따른다)
 
 ## 출력 구조

@@ -34,7 +34,7 @@ maxTurns: 20
 
 `_workspace/00_source/design-binding.json`이 있으면 읽고, 라우팅 맵에 **route ↔ `PAGE-NNN` ↔
 `referenceId`**를 잇는다. 이 파일은 어느 시안이 어느 화면의 어느 조건인지를 사람이 선언한 기록이며
-(`.claude/skills/web-orchestrator/references/design-binding-contract.md`), 여기서 끊기면 시각 검증이
+(`.claude/skills/web-orchestrator/references/design-binding-contract.md`), 여기서 끊기면 구현과 검증이
 자기 근거를 다시 지어내게 된다.
 
 - `resolution: derive`인 조건은 근거가 없다고 **결정된** 것이다 — 시스템 원리에서 파생하고,

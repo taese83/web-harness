@@ -69,7 +69,7 @@
 3. **피드백**: 라운드당 최대 3개 항목. `ASSUMPTION(시안 확정)` 항목은 커밋된 시안의 승인으로 확정한다(디자인 근거 패널 참조) — 비교 토글은 opt-in 축에만 존재한다. 동작이 test case와 다르면 그 자체가 피드백 항목이다.
 4. **반영**: 피드백은 해당 owner가 **스펙에 먼저** 반영한다 — 시각·정보 위계는 designer, **동작·test case 변경은 feature-planner(동작 명세·TC)**, 그 뒤 `design-preview-builder`가 재생성한다. 프리뷰 직접 수정 금지 (스펙이 유일한 소스).
 5. **반복 상한**: 기본 3라운드. 상한 도달 시 미결 항목을 `NEEDS_DECISION`으로 체크포인트에 올린다. 라운드는 `execution-budget-contract.md`에서 차감한다.
-6. **승인 기록**: 명시적 사용자 승인 뒤 `node .claude/scripts/validate-design-preview.mjs --project {root} --record-approval --approval-text "{verbatim approval}"`을 실행한다. 이 명령은 승인 시점의 source/preview/traceability SHA-256, 통과한 test case 목록, 사용자 승인 문구를 `design-review.md`의 `## Preview Approval` 절에 append-only로 기록한다. 상태가 `APPROVED`인지 다시 확인하고, `VISUAL_QA_MODE`이면 승인된 프리뷰 스크린샷을 `visual-qa-contract`의 reference 후보로 등록한다.
+6. **승인 기록**: 명시적 사용자 승인 뒤 `node .claude/scripts/validate-design-preview.mjs --project {root} --record-approval --approval-text "{verbatim approval}"`을 실행한다. 이 명령은 승인 시점의 source/preview/traceability SHA-256, 통과한 test case 목록, 사용자 승인 문구를 `design-review.md`의 `## Preview Approval` 절에 append-only로 기록한다. 상태가 `APPROVED`인지 다시 확인한다.
 7. **스코프 경계**: 피드백 중 기획 레벨 변경(새 기능·화면 추가/삭제·Must 변경)은 디자인에서 처리하지 않고 Feature List 다듬기(`design-readiness-contract.md`)로 되돌리고 `plan-history-contract.md`에 기록한다.
 
 프로토타입의 **동작은 실제**(메모리 state)이지만 **시각 렌더링은 근사치**로 실제 UI 라이브러리와 다르다 — 이 경계를 체크포인트 문구에 포함한다. 실제 DB·API·영속성·성능·접근성 실측은 여전히 Phase 3 구현 + Phase 4 QA의 몫이다. 실제 UI 라이브러리 컴포넌트의 시각·모션 충실도가 승인의 핵심일 때만 아래 `DESIGN_PROTOTYPE_MODE`의 rendered prototype(실스택)을 추가로 켠다.
@@ -253,4 +253,4 @@ anchor-map에 없는 나머지 화면은 시각적 소음 없이 바탕으로만
 
 L/XL 또는 `DESIGN_PROTOTYPE_MODE`에서는 read-only `design-reviewer`가 information hierarchy, mode separation, layout stability, states, accessibility를 검토한 뒤 사용자 체크포인트를 연다.
 
-`VISUAL_QA_MODE`이면 `.claude/skills/visual-design-verify/SKILL.md`의 target/state/mode와 baseline governance를 Phase 2 승인에 포함한다. prototype mode에서 rendered evidence 또는 visual contract가 없으면 `BLOCKED`다.
+prototype mode에서 rendered evidence가 없으면 `BLOCKED`다.

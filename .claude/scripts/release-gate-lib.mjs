@@ -11,7 +11,7 @@ import {
   releaseProfileSummary,
   resolveReleaseProfile,
 } from './release-profile-lib.mjs'
-import {isVisualProject, releaseReportRequirements} from './release-report-policy.mjs'
+import {releaseReportRequirements} from './release-report-policy.mjs'
 import {collectDeploymentArtifacts} from './artifact-inventory-lib.mjs'
 import {verifyQualityAttestation} from './quality-attestation-lib.mjs'
 import {createReceiptValidationContext, readReceipt} from './receipt-validation-lib.mjs'
@@ -209,11 +209,6 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
 
   const artifactCandidates = [
     ...collectPackageArtifacts(projectRoot, errors),
-    ...(isVisualProject(projectRoot)
-      ? ['_workspace/02_design/visual-qa-contract.json', '_workspace/02_design/visual-baseline-manifest.json']
-          .map(relativePath => readArtifact(projectRoot, relativePath, errors))
-          .filter(Boolean)
-      : []),
     ...deploymentArtifacts.artifacts,
   ]
   const artifacts = [...new Map(artifactCandidates.map(artifact => [artifact.path, artifact])).values()]

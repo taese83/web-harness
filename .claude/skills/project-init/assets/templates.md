@@ -649,35 +649,6 @@ test('핵심 화면이 오류 없이 접근 가능하다', async ({page}, testIn
 
 ---
 
-## VISUAL_E2E
-
-```ts
-import {expect, test} from '@playwright/test'
-
-test.use({
-  colorScheme: 'light',
-  reducedMotion: 'reduce',
-  viewport: {width: 1280, height: 900},
-})
-
-test('home-default visual target', async ({page}) => {
-  await page.clock.setFixedTime(new Date('2026-01-01T00:00:00Z'))
-  await page.goto('/home')
-  await page.evaluate(() => document.fonts.ready)
-  await expect(page).toHaveScreenshot('home-default.png', {
-    animations: 'disabled',
-    caret: 'hide',
-    maxDiffPixels: 0,
-    maxDiffPixelRatio: 0,
-    threshold: 0.2,
-  })
-})
-```
-
-이 section은 승인된 `visual-qa-contract.json`이 있을 때만 사용한다. snapshot PNG는 verifier나 scaffold가 생성하지 않으며 `visual-baseline-manifest.json` 승인 후 별도 baseline change로 반영한다.
-
----
-
 ## TEST_SETUP
 
 ```ts

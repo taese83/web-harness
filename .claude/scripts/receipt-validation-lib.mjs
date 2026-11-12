@@ -7,7 +7,6 @@ import {
   readDependencyBinding,
   readExecutionTargetBinding,
 } from './quality-policy-lib.mjs'
-import {collectVisualEvidence, visualEvidenceMatches} from './visual-evidence-lib.mjs'
 
 const MAX_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000
 const MAX_RECEIPT_BYTES = 2 * 1024 * 1024
@@ -161,19 +160,6 @@ export const readReceipt = (
   }
   if (['test', 'coverage', 'browser'].includes(checkId) && (!Array.isArray(receipt.discoveredTestFiles) || receipt.discoveredTestFiles.length === 0)) {
     errors.push(`${relativePath}: no matching test files were discovered`)
-  }
-  if (checkId === 'browser') {
-    const currentVisualEvidence = collectVisualEvidence(projectRoot, receipt.discoveredTestFiles)
-    if (currentVisualEvidence.required) {
-      if (currentVisualEvidence.errors.length > 0) {
-        errors.push(`${relativePath}: current visual evidence is invalid: ${currentVisualEvidence.errors.join('; ')}`)
-      }
-      if (!visualEvidenceMatches(receipt.visualEvidence, currentVisualEvidence)) {
-        errors.push(`${relativePath}: visual contract, tests, or approved baseline evidence is stale`)
-      }
-    } else if (receipt.visualEvidence !== undefined) {
-      errors.push(`${relativePath}: unexpected visual evidence exists without a visual contract`)
-    }
   }
 
   return {

@@ -186,51 +186,6 @@
     ]
   },
   {
-    "id": "visual-baseline-tamper",
-    "entrySkill": "/visual-design-verify",
-    "entryKind": "internal-unit",
-    "covers": [
-      "visual-design-verify"
-    ],
-    "prompt": "Playwright 시각 테스트는 통과했다고 적혀 있지만 baseline PNG가 최근 수정됐고 승인 manifest의 hash는 이전 값이야. 디자인 릴리스 가능 여부를 검증해줘.",
-    "assertions": [
-      "visual-regression-verifier remains read-only and never runs --update-snapshots",
-      "browser visualEvidence binds the visual contract, test assertions, approved manifest, and current PNG SHA-256",
-      "a baseline hash mismatch or missing approval metadata produces BLOCKED rather than accepting the new image",
-      "baseline promotion requires explicit human review of before, after, diff, target, and reason"
-    ]
-  },
-  {
-    "id": "visual-render-matrix",
-    "entrySkill": "/visual-design-verify",
-    "entryKind": "internal-unit",
-    "covers": [
-      "visual-design-verify"
-    ],
-    "prompt": "라이트·다크 테마와 한국어·영어를 지원하는 대시보드의 모바일 overflow, sticky header focus 가림, 폰트 로딩 후 카드 이동을 시각 검증해줘.",
-    "assertions": [
-      "the contract selects a risk-based state, viewport, theme, and locale matrix instead of an unbounded Cartesian product",
-      "the matrix includes 320 CSS pixel reflow or 400 percent zoom equivalent and a representative desktop viewport",
-      "font readiness, frozen clock and data, disabled animation, locale, timezone, DPR, and reduced motion are deterministic",
-      "focus obscuring, target size, axe, keyboard behavior, and CLS are checked alongside pixel comparison"
-    ]
-  },
-  {
-    "id": "visual-source-token-drift",
-    "entrySkill": "/visual-design-verify",
-    "entryKind": "internal-unit",
-    "covers": [
-      "visual-design-verify"
-    ],
-    "prompt": "Figma의 버튼 variant와 design token은 바뀌었는데 React 컴포넌트와 MUI theme가 예전 값을 사용하는지 확인해줘.",
-    "assertions": [
-      "Figma MCP or export access is treated as an explicit capability with a local export and hash fallback",
-      "Code Connect or an equivalent mapping links the design component to the actual code component when available",
-      "DTCG token type, value, alias resolution, theme variants, and the Figma to token to CSS to UI-lane theme consumer mapping are checked",
-      "AI vision findings remain advisory while deterministic token, structural, and screenshot evidence controls the release gate"
-    ]
-  },
-  {
     "id": "product-first-planning-intake",
     "entrySkill": "/wh plan",
     "covers": [

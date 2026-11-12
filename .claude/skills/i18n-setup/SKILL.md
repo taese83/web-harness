@@ -13,7 +13,7 @@ metadata:
 
 # i18n Setup
 
-다국어·locale 대응을 계약 기반으로 도입한다. `developer`가 만들어 두는 빈 `src/shared/lang/`이 이 스킬의 구현 지점이며, visual QA의 locale matrix가 이 스킬의 소비자다.
+다국어·locale 대응을 계약 기반으로 도입한다. `developer`가 만들어 두는 빈 `src/shared/lang/`이 이 스킬의 구현 지점이며, `ux-validator`의 i18n 검사가 이 스킬의 소비자다.
 
 ## 언제 사용
 
@@ -70,8 +70,7 @@ src/shared/lang/
 ### 4. 검증
 
 - `ux-validator`가 i18n-spec 존재 시 translation completeness(§2의 key 대조 규칙)와 하드코딩 문자열을 검사한다
-- `VISUAL_QA_MODE`이면 visual contract의 locale matrix에 이 스킬의 locale 목록을 사용한다 — 두 목록이 다르면 계약 위반
-- 텍스트 길이 팽창(독일어 등 +30%)으로 인한 레이아웃 깨짐은 browser/visual QA의 대상 locale로 확인한다
+- 텍스트 길이 팽창(독일어 등 +30%)으로 인한 레이아웃 깨짐은 browser QA의 대상 locale로 확인한다
 
 ## Hard Stops
 

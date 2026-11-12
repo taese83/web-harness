@@ -19,7 +19,6 @@ Use this reference before retrying after Phase 4 QA.
 | `qa-api-contract.md` | spec/type/schema/client/mock/stream drift | `api-schema-designer` 우선, 그 다음 `developer` |
 | `qa-test.md` | test failures (not WARN) | `environment-scaffolder`(테스트 인프라) 또는 `developer`(테스트·구현) |
 | `qa-browser.md` | runtime route, viewport, keyboard, axe, console, network, visual/performance failure | `developer` · `environment-scaffolder` |
-| `qa-visual.md` | contract coverage, screenshot diff, baseline hash, render environment, token/reference drift, CLS | `visual-contract-designer` 우선, 그 다음 `developer` · `visual-baseline-manager` · `environment-scaffolder` |
 | `qa-seo.md` | missing route metadata, robots/sitemap inconsistency, OG/JSON-LD, index policy drift | `developer` |
 | `qa-perf.md` | bundle budget exceeded, asset policy violation, runtime budget (CLS/long task/heap) | `performance-budget-designer` 우선, 그 다음 `environment-scaffolder` · `developer` |
 
