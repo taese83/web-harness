@@ -36,8 +36,8 @@ for (const name of ['adapter', 'project-profile', 'execution-plan']) {
 }
 
 const adapters = loadBuiltinAdapters()
-check(adapters.length === 3, 'exactly three built-in profiles are supported')
-check(BUILTIN_ADAPTER_IDS.join(',') === 'next-app-fullstack,react-vite-spa,vite-serverless-hybrid', 'built-in profile ids are stable and sorted')
+check(adapters.length === 2, 'exactly two built-in profiles are supported')
+check(BUILTIN_ADAPTER_IDS.join(',') === 'react-vite-spa,vite-serverless-hybrid', 'built-in profile ids are stable and sorted')
 for (const adapter of adapters) {
   // loadBuiltinAdapter가 반환하는 객체는 선언 + 도출이 합쳐진 것이다(2026-08-27). 선언 검증은
   // 도출 필드를 모르므로 선언 부분만 떼어 검사한다.
@@ -82,32 +82,29 @@ for (const fixture of expected.errors) {
   check(caught instanceof WebCoreError && caught.code === fixture.expectedCode, `${fixture.fixture} must fail with ${fixture.expectedCode}`)
 }
 
-const defaultNextProfile = resolveProjectProfile({
-  projectRoot: join(fixtureDirectory, 'projects/next-app'),
+const defaultSpaProfile = resolveProjectProfile({
+  projectRoot: join(fixtureDirectory, 'projects/react-vite'),
   requested: 'auto',
   adapters,
 })
-check(!defaultNextProfile.capabilities.includes('auth'), 'Next default profile must not enable authentication without a requirement')
-check(defaultNextProfile.risk.level === 'public', 'Next default profile risk must follow enabled capabilities')
-const lockedDefaultNext = validateLockedProjectProfile(defaultNextProfile)
-const defaultNextBindings = adapterCheckBindings({
-  adapter: lockedDefaultNext.adapter,
-  deploymentTarget: lockedDefaultNext.selection.target.id,
-  capabilities: lockedDefaultNext.selection.selectedCapabilities,
+const lockedDefaultSpa = validateLockedProjectProfile(defaultSpaProfile)
+const defaultSpaBindings = adapterCheckBindings({
+  adapter: lockedDefaultSpa.adapter,
+  deploymentTarget: lockedDefaultSpa.selection.target.id,
+  capabilities: lockedDefaultSpa.selection.selectedCapabilities,
 })
-const defaultNextPlan = compileCapabilityDag(lockedDefaultNext.adapter, [
-  lockedDefaultNext.selection.releaseTarget,
-  ...defaultNextBindings.map(binding => binding.evidenceCapability),
+const defaultSpaPlan = compileCapabilityDag(lockedDefaultSpa.adapter, [
+  lockedDefaultSpa.selection.releaseTarget,
+  ...defaultSpaBindings.map(binding => binding.evidenceCapability),
 ])
-defaultNextPlan.profileBinding = {
-  adapterSha256: defaultNextProfile.adapter.sha256,
-  profileSha256: projectProfileSha256(defaultNextProfile),
-  deploymentProvider: lockedDefaultNext.selection.provider.id,
-  deploymentTarget: lockedDefaultNext.selection.target.id,
-  selectedCapabilities: lockedDefaultNext.selection.selectedCapabilities,
+defaultSpaPlan.profileBinding = {
+  adapterSha256: defaultSpaProfile.adapter.sha256,
+  profileSha256: projectProfileSha256(defaultSpaProfile),
+  deploymentProvider: lockedDefaultSpa.selection.provider.id,
+  deploymentTarget: lockedDefaultSpa.selection.target.id,
+  selectedCapabilities: lockedDefaultSpa.selection.selectedCapabilities,
 }
-check(!defaultNextPlan.executionOrder.some(id => id.includes('authz')), 'Next default execution plan must exclude auth-only checks')
-check(validateLockedExecutionPlan(defaultNextPlan, lockedDefaultNext).sha256.length === 64, 'bound execution plan must validate and hash deterministically')
+check(validateLockedExecutionPlan(defaultSpaPlan, lockedDefaultSpa).sha256.length === 64, 'bound execution plan must validate and hash deterministically')
 
 const hybridProfile = resolveProjectProfile({
   projectRoot: join(fixtureDirectory, 'projects/react-vite-hybrid'),
@@ -237,50 +234,24 @@ try {
 }
 check(cycleError instanceof WebCoreError && cycleError.code === 'DAG_CYCLE', 'cyclic capability graphs must be rejected')
 
-let staticConflict
-try {
-  resolveProjectProfile({
-    projectRoot: join(fixtureDirectory, 'projects/unknown'),
-    requested: 'next-app-fullstack',
-    deploymentTarget: 'static-export',
-    adapters,
-  })
-} catch (error) {
-  staticConflict = error
+// 은퇴한 Next profile — 요청·잠긴 profile 적재는 「알 수 없음」이 아니라 은퇴로 거절한다.
+const retiredCode = run => {
+  try {
+    run()
+  } catch (error) {
+    return error instanceof WebCoreError ? error.code : String(error)
+  }
+  return null
 }
-check(staticConflict instanceof WebCoreError && staticConflict.code === 'DEPLOYMENT_CAPABILITY_CONFLICT', 'static export must reject default full-stack capabilities')
-let providerConflict
-try {
-  resolveProjectProfile({
-    projectRoot: join(fixtureDirectory, 'projects/unknown'),
-    requested: 'next-app-fullstack',
-    deploymentProvider: 'vercel',
-    deploymentTarget: 'docker-standalone',
-    adapters,
-  })
-} catch (error) {
-  providerConflict = error
-}
-check(
-  providerConflict instanceof WebCoreError && providerConflict.code === 'NEXT_DOCKER_OCI_EVIDENCE_BROKER_REQUIRED' ||
-    providerConflict instanceof WebCoreError && providerConflict.code === 'DEPLOYMENT_PROVIDER_TARGET_CONFLICT',
-  'Vercel provider must reject the Docker standalone target',
-)
-const staticProfile = resolveProjectProfile({
-  projectRoot: join(fixtureDirectory, 'projects/unknown'),
-  requested: 'next-app-fullstack',
-  deploymentTarget: 'static-export',
-  capabilities: ['app-router', 'rsc', 'ssg', 'static-get-route-handler'],
+check(retiredCode(() => resolveProjectProfile({projectRoot: join(fixtureDirectory, 'projects/unknown'), requested: 'next-app-fullstack', adapters})) === 'ADAPTER_RETIRED', 'retired profile request must fail as ADAPTER_RETIRED')
+check(retiredCode(() => loadBuiltinAdapter('next-app-fullstack')) === 'ADAPTER_RETIRED', 'loading a retired adapter (locked profile, plan compile) must fail as ADAPTER_RETIRED')
+check(retiredCode(() => resolveProjectProfile({
+  projectRoot: join(fixtureDirectory, 'projects/react-vite'),
+  requested: 'react-vite-spa',
+  deploymentProvider: 'vercel',
+  deploymentTarget: 'container-static',
   adapters,
-})
-check(staticProfile.deployment.releaseTarget === 'release.static-export', 'static profile must bind its release target')
-const staticBindings = adapterCheckBindings({
-  adapter: loadBuiltinAdapter('next-app-fullstack'),
-  deploymentTarget: staticProfile.deployment.target,
-  capabilities: staticProfile.capabilities,
-})
-check(!staticBindings.some(binding => binding.id.includes('authz') || binding.id.includes('cache-isolation')), 'static profile must exclude auth and cache checks')
-check(staticBindings.some(binding => binding.id === 'next.export-artifact'), 'static profile must require export artifact evidence')
+})) === 'DEPLOYMENT_PROVIDER_TARGET_CONFLICT', 'Vercel provider must reject the container target')
 
 const runScript = (name, args = []) => spawnSync(
   process.execPath,
@@ -288,7 +259,7 @@ const runScript = (name, args = []) => spawnSync(
   {cwd: resolve(claudeDirectory, '..'), encoding: 'utf8'},
 )
 const validationRun = runScript('validate-adapters.mjs')
-check(validationRun.status === 0 && JSON.parse(validationRun.stdout).adapterCount === 3, 'adapter validation CLI must pass')
+check(validationRun.status === 0 && JSON.parse(validationRun.stdout).adapterCount === 2, 'adapter validation CLI must pass')
 const cliProfileFixture = mkdtempSync(join(tmpdir(), 'web-harness-profile-cli-'))
 cpSync(join(fixtureDirectory, 'projects/next-app'), cliProfileFixture, {recursive: true})
 const resolutionRun = runScript('resolve-profile.mjs', [
@@ -297,7 +268,7 @@ const resolutionRun = runScript('resolve-profile.mjs', [
   '--requested',
   'auto',
 ])
-check(resolutionRun.status === 0 && JSON.parse(resolutionRun.stdout).profileId === 'next-app-fullstack', 'profile resolution CLI must detect Next App Router')
+check(resolutionRun.status === 1 && JSON.parse(resolutionRun.stderr).error.code === 'ADAPTER_RETIRED', 'profile resolution CLI must report a Next project as a retired profile, not as undetected')
 rmSync(cliProfileFixture, {recursive: true, force: true})
 const compilationRun = runScript('compile-execution-plan.mjs', ['--profile', 'react-vite-spa'])
 check(compilationRun.status === 0 && JSON.parse(compilationRun.stdout).executionOrder.at(-1) === 'release.assemble', 'execution plan CLI must compile a release DAG')

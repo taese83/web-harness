@@ -1,6 +1,6 @@
 # Background Jobs Contract
 
-응답 주기 밖에서 실행되는 작업(스케줄 작업·후처리·재시도 큐)의 계약이다. serverless 중심 profile(`vite-serverless-hybrid`, `next-app-fullstack`)에는 상주 워커가 없으므로, **"함수는 enqueue만, 실행은 스케줄러가"**를 기본 구조로 삼는다.
+응답 주기 밖에서 실행되는 작업(스케줄 작업·후처리·재시도 큐)의 계약이다. serverless 중심 profile(`vite-serverless-hybrid`)에는 상주 워커가 없으므로, **"함수는 enqueue만, 실행은 스케줄러가"**를 기본 구조로 삼는다.
 
 ## 적용 판별
 

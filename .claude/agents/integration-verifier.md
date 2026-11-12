@@ -37,7 +37,7 @@ maxTurns: 20
 2. 추가 진단이 필요하면 오케스트레이터에 사용자 승인 또는 격리 CI의 quality runner 재실행을 요청한다. 직접 `pnpm`을 실행하지 않는다.
 3. staging build가 profile의 active check이면 해당 receipt를 검증하고, 아니면 SKIP 근거를 기록한다.
 4. **번들 분석**: 저장된 bundle report/budget가 있으면 route별 JS, 중복 dependency, 이전 baseline 대비 증가를 비교한다. 고정 500KB 문자열 파싱만으로 판정하지 않는다.
-5. React/Vite는 active `vite.browser`, Next.js는 선택 target의 `next.*-browser`와 `next.*-shutdown`(Node는 `next.production-start` 포함) receipt에서 server start/readiness/test/teardown이 같은 command lifecycle 안에서 종료됐는지 확인한다. verifier가 dev server나 `curl`을 직접 실행하지 않는다.
+5. active `vite.browser` receipt에서 server start/readiness/test/teardown이 같은 command lifecycle 안에서 종료됐는지 확인한다. verifier가 dev server나 `curl`을 직접 실행하지 않는다.
 6. Grep 도구로 `worker.start|enableMocking`의 entrypoint 등록을 확인한다.
 7. Glob/Read 도구로 `src/mocks/server.ts`와 handler 파일을 확인한다.
 8. runtime receipt에 종료 증거가 없거나 process가 남는 script이면 `BLOCKED`다.
@@ -83,7 +83,7 @@ PASS | WARN | FAIL | BLOCKED
 
 ## Dev Server
 - Startup: PASS / FAIL
-- URL: profile receipt의 base URL (React/Vite 기본 8080, Next.js 기본 3000)
+- URL: profile receipt의 base URL (React/Vite 기본 8080)
 
 ## Mock API
 - MSW setup: PASS / FAIL

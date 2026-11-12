@@ -10,7 +10,6 @@ export const VERIFIER_AGENTS = new Set([
   'data-access-verifier',
   'design-reviewer',
   'integration-verifier',
-  'next-contract-verifier',
   'pack-verifier',
   'performance-verifier',
   'plan-reviewer',
@@ -30,7 +29,6 @@ export const PACKAGE_OPERATIONS_FOR_WRITERS = new Set(['install', 'lockfile'])
 // 메인 스레드는 ownership hook 대상이 아니므로 이 목록은 강제가 아니라 감사 가능한
 // 명세다 — 여기 나열되지 않은 `_workspace` 설계 산출물은 소유 agent가 있어야 하며,
 // 새 무소유 산출물을 늘리기 전에 owner agent 신설을 먼저 검토한다.
-// (next-contract-matrices.md와 build-environment.json은 next-contract-designer 소유다.)
 export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/01_plan/project-profile.json', // resolve-profile.mjs stdout을 그대로 저장
   '_workspace/03_dev/web-execution-plan.json', // compile-execution-plan.mjs stdout을 그대로 저장
@@ -76,7 +74,6 @@ export const AGENT_OWNERSHIP = {
     // 그것은 소스이며 developer가 layerMap으로 덮는다.
     /^(?:(?:[^/]+\/)+)?Dockerfile$/, /^(?:(?:[^/]+\/)+)?nginx\.conf$/, /^(?:(?:[^/]+\/)+)?deploy\//,
     /^(?:(?:[^/]+\/)+)?migrations\//, /^(?:(?:[^/]+\/)+)?scripts\/migrate\.(?:ts|mjs)$/,
-    /^(?:(?:[^/]+\/)+)?next\.config\.(?:js|mjs|ts)$/, /^(?:(?:[^/]+\/)+)?next-env\.d\.ts$/,
     /^(?:(?:[^/]+\/)+)?postcss\.config\.(?:js|mjs|cjs|ts)$/,
     /^(?:(?:[^/]+\/)+)?eslint\.config\.(?:js|mjs|ts)$/,
     /^(?:README|CHANGELOG|CONTRIBUTING)\.md$/, /^\.npmignore$/, /^docs\//,
@@ -84,6 +81,7 @@ export const AGENT_OWNERSHIP = {
     /^\.github\/workflows\/(?:deploy[^/]*|publish|crawl(?:-[a-z0-9]+)*|refresh(?:-[a-z0-9]+)*)\.ya?ml$/,
     /^vercel\.json$/, /^apps\/[a-z0-9][a-z0-9_-]*\/vercel\.json$/,
     /^_workspace\/03_dev\/db-changelog\.md$/,
+    /^_workspace\/02_design\/build-environment\.json$/, // quality runner가 상속할 공개 env 이름 — 값은 적지 않는다
     /^(?:package\.json|pnpm-workspace\.yaml|turbo\.json|pnpm-lock\.yaml|\.nvmrc)$/,
     /^apps\/[^/]+\/(?:package\.json|\.nvmrc)$/,
     /^(?:(?:[^/]+\/)+)?(?:tsconfig(?:\.[^.]+)?\.json|vite\.config\.ts|vitest(?:\.[^.]+)?\.config\.ts|playwright\.config\.ts)$/,
@@ -114,10 +112,6 @@ export const AGENT_OWNERSHIP = {
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
   'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/, /^_workspace\/02_design\/seo-spec\.md$/],
   'lib-api-designer': [/^_workspace\/02_design\/api-design\.md$/],
-  'next-contract-designer': [
-    /^_workspace\/02_design\/next-contract-matrices\.md$/,
-    /^_workspace\/02_design\/build-environment\.json$/,
-  ],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
   'release-manager': [/^_workspace\/RELEASE\//],
   // WORK 분해의 선행 분석과 계획도 이 에이전트 **하나**가 쓴다(2026-09-11) — 구현 설계 결정·모듈 경계를
@@ -258,7 +252,7 @@ export const DEVELOPER_AGENT = 'developer'
 const GATE_SURFACES = [
   /(?:^|\/)(?:package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|turbo\.json|nx\.json|lerna\.json|\.node-version|\.pnpmfile\.[cm]?js|dockerfile|docker-compose\.ya?ml|makefile|jenkinsfile|\.gitlab-ci\.yml|azure-pipelines\.yml|bitbucket-pipelines\.yml)$/,
   /(?:^|\/)[jt]sconfig(?:\.[^/]+)?\.json$/,
-  /(?:^|\/)[^/]+\.(?:config|workspace)\.(?:[cm]?[jt]s|json)$/, // vite·vitest·playwright·jest·eslint·next 등 도구 설정 부류
+  /(?:^|\/)[^/]+\.(?:config|workspace)\.(?:[cm]?[jt]s|json)$/, // vite·vitest·playwright·jest·eslint 등 도구 설정 부류
   /(?:^|\/)(?:biome|knip|renovate)\.jsonc?$/,
   /(?:^|\/)\.[a-z0-9-]+rc(?:\.[^/]+)?$/, /(?:^|\/)\.(?:nvmrc|eslintignore|prettierignore|stylelintignore)$/,
   /(?:^|\/)\.(?:github|husky|circleci|gitlab|buildkite)(?:\/|$)/, /^_workspace(?:\/|$)/,

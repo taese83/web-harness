@@ -10,10 +10,6 @@ export const COMMON_RECEIPT_ALIASES = Object.freeze({
   'quality.lint': 'lint',
   'quality.typecheck': 'typecheck',
   'quality.unit': 'test',
-  'next.build': 'build',
-  'next.node-browser': 'browser',
-  'next.docker-browser': 'browser',
-  'next.static-browser': 'browser',
   'vite.build': 'build',
   'vite.browser': 'browser',
 })
@@ -33,12 +29,6 @@ export const executionPlanSha256 = plan =>
 
 export const resolveAdapterSelection = ({adapter, deploymentProvider, deploymentTarget, capabilities}) => {
   const targetId = deploymentTarget ?? adapter.profileDefaults.deploymentTarget
-  if (adapter.id === 'next-app-fullstack' && targetId === 'docker-standalone') {
-    throw new WebCoreError(
-      'NEXT_DOCKER_OCI_EVIDENCE_BROKER_REQUIRED',
-      'Docker standalone release is blocked until a typed broker binds the built image to an immutable registry OCI digest',
-    )
-  }
   const target = adapter.deploymentTargets.find(candidate => candidate.id === targetId)
   if (!target) {
     throw new WebCoreError('DEPLOYMENT_TARGET_UNKNOWN', `Unknown deployment target for ${adapter.id}: ${targetId}`, {

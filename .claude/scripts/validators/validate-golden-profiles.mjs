@@ -58,8 +58,6 @@ export const validateGoldenProfiles = ({repositoryRoot, pass, fail}) => {
   const goldenRoot = join(repositoryRoot, 'golden')
   if (!existsSync(goldenRoot)) return
 
-  // next-app-fullstack 골든은 아직 없다 — 부재는 여기서 fail이 아니라 백필 대상이다
-  // (G3 grandfather, docs/production-hardening-plan.md Pillar D). 체크인되면 검사를 추가한다.
   const spaProfileId = 'react-vite-spa'
   const spaRoot = join(goldenRoot, spaProfileId)
   if (!existsSync(spaRoot) || !lstatSync(spaRoot).isDirectory()) {

@@ -26,7 +26,6 @@ export const SCRIPT_CANDIDATES = {
   'api.guards': ['test:api-guards'],
   'vite.build': ['build'],
   'lib.build': ['build'],
-  'next.build': ['build'],
   'vite.browser': ['test:e2e'],
   'vite.production-mock-boundary': ['test:production-boundary'],
 }
@@ -43,8 +42,7 @@ const readManifest = root => {
   try { return JSON.parse(readFileSync(path, 'utf8')) } catch { return null }
 }
 
-// next.* 는 스크립트 이름이 곧 검사 이름이다(next.node-browser → test:e2e:node 같은 규약이
-// 아니라 프로젝트가 정의한 이름). 규약으로 못 잡는 것은 동명 script를 찾아본다.
+// 규약 표(SCRIPT_CANDIDATES)로 못 잡는 검사는 접두를 뗀 동명 script를 찾아본다.
 const fallbackScriptName = checkId => checkId.replace(/^[^.]+\./, '')
 
 // 형태 카탈로그가 검사 옆에 script 이름표를 둘 수 있다(`scriptCandidates`) — 규약으로 못 가르는

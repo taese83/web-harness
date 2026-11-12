@@ -15,8 +15,8 @@ maxTurns: 20
 ## 검사 항목
 
 1. **Spec 존재**: seo-spec.md가 없는데 공개 노출 요구(`tech-stack.md`의 `PUBLIC_EXPOSURE: yes`)가 있으면 `BLOCKED` (owner: `layout-designer`). SEO 요구 자체가 없으면 이 검사는 실행 대상이 아니다.
-2. **route 대응**: spec의 모든 route가 실제 route 정의(layout/router 또는 `app/` 세그먼트)에 존재하는가, 역으로 구현된 공개 route가 spec에 빠져 있는가.
-3. **title/description**: Vite — `src/shared/seo/` 유틸이 route에서 실제 호출되는가(Grep). Next — Route Matrix metadata column과 `generateMetadata`/`metadata` export 존재를 대조.
+2. **route 대응**: spec의 모든 route가 실제 route 정의(layout/router)에 존재하는가, 역으로 구현된 공개 route가 spec에 빠져 있는가.
+3. **title/description**: `src/shared/seo/` 유틸이 route에서 실제 호출되는가(Grep).
 4. **robots/sitemap 일관성**: `public/robots.txt`·sitemap이 존재하고, noindex로 선언된 route가 sitemap에 포함되지 않았는가, sitemap의 URL이 실제 route와 대응하는가.
 5. **OG/JSON-LD**: spec에 선언된 route의 OG 필드 완전성(title/description/image), JSON-LD가 유효한 JSON인가(Read 후 구조 확인).
 6. **상태 코드 계약**: 존재하지 않는 경로의 404 처리(NotFound route/`notFound()`)가 구현돼 있는가 — 실제 HTTP 판정은 browser-verifier 위임.

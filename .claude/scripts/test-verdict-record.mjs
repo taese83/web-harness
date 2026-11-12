@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {spawnSync} from 'node:child_process'
-import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {fileURLToPath} from 'node:url'
@@ -46,10 +46,7 @@ test('필수 보고서마다 판정을 기록하는 검증 에이전트나 스�
     writeFileSync(join(root, '_workspace/02_design', file), '')
   }
   mkdirSync(join(root, 'migrations'), {recursive: true})
-  // 분모는 어댑터 전부다 — 어댑터 전용 보고서가 새로 생겨도 이 대조에서 빠지지 않는다.
-  const adapters = readdirSync(join(REPOSITORY_ROOT, '.claude/adapters'), {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name)
-  assert.ok(adapters.includes('next-app-fullstack'), `어댑터 목록을 읽지 못했다: ${adapters.join(', ')}`)
-  const required = [...new Set(adapters.flatMap(id => releaseReportRequirements(root, {adapter: {id}}, 'final').map(([reportId]) => reportId)))]
+  const required = releaseReportRequirements(root).map(([reportId]) => reportId)
   const recorded = new Set([...Object.values(VERDICT_REPORT_BY_AGENT), ...Object.values(VERDICT_REPORT_BY_SCRIPT)])
   // 스크립트 기록자는 실제로 그 보고서 id로 기록해야 한다 — 이름만 올린 기록자는 없는 것과 같다.
   for (const [script, reportId] of Object.entries(VERDICT_REPORT_BY_SCRIPT)) {

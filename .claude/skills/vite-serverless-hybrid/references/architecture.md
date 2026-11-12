@@ -46,11 +46,11 @@ External service (DB, OAuth provider, storage)
 - 배치: `netlify/functions/foo.ts` → `/.netlify/functions/foo`
 - 이 skill의 예제는 Vercel 관습(`api/...`) 기반. Netlify에서도 파일 위치와 이름만 다르고 나머지는 동일
 
-## 왜 next-app-fullstack이 아닌가
+## 왜 SSR 프레임워크가 아닌가
 
-- Next.js의 App Router는 SSR·streaming·middleware 등 무거운 features를 함께 가져옴
+- SSR 프레임워크는 streaming·middleware 등 무거운 features를 함께 가져옴
 - Vite의 fast HMR, ESM-first bundling, 얇은 dev experience를 유지하고 싶을 때
-- 서버 로직이 10-30 endpoint 규모면 Next 프레임워크 오버헤드가 과함
+- 서버 로직이 10-30 endpoint 규모면 프레임워크 오버헤드가 과함
 
 ## 왜 pure SPA + separate backend가 아닌가
 

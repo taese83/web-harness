@@ -34,7 +34,7 @@
 ```
 필수: TanStack Query (or SWR), Tailwind CSS
 마크다운: react-markdown + remark-gfm
-SEO: Next.js 권장 (CSR 한계), Vite SSR 플러그인
+SEO: CSR 한계 — 검색 노출이 핵심이면 SSR/정적 생성이 필요하다(하네스 지원 profile 없음, `PUBLIC_EXPOSURE` 한계 고지)
 코드 하이라이트: shiki (or Prism)
 ```
 

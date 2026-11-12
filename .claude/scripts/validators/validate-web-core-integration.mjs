@@ -37,7 +37,6 @@ export const validateWebCoreIntegration = ({repositoryRoot, pass, fail}) => {
     ['design preview traceability', '.claude/scripts/test-design-preview.mjs'],
     ['dual-profile adapter core', '.claude/scripts/web-core/test-web-core.mjs'],
     ['Vercel provider config', '.claude/scripts/web-core/test-vercel-config.mjs'],
-    ['Next.js adapter contracts', '.claude/scripts/web-core/validate-next-contracts.mjs'],
   ]) {
     const result = spawnSync(process.execPath, [join(repositoryRoot, relativeScript)], {
       cwd: repositoryRoot,

@@ -9,14 +9,15 @@
 //   (3) `node_modules/**/migrations/`는 발화시키지 않는다 — 의존성이 게이트를 켜면 안 된다
 //   (4) 분할된 설계 산출물(`performance-budget/` 등 디렉터리)도 그 QA 보고서를 요구한다
 //   (5) 은퇴한 모드의 선언·설계 산출물은 QA를 요구하지 않고 알림으로 드러난다 — 템플릿·false는 선언이 아니다
+//   (6) 은퇴한 Next profile의 앱은 잠긴 profile이 없어도 일반 증거 릴리스로 빠지지 않는다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {releaseReportRequirements, retiredModeDeclarations} from './release-report-policy.mjs'
+import {resolveReleaseProfile} from './release-profile-lib.mjs'
 
-const PROFILE = {adapter: {id: 'react-vite-spa'}}
 
 const withProject = (directories, run) => {
   const root = mkdtempSync(join(tmpdir(), 'web-harness-report-policy-'))
@@ -29,7 +30,7 @@ const withProject = (directories, run) => {
 }
 
 const requiresDataAccess = root =>
-  releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'data-access')
+  releaseReportRequirements(root).some(([id]) => id === 'data-access')
 
 test('migration 디렉터리가 없으면 data-access를 요구하지 않는다', () => {
   withProject(['src'], root => assert.equal(requiresDataAccess(root), false))
@@ -47,7 +48,7 @@ test('node_modules 안의 migrations/는 게이트를 켜지 않는다', () => {
   withProject(['node_modules/some-pkg/migrations'], root => assert.equal(requiresDataAccess(root), false))
 })
 
-const requiresSeo = root => releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'seo')
+const requiresSeo = root => releaseReportRequirements(root).some(([id]) => id === 'seo')
 
 test('공개 노출 선언만 있어도 qa-seo를 요구한다 — seo-spec 생산이 빠져도 조용히 사라지지 않는다', () => {
   withProject(['_workspace/01_plan'], root => {
@@ -77,7 +78,7 @@ test('분할된 설계 산출물(디렉터리)도 그 QA 보고서를 요구한�
   withProject(['_workspace/02_design/seo-spec', '_workspace/02_design/performance-budget'], root => {
     writeFileSync(join(root, '_workspace/02_design/seo-spec/routes.md'), '# SEO\n')
     writeFileSync(join(root, '_workspace/02_design/performance-budget/web-vitals.md'), '# Budget\n')
-    const ids = releaseReportRequirements(root, PROFILE, 'final').map(([id]) => id)
+    const ids = releaseReportRequirements(root).map(([id]) => id)
     assert.ok(ids.includes('seo'), `분할한 seo-spec이 qa-seo 요구를 지웠다: ${ids.join(', ')}`)
     assert.ok(ids.includes('performance'), `분할한 performance-budget이 qa-perf 요구를 지웠다: ${ids.join(', ')}`)
   })
@@ -118,7 +119,7 @@ test('은퇴한 모드 선언·설계 산출물은 QA를 요구하지 않고 알
     for (const mode of ['TIMESERIES_MODE', 'ANALYTICS_BUILDER_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
       assert.ok(notices.some(notice => notice.startsWith(mode)), `${mode} 알림이 없다: ${notices.join(' | ')}`)
     }
-    const ids = releaseReportRequirements(root, PROFILE, 'final').map(([id]) => id)
+    const ids = releaseReportRequirements(root).map(([id]) => id)
     for (const id of ['timeseries', 'analytics', 'state', 'data-quality']) assert.ok(!ids.includes(id), ids.join(', '))
   })
 })
@@ -134,7 +135,25 @@ test('은퇴한 시각 QA 모드: 계약·manifest·선언 어느 하나만 남�
       setup(root)
       const notices = retiredModeDeclarations(root)
       assert.ok(notices.some(notice => notice.startsWith('VISUAL_QA_MODE') && notice.includes('qa-visual.md')), notices.join(' | '))
-      assert.ok(!releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'visual'))
+      assert.ok(!releaseReportRequirements(root).some(([id]) => id === 'visual'))
     })
   }
+})
+
+test('은퇴한 Next profile: 잠긴 profile 없는 Next 앱은 release 판별에서 은퇴로 막히고 Vite 앱은 profile 누락으로 막힌다', () => {
+  withProject([], root => {
+    writeFileSync(join(root, 'package.json'), `${JSON.stringify({dependencies: {next: '16.0.0', react: '19.1.0'}})}\n`)
+    const errors = []
+    assert.equal(resolveReleaseProfile(root, errors), null)
+    assert.ok(errors.some(error => error.includes('ADAPTER_RETIRED')), errors.join(' | '))
+    assert.ok(!errors.some(error => error.includes('missing _workspace/01_plan/project-profile.json')), '은퇴 앱에 profile을 잠그라고 안내했다')
+  })
+  withProject(['src'], root => {
+    writeFileSync(join(root, 'package.json'), `${JSON.stringify({dependencies: {react: '19.1.0'}, devDependencies: {vite: '7.0.4'}})}\n`)
+    writeFileSync(join(root, 'src/main.tsx'), 'export {}\n')
+    const errors = []
+    resolveReleaseProfile(root, errors)
+    assert.ok(errors.some(error => error.includes('missing _workspace/01_plan/project-profile.json')), errors.join(' | '))
+    assert.ok(!errors.some(error => error.includes('ADAPTER_RETIRED')))
+  })
 })

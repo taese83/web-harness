@@ -17,7 +17,6 @@
 			"Bash(node .claude/scripts/validate-artifact-sharding.mjs*)",
 			"Bash(node .claude/scripts/validate-ui-lane.mjs*)",
 			"Bash(node .claude/scripts/web-core/validate-adapters.mjs*)",
-			"Bash(node .claude/scripts/web-core/validate-next-contracts.mjs*)",
 			"Bash(node .claude/scripts/web-core/resolve-profile.mjs*)",
 			"Bash(node .claude/scripts/web-core/compile-execution-plan.mjs*)",
 			"Bash(node .claude/scripts/web-core/test-web-core.mjs*)",

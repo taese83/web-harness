@@ -46,8 +46,8 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
 10. root와 app에 독립 lockfile을 중복 생성하지 않는다. 하나의 workspace/lockfile을 기본으로 하고 예외는 tech-stack의 package graph 결정이 있을 때만 허용한다.
 11. monorepo의 root `build`, `typecheck`, `lint`, `test`, `test:coverage`, `test:e2e`는 release 대상 workspace 전체를 포함해야 한다. 특정 app script 성공을 root 품질 성공으로 대체하지 않는다.
 12. 외부 데이터 생성 단계가 있으면 framework `build` script 안에 network crawl, 커밋된 데이터 수정, 빈 데이터 fallback을 넣지 않는다. 생성·검증은 별도 script로 두고 scheduled job은 생성 → 검증 → 반영 순서를 지킨다.
-13. `_workspace/01_plan/project-profile.json`이 있으면 adapter id/version/hash, deployment provider/target, selected capabilities를 읽고 `_workspace/03_dev/web-execution-plan.json`의 선택 task가 참조하는 package script만 선언한다. React/Vite와 Next script를 한 package에 혼합하지 않는다.
-14. `next-app-fullstack`에서는 active adapter check가 요구하는 target-specific 종료 가능한 `test:*` script closure를 선언한다. `test:production-start`와 runtime check는 production artifact의 start/readiness/test/teardown을 자체 소유해야 하며 장기 실행 `next start`를 quality check로 직접 노출하지 않는다.
+13. `_workspace/01_plan/project-profile.json`이 있으면 adapter id/version/hash, deployment provider/target, selected capabilities를 읽고 `_workspace/03_dev/web-execution-plan.json`의 선택 task가 참조하는 package script만 선언한다.
+14. build가 공개 env를 읽으면 그 이름만 `_workspace/02_design/build-environment.json`(`env-management.md` 「Quality runner public environment contract」)에 적는다 — 값은 적지 않는다. quality runner는 여기 없는 host 공개 변수를 상속하지 않는다.
 15. package metadata 작성 후 profile resolver와 canonical execution plan을 다시 생성하도록 반환한다. pre-scaffold profile/toolchain digest를 quality evidence에 재사용하지 않는다.
 16. **toolchain pin 단일 출처**: `packageManager`와 `engines`(node·pnpm)는 값을 새로 정하지 않는다 — 하니스 루트 `package.json`의
 17. `.nvmrc`도 이 에이전트 소유다 — `engines.node`의 하한과 **동기화된 정확 pin**(harness 루트 `.nvmrc`와 동일 값)을 한 줄로 쓴다. `engines`는 설치 호환 범위, `.nvmrc`는 게이트 preflight(run-quality-gates fail-closed)의 정확 pin으로 역할이 다르다 — 한쪽만 갱신하는 drift가 이 규칙의 금지 대상이다.
@@ -70,7 +70,7 @@ package-scaffolder·tooling-scaffolder·test-scaffolder 3종을 합쳤다(2026-0
 13. Playwright `webServer`는 build 후 loopback preview를 사용하고 dev server를 release browser QA에 사용하지 않는다.
 14. 생성 직후 `eslint.config.*`, `playwright.config.*`, critical E2E bootstrap, package scripts의 파일/명령 closure를 대조한다. 하나라도 빠지면 완료하지 않는다.
 15. FSD import 경계(`no-restricted-imports`)는 `app → pages → widgets → features → entities → shared` 의존 방향으로 생성한다. `widgets`는 layout/component 설계가 cross-cutting UI 슬라이스(여러 화면 공용 헤더 클러스터 등)를 명세한 경우에만 **활성 레이어**로 포함하고, 미사용이면 경계 규칙과 alias에서 함께 제외해 죽은 레이어를 만들지 않는다. 활성화하면 pages는 widgets를, widgets는 features/shared를 import할 수 있고 shared는 어떤 상위도 import할 수 없다. 스팩에 `layerDependencies`가 있으면 이 방향 대신 그것으로 규칙을 만든다 — 이 lint는 별칭만 보고, 상대경로까지는 `validate-layer-boundaries.mjs`가 대조한다.
-16. **vite 프로필**(adapter id `react-vite-spa`·`vite-serverless-hybrid`)에서 `tech-stack.md`가 `REACT_COMPILER: on`이면 `performance-patterns.md` §4의 설정을 그대로 적용한다 — `vite.config`에는 `reactCompilerPreset()`, `vitest.config`에는 **플러그인 직접**(`babel({plugins: ['babel-plugin-react-compiler']})`). preset은 client 환경에만 걸려 jsdom 테스트가 컴파일되지 않은 코드를 검증하게 된다. off거나 선언이 없으면 넣지 않는다. `next-app-fullstack`은 설정 경로(`next.config`)가 달라 이 설정을 쓰지 않는다 — 하네스가 아직 검증하지 않았다.
+16. `tech-stack.md`가 `REACT_COMPILER: on`이면 `performance-patterns.md` §4의 설정을 그대로 적용한다 — `vite.config`에는 `reactCompilerPreset()`, `vitest.config`에는 **플러그인 직접**(`babel({plugins: ['babel-plugin-react-compiler']})`). preset은 client 환경에만 걸려 jsdom 테스트가 컴파일되지 않은 코드를 검증하게 된다. off거나 선언이 없으면 넣지 않는다.
 
 1. `package.json`에 `@playwright/test`, `@axe-core/playwright`를 포함한 test dependency가 없으면 추가 필요성을 보고하고 사용자 확인을 받는다.
 2. product test file은 생성하지 않는다.

@@ -57,7 +57,7 @@ Workspace 초기화 후 **모드 감지 결과를 사용자에게 먼저 보여�
 ```
 🔍 감지된 모드:
   REQUEST_TYPE: {request-type-contract의 값}
-  WEB_PROFILE: react-vite-spa | next-app-fullstack | vite-serverless-hybrid  (판별 근거 한 줄)
+  WEB_PROFILE: react-vite-spa | vite-serverless-hybrid  (판별 근거 한 줄)
   PLAN_SOURCE: generated | supplied | absent      (사용자 선택)
   DESIGN_SOURCE: generated | supplied | absent    (사용자 선택)
   SOLUTION_SOURCE: generated | supplied | measured (absent 없음)

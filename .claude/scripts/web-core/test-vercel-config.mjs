@@ -73,14 +73,9 @@ try {
   writeFileSync(join(root, 'vercel.json'), 'null\n')
   assert.match(validateVercelProjectConfig({projectRoot: root, lockedProfile: profile()}).errors.join('\n'), /must be an object/)
 
-  const nextNode = baseConfig()
-  nextNode.framework = 'nextjs'
-  nextNode.buildCommand = 'pnpm run build'
-  delete nextNode.outputDirectory
-  delete nextNode.rewrites
-  assert.equal(codes(nextNode, {
+  assert.match(codes(baseConfig(), {
     lockedProfile: profile({id: 'next-app-fullstack', target: 'node-server'}),
-  }).ok, true)
+  }).errors.join('\n'), /no built-in rule for profile next-app-fullstack/)
 
   const hybrid = baseConfig()
   hybrid.buildCommand = 'pnpm run build'

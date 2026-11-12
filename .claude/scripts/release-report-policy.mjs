@@ -1,6 +1,5 @@
 import {existsSync, readFileSync, readdirSync} from 'node:fs'
 import {join} from 'node:path'
-import {profileReportRequirements} from './release-profile-lib.mjs'
 
 const BASE_REPORTS = [
   ['code', 'qa-code.md'],
@@ -100,12 +99,9 @@ export const retiredModeDeclarations = projectRoot =>
   RETIRED_MODES.filter(([mode, artifacts]) => declaresMode(projectRoot, mode) || hasRetiredArtifact(projectRoot, artifacts))
     .map(([mode, , report]) => `${mode}는 이 하네스가 더 이상 다루지 않는다 — ${report}를 요구하지 않고 전용 설계·검증도 돌지 않는다`)
 
-const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
-
-export const releaseReportRequirements = (projectRoot, lockedProfile, phase) => [
+export const releaseReportRequirements = projectRoot => [
   ...BASE_REPORTS,
   ...(isPerformanceProject(projectRoot) ? PERFORMANCE_REPORTS : []),
   ...(isSeoProject(projectRoot) ? SEO_REPORTS : []),
   ...(isServerOwnedDataProject(projectRoot) ? DATA_ACCESS_REPORTS : []),
-  ...profileReportRequirements(lockedProfile),
-].filter(([id]) => phase === 'final' || !ATTESTATION_DEPENDENT_REPORT_IDS.has(id))
+]

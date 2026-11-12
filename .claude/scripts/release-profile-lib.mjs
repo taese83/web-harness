@@ -6,7 +6,6 @@ import {
   readLockedProjectProfile,
   validateLockedProfileProjectState,
 } from './web-core/profile-policy-lib.mjs'
-import {stableStringify} from './web-core/core-lib.mjs'
 import {validateVercelProjectConfig} from './web-core/vercel-config-lib.mjs'
 
 const dependencyNames = packageJson => new Set(
@@ -14,28 +13,24 @@ const dependencyNames = packageJson => new Set(
     .flatMap(key => Object.keys(packageJson[key] ?? {})),
 )
 
+const RETIRED_NEXT_BLOCKER = 'next-profile-retired'
+
 const classifyWebPackage = (projectRoot, packageRoot, packageJson) => {
   const packages = dependencyNames(packageJson)
-  const next = packages.has('next')
   const vite = packages.has('react') && packages.has('vite')
-  if (!next && !vite) return null
-  const appRoots = ['app', 'src/app'].filter(root =>
-    ['js', 'jsx', 'ts', 'tsx'].some(extension => existsSync(join(packageRoot, root, `layout.${extension}`))),
-  )
+  // 은퇴한 Next profile의 앱은 일반 증거로 조용히 통과하지 않게 막는다.
+  if (!vite && packages.has('next')) return {path: relative(projectRoot, packageRoot) || '.', profileIds: [], blockers: [RETIRED_NEXT_BLOCKER]}
+  if (!vite) return null
   const viteEntries = [
     'vite.config.js', 'vite.config.mjs', 'vite.config.ts',
     'src/main.js', 'src/main.jsx', 'src/main.ts', 'src/main.tsx',
   ].filter(path => existsSync(join(packageRoot, path)))
   const hybrid = vite && existsSync(join(packageRoot, 'api'))
-  const profileIds = [
-    ...(next ? ['next-app-fullstack'] : []),
-    ...(vite ? [hybrid ? 'vite-serverless-hybrid' : 'react-vite-spa'] : []),
-  ]
+  const profileIds = [hybrid ? 'vite-serverless-hybrid' : 'react-vite-spa']
   const blockers = [
-    ...(next && appRoots.length === 0 ? ['next-app-layout-missing'] : []),
-    ...(next && appRoots.length > 1 ? ['next-app-roots-mixed'] : []),
-    ...(vite && viteEntries.length === 0 ? ['vite-entry-missing'] : []),
-    ...(profileIds.length > 1 ? ['framework-profiles-mixed'] : []),
+    ...(viteEntries.length === 0 ? ['vite-entry-missing'] : []),
+    // 은퇴한 Next profile과 섞인 패키지는 지원 profile로 잠글 수 없다.
+    ...(packages.has('next') ? ['framework-profiles-mixed'] : []),
   ]
   return {
     path: relative(projectRoot, packageRoot) || '.',
@@ -112,7 +107,11 @@ export const resolveReleaseProfile = (projectRoot, errors) => {
   const profilePath = join(projectRoot, '_workspace/01_plan/project-profile.json')
   const discovery = discoverReleaseWebApps(projectRoot)
   errors.push(...discovery.errors)
-  const mixedApps = discovery.apps.filter(app => app.profileIds.length !== 1 || app.blockers.length > 0)
+  const retiredApps = discovery.apps.filter(app => app.blockers.includes(RETIRED_NEXT_BLOCKER))
+  if (retiredApps.length > 0) {
+    errors.push(`Next.js app is outside the supported profiles — next-app-fullstack is retired (ADAPTER_RETIRED): ${retiredApps.map(app => app.path).join(', ')}`)
+  }
+  const mixedApps = discovery.apps.filter(app => !retiredApps.includes(app) && (app.profileIds.length !== 1 || app.blockers.length > 0))
   if (mixedApps.length > 0) {
     errors.push(`Supported web app profile is mixed or incomplete: ${mixedApps.map(app => `${app.path} (${app.blockers.join(', ')})`).join('; ')}`)
   }
@@ -124,13 +123,21 @@ export const resolveReleaseProfile = (projectRoot, errors) => {
     errors.push(`Workspace web app cannot use a generic root release; run release from the app root: ${app.path}`)
   }
   if (!existsSync(profilePath)) {
-    if (discovery.apps.length > 0) {
+    if (discovery.apps.length > retiredApps.length) {
       errors.push('Supported web project is missing _workspace/01_plan/project-profile.json')
     }
     return null
   }
   if (!app || app.path !== '.') {
-    if (discovery.apps.length === 0) errors.push('Locked project profile exists but no supported web app matches the release root')
+    if (discovery.apps.length === 0) {
+      let retired = null
+      try {
+        readLockedProjectProfile(profilePath)
+      } catch (error) {
+        if (error?.code === 'ADAPTER_RETIRED') retired = error.message
+      }
+      errors.push(retired ? `Locked project profile is invalid: ${retired}` : 'Locked project profile exists but no supported web app matches the release root')
+    }
     return null
   }
   try {
@@ -155,31 +162,6 @@ export const resolveReleaseProfile = (projectRoot, errors) => {
   }
 }
 
-export const profileReportRequirements = lockedProfile =>
-  lockedProfile?.adapter.id === 'next-app-fullstack' ? [['next-contract', 'qa-next-contract.md']] : []
-
-const OCI_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/
-const OCI_REFERENCE_PATTERN = /^[a-z0-9][a-z0-9._:/-]*@sha256:[0-9a-f]{64}$/
-
-const dockerImageEvidence = (receipt, errors) => {
-  const images = receipt.artifactInventoryAfter.filter(artifact => artifact?.kind === 'oci-image')
-  if (images.length !== 1) {
-    errors.push(`${receipt.path}: Docker target receipt must bind exactly one OCI image identifier and digest`)
-    return null
-  }
-  const [image] = images
-  if (
-    image.id !== 'next-docker-image' ||
-    !OCI_REFERENCE_PATTERN.test(image.reference ?? '') ||
-    !OCI_DIGEST_PATTERN.test(image.digest ?? '') ||
-    !image.reference.endsWith(`@${image.digest}`)
-  ) {
-    errors.push(`${receipt.path}: OCI image evidence must use immutable reference@sha256 digest binding`)
-    return null
-  }
-  return {id: image.id, kind: image.kind, reference: image.reference, digest: image.digest}
-}
-
 export const collectAdapterReleaseEvidence = ({
   lockedProfile,
   receipts,
@@ -197,16 +179,6 @@ export const collectAdapterReleaseEvidence = ({
     deploymentTarget: lockedProfile.selection.target.id,
     capabilities: lockedProfile.selection.selectedCapabilities,
   })
-  const dockerTarget = lockedProfile.selection.target.id === 'docker-standalone'
-  const dockerEvidence = []
-  if (dockerTarget) {
-    const requiredDockerChecks = [
-      'next.docker-browser', 'next.docker-build', 'next.docker-hydration', 'next.docker-shutdown', 'next.docker-smoke',
-    ]
-    const activeCheckIds = new Set(bindings.map(binding => binding.id))
-    const missingChecks = requiredDockerChecks.filter(id => !activeCheckIds.has(id))
-    if (missingChecks.length > 0) errors.push(`Docker standalone profile is missing target-specific checks: ${missingChecks.join(', ')}`)
-  }
   for (const binding of bindings) {
     let receipt = receiptById.get(binding.receiptId)
     if (!receipt) {
@@ -220,17 +192,8 @@ export const collectAdapterReleaseEvidence = ({
       receipt.adapterCheckId !== binding.id ||
       receipt.adapterCommandId !== binding.commandId
     )) errors.push(`${receipt.path}: adapter target command binding is missing or stale`)
-    let boundOciImage = null
-    const dockerSpecific = dockerTarget && binding.id.startsWith('next.docker-')
-    if (receipt && dockerSpecific) {
-      boundOciImage = dockerImageEvidence(receipt, errors)
-      if (boundOciImage) dockerEvidence.push({receipt: receipt.path, image: boundOciImage})
-    }
     if (receipt && ['artifact', 'browser', 'build', 'runtime'].includes(binding.kind)) {
-      const localInventory = dockerSpecific
-        ? receipt.artifactInventoryAfter.filter(artifact => artifact?.kind !== 'oci-image')
-        : receipt.artifactInventoryAfter
-      if (JSON.stringify(localInventory) !== JSON.stringify(deploymentArtifacts)) {
+      if (JSON.stringify(receipt.artifactInventoryAfter) !== JSON.stringify(deploymentArtifacts)) {
         errors.push(`${receipt.path}: selected deployment artifact digest is missing or stale`)
       }
     }
@@ -243,14 +206,7 @@ export const collectAdapterReleaseEvidence = ({
       commandId: binding.commandId,
       kind: binding.kind,
       status: receipt?.status ?? 'MISSING',
-      ...(boundOciImage ? {ociImage: boundOciImage} : {}),
     })
-  }
-  if (dockerTarget && dockerEvidence.length > 0) {
-    const images = new Set(dockerEvidence.map(evidence => stableStringify(evidence.image)))
-    if (images.size !== 1 || dockerEvidence.length !== bindings.filter(binding => binding.id.startsWith('next.docker-')).length) {
-      errors.push('Docker target-specific receipts do not bind the same immutable OCI image')
-    }
   }
   return adapterChecks
 }

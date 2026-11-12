@@ -21,7 +21,6 @@ import {
   readLockedExecutionPlan,
   readLockedProjectProfile,
 } from '../web-core/profile-policy-lib.mjs'
-import {validateNextProject} from '../web-core/next-project-lib.mjs'
 import {stableStringify} from '../web-core/core-lib.mjs'
 
 const emptyPnpmLock = "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
@@ -40,7 +39,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   const conditionalDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
   mkdirSync(conditionalDesignDirectory, {recursive: true})
   const reportNames = () => new Set(
-    releaseReportRequirements(releaseFixtureRoot, null, 'final').map(([, fileName]) => fileName),
+    releaseReportRequirements(releaseFixtureRoot).map(([, fileName]) => fileName),
   )
   const conditionalReports = [
     ['performance-budget.md', 'qa-perf.md'],
@@ -100,14 +99,37 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     mkdirSync(directory, {recursive: true})
     writeFileSync(join(directory, 'package.json'), `${JSON.stringify(value)}\n`)
   }
-  const optionalNextRoot = join(profileScopeRoot, 'optional-next')
-  writePackage(optionalNextRoot, {optionalDependencies: {next: '16.0.0', react: '19.1.0'}})
-  mkdirSync(join(optionalNextRoot, 'app'), {recursive: true})
-  writeFileSync(join(optionalNextRoot, 'app/layout.tsx'), 'export default function Layout({children}) { return children }\n')
-  const optionalNextErrors = []
-  resolveReleaseProfile(optionalNextRoot, optionalNextErrors)
-  if (!optionalNextErrors.some(error => error.includes('missing _workspace/01_plan/project-profile.json'))) {
-    fail('release profile discovery ignored a Next app declared through optionalDependencies')
+  const optionalViteRoot = join(profileScopeRoot, 'optional-vite')
+  writePackage(optionalViteRoot, {optionalDependencies: {react: '19.1.0', vite: '7.0.4'}})
+  mkdirSync(join(optionalViteRoot, 'src'), {recursive: true})
+  writeFileSync(join(optionalViteRoot, 'src/main.tsx'), 'export {}\n')
+  const optionalViteErrors = []
+  resolveReleaseProfile(optionalViteRoot, optionalViteErrors)
+  if (!optionalViteErrors.some(error => error.includes('missing _workspace/01_plan/project-profile.json'))) {
+    fail('release profile discovery ignored a React/Vite app declared through optionalDependencies')
+  }
+
+  const unlockedNextRoot = join(profileScopeRoot, 'unlocked-next')
+  writePackage(unlockedNextRoot, {dependencies: {next: '16.0.0', react: '19.1.0'}})
+  const unlockedNextErrors = []
+  resolveReleaseProfile(unlockedNextRoot, unlockedNextErrors)
+  if (!unlockedNextErrors.some(error => error.includes('ADAPTER_RETIRED'))) {
+    fail(`release profile discovery let a Next.js app without a profile fall back to generic release: ${unlockedNextErrors.join('; ')}`)
+  }
+
+  // 잠긴 은퇴 profile은 `next` 패키지가 없어도(웹 앱 없음·Vite 앱) 은퇴로 막힌다 — 판별이 아니라 잠금에서 온다.
+  for (const [name, packageValue] of [['retired-lock-no-app', {}], ['retired-lock-vite', {dependencies: {react: '19.1.0'}, devDependencies: {vite: '7.0.4'}}]]) {
+    const retiredRoot = join(profileScopeRoot, name)
+    writePackage(retiredRoot, packageValue)
+    mkdirSync(join(retiredRoot, 'src'), {recursive: true})
+    writeFileSync(join(retiredRoot, 'src/main.tsx'), 'export {}\n')
+    mkdirSync(join(retiredRoot, '_workspace/01_plan'), {recursive: true})
+    writeFileSync(join(retiredRoot, '_workspace/01_plan/project-profile.json'), `${JSON.stringify({schemaVersion: 1, profileId: 'next-app-fullstack'})}\n`)
+    const retiredErrors = []
+    resolveReleaseProfile(retiredRoot, retiredErrors)
+    if (!retiredErrors.some(error => error.includes('Locked project profile is invalid: Profile next-app-fullstack is retired'))) {
+      fail(`release profile discovery did not reject a locked retired profile (${name}): ${retiredErrors.join('; ')}`)
+    }
   }
 
   const workspaceRoot = join(profileScopeRoot, 'workspace-child')
@@ -130,15 +152,15 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   const mixedErrors = []
   resolveReleaseProfile(mixedRoot, mixedErrors)
   if (!mixedErrors.some(error => error.includes('mixed or incomplete'))) {
-    fail('release profile discovery accepted a mixed Next and React/Vite root')
+    fail('release profile discovery accepted a React/Vite root that also declares the retired Next profile')
   }
 
   const multipleRoot = join(profileScopeRoot, 'multiple-apps')
   writePackage(multipleRoot, {private: true, workspaces: ['apps/*']})
-  const multipleNext = join(multipleRoot, 'apps/next')
-  writePackage(multipleNext, {dependencies: {next: '16.0.0', react: '19.1.0'}})
-  mkdirSync(join(multipleNext, 'app'), {recursive: true})
-  writeFileSync(join(multipleNext, 'app/layout.tsx'), 'export default function Layout({children}) { return children }\n')
+  const multipleAdmin = join(multipleRoot, 'apps/admin')
+  writePackage(multipleAdmin, {dependencies: {react: '19.1.0'}, devDependencies: {vite: '7.0.4'}})
+  mkdirSync(join(multipleAdmin, 'src'), {recursive: true})
+  writeFileSync(join(multipleAdmin, 'src/main.tsx'), 'export {}\n')
   const multipleVite = join(multipleRoot, 'apps/vite')
   writePackage(multipleVite, {dependencies: {react: '19.1.0'}, devDependencies: {vite: '7.0.4'}})
   mkdirSync(join(multipleVite, 'src'), {recursive: true})
@@ -438,19 +460,22 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   refreshReleaseReceipts()
   writeReleaseFixtureManifest()
 
+  // 프로필 결속 릴리스 흐름 — built-in profile 하나로 generic receipt만으로는 막히고, 프로필 검사 receipt·사전 attestation·
+  // 산출물 digest까지 결속되면 통과하며, 산출물·소스가 바뀌면 다시 막히는지 본다.
   const releasePlanDirectory = join(releaseFixtureRoot, '_workspace/01_plan')
   mkdirSync(releasePlanDirectory, {recursive: true})
   writeFileSync(
     join(releaseFixtureRoot, 'package.json'),
     `${JSON.stringify({
-      name: 'next-release-fixture',
+      name: 'profile-release-fixture',
       engines: {node: '>=22.22.0'},
       packageManager: 'pnpm@11.18.0',
-      dependencies: {next: '16.0.0', react: '19.1.0'},
+      dependencies: {react: '19.1.0'},
       devDependencies: {
         eslint: '9.0.0',
         playwright: '1.0.0',
         typescript: '5.0.0',
+        vite: '7.0.4',
         vitest: '3.0.0',
       },
       scripts: {
@@ -459,29 +484,22 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         test: 'vitest run',
         'test:coverage': 'vitest run --coverage',
         'test:e2e': 'playwright test',
-        build: 'next build',
-        'test:routes': 'vitest run tests/routes.test.ts',
-        'test:client-boundary': 'vitest run tests/client-boundary.test.ts',
-        'test:secret-boundary': 'vitest run tests/secret-boundary.test.ts',
-        'test:production-start': 'node scripts/production-start.mjs',
-        'test:e2e:node': 'playwright test',
-        'test:hydration:node': 'playwright test tests/hydration.spec.ts',
-        'test:node-smoke': 'vitest run tests/node-smoke.test.ts',
-        'test:shutdown:node': 'node scripts/shutdown-node.mjs',
+        build: 'vite build',
+        'test:production-boundary': 'vitest run tests/production-boundary.test.ts',
       },
     })}\n`,
   )
-  mkdirSync(join(releaseFixtureRoot, 'app'), {recursive: true})
-  writeFileSync(join(releaseFixtureRoot, 'app/layout.tsx'), 'export default function Layout({children}) { return children }\n')
+  mkdirSync(join(releaseFixtureRoot, 'src'), {recursive: true})
+  writeFileSync(join(releaseFixtureRoot, 'src/main.tsx'), 'export {}\n')
   mkdirSync(join(releaseFixtureRoot, 'node_modules/.pnpm'), {recursive: true})
   writeFileSync(join(releaseFixtureRoot, 'node_modules/.pnpm/lock.yaml'), emptyPnpmLock)
   mkdirSync(join(releaseFixtureRoot, 'node_modules/.bin'), {recursive: true})
   const installedPackages = [
     {name: 'eslint', version: '9.0.0', bins: {eslint: 'bin/eslint.js'}},
-    {name: 'next', version: '16.0.0', bins: {next: 'dist/bin/next'}},
     {name: 'playwright', version: '1.0.0', bins: {playwright: 'cli.js'}},
     {name: 'react', version: '19.1.0', bins: {}},
     {name: 'typescript', version: '5.0.0', bins: {tsc: 'bin/tsc'}},
+    {name: 'vite', version: '7.0.4', bins: {vite: 'bin/vite.js'}},
     {name: 'vitest', version: '3.0.0', bins: {vitest: 'vitest.mjs'}},
   ]
   for (const installedPackage of installedPackages) {
@@ -504,126 +522,118 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
       )
     }
   }
-  const nextReleaseProfile = resolveProjectProfile({projectRoot: releaseFixtureRoot, requested: 'next-app-fullstack'})
+  const fixtureReleaseProfile = resolveProjectProfile({projectRoot: releaseFixtureRoot, requested: 'react-vite-spa'})
   writeFileSync(
     join(releasePlanDirectory, 'project-profile.json'),
-    `${JSON.stringify(nextReleaseProfile, null, 2)}\n`,
+    `${JSON.stringify(fixtureReleaseProfile, null, 2)}\n`,
   )
   mkdirSync(join(releaseFixtureRoot, '_workspace/03_dev'), {recursive: true})
-  const nextPlanRun = spawnSync(
+  const profilePlanRun = spawnSync(
     process.execPath,
     [join(claudeDirectory, 'scripts/web-core/compile-execution-plan.mjs'), '--profile-file', '_workspace/01_plan/project-profile.json'],
     {cwd: releaseFixtureRoot, encoding: 'utf8'},
   )
-  if (nextPlanRun.status !== 0) fail(`Next release fixture execution plan did not compile: ${nextPlanRun.stderr}`)
-  else writeFileSync(join(releaseFixtureRoot, '_workspace/03_dev/web-execution-plan.json'), nextPlanRun.stdout)
-  const lockedNextProfile = readLockedProjectProfile(join(releasePlanDirectory, 'project-profile.json'))
-  const overstatedNextProfile = JSON.parse(JSON.stringify(nextReleaseProfile))
-  overstatedNextProfile.adapter.supportLevel = 'certified'
-  writeFileSync(join(releasePlanDirectory, 'overstated-profile.json'), `${JSON.stringify(overstatedNextProfile)}\n`)
+  if (profilePlanRun.status !== 0) fail(`profile release fixture execution plan did not compile: ${profilePlanRun.stderr}`)
+  else writeFileSync(join(releaseFixtureRoot, '_workspace/03_dev/web-execution-plan.json'), profilePlanRun.stdout)
+  const lockedFixtureProfile = readLockedProjectProfile(join(releasePlanDirectory, 'project-profile.json'))
+  const overstatedProfile = JSON.parse(JSON.stringify(fixtureReleaseProfile))
+  overstatedProfile.adapter.supportLevel = 'certified'
+  writeFileSync(join(releasePlanDirectory, 'overstated-profile.json'), `${JSON.stringify(overstatedProfile)}\n`)
   try {
     readLockedProjectProfile(join(releasePlanDirectory, 'overstated-profile.json'))
-    fail('locked profile allowed compatible Next support to be overstated as certified')
+    fail('locked profile allowed compatible support to be overstated as certified')
   } catch (error) {
-    if (error?.code !== 'PROJECT_PROFILE_ADAPTER_STALE') fail(`overstated Next support failed with an unexpected reason: ${error?.code}`)
+    if (error?.code !== 'PROJECT_PROFILE_ADAPTER_STALE') fail(`overstated support failed with an unexpected reason: ${error?.code}`)
+  }
+  const retiredProfile = {...JSON.parse(JSON.stringify(fixtureReleaseProfile)), profileId: 'next-app-fullstack'}
+  writeFileSync(join(releasePlanDirectory, 'overstated-profile.json'), `${JSON.stringify(retiredProfile)}\n`)
+  try {
+    readLockedProjectProfile(join(releasePlanDirectory, 'overstated-profile.json'))
+    fail('locked profile accepted a retired adapter')
+  } catch (error) {
+    if (error?.code !== 'ADAPTER_RETIRED') fail(`retired locked adapter failed with an unexpected reason: ${error?.code}`)
   }
   rmSync(join(releasePlanDirectory, 'overstated-profile.json'))
 
-  try {
-    resolveProjectProfile({
-      projectRoot: releaseFixtureRoot,
-      requested: 'next-app-fullstack',
-      deploymentTarget: 'docker-standalone',
-    })
-    fail('Next Docker profile was enabled without a typed OCI evidence broker')
-  } catch (error) {
-    if (error?.code !== 'NEXT_DOCKER_OCI_EVIDENCE_BROKER_REQUIRED') {
-      fail(`Next Docker profile failed with an unexpected reason: ${error?.code}`)
-    }
-  }
-  mkdirSync(join(releaseFixtureRoot, '.next'), {recursive: true})
-  writeFileSync(join(releaseFixtureRoot, '.next/server.js'), 'export {}\n')
+  mkdirSync(join(releaseFixtureRoot, 'dist'), {recursive: true})
+  writeFileSync(join(releaseFixtureRoot, 'dist/index.html'), '<!doctype html><title>fixture</title>\n')
   refreshReleaseReceipts()
-  const genericOnlyNextErrors = buildReleaseManifest(releaseFixtureRoot).errors
-  if (!genericOnlyNextErrors.some(error => error.includes('next.route-contract.json'))) {
-    fail('release gate accepted a Next profile with generic receipts only')
+  const genericOnlyProfileErrors = buildReleaseManifest(releaseFixtureRoot).errors
+  if (!genericOnlyProfileErrors.some(error => error.includes('vite.production-mock-boundary.json'))) {
+    fail(`release gate accepted a locked profile with generic receipts only: ${genericOnlyProfileErrors.join('; ')}`)
   }
-  const nextDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
-  mkdirSync(nextDesignDirectory, {recursive: true})
-  writeFileSync(
-    join(nextDesignDirectory, 'next-contract-matrices.md'),
-    '# Next Contracts\n\n## Route Matrix\n\n## Server Client Boundary Matrix\n\n## Authorization Matrix\n\n## Environment Matrix\n\n## Cache Matrix\n\n## Deployment Matrix\n',
-  )
-  const nextBuildEnvironmentSource = `${JSON.stringify({schemaVersion: 1, public: []})}\n`
-  writeFileSync(join(nextDesignDirectory, 'build-environment.json'), nextBuildEnvironmentSource)
-  const nextQaFixtures = {
+  const profileDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
+  mkdirSync(profileDesignDirectory, {recursive: true})
+  const profileBuildEnvironmentSource = `${JSON.stringify({schemaVersion: 1, public: []})}\n`
+  writeFileSync(join(profileDesignDirectory, 'build-environment.json'), profileBuildEnvironmentSource)
+  const profileQaFixtures = {
     ...qaFixtures,
     'qa-code.md': qaFixtures['qa-code.md']
       .replace('pnpm typecheck', 'pnpm run typecheck')
       .replace('pnpm lint', 'pnpm run lint'),
     'qa-integration.md': qaFixtures['qa-integration.md'].replace('pnpm build', 'pnpm run build'),
     'qa-test.md': qaFixtures['qa-test.md'].replace('pnpm test`', 'pnpm run test`'),
-    'qa-browser.md': qaFixtures['qa-browser.md'].replace('pnpm test:e2e', 'pnpm run test:e2e:node'),
+    'qa-browser.md': qaFixtures['qa-browser.md'].replace('pnpm test:e2e', 'pnpm run test:e2e'),
   }
-  for (const [fileName, source] of Object.entries(nextQaFixtures)) {
+  for (const [fileName, source] of Object.entries(profileQaFixtures)) {
     writeFileSync(join(releaseQaDirectory, fileName), source)
   }
   refreshReleaseReceipts()
-  const lockedNextPlan = readLockedExecutionPlan(
+  const lockedFixturePlan = readLockedExecutionPlan(
     join(releaseFixtureRoot, '_workspace/03_dev/web-execution-plan.json'),
-    lockedNextProfile,
+    lockedFixtureProfile,
   )
-  const nextBindings = adapterCheckBindings({
-    adapter: lockedNextProfile.adapter,
-    deploymentProvider: lockedNextProfile.selection.provider.id,
-    deploymentTarget: lockedNextProfile.selection.target.id,
-    capabilities: lockedNextProfile.selection.selectedCapabilities,
+  const profileBindings = adapterCheckBindings({
+    adapter: lockedFixtureProfile.adapter,
+    deploymentProvider: lockedFixtureProfile.selection.provider.id,
+    deploymentTarget: lockedFixtureProfile.selection.target.id,
+    capabilities: lockedFixtureProfile.selection.selectedCapabilities,
   })
-  const nextInventory = collectDeploymentArtifacts(releaseFixtureRoot, lockedNextProfile.selection.artifacts, {requireAll: true})
-  const nextFingerprint = computeSourceFingerprint(releaseFixtureRoot, {
-    excludePaths: lockedNextProfile.selection.artifacts.map(artifact => artifact.path),
+  const profileInventory = collectDeploymentArtifacts(releaseFixtureRoot, lockedFixtureProfile.selection.artifacts, {requireAll: true})
+  const profileFingerprint = computeSourceFingerprint(releaseFixtureRoot, {
+    excludePaths: lockedFixtureProfile.selection.artifacts.map(artifact => artifact.path),
   })
-  const nextProfileBinding = {
-    profileId: lockedNextProfile.adapter.id,
-    adapterVersion: lockedNextProfile.adapter.version,
-    adapterSha256: lockedNextProfile.profile.adapter.sha256,
-    deploymentProvider: lockedNextProfile.selection.provider.id,
-    deploymentTarget: lockedNextProfile.selection.target.id,
-    profileSha256: projectProfileSha256(lockedNextProfile.profile),
-    selectedCapabilities: lockedNextProfile.selection.selectedCapabilities,
-    releaseTarget: lockedNextProfile.selection.releaseTarget,
-    executionPlanSha256: lockedNextPlan.sha256,
-    buildEnvironmentSha256: sha256(nextBuildEnvironmentSource),
+  const profileBinding = {
+    profileId: lockedFixtureProfile.adapter.id,
+    adapterVersion: lockedFixtureProfile.adapter.version,
+    adapterSha256: lockedFixtureProfile.profile.adapter.sha256,
+    deploymentProvider: lockedFixtureProfile.selection.provider.id,
+    deploymentTarget: lockedFixtureProfile.selection.target.id,
+    profileSha256: projectProfileSha256(lockedFixtureProfile.profile),
+    selectedCapabilities: lockedFixtureProfile.selection.selectedCapabilities,
+    releaseTarget: lockedFixtureProfile.selection.releaseTarget,
+    executionPlanSha256: lockedFixturePlan.sha256,
+    buildEnvironmentSha256: sha256(profileBuildEnvironmentSource),
     publicEnvironmentSha256: sha256('{}'),
   }
-  const nextPackageMetadata = JSON.parse(readFileSync(join(releaseFixtureRoot, 'package.json'), 'utf8'))
-  const nextPackageScripts = nextPackageMetadata.scripts
-  const nextDependencyBinding = readDependencyBinding(releaseFixtureRoot, nextPackageMetadata)
-  const nextPnpmExecutable = join(dirname(process.execPath), process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-  const baseNextReceipt = JSON.parse(readFileSync(join(releaseEvidenceDirectory, 'typecheck.json'), 'utf8'))
-  const nextCohortId = baseNextReceipt.qualityCohortId
-  const nextCompletedAt = baseNextReceipt.completedAt
+  const profilePackageMetadata = JSON.parse(readFileSync(join(releaseFixtureRoot, 'package.json'), 'utf8'))
+  const profilePackageScripts = profilePackageMetadata.scripts
+  const profileDependencyBinding = readDependencyBinding(releaseFixtureRoot, profilePackageMetadata)
+  const profilePnpmExecutable = join(dirname(process.execPath), process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+  const baseProfileReceipt = JSON.parse(readFileSync(join(releaseEvidenceDirectory, 'typecheck.json'), 'utf8'))
+  const profileCohortId = baseProfileReceipt.qualityCohortId
+  const profileCompletedAt = baseProfileReceipt.completedAt
   for (const id of Object.keys(releaseReceiptCommands)) {
     const receiptPath = join(releaseEvidenceDirectory, `${id}.json`)
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'))
-    receipt.profileBinding = nextProfileBinding
+    receipt.profileBinding = profileBinding
     writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
   }
-  const nextCommands = resolveProfileCommands({projectRoot: releaseFixtureRoot, adapter: lockedNextProfile.adapter})
-  for (const binding of nextBindings) {
+  const profileCommands = resolveProfileCommands({projectRoot: releaseFixtureRoot, adapter: lockedFixtureProfile.adapter})
+  for (const binding of profileBindings) {
     const bindsArtifact = ['artifact', 'browser', 'build', 'runtime'].includes(binding.kind)
-    const command = nextCommands.get(binding.commandId)
+    const command = profileCommands.get(binding.commandId)
     if (!command) throw new Error(`resolved command is missing: ${binding.commandId}`)
     const scriptName = command.args[1]
-    const scriptAnalysis = analyzePackageScript(nextPackageScripts[scriptName])
+    const scriptAnalysis = analyzePackageScript(profilePackageScripts[scriptName])
     const executionTargetBinding = readExecutionTargetBinding({
       projectRoot: releaseFixtureRoot,
       analysis: scriptAnalysis,
-      pnpmExecutable: nextPnpmExecutable,
+      pnpmExecutable: profilePnpmExecutable,
       searchPath: process.env.PATH,
     })
     const receipt = {
-        ...baseNextReceipt,
+        ...baseProfileReceipt,
         id: binding.receiptId,
         adapterCheckId: binding.id,
         adapterCommandId: binding.commandId,
@@ -631,46 +641,46 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         cwd: '.',
         status: 'PASS',
         exitCode: 0,
-        sourceFingerprint: nextFingerprint,
-        sourceFingerprintBefore: nextFingerprint,
-        sourceFingerprintAfter: nextFingerprint,
+        sourceFingerprint: profileFingerprint,
+        sourceFingerprintBefore: profileFingerprint,
+        sourceFingerprintAfter: profileFingerprint,
         sourceMutationDetected: false,
-        qualityCohortId: nextCohortId,
+        qualityCohortId: profileCohortId,
         runMode: 'all',
-        completedAt: nextCompletedAt,
+        completedAt: profileCompletedAt,
         stdoutTail: '',
         stderrTail: '',
         outputTailPolicy: 'omitted-to-prevent-secret-persistence',
         workflowSecurityAccepted: [],
         packageScript: {
           name: scriptName,
-          sha256: sha256(nextPackageScripts[scriptName]),
+          sha256: sha256(profilePackageScripts[scriptName]),
           commandContractSha256: sha256(JSON.stringify(scriptAnalysis.commands)),
         },
-        dependencyBinding: nextDependencyBinding,
-        dependencyBindingBefore: nextDependencyBinding,
-        dependencyBindingAfter: nextDependencyBinding,
+        dependencyBinding: profileDependencyBinding,
+        dependencyBindingBefore: profileDependencyBinding,
+        dependencyBindingAfter: profileDependencyBinding,
         dependencyMutationDetected: false,
         executionTargetBindingBefore: executionTargetBinding,
         executionTargetBindingAfter: executionTargetBinding,
         executionTargetMutationDetected: false,
         environmentPolicy: {
-          ...baseNextReceipt.environmentPolicy,
+          ...baseProfileReceipt.environmentPolicy,
           publicEnvironmentSha256: sha256('{}'),
           isolatedHome: true,
           secretVariablesInherited: false,
           executionContext: 'isolated-ci-declared',
         },
-        profileBinding: nextProfileBinding,
+        profileBinding,
         discoveredTestFiles: binding.kind === 'browser'
           ? ['e2e/example.spec.ts']
           : binding.kind === 'unit'
             ? ['src/example.test.ts']
             : [],
-        artifactInventoryBefore: bindsArtifact ? nextInventory.artifacts : [],
-        artifactInventoryAfter: bindsArtifact ? nextInventory.artifacts : [],
+        artifactInventoryBefore: bindsArtifact ? profileInventory.artifacts : [],
+        artifactInventoryAfter: bindsArtifact ? profileInventory.artifacts : [],
         cleanBuildArtifacts: binding.kind === 'build'
-          ? lockedNextProfile.selection.artifacts.map(artifact => artifact.path)
+          ? lockedFixtureProfile.selection.artifacts.map(artifact => artifact.path)
           : [],
       }
     writeFileSync(
@@ -679,85 +689,86 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     )
   }
   rmSync(attestationPath, {force: true})
-  process.env.WEB_HARNESS_CI_RUN_ID = 'fixture/next-prepare-request'
-  const nextAttestationRequest = spawnSync(
+  process.env.WEB_HARNESS_CI_RUN_ID = 'fixture/profile-prepare-request'
+  const profileAttestationRequest = spawnSync(
     process.execPath,
     [
       join(claudeDirectory, 'scripts/prepare-quality-attestation.mjs'),
       '--project',
       releaseFixtureRoot,
       '--issuer-run-id',
-      'fixture/next-prepare-request',
+      'fixture/profile-prepare-request',
     ],
     {cwd: repositoryRoot, encoding: 'utf8'},
   )
-  if (nextAttestationRequest.status !== 0) {
-    fail(`Next attestation request could not be prepared before qa-next-contract.md: ${nextAttestationRequest.stderr}`)
+  if (profileAttestationRequest.status !== 0) {
+    fail(`profile attestation request could not be prepared: ${profileAttestationRequest.stderr}`)
   }
-  const expectedNextReceiptIds = [...new Set([
+  const expectedProfileReceiptIds = [...new Set([
     ...Object.keys(releaseReceiptCommands),
-    ...nextBindings.map(binding => binding.receiptId),
+    ...profileBindings.map(binding => binding.receiptId),
   ])].sort()
-  if (nextAttestationRequest.status === 0) {
-    const request = JSON.parse(nextAttestationRequest.stdout)
+  if (profileAttestationRequest.status === 0) {
+    const request = JSON.parse(profileAttestationRequest.stdout)
     const subjectReceiptIds = request.evidence.receiptDigests.map(receipt => receipt.id).sort()
     if (
-      request.evidence.sourceFingerprint !== nextFingerprint ||
-      JSON.stringify(subjectReceiptIds) !== JSON.stringify(expectedNextReceiptIds)
-    ) fail('Next pre-attestation subject is not bound to all current profile receipts')
+      request.evidence.sourceFingerprint !== profileFingerprint ||
+      JSON.stringify(subjectReceiptIds) !== JSON.stringify(expectedProfileReceiptIds)
+    ) fail('profile pre-attestation subject is not bound to all current profile receipts')
   }
-  writeFixtureAttestation(expectedNextReceiptIds, nextFingerprint)
-  const nextProjectResult = validateNextProject(releaseFixtureRoot)
-  if (!nextProjectResult.ok || nextProjectResult.status !== 'VERIFIED_FOR_CURRENT_FINGERPRINT') {
-    fail('current Next project validator did not accept complete profile-bound evidence')
+  writeFixtureAttestation(expectedProfileReceiptIds, profileFingerprint)
+  const completeProfileRelease = buildReleaseManifest(releaseFixtureRoot)
+  if (completeProfileRelease.errors.length > 0) {
+    fail(`final profile release manifest blocked the documented attestation flow: ${completeProfileRelease.errors.join('; ')}`)
   }
-  writeFileSync(join(releaseQaDirectory, 'qa-next-contract.md'), '# Next Contract QA\n\n## Result\nPASS\n')
-  const completeNextRelease = buildReleaseManifest(releaseFixtureRoot)
-  if (completeNextRelease.errors.length > 0) {
-    fail(`final Next release manifest blocked the documented attestation flow: ${completeNextRelease.errors.join('; ')}`)
+  writeFileSync(join(releaseFixtureRoot, 'dist/index.html'), '<!doctype html><title>stale</title>\n')
+  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('artifact digest is missing or stale'))) {
+    fail('release gate accepted a changed deployment artifact')
   }
-  writeFileSync(join(releaseFixtureRoot, '.next/server.js'), 'export const staleArtifact = true\n')
-  try {
-    validateNextProject(releaseFixtureRoot)
-    fail('current Next project validator accepted a changed deployment artifact')
-  } catch (error) {
-    if (error?.code !== 'NEXT_ARTIFACT_RECEIPT_STALE') fail(`changed Next artifact failed with an unexpected reason: ${error?.code}`)
+  writeFileSync(join(releaseFixtureRoot, 'dist/index.html'), '<!doctype html><title>fixture</title>\n')
+  const assertProfileReleaseGreen = when => {
+    const errors = buildReleaseManifest(releaseFixtureRoot).errors
+    if (errors.length > 0) fail(`profile release did not return to green after ${when}: ${errors.join('; ')}`)
   }
-  writeFileSync(join(releaseFixtureRoot, '.next/server.js'), 'export {}\n')
+  assertProfileReleaseGreen('restoring the deployment artifact')
+  writeFileSync(join(releaseFixtureRoot, 'src/profile-stale.ts'), 'export const staleSource = true\n')
+  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('source fingerprint is stale'))) {
+    fail('release gate accepted profile receipts after the source changed')
+  }
+  rmSync(join(releaseFixtureRoot, 'src/profile-stale.ts'))
+  assertProfileReleaseGreen('removing the changed source')
   writeFileSync(join(releaseFixtureRoot, 'node_modules/.pnpm/lock.yaml'), 'tampered\n')
-  try {
-    validateNextProject(releaseFixtureRoot)
-    fail('current Next project validator accepted a stale installed dependency graph')
-  } catch (error) {
-    if (error?.code !== 'NEXT_DEPENDENCY_BINDING_STALE') fail(`stale Next dependencies failed with an unexpected reason: ${error?.code}`)
+  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('installed dependency graph binding is missing or stale'))) {
+    fail('release gate accepted a stale installed dependency graph')
+  }
+  // 설치 결속은 파일 메타데이터까지 묶으므로 내용 복구만으로는 초록이 아니다 — 다시 결속해 기준선을 세운다.
+  const rebindInstalledDependencies = () => {
+    const binding = readDependencyBinding(releaseFixtureRoot, profilePackageMetadata)
+    for (const id of expectedProfileReceiptIds) {
+      const receiptPath = join(releaseEvidenceDirectory, `${id}.json`)
+      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'))
+      Object.assign(receipt, {dependencyBinding: binding, dependencyBindingBefore: binding, dependencyBindingAfter: binding})
+      writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`)
+    }
+    writeFixtureAttestation(expectedProfileReceiptIds, profileFingerprint)
   }
   writeFileSync(join(releaseFixtureRoot, 'node_modules/.pnpm/lock.yaml'), emptyPnpmLock)
-  writeFileSync(join(releaseFixtureRoot, 'src/next-stale.ts'), 'export const staleSource = true\n')
-  try {
-    validateNextProject(releaseFixtureRoot)
-    fail('current Next project validator accepted stale source evidence')
-  } catch (error) {
-    if (error?.code !== 'NEXT_RECEIPT_STALE') fail(`changed Next source failed with an unexpected reason: ${error?.code}`)
-  }
-  rmSync(join(releaseFixtureRoot, 'src/next-stale.ts'))
+  rebindInstalledDependencies()
+  assertProfileReleaseGreen('restoring and rebinding the installed lockfile')
   const reactLinkPath = join(releaseFixtureRoot, 'node_modules/react')
   rmSync(reactLinkPath)
-  symlinkSync('.pnpm/next@16.0.0/node_modules/next', reactLinkPath)
-  try {
-    validateNextProject(releaseFixtureRoot)
-    fail('current Next project validator accepted a retargeted top-level runtime package')
-  } catch (error) {
-    if (error?.code !== 'NEXT_DEPENDENCY_BINDING_STALE') {
-      fail(`retargeted runtime package failed with an unexpected reason: ${error?.code}`)
-    }
+  symlinkSync('.pnpm/vite@7.0.4/node_modules/vite', reactLinkPath)
+  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('installed dependency graph binding is missing or stale'))) {
+    fail('release gate accepted a retargeted top-level runtime package')
   }
-  for (const binding of nextBindings) rmSync(join(releaseEvidenceDirectory, `${binding.receiptId}.json`), {force: true})
-  rmSync(join(nextDesignDirectory, 'next-contract-matrices.md'))
-  rmSync(join(nextDesignDirectory, 'build-environment.json'))
+  rmSync(reactLinkPath)
+  symlinkSync('.pnpm/react@19.1.0/node_modules/react', reactLinkPath)
+  for (const binding of profileBindings) rmSync(join(releaseEvidenceDirectory, `${binding.receiptId}.json`), {force: true})
+  rmSync(join(profileDesignDirectory, 'build-environment.json'))
   rmSync(join(releasePlanDirectory, 'project-profile.json'))
   rmSync(join(releaseFixtureRoot, '_workspace/03_dev'), {recursive: true, force: true})
-  rmSync(join(releaseFixtureRoot, '.next'), {recursive: true, force: true})
-  rmSync(join(releaseQaDirectory, 'qa-next-contract.md'))
+  rmSync(join(releaseFixtureRoot, 'dist'), {recursive: true, force: true})
+  rmSync(join(releaseFixtureRoot, 'src/main.tsx'))
   writeFileSync(join(releaseFixtureRoot, 'package.json'), releasePackageSource)
   for (const [fileName, source] of Object.entries(qaFixtures)) {
     writeFileSync(join(releaseQaDirectory, fileName), source)

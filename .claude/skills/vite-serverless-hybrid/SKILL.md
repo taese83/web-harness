@@ -13,11 +13,11 @@ metadata:
 
 # Vite + Serverless Hybrid
 
-Vite React SPA에 얇은 backend를 붙이는 hybrid 구성. `next-app-fullstack`은 너무 무겁고 `react-vite-spa`만으로는 서버가 없는, 그 중간 지점.
+Vite React SPA에 얇은 backend를 붙이는 hybrid 구성. `react-vite-spa`만으로는 서버가 없을 때 쓴다.
 
 ## Support gate
 
-`SUPPORT_STATUS: certified` — built-in `vite-serverless-hybrid` profile이다 (`web-profile-contract.md`). certified의 근거는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`(격리 CI run 32614388125, `ISOLATED_VERIFIED`)이며 `validate-certified-evidence`가 라벨을 이 receipt에 기계 결속한다 — T1 하한이지 T2 서명 attestation은 아니다. 루트 `api/` 디렉토리가 감지 마커이며 `react-vite-spa`와 상호 배타로 감지된다. release는 profile DAG의 machine receipt(일반 Vite evidence + `api.unit`·`api.guards`)로 판정한다. 체크인된 golden fixture는 T0/T1 재현 경로이지 production 배포나 T2 attestation 증거가 아니다. SSR/SEO 핵심·실시간·장기 실행 job은 이 profile로 수용하지 않고 `next-app-fullstack` 또는 전용 backend로 안내한다. 워크스페이스 하위(`client/api/` 등) 배치는 아직 adapter 감지 밖 — app root 단일 배치로 정규화한다.
+`SUPPORT_STATUS: certified` — built-in `vite-serverless-hybrid` profile이다 (`web-profile-contract.md`). certified의 근거는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`(격리 CI run 32614388125, `ISOLATED_VERIFIED`)이며 `validate-certified-evidence`가 라벨을 이 receipt에 기계 결속한다 — T1 하한이지 T2 서명 attestation은 아니다. 루트 `api/` 디렉토리가 감지 마커이며 `react-vite-spa`와 상호 배타로 감지된다. release는 profile DAG의 machine receipt(일반 Vite evidence + `api.unit`·`api.guards`)로 판정한다. 체크인된 golden fixture는 T0/T1 재현 경로이지 production 배포나 T2 attestation 증거가 아니다. SSR/SEO 핵심·실시간·장기 실행 job은 이 profile로 수용하지 않는다 — 하네스에 그 profile이 없다고 알리고 전용 backend를 안내한다. 워크스페이스 하위(`client/api/` 등) 배치는 아직 adapter 감지 밖 — app root 단일 배치로 정규화한다.
 
 Read `references/architecture.md` before touching any config. `references/dev-middleware.md`는 로컬 개발 실행 방식, `references/env-management-hybrid.md`는 dotenv 통일, `references/vercel-config.md`는 배포 계약을 다룬다.
 
@@ -28,12 +28,12 @@ Read `references/architecture.md` before touching any config. `references/dev-mi
 ## 언제 사용
 
 - Vite SPA에 인증·DB·upload 정도의 backend가 필요
-- Next.js로 넘어가기엔 SPA UX와 build tooling을 유지하고 싶음
+- SPA UX와 Vite build tooling을 유지하고 싶음
 - 배포는 Vercel/Netlify serverless functions
 - 서버 로직은 endpoint 5~30개 규모
 
 **적절하지 않은 경우**:
-- SSR/SEO가 핵심 → `next-app-fullstack`
+- SSR/SEO가 핵심 → 하네스 지원 profile 없음
 - 서버 로직이 없음 → 순수 `react-vite-spa`
 - 실시간·오래 걸리는 job → 전용 backend service
 

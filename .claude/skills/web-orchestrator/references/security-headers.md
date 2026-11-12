@@ -13,9 +13,8 @@
 | 공통 | `default-src 'self'; script-src 'self'; connect-src 'self' <API 출처>; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'` | Vite 빌드 산출물에는 인라인 스크립트가 없다. `data:`·`blob:`은 인라인 자산·미리보기·워커 때문이다 — `script-src`에는 넣지 않는다 |
 | `UI_LANE: tailwind-shadcn` | + `style-src 'self'` | CSS가 파일로 나온다 |
 | `UI_LANE: mui` | + `style-src 'self' 'unsafe-inline'` — **선언된 예외** | Emotion이 런타임에 `<style>`을 넣는다. 정적 호스팅은 요청마다 바뀌는 nonce를 줄 수 없어 이 예외가 유일한 선택지다. 스크립트가 아니라 스타일 예외다 |
-| 서버가 HTML을 요청마다 만드는 대상(Next `node-server`) | nonce + `'strict-dynamic'`, MUI는 `createCache({nonce})` | nonce는 요청마다 새로 만들어야 의미가 있다. Next는 nonce를 쓰면 모든 페이지가 dynamic rendering이 된다 — 하네스는 이 경로를 아직 검증하지 않았다 |
 
-- **정적 대상에서 nonce를 쓰지 않는다** — Vite `html.cspNonce`나 고정 nonce는 빌드 시 값이 박혀 거짓 보안이다. Next `static-export`도 같다.
+- **정적 대상에서 nonce를 쓰지 않는다** — Vite `html.cspNonce`나 고정 nonce는 빌드 시 값이 박혀 거짓 보안이다.
 - **프레임 보호는 Report-Only 기간에도 강제한다** — Report-Only의 `frame-ancestors`는 막지 않는다. `X-Frame-Options: DENY`(또는 강제 헤더의 `frame-ancestors 'none'`)를 함께 건다.
 - 외부 분석·폰트·이미지 도메인은 필요한 지시어에 도메인 단위로 더하고 이유를 한 줄 남긴다. `*`·`https:` 같은 광역 허용을 넣지 않는다.
 
@@ -48,5 +47,4 @@ HTML 문자열을 DOM에 넣는 길은 둘뿐이다 — 템플릿 `SAFE_HTML`(`<
 
 - **SPA + 교차 출처 API**(react-vite-spa): `connect-src`를 env에서 만든다. MUI 레인은 스타일 예외가 필요하고 Tailwind 레인은 엄격 정책으로 동작한다 — 실측 `docs/audits/receipts/2026-09-20-csp-report-only.json`(강제 모드: MUI 스타일 깨짐·위반 1, Report-Only: 스타일 정상·위반 보고, 콘솔 error 0).
 - **하이브리드 동일 출처 API**(vite-serverless-hybrid): API가 `/api` 같은 출처라 `connect-src 'self'`로 충분하다. 배포 헤더는 `vercel.json` — 명명 수준.
-- **Next 풀스택**: nonce 경로라 설정이 다르다 — 원칙만 주고 하네스는 검증하지 않았다(명명 수준).
 - 측정 범위는 smoke가 방문한 화면뿐이다(protected-core §4).

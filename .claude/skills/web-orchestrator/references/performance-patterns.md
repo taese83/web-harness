@@ -166,7 +166,7 @@ const handleDelete = useCallback((id: string) => {
 `incompatible-library`가 보고하는 라이브러리를 쓰는 컴포넌트는 최적화에서 빠진다. 성능 이득은 trace로 확인하기 전까지
 주장하지 않는다.
 
-vite 프로필(`react-vite-spa`·`vite-serverless-hybrid`)에서 `environment-scaffolder`가 설정한다(Next는 설정 경로가 달라 아직 검증하지 않았다. devDependencies `@rolldown/plugin-babel`·`babel-plugin-react-compiler`·`@babel/core`):
+vite 프로필(`react-vite-spa`·`vite-serverless-hybrid`)에서 `environment-scaffolder`가 설정한다(devDependencies `@rolldown/plugin-babel`·`babel-plugin-react-compiler`·`@babel/core`):
 
 ```ts
 // vite.config.ts

@@ -21,7 +21,6 @@ export const VERDICT_REPORT_BY_AGENT = {
   'data-access-verifier': 'data-access',
   'performance-verifier': 'performance',
   'seo-verifier': 'seo',
-  'next-contract-verifier': 'next-contract',
 }
 
 // 검증 에이전트 대신 스크립트가 보고서를 쓰고 판정을 기록하는 보고서 — 스크립트 이름 → 보고서 id.

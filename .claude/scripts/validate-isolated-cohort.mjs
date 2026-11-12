@@ -158,7 +158,7 @@ export const validateIsolatedCohort = ({projectRoot, declaredRevision}) => {
 
   const reports = []
   const checks = []
-  for (const [reportId, fileName] of releaseReportRequirements(projectRoot, lockedProfile, 'attestation-request')) {
+  for (const [reportId, fileName] of releaseReportRequirements(projectRoot)) {
     const relativePath = `_workspace/04_qa/${fileName}`
     let source
     try {

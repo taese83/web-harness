@@ -13,9 +13,9 @@ own validation running locally).
 > attempted in August 2026 and ended inconclusive because both arms stalled in planning.
 > One profile is `certified`: `vite-serverless-hybrid`. That label is machine-bound to
 > isolated-CI evidence (`validate-certified-evidence`) and its T1 receipt is committed at
-> `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`. The other two
-> (`react-vite-spa`, `next-app-fullstack`) are `compatible`: contracts, static fixtures, and
-> DAGs are verified; deployment closed-loops are not.
+> `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`. The other one
+> (`react-vite-spa`) is `compatible`: contracts, static fixtures, and DAGs are verified;
+> deployment closed-loops are not. Next.js projects are outside the supported profiles.
 
 ## Prerequisites
 

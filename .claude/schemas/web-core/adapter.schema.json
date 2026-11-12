@@ -76,8 +76,7 @@
           "items": {
             "enum": [
               "CI",
-              "NODE_ENV",
-              "NEXT_TELEMETRY_DISABLED"
+              "NODE_ENV"
             ]
           }
         }

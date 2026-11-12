@@ -587,7 +587,6 @@ test('UI 판정은 형태 카탈로그의 userInterface에서 도출된다 — �
 
 test('실제 카탈로그에서 web-app은 UI, library·cli는 비UI다', () => {
   assert.equal(hasUserInterface(['web-app']), true)
-  assert.equal(hasUserInterface(['ssr-web-app']), true)
   assert.equal(hasUserInterface(['library', 'cli', 'serverless-functions']), false)
 })
 

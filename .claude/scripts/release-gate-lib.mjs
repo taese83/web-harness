@@ -119,7 +119,7 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
     excludePaths: lockedProfile?.selection.artifacts.map(artifact => artifact.path) ?? [],
   })
 
-  for (const [id, fileName] of releaseReportRequirements(projectRoot, lockedProfile, phase)) {
+  for (const [id, fileName] of releaseReportRequirements(projectRoot)) {
     const relativePath = `_workspace/04_qa/${fileName}`
     const absolutePath = join(qaDirectory, fileName)
     if (!existsSync(absolutePath)) {

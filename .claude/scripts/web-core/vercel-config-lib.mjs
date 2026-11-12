@@ -183,10 +183,9 @@ export const validateVercelProjectConfig = ({projectRoot, lockedProfile}) => {
   if (config.$schema !== VERCEL_SCHEMA) errors.push(`vercel.json $schema must be ${VERCEL_SCHEMA}`)
 
   const profileId = lockedProfile.adapter.id
-  const targetId = lockedProfile.selection.target.id
   const viteFamily = profileId === 'react-vite-spa' || profileId === 'vite-serverless-hybrid'
-  const expectedFramework = viteFamily ? 'vite' : 'nextjs'
-  if (config.framework !== expectedFramework) errors.push(`vercel.json framework must be ${expectedFramework}`)
+  if (!viteFamily) errors.push(`Vercel provider config has no built-in rule for profile ${profileId}`)
+  if (config.framework !== 'vite') errors.push('vercel.json framework must be vite')
   if (normalizedCommand(config.installCommand) !== 'pnpm install --frozen-lockfile --ignore-scripts') {
     errors.push('vercel.json installCommand must use the frozen lockfile with lifecycle scripts disabled')
   }
@@ -194,16 +193,7 @@ export const validateVercelProjectConfig = ({projectRoot, lockedProfile}) => {
     errors.push('vercel.json buildCommand must be pnpm run build')
   }
 
-  const expectedOutput = viteFamily
-    ? 'dist'
-    : targetId === 'static-export'
-      ? 'out'
-      : null
-  if (expectedOutput === null) {
-    if (config.outputDirectory !== undefined) errors.push('Vercel Next node-server profile must use the framework preset output without outputDirectory override')
-  } else if (config.outputDirectory !== expectedOutput) {
-    errors.push(`vercel.json outputDirectory must be ${expectedOutput}`)
-  }
+  if (config.outputDirectory !== 'dist') errors.push('vercel.json outputDirectory must be dist')
   for (const booleanKey of ['cleanUrls', 'trailingSlash']) {
     if (config[booleanKey] !== undefined && typeof config[booleanKey] !== 'boolean') {
       errors.push(`vercel.json ${booleanKey} must be boolean`)
@@ -212,7 +202,7 @@ export const validateVercelProjectConfig = ({projectRoot, lockedProfile}) => {
 
   const rewrites = validateRouteRules(config, 'rewrites', errors)
   validateRouteRules(config, 'redirects', errors)
-  if (viteFamily && !rewrites.some(rule => catchAllSource(rule.source) && rule.destination === '/index.html')) {
+  if (!rewrites.some(rule => catchAllSource(rule.source) && rule.destination === '/index.html')) {
     errors.push('Vercel React/Vite SPA profile requires an internal catch-all rewrite to /index.html')
   }
   validateHeaders(config, errors)

@@ -13,14 +13,8 @@ const QUALITY_CHECKS = new Set([
   'build', 'typecheck', 'lint', 'test', 'coverage', 'browser', 'audit', 'deadcode',
   'quality.lint', 'quality.typecheck', 'quality.unit',
   'vite.build', 'vite.browser', 'vite.production-mock-boundary', 'api.unit', 'api.guards',
-  'next.build', 'next.route-contract', 'next.client-boundary', 'next.secret-boundary',
-  'next.production-start', 'next.node-browser', 'next.node-hydration', 'next.node-authz',
-  'next.node-cache-isolation', 'next.node-smoke', 'next.node-shutdown', 'next.docker-build',
-  'next.docker-smoke', 'next.docker-browser', 'next.docker-hydration', 'next.docker-authz',
-  'next.docker-cache-isolation', 'next.docker-shutdown', 'next.export-artifact',
-  'next.static-host-smoke', 'next.static-browser', 'next.static-hydration',
 ])
-const BUILT_IN_ADAPTERS = new Set(['react-vite-spa', 'next-app-fullstack', 'vite-serverless-hybrid'])
+const BUILT_IN_ADAPTERS = new Set(['react-vite-spa', 'vite-serverless-hybrid'])
 const NETWORK_COMMANDS = new Set([
   'curl', 'wget', 'nc', 'ncat', 'netcat', 'ssh', 'scp', 'sftp', 'ftp', 'telnet',
   'rsync', 'gh', 'hub', 'npm', 'npx', 'yarn', 'bun', 'git',
@@ -978,9 +972,6 @@ const validationScriptContract = (script, args, context) => {
   }
   if (script === '.claude/scripts/validators/validate-global-bash-policy.mjs') return args.length === 0
   if (script === '.claude/scripts/web-core/validate-adapters.mjs') return args.length === 0
-  if (script === '.claude/scripts/web-core/validate-next-contracts.mjs') {
-    return args.length === 0 || withoutDirectoryOption(args, '--project', context).length === 0
-  }
   if (script === '.claude/scripts/web-core/test-web-core.mjs') return args.length === 0
   if (script === '.claude/scripts/spec.mjs') return lockSpecContract(args, context)
   if (script === '.claude/scripts/validate-spec-conformance.mjs') return specConformanceContract(args, context)

@@ -4771,12 +4771,36 @@
       "why": "외부 입력(session_id)이 홈의 세션 폴더 밖으로 파일 경로를 만든다"
     },
     {
-      "id": "verdict-map-next-contract",
+      "id": "verdict-map-recorder-coverage",
       "file": ".claude/scripts/verdict-record-lib.mjs",
-      "find": "  'next-contract-verifier': 'next-contract',",
-      "replace": "  // next-contract 판정 기록 없음",
+      "find": "  'data-access-verifier': 'data-access',",
+      "replace": "  // data-access 판정 기록 없음",
       "test": ".claude/scripts/test-verdict-record.mjs",
-      "why": "Next 프로필의 필수 보고서가 판정 기록 없이 남아, 기록이 생긴 프로젝트에서 릴리스가 영영 막힌다"
+      "why": "필수 보고서에 판정 기록자가 없으면 기록이 생긴 프로젝트에서 그 보고서는 영영 통과하지 못한다"
+    },
+    {
+      "id": "retired-next-app-release-blocked",
+      "file": ".claude/scripts/release-profile-lib.mjs",
+      "find": "  if (!vite && packages.has('next')) return {path: relative(projectRoot, packageRoot) || '.', profileIds: [], blockers: [RETIRED_NEXT_BLOCKER]}\n",
+      "replace": "  // Next 앱 은퇴 차단 없음\n",
+      "test": ".claude/scripts/test-release-report-policy.mjs",
+      "why": "잠긴 profile 없는 Next 앱이 지원 웹 앱으로 보이지 않아 profile 결속 없이 일반 증거만으로 릴리스된다"
+    },
+    {
+      "id": "retired-adapter-load-rejected",
+      "file": ".claude/scripts/web-core/adapter-lib.mjs",
+      "find": "  if (RETIRED_ADAPTER_IDS.includes(id)) throw retiredAdapterError(id)\n",
+      "replace": "  // 은퇴 profile 거절 없음\n",
+      "test": ".claude/scripts/web-core/test-web-core.mjs",
+      "why": "은퇴한 Next profile을 잠근 프로젝트가 「알 수 없는 profile」로만 막혀, 무엇이 왜 지원 밖인지 모른 채 남는다"
+    },
+    {
+      "id": "retired-adapter-auto-detect",
+      "file": ".claude/scripts/web-core/profile-lib.mjs",
+      "find": "    if (project.packages.includes('next') || (project.workspacePackages ?? []).includes('next')) throw retiredAdapterError('next-app-fullstack')\n",
+      "replace": "    // Next 감지 없음\n",
+      "test": ".claude/scripts/web-core/test-web-core.mjs",
+      "why": "Next.js 프로젝트가 「감지 실패」로 보고돼, 지원이 끝난 형태라는 사실 대신 재시도할 오류로 읽힌다"
     },
     {
       "id": "verdict-parse-template-echo",

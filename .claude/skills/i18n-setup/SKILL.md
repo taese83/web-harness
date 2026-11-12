@@ -30,11 +30,11 @@ intake (최대 3개씩):
 1. **locale 목록과 기본 locale** — 예: `ko`(기본), `en`. 미정 locale은 `ASSUMPTION`
 2. **routing 전략** — URL prefix(`/en/…`) / 저장된 preference / Accept-Language 초기값. 공개 SEO 서비스면 URL prefix + hreflang을 기본 권장
 3. **번역 소스와 워크플로** — 개발자 직접 작성 / 번역 파일 외부 수령 / TMS 연동(범위 밖이면 수령 포맷만 고정)
-4. **라이브러리** — 기본 권장: react-i18next(+ICU 필요 시 i18next-icu), Next profile이면 next-intl. 정확한 버전은 `.claude/skills/lib-advisor/SKILL.md`의 현재성 검증을 거쳐 typed broker로 설치한다. 하드코딩 버전을 이 스킬이 단정하지 않는다
+4. **라이브러리** — 기본 권장: react-i18next(+ICU 필요 시 i18next-icu). 정확한 버전은 `.claude/skills/lib-advisor/SKILL.md`의 현재성 검증을 거쳐 typed broker로 설치한다. 하드코딩 버전을 이 스킬이 단정하지 않는다
 
 ## Workflow
 
-파일 작성은 **`developer`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트와 Next `[locale]` 세그먼트는 각각 라우팅 범위의 `developer` 스폰이 소유하므로 여기서는 spec으로 전달만 한다.
+파일 작성은 **`developer`** subagent에게 위임한다 (소유: `_workspace/02_design/i18n-spec.md`, `src/shared/lang/**`). locale routing 세그먼트는 라우팅 범위의 `developer` 스폰이 소유하므로 여기서는 spec으로 전달만 한다.
 
 ### 1. i18n Spec — `_workspace/02_design/i18n-spec.md`
 

@@ -7,12 +7,19 @@ import {assertKnownKeys, isPlainObject, readJson, sortedUnique, WebCoreError} fr
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 export const claudeDirectory = resolve(scriptDirectory, '../..')
 export const adapterDirectory = join(claudeDirectory, 'adapters')
-export const BUILTIN_ADAPTER_IDS = Object.freeze(['next-app-fullstack', 'react-vite-spa', 'vite-serverless-hybrid'])
+export const BUILTIN_ADAPTER_IDS = Object.freeze(['react-vite-spa', 'vite-serverless-hybrid'])
+// 은퇴한 profile — 잠긴 profile·요청·감지가 이 id를 가리키면 UNKNOWN이 아니라 은퇴로 거절한다.
+export const RETIRED_ADAPTER_IDS = Object.freeze(['next-app-fullstack'])
+export const retiredAdapterError = id => new WebCoreError(
+  'ADAPTER_RETIRED',
+  `Profile ${id} is retired — Web Harness no longer designs or verifies projects of this profile; supported profiles: ${BUILTIN_ADAPTER_IDS.join(', ')}`,
+  {retired: id, available: BUILTIN_ADAPTER_IDS},
+)
 
 const identifierPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/
 const profileIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 const capabilityPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/
-const trustedEnvironmentKeys = new Set(['CI', 'NODE_ENV', 'NEXT_TELEMETRY_DISABLED'])
+const trustedEnvironmentKeys = new Set(['CI', 'NODE_ENV'])
 
 const safePnpmArgs = args => {
   if (!Array.isArray(args)) return false
@@ -269,6 +276,7 @@ const deriveAdapterGraph = adapter => {
 }
 
 export const loadBuiltinAdapter = id => {
+  if (RETIRED_ADAPTER_IDS.includes(id)) throw retiredAdapterError(id)
   if (!BUILTIN_ADAPTER_IDS.includes(id)) throw new WebCoreError('UNKNOWN_PROFILE', `Unknown built-in profile: ${id}`, {available: BUILTIN_ADAPTER_IDS})
   const path = join(adapterDirectory, id, 'adapter.json')
   if (!existsSync(path)) throw new WebCoreError('ADAPTER_MISSING', `Built-in adapter manifest is missing: ${id}`)

@@ -66,7 +66,11 @@ function profileLock(root) {
       ? item('profile-lock', 'blocks', `${detail} (패키지는 워크스페이스 멤버 ${rootLock.members.join(', ')}에 있다 — 루트에서 잠근 옛 프로필)`,
         {fix: `${command('migrate-profile-lock', '--project-root .')}로 미리보기 → 사람이 --apply(어댑터 검사가 빠지고 기본 검사로 돈다)`,
           commits: 'project-profile.json 삭제·spec.json·원장 — 브랜치 소유자'})
-      : item('profile-lock', 'blocks', detail,
+      : error?.code === 'ADAPTER_RETIRED'
+        ? item('profile-lock', 'blocks', detail,
+          {fix: '은퇴한 profile이라 다시 해석해도 같은 오류다 — 하네스 밖에서 진행할지, 지원 profile로 옮길지(별도 migration 범위) 사람이 정한다',
+            commits: 'project-profile.json·spec.json·원장 — 브랜치 소유자'})
+        : item('profile-lock', 'blocks', detail,
         {fix: `프로필을 다시 해석한다(${command('web-core/resolve-profile', '--project-root <앱 루트>')}) — 무엇으로 잠글지는 사람이 정한다`,
           commits: 'project-profile.json·spec.json·원장 — 브랜치 소유자'})
   }

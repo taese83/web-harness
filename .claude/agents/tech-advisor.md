@@ -31,18 +31,18 @@ maxTurns: 25
    - `typescript-library` — npm 배포용 순수 TypeScript 유틸
 3. web application이면 domain profile과 별도로 built-in harness profile을 하나만 고정한다.
    - `react-vite-spa` — CSR/static CDN, 외부 API 또는 backend 없음
-   - `next-app-fullstack` — App Router, SSR/SSG/ISR/RSC, Route Handler/Server Action/BFF
-   기존 source의 자동 탐지 결과를 선호로 덮어쓰지 않는다. Pages-only/mixed Router, Edge, custom server는 현재 Next compatible 범위 밖이며 migration `BLOCKER`다.
+   - `vite-serverless-hybrid` — Vite SPA + 루트 `api/` 얇은 서버 함수(같은 출처 BFF, Vercel)
+   기존 source의 자동 탐지 결과를 선호로 덮어쓰지 않는다. SSR/RSC/Server Action이 필요하거나 기존 project가 Next.js면 지원 profile이 없다(`ADAPTER_RETIRED`) — `BLOCKER`로 적고 사용자에게 알린다.
 4. 공식 release/engine/peer 문서에서 생성 시점의 안정 버전 호환성을 확인한다. 블로그나 검색 결과 요약만 근거로 쓰지 않는다
 5. CSR을 기본값으로 강제하지 않는다. SEO, status code, TTFB, 인증 경계, hosting 제약에 따라 rendering 전략을 결정한다
 6. FSD는 중대형 앱에만 선택한다. 작은 앱·라이브러리에 불필요한 레이어를 강제하지 않는다
 7. 번들 크기, 유지보수 상태, 라이선스, 접근성, 보안, observability, 테스트 비용을 함께 고려한다
 8. "좋아 보여서"가 아니라 요구사항 ID와 trade-off에 연결해 이유를 명시한다
-9. **배포 provider와 runtime target을 requirements.md에서 확인하고 tech-stack.md에 별도 필드로 명시한다.** provider가 없으면 `generic`, target이 없으면 profile 기본값을 `ASSUMPTION`으로 둔다. Vercel/Netlify/S3/Railway는 provider이고 `static-cdn|container-static|node-server|static-export`는 target이다. provider-target 조합에 따라 서버사이드 코드, build command, 환경변수 주입을 검증한다.
+9. **배포 provider와 runtime target을 requirements.md에서 확인하고 tech-stack.md에 별도 필드로 명시한다.** provider가 없으면 `generic`, target이 없으면 profile 기본값을 `ASSUMPTION`으로 둔다. Vercel/Netlify/S3/Railway는 provider이고 `static-cdn|container-static|vercel-hybrid`는 target이다. provider-target 조합에 따라 서버사이드 코드, build command, 환경변수 주입을 검증한다.
 10. **외부 데이터를 주기적으로 수집해 쓰면** 수집 주기·트리거, 결과 저장소, 플랫폼 제약(Vercel 파일시스템 read-only, Serverless 인스턴스 간 메모리 비공유), UI 소비 방식(번들 / 정적 파일 fetch / API)을 Architecture Decisions에 기록한다. 하네스에 전용 수집 설계·검증이 없고, 결과를 저장소에 승격하는 scheduled refresh workflow는 릴리스 증거에서 막힌다(생성 경로 manifest 부재 — `phase-4-verification.md`)는 한계를 함께 적는다. 런타임 API 조회나 하네스 밖 수집 운영을 대안으로 제시한다.
 11. 하나의 workspace graph와 lockfile을 기본으로 하며 독립 package가 필요하면 이유, build 순서, root quality script가 모든 package를 포함하는 방법을 기록한다.
 12. chart library의 마케팅 최대 건수를 근거로 사용하지 않고 normal/max/burst fixture에서 검증할 선택만 제안한다.
-13. adapter가 지원하는 capability 전체를 enabled로 복사하지 않는다. auth/cookie/BFF/server mutation은 요구사항 ID가 있을 때만 `selected capabilities`에 넣고, 공개 Next 기본 경로의 risk를 인증 서비스로 과장하지 않는다.
+13. adapter가 지원하는 capability 전체를 enabled로 복사하지 않는다. auth/cookie/BFF/server mutation은 요구사항 ID가 있을 때만 `selected capabilities`에 넣고, 공개 기본 경로의 risk를 인증 서비스로 과장하지 않는다.
 14. app dependency는 public registry exact version으로 기록한다. 직접 `pnpm add/install`을 제안하지 않고 environment-scaffolder와 `run-package-operation.mjs`의 lockfile 검토 → frozen install 계약으로 넘긴다.
 15. requirements의 데이터 전략(Data Review Strategy)과 Mock→real 조건을 Architecture Decision에 연결한다. shape 검증만 필요한 단계에 production 연결을 강제하지 않고, real/dev 데이터는 최소 권한 read-only와 PII 경계를 명시한다.
 16. unresolved 제품 결정이 stack을 바꾸면 선호로 확정하지 않고 `NEEDS_DECISION`; source 권한이나 안전 경계가 없으면 `BLOCKER`로 둔다.
@@ -74,7 +74,7 @@ ESLint 9.39 Flat Config — jsx-a11y 등 필수 plugin이 ESLint 10 peer를 공�
 [Chosen profile with rendering/deployment rationale]
 
 ## Harness Profile
-- WEB_PROFILE: react-vite-spa | next-app-fullstack
+- WEB_PROFILE: react-vite-spa | vite-serverless-hybrid
 - UI_LANE: mui | tailwind-shadcn — 선택 근거 1줄 필수(lib-catalog §UI 판단 축). 하류 빌더는 이 값을 따르며, 브라운필드는 integration-overlay `uiLane`(기존 앱 실측)이 우선한다
 - REACT_COMPILER: on | off — 기본 off. on은 호환되지 않는 라이브러리(RHF `watch`·TanStack Table 등)가 핵심 화면에 적고 빌드 시간 증가를 감수할 때 제안하고, 사용자가 고른다(`performance-patterns.md` §4)
 - PUBLIC_EXPOSURE: yes | no — 검색 노출·공유 URL이 요구되면 yes(`public-ssr`·`static-content` 등). yes면 `layout-designer`가 `seo-spec.md`를 쓰고 릴리스에 `qa-seo.md`가 필수가 된다

@@ -18,7 +18,7 @@ import {delimiter, dirname, isAbsolute, join, relative, resolve, sep} from 'node
 import {sha256} from './evidence-lib.mjs'
 
 const PACKAGE_EXECUTABLES = new Set([
-  'cypress', 'eslint', 'jest', 'knip', 'next', 'playwright', 'stylelint', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
+  'cypress', 'eslint', 'jest', 'knip', 'playwright', 'stylelint', 'tsc', 'tsx', 'turbo', 'vite', 'vitest',
 ])
 const SYSTEM_EXECUTABLES = new Set(['docker', 'node'])
 const SAFE_EXECUTABLES = new Set([...PACKAGE_EXECUTABLES, ...SYSTEM_EXECUTABLES])
@@ -308,11 +308,6 @@ export const hasMeaningfulProfileScript = (id, definition, source, suppliedAnaly
   if (id === 'vite.build') {
     return commands.some(command => command.executable === 'vite' && command.args[0] === 'build') &&
       allCommandsMatch(commands, command => isTsc(command) || (command.executable === 'vite' && command.args[0] === 'build')) ||
-      allCommandsMatch(commands, command => command.executable === 'turbo' && turboTask(command.args) === 'build')
-  }
-  if (id === 'next.build') {
-    return commands.some(command => command.executable === 'next' && command.args[0] === 'build') &&
-      allCommandsMatch(commands, command => isTsc(command) || (command.executable === 'next' && command.args[0] === 'build')) ||
       allCommandsMatch(commands, command => command.executable === 'turbo' && turboTask(command.args) === 'build')
   }
   if (id === 'vite.browser' || definition.kind === 'browser') return allCommandsMatch(commands, isBrowser)

@@ -26,7 +26,7 @@ Honest, machine-verified numbers — a ratchet fails the build if any of them dr
 
 - **What *you* read**: this README + [docs/quickstart.md](docs/quickstart.md). That's the whole
   human onboarding path. The ~120 contract documents are read *by the agent*, on demand — not by you.
-- **Fixed contract load per orchestrator run**: 41,446 bytes <!-- inventory:entry-cost --> —
+- **Fixed contract load per orchestrator run**: 40,200 bytes <!-- inventory:entry-cost --> —
   the orchestrator skill file plus its always-read contract files. That is a *byte* measurement of exactly those files — roughly 15.6k
   tokens at bytes/3, an approximation, not a token count. It deliberately **excludes** the per-spawn
   agent definitions, runtime hook injection, and everything
@@ -58,10 +58,10 @@ pnpm run ci
 
 A green run verifies:
 
-- 20 skills <!-- inventory:skills -->
-- 31 agents <!-- inventory:agents -->
-- 3 built-in profiles: `vite-serverless-hybrid` is `certified`; `react-vite-spa` and
-  `next-app-fullstack` are `compatible`. The `certified` label is machine-bound to isolated-CI
+- 19 skills <!-- inventory:skills -->
+- 29 agents <!-- inventory:agents -->
+- 2 built-in profiles: `vite-serverless-hybrid` is `certified`; `react-vite-spa` is
+  `compatible` (the Next.js profile is retired — a locked one is rejected as `ADAPTER_RETIRED`). The `certified` label is machine-bound to isolated-CI
   evidence (`validate-certified-evidence`): the hybrid lane's receipt is
   `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`, minted `ISOLATED_VERIFIED` by the
   isolated `hybrid-t1` workflow. The committed receipt is the **B-7 re-run** (run 32636870973,
@@ -72,7 +72,7 @@ because that one was minted before the promotion commit and carried a stale fing
 - per-agent file ownership
 - read-only verifier boundaries
 - document hygiene (broken repo-path references, hardcoded remnants, skill versioning, README inventory)
-- global Bash policy fixtures, profile resolver/DAG assertions, Next.js contract cases,
+- global Bash policy fixtures, profile resolver/DAG assertions,
   harness integration checks, web and AI eval contracts, AI secret/tool safety hooks,
   and the Console's static checks and regression tests
 

@@ -29,7 +29,7 @@ readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate
 ## 핵심 역할
 
 - 일반 7개 QA 리포트(`qa-code.md`, `qa-ux.md`, `qa-integration.md`, `qa-security.md`, `qa-api-contract.md`, `qa-test.md`, `qa-browser.md`) 종합 검토
-- locked profile이 `next-app-fullstack`이면 `qa-next-contract.md`, canonical `web-execution-plan.json`, target artifact inventory를 추가 검토
+- locked profile이 있으면 canonical `web-execution-plan.json`과 target artifact inventory를 추가 검토
 - FAIL 항목이 있으면 해당 에이전트에 재작업 요청
 - versioned artifact/release policy가 있고 version/changelog 변경이 아직 필요하면 HANDOFF를 만들지 않는다. `version-analyzer`(분석) → `environment-scaffolder`(version·changelog 파일 반영)를 실행한 뒤 quality runner와 모든 영향받은 QA/manifest를 다시 생성하게 한다. 신규 private 앱은 자동 bump하지 않는다
 - 배포 CI 산출물이 있으면 필요한 secrets와 수동 배포 절차를 HANDOFF.md에 포함한다
@@ -49,7 +49,6 @@ readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate
 node .claude/scripts/run-package-operation.mjs --project . --operation install
 pnpm dev
 # React/Vite: http://localhost:8080
-# Next.js:    http://localhost:3000
 ```
 
 위 명령은 사용자용 local development 안내다. Agent가 직접 실행하지 않으며, 실제 release target은 locked profile의 `deployment.target`, `releaseTarget`, artifact digest를 별도 표로 기록한다.
@@ -68,7 +67,7 @@ node .claude/scripts/preview-server.mjs --project .   # http://localhost:4173
 `design-review.md`의 Preview Approval(승인 SHA-256·통과 TC)을 함께 링크한다.
 
 ## Connect the real API (/wh change)
-1. React/Vite는 공개 API base URL 계약을, Next.js는 server-only/private env와 명시적으로 공개 가능한 `NEXT_PUBLIC_*` 계약을 구분한다
+1. 브라우저에 공개되는 API base URL 계약(`VITE_*`)과 서버 함수 전용 env(hybrid `api/`)를 구분한다
 2. `/wh change GET /api/metrics를 실제 API로 연동해줘` 실행(플러그인 설치면 `/web-harness:wh change …`)
 3. The src/mocks/ folder is enabled only in development, so production is unaffected
 
@@ -82,14 +81,14 @@ AI architecture가 있으면 model gateway, provider와 prompt version, tool sco
 - `/wh change 알람 기능을 추가해줘`
 
 ## Project structure
-[App Router or FSD structure tree matching the locked profile]
+[FSD or layer structure tree matching the locked profile]
 
 ## Key file locations
 | Role | File |
 | API config | actual per-profile server/client API module |
 | 환경 변수 | `_workspace/02_design/build-environment.json` 및 server-only env contract |
-| 라우팅 | React Router route tree 또는 Next `app/**` |
-| 오류 UI | 실제 Error Boundary / `error.tsx` |
+| 라우팅 | React Router route tree |
+| 오류 UI | 실제 Error Boundary |
 
 ## Set up deployment CI (environment-scaffolder)
 - 배포 타겟이 결정됐으면 `environment-scaffolder`를 실행해 GitHub Actions workflow를 생성한다
@@ -97,7 +96,7 @@ AI architecture가 있으면 model gateway, provider와 prompt version, tool sco
 - 필요한 repository secrets 목록이 HANDOFF.md에 포함된다
 ````
 
-Next.js의 adapter `supportLevel`이 `compatible`이면 HANDOFF 상태를 `COMPATIBLE_VERIFIED_FOR_CURRENT_FINGERPRINT`로 기록한다. production golden/rollback attestation 없이 `CERTIFIED` 또는 범용 배포 성공으로 표현하지 않는다.
+adapter `supportLevel`이 `compatible`이면 HANDOFF 상태를 `COMPATIBLE_VERIFIED_FOR_CURRENT_FINGERPRINT`로 기록한다. production golden/rollback attestation 없이 `CERTIFIED` 또는 범용 배포 성공으로 표현하지 않는다.
 
 ## 버전 처리 순서
 

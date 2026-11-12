@@ -29,17 +29,16 @@ runner가 non-zero여도 보고서를 생략하지 않는다. `_workspace/04_qa/
 
 read-only verifier는 보고서 본문을 반환하고 오케스트레이터가 해당 경로에 저장한다. verifier에게 Write/Edit 권한을 부여하지 않는다.
 
-Next 최종 리포트를 제외한 일반·조건부 QA 리포트와 격리 CI receipt가 완성되면 external quality attestation을 만든다. Next profile은 서명 뒤 machine validator와 read-only verifier를 순서대로 실행해 `_workspace/04_qa/qa-next-contract.md`를 저장한다. 그 다음 report hash, machine receipt, 전체 source fingerprint, 모든 package/workspace manifest hash와 attestation을 manifest v3에 고정한다:
+일반·조건부 QA 리포트와 격리 CI receipt가 완성되면 external quality attestation을 만든다. 그 다음 report hash, machine receipt, 전체 source fingerprint, 모든 package/workspace manifest hash와 attestation을 manifest v3에 고정한다:
 
 ```bash
 node .claude/scripts/prepare-quality-attestation.mjs --project . --issuer-run-id <trusted-ci-run-id>
 # unsigned request를 checkout 밖의 protected trust/CI identity와 대조해 final subject를 구성·서명한 뒤
-# Next profile이면 validate-next-contracts.mjs와 next-contract-verifier를 실행한 뒤
 node .claude/scripts/validate-release-gate.mjs --write-manifest
 node .claude/scripts/validate-release-gate.mjs
 ```
 
-필수 리포트 누락, `FAIL`, `BLOCKED`, `NEEDS_REVIEW`, receipt 누락·stale·non-zero exit, test file 0개, source/manifest hash 불일치 중 하나라도 있으면 release-manager를 실행하지 않는다. Markdown 표만 PASS로 바꿔서는 gate를 통과할 수 없다. gate가 낸 `알림:` 줄(은퇴한 모드 선언 등)은 release-manager 프롬프트에 넘겨 HANDOFF 제한사항에 적게 한다. 은퇴한 수집 capability를 잠근 프로필(`CAPABILITY_RETIRED`)은 그 capability를 뺀 `--capability` 목록으로 resolver를 다시 실행하고 `web-execution-plan.json` 재컴파일·스팩 재확정 뒤 다시 돌린다. 데이터를 저장소에 승격하는 scheduled refresh workflow(`crawl*`·`refresh*`)는 생성 경로 manifest를 낼 계약이 없어 workflow 보안 검사(`REFRESH_PATH_*`)가 릴리스 증거에서 막는다.
+필수 리포트 누락, `FAIL`, `BLOCKED`, `NEEDS_REVIEW`, receipt 누락·stale·non-zero exit, test file 0개, source/manifest hash 불일치 중 하나라도 있으면 release-manager를 실행하지 않는다. Markdown 표만 PASS로 바꿔서는 gate를 통과할 수 없다. gate가 낸 `알림:` 줄(은퇴한 모드 선언 등)은 release-manager 프롬프트에 넘겨 HANDOFF 제한사항에 적게 한다. 은퇴한 Next profile을 잠근 프로젝트(`ADAPTER_RETIRED`)는 하네스로 릴리스할 수 없다 — 사용자에게 지원 profile(`react-vite-spa`·`vite-serverless-hybrid`)이 아니라고 알리고 멈춘다. 은퇴한 수집 capability를 잠근 프로필(`CAPABILITY_RETIRED`)은 그 capability를 뺀 `--capability` 목록으로 resolver를 다시 실행하고 `web-execution-plan.json` 재컴파일·스팩 재확정 뒤 다시 돌린다. 데이터를 저장소에 승격하는 scheduled refresh workflow(`crawl*`·`refresh*`)는 생성 경로 manifest를 낼 계약이 없어 workflow 보안 검사(`REFRESH_PATH_*`)가 릴리스 증거에서 막는다.
 
 완료 후 `release-manager` 실행:
 - FAIL 항목 있으면 해당 에이전트 재실행 (retry-policy.md 기준, 보고서별 최대 2회)

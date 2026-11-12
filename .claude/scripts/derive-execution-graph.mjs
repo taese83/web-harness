@@ -14,14 +14,11 @@
 // 그 한 비트는 `shape-checks.json`의 `needsArtifact`가 선언한다. 프로필 파일이 아니라
 // 형태 카탈로그에 있어야 하는 값이다 — 빌드 산출물을 쓰는지는 검사의 성질이지 스택의 성질이 아니다.
 //
-// 2026-08-27 확장 — `next-app-fullstack`(32 tasks)까지 덮으려고 네 규칙을 일반화했다. 종전
-// 기록은 "Next는 형태 어휘 밖"이라고 적었으나 **틀렸다**: `next.*` 22종의 실행 명령이 전부
-// `pnpm run <script>`였다(하네스 고유 명령 0건). 프레임워크 지식이 아니라 script 이름표다.
-// 없던 것은 어휘가 아니라 **조건 기구**였다:
+// 검사 명령은 전부 `pnpm run <script>`다(하네스 고유 명령 0건) — 프레임워크 지식이 아니라 script 이름표다.
+// 여러 배포 형태를 가진 산출물을 위해 조건 기구를 둔다:
 //
 //   5. 능력 게이팅     `requires: [capability]`  — 배포 타깃·아키텍처 속성으로 검사를 켠다
 //   6. 이름 있는 산출물 `producesArtifact` / `needsArtifact: '<name>'` — 빌드가 하나가 아니다
-//                     (Next: artifact.built → artifact.next.docker / artifact.next.static-export)
 //   7. 타깃별 릴리스   배포 타깃마다 release 노드가 서고, 그 타깃에서 활성인 검사만 요구한다
 //   8. 릴리스 게이팅   `gatesRelease: false` — smoke는 생존 확인이지 릴리스 게이트가 아니다
 //                     (어댑터의 release.* requires에서 smoke가 빠져 있던 것을 명시로 옮겼다)
@@ -46,8 +43,7 @@ export const RECEIPT_ALIASES = Object.freeze({
   'ingestion.validate': 'ingestion',
 })
 // receipt 이름에는 단일 규칙이 없다 — 어댑터 실측: `quality.lint`→`evidence.lint`(접두 제거),
-// `api.unit`→`evidence.api-unit`(점→대시), `next.route-contract`→`evidence.next.route-contract`
-// (점 유지). 구조로 가를 수 없으므로 카탈로그가 실제 이름을 적을 수 있게 한다. 규칙을 지어내면
+// `api.unit`→`evidence.api-unit`(점→대시). 구조로 가를 수 없으므로 카탈로그가 실제 이름을 적을 수 있게 한다. 규칙을 지어내면
 // receipt 이름이 바뀌고 기존 receipt가 전부 낡는다.
 export const evidenceNameOf = check => {
   if (typeof check === 'string') return `evidence.${RECEIPT_ALIASES[check] ?? check.replace(/\./g, '-')}`
@@ -131,9 +127,7 @@ export const deriveGraph = ({checks, capabilities = null, deploymentTargets = nu
   if (errors.length > 0) return {tasks: [], evidence: [], errors}
 
   // 릴리스 노드. **배포 타깃별로 활성 검사가 다르면 노드가 갈린다** — 같은 활성 집합을 갖는
-  // 타깃끼리는 한 노드를 공유한다(vite 2종은 어느 검사도 타깃을 요구하지 않아 한 노드,
-  // Next는 node/docker/static이 서로 다른 검사를 켜 세 노드). 이것이 어댑터가 선언으로
-  // 갖고 있던 차이의 전부다.
+  // 타깃끼리는 한 노드를 공유한다(vite 2종은 어느 검사도 타깃을 요구하지 않아 한 노드).
   const gatingEvidence = active =>
     evidence
       .filter(item => item.check.gatesRelease !== false && isActive(item.check, active))

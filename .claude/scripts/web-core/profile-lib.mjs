@@ -1,6 +1,6 @@
 import {existsSync, lstatSync, readFileSync, readdirSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
-import {loadBuiltinAdapters} from './adapter-lib.mjs'
+import {loadBuiltinAdapters, RETIRED_ADAPTER_IDS, retiredAdapterError} from './adapter-lib.mjs'
 import {readJson, sortedUnique, WebCoreError} from './core-lib.mjs'
 import {adapterSha256, resolveAdapterSelection} from './profile-policy-lib.mjs'
 
@@ -103,28 +103,6 @@ const markerExists = (root, marker) => {
   return existsSync(candidate)
 }
 
-const nextAppRoots = root => ['app', 'src/app'].filter(appRoot =>
-  ['js', 'jsx', 'ts', 'tsx'].some(extension => markerExists(root, `${appRoot}/layout.${extension}`)),
-)
-
-const containsEdgeRuntime = (root, appRoots) => {
-  const pending = appRoots.map(appRoot => join(root, appRoot))
-  let inspected = 0
-  while (pending.length > 0 && inspected < 1000) {
-    const directory = pending.pop()
-    for (const entry of readdirSync(directory, {withFileTypes: true})) {
-      const path = join(directory, entry.name)
-      if (entry.isSymbolicLink()) continue
-      if (entry.isDirectory()) pending.push(path)
-      else if (entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name)) {
-        inspected += 1
-        if (/\bexport\s+const\s+runtime\s*=\s*['"]edge['"]/.test(readFileSync(path, 'utf8'))) return true
-      }
-    }
-  }
-  return false
-}
-
 export const detectAdapter = (adapter, project) => {
   const detection = adapter.detection
   const packages = new Set(project.packages)
@@ -144,11 +122,7 @@ export const detectAdapter = (adapter, project) => {
   const anyPackages = detection.anyPackages.length === 0
     || [...anyRequiredSources.values()].some(source => source !== null)
   const allPaths = detection.allPaths.every(path => markerExists(project.root, path))
-  const detectedNextRoots = adapter.id === 'next-app-fullstack' ? nextAppRoots(project.root) : []
-  const edgeRuntime = adapter.id === 'next-app-fullstack' && containsEdgeRuntime(project.root, detectedNextRoots)
-  const anyPaths = adapter.id === 'next-app-fullstack'
-    ? detectedNextRoots.length > 0
-    : detection.anyPaths.length === 0 || detection.anyPaths.some(path => markerExists(project.root, path))
+  const anyPaths = detection.anyPaths.length === 0 || detection.anyPaths.some(path => markerExists(project.root, path))
   // forbidden도 workspace 선언까지 본다(리뷰 F3) — required가 워크스페이스 근거를 인정하는데
   // forbidden만 패키지 선언에 한정하면, forbidden을 루트로 호이스트해 경계를 우회할 수 있다.
   const forbiddenPackages = detection.forbiddenPackages
@@ -158,8 +132,6 @@ export const detectAdapter = (adapter, project) => {
   const blockers = sortedUnique([
     ...forbiddenPackages.map(name => `package:${name}`),
     ...forbiddenPaths.map(path => `path:${path}`),
-    ...(detectedNextRoots.length > 1 ? ['path:app+src/app'] : []),
-    ...(edgeRuntime ? ['source:edge-runtime'] : []),
   ])
   const matched = candidate && blockers.length === 0
   // 근거 출처를 문자열에 박는다 — `package:vite@lock`처럼. 어떤 증거가 판정을 만들었는지
@@ -170,9 +142,7 @@ export const detectAdapter = (adapter, project) => {
         ...[...anyRequiredSources].filter(([, source]) => source !== null)
           .map(([name, source]) => `package:${name}@${source}`),
         ...detection.allPaths.map(path => `path:${path}`),
-        ...(adapter.id === 'next-app-fullstack'
-          ? detectedNextRoots.map(path => `path:${path}/layout`)
-          : detection.anyPaths.filter(path => markerExists(project.root, path)).map(path => `path:${path}`)),
+        ...detection.anyPaths.filter(path => markerExists(project.root, path)).map(path => `path:${path}`),
       ])
     : []
   return {id: adapter.id, matched, candidate, incompatibleCandidate: allPackages && anyPackages && blockers.length > 0, evidence, blockers}
@@ -190,6 +160,7 @@ export const resolveProjectProfile = ({
   const project = inspectProject(projectRoot)
   const adapterById = new Map(adapters.map(adapter => [adapter.id, adapter]))
   if (adapterById.size !== adapters.length) throw new WebCoreError('DUPLICATE_PROFILE', 'Adapter profile ids must be unique')
+  if (RETIRED_ADAPTER_IDS.includes(requested)) throw retiredAdapterError(requested)
   if (requested !== 'auto' && !adapterById.has(requested)) {
     throw new WebCoreError('UNKNOWN_PROFILE', `Unknown requested profile: ${requested}`, {available: [...adapterById.keys()].sort()})
   }
@@ -207,6 +178,8 @@ export const resolveProjectProfile = ({
         candidates: incompatible.map(result => ({id: result.id, blockers: result.blockers})),
       })
     }
+    // 지원 profile 후보가 없는 Next.js 프로젝트만 은퇴로 알린다 — `next`를 함께 선언한 Vite 앱은 위의 INCOMPATIBLE이다.
+    if (project.packages.includes('next') || (project.workspacePackages ?? []).includes('next')) throw retiredAdapterError('next-app-fullstack')
     throw new WebCoreError('PROFILE_NOT_DETECTED', 'No built-in profile matched the project', {available: [...adapterById.keys()].sort()})
   }
   if (requested !== 'auto' && detected && detected.id !== requested) {
@@ -287,7 +260,6 @@ export const resolveProjectProfile = ({
       target: selection.target.id,
       availableTargets: adapter.deploymentTargets
         .map(target => target.id)
-        .filter(targetId => !(adapter.id === 'next-app-fullstack' && targetId === 'docker-standalone'))
         .sort(),
       releaseTarget: selection.releaseTarget,
       artifacts: selection.artifacts,

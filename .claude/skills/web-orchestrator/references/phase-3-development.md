@@ -107,13 +107,13 @@ source 존재 여부로 `CHANGE_MODE: greenfield | existing-change`를 먼저 �
 
 `existing-change`이면 `_workspace/02_design/integration-overlay.json`이 있어야 한다 — **스팩 확정 전에** 만든다(`solution-design-contract.md` §6). 여기서 처음 만들면 스팩이 즉시 stale이 된다.
 
-프로필은 **스팩 확정 전에** 해석돼 있어야 한다(§6) — `project-profile.json`이 `LOCK_INPUTS`라 여기서 처음 만들면 확정한 스팩이 곧바로 낡는다. 아직 없으면 `web-profile-contract.md`의 resolver를 실행하고 **스팩을 재확정한다.** 이때 intake에서 판별한 요청 언어를 `outputLanguage`로 프로필에 병합하고 산출 스폰마다 주입한다 — 규약·검사는 `development-gates-contract.md` Gate L. 기존 project는 `--requested auto`, greenfield는 tech-stack의 명시 profile/provider/deployment/capability를 전달한다. stable stdout JSON을 `_workspace/01_plan/project-profile.json`에 그대로 저장하고 `--profile-file`로 DAG를 컴파일해 `_workspace/03_dev/web-execution-plan.json`에 저장한다. profile conflict, provider-target conflict, forbidden marker, 은퇴한 capability(`CAPABILITY_RETIRED`), stale adapter hash는 `BLOCKED`다. **구현 스폰마다 `.claude/skills/component-gen/references/ts-conventions.md`와 테스트 규약 `testing.md` 경로를 prompt에 전달한다** — Phase 2가 designer에게 디자인 원칙 허브를 넘기는 것과 같은 방식이며, 코드 작성 규약이 사후 `code-reviewer` 지적이 아니라 생성 시점에 적용되게 한다(포매팅 정본은 생성된 `.prettierrc`).
+프로필은 **스팩 확정 전에** 해석돼 있어야 한다(§6) — `project-profile.json`이 `LOCK_INPUTS`라 여기서 처음 만들면 확정한 스팩이 곧바로 낡는다. 아직 없으면 `web-profile-contract.md`의 resolver를 실행하고 **스팩을 재확정한다.** 이때 intake에서 판별한 요청 언어를 `outputLanguage`로 프로필에 병합하고 산출 스폰마다 주입한다 — 규약·검사는 `development-gates-contract.md` Gate L. 기존 project는 `--requested auto`, greenfield는 tech-stack의 명시 profile/provider/deployment/capability를 전달한다. stable stdout JSON을 `_workspace/01_plan/project-profile.json`에 그대로 저장하고 `--profile-file`로 DAG를 컴파일해 `_workspace/03_dev/web-execution-plan.json`에 저장한다. profile conflict, provider-target conflict, forbidden marker, 은퇴한 capability(`CAPABILITY_RETIRED`)·profile(`ADAPTER_RETIRED`), stale adapter hash는 `BLOCKED`다. **구현 스폰마다 `.claude/skills/component-gen/references/ts-conventions.md`와 테스트 규약 `testing.md` 경로를 prompt에 전달한다** — Phase 2가 designer에게 디자인 원칙 허브를 넘기는 것과 같은 방식이며, 코드 작성 규약이 사후 `code-reviewer` 지적이 아니라 생성 시점에 적용되게 한다(포매팅 정본은 생성된 `.prettierrc`).
 
-**스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `shape-routing-contract.md` §2의 `library` 행 세트로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE: next-app-fullstack`이면 `.claude/skills/next-app/SKILL.md`에 Phase 3 구현과 Next contract QA를 위임하고 아래 Vite 전용 1~6단계를 실행하지 않는다. `WEB_PROFILE: react-vite-spa` 또는 `vite-serverless-hybrid`일 때만 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
+**스팩이 확정돼 있으면(`_workspace/03_dev/spec.json`) `references/shape-routing-contract.md`를 먼저 읽고 `targetShapes`가 고르는 빌더 세트를 적용한다** — `library`·`cli`는 `shape-routing-contract.md` §2의 `library` 행 세트로 가고 아래 웹 파이프라인을 돌지 않는다. 확정이 없으면 기존 `WEB_PROFILE` 경로다(무발화). `WEB_PROFILE`(`react-vite-spa`·`vite-serverless-hybrid`)은 아래 단계를 실행한다 — hybrid는 같은 단계에 serverless handler 구현이 추가된다.
 
 ## 디자인 부채 청구 — 화면을 만드는 첫 스폰 **전에** 한 번
 
-**프로필 공통 전제다.** 아래 Vite 전용 단계 목록 밖에 두는 이유는 `next-app-fullstack`이 그 목록을 실행하지 않기 때문이다(`next-app` 위임) — 청구의 조건은 "화면을 만든다"이지 번들러가 아니다.
+**프로필 공통 전제다** — 청구의 조건은 "화면을 만든다"이지 번들러가 아니다.
 `DESIGN_SOURCE: absent`는 "디자인이 필요 없다"가 아니라 "지금 만들지 않는다"다
 (`provenance-contract.md` §3). 그 결정은 사라지지 않고 **구현하는 사람에게 넘어간다** —
 디자인 부재는 인계 판정에 흔적을 남기지 않는다(양쪽 인계가 READY로 나온다). 그래서 개발이 실제로 그 화면에 부딪히는 여기서 청구한다.

@@ -25,7 +25,7 @@ harness는 당신과 agent 사이에 놓인 계약·소유권 규칙·기계 게
 
 - **당신*이* 읽는 것**: 이 README + [docs/quickstart.md](docs/quickstart.md). 이게 사람 온보딩
   경로의 전부다. ~120개 계약 문서는 *agent가* 필요할 때 읽지, 당신이 읽지 않는다.
-- **오케스트레이터 실행당 고정 계약 로드**: 41,446 bytes <!-- inventory:entry-cost --> —
+- **오케스트레이터 실행당 고정 계약 로드**: 40,200 bytes <!-- inventory:entry-cost --> —
   오케스트레이터 skill 파일과 always-read 계약 파일. 이는 바로 그 파일들의 *바이트* 측정이다 — bytes/3 기준 약 15.6k 토큰,
   토큰 카운트가 아니라 근사치다. 스폰당 agent 정의, 런타임 훅 주입,
   그리고 필요할 때 로드되는 모든 것을 의도적으로 **제외**한다 — 그러니 이것은 총 컨텍스트 비용이
@@ -55,10 +55,10 @@ pnpm run ci
 
 green 실행은 다음을 검증한다:
 
-- 20 skills <!-- inventory:skills -->
-- 31 agents <!-- inventory:agents -->
-- 3개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`·`next-app-fullstack`은
-  `compatible`. `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼
+- 19 skills <!-- inventory:skills -->
+- 29 agents <!-- inventory:agents -->
+- 2개 built-in 프로필: `vite-serverless-hybrid`는 `certified`, `react-vite-spa`는
+  `compatible`(Next.js 프로필은 은퇴 — 잠긴 프로필은 `ADAPTER_RETIRED`로 거절). `certified` 라벨은 격리-CI 증거(`validate-certified-evidence`)에 기계로 결박돼
   있다 — hybrid 레인의 receipt는 `golden/vite-serverless-hybrid/_workspace/04_qa/t1-summary.json`
   (격리 `hybrid-t1` 워크플로, `ISOLATED_VERIFIED`). 커밋된 receipt는 **B-7 재실행**(run 32636870973,
 `declaredRevision` 97936f1)이다 — 1차 receipt(run 32614388125, revision 48b96b3)는 승격 커밋 전
@@ -67,7 +67,7 @@ green 실행은 다음을 검증한다:
 - agent별 파일 소유권
 - read-only verifier 경계
 - 문서 위생(깨진 repo-path 참조, 하드코딩 잔재, skill 버전, README 인벤토리)
-- 전역 Bash 정책 fixture, 프로필 resolver/DAG 단언, Next.js 계약 케이스, harness 통합 검사,
+- 전역 Bash 정책 fixture, 프로필 resolver/DAG 단언, harness 통합 검사,
   web·AI eval 계약, AI secret/tool 안전 훅, 그리고 Console의 정적 검사·회귀 테스트
 
 위 skill/agent 수치는 `validate-harness.mjs`가 실제 디렉터리와 대조하는

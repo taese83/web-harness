@@ -48,7 +48,6 @@
 |---|---|---|---|---|---|---|---|---|
 | react-vite-spa | ✅ | 부분(5/7 로컬) | ❌(CI 미증명) | 부분 | ✅ | 부분 | ❌ | 부분 |
 | vite-serverless-hybrid | ✅ | ✅(fixture·10/10 T0 host cohort) | ✅ **T1**(격리 CI `ISOLATED_VERIFIED`; 커밋된 receipt는 B-7 재실행 run 32636870973 = revision 97936f1 — T2 attestation은 별도) | 부분 | ✅(가드·boundary·audit host) | ✅(golden/T1 validator) | ❌ | 부분 |
-| next-app-fullstack | ✅ | ❌ | ❌ | 부분 | 부분 | 부분 | 부분 | 부분 |
 | analytics-BI | ✅ | ❌ | ❌ | ❌ | — | 교정됨 | ❌ | 부분 |
 
 현재 8/8 레인 없음 — "certified"는 주장이지 증명이 아니다. 이 표를 그린으로 채우는 것이 목표.

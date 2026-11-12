@@ -13,7 +13,6 @@
     "i18n-setup": 0,
     "lib-advisor": 0,
     "mock-service-setup": 0,
-    "next-app": 0,
     "pr-drafter": 0,
     "project-init": 0,
     "retro": 0,
@@ -101,12 +100,12 @@
     ".claude/skills/web-plan/references/planning-readiness-contract.md"
   ],
   "alwaysReadBytes": {
-    "web-orchestrator": 41446
+    "web-orchestrator": 40200
   },
   "referenceBytes": {
     ".claude/skills/team-flow/references/work-plan-contract.md": 37801,
     ".claude/skills/web-orchestrator/references/design-approval-contract.md": 28016,
-    ".claude/skills/web-orchestrator/references/phase-3-development.md": 29701,
+    ".claude/skills/web-orchestrator/references/phase-3-development.md": 29385,
     ".claude/skills/web-orchestrator/references/provenance-contract.md": 25988,
     ".claude/skills/web-orchestrator/references/solution-design-contract.md": 26321,
     ".claude/skills/web-orchestrator/references/source-artifacts.md": 28591

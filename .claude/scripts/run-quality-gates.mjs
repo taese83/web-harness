@@ -334,7 +334,6 @@ if (existsSync(projectProfilePath)) {
     for (const name of lockedProfile.adapter.trust.environmentAllowlist) {
       if (typeof process.env[name] === 'string') commandEnvironment[name] = process.env[name]
     }
-    if (lockedProfile.adapter.id === 'next-app-fullstack') commandEnvironment.NEXT_TELEMETRY_DISABLED = '1'
     const commands = resolveProfileCommands({projectRoot, adapter: lockedProfile.adapter})
     for (const binding of adapterCheckBindings({
       adapter: lockedProfile.adapter,

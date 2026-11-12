@@ -42,9 +42,8 @@ for (const source of [
 expectProfile('quality.typecheck', {kind: 'contract'}, 'tsc --noEmit')
 expectProfile('quality.typecheck', {kind: 'contract'}, 'CI=1 tsc -b --pretty false')
 expectProfile('vite.build', {kind: 'build'}, 'tsc -b && vite build --mode production')
-expectProfile('next.build', {kind: 'build'}, 'next build')
-expectProfile('next.production-start', {kind: 'runtime'}, 'node scripts/production-start.mjs')
-expectProfile('next.node-hydration', {kind: 'browser'}, 'playwright test tests/hydration.spec.ts')
+expectProfile('api.guards', {kind: 'security'}, 'node scripts/guards.mjs')
+expectProfile('vite.browser', {kind: 'browser'}, 'playwright test tests/hydration.spec.ts')
 expectProfile('vite.production-mock-boundary', {kind: 'security'}, 'vitest run tests/production-boundary.test.ts')
 if (hasMeaningfulProfileScript('vite.production-mock-boundary', {kind: 'security'}, 'node scripts/noop.mjs')) {
   fail('Vite production boundary accepted an unstructured Node script')

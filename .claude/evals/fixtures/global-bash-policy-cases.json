@@ -183,18 +183,6 @@
       "command": "node .claude/scripts/web-core/validate-adapters.mjs"
     },
     {
-      "id": "next-contract-validator",
-      "expect": "ALLOW",
-      "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/web-core/validate-next-contracts.mjs"
-    },
-    {
-      "id": "next-project-contract-validator",
-      "expect": "ALLOW",
-      "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/web-core/validate-next-contracts.mjs --project ."
-    },
-    {
       "id": "profile-resolver",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
@@ -210,7 +198,13 @@
       "id": "multi-target-plan",
       "expect": "ALLOW",
       "code": "ALLOW_VALIDATION",
-      "command": "node .claude/scripts/web-core/compile-execution-plan.mjs --profile next-app-fullstack --target release.candidate --target evidence.next.node-authz"
+      "command": "node .claude/scripts/web-core/compile-execution-plan.mjs --profile vite-serverless-hybrid --target release.candidate --target evidence.api-guards"
+    },
+    {
+      "id": "retired-profile-plan",
+      "expect": "DENY",
+      "code": "DENY_VALIDATION_COMMAND",
+      "command": "node .claude/scripts/web-core/compile-execution-plan.mjs --profile next-app-fullstack --target release.candidate"
     },
     {
       "id": "workspace-init",

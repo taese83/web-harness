@@ -25,7 +25,7 @@ lockfile source/integrity 검토 단계에서 최종 확인이 필요하다(원�
   구조적으로 필수는 아니다, (3) Phase 1~2는 Data Review Strategy상 mock(MSW)만 사용하므로 실 네트워크·CORS
   이슈 자체가 발생하지 않아 지금 시점에 이 선택을 막는 증거가 없다.
   **단, 이 선택은 아래 AD-02(인증 토큰·CORS 분기)의 Branch A를 전제로 한 Phase 1~2용 결정이다.** 실 API 연동
-  단계(production 연결)에서 Branch B로 판정되면 `next-app-fullstack`(Route Handler를 BFF로 사용)으로 마이그레이션이
+  단계(production 연결)에서 Branch B로 판정되면 `vite-serverless-hybrid`(루트 `api/` 함수를 BFF로 사용)로 마이그레이션이
   필요하다 — 지금 임의로 그 결론을 내리지 않는다(BLOCKER, requirements.md 참고).
 - UI_LANE: **`tailwind-shadcn`** — 판단 축("디자인이 차별점인가?")에서 이 서비스는 브랜드 차별화가 아니라
   기능(고밀도 좌석 그리드, 색+아이콘 이중 신호, 44px 터치 타깃, 모바일 LTE 번들 예산)이 우선이라 커스텀
@@ -85,8 +85,8 @@ lockfile source/integrity 검토 단계에서 최종 확인이 필요하다(원�
 ## Architecture Decisions
 | Decision | Requirement | Choice | Rejected Alternative | Trade-off |
 |---|---|---|---|---|
-| AD-01 렌더링 전략 | Product Frame(인증 필요, SEO 불요) | CSR(`react-vite-spa`) | `next-app-fullstack` SSR | 초기 인증 확인 전 빈 화면 가능성 → FEAT-007 라우트 가드로 완화 |
-| AD-02 인증 호출 경로 분기 (결정 미발명, 조건만 기록) | REQ-F-001, REQ-F-005, requirements.md BLOCKER(토큰방식·CORS) | **분기형**: <br>**Branch A** — 도서관 API가 (1)Bearer 토큰 발급 AND (2) 앱 배포 origin을 `Access-Control-Allow-Origin`에 명시 허용 AND (3) `Authorization` 헤더를 `Access-Control-Allow-Headers`에 포함 → 브라우저 직접 호출 유지, `react-vite-spa` + `static-cdn` 그대로. <br>**Branch B** — 세션 쿠키 기반 인증이거나, API가 이 앱 origin에 대한 CORS(특히 credentials 포함 cross-origin cookie: `SameSite=None; Secure` + `Access-Control-Allow-Credentials`)를 허용하지 않거나 허용 자체가 불가 → 브라우저 직접 호출 불가/불안정, 동일 출처 BFF/프록시 필수. `next-app-fullstack`(Route Handler를 서버측 프록시로 사용)으로 harness profile 마이그레이션, 배포 target도 `static-cdn`에서 `node-server`/`container-static`으로 변경. | 지금 Branch A 또는 B를 임의로 확정하는 것 | 계약(OpenAPI, 토큰 방식, CORS 정책)이 BLOCKER로 미확보라 어느 branch인지 지금 알 수 없다. Phase 1~2(mock)와 잠정 계약 개발은 두 branch 모두에서 동일하게 진행 가능하므로 지금은 지연 비용이 없다. production 연결 전 반드시 재방문해야 한다. |
+| AD-01 렌더링 전략 | Product Frame(인증 필요, SEO 불요) | CSR(`react-vite-spa`) | SSR 프레임워크(하네스 지원 profile 없음) | 초기 인증 확인 전 빈 화면 가능성 → FEAT-007 라우트 가드로 완화 |
+| AD-02 인증 호출 경로 분기 (결정 미발명, 조건만 기록) | REQ-F-001, REQ-F-005, requirements.md BLOCKER(토큰방식·CORS) | **분기형**: <br>**Branch A** — 도서관 API가 (1)Bearer 토큰 발급 AND (2) 앱 배포 origin을 `Access-Control-Allow-Origin`에 명시 허용 AND (3) `Authorization` 헤더를 `Access-Control-Allow-Headers`에 포함 → 브라우저 직접 호출 유지, `react-vite-spa` + `static-cdn` 그대로. <br>**Branch B** — 세션 쿠키 기반 인증이거나, API가 이 앱 origin에 대한 CORS(특히 credentials 포함 cross-origin cookie: `SameSite=None; Secure` + `Access-Control-Allow-Credentials`)를 허용하지 않거나 허용 자체가 불가 → 브라우저 직접 호출 불가/불안정, 동일 출처 BFF/프록시 필수. `vite-serverless-hybrid`(루트 `api/` 함수를 서버측 프록시로 사용)로 harness profile 마이그레이션, 배포 target도 `static-cdn`에서 `vercel-hybrid`로 변경. | 지금 Branch A 또는 B를 임의로 확정하는 것 | 계약(OpenAPI, 토큰 방식, CORS 정책)이 BLOCKER로 미확보라 어느 branch인지 지금 알 수 없다. Phase 1~2(mock)와 잠정 계약 개발은 두 branch 모두에서 동일하게 진행 가능하므로 지금은 지연 비용이 없다. production 연결 전 반드시 재방문해야 한다. |
 | AD-03 상태 관리 | REQ-F-002~004, FEAT-004(IoC 조합) | TanStack Query(서버 상태) + React Context/useReducer(좌석·슬롯 선택 UI 상태, `/seats` 라우트 내부로 상태 범위 한정) | zustand 전역 스토어 | 상태 트리가 단일 페이지·소수 컴포넌트로 국한되어 전역 스토어의 이점이 적다. FEAT-008/009(defer)가 활성화되며 공유 상태가 커지면 재평가. |
 | AD-04 honest loading (낙관적 갱신 금지) | REQ-F-003, REQ-F-004 (ux-brief interaction-controls 원칙 인용) | TanStack Query `mutate` + 성공/실패 후 `invalidateQueries`로 재조회, optimistic update 미사용 | optimistic UI로 즉시 "내 예약" 표시 | 체감 속도는 약간 느리지만 409 동시성 충돌·취소 실패 시 롤백 로직 자체가 필요 없어져 요구사항(TC-005-2, TC-006-3)을 정확히 만족 |
 | AD-05 UI 레인 | REQ-NFR-002, REQ-NFR-003, 모바일 LTE 번들 예산(REQ-NFR-001) | `tailwind-shadcn` (Radix 헤드리스 프리미티브 vendored) | `mui`(@mui/material + Emotion) | MUI는 즉시 사용 가능한 컴포넌트가 많지만 커스텀 좌석 그리드 스타일링에 오버헤드가 있고 런타임 CSS-in-JS 비용이 모바일 LTE 목표(NFR-001)에 불리 |
@@ -113,7 +113,7 @@ lockfile source/integrity 검토 단계에서 최종 확인이 필요하다(원�
 | react-window / @tanstack/react-virtual (지금 시점) | AD-08 — 300석 규모에서 선제 도입 근거 부족, perf fixture 실측 후 조건부 도입 |
 | toast 라이브러리(sonner, react-hot-toast 등) | AD-11 — 요구사항은 지속형 인라인 배너이지 토스트가 아님 |
 | mitt 등 범용 이벤트 라이브러리 | AD-10 — 단일 이벤트/단일 구독자 구조에 과함 |
-| Express 등 커스텀 Node 서버(harness profile 밖) | 원칙 3 — Pages-only/mixed Router, custom server는 현재 Next compatible 범위 밖. AD-02 Branch B가 필요하면 `next-app-fullstack` Route Handler로 흡수하고 별도 커스텀 서버를 만들지 않는다 |
+| Express 등 커스텀 Node 서버(harness profile 밖) | 원칙 3 — custom server는 지원 profile 밖. AD-02 Branch B가 필요하면 `vite-serverless-hybrid`의 `api/` 함수로 흡수하고 별도 커스텀 서버를 만들지 않는다 |
 
 ## Package Changes
 | Package | Exact Version | Scope | Requirement | Source |

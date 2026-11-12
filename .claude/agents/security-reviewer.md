@@ -56,7 +56,7 @@ maxTurns: 30
 - 리뷰 묶음의 `_workspace/04_qa/review-packet/ls-files.txt`(메인이 `prepare-review-packet.mjs`로 만든다)로 **추적 중인 비밀 파일**을 확인한다. 묶음이 없거나 그 항목 `exitCode`가 0이 아니면 이 점검은 `NEEDS_REVIEW`(확인 불가)다.
   이 연산은 다른 연산과 달리 secret 경로를 숨기지 않고 이름을 보고한다 — 추적 사실 자체가 finding이기 때문이다(내용은 읽지 않는다).
   `tracked secret-bearing paths: none`이 아니면 그 목록을 아래 규칙으로 판정한다 — 어느 규칙이 서는지는 프로젝트가 정한다.
-- **서버를 가진 프로젝트**(프로필 `vite-serverless-hybrid`·`next-app-fullstack`, 또는 `api/`·`migrations/` 보유)는
+- **서버를 가진 프로젝트**(프로필 `vite-serverless-hybrid`, 또는 `api/`·`migrations/` 보유)는
   `.env.example`류를 뺀 **모든 `.env*` 추적이 `HIGH`**다(`vite-serverless-hybrid/references/env-management-hybrid.md` —
   서버 비밀이 같은 파일 체계에 들어온다). `.gitignore`가 `.env`·`.env.*`를 차단하는지도 대조한다.
 - **서버 없는 SPA**(`react-vite-spa`, `env-management.md`)는 공개값 파일(`.env.dev`·`.env.staging`·`.env.production`)
