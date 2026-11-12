@@ -201,12 +201,7 @@ export const validateWorkflowsAndEvals = ({
       for (const problem of pluginEvalCaseProblems(join(claudeDirectory, 'evals', 'plugin'))) fail(`.claude/evals/plugin/${problem}`)
       for (const routingScenario of [
         'realtime-chat-routing',
-        'local-domain-state-workflow',
         'preference-persistence-routing',
-        'external-ingestion-static-snapshot',
-        'github-actions-static-ingestion-vercel',
-        'external-ingestion-selector-drift',
-        'generated-artifact-missing-source',
         'qa-evidence-tamper',
       ]) {
         if (!scenarioIds.has(routingScenario)) fail(`required routing eval is missing: ${routingScenario}`)

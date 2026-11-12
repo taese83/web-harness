@@ -23,7 +23,6 @@ Phase 2 설계 산출물에서 **무의존 인터랙티브 프로토타입**을 
 - `_workspace/01_plan/ux-brief.md`의 **화면별 정보 위계**와 **디자인 방향** 절 (`design-readiness-contract.md` 형식) — 없으면 `BLOCKED`
 - `_workspace/02_design/design-system(.md|/)` (+ `theme.code.ts` 토큰)
 - `_workspace/02_design/layout-spec(.md|/)` (화면·라우팅 맵 또는 서피스 맵), `component-spec(.md|/)` (컴포넌트 상태 계약)
-- `_workspace/02_design/state-contract(.md|/)`가 있으면 command·불변식을 메모리 store의 동작 규칙으로 사용한다
 
 ## 산출물
 
@@ -32,7 +31,7 @@ _workspace/02_design/preview/
   index.html         # 앱 셸 + 진입점 + 토큰 시트 + 충실도 고지 + 동작 커버리지 안내
   tokens.css         # theme 토큰 → CSS 변수
   app.css            # 셸·컴포넌트 근사 스타일
-  store.js           # in-memory 도메인 store — state-contract의 command·불변식을 구현 (seed 데이터 포함)
+  store.js           # in-memory 도메인 store — Feature List 동작의 command·불변식을 구현 (seed 데이터 포함)
   router.js          # 화면 전환의 소유자 — route면 해시 라우팅(layout-spec 라우팅 맵),
                      #   overlay면 열림 서피스 스택. 파일명은 두 모델 모두 router.js다
   app.js             # 화면 렌더링 + 이벤트 바인딩 (CRUD·DnD·상태 전이 실제 동작)
@@ -53,7 +52,7 @@ _workspace/02_design/preview/
    - 상태 전이: 빈 상태 → 첫 등록 → populated, 저장 중 → 완료 등 **조건에 의해** 전이된다 (인위적 토글이 아니라 실제 데이터 유무·진행 상태로).
    - 드래그앤드롭: 필드/행 순서 변경이 실제 드래그로 재배열되고 store의 order가 갱신된다. 키보드 대체 조작(위/아래)도 동작한다.
 2. **메모리 state 기반**: 데이터는 `store.js`의 in-memory 객체에 둔다. localStorage 영속은 선택 — 새로고침 유지가 동작 시연에 필요하면 써도 되지만, 실제 DB/API/네트워크는 호출하지 않는다.
-3. **state-contract 준수**: state-contract가 있으면 command(create/update/delete/reorder 등)의 precondition·postcondition·불변식(참조 무결성, 구조 필드 격리, cascade, stale selection 정리)을 store가 실제로 지킨다 — 프로토타입에서 불변식 위반이 재현되면 안 된다.
+3. **동작 불변식**: command(create/update/delete/reorder 등) 뒤 참조 무결성, 구조 필드 격리, cascade, stale selection 정리를 store가 실제로 지킨다 — 프로토타입에서 불변식 위반이 재현되면 안 된다.
 4. **무의존**: 외부 CDN·폰트·라이브러리 로드 금지, 설치 필요한 빌드 금지. 순수 HTML + CSS + vanilla JS(ES 모듈)만. 드래그는 Pointer Events, 라우팅은 `hashchange`로 직접 구현한다(`overlay`면 같은 자리에 서피스 스택을 직접 구현한다).
 5. **충실도 고지 의무**: 앱 상단에 "이 프로토타입의 **동작**은 실제이며 메모리 state로 수행됩니다. **시각 렌더링**은 토큰·레이아웃의 근사치이며 실제 UI 라이브러리(예: MUI)와 다릅니다. 실제 DB·API·영속성·성능은 구현·QA 단계에서 검증됩니다." 배너를 고정한다.
 5-1. **"시각은 근사"의 정확한 의미 — design-system 토큰은 반드시 반영한다**: "근사"는 실제 UI 라이브러리 컴포넌트의 픽셀·모션·내부 마크업이 다르다는 뜻일 뿐, design-system이 **명세한 토큰을 단순화·생략해도 된다는 뜻이 아니다**. 색 팔레트, 타이포 스케일, 밀도, 그리고 특히 **필드/상태 타입별 아이콘+색상 인코딩** 같은 명세된 시각 규칙은 프로토타입에 그대로 나타나야 한다. 동작 구현이 시각 토큰 준수를 대체하지 않는다 — 참조 무드(예: Airtable의 타입별 색상 배지)가 스펙에 있으면 프로토타입에서 그 색이 실제로 보여야 하고, 회색 텍스트 라벨로 대체하면 불이행이다. 재생성 시에도 이전 시각 충실도를 후퇴시키지 않는다.
@@ -125,7 +124,7 @@ feature-plan.md의 **모든 Must test case(`TC-NNN-N`)**에 대해 표로 작성
 
 - `behaviors.md`의 모든 Must 동작이 프로토타입에서 실제로 수행 가능하다 (또는 정당한 예외 명시)
 - 등록·수정·삭제 후 목록/그리드가 실제로 갱신되고, 페이지 이동·상태 전이·드래그앤드롭이 동작한다
-- state-contract가 있으면 그 불변식이 프로토타입에서 지켜진다 (위반 재현 불가)
+- 삭제·이동·정렬 뒤 불변식이 프로토타입에서 지켜진다 (위반 재현 불가)
 - **design-system이 명세한 시각 토큰(팔레트·타이포·밀도·필드 타입 아이콘+색상 인코딩·참조 무드)이 실제로 반영된다** — 명세된 색상을 회색/기본값으로 단순화하면 미충족. 재생성이 이전 시각 충실도를 후퇴시키지 않는다
 - 무의존(외부 로드 0)·충실도 배너·시맨틱 구조를 만족한다
 - `NEEDS_DECISION` 마커 목록과 디자인 근거 요약(커밋·기각 방향), opt-in 토글 대상을 반환 본문에 요약한다

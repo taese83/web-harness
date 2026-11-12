@@ -47,14 +47,13 @@ _workspace/02_design/api-schema/            ← 분할
 | `design-system` | 토큰 / 컴포넌트 인벤토리 / 접근성 |
 | `component-spec` | FSD 레이어별(shared / features / widgets·pages) |
 | `layout-spec` | 글로벌 레이아웃·라우팅 맵 / 페이지별 |
-| `state-contract` | aggregate별 + 공통 persistence·verification 1개 |
 
 **Phase 1 산출물** — 재읽기 규모가 Phase 2보다 **크다**. 실측(당시 96개 agent prompt 전수 집계 — 재측정 전이다)에서 `tech-stack`은 18개, `requirements`는 13개 에이전트가 입력으로 읽는데, 초기 계약은 Phase 2만 다뤄 가장 많이 재읽히는 두 파일이 규칙 밖에 있었다.
 
 | 산출물 | 분할 축 | 주요 소비자 경계 |
 |---|---|---|
 | `tech-stack` | 의존성·버전 매트릭스 / 아키텍처 결정(ADR) / 배포·provider target / 테스트 전략 | scaffolder는 버전만, designer는 결정만, CI writer는 배포만 |
-| `requirements` | Product Frame·데이터 전략·노력도 / 기능 REQ(도메인별) / 비기능 NFR / 상태·엣지 시나리오 / 미결정·Memo | feature-planner는 기능, performance-budget-designer는 NFR, state-contract-designer는 시나리오, 미결정·Memo는 전체 |
+| `requirements` | Product Frame·데이터 전략·노력도 / 기능 REQ(도메인별) / 비기능 NFR / 상태·엣지 시나리오 / 미결정·Memo | feature-planner는 기능, performance-budget-designer는 NFR, 미결정·Memo는 전체 |
 | `ux-brief` | 화면 인벤토리·상태 matrix / 사용자 플로우 / 디자인 방향 | layout-designer는 인벤토리, design-system-architect는 방향 |
 | `feature-plan` | Page Groups·Feature List 표 / FEAT별 동작 명세·TC / 추적·전달 순서 | 표만 필요한 소비자가 다수 |
 | `decision-log` | **ID 구간별**(`PC-001~050`, `PC-051~100` …) — append는 최신 절에만 | append-only 대장이므로 주제별로 자르면 이력 추적이 깨진다 |

@@ -28,8 +28,8 @@ env 파일을 만들기 전에 `env-management.md`, API client를 만들기 전�
 
 ## Mode-specific implementation
 
-- local domain state면 command/invariant/persistence owner를 분리하고 UI가 store 구조를 직접 patch하지 않는다.
-- external ingestion이면 source adapter, schema validation, quality gate, atomic promotion을 UI와 분리한다.
+- 브라우저가 도메인 데이터의 정본이면 command/invariant/persistence owner를 분리하고 UI가 store 구조를 직접 patch하지 않는다.
+- 외부 데이터 수집이 있으면 source adapter, schema validation, 승격을 UI와 분리한다.
 - AI mode면 model gateway, tool adapter, approval, trace, eval boundary를 서비스 UI와 분리한다.
 
 각 mode의 필드와 SLO는 해당 canonical reference에서 읽고 여기서 추측하지 않는다.

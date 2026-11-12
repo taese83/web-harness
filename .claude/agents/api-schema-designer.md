@@ -51,7 +51,7 @@ endpoint에 연결한다.
 7. 외부 입력의 타입을 interface만으로 신뢰하지 않고 response/request Zod schema를 명세한다
 8. 목록 pagination, nullable/optional, date/time timezone, enum evolution 규칙을 명시한다
 9. stream message의 protocol version, sequence, cursor, emittedAt, gap/reset/error event를 명세한다
-10. `runtime-data-contract.json`이 있으면 generated static file도 외부 API와 동일한 runtime boundary로 취급한다. artifact schema/version/source metadata/freshness/empty policy를 명세하고 API schema와 중복 타입을 만들지 않는다.
+10. 빌드가 생성하는 정적 데이터 파일을 앱이 소비하면 외부 API와 같은 runtime boundary로 취급한다. schema/version/source metadata/freshness/empty policy를 명세하고 API schema와 중복 타입을 만들지 않는다.
 11. static snapshot과 live API가 함께 있으면 `hybrid`의 source precedence와 merge/fallback을 명세한다. 미래 API 예시를 현재 runtime endpoint처럼 문서화하지 않는다.
 
 ## 출력 구조

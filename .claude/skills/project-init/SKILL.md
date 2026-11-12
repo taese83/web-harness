@@ -16,7 +16,7 @@ web-harness 기술 스펙 기반의 새 프론트엔드 프로젝트를 처음�
 
 ## Canonical web routing guard
 
-사용자 설명, 전달 문서 또는 대상 디렉토리에 crawling/scraping, RSS·CSV import, scheduled third-party sync, generated runtime JSON, `scripts/ingestion`, `scripts/crawl.*`, refresh workflow 중 하나가 있으면 scaffold를 시작하지 않는다. 원문 요청과 대상 경로를 손실 없이 `/wh new`(플러그인: `/web-harness:wh new`)에 넘겨 `EXTERNAL_DATA_INGESTION_MODE` 계약부터 만들게 한다. `/project-init`은 이 경로를 일반 React/Vite Mock 프로젝트로 축소할 수 없다.
+사용자 설명, 전달 문서 또는 대상 디렉토리에 crawling/scraping, RSS·CSV import, scheduled third-party sync, generated runtime JSON이 있으면 하네스에 전용 수집 설계·검증이 없다는 한계를 먼저 알린다. 수집 파이프라인을 일반 React/Vite Mock 골격으로 축소했다고 보고하지 않는다.
 
 ### 이 skill의 범위 — scaffold vs 서비스 구축
 
@@ -50,11 +50,10 @@ When the user invokes `/project-init` alone, start with:
 5. **환경(env) 이름** — 어떤 환경이 필요한가요? (기본값: dev, staging, production / web-harness처럼 sandbox, cbt도 추가 가능)
 6. **GitHub Actions preview** — WIP preview CI가 필요한가요? (self-hosted runner를 쓸 경우 필요)
 7. **내부(사설) 패키지** — 조직 사설 레지스트리의 내부 패키지가 필요한가요? (필요하면 스코프·패키지명을 알려주세요)
-8. **외부 데이터 수집** — 크롤링·파일 import·scheduled sync·build-generated JSON이 있나요? 있으면 source와 실행 주기도 알려주세요.
-9. **UI 레인** — 어드민·대시보드처럼 밀도·속도가 우선이면 `mui`, 브랜드·디자인 자유도가 우선이면 `tailwind-shadcn`을 권합니다. 어느 쪽으로 할까요? (미정이면 서비스 성격을 알려주시면 제안합니다)
+8. **UI 레인** — 어드민·대시보드처럼 밀도·속도가 우선이면 `mui`, 브랜드·디자인 자유도가 우선이면 `tailwind-shadcn`을 권합니다. 어느 쪽으로 할까요? (미정이면 서비스 성격을 알려주시면 제안합니다)
 ```
 
-답변을 받으면 외부 데이터 수집 여부를 먼저 판별한다. 해당하면 `/wh new`로 위임하고, 아니면 Phase 1부터 순서대로 실행한다.
+답변을 받으면 Phase 1부터 순서대로 실행한다.
 
 ## Workflow
 

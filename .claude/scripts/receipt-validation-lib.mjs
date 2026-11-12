@@ -2,8 +2,6 @@ import {existsSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {sha256} from './evidence-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
-import {validateStaticRuntimeDataDeployment} from './runtime-data-deployment-lib.mjs'
-import {parseTrustedPromotionActions} from './workflow-security-lib.mjs'
 import {
   analyzePackageScript,
   readDependencyBinding,
@@ -160,43 +158,6 @@ export const readReceipt = (
       binding?.profileSha256 !== expectedProfile.executionPlan.plan.profileBinding.profileSha256 ||
       binding?.executionPlanSha256 !== expectedProfile.executionPlan.sha256
     ) errors.push(`${relativePath}: project profile binding is missing or stale`)
-
-    if (expectedProfile.selection.selectedCapabilities.includes('scheduled-static-ingestion')) {
-      try {
-        const trustedPromotionActions = parseTrustedPromotionActions(process.env.WEB_HARNESS_TRUSTED_PROMOTION_ACTIONS)
-        const expectedPromotionPolicySha256 = sha256(JSON.stringify(trustedPromotionActions))
-        if (
-          trustedPromotionActions.length === 0 ||
-          receipt.environmentPolicy?.trustedPromotionActionsSha256 !== expectedPromotionPolicySha256
-        ) errors.push(`${relativePath}: protected promotion action policy binding is missing or stale`)
-      } catch (error) {
-        errors.push(`${relativePath}: protected promotion action policy is invalid: ${error instanceof Error ? error.message : String(error)}`)
-      }
-    }
-
-    if (
-      checkId === 'build' &&
-      expectedProfile.selection.selectedCapabilities.includes('external-ingestion') &&
-      ['static-cdn', 'static-export'].includes(expectedProfile.selection.target.id)
-    ) {
-      try {
-        const currentDeploymentValidation = validateStaticRuntimeDataDeployment({
-          projectRoot,
-          lockedProfile: expectedProfile,
-        })
-        if (
-          !currentDeploymentValidation.ok ||
-          JSON.stringify(receipt.runtimeDataDeploymentValidation) !== JSON.stringify(currentDeploymentValidation)
-        ) {
-          errors.push(`${relativePath}: static runtime data deployment digest binding is missing or stale`)
-        }
-      } catch (error) {
-        errors.push(
-          `${relativePath}: static runtime data deployment cannot be revalidated: ` +
-          `${error instanceof Error ? error.message : String(error)}`,
-        )
-      }
-    }
   }
   if (['test', 'coverage', 'browser'].includes(checkId) && (!Array.isArray(receipt.discoveredTestFiles) || receipt.discoveredTestFiles.length === 0)) {
     errors.push(`${relativePath}: no matching test files were discovered`)

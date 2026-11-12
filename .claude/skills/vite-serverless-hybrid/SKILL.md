@@ -214,7 +214,7 @@ env 미설정 시 **fail-closed**(503)로 막는다. 편의를 위한 fail-open�
 ## Golden 실행
 
 <!-- repo-only:start -->
-하네스 source repo에서는 ancestor ingestion marker와 fixture를 분리하는 전용 runner를 사용한다.
+하네스 source repo에서는 golden 전용 runner를 사용한다.
 
 ```bash
 node .claude/scripts/run-golden-profile.mjs --profile vite-serverless-hybrid --allow-host-execution --write-evidence

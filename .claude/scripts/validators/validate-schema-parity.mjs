@@ -65,7 +65,6 @@ const EMITTER_CASES = [
 ]
 
 const DIRECT_CONSUMERS = [
-  ['.claude/schemas/runtime-data-contract.schema.json', '.claude/scripts/runtime-data-contract-lib.mjs'],
 ]
 
 const walkFiles = (root, extensions, out = []) => {

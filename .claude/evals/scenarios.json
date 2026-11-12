@@ -130,21 +130,6 @@
     ]
   },
   {
-    "id": "local-domain-state-workflow",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "서버 없이 브라우저 저장소에 업무 워크플로우를 관리하는 앱을 만들어줘. 필터와 검색 중에도 이동·정렬·다중 선택·삭제가 안전해야 하고 이전 버전이나 손상된 저장 데이터도 복구해야 해.",
-    "assertions": [
-      "LOCAL_DOMAIN_STATE_MODE is enabled and state-contract-designer runs before developer implements the local domain state",
-      "the state contract separates authoritative collections from filtered, sorted, or virtualized views and defines ID-based mutation mapping",
-      "move, reorder, bulk mutation, and delete use explicit commands with store-side preconditions and invariant-preserving postconditions",
-      "persisted state has runtime validation, schema version migration, invalid-state recovery, and size or count budgets",
-      "qa-state.md covers filter or search crossed with mutation, stale selection, hidden data, and recovery; missing evidence blocks release"
-    ]
-  },
-  {
     "id": "preference-persistence-routing",
     "entrySkill": "/wh new",
     "covers": [
@@ -152,65 +137,8 @@
     ],
     "prompt": "테마와 언어 설정만 브라우저에 저장하는 간단한 웹앱을 만들어줘. 업무 데이터 CRUD나 정렬·이동은 없어.",
     "assertions": [
-      "LOCAL_DOMAIN_STATE_MODE remains disabled for independent low-volume preferences",
-      "developer implements bounded validated preference persistence while state-contract-designer and state-invariant-verifier are skipped"
-    ]
-  },
-  {
-    "id": "external-ingestion-static-snapshot",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "허용된 세 개의 공개 데이터 소스를 매일 수집해서 정적 JSON으로 배포하는 일정 대시보드를 만들어줘. 일부 소스가 실패하거나 결과가 비면 이전 정상 데이터를 유지해야 해.",
-    "assertions": [
-      "EXTERNAL_DATA_INGESTION_MODE is enabled and source authorization, refresh cadence, freshness, minimum count, coverage, promotion policy, and serving fallback are collected separately",
-      "ingestion-contract-designer fixes static-snapshot as the current runtime mode and writes both ingestion-contract.md and a strict schema-bound runtime-data-contract.json before implementation",
-      "the ingestion pipeline that developer implements validates source payloads and generated artifacts before atomic promotion and preserves last-known-good on empty, partial, schema-invalid, or threshold-failing runs",
-      "data-quality-verifier requires deterministic fixtures, root and deployment clean-build evidence, and a current same-cohort ingestion machine receipt before qa-data-quality.md can pass"
-    ]
-  },
-  {
-    "id": "github-actions-static-ingestion-vercel",
-    "entrySkill": "/wh new",
-    "covers": [
-      "web-orchestrator"
-    ],
-    "prompt": "타미야 대회 정보를 허용된 공개 소스에서 매일 GitHub Actions로 수집하고, 나머지는 Vercel에 올리는 React/Vite 정적 웹으로 처음부터 만들어줘. 실패한 수집 결과는 서비스에 반영하지 마.",
-    "assertions": [
-      "the locked profile separates deployment provider vercel from target static-cdn and includes external-ingestion plus scheduled-static-ingestion capabilities",
-      "the web app, ingestion source, contracts, generated artifact, and workflow share one canonical release root so one source fingerprint covers the whole service",
-      "environment-scaffolder alone owns the refresh workflow with full-SHA actions, persist-credentials false, read-only collection, exact generated paths, timeout, queued concurrency, manual recovery, direct-push prohibition, and isolated protected promotion",
-      "environment-scaffolder alone binds the Vercel root, build command, output, routing, cache, and headers while provider builds validate the promoted snapshot before build and byte-identical public-to-dist deployment copy after build instead of crawling",
-      "release is blocked unless strict artifact semantics and workflow policy pass and the ingestion receipt is current in the same isolated quality cohort"
-    ]
-  },
-  {
-    "id": "external-ingestion-selector-drift",
-    "entrySkill": "/wh verify",
-    "covers": [
-      "web-verify"
-    ],
-    "prompt": "외부 HTML 구조가 바뀐 뒤 크롤러 결과가 0건인데 workflow는 성공하고 빈 데이터가 배포됐어. 재발 방지까지 검증해줘.",
-    "assertions": [
-      "zero records from a required source is classified as FAIL rather than a successful refresh",
-      "fixture tests cover selector or markup drift, missing required fields, pagination change, and abrupt count reduction",
-      "failed output cannot replace last-known-good because validation precedes atomic promotion",
-      "the finding routes contract, pipeline, test, and deployment fixes to their owning agents without a verifier editing source"
-    ]
-  },
-  {
-    "id": "generated-artifact-missing-source",
-    "entrySkill": "/wh verify",
-    "covers": [
-      "web-verify"
-    ],
-    "prompt": "배포 서비스에서는 prepare-build를 거쳐 성공하지만 clean clone에서 루트 pnpm build를 하면 필요한 public/data.json이 없어도 exit 0이야. 릴리스 가능한지 확인해줘.",
-    "assertions": [
-      "required generated artifact absence is a FAIL even when the bundler exits zero",
-      "the runtime data contract identifies build cwd, deployment root, generation order, schema, and minimum count",
-      "root, workspace, and provider build paths must prove the same artifact closure and architecture mode",
-      "release remains blocked until deterministic clean-clone evidence and qa-data-quality.md pass"
+      "developer implements bounded, runtime-validated preference persistence that falls back to defaults when stored values are missing, invalid, or from an older shape",
+      "code-reviewer applies the browser-storage static check: persisted JSON is parsed as untrusted input rather than type-asserted, and a parse failure leads to a reset path instead of a crash loop"
     ]
   },
   {

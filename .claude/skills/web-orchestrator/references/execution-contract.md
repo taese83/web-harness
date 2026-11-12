@@ -78,13 +78,6 @@ buildable한 기존 프로젝트에 `request-type-contract.md`가 `change`·`fix
 - 필요한 repository secret과 수동 절차를 HANDOFF에 기록한다.
 - 실제 deploy, cloud 설정, secret 생성, push는 수행하지 않는다.
 
-## Canonical conditional contracts
-
-- local domain state: `local-domain-state.md`
-- external ingestion: `external-data-ingestion.md`
-
-같은 규칙을 이 파일에 복제하지 않고 각 canonical contract를 따른다. Phase별 조건부 reference 로딩도 SKILL.md의 읽기 지시가 canonical이다.
-
 ## Required outputs
 
 | Phase | Required outputs |

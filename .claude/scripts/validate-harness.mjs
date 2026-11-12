@@ -266,41 +266,10 @@ for (const agentName of [
   'browser-verifier',
   'security-reviewer',
   'data-access-verifier',
-  'state-contract-designer',
-  'state-invariant-verifier',
-  'ingestion-contract-designer',
-  'data-quality-verifier',
 ]) {
   if (!webOrchestrationSource.includes(agentName)) fail(`web orchestrators do not invoke ${agentName}`)
 }
-for (const modeName of ['LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
-  if (!webOrchestrationSource.includes(modeName)) fail(`web orchestrators do not define ${modeName}`)
-}
 pass('canonical web orchestration and dev delegation checked')
-
-const localStateReference = '.claude/skills/web-orchestrator/references/local-domain-state.md'
-if (!existsSync(join(repositoryRoot, localStateReference))) fail('local domain state contract is missing')
-for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/product-planner.md', read('.claude/agents/product-planner.md')]]) {
-  if (!source.includes(localStateReference)) {
-    fail(`${label}: canonical local domain state contract is not referenced`)
-  }
-}
-for (const marker of ['filtered/virtualized index', 'invalid-state recovery', 'qa-state.md']) {
-  if (!read(localStateReference).includes(marker)) fail(`local domain state contract is missing ${marker}`)
-}
-pass('local domain state detection and invariant contracts checked')
-
-const externalIngestionReference = '.claude/skills/web-orchestrator/references/external-data-ingestion.md'
-if (!existsSync(join(repositoryRoot, externalIngestionReference))) fail('external data ingestion contract is missing')
-for (const [label, source] of [['web orchestration surface', webOrchestrationSource], ['.claude/agents/product-planner.md', read('.claude/agents/product-planner.md')]]) {
-  if (!source.includes(externalIngestionReference)) {
-    fail(`${label}: canonical external ingestion contract is not referenced`)
-  }
-}
-for (const marker of ['static-snapshot', 'last-known-good', 'atomic publish', 'qa-data-quality.md']) {
-  if (!read(externalIngestionReference).includes(marker)) fail(`external ingestion contract is missing ${marker}`)
-}
-pass('external ingestion detection, quality, and promotion contracts checked')
 
   // deploy-ci-writer는 2026-08-26에 제거됐다. 워크플로 하드닝 검사는 그 본문을 읽던
   // 검사였으므로 함께 사라진다 — 계약 산문은 skills 쪽에 남는다.

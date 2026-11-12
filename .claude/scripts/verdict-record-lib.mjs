@@ -19,8 +19,6 @@ export const VERDICT_REPORT_BY_AGENT = {
   'api-contract-verifier': 'api-contract',
   'browser-verifier': 'browser',
   'data-access-verifier': 'data-access',
-  'state-invariant-verifier': 'state',
-  'data-quality-verifier': 'data-quality',
   'visual-regression-verifier': 'visual',
   'performance-verifier': 'performance',
   'seo-verifier': 'seo',

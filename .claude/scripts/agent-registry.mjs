@@ -8,7 +8,6 @@ export const VERIFIER_AGENTS = new Set([
   'browser-verifier',
   'code-reviewer',
   'data-access-verifier',
-  'data-quality-verifier',
   'design-reviewer',
   'integration-verifier',
   'next-contract-verifier',
@@ -17,7 +16,6 @@ export const VERIFIER_AGENTS = new Set([
   'plan-reviewer',
   'security-reviewer',
   'seo-verifier',
-  'state-invariant-verifier',
   'ux-validator',
   'version-analyzer',
   'visual-regression-verifier',
@@ -33,8 +31,7 @@ export const PACKAGE_OPERATIONS_FOR_WRITERS = new Set(['install', 'lockfile'])
 // 메인 스레드는 ownership hook 대상이 아니므로 이 목록은 강제가 아니라 감사 가능한
 // 명세다 — 여기 나열되지 않은 `_workspace` 설계 산출물은 소유 agent가 있어야 하며,
 // 새 무소유 산출물을 늘리기 전에 owner agent 신설을 먼저 검토한다.
-// (next-contract-matrices.md와 build-environment.json은 next-contract-designer /
-//  ingestion-contract-designer 소유로 이관됐다.)
+// (next-contract-matrices.md와 build-environment.json은 next-contract-designer 소유다.)
 export const ORCHESTRATOR_AUTHORED_ARTIFACTS = [
   '_workspace/01_plan/project-profile.json', // resolve-profile.mjs stdout을 그대로 저장
   '_workspace/03_dev/web-execution-plan.json', // compile-execution-plan.mjs stdout을 그대로 저장
@@ -116,11 +113,6 @@ export const AGENT_OWNERSHIP = {
   'design-preview-builder': [/^_workspace\/02_design\/preview\//],
   'design-system-architect': [/^_workspace\/02_design\/design-system(?:\.md|\/.+)$/],
   'feature-planner': [/^_workspace\/01_plan\/feature-plan(?:\.md|\/.+)$/],
-  'ingestion-contract-designer': [
-    /^_workspace\/02_design\/ingestion-contract\.md$/,
-    /^_workspace\/02_design\/runtime-data-contract\.json$/,
-    /^_workspace\/02_design\/build-environment\.json$/,
-  ],
   'layout-designer': [/^_workspace\/02_design\/layout-spec(?:\.md|\/.+)$/, /^_workspace\/02_design\/seo-spec\.md$/],
   'lib-api-designer': [/^_workspace\/02_design\/api-design\.md$/],
   'next-contract-designer': [
@@ -129,7 +121,6 @@ export const AGENT_OWNERSHIP = {
   ],
   'performance-budget-designer': [/^_workspace\/02_design\/performance-budget(?:\.md|\/.+)$/],
   'release-manager': [/^_workspace\/RELEASE\//],
-  'state-contract-designer': [/^_workspace\/02_design\/state-contract(?:\.md|\/.+)$/],
   // WORK 분해의 선행 분석과 계획도 이 에이전트 **하나**가 쓴다(2026-09-11) — 구현 설계 결정·모듈 경계를
   // 이미 맡고 사용자 설계 원문을 우선 입력으로 읽는다. FEAT(feature-planner)와 WORK의 작성 책임을 가른다.
   'system-architect': [/^_workspace\/02_design\/solution-design(?:\.md|\/.+)$/,

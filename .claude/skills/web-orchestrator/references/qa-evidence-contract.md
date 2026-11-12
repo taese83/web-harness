@@ -43,8 +43,6 @@ node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution
 
 ## Conditional QA
 
-- state contract가 있으면 `qa-state.md`
-- ingestion/runtime data contract가 있으면 `qa-data-quality.md`
 - AI architecture가 있으면 AI eval, security, data access, cost/latency, trace reports
 - performance budget이 있으면 `qa-perf.md`; browser receipt가 제공하지 않은 runtime 지표는 `NOT_MEASURED`이며 PASS로 승격하지 않는다
 - SEO spec이 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 `qa-seo.md`

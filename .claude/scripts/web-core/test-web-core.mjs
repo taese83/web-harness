@@ -10,12 +10,12 @@ import {resolveCommand} from '../resolve-commands.mjs'
 import {BUILTIN_ADAPTER_IDS, claudeDirectory, loadBuiltinAdapter, loadBuiltinAdapters, validateAdapter, validateDerivedAdapter} from './adapter-lib.mjs'
 import {readJson, stableStringify, WebCoreError} from './core-lib.mjs'
 import {checkCapabilityDag, compileCapabilityDag} from './dag-lib.mjs'
-import {inspectExternalIngestion} from './ingestion-detection-lib.mjs'
 import {resolveProjectProfile} from './profile-lib.mjs'
 import {
   adapterCheckBindings,
   adapterSha256,
   projectProfileSha256,
+  resolveAdapterSelection,
   validateLockedExecutionPlan,
   validateLockedProfileProjectState,
   validateLockedProjectProfile,
@@ -63,7 +63,6 @@ for (const fixture of expected.profiles) {
     projectRoot: join(fixtureDirectory, fixture.fixture),
     requested: fixture.requested,
     adapters,
-    includeAncestorIngestion: false,
   })
   check(profile.profileId === fixture.expectedProfile, `${fixture.fixture} profile must resolve`)
   check(profile.resolution.source === fixture.expectedSource, `${fixture.fixture} resolution source must match`)
@@ -76,8 +75,7 @@ for (const fixture of expected.errors) {
       projectRoot: join(fixtureDirectory, fixture.fixture),
       requested: fixture.requested,
       adapters,
-      includeAncestorIngestion: false,
-    })
+      })
   } catch (error) {
     caught = error
   }
@@ -88,7 +86,6 @@ const defaultNextProfile = resolveProjectProfile({
   projectRoot: join(fixtureDirectory, 'projects/next-app'),
   requested: 'auto',
   adapters,
-  includeAncestorIngestion: false,
 })
 check(!defaultNextProfile.capabilities.includes('auth'), 'Next default profile must not enable authentication without a requirement')
 check(defaultNextProfile.risk.level === 'public', 'Next default profile risk must follow enabled capabilities')
@@ -116,7 +113,6 @@ const hybridProfile = resolveProjectProfile({
   projectRoot: join(fixtureDirectory, 'projects/react-vite-hybrid'),
   requested: 'auto',
   adapters,
-  includeAncestorIngestion: false,
 })
 check(hybridProfile.deployment.provider === 'vercel', 'hybrid profile must default to the vercel provider')
 check(hybridProfile.deployment.target === 'vercel-hybrid', 'hybrid profile must bind the vercel-hybrid target')
@@ -145,205 +141,15 @@ hybridPlan.profileBinding = {
 }
 check(validateLockedExecutionPlan(hybridPlan, lockedHybrid).sha256.length === 64, 'hybrid execution plan must validate and hash deterministically')
 
-const ingestionFixture = mkdtempSync(join(tmpdir(), 'web-harness-ingestion-profile-'))
-try {
-  mkdirSync(join(ingestionFixture, 'src'), {recursive: true})
-  mkdirSync(join(ingestionFixture, 'scripts'), {recursive: true})
-  mkdirSync(join(ingestionFixture, '_workspace/02_design'), {recursive: true})
-  writeFileSync(join(ingestionFixture, 'package.json'), `${JSON.stringify({
-    packageManager: 'pnpm@11.18.0',
-    engines: {node: '>=22.22.0'},
-    scripts: {crawl: 'tsx scripts/crawl.ts', 'validate:ingestion': 'node scripts/validate-ingestion.mjs'},
-    dependencies: {react: '19.1.1'},
-    devDependencies: {vite: '7.1.3'},
-  })}\n`)
-  writeFileSync(join(ingestionFixture, 'vite.config.ts'), 'export default {}\n')
-  writeFileSync(join(ingestionFixture, 'src/main.tsx'), 'export {}\n')
-  writeFileSync(join(ingestionFixture, 'scripts/crawl.ts'), 'export {}\n')
-  writeFileSync(join(ingestionFixture, '_workspace/02_design/ingestion-contract.md'), '# Ingestion Contract\n')
-  writeFileSync(join(ingestionFixture, '_workspace/02_design/runtime-data-contract.json'), `${JSON.stringify({
-    $schema: '.claude/schemas/runtime-data-contract.schema.json',
-    schemaVersion: 1,
-    mode: 'static-snapshot',
-    authoritativeSource: 'fixture-source',
-    buildCwd: '.',
-    deploymentRoot: '.',
-    generatedArtifacts: [{
-      path: 'public/data.json',
-      required: true,
-      schema: 'schemas/data.schema.json',
-      minCount: 1,
-      validation: {diff: {baselinePath: 'public/last-known-good.json', maximumCountDropRatio: 0.25}},
-    }],
-    freshnessSlo: 'PT24H',
-    promotionPolicy: 'reject-invalid',
-    servingFallback: 'last-known-good',
-    refreshCapabilities: ['manual-recovery', 'scheduled'],
-  })}\n`)
-
-  // 2026-08-27: 감지는 capability를 **강제하지 않는다**. 강제하면 오탐 하나가 릴리스를 영구히
-  // 막는다(실측: 이웃 repo 4개가 배포 알림·CDN 업로드로 강제 선택당했다). 대신 두 가지를 고정한다:
-  //   ① 감지 사실이 프로필에 **보고로 남는다** — 조용히 사라지지 않는다
-  //   ② 스팩이 선언하면 모든 ingestion 게이트가 **그대로** 발화한다
-  const detectedOnlyProfile = resolveProjectProfile({
-    projectRoot: ingestionFixture,
-    requested: 'auto',
-    deploymentProvider: 'vercel',
-    adapters,
-  })
-  check(detectedOnlyProfile.ingestion?.detected === true, 'detected ingestion must be reported on the profile')
-  check(
-    (detectedOnlyProfile.ingestion?.evidence ?? []).length > 0,
-    'ingestion report must carry the evidence that triggered it — silent detection is unusable at intake',
-  )
-  check(
-    !detectedOnlyProfile.capabilities.includes('external-ingestion'),
-    'detection alone must not lock a capability the spec never declared',
-  )
-
-  const ingestionProfile = resolveProjectProfile({
-    projectRoot: ingestionFixture,
-    requested: 'auto',
-    deploymentProvider: 'vercel',
-    capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion', 'scheduled-static-ingestion'],
-    adapters,
-  })
-  check(ingestionProfile.deployment.provider === 'vercel', 'Vercel provider must be locked separately from the runtime target')
-  check(ingestionProfile.deployment.target === 'static-cdn', 'Vercel React/Vite must retain the static-cdn runtime target')
-  check(ingestionProfile.capabilities.includes('external-ingestion'), 'declared ingestion must stay locked')
-  check(ingestionProfile.capabilities.includes('scheduled-static-ingestion'), 'scheduled static ingestion must lock its narrow capability')
-  const ingestionBindings = adapterCheckBindings({
-    adapter: loadBuiltinAdapter('react-vite-spa'),
-    deploymentProvider: ingestionProfile.deployment.provider,
-    deploymentTarget: ingestionProfile.deployment.target,
-    capabilities: ingestionProfile.capabilities,
-  })
-  check(ingestionBindings.some(binding => binding.receiptId === 'ingestion'), 'ingestion capability must require a machine receipt')
-
-  // 2026-08-27 계약 변경. 종전에는 "선언을 지우면 FAIL"이었다 — 감지가 진실의 기준이었기
-  // 때문이다. 이제 기준은 **선언**이므로 선언을 지우는 것은 사용자의 판정이며 허용된다.
-  //
-  // **약화 방향을 숨기지 않고 여기 고정한다**: 진짜로 수집하는 프로젝트가 capability를 지우면
-  // ingestion QA가 돌지 않는다. 그 대신 감지 사실은 프로필 보고에 남아 intake에서 되묻게 한다.
-  const downgradedProfile = JSON.parse(JSON.stringify(ingestionProfile))
-  downgradedProfile.capabilities = downgradedProfile.capabilities.filter(capability =>
-    !['external-ingestion', 'scheduled-static-ingestion'].includes(capability),
-  )
-  validateLockedProfileProjectState(validateLockedProjectProfile(downgradedProfile), ingestionFixture)
-  check(true, 'dropping the ingestion declaration is the spec owner\'s call, not a stale-profile error')
-
-  // 거울쪽은 그대로 강제한다: **켜 놓고 계약이 없으면** 모순이므로 FAIL이다.
-  const contractPath = join(ingestionFixture, '_workspace/02_design/ingestion-contract.md')
-  const contractBackup = readFileSync(contractPath, 'utf8')
-  rmSync(contractPath)
-  let declaredWithoutContract
+// 은퇴한 수집 capability는 어댑터 `provides`에 남아 있어도(어댑터 해시 보존) 선택하면 거절한다.
+{
+  let retired = null
   try {
-    validateLockedProfileProjectState(validateLockedProjectProfile(ingestionProfile), ingestionFixture)
+    resolveAdapterSelection({adapter: loadBuiltinAdapter('react-vite-spa'), capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion']})
   } catch (error) {
-    declaredWithoutContract = error
+    retired = error
   }
-  writeFileSync(contractPath, contractBackup)
-  check(
-    declaredWithoutContract instanceof WebCoreError &&
-      declaredWithoutContract.code === 'PROJECT_PROFILE_INGESTION_CONTRACT_STALE',
-    'declared ingestion capability without both contracts must still fail closed',
-  )
-
-  // 같은 계약 변경의 다른 얼굴: 명시 capability가 감지를 생략해도 더 이상 throw하지 않는다.
-  // 대신 **보고는 남는다** — 생략이 조용해지지 않게 하는 것이 이 계약의 지불 조건이다.
-  const omittedProfile = resolveProjectProfile({
-    projectRoot: ingestionFixture,
-    requested: 'react-vite-spa',
-    capabilities: ['client-routing', 'csr', 'static-build'],
-    adapters,
-  })
-  check(
-    !omittedProfile.capabilities.includes('external-ingestion'),
-    'explicit capabilities are the spec owner\'s declaration and are not widened by detection',
-  )
-  check(
-    omittedProfile.ingestion?.detected === true && (omittedProfile.ingestion?.evidence ?? []).length > 0,
-    'omitting the declaration must still leave the detection evidence on the profile',
-  )
-
-  // 계약을 지우고 **선언은 유지**하면 여전히 fail-close다 — 그것이 모순이기 때문이다.
-  // 반면 선언 없이 감지만 있으면 식별은 통과한다(보고만 남는다).
-  rmSync(join(ingestionFixture, '_workspace/02_design/runtime-data-contract.json'))
-  let missingIngestionContract
-  try {
-    resolveProjectProfile({
-      projectRoot: ingestionFixture,
-      requested: 'auto',
-      capabilities: ['client-routing', 'csr', 'static-build', 'external-ingestion'],
-      adapters,
-    })
-  } catch (error) {
-    missingIngestionContract = error
-  }
-  check(
-    missingIngestionContract instanceof WebCoreError && missingIngestionContract.code === 'INGESTION_CONTRACT_MISSING',
-    'declared ingestion without both contracts must fail closed',
-  )
-  const detectedOnlyAfterRemoval = resolveProjectProfile({projectRoot: ingestionFixture, requested: 'auto', adapters})
-  check(
-    detectedOnlyAfterRemoval.ingestion?.detected === true && detectedOnlyAfterRemoval.ingestion?.contractsComplete === false,
-    'detection without declaration resolves and reports incomplete contracts instead of blocking identity',
-  )
-} finally {
-  rmSync(ingestionFixture, {recursive: true, force: true})
-}
-
-const catalogRefreshFixture = mkdtempSync(join(tmpdir(), 'web-harness-catalog-refresh-'))
-try {
-  writeFileSync(join(catalogRefreshFixture, 'package.json'), `${JSON.stringify({
-    scripts: {'update:catalog': 'node tools/fetch-catalog.mjs'},
-  })}\n`)
-  const inspection = inspectExternalIngestion(catalogRefreshFixture)
-  check(
-    inspection.detected && inspection.evidence.includes('package-script:update:catalog'),
-    'catalog update/fetch scripts must not evade external ingestion detection',
-  )
-  writeFileSync(join(catalogRefreshFixture, 'package.json'), `${JSON.stringify({
-    scripts: {'pull:catalog': 'node tools/pull.mjs'},
-  })}\n`)
-  check(
-    inspectExternalIngestion(catalogRefreshFixture).evidence.includes('package-script:pull:catalog'),
-    'catalog pull scripts must not evade external ingestion detection',
-  )
-  mkdirSync(join(catalogRefreshFixture, 'tools'), {recursive: true})
-  writeFileSync(join(catalogRefreshFixture, 'tools/opaque.mjs'), "await fetch('https://example.invalid/catalog')\n")
-  writeFileSync(join(catalogRefreshFixture, 'package.json'), `${JSON.stringify({
-    scripts: {maintain: 'node tools/opaque.mjs'},
-  })}\n`)
-  check(
-    inspectExternalIngestion(catalogRefreshFixture).evidence.includes('network-source:tools/opaque.mjs'),
-    'bounded Node network sources must not rely only on ingestion naming heuristics',
-  )
-  mkdirSync(join(catalogRefreshFixture, 'jobs'), {recursive: true})
-  writeFileSync(join(catalogRefreshFixture, 'jobs/opaque.mjs'), "const request = globalThis.fetch; await request('https://example.invalid/catalog')\n")
-  check(
-    inspectExternalIngestion(catalogRefreshFixture).evidence.includes('network-source:jobs/opaque.mjs'),
-    'common first-party jobs and fetch aliases must be included in the bounded network scan',
-  )
-} finally {
-  rmSync(catalogRefreshFixture, {recursive: true, force: true})
-}
-
-const oversizedPackageFixture = mkdtempSync(join(tmpdir(), 'web-harness-oversized-package-'))
-try {
-  writeFileSync(join(oversizedPackageFixture, 'package.json'), `${JSON.stringify({
-    scripts: {'pull:catalog': 'node opaque.mjs'},
-    padding: 'x'.repeat(2 * 1024 * 1024),
-  })}\n`)
-  const inspection = inspectExternalIngestion(oversizedPackageFixture)
-  check(
-    inspection.detected &&
-      inspection.evidence.includes('uninspectable-package:package.json') &&
-      inspection.errors.length > 0,
-    'an oversized security-relevant package manifest must fail closed',
-  )
-} finally {
-  rmSync(oversizedPackageFixture, {recursive: true, force: true})
+  check(retired instanceof WebCoreError && retired.code === 'CAPABILITY_RETIRED', `retired ingestion capability must be refused: ${retired?.code}`)
 }
 
 // 워크스페이스 루트에서 강제 지정한 프로필의 요구 패키지가 멤버에만 있으면 잘못 잡은 루트다 — 잠그지 않는다.
@@ -365,103 +171,6 @@ try {
   check(greenfield?.code !== 'PROFILE_AT_WORKSPACE_ROOT', 'a root without members (pre-scaffold) must not be refused as a misplaced workspace lock')
 } finally {
   rmSync(workspaceRootFixture, {recursive: true, force: true})
-}
-
-// 소스 스캔은 코드 파일만 읽는다 — 코드가 아닌 파일로 가는 링크(CLAUDE.md → AGENTS.md)로 막지 않되,
-// 코드 확장자·디렉터리·깨진 링크는 내용을 확인할 수 없으므로 계속 fail-closed.
-const symlinkFixture = mkdtempSync(join(tmpdir(), 'web-harness-symlink-scan-'))
-try {
-  writeFileSync(join(symlinkFixture, 'package.json'), '{"name":"x","private":true}\n')
-  writeFileSync(join(symlinkFixture, 'AGENTS.md'), '# agents\n')
-  symlinkSync('AGENTS.md', join(symlinkFixture, 'CLAUDE.md'))
-  const documentLink = inspectExternalIngestion(symlinkFixture, {includeAncestorRepositories: false})
-  check(!documentLink.evidence.some(item => item.startsWith('uninspectable-')), `a non-code document link must not block the scan: ${documentLink.evidence}`)
-  mkdirSync(join(symlinkFixture, 'real-src'))
-  writeFileSync(join(symlinkFixture, 'real-src/fetcher.ts'), 'export const x = 1\n')
-  symlinkSync('real-src/fetcher.ts', join(symlinkFixture, 'linked.ts'))
-  symlinkSync('real-src', join(symlinkFixture, 'linked-dir'))
-  symlinkSync('missing.md', join(symlinkFixture, 'broken.md'))
-  const codeLinks = inspectExternalIngestion(symlinkFixture, {includeAncestorRepositories: false}).evidence
-  for (const name of ['linked.ts', 'linked-dir', 'broken.md']) {
-    check(codeLinks.includes(`uninspectable-source:${name}`), `a ${name} link must stay uninspectable: ${codeLinks}`)
-  }
-} finally {
-  rmSync(symlinkFixture, {recursive: true, force: true})
-}
-
-const splitRootFixture = mkdtempSync(join(tmpdir(), 'web-harness-split-root-'))
-try {
-  mkdirSync(join(splitRootFixture, '.git'))
-  writeFileSync(join(splitRootFixture, '.git/HEAD'), 'ref: refs/heads/main\n')
-  writeFileSync(join(splitRootFixture, '.git/config'), '[core]\n\trepositoryformatversion = 0\n')
-  mkdirSync(join(splitRootFixture, 'client'))
-  writeFileSync(join(splitRootFixture, 'package.json'), `${JSON.stringify({
-    scripts: {'pull:catalog': 'node tools/pull.mjs'},
-  })}\n`)
-  writeFileSync(join(splitRootFixture, 'client/package.json'), '{}\n')
-  const splitInspection = inspectExternalIngestion(join(splitRootFixture, 'client'))
-  check(
-    splitInspection.errors.some(error => error.includes('above the selected project root')),
-    'a nested app must not hide ancestor ingestion from the canonical release boundary',
-  )
-  mkdirSync(join(splitRootFixture, 'client/.git'))
-  check(
-    inspectExternalIngestion(join(splitRootFixture, 'client')).errors.some(error => error.includes('above the selected project root')),
-    'an untrusted nested .git marker must not suppress ancestor ingestion detection',
-  )
-  mkdirSync(join(splitRootFixture, 'apps/.claude/web'), {recursive: true})
-  writeFileSync(join(splitRootFixture, 'apps/.claude/web/package.json'), '{}\n')
-  check(
-    inspectExternalIngestion(join(splitRootFixture, 'apps/.claude/web')).errors.some(error => error.includes('above the selected project root')),
-    'a path segment named .claude must not disable ancestor ingestion inspection',
-  )
-  // 사촌 프로젝트 오탐 회귀(결함 11호): 자체 _workspace를 가진 형제 하니스 프로젝트의
-  // crawler는 ancestor 증거가 아니다 — split-root(위 케이스, ancestor 자신의 package.json
-  // 스크립트)는 계속 잡히면서 사촌만 제외되는지 두 방향 모두 고정한다.
-  const cousinFixture = mkdtempSync(join(tmpdir(), 'web-harness-cousin-'))
-  try {
-    mkdirSync(join(cousinFixture, '.git'))
-    writeFileSync(join(cousinFixture, '.git/HEAD'), 'ref: refs/heads/main\n')
-    writeFileSync(join(cousinFixture, '.git/config'), '[core]\n\trepositoryformatversion = 0\n')
-    mkdirSync(join(cousinFixture, 'workspace/clean-app/_workspace/01_plan'), {recursive: true})
-    writeFileSync(join(cousinFixture, 'workspace/clean-app/package.json'), '{}\n')
-    mkdirSync(join(cousinFixture, 'workspace/other-pilot/_workspace/01_plan'), {recursive: true})
-    mkdirSync(join(cousinFixture, 'workspace/other-pilot/lib'), {recursive: true})
-    writeFileSync(join(cousinFixture, 'workspace/other-pilot/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
-    const cousinInspection = inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app'))
-    check(
-      !cousinInspection.errors.some(error => error.includes('above the selected project root')),
-      'a sibling harness project (own _workspace) must not count as ancestor ingestion evidence',
-    )
-    // 같은 crawler가 _workspace 없는 wrapper 패키지에 있으면 여전히 잡힌다 (split-root 방어 불변)
-    mkdirSync(join(cousinFixture, 'workspace/raw-crawler-pkg/lib'), {recursive: true})
-    writeFileSync(join(cousinFixture, 'workspace/raw-crawler-pkg/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
-    check(
-      inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app')).errors.some(error => error.includes('above the selected project root')),
-      'a wrapper crawler package without _workspace must still count as ancestor ingestion evidence',
-    )
-    // 우회 시드(리뷰 HIGH 고정): 빈 `_workspace/` 위장으로는 실제 조상 ingestion을 가릴 수 없다
-    rmSync(join(cousinFixture, 'workspace/raw-crawler-pkg'), {recursive: true, force: true})
-    mkdirSync(join(cousinFixture, 'workspace/decoy-crawler/_workspace'), {recursive: true})
-    mkdirSync(join(cousinFixture, 'workspace/decoy-crawler/lib'), {recursive: true})
-    writeFileSync(join(cousinFixture, 'workspace/decoy-crawler/lib/crawler.ts'), 'export const crawl = () => fetch("https://example.test/feed")\n')
-    check(
-      inspectExternalIngestion(join(cousinFixture, 'workspace/clean-app')).errors.some(error => error.includes('above the selected project root')),
-      'an empty _workspace decoy must not hide ancestor ingestion evidence',
-    )
-  } finally {
-    rmSync(cousinFixture, {recursive: true, force: true})
-  }
-
-  const aliasContainer = mkdtempSync(join(tmpdir(), 'web-harness-split-root-alias-'))
-  symlinkSync(join(splitRootFixture, 'client'), join(aliasContainer, 'client'))
-  check(
-    inspectExternalIngestion(join(aliasContainer, 'client')).errors.some(error => error.includes('above the selected project root')),
-    'a symlink alias must be canonicalized before ancestor ingestion inspection',
-  )
-  rmSync(aliasContainer, {recursive: true, force: true})
-} finally {
-  rmSync(splitRootFixture, {recursive: true, force: true})
 }
 
 // 2026-08-27: 어댑터가 `commands`를 선언하지 않으므로 "선언에 shell이 섞이는" 표면 자체가 없다.
@@ -535,7 +244,6 @@ try {
     requested: 'next-app-fullstack',
     deploymentTarget: 'static-export',
     adapters,
-    includeAncestorIngestion: false,
   })
 } catch (error) {
   staticConflict = error
@@ -549,7 +257,6 @@ try {
     deploymentProvider: 'vercel',
     deploymentTarget: 'docker-standalone',
     adapters,
-    includeAncestorIngestion: false,
   })
 } catch (error) {
   providerConflict = error
@@ -565,7 +272,6 @@ const staticProfile = resolveProjectProfile({
   deploymentTarget: 'static-export',
   capabilities: ['app-router', 'rsc', 'ssg', 'static-get-route-handler'],
   adapters,
-  includeAncestorIngestion: false,
 })
 check(staticProfile.deployment.releaseTarget === 'release.static-export', 'static profile must bind its release target')
 const staticBindings = adapterCheckBindings({

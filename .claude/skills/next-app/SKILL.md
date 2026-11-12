@@ -31,7 +31,7 @@ metadata:
    ```bash
    node .claude/scripts/web-core/compile-execution-plan.mjs --profile-file _workspace/01_plan/project-profile.json
    ```
-6. crawler, scheduled sync 또는 generated runtime artifact가 감지되면 두 ingestion 계약과 locked `external-ingestion` capability가 없을 때 중단한다. `static-snapshot`+scheduled이면 `scheduled-static-ingestion`도 필수다.
+6. 외부 데이터 수집 capability(`external-ingestion`·`scheduled-static-ingestion`)는 은퇴했다 — resolver가 `CAPABILITY_RETIRED`로 거절한다.
 
 ## 2. Apply scope hard stops
 
@@ -78,9 +78,9 @@ environment matrix의 public build 변수 이름만 다음 machine contract에�
    - package metadata가 완성되면 같은 deployment/capabilities로 profile resolver를 다시 실행하고 canonical `web-execution-plan.json`을 다시 컴파일한다. 초기 scaffold profile digest를 quality 단계에 재사용하지 않는다.
 2. `environment-scaffolder`에게 config/tooling 기반만 맡기되 **Next 계약으로 스폰한다** — Vite 전용 설정(`vite.config.ts`·Vite 플러그인·Vite 전용 test 설정)을 Next 경로에 만들지 않는다.
 3. `developer`에게 App Router source를 맡긴다. Server Component를 기본으로 하고 client boundary, handler/action authorization, private env, cache 계약을 지킨다.
-4. locked capability에 `external-ingestion`이 있으면 `developer`에게 두 ingestion 계약을 전달하고 runtime schema, quality validation, atomic promotion과 last-known-good만 맡긴다. Next route/runtime가 crawler output shape를 추론하게 하지 않는다.
-5. 기존 `environment-scaffolder`, `developer`에게 six matrices와 Next adapter 계약을 함께 전달한다. external ingestion이면 deterministic empty/drift/partial/count-drop/LKG fixture도 전달한다. production source를 테스트에 맞춰 수정하게 하지 않는다.
-6. 배포 산출물이 요구되면 `environment-scaffolder`에게 deployment matrix와 immutable artifact/rollback 계약을 전달한다. `scheduled-static-ingestion`이면 refresh workflow를, provider가 Vercel이면 root/app `vercel.json`을 같은 에이전트에게 **별도 스폰**으로 맡긴다 — 산출물이 다르므로 스폰을 나눈다.
+4. 외부 데이터 수집이 있으면 Next route/runtime이 crawler output shape를 추론하게 하지 않고 runtime schema로 경계를 둔다.
+5. 기존 `environment-scaffolder`, `developer`에게 six matrices와 Next adapter 계약을 함께 전달한다. production source를 테스트에 맞춰 수정하게 하지 않는다.
+6. 배포 산출물이 요구되면 `environment-scaffolder`에게 deployment matrix와 immutable artifact/rollback 계약을 전달한다. provider가 Vercel이면 root/app `vercel.json`을 같은 에이전트에게 **별도 스폰**으로 맡긴다 — 산출물이 다르므로 스폰을 나눈다.
 
 Writable agent는 Bash를 사용하지 않는다. 각 구현 agent의 완료는 파일/계약 작성 완료만 뜻한다. build, test, deploy가 실행됐거나 통과했다고 말하지 않는다.
 
@@ -92,7 +92,7 @@ Writable agent는 Bash를 사용하지 않는다. 각 구현 agent의 완료는 
    ```bash
    node .claude/scripts/run-quality-gates.mjs --all --project {project-root} --allow-host-execution
    ```
-2. release 후보는 격리 CI에서 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all --project {project-root}`로 receipt를 다시 만든다. `external-ingestion`에서는 built-in semantic validation을 포함한 `ingestion` receipt가 같은 cohort에 없으면 중단한다. checkout 밖의 protected trust digest와 CI provenance를 주입하고, `prepare-quality-attestation.mjs`의 unsigned request를 project 밖의 trusted attester가 CI/OIDC·격리·frozen install과 독립 대조한다. 일치할 때만 final subject를 구성·서명해 `quality-attestation.json`을 작성한다. 로컬 receipt와 environment flag만으로는 격리를 증명하지 않는다. `docker-standalone`은 typed OCI digest broker가 없으므로 profile resolution에서 `BLOCKED`다.
+2. release 후보는 격리 CI에서 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all --project {project-root}`로 receipt를 다시 만든다. checkout 밖의 protected trust digest와 CI provenance를 주입하고, `prepare-quality-attestation.mjs`의 unsigned request를 project 밖의 trusted attester가 CI/OIDC·격리·frozen install과 독립 대조한다. 일치할 때만 final subject를 구성·서명해 `quality-attestation.json`을 작성한다. 로컬 receipt와 environment flag만으로는 격리를 증명하지 않는다. `docker-standalone`은 typed OCI digest broker가 없으므로 profile resolution에서 `BLOCKED`다.
 3. 서명 완료 후 `node .claude/scripts/web-core/validate-next-contracts.mjs --project {project-root}`의 machine result를 확인한다. 그 다음 `next-contract-verifier`를 호출해 profile, matrices, source, build artifact, receipt freshness, attestation, secret/auth/cache/deployment hard stop을 읽기 전용으로 판정하고 반환 본문을 `_workspace/04_qa/qa-next-contract.md`에 저장한다.
 4. verifier의 Markdown 문구를 machine receipt로 사용하지 않는다. 실행하지 않은 command, 없는 runtime, 누락된 golden fixture를 PASS로 기록하지 않는다.
 5. adapter 전용 receipt, trusted attestation 또는 production golden evidence가 아직 없으면 구현 결과를 `COMPATIBLE_IMPLEMENTED`로 보고하되 release/certification은 `BLOCKED`로 유지한다.

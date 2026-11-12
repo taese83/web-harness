@@ -33,7 +33,7 @@ Phase 1 산출물을 독립적으로 검토하고 `_workspace/01_plan/plan-revie
 - `mock | dev-read-only | real-read-only | production-integration-later` 선택, 안전 경계, Mock→real 전환
 - S/M/L/XL driver, `invest | reduce | split`, 최소 가시적 검토 단위
 - requirement → FEAT → evidence traceability — 고아 Must REQ, FEAT가 0개인 Page Group, Primary 3개 초과 화면(`.claude/skills/web-plan/references/design-readiness-contract.md`) — 위반은 `NEEDS_DECISION`
-- **동작 명세·test case의 품질** (같은 계약 §3-1): test case가 관찰 가능한 결과로 쓰였고 정상·실패·경계를 포함하는가, requirements의 Must AC와 trace되는가(발명이 아니라 재사용), LOCAL_DOMAIN_STATE면 불변식이 test case로 표현됐는가 — 존재 여부는 기계(`acceptance`)가 본다
+- **동작 명세·test case의 품질** (같은 계약 §3-1): test case가 관찰 가능한 결과로 쓰였고 정상·실패·경계를 포함하는가, requirements의 Must AC와 trace되는가(발명이 아니라 재사용), 브라우저 저장소가 정본이면 불변식이 test case로 표현됐는가 — 존재 여부는 기계(`acceptance`)가 본다
 - **plan history** (`.claude/skills/web-plan/references/plan-history-contract.md`): 재실행·다듬기 라운드에서 기획 문서가 바뀌었는데 대응 `PC-NNN` 엔트리가 없거나, 기존 엔트리가 수정·삭제됐거나(append-only 위반), REQ/FEAT ID가 재사용·불연속이면 지적
 
 ## 문서 간 정합
@@ -41,8 +41,7 @@ Phase 1 산출물을 독립적으로 검토하고 `_workspace/01_plan/plan-revie
 requirements·ux-brief·feature-plan·tech-stack을 교차해 본다. 동일 근거로 풀리는 표현 차이는 지적하지 않는다.
 
 - 사용자 목표·범위·데이터·권한이 문서끼리 충돌하면 `NEEDS_DECISION | BLOCKED`로 둔다 — 한쪽을 골라 해소하지 않는다.
-- crawler/scheduled sync/generated artifact가 있는데 requirements 또는 tech-stack에 `EXTERNAL_DATA_INGESTION_MODE`, 수집 계약의 선행 조건, `external-ingestion` capability가 빠졌으면 `BLOCKED`다.
-- external ingestion의 SLO·`ASSUMPTION`·`BLOCKER`가 문서끼리 어긋나면 `NEEDS_DECISION`이다.
+- crawler/scheduled sync/generated artifact가 있는데 source 사용 권한이 없거나 하네스 범위 밖 한계가 Open Decisions에 없으면 `NEEDS_DECISION`이다.
 
 ## 판정
 

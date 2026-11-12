@@ -25,13 +25,6 @@ import {tmpdir} from 'node:os'
 import {delimiter, dirname, join, relative, resolve, sep} from 'node:path'
 import {computeSourceFingerprint, listSourceFiles, sha256} from './evidence-lib.mjs'
 import {collectDeploymentArtifacts} from './artifact-inventory-lib.mjs'
-import {validateStaticRuntimeDataDeployment} from './runtime-data-deployment-lib.mjs'
-import {
-  INGESTION_RECEIPT_ID,
-  ingestionReceiptEvidence,
-  readRuntimeDataContract,
-  validateRuntimeDataArtifacts,
-} from './runtime-data-contract-lib.mjs'
 import {
   analyzePackageScript,
   cleanProfileBuildArtifacts,
@@ -50,7 +43,6 @@ import {
   validateLockedProfileProjectState,
 } from './web-core/profile-policy-lib.mjs'
 import {workspaceMembersDeclaring} from './web-core/profile-lib.mjs'
-import {EXTERNAL_INGESTION_CAPABILITY, inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
 import {validateVercelProjectConfig} from './web-core/vercel-config-lib.mjs'
 import {
   parseTrustedPromotionActions,
@@ -72,13 +64,6 @@ const BASE_CHECKS = new Map([
 const DIAGNOSTIC_CHECKS = new Map([
   ['deadcode', {scripts: ['deadcode'], timeoutMs: 300_000}],
 ])
-const FALLBACK_INGESTION_CHECK = {
-  scripts: ['validate:ingestion'],
-  requiredScript: 'validate:ingestion',
-  receiptId: INGESTION_RECEIPT_ID,
-  kind: 'contract',
-  timeoutMs: 600_000,
-}
 const GRANT_NOTE = '되돌리려면 _workspace/03_dev/host-execution-grant.json 삭제'
 const args = process.argv.slice(2)
 // 사용법은 여기서 답한다 — 소스를 읽어 옵션을 알아내게 하지 않는다. 프로젝트 코드는 아무것도 실행하지 않는다.
@@ -400,49 +385,7 @@ if (existsSync(projectProfilePath)) {
     if (!profileLockIgnored) process.exit(2)
   }
 }
-const ingestionInspection = inspectExternalIngestion(projectRoot)
-if (ingestionInspection.errors.length) {
-  process.stderr.write(`Invalid external ingestion declaration: ${ingestionInspection.errors.join('; ')}\n`)
-  process.exit(2)
-}
-// 수집 QA는 **감지가 아니라 선언**에 걸린다 — 프로필 해석과 같은 규칙(protected-core §4). 선언 = 잠긴 프로필이
-// external-ingestion을 켰거나 계약 파일이 하나라도 있다. 선언했는데 계약이 모자라면 막는다. 감지만 되고 선언이 없으면
-// 수집 QA는 돌지 않는다(I2 약화 방향, 명시) — 그 사실을 알리고 영수증에 남긴다.
-const ingestionDeclared =
-  lockedProfile?.selection.selectedCapabilities.includes(EXTERNAL_INGESTION_CAPABILITY) === true ||
-  ['_workspace/02_design/ingestion-contract.md', '_workspace/02_design/runtime-data-contract.json']
-    .some(path => existsSync(join(projectRoot, path)))
-if (ingestionDeclared && !ingestionInspection.contractsComplete) {
-  process.stderr.write(
-    'Declared external ingestion requires both _workspace/02_design/ingestion-contract.md and ' +
-    '_workspace/02_design/runtime-data-contract.json.\n',
-  )
-  process.exit(2)
-}
-if (ingestionInspection.detected && !ingestionDeclared) {
-  process.stderr.write(
-    `External ingestion markers detected but not declared — ingestion QA does not run (${ingestionInspection.evidence.join(', ')}). ` +
-    'If the project ingests external data, declare the external-ingestion capability.\n',
-  )
-}
-let runtimeDataContract = null
-let generatedArtifactPaths = []
-if (ingestionInspection.contractsComplete) {
-  try {
-    runtimeDataContract = readRuntimeDataContract(projectRoot, {
-      mutableArtifactRoots: lockedProfile?.selection.artifacts.map(artifact => artifact.path) ?? [],
-    })
-    generatedArtifactPaths = runtimeDataContract.contract.generatedArtifacts.map(artifact => artifact.path)
-  } catch (error) {
-    process.stderr.write(`Invalid runtime data contract: ${error instanceof Error ? error.message : String(error)}\n`)
-    process.exit(2)
-  }
-}
-const vercelConfigValidation = validateVercelProjectConfig({
-  projectRoot,
-  lockedProfile,
-  runtimeDataContract,
-})
+const vercelConfigValidation = validateVercelProjectConfig({projectRoot, lockedProfile})
 if (!vercelConfigValidation.ok) {
   process.stderr.write(`Vercel project configuration validation failed: ${vercelConfigValidation.errors.join('; ')}\n`)
   process.exit(2)
@@ -452,10 +395,6 @@ try {
   trustedPromotionActions = parseTrustedPromotionActions(process.env.WEB_HARNESS_TRUSTED_PROMOTION_ACTIONS)
 } catch (error) {
   process.stderr.write(`Invalid protected promotion policy: ${error instanceof Error ? error.message : String(error)}\n`)
-  process.exit(2)
-}
-if (runtimeDataContract?.contract.refreshCapabilities.includes('scheduled') && trustedPromotionActions.length === 0) {
-  process.stderr.write('Scheduled ingestion requires WEB_HARNESS_TRUSTED_PROMOTION_ACTIONS from protected CI configuration.\n')
   process.exit(2)
 }
 const trustedPromotionActionsSha256 = sha256(JSON.stringify(trustedPromotionActions))
@@ -470,7 +409,7 @@ try {
     repositoryRoot: projectRoot,
     manifest: {
       schemaVersion: 1,
-      projects: [{root: '.', generatedPaths: generatedArtifactPaths, trustedPromotionActions}],
+      projects: [{root: '.', generatedPaths: [], trustedPromotionActions}],
     },
     pass: () => {},
     fail: message => workflowPolicyErrors.push(message),
@@ -510,9 +449,6 @@ if (workflowPolicyErrors.length) {
   process.exit(2)
 }
 const checks = new Map([...BASE_CHECKS, ...DIAGNOSTIC_CHECKS, ...adapterChecks])
-if (runtimeDataContract && !checks.has(INGESTION_RECEIPT_ID)) {
-  checks.set(INGESTION_RECEIPT_ID, FALLBACK_INGESTION_CHECK)
-}
 if (!runAll && !checks.has(selectedCheck)) {
   process.stderr.write(`Unknown quality check: ${selectedCheck ?? '<missing>'}\n`)
   process.exit(2)
@@ -734,8 +670,6 @@ const executeCheck = (id, definition) => {
   let status = 'PASS'
   let blockedReason = null
   let cleanBuildArtifacts = []
-  let ingestionValidation = null
-  let runtimeDataDeploymentValidation = null
   if (engineSatisfied === false) {
     status = 'BLOCKED'
     blockedReason = `Current Node ${nodeVersion} does not satisfy engines.node ${packageJson.engines.node}`
@@ -798,16 +732,6 @@ const executeCheck = (id, definition) => {
     }
   }
 
-  if (receiptId === INGESTION_RECEIPT_ID) {
-    ingestionValidation = validateRuntimeDataArtifacts(projectRoot, {
-      mutableArtifactRoots: lockedProfile?.selection.artifacts.map(artifact => artifact.path) ?? [],
-    })
-    if (!ingestionValidation.ok) {
-      status = 'FAIL'
-      blockedReason = `Runtime data artifact validation failed: ${ingestionValidation.errors.join('; ')}`
-    }
-  }
-
   const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000
   const sourceFingerprintAfter = computeSourceFingerprint(projectRoot, {excludePaths: sourceExclusions})
   const protectedSourceFingerprintAfter = computeSourceFingerprint(projectRoot, {
@@ -835,16 +759,6 @@ const executeCheck = (id, definition) => {
   if (status !== 'BLOCKED' && visualEvidenceAfter?.required && visualEvidenceAfter.errors.length > 0) {
     status = 'FAIL'
     blockedReason = `Visual evidence validation failed: ${visualEvidenceAfter.errors.join('; ')}`
-  }
-  if (definition.kind === 'build' && runtimeDataContract) {
-    runtimeDataDeploymentValidation = validateStaticRuntimeDataDeployment({
-      projectRoot,
-      lockedProfile,
-    })
-    if (!runtimeDataDeploymentValidation.ok) {
-      status = 'FAIL'
-      blockedReason = `Static runtime data deployment validation failed: ${runtimeDataDeploymentValidation.errors.join('; ')}`
-    }
   }
   if (sourceMutationDetected) {
     status = 'FAIL'
@@ -894,8 +808,6 @@ const executeCheck = (id, definition) => {
     cwd: '.',
     // 프로젝트 패키지 설정의 키 분류만 남긴다 — 값·해시·원래 키 이름(사내 호스트)은 싣지 않는다.
     packageConfig: packageConfig.files.map(file => ({kind: file.kind, classes: file.classes})),
-    // 감지됐지만 선언되지 않은 수집은 게이트가 아니라 보고다 — 사라지지 않게 영수증에 남긴다.
-    ingestionReadiness: {detected: ingestionInspection.detected, declared: ingestionDeclared, evidence: ingestionInspection.evidence},
     // 개발 게이트에서 인수된 워크플로 finding — 이 영수증은 single run이라 배포 증거가 될 수 없다.
     workflowSecurityAccepted: acceptedWorkflowFindings.map(({workflowPath, code, line}) => ({path: workflowPath, code, line})),
     // 개발 게이트가 낡은 루트 잠금을 건너뛰고 기본 검사로 돌았다 — 어댑터 검사가 빠졌다는 사실을 남긴다.
@@ -925,8 +837,6 @@ const executeCheck = (id, definition) => {
     artifactInventoryBefore: artifactInventoryBefore.artifacts,
     artifactInventoryAfter: artifactInventoryAfter.artifacts,
     cleanBuildArtifacts,
-    ...(ingestionValidation ? {ingestionValidation: ingestionReceiptEvidence(ingestionValidation)} : {}),
-    ...(runtimeDataDeploymentValidation?.applicable ? {runtimeDataDeploymentValidation} : {}),
     ...(visualEvidenceAfter?.required ? {visualEvidence: visualEvidenceAfter} : {}),
     exitCode: Number.isInteger(result?.status) ? result.status : null,
     signal: result?.signal ?? null,
@@ -987,19 +897,6 @@ let selectedEntries = runAll
       ]
     : [...BASE_CHECKS]
   : [[selectedCheck, checks.get(selectedCheck)]]
-if (
-  runAll &&
-  runtimeDataContract &&
-  !selectedEntries.some(([id, definition]) => (definition.receiptId ?? id) === INGESTION_RECEIPT_ID)
-) {
-  selectedEntries.push([INGESTION_RECEIPT_ID, FALLBACK_INGESTION_CHECK])
-}
-if (runAll) {
-  const ingestionIndex = selectedEntries.findIndex(
-    ([id, definition]) => (definition.receiptId ?? id) === INGESTION_RECEIPT_ID,
-  )
-  if (ingestionIndex >= 0) selectedEntries.push(...selectedEntries.splice(ingestionIndex, 1))
-}
 const qualityCohortId = randomUUID()
 const failureLocations = []
 const receipts = selectedEntries.map(([id, definition]) => executeCheck(id, definition))

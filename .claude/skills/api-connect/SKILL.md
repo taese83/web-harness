@@ -41,10 +41,10 @@ OpenAPI가 입력되거나 발견되면 `references/openapi-adoption-contract.md
 6. real mode에서는 MSW 핸들러를 `bypass`한다. Mock mode 유지가 요구되면 삭제하지 않고 선택 endpoint의 동일 request/response/error contract로 갱신한다
 7. 실제 API 호출 테스트
 8. realtime stream(WebSocket/SSE)이 있으면 snapshot과 realtime transport를 함께 전환한다
-9. `runtime-data-contract.json`이 있거나 static snapshot에서 live API로 전환하면 `external-data-ingestion.md`를 읽는다. `ingestion-contract-designer`가 current mode, authoritative source, source precedence, freshness/fallback, build/deployment 계약을 먼저 갱신한다
+9. 빌드에 번들된 정적 데이터에서 live API로 전환하면 두 경로가 함께 남지 않게 정적 데이터 생성·소비 경로를 정리하고, 어느 쪽이 authoritative인지 README와 runtime consumer에 맞춘다
 10. 응답은 `unknown`에서 runtime schema로 parse하고 query cancellation `AbortSignal`을 실제 client까지 전달한다
 11. 변경 후 `developer`가 success/empty/malformed/timeout/auth/schema drift fixture를 보강하고 사용자 승인 후 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다
-12. `api-contract-verifier`와 조건부 `data-quality-verifier`는 read-only로 판정한다. source 변경 뒤 기존 receipt/manifest를 재사용하지 않고 release 전 `.claude/skills/web-verify/SKILL.md`의 절차로 다시 검증한다
+12. `api-contract-verifier`는 read-only로 판정한다. source 변경 뒤 기존 receipt/manifest를 재사용하지 않고 release 전 `.claude/skills/web-verify/SKILL.md`의 절차로 다시 검증한다
 13. 기존 generator가 없을 때만 orval/openapi-typescript/manual-types 중 하나를 제안한다. generator 도입과 dependency 변경은 사용자 확인 후 진행한다.
 
 실제 API 인증 정보, prod API, 데이터 변경이 필요한 요청은 실행 전에 확인한다. 읽기 전용 dev API 확인은 사용자가 제공한 엔드포인트와 인증 방식이 명확할 때만 진행한다.

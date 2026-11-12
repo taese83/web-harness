@@ -2,11 +2,6 @@ import {existsSync, lstatSync, readFileSync, readdirSync} from 'node:fs'
 import {isAbsolute, join, relative, resolve, sep} from 'node:path'
 import {loadBuiltinAdapters} from './adapter-lib.mjs'
 import {readJson, sortedUnique, WebCoreError} from './core-lib.mjs'
-import {
-  EXTERNAL_INGESTION_CAPABILITY,
-  inspectExternalIngestion,
-  SCHEDULED_STATIC_INGESTION_CAPABILITY,
-} from './ingestion-detection-lib.mjs'
 import {adapterSha256, resolveAdapterSelection} from './profile-policy-lib.mjs'
 
 const packageNames = packageJson => sortedUnique(
@@ -190,7 +185,6 @@ export const resolveProjectProfile = ({
   deploymentTarget,
   capabilities,
   adapters = loadBuiltinAdapters(),
-  includeAncestorIngestion = true,
 }) => {
   if (!projectRoot) throw new WebCoreError('PROJECT_ROOT_REQUIRED', '--project-root is required')
   const project = inspectProject(projectRoot)
@@ -243,58 +237,6 @@ export const resolveProjectProfile = ({
         {missing, members})
     }
   }
-  const ingestion = inspectExternalIngestion(project.root, {
-    includeAncestorRepositories: includeAncestorIngestion,
-  })
-  // 감지 결과가 **식별을 막지 않는다**(2026-08-27). "이 프로젝트가 무엇인가"와 "빌드할 준비가
-  // 됐는가"는 다른 질문이다. 종전에는 둘이 한 지점에 묶여 있어, 배포 알림 하나로 프로필 해석
-  // 자체가 실패했다 — 실측: 이웃 repo 5개 중 4개가 여기서 막혔고 원인이 전부
-  // `scripts/deploy.js`류의 **나가는 호출**이었다(`fetch(url,{method:'POST',body})`,
-  // CDN 업로드, Jira/Slack 알림).
-  //
-  // 감지 강도는 **그대로 둔다** — 좁히면 진짜 수집을 놓친다(I2).
-  //
-  // **게이트는 어디로 갔나**: 식별 → 릴리스. `ingestion.detected`이면 아래에서
-  // `external-ingestion` capability가 여전히 강제 선택되고(이 코드는 바뀌지 않았다),
-  // 그 capability가 세 곳에서 발화한다:
-  //   · run-quality-gates      — `ingestion.validate` receipt 요구(shape-checks, requires)
-  //   · release-report-policy  — `qa-data-quality.md` 리포트 요구
-  //   · release-gate-lib       — Vercel static ingestion 릴리스 차단
-  // 계약이 없으면 **릴리스가 막힌다**. 통과하는 것은 식별뿐이다.
-  //
-  // `ingestionReadiness`는 게이트가 아니라 **보고**다 — 왜 그렇게 판정됐는지 프로필에 남긴다.
-  // 게이트 노릇을 하는 필드를 여기 두면 실제로 강제되지 않는 가짜 게이트가 된다.
-  const ingestionReadiness = {
-    detected: ingestion.detected,
-    contractsComplete: ingestion.contractsComplete,
-    evidence: ingestion.evidence,
-    inspectionErrors: ingestion.errors,
-  }
-  const requestedIngestion = capabilities?.some(capability =>
-    [EXTERNAL_INGESTION_CAPABILITY, SCHEDULED_STATIC_INGESTION_CAPABILITY].includes(capability),
-  ) === true
-  // 사용자가 ingestion capability를 **명시적으로 요청**했는데 계약이 없으면 그건 모순이므로
-  // 여전히 fail-close한다 — 자기가 켠 것을 뒷받침하지 않는 상태다. 감지만으로는 막지 않는다.
-  if (requestedIngestion && !ingestion.contractsComplete) {
-    throw new WebCoreError(
-      'INGESTION_CONTRACT_MISSING',
-      'Requested external ingestion capability requires both ingestion-contract.md and runtime-data-contract.json',
-      {evidence: ingestion.evidence},
-    )
-  }
-  // 감지는 **capability를 강제하지 않는다**(2026-08-27). 강제하면 오탐 하나가 그 프로젝트의
-  // 릴리스를 영구히 막는다 — 실측: 이웃 repo 4개가 배포 알림·CDN 업로드·Jira 조회 때문에
-  // `external-ingestion`을 강제 선택당하고, 그 capability는 `ingestion.validate` receipt와
-  // `qa-data-quality.md`를 요구하는데 그 프로젝트엔 `validate:ingestion` script가 없다.
-  // 만족시킬 수 없는 요구는 게이트가 아니라 벽이다.
-  //
-  // 능력은 스팩이 확정한다 — 형태(무엇을 만드는가)와 능력(무엇을 켰는가)을 가르는 같은 원칙이다.
-  // 선언하면 아래 세 게이트가 **전부 그대로** 발화한다: `ingestion.validate` receipt ·
-  // `qa-data-quality.md` · Vercel static ingestion 릴리스 차단.
-  //
-  // **약화 방향 표기(I2)**: 진짜로 수집하는데 선언하지 않으면 ingestion QA가 돌지 않는다.
-  // 그래서 감지 결과를 `ingestionReadiness`로 프로필에 **크게 남긴다** — 오케스트레이터가
-  // intake에서 물어야 할 근거다. 조용히 사라지지 않는다. protected-core §4 등록.
   const selectedCapabilities = capabilities
   const selection = resolveAdapterSelection({
     adapter,
@@ -316,7 +258,7 @@ export const resolveProjectProfile = ({
       source,
       requested: requested === 'auto' ? null : requested,
       detected: detected?.id ?? null,
-      evidence: sortedUnique([...(detected?.evidence ?? []), ...ingestion.evidence]),
+      evidence: sortedUnique(detected?.evidence ?? []),
     },
     adapter: {
       id: adapter.id,
@@ -325,10 +267,6 @@ export const resolveProjectProfile = ({
       supportLevel: adapter.supportLevel,
       trustTier: adapter.trust.tier,
     },
-    // 감지 결과를 프로필에 남긴다 — 게이트가 아니라 **근거**다. 오케스트레이터가 intake에서
-    // "이 프로젝트가 외부 데이터를 수집하나요?"를 물어야 할 자리이며, 사용자가 그렇다고 하면
-    // `external-ingestion` capability를 선언하고 그때 모든 ingestion 게이트가 발화한다.
-    ingestion: ingestionReadiness,
     product: {kind: adapter.profileDefaults.productKind},
     frontend: {
       framework: adapter.project.framework,

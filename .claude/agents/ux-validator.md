@@ -36,7 +36,7 @@ maxTurns: 20
    - Grep 도구로 `useQuery|useInfiniteQuery` 패턴을 `src/pages/`, `src/widgets/`, `src/features/`에서 검색 — 데이터 훅 사용 여부
    - Grep 도구로 `hardcoded|dummy|TODO.*data` 패턴을 `src/pages/`, `src/widgets/`에서 검색 — 하드코딩 데이터 직접 사용 탐색
    - **브라우저 없이 런타임 렌더링 검증은 하지 않는다** — 해당 검증은 browser-verifier 담당
-6. **외부 데이터 상태**: ingestion contract가 있으면 last updated, freshness/stale, source attribution, partial failure, retry/manual refresh, last-known-good 표시가 UX 명세와 일치하는지 확인한다. stale 데이터를 최신처럼 표시하면 FAIL이다.
+6. **외부 데이터 상태**: 외부에서 수집·동기화한 데이터를 보여주면 last updated, freshness/stale, source attribution, partial failure, retry/manual refresh 표시가 UX 명세와 일치하는지 확인한다. stale 데이터를 최신처럼 표시하면 FAIL이다.
 7. **i18n 검사** (`_workspace/02_design/i18n-spec.md`가 있을 때):
    - locale catalog(`src/shared/lang/*/`)의 key를 Read로 대조한다 — 기준 locale의 기본 key(복수형 접미사를 뗀 key)가 모든 locale에 있다(누락은 FAIL). 복수형 접미사(`_one`·`_other` 등)는 그 locale의 CLDR 범주(`new Intl.PluralRules(locale).resolvedOptions().pluralCategories`)로 대조한다 — 한국어는 `other`만 있어 `_one`이 없는 게 정상이다. ICU MessageFormat이면 복수형이 한 key 안에 있으므로 key 집합이 같아야 한다
    - Grep 도구로 UI 파일의 사용자 노출 하드코딩 문자열 잔존을 검출한다 — spec의 승인된 예외 목록과 대조하고 예외 밖 잔존은 WARN

@@ -6,7 +6,7 @@
 - Vite scaffold 순서는 package → tooling → shared foundation → app shell이다. Next profile은 `.claude/skills/next-app/SKILL.md` 계약을 따른다.
 - data owner가 모두 끝난 뒤 `developer`를 실행한다.
 - foundation, surface contract, integrated source 뒤 development Gate A/B/C를 통과하고 실패를 후속 wave에 전가하지 않는다.
-- local domain state, external ingestion, AI mode는 각 선행 설계 계약이 끝나기 전에 구현하지 않는다.
+- AI mode는 선행 설계 계약이 끝나기 전에 구현하지 않는다.
 - static/live/hybrid runtime mode를 하나로 고정하고 production fixture fail-open을 금지한다.
 - provider key를 browser source 또는 `VITE_*`에 두지 않는다.
 - destructive/side-effect tool은 approval, idempotency, authorization 계약이 필요하다.

@@ -6,7 +6,6 @@ import {readProjectRegularFile} from '../safe-project-file-lib.mjs'
 export const VERCEL_CONFIG_PATH = 'vercel.json'
 const VERCEL_SCHEMA = 'https://openapi.vercel.sh/vercel.json'
 const MAX_CONFIG_BYTES = 512 * 1024
-const STATIC_INGESTION_BUILD = 'node .claude/scripts/run-vercel-static-ingestion-build.mjs'
 const TOP_LEVEL_KEYS = new Set([
   '$schema',
   'buildCommand',
@@ -88,7 +87,7 @@ const validateRouteRules = (config, key, errors) => {
   return rules
 }
 
-const validateHeaders = (config, errors, mutableDataPaths = new Set()) => {
+const validateHeaders = (config, errors) => {
   if (!Array.isArray(config.headers) || config.headers.length === 0 || config.headers.length > 128) {
     errors.push('vercel.json headers must contain between 1 and 128 rules')
     return
@@ -134,8 +133,8 @@ const validateHeaders = (config, errors, mutableDataPaths = new Set()) => {
       if (
         key === 'cache-control' &&
         /(?:^|,)\s*(?:public\s*,\s*)?.*immutable/i.test(header.value ?? '') &&
-        (catchAllSource(rule.source) || mutableDataPaths.has(rule.source))
-      ) errors.push(`${headerLabel} must not mark HTML or refreshable runtime data immutable`)
+        catchAllSource(rule.source)
+      ) errors.push(`${headerLabel} must not mark HTML immutable`)
       if (catchAllSource(rule.source) && SECURITY_HEADERS.has(key)) {
         if (globalHeaders.has(key)) errors.push(`${headerLabel}.key duplicates a global security header`)
         else globalHeaders.set(key, header.value)
@@ -156,7 +155,7 @@ const validateHeaders = (config, errors, mutableDataPaths = new Set()) => {
   }
 }
 
-export const validateVercelProjectConfig = ({projectRoot, lockedProfile, runtimeDataContract = null}) => {
+export const validateVercelProjectConfig = ({projectRoot, lockedProfile}) => {
   const errors = []
   if (lockedProfile?.selection?.provider?.id !== 'vercel') return {ok: true, errors, configSha256: null}
   if (existsSync(join(projectRoot, 'vercel.ts'))) {
@@ -191,32 +190,8 @@ export const validateVercelProjectConfig = ({projectRoot, lockedProfile, runtime
   if (normalizedCommand(config.installCommand) !== 'pnpm install --frozen-lockfile --ignore-scripts') {
     errors.push('vercel.json installCommand must use the frozen lockfile with lifecycle scripts disabled')
   }
-  const ingestionEnabled = lockedProfile.selection.selectedCapabilities.includes('external-ingestion')
-  const staticIngestion = ingestionEnabled && ['static-cdn', 'static-export'].includes(targetId)
-  const expectedBuildCommand = staticIngestion
-    ? STATIC_INGESTION_BUILD
-    : ingestionEnabled
-      ? 'pnpm run validate:ingestion && pnpm run build'
-      : 'pnpm run build'
-  if (normalizedCommand(config.buildCommand) !== expectedBuildCommand) {
-    errors.push(`vercel.json buildCommand must be ${expectedBuildCommand}`)
-  }
-  if (ingestionEnabled && !runtimeDataContract) errors.push('Vercel external ingestion profile requires a valid runtime data contract')
-  if (runtimeDataContract && (runtimeDataContract.contract.buildCwd !== '.' || runtimeDataContract.contract.deploymentRoot !== '.')) {
-    errors.push('Vercel built-in profile requires runtime buildCwd and deploymentRoot to equal the canonical project root')
-  }
-  if (staticIngestion) {
-    for (const artifact of runtimeDataContract?.contract.generatedArtifacts ?? []) {
-      if (!artifact.path.startsWith('public/')) {
-        errors.push(`Vercel static runtime artifact must be promoted under public/: ${artifact.path}`)
-      }
-      const baselinePath = artifact.validation?.diff?.baselinePath
-      if (
-        runtimeDataContract?.contract.servingFallback === 'last-known-good' &&
-        baselinePath &&
-        !baselinePath.startsWith('public/')
-      ) errors.push(`Vercel static last-known-good fallback must be promoted under public/: ${baselinePath}`)
-    }
+  if (normalizedCommand(config.buildCommand) !== 'pnpm run build') {
+    errors.push('vercel.json buildCommand must be pnpm run build')
   }
 
   const expectedOutput = viteFamily
@@ -240,11 +215,7 @@ export const validateVercelProjectConfig = ({projectRoot, lockedProfile, runtime
   if (viteFamily && !rewrites.some(rule => catchAllSource(rule.source) && rule.destination === '/index.html')) {
     errors.push('Vercel React/Vite SPA profile requires an internal catch-all rewrite to /index.html')
   }
-  const mutableDataPaths = new Set((runtimeDataContract?.contract.generatedArtifacts ?? []).map(artifact => {
-    const path = artifact.path.startsWith('public/') ? artifact.path.slice('public/'.length) : artifact.path
-    return `/${path}`
-  }))
-  validateHeaders(config, errors, mutableDataPaths)
+  validateHeaders(config, errors)
 
   return {ok: errors.length === 0, errors: [...new Set(errors)], configSha256: sha256(source)}
 }

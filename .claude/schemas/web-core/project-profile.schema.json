@@ -307,7 +307,7 @@
         "evidence",
         "inspectionErrors"
       ],
-      "description": "외부 데이터 수집 감지 **보고**(2026-08-27). 게이트가 아니다 — 감지는 capability를 강제하지 않으며, 능력은 스팩이 확정한다. 오케스트레이터가 intake에서 물어야 할 근거로 남긴다. required에 넣지 않아 기존 잠금 프로필은 그대로 유효하다(소급 fail 금지).",
+      "description": "은퇴한 외부 데이터 수집 감지 보고. 새 프로필은 쓰지 않고 아무도 읽지 않는다 — 이 필드를 가진 기존 잠금 프로필이 그대로 유효하도록 형태만 남긴다(소급 fail 금지).",
       "properties": {
         "detected": {
           "type": "boolean"

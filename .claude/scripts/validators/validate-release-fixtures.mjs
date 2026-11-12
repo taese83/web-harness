@@ -9,14 +9,8 @@ import {computeSourceFingerprint, sha256} from '../evidence-lib.mjs'
 import {
   buildReleaseManifest,
   releaseReportRequirements,
-  requiresProtectedPrebuiltDeployment,
   validateReleaseGate,
 } from '../release-gate-lib.mjs'
-import {
-  INGESTION_RECEIPT_ID,
-  ingestionReceiptEvidence,
-  validateRuntimeDataArtifacts,
-} from '../runtime-data-contract-lib.mjs'
 import {buildQualityAttestationSubject, readProtectedQualityContext} from '../quality-attestation-lib.mjs'
 import {analyzePackageScript, readDependencyBinding, readExecutionTargetBinding} from '../quality-policy-lib.mjs'
 import {resolveReleaseProfile} from '../release-profile-lib.mjs'
@@ -33,20 +27,6 @@ import {stableStringify} from '../web-core/core-lib.mjs'
 const emptyPnpmLock = "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n"
 
 export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, fail}) => {
-  if (!requiresProtectedPrebuiltDeployment({
-    selection: {
-      provider: {id: 'vercel'},
-      target: {id: 'static-cdn'},
-      selectedCapabilities: ['external-ingestion'],
-    },
-  })) fail('Vercel static external-ingestion was not bound to the protected prebuilt deployment hard stop')
-  if (requiresProtectedPrebuiltDeployment({
-    selection: {
-      provider: {id: 'vercel'},
-      target: {id: 'node-server'},
-      selectedCapabilities: ['external-ingestion'],
-    },
-  })) fail('Vercel node-server was incorrectly classified as the static prebuilt deployment hard stop')
   const releaseGateHookPath = join(claudeDirectory, 'scripts', 'enforce-release-gate.mjs')
   const releaseFixtureRoot = mkdtempSync(join(tmpdir(), 'web-harness-release-gate-'))
   const releaseQaDirectory = join(releaseFixtureRoot, '_workspace/04_qa')
@@ -60,7 +40,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   const conditionalDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
   mkdirSync(conditionalDesignDirectory, {recursive: true})
   const reportNames = () => new Set(
-    releaseReportRequirements(releaseFixtureRoot, null, 'final', false).map(([, fileName]) => fileName),
+    releaseReportRequirements(releaseFixtureRoot, null, 'final').map(([, fileName]) => fileName),
   )
   const conditionalReports = [
     ['performance-budget.md', 'qa-perf.md'],
@@ -210,80 +190,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     coverage: 'test:coverage',
     browser: 'test:e2e',
     audit: null,
-    [INGESTION_RECEIPT_ID]: 'validate:ingestion',
   }
-  const ingestionSchemaPath = 'schemas/ingestion-envelope.schema.json'
-  const ingestionSchemaFixture = {
-    $schema: 'https://json-schema.org/draft/2020-12/schema',
-    type: 'object',
-    additionalProperties: false,
-    required: ['data', 'count', 'generatedAt', 'coverage'],
-    properties: {
-      data: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['id', 'title'],
-          properties: {
-            id: {type: 'string', minLength: 1},
-            title: {type: 'string', minLength: 1},
-          },
-        },
-      },
-      count: {type: 'integer', minimum: 0},
-      generatedAt: {type: 'string', format: 'date-time'},
-      coverage: {type: 'number', minimum: 0, maximum: 1},
-    },
-  }
-  const writeIngestionSchemaFixture = projectRoot => {
-    mkdirSync(join(projectRoot, 'schemas'), {recursive: true})
-    writeFileSync(join(projectRoot, ingestionSchemaPath), `${JSON.stringify(ingestionSchemaFixture)}\n`)
-  }
-  const runtimeDataContractFixture = ({
-    artifactPath = 'public/data.json',
-    schema = ingestionSchemaPath,
-    baselinePath = 'public/last-known-good.json',
-  } = {}) => ({
-    $schema: '.claude/schemas/runtime-data-contract.schema.json',
-    schemaVersion: 1,
-    mode: 'static-snapshot',
-    authoritativeSource: 'fixture-source',
-    buildCwd: '.',
-    deploymentRoot: '.',
-    generatedArtifacts: [{
-      path: artifactPath,
-      required: true,
-      schema,
-      minCount: 1,
-      validation: {
-        recordsPointer: '/data',
-        countPointer: '/count',
-        freshnessPointer: '/generatedAt',
-        coverage: {
-          requiredFields: ['/id', '/title'],
-          minimumFieldRatio: 1,
-          metricPointer: '/coverage',
-          minimumMetric: 1,
-        },
-        duplicates: {keyPointers: ['/id'], maximumRatio: 0},
-        diff: {baselinePath, maximumCountDropRatio: 0.25},
-      },
-    }],
-    freshnessSlo: 'PT24H',
-    promotionPolicy: 'reject-invalid',
-    servingFallback: 'last-known-good',
-    refreshCapabilities: ['manual-recovery', 'scheduled'],
-  })
-  const ingestionEnvelope = ({
-    records = [
-      {id: 'fixture-1', title: 'Fixture One'},
-      {id: 'fixture-2', title: 'Fixture Two'},
-    ],
-    count = records.length,
-    generatedAt = new Date().toISOString(),
-    coverage = 1,
-  } = {}) => ({data: records, count, generatedAt, coverage})
   const writeFixtureAttestation = (
     receiptIds,
     sourceFingerprint = computeSourceFingerprint(releaseFixtureRoot),
@@ -326,14 +233,7 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     const packageMetadata = JSON.parse(readFileSync(join(releaseFixtureRoot, 'package.json'), 'utf8'))
     const dependencyBinding = readDependencyBinding(releaseFixtureRoot, packageMetadata)
     const pnpmExecutable = join(dirname(process.execPath), process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-    const ingestionContractsComplete = [
-      '_workspace/02_design/ingestion-contract.md',
-      '_workspace/02_design/runtime-data-contract.json',
-    ].every(path => existsSync(join(releaseFixtureRoot, path)))
-    const activeReceiptCommands = {
-      ...releaseReceiptCommands,
-      ...(ingestionContractsComplete ? {[INGESTION_RECEIPT_ID]: 'pnpm validate:ingestion'} : {}),
-    }
+    const activeReceiptCommands = releaseReceiptCommands
     for (const [id, command] of Object.entries(activeReceiptCommands)) {
       const discoveredTestFiles = id === 'browser'
         ? ['e2e/example.spec.ts']
@@ -349,9 +249,6 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         pnpmExecutable,
         searchPath: process.env.PATH,
       })
-      const ingestionValidation = id === INGESTION_RECEIPT_ID
-        ? validateRuntimeDataArtifacts(releaseFixtureRoot)
-        : null
       const receipt = {
         schemaVersion: 2,
         runner: 'web-harness-quality-gate',
@@ -375,10 +272,8 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         sourceMutationDetected: false,
         exitCode: 0,
         signal: null,
-        status: ingestionValidation && !ingestionValidation.ok ? 'FAIL' : 'PASS',
-        blockedReason: ingestionValidation && !ingestionValidation.ok
-          ? `Runtime data artifact validation failed: ${ingestionValidation.errors.join('; ')}`
-          : null,
+        status: 'PASS',
+        blockedReason: null,
         discoveredTestFiles,
         stdoutSha256: '0'.repeat(64),
         stderrSha256: '0'.repeat(64),
@@ -412,7 +307,6 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         // 환경 결속은 어댑터와 무관하게 항상 검증된다(2026-08-26 조건부 스킵 해소).
         // 프로필이 없어도 receipt는 이 둘을 가져야 한다.
         profileBinding: {buildEnvironmentSha256: null, publicEnvironmentSha256: sha256('{}')},
-        ...(ingestionValidation ? {ingestionValidation: ingestionReceiptEvidence(ingestionValidation)} : {}),
       }
       writeFileSync(join(releaseEvidenceDirectory, `${id}.json`), `${JSON.stringify(receipt, null, 2)}\n`)
     }
@@ -939,223 +833,6 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
   refreshReleaseReceipts()
   writeReleaseFixtureManifest()
   
-  const releaseDesignDirectory = join(releaseFixtureRoot, '_workspace/02_design')
-  mkdirSync(releaseDesignDirectory, {recursive: true})
-  writeFileSync(join(releaseDesignDirectory, 'ingestion-contract.md'), '# Ingestion Contract\n')
-  writeFileSync(
-    join(releaseDesignDirectory, 'runtime-data-contract.json'),
-    `${JSON.stringify(runtimeDataContractFixture({artifactPath: '.claude'}))}\n`,
-  )
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('generatedArtifacts[0].path'))) {
-    fail('release gate allowed an exact protected root as a generated artifact')
-  }
-  writeFileSync(
-    join(releaseDesignDirectory, 'runtime-data-contract.json'),
-    `${JSON.stringify(runtimeDataContractFixture({artifactPath: 'public/./data.json'}))}\n`,
-  )
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('unsafe path segment'))) {
-    fail('runtime data parser normalized an internal dot segment in a generated artifact path')
-  }
-  const missingDiffContract = runtimeDataContractFixture()
-  delete missingDiffContract.generatedArtifacts[0].validation.diff
-  writeFileSync(
-    join(releaseDesignDirectory, 'runtime-data-contract.json'),
-    `${JSON.stringify(missingDiffContract)}\n`,
-  )
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('must declare validation.diff'))) {
-    fail('runtime data parser accepted a required artifact without diff validation')
-  }
-  rmSync(join(releaseDesignDirectory, 'runtime-data-contract.json'))
-  rmSync(join(releaseDesignDirectory, 'ingestion-contract.md'))
-  writeFileSync(join(releaseDesignDirectory, 'state-contract.md'), '# State Contract\n')
-  refreshReleaseReceipts()
-  if (runReleaseGateHook().status !== 2) fail('release hook allowed local domain state without qa-state.md')
-  writeFileSync(join(releaseQaDirectory, 'qa-state.md'), '# State QA\n\n## Result\nPASS\n')
-  writeReleaseFixtureManifest()
-  if (runReleaseGateHook().status !== 0) fail('release hook blocked passing local domain state QA')
-  rmSync(join(releaseDesignDirectory, 'state-contract.md'))
-  rmSync(join(releaseQaDirectory, 'qa-state.md'))
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-  
-  const releaseIngestionContractPath = join(releaseDesignDirectory, 'runtime-data-contract.json')
-  const releaseIngestionArtifactPath = join(releaseFixtureRoot, 'public/data.json')
-  const releaseIngestionBaselinePath = join(releaseFixtureRoot, 'public/last-known-good.json')
-  const releaseIngestionPackage = JSON.parse(releasePackageSource)
-  releaseIngestionPackage.scripts['validate:ingestion'] = 'node scripts/validate-ingestion.mjs'
-  writeFileSync(join(releaseFixtureRoot, 'package.json'), `${JSON.stringify(releaseIngestionPackage)}\n`)
-  mkdirSync(join(releaseFixtureRoot, 'scripts'), {recursive: true})
-  writeFileSync(join(releaseFixtureRoot, 'scripts/validate-ingestion.mjs'), 'process.exit(0)\n')
-  writeIngestionSchemaFixture(releaseFixtureRoot)
-  mkdirSync(join(releaseFixtureRoot, 'public'), {recursive: true})
-  writeFileSync(releaseIngestionBaselinePath, `${JSON.stringify(ingestionEnvelope())}\n`)
-  writeFileSync(join(releaseDesignDirectory, 'ingestion-contract.md'), '# Ingestion Contract\n')
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(runtimeDataContractFixture())}\n`)
-  refreshReleaseReceipts()
-  if (runReleaseGateHook().status !== 2) fail('release hook allowed external ingestion without qa-data-quality.md')
-  writeFileSync(join(releaseQaDirectory, 'qa-data-quality.md'), '# Data Quality QA\n\n## Result\nPASS\n')
-  writeReleaseFixtureManifest()
-  if (runReleaseGateHook().status !== 2) fail('release hook allowed a missing required generated artifact')
-  const validIngestionArtifact = `${JSON.stringify(ingestionEnvelope())}\n`
-  writeFileSync(releaseIngestionArtifactPath, validIngestionArtifact)
-  refreshReleaseReceipts()
-  const passingIngestionManifest = writeReleaseFixtureManifest()
-  if (runReleaseGateHook().status !== 0) fail('release hook blocked passing external ingestion QA')
-  const ingestionReceipt = JSON.parse(readFileSync(join(releaseEvidenceDirectory, `${INGESTION_RECEIPT_ID}.json`), 'utf8'))
-  const ingestionAttestation = JSON.parse(readFileSync(join(releaseEvidenceDirectory, 'quality-attestation.json'), 'utf8'))
-  if (
-    !passingIngestionManifest.receipts.some(receipt => receipt.id === INGESTION_RECEIPT_ID) ||
-    !ingestionAttestation.subject.receiptDigests.some(receipt => receipt.id === INGESTION_RECEIPT_ID) ||
-    !/^[0-9a-f]{64}$/.test(ingestionReceipt.ingestionValidation?.sha256 ?? '') ||
-    new Set(passingIngestionManifest.receipts.map(receipt => receipt.qualityCohortId)).size !== 1 ||
-    passingIngestionManifest.receipts.some(receipt => receipt.runMode !== 'all')
-  ) fail('external ingestion receipt is not bound to the final quality cohort and attestation')
-
-  const expectInvalidIngestionArtifact = (source, errorFragment, label) => {
-    writeFileSync(releaseIngestionArtifactPath, source)
-    refreshReleaseReceipts()
-    const errors = buildReleaseManifest(releaseFixtureRoot).errors
-    writeReleaseFixtureManifest()
-    if (!errors.some(error => error.includes(errorFragment))) {
-      fail(`${label} did not produce the expected runtime data validation error`)
-    }
-    if (runReleaseGateHook().status !== 2) fail(`release hook accepted ${label}`)
-  }
-  expectInvalidIngestionArtifact('{malformed\n', 'invalid JSON', 'malformed generated JSON')
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({records: [], count: 0}))}\n`,
-    'below minCount',
-    'an empty generated artifact',
-  )
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({count: 1}))}\n`,
-    'does not match record count',
-    'a mismatched declared count',
-  )
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({generatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()}))}\n`,
-    'freshness timestamp exceeds',
-    'a stale generated artifact',
-  )
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({records: [{id: 'fixture-1'}], coverage: 0.5}))}\n`,
-    'field coverage',
-    'an artifact below required-field coverage',
-  )
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({
-      records: [{id: 'duplicate', title: 'One'}, {id: 'duplicate', title: 'Two'}],
-    }))}\n`,
-    'duplicate ratio',
-    'an artifact with duplicate identities',
-  )
-  expectInvalidIngestionArtifact(
-    `${JSON.stringify(ingestionEnvelope({records: [{id: 'fixture-1', title: 'Fixture One'}]}))}\n`,
-    'count drop ratio',
-    'an artifact with an excessive count drop',
-  )
-
-  writeFileSync(releaseIngestionArtifactPath, validIngestionArtifact)
-  writeFileSync(releaseIngestionBaselinePath, `${JSON.stringify(ingestionEnvelope({records: [], count: 0}))}\n`)
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('baseline: record count 0 is below minCount'))) {
-    fail('runtime data validation accepted an empty last-known-good baseline')
-  }
-  writeFileSync(releaseIngestionBaselinePath, `${JSON.stringify(ingestionEnvelope())}\n`)
-
-  const caseAliasedBaselineContract = runtimeDataContractFixture()
-  caseAliasedBaselineContract.generatedArtifacts[0].validation.diff.baselinePath = 'PUBLIC/DATA.JSON'
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(caseAliasedBaselineContract)}\n`)
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('case-insensitive filesystems'))) {
-    fail('runtime data contract accepted a case-aliased current artifact as its baseline')
-  }
-
-  const unicodeAliasContract = runtimeDataContractFixture()
-  unicodeAliasContract.generatedArtifacts[0].validation.diff.baselinePath = 'public/café.json'
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(unicodeAliasContract)}\n`)
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('portable ASCII path segments'))) {
-    fail('runtime data contract accepted a Unicode-normalization-sensitive artifact path')
-  }
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(runtimeDataContractFixture())}\n`)
-
-  const schemaDirectory = join(releaseFixtureRoot, 'schemas')
-  mkdirSync(schemaDirectory, {recursive: true})
-  writeFileSync(join(schemaDirectory, 'real.schema.json'), `${JSON.stringify({type: 'object'})}\n`)
-  symlinkSync('real.schema.json', join(schemaDirectory, 'data.schema.json'))
-  writeFileSync(
-    releaseIngestionContractPath,
-    `${JSON.stringify(runtimeDataContractFixture({schema: 'schemas/data.schema.json'}))}\n`,
-  )
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('regular non-symlink'))) {
-    fail('runtime data validation followed a symlinked local JSON Schema')
-  }
-  rmSync(schemaDirectory, {recursive: true, force: true})
-  writeFileSync(releaseIngestionArtifactPath, validIngestionArtifact)
-  mkdirSync(schemaDirectory, {recursive: true})
-  writeFileSync(
-    join(schemaDirectory, 'pattern.schema.json'),
-    `${JSON.stringify({
-      $schema: 'https://json-schema.org/draft/2020-12/schema',
-      type: 'object',
-      properties: {value: {type: 'string', pattern: '(a+)+$'}},
-    })}\n`,
-  )
-  writeFileSync(
-    releaseIngestionContractPath,
-    `${JSON.stringify(runtimeDataContractFixture({schema: 'schemas/pattern.schema.json'}))}\n`,
-  )
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('unsupported JSON Schema keyword pattern'))) {
-    fail('runtime data validation accepted a native-RegExp project schema')
-  }
-  const scheduledWithoutRecovery = runtimeDataContractFixture()
-  scheduledWithoutRecovery.refreshCapabilities = ['scheduled']
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(scheduledWithoutRecovery)}\n`)
-  refreshReleaseReceipts()
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('scheduled refresh requires manual-recovery'))) {
-    fail('runtime data contract accepted scheduled refresh without manual recovery')
-  }
-  writeFileSync(releaseIngestionContractPath, `${JSON.stringify(runtimeDataContractFixture())}\n`)
-  rmSync(schemaDirectory, {recursive: true, force: true})
-  writeIngestionSchemaFixture(releaseFixtureRoot)
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-
-  writeFileSync(join(releaseQaDirectory, 'qa-data-quality.md'), '# Data Quality QA\n\n## Result\nWARN\n')
-  if (!buildReleaseManifest(releaseFixtureRoot).errors.some(error => error.includes('external data quality requires PASS'))) {
-    fail('release gate accepted WARN for machine-validated external data quality')
-  }
-  writeFileSync(join(releaseQaDirectory, 'qa-data-quality.md'), '# Data Quality QA\n\n## Result\nPASS\n')
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-  rmSync(join(releaseEvidenceDirectory, `${INGESTION_RECEIPT_ID}.json`))
-  if (runReleaseGateHook().status !== 2) fail('release hook allowed ingestion without its machine receipt')
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-  writeFileSync(
-    releaseIngestionArtifactPath,
-    `${JSON.stringify(ingestionEnvelope({records: [{id: 'fixture-1', title: 'Changed'}]}))}\n`,
-  )
-  if (runReleaseGateHook().status !== 2) fail('release hook accepted runtime data changed after its receipt')
-  writeFileSync(releaseIngestionArtifactPath, validIngestionArtifact)
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-
-  writeFileSync(join(releaseFixtureRoot, 'package.json'), releasePackageSource)
-  rmSync(join(releaseDesignDirectory, 'ingestion-contract.md'))
-  rmSync(releaseIngestionContractPath)
-  rmSync(join(releaseQaDirectory, 'qa-data-quality.md'))
-  rmSync(releaseIngestionArtifactPath)
-  rmSync(releaseIngestionBaselinePath)
-  rmSync(join(releaseFixtureRoot, 'schemas'), {recursive: true, force: true})
-  rmSync(join(releaseFixtureRoot, 'scripts/validate-ingestion.mjs'))
-  rmSync(join(releaseEvidenceDirectory, `${INGESTION_RECEIPT_ID}.json`), {force: true})
-  refreshReleaseReceipts()
-  writeReleaseFixtureManifest()
-  
   rmSync(join(releaseQaDirectory, 'qa-browser.md'))
   if (runReleaseGateHook().status !== 2) fail('release hook allowed HANDOFF with a missing QA report')
   writeFileSync(join(releaseQaDirectory, 'qa-browser.md'), qaFixtures['qa-browser.md'].replace('PASS\n\n## Commands', 'BLOCKED\n\n## Commands'))
@@ -1174,31 +851,23 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
         build: 'node scripts/build.mjs',
         typecheck: 'node -e "process.exit(process.env.WEB_HARNESS_FIXTURE_SECRET || !process.env.VITE_PUBLIC_FIXTURE ? 9 : 0)"',
         lint: 'node -e "require(\'node:fs\').writeFileSync(\'mutated.ts\', \'export {}\\n\')"',
-        'validate:ingestion': 'node scripts/validate-ingestion.mjs',
       },
     })}\n`,
   )
   writeFileSync(join(qualityFixtureRoot, 'pnpm-lock.yaml'), emptyPnpmLock)
-  writeIngestionSchemaFixture(qualityFixtureRoot)
   mkdirSync(join(qualityFixtureRoot, 'scripts'), {recursive: true})
   writeFileSync(
     join(qualityFixtureRoot, 'scripts/build.mjs'),
     'process.exit(0)\n',
   )
-  writeFileSync(join(qualityFixtureRoot, 'scripts/validate-ingestion.mjs'), 'process.exit(0)\n')
   mkdirSync(join(qualityFixtureRoot, '_workspace/02_design'), {recursive: true})
-  writeFileSync(join(qualityFixtureRoot, '_workspace/02_design/ingestion-contract.md'), '# Ingestion Contract\n')
   writeFileSync(
     join(qualityFixtureRoot, '_workspace/02_design/build-environment.json'),
     `${JSON.stringify({schemaVersion: 1, public: ['VITE_PUBLIC_FIXTURE']})}\n`,
   )
-  writeFileSync(
-    join(qualityFixtureRoot, '_workspace/02_design/runtime-data-contract.json'),
-    `${JSON.stringify({...runtimeDataContractFixture(), refreshCapabilities: ['on-demand']})}\n`,
-  )
+  const publicDataFixture = `${JSON.stringify({items: [1, 2]})}\n`
   mkdirSync(join(qualityFixtureRoot, 'public'), {recursive: true})
-  writeFileSync(join(qualityFixtureRoot, 'public/last-known-good.json'), `${JSON.stringify(ingestionEnvelope())}\n`)
-  writeFileSync(join(qualityFixtureRoot, 'public/data.json'), `${JSON.stringify(ingestionEnvelope())}\n`)
+  writeFileSync(join(qualityFixtureRoot, 'public/data.json'), publicDataFixture)
   const passingQualityRun = spawnSync(
     process.execPath,
     [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'typecheck', '--allow-host-execution'],
@@ -1304,77 +973,30 @@ export const validateReleaseFixtures = ({claudeDirectory, repositoryRoot, pass, 
     join(qualityFixtureRoot, 'scripts/build.mjs'),
     `import {writeFileSync} from 'node:fs'\nwriteFileSync('public/data.json', '[]\\n')\n`,
   )
-  const runtimeDataMutatingBuildRun = spawnSync(
+  const sourceMutatingBuildRun = spawnSync(
     process.execPath,
     [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'build', '--allow-host-execution'],
     {cwd: repositoryRoot, encoding: 'utf8'},
   )
-  const runtimeDataMutatingBuildReceipt = JSON.parse(readFileSync(
+  const sourceMutatingBuildReceipt = JSON.parse(readFileSync(
     join(qualityFixtureRoot, '_workspace/04_qa/evidence/build.json'),
     'utf8',
   ))
-  if (runtimeDataMutatingBuildRun.status !== 1 || runtimeDataMutatingBuildReceipt.sourceMutationDetected !== true) {
-    fail('quality runner allowed build to rewrite a promoted runtime data artifact')
+  if (sourceMutatingBuildRun.status !== 1 || sourceMutatingBuildReceipt.sourceMutationDetected !== true) {
+    fail('quality runner allowed build to rewrite a committed public file')
   }
   writeFileSync(join(qualityFixtureRoot, 'scripts/build.mjs'), 'process.exit(0)\n')
-  writeFileSync(join(qualityFixtureRoot, 'public/data.json'), `${JSON.stringify(ingestionEnvelope())}\n`)
+  writeFileSync(join(qualityFixtureRoot, 'public/data.json'), publicDataFixture)
   const allowedBuildRun = spawnSync(
     process.execPath,
     [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'build', '--allow-host-execution'],
     {cwd: repositoryRoot, encoding: 'utf8'},
   )
-  if (allowedBuildRun.status !== 0) fail(`quality runner blocked a build that preserved promoted runtime data: ${allowedBuildRun.stderr}`)
+  if (allowedBuildRun.status !== 0) fail(`quality runner blocked a build that preserved committed files: ${allowedBuildRun.stderr}`)
   const allowedBuildReceipt = JSON.parse(readFileSync(join(qualityFixtureRoot, '_workspace/04_qa/evidence/build.json'), 'utf8'))
   if (allowedBuildReceipt.status !== 'PASS' || allowedBuildReceipt.sourceMutationDetected !== false) {
-    fail('runtime-data-preserving build receipt is not PASS')
+    fail('source-preserving build receipt is not PASS')
   }
-  const passingIngestionRun = spawnSync(
-    process.execPath,
-    [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', INGESTION_RECEIPT_ID, '--allow-host-execution'],
-    {cwd: repositoryRoot, encoding: 'utf8'},
-  )
-  if (passingIngestionRun.status !== 0) fail(`quality runner blocked valid runtime data: ${passingIngestionRun.stderr}`)
-  const qualityIngestionReceiptPath = join(qualityFixtureRoot, '_workspace/04_qa/evidence/ingestion.json')
-  const qualityIngestionReceipt = JSON.parse(readFileSync(qualityIngestionReceiptPath, 'utf8'))
-  if (
-    qualityIngestionReceipt.status !== 'PASS' ||
-    qualityIngestionReceipt.ingestionValidation?.artifacts?.[0]?.count !== 2 ||
-    !/^[0-9a-f]{64}$/.test(qualityIngestionReceipt.ingestionValidation?.sha256 ?? '')
-  ) fail('quality runner ingestion receipt does not bind validated artifact metrics')
-  writeFileSync(
-    join(qualityFixtureRoot, 'public/data.json'),
-    `${JSON.stringify(ingestionEnvelope({records: [], count: 0}))}\n`,
-  )
-  const emptyIngestionRun = spawnSync(
-    process.execPath,
-    [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', INGESTION_RECEIPT_ID, '--allow-host-execution'],
-    {cwd: repositoryRoot, encoding: 'utf8'},
-  )
-  const emptyIngestionReceipt = JSON.parse(readFileSync(qualityIngestionReceiptPath, 'utf8'))
-  if (emptyIngestionRun.status !== 1 || emptyIngestionReceipt.status !== 'FAIL') {
-    fail('quality runner did not block an empty generated artifact')
-  }
-  writeFileSync(join(qualityFixtureRoot, 'public/data.json'), `${JSON.stringify(ingestionEnvelope())}\n`)
-  const restoreGeneratedArtifactRun = spawnSync(
-    process.execPath,
-    [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'build', '--allow-host-execution'],
-    {cwd: repositoryRoot, encoding: 'utf8'},
-  )
-  if (restoreGeneratedArtifactRun.status !== 0) fail('quality runner could not restore a valid generated artifact')
-  writeFileSync(
-    join(qualityFixtureRoot, '_workspace/02_design/runtime-data-contract.json'),
-    `${JSON.stringify(runtimeDataContractFixture({artifactPath: 'src'}))}\n`,
-  )
-  const unsafeArtifactRun = spawnSync(
-    process.execPath,
-    [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'build', '--allow-host-execution'],
-    {cwd: repositoryRoot, encoding: 'utf8'},
-  )
-  if (unsafeArtifactRun.status !== 2) fail('quality runner accepted an exact protected root as a generated artifact')
-  writeFileSync(
-    join(qualityFixtureRoot, '_workspace/02_design/runtime-data-contract.json'),
-    `${JSON.stringify({...runtimeDataContractFixture(), refreshCapabilities: ['on-demand']})}\n`,
-  )
   const missingScriptRun = spawnSync(
     process.execPath,
     [qualityRunnerPath, '--project', qualityFixtureRoot, '--check', 'coverage', '--allow-host-execution'],

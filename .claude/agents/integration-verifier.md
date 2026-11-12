@@ -55,8 +55,8 @@ maxTurns: 20
     없으면 READY_FOR_RELEASE 대신 `NEEDS_FIX — release-manager 미실행`으로 기록한다.
 13. lockfile resolved dependency의 engine/peer와 현재 Node, package.json engine, tech-stack matrix를 교차 확인한다.
 14. `_workspace/01_plan/requirements.md`의 Must ID가 구현/test evidence에 연결되지 않으면 READY_FOR_RELEASE로 판정하지 않는다.
-15. external ingestion contract가 있으면 clean clone root/workspace/provider build matrix, generated artifact schema/minCount/freshness, current runtime consumer를 교차 확인한다. static target은 promoted `public/` required/validated optional/last-known-good snapshot과 `dist/|out/` 복사본 digest도 비교한다. required artifact 없이 exit 0이거나 parity가 다르면 `FAIL`이다.
-16. static snapshot 문서인데 runtime API가 authoritative이거나 반대인 architecture drift, 독립 package/lockfile로 root build가 일부를 누락하는 구조를 `FAIL`로 기록한다.
+15. 빌드가 생성 데이터 파일(`public/*.json` 등)에 의존하면 clean clone에서 그 파일 없이 build가 exit 0인지 확인한다. 누락을 성공 처리하면 `FAIL`이다.
+16. 독립 package/lockfile로 root build가 일부를 누락하는 구조를 `FAIL`로 기록한다.
 
 ## 출력 구조
 

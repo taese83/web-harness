@@ -23,7 +23,7 @@ Phase 2(디자인)와 Phase 3(개발) 사이에서 **구현 설계 결정을 기
 - `_workspace/01_plan/feature-plan.md` — FEAT/TC ID. **수용 기준은 여기서 참조만 하고
   새로 만들지 않는다**
 - `_workspace/01_plan/tech-stack.md` — 기획 단계의 기술 방향
-- `_workspace/02_design/api-schema.md`, `component-spec.md`, `state-contract.md`(있으면)
+- `_workspace/02_design/api-schema.md`, `component-spec.md`
 - `_workspace/02_design/integration-overlay.json`(브라운필드) — **실측이 제안을 이긴다**
 - 기존 source가 있으면 직접 읽어 관례를 확인한다(디렉토리 구조, import 관례, 설정 파일)
 - **공급원이 `supplied`이면** 오케스트레이터가 전달한 **사용자 설계 문서 경로**와

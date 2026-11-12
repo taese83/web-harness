@@ -85,7 +85,7 @@ export * from './ui/FeatureComponent'
 |---|---|---|
 | 서버에서 온 데이터 | TanStack Query 캐시 | `useState`로 복사하지 않는다 |
 | 공유·북마크·뒤로가기가 되어야 하는 화면 상태(필터·정렬·탭·페이지) | URL search params | 읽을 때 스키마로 파싱한다 — URL은 사용자가 고칠 수 있는 입력이다. 검색어 입력은 `input-focus-ime.md`(IME 조합 중 URL 갱신 금지) |
-| 브라우저가 정본인 도메인 데이터(서버 없이 저장·복원) | 도메인 스토어 + 상태 계약 | `local-domain-state.md`를 따른다 — 명령·불변식·영속 마이그레이션이 필요하다 |
+| 브라우저가 정본인 도메인 데이터(서버 없이 저장·복원) | 도메인 스토어 | 명령·불변식·영속 마이그레이션이 필요하다 — 영속 JSON은 runtime schema로 검증하고 파싱 실패는 복구 경로로 잇는다 |
 | 폼 입력 | react-hook-form | 제출 전 값은 폼이 소유한다 |
 | 한 컴포넌트 안의 UI 상태 | `useState`·`useReducer` | 쓰는 곳 가까이 둔다 |
 | 위에 없는데 여러 화면이 함께 쓰는 클라이언트 상태 | Zustand 스토어 | 셀렉터는 원자 값이나 `useShallow`로 — 매번 새 객체를 돌려주면 무한 재렌더가 난다 |

@@ -8,7 +8,6 @@ import {
 } from './web-core/profile-policy-lib.mjs'
 import {stableStringify} from './web-core/core-lib.mjs'
 import {validateVercelProjectConfig} from './web-core/vercel-config-lib.mjs'
-import {readRuntimeDataContract} from './runtime-data-contract-lib.mjs'
 
 const dependencyNames = packageJson => new Set(
   ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
@@ -146,19 +145,7 @@ export const resolveReleaseProfile = (projectRoot, errors) => {
     )
     const resolvedProfile = {...lockedProfile, executionPlan}
     if (lockedProfile.selection.provider.id === 'vercel') {
-      let runtimeDataContract = null
-      if (lockedProfile.selection.selectedCapabilities.includes('external-ingestion')) {
-        try {
-          runtimeDataContract = readRuntimeDataContract(projectRoot)
-        } catch (error) {
-          errors.push(`Vercel runtime data contract is invalid: ${error instanceof Error ? error.message : String(error)}`)
-        }
-      }
-      const vercelValidation = validateVercelProjectConfig({
-        projectRoot,
-        lockedProfile,
-        runtimeDataContract,
-      })
+      const vercelValidation = validateVercelProjectConfig({projectRoot, lockedProfile})
       errors.push(...vercelValidation.errors.map(error => `Vercel provider config is invalid: ${error}`))
     }
     return resolvedProfile

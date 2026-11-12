@@ -38,15 +38,13 @@ maxTurns: 30
    `dependsOn`은 이 기능이 **머지돼 있어야** 착수 가능한 선행 FEAT, `paths`는 이 기능이 쓸 경로다. 의존이 없으면
    **`dependsOn=none`으로 명시**한다 — 생략은 "없음"이 아니라 "선언 안 함"으로 읽혀 착수가 막힌다. 산문으로만 적으면
    티켓 보드가 그 순서를 모른다.
-4. `LOCAL_DOMAIN_STATE_MODE`이면 `.claude/skills/web-orchestrator/references/local-domain-state.md`를 읽고
+4. 브라우저가 도메인 데이터의 정본(localStorage·IndexedDB CRUD)이면
    authoritative state, derived view, command, selector, persistence adapter의 책임 FEAT를 분리한다. ID, parent/reference
    ID, order, version 같은 구조 필드는 일반 `Partial<Entity>` update 대상에서 빼고 전용 command를 계획한다.
    filter/search/sort/virtualization과 move/reorder/delete가 함께 있으면 view ID와 canonical ID/index 변환 책임을 명시한다.
 5. 각 Must 요구사항 ID를 FEAT와 unit/integration/browser evidence에 연결한다.
-6. `EXTERNAL_DATA_INGESTION_MODE`이면 source adapter, parser, normalizer, runtime schema, quality gate, atomic promotion,
-   runtime consumer를 서로 다른 책임으로 나눈다. UI/entity가 crawler output shape를 직접 추론하지 않게
-   `runtime-data-contract.json`의 artifact/API를 trace한다. static snapshot과 live API를 함께 계획하면 source precedence,
-   merge/freshness, fallback이 있는 `hybrid`인지 확인한다. 명시 없는 이중 경로는 `BLOCKER`다.
+6. 외부 데이터 수집·생성 파이프라인이 있으면 수집·검증·승격과 UI 소비를 다른 FEAT로 나누고, UI가 수집 결과 형태를
+   직접 추론하지 않게 runtime schema를 둔다.
 7. UX Check의 critical state와 annotation intent를 책임 FEAT·evidence에 연결한다. 화면 좌표나 문구만으로 feature
    scope를 만들지 않는다.
 8. S/M/L/XL effort driver를 dependency와 검증 범위로 교차 확인하고, `invest | reduce | split` 권고가 있으면 가장 작은
@@ -59,7 +57,7 @@ maxTurns: 30
 9-1. `design-readiness-contract.md` §3-1에 따라 **모든 Must FEAT에 동작 명세와 test case(`TC-NNN-N`)를 작성한다**.
     동작 명세는 "무엇을"이 아니라 "어떻게 동작하는가"(입력 반응·상태 전이·페이지 이동·DnD·CRUD의 조건과 결과)이고,
     test case는 requirements.md의 Must acceptance criteria(Given/When/Then)를 FEAT 단위로 구체화한 것이다 — 새로
-    발명하지 않고 REQ AC를 정본 근거로 재사용한다. 정상·실패·경계와 LOCAL_DOMAIN_STATE 불변식을 포함한다. 이 test
+    발명하지 않고 REQ AC를 정본 근거로 재사용한다. 정상·실패·경계와 (있으면) 브라우저 저장소 불변식을 포함한다. 이 test
     case는 프리뷰 동작 커버리지·Phase 4 test·사용자 승인 체크리스트가 공유하는 단일 정본이다.
 9-2. 복합 FEAT에 독립적으로 설명·검증·변경 가능한 행동이 둘 이상이면 `design-readiness-contract.md` §3-2의
     `FEAT-NNN-NN` 하위 기능 표를 추가한다. 버튼 수를 그대로 분해하지 않고 별도 TC subset·변경 경계·preview anchor가

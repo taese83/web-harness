@@ -23,7 +23,6 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 - 인증/인가가 필요한 endpoint의 credential 정책
 - stream protocol version, sequence, cursor, heartbeat, reset/error event, reconnect/resume 계약
 - localStorage/IndexedDB를 사용하면 저장 schema, version, migration, invalid-state recovery 계약
-- `runtime-data-contract.json`이 있으면 generated artifact/API의 schema version, required field, minCount, freshness metadata, empty policy와 실제 consumer 일치
 
 ## 실행 규칙
 
@@ -33,8 +32,7 @@ API 명세부터 런타임 소비 코드까지 계약이 일치하는지 읽기 
 4. mock에서만 성공하고 실제 API에서 실패할 수 있는 차이를 우선순위 높게 보고한다.
 5. owner는 계약 자체가 틀렸으면 `api-schema-designer`, 구현이 계약을 벗어났으면 `developer`(어긋난 모듈 경계를 스폰 범위로)로 지정한다.
 6. browser storage는 TypeScript interface만으로 신뢰하지 않고 runtime schema와 실제 rehydrate 경로를 교차 검증한다.
-7. static snapshot도 외부 contract로 취급한다. API spec과 artifact schema가 중복 정의되거나 현재 runtime mode와 다른 producer를 사실상의 source로 사용하면 `FAIL`이다.
-8. external ingestion mismatch owner로 `ingestion-contract-designer`와 `developer`를 사용할 수 있다.
+7. 빌드에 번들되는 정적 데이터도 외부 contract로 취급한다. API spec과 그 데이터의 schema가 중복 정의되면 `FAIL`이다.
 
 ## 출력 계약
 

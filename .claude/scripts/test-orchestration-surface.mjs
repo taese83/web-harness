@@ -35,8 +35,6 @@ test('표면 본문에 검사들이 의존하는 계약 문자열이 실제로 �
     'TARGET_BEHAVIOR',
     'PUBLIC_CONTRACTS_TO_PRESERVE',
     'TEST_EVIDENCE',
-    'state-contract-designer',
-    'ingestion-contract-designer',
     'visual-contract-designer',
     'minimal-change-contract.md',
   ]) {

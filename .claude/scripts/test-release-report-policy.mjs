@@ -7,8 +7,8 @@
 //       `/server-db-migration`이 `client/migrations/`를 기존 관습으로 문서화하므로 루트만 보면
 //       하네스가 스스로 권장한 관습을 따른 프로젝트가 조용히 빠진다 (2026-08-27 적대 검토 지적)
 //   (3) `node_modules/**/migrations/`는 발화시키지 않는다 — 의존성이 게이트를 켜면 안 된다
-//   (4) 분할된 설계 산출물(`state-contract/` 등 디렉터리)도 그 QA 보고서를 요구한다
-//   (5) requirements의 모드 선언만 있어도 그 모드의 QA를 요구한다 — 디자인 `absent`로 모드 계약이 없어도 사라지지 않는다
+//   (4) 분할된 설계 산출물(`performance-budget/` 등 디렉터리)도 그 QA 보고서를 요구한다
+//   (5) 은퇴한 모드의 선언·설계 산출물은 QA를 요구하지 않고 알림으로 드러난다 — 템플릿·false는 선언이 아니다
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
@@ -29,7 +29,7 @@ const withProject = (directories, run) => {
 }
 
 const requiresDataAccess = root =>
-  releaseReportRequirements(root, PROFILE, 'final', false).some(([id]) => id === 'data-access')
+  releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'data-access')
 
 test('migration 디렉터리가 없으면 data-access를 요구하지 않는다', () => {
   withProject(['src'], root => assert.equal(requiresDataAccess(root), false))
@@ -47,7 +47,7 @@ test('node_modules 안의 migrations/는 게이트를 켜지 않는다', () => {
   withProject(['node_modules/some-pkg/migrations'], root => assert.equal(requiresDataAccess(root), false))
 })
 
-const requiresSeo = root => releaseReportRequirements(root, PROFILE, 'final', false).some(([id]) => id === 'seo')
+const requiresSeo = root => releaseReportRequirements(root, PROFILE, 'final').some(([id]) => id === 'seo')
 
 test('공개 노출 선언만 있어도 qa-seo를 요구한다 — seo-spec 생산이 빠져도 조용히 사라지지 않는다', () => {
   withProject(['_workspace/01_plan'], root => {
@@ -74,25 +74,23 @@ test('분할된 tech-stack/ 디렉터리의 선언도 읽는다', () => {
 })
 
 test('분할된 설계 산출물(디렉터리)도 그 QA 보고서를 요구한다 — 분할이 검증 요구를 지우지 않는다', () => {
-  withProject(['_workspace/02_design/state-contract', '_workspace/02_design/performance-budget'], root => {
-    writeFileSync(join(root, '_workspace/02_design/state-contract/overview.md'), '# State\n')
+  withProject(['_workspace/02_design/seo-spec', '_workspace/02_design/performance-budget'], root => {
+    writeFileSync(join(root, '_workspace/02_design/seo-spec/routes.md'), '# SEO\n')
     writeFileSync(join(root, '_workspace/02_design/performance-budget/web-vitals.md'), '# Budget\n')
-    const ids = releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
-    assert.ok(ids.includes('state'), `분할한 state-contract가 qa-state 요구를 지웠다: ${ids.join(', ')}`)
+    const ids = releaseReportRequirements(root, PROFILE, 'final').map(([id]) => id)
+    assert.ok(ids.includes('seo'), `분할한 seo-spec이 qa-seo 요구를 지웠다: ${ids.join(', ')}`)
     assert.ok(ids.includes('performance'), `분할한 performance-budget이 qa-perf 요구를 지웠다: ${ids.join(', ')}`)
   })
 })
 
-test('모드 선언만 있어도 그 모드의 QA를 요구한다 — 모드 계약 생산자가 돌지 않은 경로에서도 사라지지 않는다', () => {
+test('은퇴한 모드 선언은 템플릿·false를 선언으로 읽지 않는다', () => {
   withProject(['_workspace/01_plan'], root => {
-    const ids = () => releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
     const requirements = join(root, '_workspace/01_plan/requirements.md')
-    assert.ok(!ids().includes('state'))
     writeFileSync(requirements, '## Modes\n- LOCAL_DOMAIN_STATE_MODE: true — 브라우저 저장소가 정본\n')
-    assert.ok(ids().includes('state'), `선언된 모드의 state QA 요구가 빠졌다: ${ids().join(', ')}`)
+    assert.equal(retiredModeDeclarations(root).length, 1)
     for (const template of ['true/false', 'true | false', 'false — API가 정본']) {
       writeFileSync(requirements, `## Modes\n- LOCAL_DOMAIN_STATE_MODE: ${template}\n`)
-      assert.ok(!ids().includes('state'), `선언하지 않은 모드(${template})를 요구했다 — false·템플릿은 선언이 아니다`)
+      assert.deepEqual(retiredModeDeclarations(root), [], `선언하지 않은 모드(${template})를 알렸다 — false·템플릿은 선언이 아니다`)
     }
   })
 })
@@ -100,8 +98,8 @@ test('모드 선언만 있어도 그 모드의 QA를 요구한다 — 모드 계
 test('분할된 requirements/ 디렉터리의 모드 선언도 읽는다', () => {
   withProject(['_workspace/01_plan/requirements'], root => {
     writeFileSync(join(root, '_workspace/01_plan/requirements/INDEX.md'), '# index\n')
-    writeFileSync(join(root, '_workspace/01_plan/requirements/modes.md'), '- **LOCAL_DOMAIN_STATE_MODE**: **true**\n')
-    assert.ok(releaseReportRequirements(root, PROFILE, 'final', false).some(([id]) => id === 'state'))
+    writeFileSync(join(root, '_workspace/01_plan/requirements/modes.md'), '- **EXTERNAL_DATA_INGESTION_MODE**: **true**\n')
+    assert.ok(retiredModeDeclarations(root).some(notice => notice.startsWith('EXTERNAL_DATA_INGESTION_MODE')))
   })
 })
 
@@ -110,10 +108,17 @@ test('은퇴한 모드 선언·설계 산출물은 QA를 요구하지 않고 알
     assert.deepEqual(retiredModeDeclarations(root), [])
     writeFileSync(join(root, '_workspace/01_plan/requirements.md'), '## Modes\n- TIMESERIES_MODE: true\n- ANALYTICS_BUILDER_MODE: true/false\n')
     writeFileSync(join(root, '_workspace/02_design/analytics-architecture.md'), '# Analytics\n')
+    mkdirSync(join(root, '_workspace/02_design/state-contract'))
+    writeFileSync(join(root, '_workspace/02_design/ingestion-contract.md'), '# Ingestion\n')
     const notices = retiredModeDeclarations(root)
-    assert.equal(notices.length, 2, notices.join(' | '))
-    assert.ok(notices.some(notice => notice.startsWith('TIMESERIES_MODE')) && notices.some(notice => notice.startsWith('ANALYTICS_BUILDER_MODE')))
-    const ids = releaseReportRequirements(root, PROFILE, 'final', false).map(([id]) => id)
-    assert.ok(!ids.includes('timeseries') && !ids.includes('analytics'), ids.join(', '))
+    assert.equal(notices.length, 4, notices.join(' | '))
+    rmSync(join(root, '_workspace/02_design/ingestion-contract.md'))
+    writeFileSync(join(root, '_workspace/02_design/runtime-data-contract.json'), '{}\n')
+    assert.equal(retiredModeDeclarations(root).length, 4, '남은 runtime-data-contract.json만으로도 수집 모드 알림이 나야 한다')
+    for (const mode of ['TIMESERIES_MODE', 'ANALYTICS_BUILDER_MODE', 'LOCAL_DOMAIN_STATE_MODE', 'EXTERNAL_DATA_INGESTION_MODE']) {
+      assert.ok(notices.some(notice => notice.startsWith(mode)), `${mode} 알림이 없다: ${notices.join(' | ')}`)
+    }
+    const ids = releaseReportRequirements(root, PROFILE, 'final').map(([id]) => id)
+    for (const id of ['timeseries', 'analytics', 'state', 'data-quality']) assert.ok(!ids.includes(id), ids.join(', '))
   })
 })

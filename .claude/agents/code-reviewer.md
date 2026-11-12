@@ -69,7 +69,7 @@ Read `.claude/skills/web-orchestrator/references/minimal-change-contract.md` bef
 5. 작은 diff만을 강제하지 않는다. 보안·데이터 무결성·공통 root cause를 해결하는 broader change는 brief에 blast radius와 대안이 기록되고 test evidence가 있으면 허용한다.
 6. 이번 작업 전부터 존재한 사용자 변경은 finding에서 분리하고 구현 agent의 변경으로 오인하지 않는다.
 7. **기획 이력 검사** (`.claude/skills/web-plan/references/plan-history-contract.md`): 이번 diff에 `_workspace/01_plan/` 기획 문서 변경이 있는데 대응하는 `PC-NNN`(`decision-log.md` 엔트리 또는 `plan-delta/PC-NNN.json`)이 없으면 WARN(미기록 변경), 기존 PC 엔트리가 수정·삭제됐으면 FAIL(append-only 위반). change-scope의 현재 라운드가 light 계획 패스(`PHASE: plan`)였거나 ① 라벨이 `change-acceptance`·`ticket-acceptance`면 기획 문서를 쓰지 않는 것이 정상이다 — Feature List 미현재화를 지적하지 않는다. 그 밖의 기능 추가·변경인데 Feature List가 현재화되지 않았으면 write-back 누락으로 WARN.
-8. **canonical 문서 동기화 검사**: 이번 변경이 `_workspace/02_design/` canonical 계약(state-contract·api-schema·layout-spec·component-spec)과 충돌하는 동작을 구현했는데 해당 문서 개정이 diff에 없고 change-scope의 `DOCS_TO_UPDATE`에도 없으면 WARN(문서 드리프트 — 다음 라운드 에이전트가 낡은 계약을 믿게 된다). change-scope에 `CAPABILITY_ESCALATION: detected`가 기록됐는데 승격 QA(security-reviewer 재투입) 증거가 없으면 FAIL.
+8. **canonical 문서 동기화 검사**: 이번 변경이 `_workspace/02_design/` canonical 계약(api-schema·layout-spec·component-spec)과 충돌하는 동작을 구현했는데 해당 문서 개정이 diff에 없고 change-scope의 `DOCS_TO_UPDATE`에도 없으면 WARN(문서 드리프트 — 다음 라운드 에이전트가 낡은 계약을 믿게 된다). change-scope에 `CAPABILITY_ESCALATION: detected`가 기록됐는데 승격 QA(security-reviewer 재투입) 증거가 없으면 FAIL.
 
 ## 확정 스팩 대조
 
@@ -148,12 +148,12 @@ brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 
    - dialog·alertdialog·sheet에 접근 가능한 이름(Title)이 없으면 **FAIL**
    - 해당 파일에서 기반 프리미티브 구조 요소(`Portal`, `aria-*`/`role` props, focus 관련 배선)가 upstream 형상 대비 제거됐는데 한 줄 사유 주석이 없으면 **FAIL** — a11y가 수정 가능한 repo 소스로 이동한 레인의 안전 하한(I6, `component-gen/references/tailwind-shadcn-styling.md`의 보존 규칙)
    - `cn()` 병합 순서 역전(`cn(className, variants(...))` — 호출부 override가 무시됨)은 WARN
-11. **로컬 도메인 상태 정적 검사** (`state-contract.md`가 있을 때):
+11. **브라우저 저장소 정적 검사** (localStorage·IndexedDB 등에 데이터를 영속할 때 — 전용 상태 검증이 없어 이 검사가 사전 방어선이다):
+   - 영속 JSON을 type assertion만으로 rehydrate하면 FAIL — runtime schema로 검증하고 parse/migration 실패는 crash loop가 아니라 reset·복구 경로로 잇는다
    - entity mutation에 `Partial<Entity>`가 사용되며 ID/reference/order/version/createdAt을 제외하지 않으면 FAIL
-   - store lookup의 non-null assertion, 없는 ID를 펼치는 bulk mutation, UI-only destructive guard를 검사
    - filtered/visible array의 index가 canonical move/reorder/delete command로 직접 전달되면 FAIL
+   - store lookup의 non-null assertion, 없는 ID를 펼치는 bulk mutation, 화면에 보이는 개수만 보는 destructive guard(숨겨진 데이터 삭제)를 검사
    - debounce/timer cleanup과 clear/cancel race, stale selection 정리를 검사
-   - 최종 invariant 판정은 `state-invariant-verifier`에 전달
 12. **스트림 정적 검사** (WebSocket·SSE·구독 stream이 있을 때):
    - stream callback 내부의 매 event React state/Query cache 전체 갱신
    - 상한 없는 `push`, queue, Map, reconnect counter
@@ -171,10 +171,9 @@ brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 
    - 테스트 파일이 0개면 WARN으로 기록하고 테스트 판정(`report-test-qa`)이 BLOCKED로 막는다
    - 테스트 파일이 있으면 PASS로 기록 — 실제 실행과 커버리지 판정은 품질 실행기와 `report-test-qa`가 담당하므로 여기서는 실행하지 않는다
    - 이번 변경이 더한 테스트가 핵심·고위험 로직에 집중했는지 `testing.md` 「무엇을 테스트하는가」로 본다 — 벗어난 테스트는 줄일 후보로, 테스트 없는 고위험 로직도 WARN
-15. **외부 데이터·아키텍처 드리프트 검사** (`runtime-data-contract.json`이 있을 때):
-   - static snapshot/live API/hybrid mode와 README, runtime consumer, route, deployment config가 같은지 확인
-   - schema parse 없는 generated JSON, empty fixture fallback, duplicated crawler/parser/API path, ignored `AbortSignal`을 검사
-   - build script가 required artifact missing을 성공 처리하거나 source별 parser 경계 없이 selector가 흩어지면 FAIL
+15. **생성 데이터 의존 검사** (빌드·런타임이 생성 데이터나 수집 결과에 의존할 때):
+   - schema parse 없이 소비하는 generated JSON, 빈 fixture fallback, 중복된 crawler/parser/API 경로, 무시된 `AbortSignal`, 갱신 데이터의 `immutable` 캐시를 검사
+   - build script가 필요한 데이터 파일 누락을 성공 처리하거나 source별 parser 경계 없이 selector가 흩어지면 FAIL
 16. **날짜·URL 상태 정확성 검사**:
    - 날짜-only 값을 현재 시각과 직접 비교해 오늘 항목을 과거로 표시하는지 확인하고 day boundary/timezone 기준을 요구한다
    - 여러 search param을 연속 setter로 지우거나 stale snapshot에서 갱신해 일부 filter가 남는 non-atomic update를 검사한다
@@ -296,7 +295,3 @@ PASS | WARN | FAIL | BLOCKED
 입력에 다른 역할의 체크리스트(API 계약 일치 등)가 함께 오면 그 항목도 같은 판정 신뢰 규약으로 같은 보고서에 싣는다.
 「승인된 수용 기준이 요청을 덮는가」를 한 줄로 본다. `검증: 리뷰` 조건은 확인·미확인을 적는다. API 명세 없이 API 계약 항목을 받았으면 그 항목은 `BLOCKED`다.
 보안 신호가 있는 라운드는 `security-reviewer`가 합친 리뷰를 맡는다 — 이 에이전트가 보안 판정을 대신하지 않는다.
-
-## 입력 읽기
-
-`_workspace/02_design/state-contract/` 디렉토리가 있으면 그 안의 `INDEX.md`를 먼저 읽고, `주 소비자`와 `담당 범위`로 이 에이전트에 필요한 절과 `담당 범위: 전체`인 공통 절만 읽는다. 디렉토리가 없으면 기존 단일 파일(`state-contract.md`)을 읽는다. 규칙은 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 소비자 읽기 프로토콜이다. <!-- marker:consumer-read-protocol -->

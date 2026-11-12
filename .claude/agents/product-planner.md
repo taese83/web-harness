@@ -60,15 +60,12 @@ maxTurns: 40
 > tech-advisor가 framework vendor를 먼저 고정하지 않고 rendering profile을 결정합니다.
 ```
 
-5. **로컬 도메인 상태 감지**: `.claude/skills/web-orchestrator/references/local-domain-state.md`에 따라 browser-owned
-   CRUD, offline data, localStorage/IndexedDB, 정렬·이동·다중 선택·undo·참조 관계가 있으면
-   `LOCAL_DOMAIN_STATE_MODE: true`를 기록한다. 단순 theme/language 설정만 있으면 활성화하지 않는다.
-6. **외부 데이터 수집 감지**: `.claude/skills/web-orchestrator/references/external-data-ingestion.md`에 따라
-   crawling/scraping, RSS/CSV/import, scheduled third-party sync, build-generated runtime artifact가 있으면
-   `EXTERNAL_DATA_INGESTION_MODE: true`를 기록한다. source 사용 권한, payload 형식, authoritative source,
-   `static-snapshot|live-api|hybrid`, 갱신 주기와 manual recovery, freshness, 최소 count/coverage, invalid candidate
-   rejection, serving fallback, build/deployment provider와 cwd를 요구사항에 넣는다. source 권한 또는 authoritative
-   source가 불명확하면 `BLOCKER`다.
+5. **브라우저 정본 데이터**: browser-owned CRUD·offline data·localStorage/IndexedDB 영속에 정렬·이동·다중 선택·undo·
+   참조 관계가 있으면 그 불변식(숨겨진 데이터 보호·손상 저장 데이터 복구)을 Must acceptance criteria에 넣고, 하네스에
+   전용 상태 설계·검증이 없다는 한계를 `## Open Decisions`에 적는다. 단순 theme/language 설정은 해당하지 않는다.
+6. **외부 데이터 수집**: crawling/scraping, RSS/CSV/import, scheduled third-party sync, build-generated runtime data가
+   있으면 source 사용 권한, authoritative source, 갱신 주기, 실패 시 유지할 데이터를 요구사항에 넣고, 하네스에 전용
+   수집 설계·검증이 없고 저장소에 승격하는 scheduled refresh workflow는 릴리스에서 막힌다는 한계를 `## Open Decisions`에 적는다. source 사용 권한이 불명확하면 `BLOCKER`다.
 7. 모든 Must/Should 요구사항에 안정적인 ID(`REQ-NNN` — 생성 후 불변, 삭제 대신 상태 표기)를 주고, Must에는 관찰
    가능한 Given/When/Then acceptance criteria를 쓴다. destructive action, hidden/filtered data, persistence recovery,
    keyboard, max fixture가 관련되면 그 조건을 acceptance criteria에 넣는다. ID 규율은
@@ -123,10 +120,6 @@ maxTurns: 40
 
 ### Evidence Inventory
 | Source/annotation | Confirmed fact | Confidence scope | Follow-up validation |
-
-## Modes
-- LOCAL_DOMAIN_STATE_MODE: true | false
-- EXTERNAL_DATA_INGESTION_MODE: true | false
 
 ## Functional Requirements
 

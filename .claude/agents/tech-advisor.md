@@ -39,14 +39,7 @@ maxTurns: 25
 7. 번들 크기, 유지보수 상태, 라이선스, 접근성, 보안, observability, 테스트 비용을 함께 고려한다
 8. "좋아 보여서"가 아니라 요구사항 ID와 trade-off에 연결해 이유를 명시한다
 9. **배포 provider와 runtime target을 requirements.md에서 확인하고 tech-stack.md에 별도 필드로 명시한다.** provider가 없으면 `generic`, target이 없으면 profile 기본값을 `ASSUMPTION`으로 둔다. Vercel/Netlify/S3/Railway는 provider이고 `static-cdn|container-static|node-server|static-export`는 target이다. provider-target 조합에 따라 서버사이드 코드, build command, 환경변수 주입을 검증한다.
-10. **`EXTERNAL_DATA_INGESTION_MODE`이면** `external-data-ingestion.md`와 요구사항을 읽고 `static-snapshot`, `live-api`, `hybrid` 중 현재 runtime mode를 고정한다. 다음을 Architecture Decisions에 기록한다:
-   - 수집 주기와 트리거 방식 (GitHub Actions cron, Vercel Cron, 수동)
-   - 수집 결과 저장소 (Git 커밋 + 재배포 / KV/Redis / DB)
-   - 스토리지 선택 시 플랫폼 제약 확인 (Vercel 파일시스템 read-only, Serverless 인스턴스 간 메모리 비공유)
-   - UI가 데이터를 소비하는 방식 (번들 포함 / fetch 정적 파일 / API 호출)
-   - root/workspace/provider별 install/generate/validate/build cwd와 required artifact
-   - freshness/count/coverage/diff threshold, invalid promotion rejection, serving fallback, atomic promotion/last-known-good
-   - selected capability `external-ingestion`; static snapshot+scheduled이면 `scheduled-static-ingestion`
+10. **외부 데이터를 주기적으로 수집해 쓰면** 수집 주기·트리거, 결과 저장소, 플랫폼 제약(Vercel 파일시스템 read-only, Serverless 인스턴스 간 메모리 비공유), UI 소비 방식(번들 / 정적 파일 fetch / API)을 Architecture Decisions에 기록한다. 하네스에 전용 수집 설계·검증이 없고, 결과를 저장소에 승격하는 scheduled refresh workflow는 릴리스 증거에서 막힌다(생성 경로 manifest 부재 — `phase-4-verification.md`)는 한계를 함께 적는다. 런타임 API 조회나 하네스 밖 수집 운영을 대안으로 제시한다.
 11. 하나의 workspace graph와 lockfile을 기본으로 하며 독립 package가 필요하면 이유, build 순서, root quality script가 모든 package를 포함하는 방법을 기록한다.
 12. chart library의 마케팅 최대 건수를 근거로 사용하지 않고 normal/max/burst fixture에서 검증할 선택만 제안한다.
 13. adapter가 지원하는 capability 전체를 enabled로 복사하지 않는다. auth/cookie/BFF/server mutation은 요구사항 ID가 있을 때만 `selected capabilities`에 넣고, 공개 Next 기본 경로의 risk를 인증 서비스로 과장하지 않는다.

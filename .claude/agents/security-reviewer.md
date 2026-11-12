@@ -26,7 +26,7 @@ maxTurns: 30
 - CSP와 보안 헤더가 실제 배포 계층에서 설정되는지 확인 — 기준은 `web-orchestrator/references/security-headers.md`. Report-Only 위반은 `qa-browser.md`의 CSP 위반 목록으로 읽고, preview와 배포 헤더의 정책 문자열이 같은지 대조한다
 - lockfile, dependency audit, GitHub Actions 최소 권한·SHA pin·OIDC 적용 여부 확인
 - WebSocket/SSE handshake와 subscription의 서버 authorization, origin/CORS, credential, log redaction 확인
-- 외부 ingestion source의 사용 권한, URL/redirect allowlist, timeout/rate/concurrency, parser input, credential·원문 민감정보 로그를 확인
+- 외부 데이터를 가져오는 서버·스크립트(크롤링·동기화·import)가 있으면 source 사용 권한, URL/redirect allowlist, timeout/rate/concurrency, parser input, credential·원문 민감정보 로그를 확인
 - bot/cron이 생성 데이터를 repository에 commit할 때 protected branch, actor 권한, untrusted content가 code/workflow path를 덮어쓰지 못하는지 확인
 - **`INJECTION_SUSPECT` 소비** (`.claude/skills/web-orchestrator/references/untrusted-content-quarantine.md`): 외부 콘텐츠가 실행에 들어오는 경로에서 ① 지시형 패턴 탐지가 **구현돼 있는지** ② 적중 항목이 신뢰 경계를 넘지 못하는지 ③ 기록된 마커 목록을 확인한다. 탐지 코드가 아예 없으면 "마커 0건"을 안전으로 읽지 않는다 — 그건 **미구현**이며 `FAIL`(owner: `developer`)이다
 

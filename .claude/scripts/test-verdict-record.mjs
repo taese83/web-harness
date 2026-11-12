@@ -41,7 +41,7 @@ test('판정 읽기(순수): `## Result` 다음 줄의 알려진 상태만 받�
 })
 
 test('필수 보고서마다 판정을 기록하는 검증 에이전트나 스크립트가 있다 — 없으면 그 보고서는 기록이 생긴 프로젝트에서 영영 통과하지 못한다', () => withProject(root => {
-  for (const file of ['state-contract.md', 'visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md']) {
+  for (const file of ['visual-qa-contract.json', 'performance-budget.md', 'seo-spec.md']) {
     mkdirSync(join(root, '_workspace/02_design'), {recursive: true})
     writeFileSync(join(root, '_workspace/02_design', file), '')
   }
@@ -49,7 +49,7 @@ test('필수 보고서마다 판정을 기록하는 검증 에이전트나 스�
   // 분모는 어댑터 전부다 — 어댑터 전용 보고서가 새로 생겨도 이 대조에서 빠지지 않는다.
   const adapters = readdirSync(join(REPOSITORY_ROOT, '.claude/adapters'), {withFileTypes: true}).filter(entry => entry.isDirectory()).map(entry => entry.name)
   assert.ok(adapters.includes('next-app-fullstack'), `어댑터 목록을 읽지 못했다: ${adapters.join(', ')}`)
-  const required = [...new Set(adapters.flatMap(id => releaseReportRequirements(root, {adapter: {id}}, 'final', true).map(([reportId]) => reportId)))]
+  const required = [...new Set(adapters.flatMap(id => releaseReportRequirements(root, {adapter: {id}}, 'final').map(([reportId]) => reportId)))]
   const recorded = new Set([...Object.values(VERDICT_REPORT_BY_AGENT), ...Object.values(VERDICT_REPORT_BY_SCRIPT)])
   // 스크립트 기록자는 실제로 그 보고서 id로 기록해야 한다 — 이름만 올린 기록자는 없는 것과 같다.
   for (const [script, reportId] of Object.entries(VERDICT_REPORT_BY_SCRIPT)) {

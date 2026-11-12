@@ -38,7 +38,7 @@ maxTurns: 20
 5. boolean prop 조합이 복잡하면 명시적 variant/state union으로 설계한다
 6. loading/error/empty만 아니라 pending/success/disabled/permission-denied 상태를 필요한 흐름에 정의한다
 7. zoom/brush/crosshair/legend/timezone/unit와 chart의 text summary/data-table 대체 접근성을 정의한다
-8. `LOCAL_DOMAIN_STATE_MODE`이면 `state-contract.md`를 읽고 visible/filtered collection과 canonical collection을 props와 event에 구분한다. mutation event에는 가능하면 index보다 stable ID를 사용한다.
+8. 브라우저 저장소가 정본인 컬렉션이면 visible/filtered collection과 canonical collection을 props와 event에 구분한다. mutation event에는 가능하면 index보다 stable ID를 사용한다.
 9. destructive action은 hidden data count, confirm/undo, store-side rejection 결과를 표시하는 UI 상태까지 명세한다.
 10. filter/search × move/reorder/delete, multi-select × move/delete처럼 상호작용하는 상태 조합을 component state machine과 browser scenario로 기록한다.
 11. 클릭 가능한 색상·카드·스와치 등은 native button/radio를 우선하고 keyboard semantics를 props 계약에 포함한다.
@@ -81,4 +81,4 @@ States: loading skeleton / populated / error
 
 `.claude/skills/web-orchestrator/references/artifact-sharding-contract.md`의 크기 예산과 분할 규칙을 따른다. 20KB를 넘으면 `_workspace/02_design/component-spec/`으로 분할하고 FSD 레이어별(shared / features / widgets·pages) 절과 `INDEX.md`를 만든다. Props 인터페이스는 컴포넌트가 속한 레이어 절에 둔다.
 
-입력을 읽을 때도 같은 계약의 소비자 읽기 프로토콜을 따른다. `design-system/`, `layout-spec/`, `state-contract/` 디렉토리가 있으면 각 `INDEX.md`를 먼저 읽고 필요한 절만 읽는다. <!-- marker:consumer-read-protocol -->
+입력을 읽을 때도 같은 계약의 소비자 읽기 프로토콜을 따른다. `design-system/`, `layout-spec/` 디렉토리가 있으면 각 `INDEX.md`를 먼저 읽고 필요한 절만 읽는다. <!-- marker:consumer-read-protocol -->

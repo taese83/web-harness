@@ -75,7 +75,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
 
 경로가 확인되면:
 
-1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. resolver가 crawler/package script/scheduled workflow/generated-data marker를 찾았는데 ingestion 계약이 없거나 `external-ingestion` capability가 확정되지 않으면 즉시 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
+1. source를 수정하기 전에 built-in profile을 다시 확정한다. 기존 profile이 있으면 provider, deployment target과 capabilities를 그대로 전달하고, 없으면 `--requested auto`로 검출한다. 은퇴한 capability(`CAPABILITY_RETIRED`)를 잠근 프로필은 `BLOCKED`다. 이 preflight 전에는 test/config 파일도 만들지 않는다.
 2. 테스트 기반을 준비한다. **이 단계는 source를 만든다** — `verify` 레인은 검증자가
    read-only일 뿐 레인 전체가 불변인 것이 아니다(2026-09-10 감사가 잡은 거짓 표시).
    **무엇을 만들 것인지 보여주고 착수 전 승인을 받는다.** 사용자가 거절하면 그 사실을 적고
@@ -84,7 +84,7 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - developer
    - `VISUAL_QA_MODE`이면 `developer`를 시각 test/story 범위로 실행한다. baseline은 갱신하지 않는다.
 3. resolver stdout을 canonical `project-profile.json`에 저장하고 `_workspace/03_dev/web-execution-plan.json`을 다시 컴파일한다. package/toolchain drift, incompatible router/runtime, adapter hash 또는 plan binding 오류는 `BLOCKED`다.
-4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. `external-ingestion` capability에서는 `ingestion` receipt가 같은 cohort에 포함되지 않으면 `BLOCKED`다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
+4. 로컬 진단이면 오케스트레이터가 사용자 승인을 받은 뒤 `node .claude/scripts/run-quality-gates.mjs --all --allow-host-execution`을 실행한다. release 후보 증거는 격리 CI에서 승인 flag 없이 `WEB_HARNESS_ISOLATED_EXECUTION=1 node .claude/scripts/run-quality-gates.mjs --all`로 다시 생성한다. 로컬 receipt는 진단 전용이며 release attestation의 subject가 될 수 없다. non-zero여도 다음 verifier 보고서를 생략하지 않는다.
 5. 테스트 판정 스크립트를 실행한다: `node .claude/scripts/report-test-qa.mjs --project {project-root}` → `qa-test.md`와 판정 기록(에이전트 스폰 없음).
    리뷰 묶음을 만든다: `node .claude/scripts/prepare-review-packet.mjs --project-root {project-root} --base {base}` — `{base}`는 리뷰 범위다 — 브랜치 기준 이후 커밋이 있으면 그 기준(커밋 안 한 변경도 함께 잡힌다; 트래커 설정의 `review.base`가 있으면 그것, 없으면 묻는다 — 예 `origin/develop`), 커밋이 없으면 `HEAD`. 판단형 리뷰어는 Bash가 없어 이 묶음과 receipt만 읽는다.
    독립 QA 에이전트 실행 (병렬 가능):
@@ -93,8 +93,6 @@ Apply the QA Immutability Contract: verifier agents do not modify source/test/co
    - integration-verifier
    - security-reviewer
    - api-contract-verifier
-   - `_workspace/02_design/state-contract.md`(또는 분할 디렉터리)가 있으면 state-invariant-verifier
-   - locked profile에 `external-ingestion` capability가 있으면 data-quality-verifier
    - `_workspace/02_design/seo-spec.md`가 있거나 `tech-stack.md`가 `PUBLIC_EXPOSURE: yes`면 seo-verifier
    - `_workspace/02_design/performance-budget.md`가 있으면 performance-verifier
    - browser-verifier
@@ -122,6 +120,4 @@ FAIL 항목은 아래 형식으로 출력한다:
 AI critical scenario의 FAIL·BLOCKED, ACL leak, approval bypass, unauthorized side effect는 release PASS로 바꾸지 않는다.
 일반 QA의 FAIL·BLOCKED·NEEDS_REVIEW와 필수 리포트 누락도 release PASS로 바꾸지 않는다.
 visual contract가 있으면 `qa-visual.md`, browser `visualEvidence`, 승인 baseline manifest 중 하나라도 누락·stale이면 release PASS로 바꾸지 않는다.
-local domain state의 데이터 손실 가능성, invariant 위반, migration/recovery 누락도 release PASS로 바꾸지 않는다.
-external ingestion의 missing/empty/schema-invalid artifact, architecture drift, production fixture fallback, atomic promotion 또는 clean-build evidence 누락도 release PASS로 바꾸지 않는다.
 Markdown command 표는 machine receipt와 일치해야 하며 source가 바뀌면 quality runner부터 다시 실행한다.

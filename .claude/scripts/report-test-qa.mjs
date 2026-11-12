@@ -10,7 +10,7 @@
 //   - 커버리지(lines)가 70% 미만이거나 수를 읽지 못하면 WARN
 //   - 변이 표본은 보고만 한다(막지 않는다). 복원에 실패하면 BLOCKED — 커버리지는 실행만 측정한다. 무엇을 검증하는지는 변이 표본이 잰다
 //   - 테스트 정직성 신호(소스 텍스트 읽기·대상 mock·동어반복 상수)도 보고만 한다 — honest-test-lib.mjs
-// 브라우저 E2E·상태 시나리오·수집 픽스처는 각자의 보고서(qa-browser·qa-state·qa-data-quality)가 판정한다.
+// 브라우저 E2E는 자기 보고서(qa-browser)가 판정한다.
 //
 // 사용법: node .claude/scripts/report-test-qa.mjs --project <root> [--skip-mutation-sample] [--json]
 // 종료 코드: 0 = 보고서 작성(판정과 무관), 2 = 사용법 오류.
@@ -162,7 +162,7 @@ export function renderTestQa(result) {
     '', '## 테스트 정직성 신호', '알림이다 — 판정에 반영하지 않는다. 정적 패턴이라 의도한 구조 검사도 걸린다(사람이 가린다).',
     ...((result.honesty ?? []).length ? result.honesty.map(signal => `- ${signal.file}:${signal.line} [${signal.kind}] ${HONESTY_KINDS[signal.kind]} — \`${signal.evidence}\``) : ['- 없음']),
     '', '## 여기서 판정하지 않는 것',
-    '- 브라우저 E2E: `qa-browser.md`(browser 영수증)', '- 상태 시나리오: `qa-state.md`', '- 수집 픽스처·승격: `qa-data-quality.md`',
+    '- 브라우저 E2E: `qa-browser.md`(browser 영수증)',
     '', '_report-test-qa가 영수증에서 계산했다 — 손으로 고치면 판정 기록과 어긋나 릴리스 게이트가 막는다._', '')
   return lines.join('\n')
 }

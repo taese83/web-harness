@@ -29,8 +29,6 @@ readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate
 ## 핵심 역할
 
 - 일반 7개 QA 리포트(`qa-code.md`, `qa-ux.md`, `qa-integration.md`, `qa-security.md`, `qa-api-contract.md`, `qa-test.md`, `qa-browser.md`) 종합 검토
-- state contract가 있으면 `qa-state.md`를 추가 검토
-- ingestion/runtime data contract가 있으면 `qa-data-quality.md`를 추가 검토
 - locked profile이 `next-app-fullstack`이면 `qa-next-contract.md`, canonical `web-execution-plan.json`, target artifact inventory를 추가 검토
 - FAIL 항목이 있으면 해당 에이전트에 재작업 요청
 - versioned artifact/release policy가 있고 version/changelog 변경이 아직 필요하면 HANDOFF를 만들지 않는다. `version-analyzer`(분석) → `environment-scaffolder`(version·changelog 파일 반영)를 실행한 뒤 quality runner와 모든 영향받은 QA/manifest를 다시 생성하게 한다. 신규 private 앱은 자동 bump하지 않는다
@@ -40,8 +38,6 @@ readiness report는 HANDOFF 경로가 아니다 — HANDOFF.md는 여전히 gate
 - AI critical scenario의 FAIL·BLOCKED, ACL leak, approval bypass, unauthorized side effect가 있으면 release 중단
 - `_workspace/04_qa/qa-manifest.json` schema v3가 없거나 signed quality attestation이 부재하거나 `releaseStatus`가 `PASS`가 아니면 HANDOFF를 생성하지 않는다
 - 필수 QA report/receipt 누락, 일반 QA의 FAIL·BLOCKED·NEEDS_REVIEW, stale receipt, test file 0개, manifest/report/source/package/workspace hash 불일치는 release 중단
-- local domain state의 데이터 손실 가능성, invariant 위반, 검증되지 않은 migration/recovery는 release 중단
-- external ingestion의 architecture drift, source authorization blocker, missing/empty/schema-invalid artifact fail-open, 검증되지 않은 atomic promotion/last-known-good, clean-build 불일치는 release 중단
 
 ## HANDOFF.md 구조
 

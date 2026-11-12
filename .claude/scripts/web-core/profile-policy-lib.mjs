@@ -4,11 +4,6 @@ import {join} from 'node:path'
 import {loadBuiltinAdapter} from './adapter-lib.mjs'
 import {compileCapabilityDag} from './dag-lib.mjs'
 import {readJson, sortedUnique, stableStringify, WebCoreError} from './core-lib.mjs'
-import {
-  EXTERNAL_INGESTION_CAPABILITY,
-  inspectExternalIngestion,
-  SCHEDULED_STATIC_INGESTION_CAPABILITY,
-} from './ingestion-detection-lib.mjs'
 
 export const COMMON_RECEIPT_ALIASES = Object.freeze({
   'ingestion.validate': 'ingestion',
@@ -22,6 +17,10 @@ export const COMMON_RECEIPT_ALIASES = Object.freeze({
   'vite.build': 'build',
   'vite.browser': 'browser',
 })
+
+// 은퇴한 수집 capability. 어댑터 `provides`나 그것에 걸린 `shape-checks`의 `ingestion.validate`를 지우면 도출된 어댑터
+// 해시가 바뀌어 잠긴 프로필·golden 결속이 전부 stale이 되므로, 둘 다 남기고 선택 시점에 거절한다.
+const RETIRED_CAPABILITIES = new Set(['external-ingestion', 'scheduled-static-ingestion'])
 
 export const adapterSha256 = adapter =>
   createHash('sha256').update(stableStringify(adapter)).digest('hex')
@@ -66,13 +65,11 @@ export const resolveAdapterSelection = ({adapter, deploymentProvider, deployment
   if (unknown.length) {
     throw new WebCoreError('CAPABILITY_UNKNOWN', 'Selected capabilities are not provided by the adapter', {unknown})
   }
-  const selected = new Set(selectedCapabilities)
-  if (selected.has('scheduled-static-ingestion') && !selected.has('external-ingestion')) {
-    throw new WebCoreError(
-      'INGESTION_CAPABILITY_CONFLICT',
-      'scheduled-static-ingestion requires external-ingestion',
-    )
+  const retired = selectedCapabilities.filter(capability => RETIRED_CAPABILITIES.has(capability))
+  if (retired.length) {
+    throw new WebCoreError('CAPABILITY_RETIRED', 'Selected capabilities are retired — this harness no longer designs or verifies external data ingestion. Re-resolve the profile without them (resolve-profile.mjs --capability … for each kept one), recompile web-execution-plan.json, and re-confirm the spec', {retired})
   }
+  const selected = new Set(selectedCapabilities)
   const missing = target.requires.filter(capability => !selected.has(capability)).sort()
   const conflicts = target.conflicts.filter(capability => selected.has(capability)).sort()
   if (missing.length || conflicts.length) {
@@ -179,39 +176,6 @@ export const validateLockedProfileProjectState = (lockedProfile, projectRoot) =>
   }
   if (!/^pnpm@\d+\.\d+\.\d+$/.test(current.packageManager ?? '')) {
     throw new WebCoreError('PROJECT_PROFILE_PACKAGE_MANAGER_UNPINNED', 'packageManager must pin an exact pnpm version')
-  }
-  const ingestion = inspectExternalIngestion(projectRoot)
-  if (ingestion.errors.length > 0) {
-    throw new WebCoreError(
-      'PROJECT_PROFILE_INGESTION_STATE_INVALID',
-      'Current external ingestion state cannot be inspected safely',
-      {errors: ingestion.errors},
-    )
-  }
-  // 감지는 **막지 않는다**(2026-08-27). 종전에는 감지만으로 여기서 throw해 quality runner가
-  // 통째로 죽었다 — receipt 한 장 없이 exit 2다. 실측: 이웃 repo 4개가 배포 알림·CDN 업로드
-  // 때문에 여기서 막혔고, 그 프로젝트엔 만족시킬 `validate:ingestion` script가 없다.
-  // 만족시킬 수 없는 요구는 게이트가 아니라 벽이다.
-  //
-  // 기준을 **선언**으로 바꾼다: 스팩이 `external-ingestion`을 켰으면 그때부터 전부 강제한다.
-  // 켜 놓고 계약이 없거나, 계약을 지웠는데 capability가 남아 있으면 그건 모순이므로 fail-close.
-  const selectedCapabilities = new Set(lockedProfile.selection.selectedCapabilities)
-  const declaredExternalIngestion = selectedCapabilities.has(EXTERNAL_INGESTION_CAPABILITY)
-  if (declaredExternalIngestion && !ingestion.contractsComplete) {
-    throw new WebCoreError(
-      'PROJECT_PROFILE_INGESTION_CONTRACT_STALE',
-      'Declared external ingestion capability is not covered by both locked ingestion contracts',
-      {evidence: ingestion.evidence},
-    )
-  }
-  const staleScheduledCapability =
-    selectedCapabilities.has(SCHEDULED_STATIC_INGESTION_CAPABILITY) && !ingestion.scheduledStatic
-  if (staleScheduledCapability) {
-    throw new WebCoreError(
-      'PROJECT_PROFILE_INGESTION_CAPABILITY_STALE',
-      'Locked ingestion capabilities do not match the current project and runtime-data contract',
-      {declared: [...selectedCapabilities], scheduledStatic: ingestion.scheduledStatic},
-    )
   }
   return lockedProfile
 }

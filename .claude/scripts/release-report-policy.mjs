@@ -12,8 +12,6 @@ const BASE_REPORTS = [
   ['browser', 'qa-browser.md'],
 ]
 const DATA_ACCESS_REPORTS = [['data-access', 'qa-data-access.md']]
-const LOCAL_STATE_REPORTS = [['state', 'qa-state.md']]
-const INGESTION_REPORTS = [['data-quality', 'qa-data-quality.md']]
 const VISUAL_REPORTS = [['visual', 'qa-visual.md']]
 const PERFORMANCE_REPORTS = [['performance', 'qa-perf.md']]
 const SEO_REPORTS = [['seo', 'qa-seo.md']]
@@ -45,8 +43,7 @@ const isServerOwnedDataProject = projectRoot => {
       existsSync(join(projectRoot, entry.name, 'migrations')),
   )
 }
-// 모드는 requirements.md `## Modes`의 선언으로도 켠다. 모드 계약(설계 산출물)만 트리거로 쓰면 디자인이 `absent`라 그
-// 계약의 생산자가 돌지 않은 경로에서 QA가 조용히 사라진다. 분할 산출물(`requirements/`)도 읽고, 템플릿 그대로의
+// requirements.md `## Modes`의 모드 선언 줄을 읽는다. 분할 산출물(`requirements/`)도 읽고, 템플릿 그대로의
 // `true | false`는 선언이 아니다.
 export const declaresMode = (projectRoot, mode) => {
   const pattern = new RegExp(`^[\\s>*-]*\\**${mode}\\**:\\s*[\`*]*true\\b(?![\`*]*[ \\t]*[|/])`, 'im')
@@ -66,8 +63,6 @@ export const declaresMode = (projectRoot, mode) => {
     }
   })
 }
-const isLocalDomainStateProject = projectRoot =>
-  hasDesignArtifact(projectRoot, 'state-contract') || declaresMode(projectRoot, 'LOCAL_DOMAIN_STATE_MODE')
 export const isVisualProject = projectRoot =>
   hasArtifact(projectRoot, '_workspace/02_design/visual-qa-contract.json')
 const isPerformanceProject = projectRoot => hasDesignArtifact(projectRoot, 'performance-budget')
@@ -95,20 +90,25 @@ export const declaresPublicExposure = projectRoot => {
 const isSeoProject = projectRoot =>
   hasDesignArtifact(projectRoot, 'seo-spec') || declaresPublicExposure(projectRoot)
 // 은퇴한 모드 — 선언·설계 산출물이 남은 프로젝트에 더 이상 QA를 요구하지 않는다는 사실을 조용히 넘기지 않고 알린다.
-const RETIRED_MODES = [['ANALYTICS_BUILDER_MODE', 'analytics-architecture', 'qa-analytics.md'], ['TIMESERIES_MODE', 'timeseries-architecture', 'qa-timeseries.md']]
+const RETIRED_MODES = [
+  ['ANALYTICS_BUILDER_MODE', ['analytics-architecture'], 'qa-analytics.md'],
+  ['TIMESERIES_MODE', ['timeseries-architecture'], 'qa-timeseries.md'],
+  ['LOCAL_DOMAIN_STATE_MODE', ['state-contract'], 'qa-state.md'],
+  ['EXTERNAL_DATA_INGESTION_MODE', ['ingestion-contract', 'runtime-data-contract.json'], 'qa-data-quality.md'],
+]
+const hasRetiredArtifact = (projectRoot, names) => names.some(name =>
+  name.includes('.') ? hasArtifact(projectRoot, `_workspace/02_design/${name}`) : hasDesignArtifact(projectRoot, name))
 export const retiredModeDeclarations = projectRoot =>
-  RETIRED_MODES.filter(([mode, artifact]) => declaresMode(projectRoot, mode) || hasDesignArtifact(projectRoot, artifact))
+  RETIRED_MODES.filter(([mode, artifacts]) => declaresMode(projectRoot, mode) || hasRetiredArtifact(projectRoot, artifacts))
     .map(([mode, , report]) => `${mode}는 이 하네스가 더 이상 다루지 않는다 — ${report}를 요구하지 않고 전용 설계·검증도 돌지 않는다`)
 
 const ATTESTATION_DEPENDENT_REPORT_IDS = new Set(['next-contract'])
 
-export const releaseReportRequirements = (projectRoot, lockedProfile, phase, externalIngestion) => [
+export const releaseReportRequirements = (projectRoot, lockedProfile, phase) => [
   ...BASE_REPORTS,
-  ...(isLocalDomainStateProject(projectRoot) ? LOCAL_STATE_REPORTS : []),
   ...(isVisualProject(projectRoot) ? VISUAL_REPORTS : []),
   ...(isPerformanceProject(projectRoot) ? PERFORMANCE_REPORTS : []),
   ...(isSeoProject(projectRoot) ? SEO_REPORTS : []),
-  ...(externalIngestion ? INGESTION_REPORTS : []),
   ...(isServerOwnedDataProject(projectRoot) ? DATA_ACCESS_REPORTS : []),
   ...profileReportRequirements(lockedProfile),
 ].filter(([id]) => phase === 'final' || !ATTESTATION_DEPENDENT_REPORT_IDS.has(id))

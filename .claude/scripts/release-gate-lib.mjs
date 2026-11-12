@@ -15,14 +15,8 @@ import {isVisualProject, releaseReportRequirements} from './release-report-polic
 import {collectDeploymentArtifacts} from './artifact-inventory-lib.mjs'
 import {verifyQualityAttestation} from './quality-attestation-lib.mjs'
 import {createReceiptValidationContext, readReceipt} from './receipt-validation-lib.mjs'
-import {
-  INGESTION_RECEIPT_ID,
-  ingestionEvidenceMatches,
-  validateRuntimeDataArtifacts,
-} from './runtime-data-contract-lib.mjs'
 import {readProjectRegularFile} from './safe-project-file-lib.mjs'
 import {checkVerdictBinding} from './verdict-record-lib.mjs'
-import {inspectExternalIngestion} from './web-core/ingestion-detection-lib.mjs'
 import {inspectSpecConformance} from './validate-spec-conformance.mjs'
 import {acceptanceSummary, designRoundSummary, resolveSymbols, routeBindingSummary} from './design-evidence-lib.mjs'
 export {computeSourceFingerprint, listSourceFiles, normalizePath, sha256} from './evidence-lib.mjs'
@@ -94,12 +88,6 @@ const collectPackageArtifacts = (projectRoot, errors) => {
     .filter(Boolean)
 }
 
-export const requiresProtectedPrebuiltDeployment = lockedProfile => Boolean(
-  lockedProfile?.selection?.provider?.id === 'vercel' &&
-  lockedProfile.selection.selectedCapabilities?.includes('external-ingestion') &&
-  ['static-cdn', 'static-export'].includes(lockedProfile.selection.target?.id)
-)
-
 const collectSpecConformanceErrors = (projectRoot, errors) => {
   let result
   try {
@@ -125,40 +113,13 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
   const checks = []
   const receipts = []
   const adapterChecks = []
-  const ingestionInspection = inspectExternalIngestion(projectRoot)
-  errors.push(...ingestionInspection.errors.map(error => `External ingestion declaration is invalid: ${error}`))
-  if (ingestionInspection.detected && !ingestionInspection.contractsComplete) {
-    errors.push(
-      'External ingestion markers require both _workspace/02_design/ingestion-contract.md and ' +
-      '_workspace/02_design/runtime-data-contract.json',
-    )
-  }
   const lockedProfile = resolveReleaseProfile(projectRoot, errors)
-  if (requiresProtectedPrebuiltDeployment(lockedProfile)) {
-    errors.push(
-      'Vercel static external-ingestion production release is blocked until a protected prebuilt deployment broker ' +
-      'proves process-namespace teardown and binds the attested immutable artifact digest to the deployed Vercel subject',
-    )
-  }
   const receiptValidationContext = createReceiptValidationContext(projectRoot)
   const sourceFingerprint = computeSourceFingerprint(projectRoot, {
     excludePaths: lockedProfile?.selection.artifacts.map(artifact => artifact.path) ?? [],
   })
 
-  let ingestionValidation = null
-  if (ingestionInspection.contractsComplete) {
-    ingestionValidation = validateRuntimeDataArtifacts(projectRoot, {
-      mutableArtifactRoots: lockedProfile?.selection.artifacts.map(artifact => artifact.path) ?? [],
-    })
-    errors.push(...ingestionValidation.errors)
-  }
-
-  for (const [id, fileName] of releaseReportRequirements(
-    projectRoot,
-    lockedProfile,
-    phase,
-    ingestionInspection.detected,
-  )) {
+  for (const [id, fileName] of releaseReportRequirements(projectRoot, lockedProfile, phase)) {
     const relativePath = `_workspace/04_qa/${fileName}`
     const absolutePath = join(qaDirectory, fileName)
     if (!existsSync(absolutePath)) {
@@ -184,8 +145,7 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
     if (binding.error) errors.push(`${relativePath}: ${binding.error}`)
     reports.push({id, path: relativePath, sha256: sha256(source), status, verdictBound: binding.bound})
     checks.push(...parseChecks(source, id))
-    if (id === 'data-quality' && status !== 'PASS') errors.push(`${relativePath}: status is ${status}; external data quality requires PASS`)
-    else if (!REPORT_PASSING_STATUSES.has(status)) errors.push(`${relativePath}: status is ${status}`)
+    if (!REPORT_PASSING_STATUSES.has(status)) errors.push(`${relativePath}: status is ${status}`)
   }
 
   for (const [checkId, expectedReportId] of REQUIRED_CHECKS) {
@@ -215,36 +175,6 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
     if (!check.command) errors.push(`${checkId}: command is empty`)
     if (receipt && check.command !== receipt.command) errors.push(`${checkId}: report command does not match machine receipt`)
     if (receipt && check.exitCode !== receipt.exitCode) errors.push(`${checkId}: report exit code does not match machine receipt`)
-  }
-
-  if (ingestionInspection.contractsComplete) {
-    const receipt = readReceipt(
-      projectRoot,
-      INGESTION_RECEIPT_ID,
-      sourceFingerprint,
-      errors,
-      lockedProfile,
-      receiptValidationContext,
-    )
-    if (receipt) {
-      try {
-        const receiptSource = readProjectRegularFile(
-          projectRoot,
-          `_workspace/04_qa/evidence/${INGESTION_RECEIPT_ID}.json`,
-          {maxBytes: 2 * 1024 * 1024},
-        )
-        const receiptDocument = JSON.parse(receiptSource.toString('utf8'))
-        if (!ingestionEvidenceMatches(receiptDocument.ingestionValidation, ingestionValidation)) {
-          errors.push(`_workspace/04_qa/evidence/${INGESTION_RECEIPT_ID}.json: runtime data validation evidence is stale`)
-        }
-      } catch (error) {
-        errors.push(
-          `_workspace/04_qa/evidence/${INGESTION_RECEIPT_ID}.json: cannot verify runtime data validation evidence: ` +
-          `${error instanceof Error ? error.message : String(error)}`,
-        )
-      }
-      receipts.push(receipt)
-    }
   }
 
   const deploymentArtifacts = collectDeploymentArtifacts(
@@ -279,12 +209,6 @@ export const buildReleaseManifest = (projectPath, {phase = 'final', readExports}
 
   const artifactCandidates = [
     ...collectPackageArtifacts(projectRoot, errors),
-    ...(ingestionInspection.detected
-      ? ['_workspace/02_design/ingestion-contract.md', '_workspace/02_design/runtime-data-contract.json']
-          .map(relativePath => readArtifact(projectRoot, relativePath, errors))
-          .filter(Boolean)
-      : []),
-    ...(ingestionValidation?.evidenceFiles ?? []),
     ...(isVisualProject(projectRoot)
       ? ['_workspace/02_design/visual-qa-contract.json', '_workspace/02_design/visual-baseline-manifest.json']
           .map(relativePath => readArtifact(projectRoot, relativePath, errors))
