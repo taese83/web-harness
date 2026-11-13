@@ -24,7 +24,7 @@
 | 4 | change brief — 라운드별 1항목 append | `_workspace/03_dev/change-scope.md`(아래 양식) | `minimal-change-contract.md` |
 | 5 | **`change`만**: ✋ 스팩 승인 — 승인 전 source edit 없음 | 아래 「✋에 싣는 것」 | `change-lane-checkpoint.md` ✋ |
 | 6 | Gate 0 — 첫 source edit 전 | `node .claude/scripts/validate-development-readiness.mjs --project {root}` | `development-gates-contract.md` Gate 0 |
-| 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). TT 15·경로 8 초과면 모듈별로 아래부터 순서대로. 메인은 source를 쓰지 않는다 | developer 스폰 | `retry-policy.md` Iterate 라운드 |
+| 7 | 구현 — `developer` **1회**가 코드와 그 테스트를 함께(범위는 change brief). TT 15·경로 8 초과면 모듈별로 아래부터 순서대로. 메인은 source를 쓰지 않는다(developer 반환의 「삭제 요청」만 `ALLOWED_PATHS` 안일 때 메인이 지운다) | developer 스폰 | `retry-policy.md` Iterate 라운드 |
 | 8 | 게이트 — 프로젝트 toolchain pin(`.nvmrc`)으로 test·build(typecheck·lint는 8-2 묶음이 돈다 — 실패 위치가 필요할 때만 여기서) | `node .claude/scripts/run-quality-gates.mjs --project {root} --check <id> --failure-summary --review-packet` (첫 실행은 사용자 승인 뒤 `--allow-host-execution` — 판정은 묶음 `gates/`에만, `evidence/`에 남기지 않는다) — 실패면 `_workspace/04_qa/failure-summary.json`을 developer 수정 스폰에, `BLOCKED`(환경 원인)면 라운드 `BLOCKED`. 수정은 리뷰 finding과 합산 라운드당 2회, 초과·잔여 FAIL은 `BLOCKED` | `retry-policy.md` Iterate 라운드 |
 | 8-0 | 재검증 금지 — 게이트 PASS 뒤 메인은 테스트를 다시 돌리거나 diff를 통독하지 않는다 | 의심이면 그 check를 러너로 다시. 범위 대조는 `run-git-inspection.mjs --operation diff-stat` 한 번 | `qa-evidence-contract.md` Iterate evidence |
 | 8-1 | 런타임 검증 — 수용 기준마다 | `LOCAL_VERIFIABLE`은 브라우저·CLI로 직접 확인한 증거, `DEPLOY_ONLY`는 `TEST_EVIDENCE`에 `DEPLOY_ONLY — 사용자 위임`. 미검증 경로를 PASS로 보고하지 않는다 | `execution-contract.md` Runtime verifiability |

@@ -353,7 +353,7 @@
       "code": "DENY_INPUT",
       "command": "pwd",
       "toolInput": {
-        "timeout": 120001
+        "timeout": 600001
       }
     },
     {

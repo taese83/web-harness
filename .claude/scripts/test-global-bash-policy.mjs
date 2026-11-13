@@ -5,6 +5,7 @@
 // "argv-only이므로 안전하다"가 참인지 2026-08-26에 실측했고, 경로 탈출 두 종을 찾았다.
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import {readFileSync} from 'node:fs'
 import {evaluateGlobalBashPolicy} from './global-bash-policy-lib.mjs'
 
 const decide = command =>
@@ -146,4 +147,18 @@ test('반증: exclude 패턴이 덮지 못하는 비밀 파일(.npmrc)이 있는
   } finally {
     rmSync(root, {recursive: true, force: true})
   }
+})
+
+test('Bash timeout 상한이 developer가 부르는 실행기 검사의 내부 timeout 이상이다 — 검사가 영수증 전에 도구 timeout으로 끊기지 않게', () => {
+  const decide = timeout => evaluateGlobalBashPolicy({agent_type: 'developer', tool_name: 'Bash', tool_input: {command: 'pwd', timeout}})
+  // developer가 --check로 부르는 검사(build·typecheck·lint·test)의 내부 timeout을 실행기 정의에서 읽는다 — 실행기를 바꾸면 이 대조가 따라간다.
+  const runner = readFileSync(new URL('./run-quality-gates.mjs', import.meta.url), 'utf8')
+  const budgets = ['build', 'typecheck', 'lint', 'test'].map(id => {
+    const match = runner.match(new RegExp(`\\['${id}', \\{[^}]*timeoutMs: ([0-9_]+)`))
+    assert.ok(match, `실행기에서 ${id} 검사의 timeoutMs를 찾지 못했다`)
+    return [id, Number(match[1].replaceAll('_', ''))]
+  })
+  for (const [id, budget] of budgets) assert.equal(decide(budget).allowed, true, `${id} 검사의 내부 timeout(${budget}ms)을 Bash 정책이 거부한다`)
+  assert.equal(decide(600_001).code, 'DENY_INPUT', 'Bash 도구 최대(600000ms)를 넘는 timeout을 받았다')
+  assert.equal(decide(0).code, 'DENY_INPUT')
 })

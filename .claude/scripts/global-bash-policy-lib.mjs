@@ -192,8 +192,8 @@ const requireNoUnexpectedToolInput = toolInput => {
   }
   if (
     toolInput.timeout !== undefined &&
-    (!Number.isInteger(toolInput.timeout) || toolInput.timeout < 1 || toolInput.timeout > 120_000)
-  ) fail('DENY_INPUT', 'Bash timeout must be an integer from 1 to 120000 milliseconds.')
+    (!Number.isInteger(toolInput.timeout) || toolInput.timeout < 1 || toolInput.timeout > 600_000)
+  ) fail('DENY_INPUT', 'Bash timeout must be an integer from 1 to 600000 milliseconds.')
 }
 
 const validateLs = (args, context) => {
@@ -1089,11 +1089,14 @@ export const evaluateGlobalBashPolicy = (input, options = {}) => {
 // 거부 뒤 갈 곳 — 판정 이유(reason) 뒤에 붙이는 허용 형태 예시. 판정은 바꾸지 않는다(문구만).
 // 예시 명령은 이 정책이 실제로 통과시키는 형태만 적는다(test-deny-remedies.mjs가 예시를 다시 판정해 고정한다).
 const READ_FORMS = "`cat FILE`, `head -n 200 FILE`, `rg -n 'PATTERN' FILE`, `ls DIR`"
+// 읽기·검색 거부는 도구를 먼저 가리킨다 — Grep 도구는 경로만 주면 비밀 제외를 스스로 붙이고, 맥락 줄(-A/-B/-C)·glob을 받으며 셸 인용 규칙이 없다.
+const READ_WITH_TOOLS = 'For reading and searching use the Read/Grep/Glob tools instead of Bash — Grep needs only a path (secret exclusions are added for you) and supports context lines and globs.'
 const BASH_POLICY_REMEDY = {
-  DENY_COMPOUND_SYNTAX: "Run one command per Bash call — no pipes, redirects, `&&`, `;` or newlines. Limit output with the command's own flags, e.g. `rg -n -m 20 'PATTERN' FILE` or `head -n 200 FILE`.",
-  DENY_SHELL_EXPANSION: "No `$VAR`, `$(…)`, backticks or backslash escapes — write literal paths and single-quote patterns, e.g. `rg -n 'PATTERN' FILE`.",
-  DENY_AMBIGUOUS_SYNTAX: "No unquoted `*`, `?`, braces, parentheses or `#` — single-quote the pattern and name paths explicitly, e.g. `rg -n 'PATTERN' FILE` or `ls DIR`.",
-  DENY_ARGUMENTS: `Fix the argument the reason names. Read forms that pass: ${READ_FORMS}; a directory search needs every exclusion flag the reason lists.`,
+  DENY_COMPOUND_SYNTAX: `${READ_WITH_TOOLS} Otherwise run one command per Bash call`
+    + " — no pipes, redirects, `&&`, `;` or newlines. Limit output with the command's own flags, e.g. `rg -n -m 20 'PATTERN' FILE` or `head -n 200 FILE`.",
+  DENY_SHELL_EXPANSION: `${READ_WITH_TOOLS} In Bash: no \`$VAR\`, \`$(…)\`, backticks or backslash escapes — write literal paths and single-quote patterns, e.g. \`rg -n 'PATTERN' FILE\`.`,
+  DENY_AMBIGUOUS_SYNTAX: `${READ_WITH_TOOLS} In Bash: no unquoted \`*\`, \`?\`, braces, parentheses or \`#\` — single-quote the pattern and name paths explicitly, e.g. \`rg -n 'PATTERN' FILE\` or \`ls DIR\`.`,
+  DENY_ARGUMENTS: `${READ_WITH_TOOLS} In Bash, fix the argument the reason names. Read forms that pass: ${READ_FORMS}; a directory search needs every exclusion flag the reason lists.`,
   DENY_COMMAND: 'Allowed: pwd, ls, cat, head, tail, wc, rg, grep, `web-harness-read PATH` (plugin docs), and the approved `node .claude/scripts/<validator>.mjs` / `web-harness-script <name>` checks. '
     + 'For anything else use the Read/Grep/Glob tools.',
   DENY_NETWORK: 'Raw git/network/package commands are not available to subagents. For git use the typed runner: '
@@ -1108,7 +1111,7 @@ const BASH_POLICY_REMEDY = {
   DENY_SENSITIVE_TREE_GREP: 'Search a narrower directory (e.g. src/ rather than the app root) or name the specific files.',
   DENY_VALIDATION_COMMAND: 'Run only the validator commands your spawn prompt or skill names, with exactly those arguments.',
   DENY_CONTEXT: 'The project root is CLAUDE_PROJECT_DIR. From a subfolder, plugin runners work when the command names the root with --project (absolute path); read and search with the Read/Grep/Glob tools.',
-  DENY_INPUT: 'Send one plain foreground command (no run_in_background; timeout up to 120000 ms).',
+  DENY_INPUT: 'Send one plain foreground command (no run_in_background; timeout up to 600000 ms — quality runner checks can take that long).',
   DENY_POLICY_ERROR: 'The policy failed closed on this input — simplify to one command with quoted literals; report it if it repeats.',
 }
 export const bashPolicyRemedy = code => BASH_POLICY_REMEDY[code] ?? null

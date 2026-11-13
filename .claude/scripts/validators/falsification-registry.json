@@ -4787,6 +4787,14 @@
       "why": "잠긴 profile 없는 Next 앱이 지원 웹 앱으로 보이지 않아 profile 결속 없이 일반 증거만으로 릴리스된다"
     },
     {
+      "id": "bash-timeout-fits-quality-runner",
+      "file": ".claude/scripts/global-bash-policy-lib.mjs",
+      "find": "toolInput.timeout > 600_000)",
+      "replace": "toolInput.timeout > 120_000)",
+      "test": ".claude/scripts/test-global-bash-policy.mjs",
+      "why": "Bash timeout 상한이 developer가 부르는 실행기 검사의 내부 timeout보다 짧으면 검사가 영수증 전에 끊기고 developer는 우회 명령으로 거부를 반복한다"
+    },
+    {
       "id": "retired-adapter-load-rejected",
       "file": ".claude/scripts/web-core/adapter-lib.mjs",
       "find": "  if (RETIRED_ADAPTER_IDS.includes(id)) throw retiredAdapterError(id)\n",
