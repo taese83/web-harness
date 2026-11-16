@@ -234,6 +234,11 @@ const XSS_RESTRICTED_SYNTAX = [
 // 출구: SafeHtml(DOMPurify)과 JsonLd(구조화 데이터) 두 파일, 그리고 공격 문자열을 입력으로 쓰는 테스트
 // (DOM 대입은 제외 — `no-unsanitized`는 테스트에도 걸린다. 살균 확인은 렌더 후 읽기로 한다).
 const XSS_EXIT_FILES = ['src/shared/lib/safe-html.tsx', 'src/shared/lib/json-ld.tsx', '**/*.{test,spec}.{ts,tsx}', 'e2e/**']
+// 타이머는 `src/shared/`의 이름 붙은 훅·함수 한 곳에만 둔다 — 순서를 타이머로 맞추는 땜질이 기능 코드
+// 곳곳에 복제되지 않고 한 곳에서 보이게. 순서 문제면 먼저 상태 소유·이벤트 흐름을 고친다.
+const TIMERS = ['setTimeout', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback']
+const TIMER_MESSAGE =
+  '타이머 직접 사용 금지 — 순서 문제면 상태·이벤트 흐름을 고치고, 그래도 시간이 필요하면 src/shared/의 이름 붙은 훅·함수에 두고 그것을 쓴다(예: useDebouncedCallback·useFocusOnNextFrame).'
 // XSS 싱크는 `no-restricted-syntax`와 **다른 이름의 규칙**이어야 한다 — disable 금지는 규칙 이름 단위라,
 // 한 규칙에 섞으면 enum·`export *`·FC 금지의 사유 있는 출구까지 함께 닫힌다.
 const xssSink = {
@@ -300,6 +305,15 @@ export default tseslint.config(
     },
   },
   {files: ['**/*.{ts,tsx}'], plugins: {local: {rules: {'xss-sink': xssSink}}}, rules: {'local/xss-sink': 'error'}},
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/shared/**', '**/*.{test,spec}.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': ['error', ...TIMERS.map(name => ({name, message: TIMER_MESSAGE}))],
+      'no-restricted-properties': ['error',
+        ...['window', 'globalThis', 'self'].flatMap(object => TIMERS.map(property => ({object, property, message: TIMER_MESSAGE})))],
+    },
+  },
   // lint 출구는 판단을 적는 자리다 — 한 줄·규칙 명시·`-- 사유`인 `eslint-disable-next-line`만 연다.
   // 사유 없는 disable·파일 전체 disable·규칙 없는 disable·인라인 규칙 설정(`/* eslint x: off */`)·
   // 쓸모없어진 disable은 리뷰가 아니라 여기서 막힌다(실측 receipt: docs/audits/receipts/2026-11-17-lint-escape-hatch.json).

@@ -3795,6 +3795,30 @@
       "why": "셀렉터 문자열이 남아도 규칙이 꺼지면 XSS 싱크가 lint를 통과한다"
     },
     {
+      "id": "template-lint-restricts-product-timers",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "      'no-restricted-globals': ['error', ...TIMERS.map(name => ({name, message: TIMER_MESSAGE}))],",
+      "replace": "      'no-restricted-globals': ['off'],",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "제품 코드의 타이머 제한이 빠지면 순서 문제를 타이머로 덮는 땜질이 관례로 복제된다"
+    },
+    {
+      "id": "template-lint-restricts-window-timers",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "        ...['window', 'globalThis', 'self'].flatMap(object => TIMERS.map(property => ({object, property, message: TIMER_MESSAGE})))],",
+      "replace": "        ],",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "window.setTimeout 형태가 열리면 전역 이름 제한만 남아 같은 땜질이 접두 하나로 통과한다"
+    },
+    {
+      "id": "template-lint-timer-list-complete",
+      "file": ".claude/skills/project-init/assets/templates.md",
+      "find": "const TIMERS = ['setTimeout', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback']",
+      "replace": "const TIMERS = ['setTimeout']",
+      "test": ".claude/scripts/test-entry-points.mjs",
+      "why": "목록에서 타이머가 빠지면 requestAnimationFrame 땜질이 규칙 문자열을 그대로 둔 채 통과한다"
+    },
+    {
       "id": "template-main-preload-error-recovery",
       "file": ".claude/skills/project-init/assets/templates.md",
       "find": "window.addEventListener('vite:preloadError', event => {",

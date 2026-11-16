@@ -54,7 +54,8 @@
 |---|---|---|
 | enum·`export *`·`React.FC` 금지, TODO 마커 금지, 타입 import, 제네릭 `T` 명명, 미사용 `_`, 파일명 kebab | `ts·tsx` | `ts-conventions.md` |
 | jsx-a11y recommended, react-hooks 7 recommended(컴파일러 규칙 포함) | `tsx` | 템플릿 `ESLINT_CONFIG` |
-| lint 출구의 형태 ★ — `eslint-disable-next-line <규칙> -- <사유>`만 허용(사유 없음·파일 전체·규칙 미지정·인라인 규칙 설정·쓸모없어진 disable은 error, pre-commit `--fix`는 쓸모없어진 disable을 지운다), XSS 싱크는 끌 수 없음(안전 하한). 정당한 코드의 출구 비용이 사유 한 줄이라 알림 단계를 두지 않는다 | 전 파일(`mockServiceWorker.js` 제외) | 템플릿 `ESLINT_CONFIG`(eslint-comments) |
+| 타이머(`setTimeout`·`setInterval`·`requestAnimationFrame`·`requestIdleCallback`) 직접 사용 금지 — `src/shared/`의 이름 붙은 훅·함수 안에서만(사용처 하나여도, `fsd-rules.md`). 출구는 사유 한 줄 | `src/**`(shared·테스트 제외) | 템플릿 `ESLINT_CONFIG` · `input-focus-ime.md` |
+| lint 출구의 형태 — `eslint-disable-next-line <규칙> -- <사유>`만 허용(사유 없음·파일 전체·규칙 미지정·인라인 규칙 설정·쓸모없어진 disable은 error, pre-commit `--fix`는 쓸모없어진 disable을 지운다), XSS 싱크는 끌 수 없음(안전 하한) | 전 파일(`mockServiceWorker.js` 제외) | 템플릿 `ESLINT_CONFIG`(eslint-comments) |
 | FSD 경계(별칭 import) — 셀렉터는 `environment-scaffolder`가 스펙의 `layerDependencies`로 **생성**한다(내용은 프로젝트마다 다름) | 레이어 | `environment-scaffolder.md` 15 |
 | testing-library `flat/react` + `prefer-user-event` ★ | `src/**/*.{test,spec}` | `testing.md` |
 | playwright `flat/recommended` + 고정 대기·조건 없는 skip error ★ | `e2e/**` | `testing.md` |
@@ -124,7 +125,8 @@
 
 ## 새 규칙을 넣을 때
 
-1. 층을 정한다 — 안전 하한(I6)이 아니면 **알림이나 산문으로 시작**한다.
+1. 층을 정한다 — 안전 하한(I6)이 아니면 **알림이나 산문으로 시작**한다. 단 **lint에는 보이는 알림 층이 없다**
+   (warn은 검사 receipt·실패 요약에 남지 않는다) — lint 규칙은 사유 출구를 둔 error로 시작하고, 정당한 코드를 막으면 5번으로 내린다.
 2. 막는 규칙에는 **출구**를 함께 둔다(선언으로 빠지기, 사유 있는 disable, 사용자 승인).
 3. 막음으로 올리는 근거는 실측이다 — 하네스 자기 산출물이 아니라 실제 프로젝트에서 놓친 사례.
 4. 이 표에 한 줄을 더한다.

@@ -25,6 +25,10 @@ const TEMPLATE_GUARDS = [
     'ESLint lets a disable comment switch off the XSS sink rules'],
   // XSS 셀렉터는 자기 이름의 규칙으로 켜져야 disable 금지가 그것만 정확히 잠근다.
   ["rules: {'local/xss-sink': 'error'}", 'ESLint does not activate the XSS sink rule'],
+  // 타이머는 shared의 목적 이름 훅 안에서만 — 빠지면 순서 문제를 타이머로 덮는 땜질이 관례로 복제된다.
+  ["'no-restricted-globals': ['error', ...TIMERS.map(", 'ESLint lets product code call timers directly'],
+  ["...['window', 'globalThis', 'self'].flatMap(object => TIMERS.map(", 'ESLint lets product code call timers through window/globalThis/self'],
+  ["const TIMERS = ['setTimeout', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback']", 'ESLint timer list lost a timer'],
   // 라우터 안 오류는 App 경계에 오지 않는다 — 경계가 없으면 기본 화면이 stack을 노출한다.
   ['ErrorBoundary: RouteErrorBoundary', 'routes lack a route ErrorBoundary'],
   // 새 배포가 이전 청크를 지우면 lazy import가 실패해 빈 화면이 된다.

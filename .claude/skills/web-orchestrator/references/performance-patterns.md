@@ -358,6 +358,7 @@ Network 탭에서 같은 화면의 요청이 앞 요청 완료 직후에만 시�
 - **표시가 늦다**(`presentationDelay`) — 한 번에 그리는 DOM이 크다. 가상화(§3)나 단계적 렌더를 쓴다.
 
 ```ts
+// src/shared/lib/yield-to-main.ts — 타이머는 shared 안에만 둔다(템플릿 프로젝트는 lint가 막는다)
 type SchedulerWithYield = {yield?: () => Promise<void>}
 
 export const yieldToMain = (): Promise<void> => {
