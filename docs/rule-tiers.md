@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1. 도구 차단 | 에이전트 도구 호출 순간(훅) | 즉시 거부 | 없음 — 사람이 직접 하거나 정책을 고친다 |
 | 2. 단계 게이트 | 단계 진입·통과 시 | 다음 단계로 못 감 | 원인을 고친다. 일부는 선언으로 적용 대상에서 빠진다 |
-| 3. lint | 생성 프로젝트의 `pnpm lint`(Gate A·B·C·릴리스) | 게이트를 통해 막음 | 사유를 적은 `eslint-disable` 한 줄(`developer.md`, 사유·범위는 `code-reviewer` 19가 본다) — **XSS 싱크는 예외 없음** |
+| 3. lint | 생성 프로젝트의 `pnpm lint`(Gate A·B·C·릴리스) | 게이트를 통해 막음 | 사유를 적은 `eslint-disable-next-line` 한 줄(`developer.md`) — 형태는 lint가, 사유의 질은 `code-reviewer` 19가 본다. **XSS 싱크(`local/xss-sink`·`no-unsanitized`)는 disable 출구 없음** — 출구는 SafeHtml·JsonLd 파일 예외 |
 | 4. 리뷰 FAIL | QA 리뷰어 판단 | 릴리스 보고에서 막음 | 근거를 들어 반박하거나 사용자가 예외 승인 |
 | 5. 멈추고 묻기 | 개발 중 특정 상황 | 사람 결정까지 대기 | 사용자의 답 |
 | 6. 알림 | 진단·WARN | 막지 않음 | — |
@@ -54,6 +54,8 @@
 |---|---|---|
 | enum·`export *`·`React.FC` 금지, TODO 마커 금지, 타입 import, 제네릭 `T` 명명, 미사용 `_`, 파일명 kebab | `ts·tsx` | `ts-conventions.md` |
 | jsx-a11y recommended, react-hooks 7 recommended(컴파일러 규칙 포함) | `tsx` | 템플릿 `ESLINT_CONFIG` |
+| 타이머(`setTimeout`·`setInterval`·`requestAnimationFrame`·`requestIdleCallback`) 직접 사용 금지 — `src/shared/`의 이름 붙은 훅·함수 안에서만(사용처 하나여도, `fsd-rules.md`). 출구는 사유 한 줄 | `src/**`(shared·테스트 제외) | 템플릿 `ESLINT_CONFIG` · `input-focus-ime.md` |
+| lint 출구의 형태 — `eslint-disable-next-line <규칙> -- <사유>`만 허용(사유 없음·파일 전체·규칙 미지정·인라인 규칙 설정·쓸모없어진 disable은 error, pre-commit `--fix`는 쓸모없어진 disable을 지운다), XSS 싱크는 끌 수 없음(안전 하한) | 전 파일(`mockServiceWorker.js` 제외) | 템플릿 `ESLINT_CONFIG`(eslint-comments) |
 | FSD 경계(별칭 import) — 셀렉터는 `environment-scaffolder`가 스펙의 `layerDependencies`로 **생성**한다(내용은 프로젝트마다 다름) | 레이어 | `environment-scaffolder.md` 15 |
 | testing-library `flat/react` + `prefer-user-event` ★ | `src/**/*.{test,spec}` | `testing.md` |
 | playwright `flat/recommended` + 고정 대기·조건 없는 skip error ★ | `e2e/**` | `testing.md` |
@@ -123,7 +125,8 @@
 
 ## 새 규칙을 넣을 때
 
-1. 층을 정한다 — 안전 하한(I6)이 아니면 **알림이나 산문으로 시작**한다.
+1. 층을 정한다 — 안전 하한(I6)이 아니면 **알림이나 산문으로 시작**한다. 단 **lint에는 보이는 알림 층이 없다**
+   (warn은 검사 receipt·실패 요약에 남지 않는다) — lint 규칙은 사유 출구를 둔 error로 시작하고, 정당한 코드를 막으면 5번으로 내린다.
 2. 막는 규칙에는 **출구**를 함께 둔다(선언으로 빠지기, 사유 있는 disable, 사용자 승인).
 3. 막음으로 올리는 근거는 실측이다 — 하네스 자기 산출물이 아니라 실제 프로젝트에서 놓친 사례.
 4. 이 표에 한 줄을 더한다.

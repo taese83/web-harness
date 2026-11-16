@@ -139,7 +139,7 @@ brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 
      - 수정 패턴: 읽기는 initializer에서 허용, 쓰기·URL 변경은 `useEffect(fn, [])` 로 이동
 9-1. **MUI Menu → 인풋 포커스 패턴 검사**:
    - Grep 도구로 `autoFocus` 사용처를 `src/`에서 목록화
-   - Menu/Popover 항목 클릭으로 트리거되는 인풋에 `autoFocus`만 있고 `useRef` + `requestAnimationFrame` 패턴이 없으면 WARN (포커스 충돌 위험)
+   - Menu/Popover 항목 클릭으로 트리거되는 인풋에 `autoFocus`만 있고 다음 프레임 focus(`input-focus-ime.md`)가 없으면 포커스 충돌 위험 WARN
 10. **a11y 정적 검사**: jsx-a11y lint 결과를 사용하고, 실제 keyboard/axe/viewport 판정은 `browser-verifier`에 위임
    - Grep으로 `onPaste`를 찾아 붙여넣기를 **막는지** 본다 — `preventDefault` 뒤에 `clipboardData`를 읽어 칸에 채우면(분할 OTP의 정본 구현) 막은 것이 아니다. 값을 버리면 비밀번호·OTP·인증 필드는 **FAIL**(WCAG 3.3.8), 그 밖은 WARN
    - Grep으로 `outline-none`·`outline: none`·`outline: 0`을 찾아 포커스를 받는 요소의 포커스 표시가 사라지는지 본다. 같은 파일·스타일시트에 `focus-visible`·`focus:` 대체(ring·outline)가 하나도 없으면 **FAIL**(2.4.7), 대체가 있는데 그 요소에 걸리는지 애매하면 WARN. 포커스를 받지 않는 요소(컨테이너·svg)는 제외한다. Tailwind v4는 forced-colors를 지키는 `outline-hidden`을 권한다
@@ -195,9 +195,9 @@ brief(1)·`ALLOWED_PATHS`(3)·8의 승격 QA 증거 조항은 그대로. 바뀐 
    - **과공통화 경계**: 소비자가 1개뿐인 선행 추상화는 제안하지 않는다. "공통화하지 않는 것이 맞다"도
      근거와 함께 유효한 판정이며, 각 제안에는 권장 시점(지금 / 실수요 발생 시 / 보류)을 포함한다
 19. **lint 출구 점검** (막는 규칙에 출구를 둔 대가):
-   - Grep 도구로 변경점의 `eslint-disable`을 모은다
-   - `-- 사유` 없이 끈 줄, 파일 전체를 끄는 `/* eslint-disable */`, 한 줄에 여러 규칙을 뭉뚱그려 끈 것은
-     **되돌림 대상**으로 적는다(WARN) — 출구는 판단을 적는 자리이지 규칙을 없애는 자리가 아니다
+   - Grep 도구로 변경점의 `eslint-disable`을 모은다. 형태는 lint가 막고 남는 것은 사유다
+   - 규칙이 틀린 이유가 아닌 사유, 여러 규칙을 뭉뚱그려 끈 것은 **되돌림 대상**(WARN) — lint가 형태를
+     막지 않는 프로젝트면 사유 없음·파일 전체도 같다
    - XSS 싱크를 끈 것은 사유가 있어도 **FAIL**이다(검사 6)
 20. **호스트 경계 검사** (호스트 앱 안에서 도는 앱 — 전역 네이티브 인터페이스·호스트 스킴·앱 버전 분기가 보이면):
    기준은 `web-orchestrator/references/webview-host-contract.md`

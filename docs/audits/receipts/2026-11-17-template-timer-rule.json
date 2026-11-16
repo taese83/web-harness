@@ -1,0 +1,227 @@
+{
+  "kind": "template-timer-rule-receipt",
+  "measuredAt": "2026-11-17",
+  "host": "local WSL2 Ubuntu (linux x64), Node 22.22.3, non-root user",
+  "versions": {
+    "eslint": "9.39.5",
+    "typescript-eslint": "8.65.0",
+    "typescript": "6.0.2",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "react": "19.2.7",
+    "@types/react": "19.2.0"
+  },
+  "eslintConfigSha256": "a61cb80c28ea8db28449cdb7145bff43fd366d1ca4dbcae221a202adb8e03f94",
+  "procedure": [
+    "same install as 2026-11-17-lint-escape-hatch.json; ESLINT_CONFIG js block extracted verbatim from templates.md (sha256 above, LF)",
+    "reference hooks from component-gen/references/input-focus-ime.md written to src/shared/lib and consumed from src/features",
+    "lint each fixture with the ESLint Node API (exit = errorCount > 0); then tsc --noEmit over src/",
+    "the 16 lint-escape-hatch cases re-run against the same config"
+  ],
+  "allCasesAsExpected": true,
+  "tscExit": 0,
+  "cases": [
+    {
+      "id": "shared-focus-hook-passes",
+      "file": "src/shared/lib/useFocusOnNextFrame.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "shared-debounce-hook-passes",
+      "file": "src/shared/lib/useDebouncedCallback.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "feature-uses-shared-hooks-passes",
+      "file": "src/features/search/SearchBox.tsx",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "feature-settimeout-fails",
+      "file": "src/features/search/delay.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-globals"
+      ]
+    },
+    {
+      "id": "feature-window-raf-fails",
+      "file": "src/features/search/frame.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-properties"
+      ]
+    },
+    {
+      "id": "feature-globalthis-interval-fails",
+      "file": "src/features/search/poll.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-properties"
+      ]
+    },
+    {
+      "id": "feature-reasoned-disable-passes",
+      "file": "src/features/search/vendor-timer.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "test-file-excluded-passes",
+      "file": "src/features/search/delay.test.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "feature-self-timeout-fails",
+      "file": "src/features/search/worker-ish.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-properties"
+      ]
+    },
+    {
+      "id": "page-component-effect-timer-fails",
+      "file": "src/pages/home/ui/HomeBanner.tsx",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-globals"
+      ]
+    },
+    {
+      "id": "app-layer-timer-fails",
+      "file": "src/app/boot.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-globals"
+      ]
+    },
+    {
+      "id": "type-only-typeof-settimeout",
+      "file": "src/features/search/timer-type.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "clear-timeout-allowed",
+      "file": "src/features/search/clear.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    }
+  ],
+  "lintEscapeHatchRerun": [
+    {
+      "id": "reason-next-line-passes",
+      "exit": 0,
+      "ok": true
+    },
+    {
+      "id": "no-reason",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "whole-file-block",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "ruleless-disable",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "inline-rule-config",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "stale-disable",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "same-line-disable",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "base-ban-keeps-reasoned-exit",
+      "exit": 0,
+      "ok": true
+    },
+    {
+      "id": "base-ban-without-disable-fails",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "xss-sink-fires",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "xss-sink-reasoned-disable-blocked",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "javascript-url-fires",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "xss-exit-file-passes",
+      "exit": 0,
+      "ok": true
+    },
+    {
+      "id": "unsanitized-reasoned-disable-blocked",
+      "exit": 1,
+      "ok": true
+    },
+    {
+      "id": "msw-worker-ignored",
+      "exit": 0,
+      "ok": true
+    },
+    {
+      "id": "msw-worker-without-ignore-would-fail",
+      "exit": 1,
+      "ok": true
+    }
+  ],
+  "limits": [
+    "synthetic one-file fixtures, not a generated project tree",
+    "react-hooks rules apply to .tsx only, so shared .ts hooks are not checked by them",
+    "the template guard checks string presence only (protected-core §4)"
+  ]
+}

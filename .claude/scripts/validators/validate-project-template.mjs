@@ -1,7 +1,8 @@
 // validate-project-template.mjs — 생성 템플릿(project-init/assets/templates.md)이 지켜야 하는 의존성·안전·진실성 가드.
 // 빠지면 생성 프로젝트가 조용히 약해진다. 존재 검사다 — 의미는 각 가드의 반증 seed와 실측 receipt가 묶는다.
 const REQUIRED_PACKAGES = [
-  '@axe-core/playwright', '@hookform/resolvers', '@playwright/test', '@tanstack/eslint-plugin-query',
+  '@axe-core/playwright', '@eslint-community/eslint-plugin-eslint-comments', '@hookform/resolvers', '@playwright/test',
+  '@tanstack/eslint-plugin-query',
   'eslint-plugin-jsx-a11y', 'eslint-plugin-no-unsanitized', 'eslint-plugin-playwright', 'eslint-plugin-testing-library',
   'web-vitals', 'zod',
 ]
@@ -15,6 +16,19 @@ const TEMPLATE_GUARDS = [
   ["'target-size': {enabled: true}", 'axe scan leaves WCAG 2.2 target-size (2.5.8) disabled'],
   // XSS 싱크는 lint가 막는다 — 셀렉터가 빠지면 SafeHtml·JsonLd 출구 설계가 공허해진다.
   ["JSXAttribute[name.name='dangerouslySetInnerHTML']", 'ESLint lacks the dangerouslySetInnerHTML restriction'],
+  // disable 주석이 lint를 끄는 출구다 — 아래가 빠지면 사유 없는·파일 전체·인라인 설정 우회가 리뷰 산문에만 남는다.
+  ["linterOptions: {reportUnusedDisableDirectives: 'error'}", 'ESLint leaves stale disable directives unreported'],
+  ["'@eslint-community/eslint-comments/no-use': ['error', {allow: ['eslint-disable-next-line']}]",
+    'ESLint allows file-wide disables and inline rule config'],
+  ["'@eslint-community/eslint-comments/require-description': 'error'", 'ESLint allows disables without a reason'],
+  ["'@eslint-community/eslint-comments/no-restricted-disable': ['error', 'local/xss-sink', 'no-unsanitized/*']",
+    'ESLint lets a disable comment switch off the XSS sink rules'],
+  // XSS 셀렉터는 자기 이름의 규칙으로 켜져야 disable 금지가 그것만 정확히 잠근다.
+  ["rules: {'local/xss-sink': 'error'}", 'ESLint does not activate the XSS sink rule'],
+  // 타이머는 shared의 목적 이름 훅 안에서만 — 빠지면 순서 문제를 타이머로 덮는 땜질이 관례로 복제된다.
+  ["'no-restricted-globals': ['error', ...TIMERS.map(", 'ESLint lets product code call timers directly'],
+  ["...['window', 'globalThis', 'self'].flatMap(object => TIMERS.map(", 'ESLint lets product code call timers through window/globalThis/self'],
+  ["const TIMERS = ['setTimeout', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback']", 'ESLint timer list lost a timer'],
   // 라우터 안 오류는 App 경계에 오지 않는다 — 경계가 없으면 기본 화면이 stack을 노출한다.
   ['ErrorBoundary: RouteErrorBoundary', 'routes lack a route ErrorBoundary'],
   // 새 배포가 이전 청크를 지우면 lazy import가 실패해 빈 화면이 된다.

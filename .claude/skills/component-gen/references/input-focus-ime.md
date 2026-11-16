@@ -17,18 +17,24 @@ const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 ## Menu 또는 Popover 이후 focus
 
 Menu가 닫힐 때 trigger로 focus를 복원하므로, Menu action으로 마운트된 input의 `autoFocus`가 덮일 수 있다. close 완료 다음 frame에 명시적으로 focus하고 cleanup한다.
+타이머는 `src/shared/`의 이름 붙은 훅 안에만 둔다(사용처 하나여도) — 템플릿 프로젝트에서는 그 밖의 타이머를 lint가 막는다.
 
 ```tsx
-const inputRef = useRef<HTMLInputElement>(null)
+// src/shared/lib/useFocusOnNextFrame.ts
+export function useFocusOnNextFrame(ref: RefObject<HTMLInputElement | null>, isActive: boolean) {
+  useEffect(() => {
+    if (!isActive) return
+    const frameId = requestAnimationFrame(() => {
+      ref.current?.focus()
+      ref.current?.select()
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [ref, isActive])
+}
 
-useEffect(() => {
-  if (!editing) return
-  const frameId = requestAnimationFrame(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  })
-  return () => cancelAnimationFrame(frameId)
-}, [editing])
+// 사용처
+const inputRef = useRef<HTMLInputElement>(null)
+useFocusOnNextFrame(inputRef, editing)
 ```
 
 가능하면 Menu의 documented focus props로 먼저 해결한다. frame defer는 실제 restore 충돌이 재현될 때 사용하고 keyboard focus 회귀 테스트를 추가한다.
@@ -38,28 +44,40 @@ useEffect(() => {
 URL을 input의 매 keystroke source로 직접 사용하면 navigation render가 composition을 끊을 수 있다. 화면용 local state와 공유 가능한 committed URL state를 분리한다.
 
 ```tsx
-const [localSearch, setLocalSearch] = useState(urlSearch)
-const composingRef = useRef(false)
-const timerRef = useRef<ReturnType<typeof setTimeout>>()
-
-const scheduleCommit = (value: string, delay = 200) => {
-  if (timerRef.current) clearTimeout(timerRef.current)
-  timerRef.current = setTimeout(() => commitSearch(value), delay)
+// src/shared/lib/useDebouncedCallback.ts — 지연은 만들 때 고정한다. schedule은 마지막 호출만 delayMs 뒤,
+// flush는 대기를 버리고 지금 실행한다. unmount 시 취소.
+export function useDebouncedCallback<TArgs extends unknown[]>(callback: (...args: TArgs) => void, delayMs: number) {
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const callbackRef = useRef(callback)
+  useEffect(() => {
+    callbackRef.current = callback
+  })
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+  const schedule = (...args: TArgs) => {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => callbackRef.current(...args), delayMs)
+  }
+  const flush = (...args: TArgs) => {
+    clearTimeout(timerRef.current)
+    callbackRef.current(...args)
+  }
+  return {schedule, flush}
 }
 
-useEffect(() => () => {
-  if (timerRef.current) clearTimeout(timerRef.current)
-}, [])
+// 사용처
+const [localSearch, setLocalSearch] = useState(urlSearch)
+const composingRef = useRef(false)
+const commit = useDebouncedCallback(commitSearch, 200)
 
 const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
   const value = event.target.value
   setLocalSearch(value)
-  if (!composingRef.current) scheduleCommit(value)
+  if (!composingRef.current) commit.schedule(value)
 }
 
 const handleCompositionEnd = (event: React.CompositionEvent<HTMLInputElement>) => {
   composingRef.current = false
-  scheduleCommit(event.currentTarget.value, 0)
+  commit.flush(event.currentTarget.value)
 }
 ```
 
