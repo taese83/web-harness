@@ -31,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.5",
     "eslint": "9.39.5",
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
     "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-no-unsanitized": "4.1.5",
@@ -190,6 +191,7 @@ _workspace/04_qa/receipts/
 
 ```js
 import js from '@eslint/js'
+import comments from '@eslint-community/eslint-plugin-eslint-comments/configs'
 import noUnsanitized from 'eslint-plugin-no-unsanitized'
 import pluginQuery from '@tanstack/eslint-plugin-query'
 import playwright from 'eslint-plugin-playwright'
@@ -229,11 +231,21 @@ const XSS_RESTRICTED_SYNTAX = [
     message: 'javascript: URL 금지 — 사용자 URL은 toSafeHref()로 http·https·mailto만 통과시킨다.',
   },
 ]
-// 출구: SafeHtml(DOMPurify)과 JsonLd(구조화 데이터) 두 파일, 그리고 공격 문자열을 입력으로 쓰는 테스트.
+// 출구: SafeHtml(DOMPurify)과 JsonLd(구조화 데이터) 두 파일, 그리고 공격 문자열을 입력으로 쓰는 테스트
+// (DOM 대입은 제외 — `no-unsanitized`는 테스트에도 걸린다. 살균 확인은 렌더 후 읽기로 한다).
 const XSS_EXIT_FILES = ['src/shared/lib/safe-html.tsx', 'src/shared/lib/json-ld.tsx', '**/*.{test,spec}.{ts,tsx}', 'e2e/**']
+// XSS 싱크는 `no-restricted-syntax`와 **다른 이름의 규칙**이어야 한다 — disable 금지는 규칙 이름 단위라,
+// 한 규칙에 섞으면 enum·`export *`·FC 금지의 사유 있는 출구까지 함께 닫힌다.
+const xssSink = {
+  meta: {type: 'problem', schema: []},
+  create: context => Object.fromEntries(XSS_RESTRICTED_SYNTAX.map(({selector, message}) =>
+    [selector, node => context.report({node, message})])),
+}
 
 export default tseslint.config(
-  {ignores: ['**/dist/**', '**/coverage/**', '**/playwright-report/**', '**/test-results/**']},
+  // `mockServiceWorker.js`는 `msw init`이 쓰는 vendored 파일이다(직접 수정 금지) — 첫 줄의
+  // 파일 전체 disable이 아래 lint 출구 규칙에 걸리므로 검사 대상에서 뺀다.
+  {ignores: ['**/dist/**', '**/coverage/**', '**/playwright-report/**', '**/test-results/**', '**/public/mockServiceWorker.js']},
   {...js.configs.recommended, files: ['**/*.{js,mjs,cjs,ts,tsx}']},
   ...tseslint.configs.recommendedTypeChecked.map(config => ({
     ...config,
@@ -284,7 +296,23 @@ export default tseslint.config(
       // `decoration`이 없으면 `/** TODO: x */`가 빠져나간다. 여러 줄 블록의 중간 줄 `* TODO:`는
       // 이 규칙이 구조적으로 못 잡는다 — 그 잔여는 `developer.md`의 산문이 진다.
       'no-warning-comments': ['error', {terms: ['todo', 'fixme', 'xxx'], location: 'start', decoration: ['*']}],
-      'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX, ...XSS_RESTRICTED_SYNTAX],
+      'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX],
+    },
+  },
+  {files: ['**/*.{ts,tsx}'], plugins: {local: {rules: {'xss-sink': xssSink}}}, rules: {'local/xss-sink': 'error'}},
+  // lint 출구는 판단을 적는 자리다 — 한 줄·규칙 명시·`-- 사유`인 `eslint-disable-next-line`만 연다.
+  // 사유 없는 disable·파일 전체 disable·규칙 없는 disable·인라인 규칙 설정(`/* eslint x: off */`)·
+  // 쓸모없어진 disable은 리뷰가 아니라 여기서 막힌다(실측 receipt: docs/audits/receipts/2026-11-17-lint-escape-hatch.json).
+  // XSS 싱크(`local/xss-sink`)·`no-unsanitized/*`는 사유가 있어도 끌 수 없다(안전 하한) — 출구는
+  // SafeHtml·JsonLd 파일 단위 예외(아래 XSS_EXIT_FILES)뿐이다.
+  {linterOptions: {reportUnusedDisableDirectives: 'error'}},
+  {
+    ...comments.recommended,
+    rules: {
+      ...comments.recommended.rules,
+      '@eslint-community/eslint-comments/no-use': ['error', {allow: ['eslint-disable-next-line']}],
+      '@eslint-community/eslint-comments/require-description': 'error',
+      '@eslint-community/eslint-comments/no-restricted-disable': ['error', 'local/xss-sink', 'no-unsanitized/*'],
     },
   },
   // 파일명 케이스 — **kebab-case만 규칙이다**. eslint 9와 맞는 마지막 unicorn(65.0.1)은
@@ -318,7 +346,7 @@ export default tseslint.config(
   },
   // DOM 싱크(innerHTML·insertAdjacentHTML·document.write 등) — Mozilla no-unsanitized.
   {files: ['**/*.{ts,tsx}'], ...noUnsanitized.configs.recommended},
-  {files: XSS_EXIT_FILES, rules: {'no-restricted-syntax': ['error', ...BASE_RESTRICTED_SYNTAX]}},
+  {files: XSS_EXIT_FILES, rules: {'local/xss-sink': 'off'}},
   // 테스트 작성 규약(`component-gen/references/testing.md`)은 테스트 파일에만 건다.
   {
     files: ['src/**/*.{test,spec}.{ts,tsx}'],
@@ -398,6 +426,7 @@ export default tseslint.config(
     "@vitejs/plugin-react": "6.0.3",
     "@vitest/coverage-v8": "4.1.0",
     "eslint": "9.39.5",
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
     "@tanstack/eslint-plugin-query": "5.103.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-no-unsanitized": "4.1.5",

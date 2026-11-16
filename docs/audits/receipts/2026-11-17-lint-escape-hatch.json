@@ -1,0 +1,187 @@
+{
+  "kind": "lint-escape-hatch-receipt",
+  "measuredAt": "2026-11-17",
+  "host": "local WSL2 Ubuntu (linux x64), Node 22.22.3, non-root user",
+  "versions": {
+    "eslint": "9.39.5",
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
+    "typescript-eslint": "8.65.0",
+    "typescript": "6.0.2",
+    "eslint-plugin-no-unsanitized": "4.1.5",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "msw": "2.12.0"
+  },
+  "procedure": [
+    "install the ESLint-related devDependency pins of templates.md APP_PACKAGE_JSON plus msw 2.12.0",
+    "extract the ESLINT_CONFIG js block from .claude/skills/project-init/assets/templates.md verbatim as eslint.config.js (full template config, not a reduced one)",
+    "tsconfig with strict + react-jsx covering src/; npx msw init public --no-save writes public/mockServiceWorker.js (first line: /* eslint-disable */)",
+    "lint each fixture with the ESLint Node API; exit = 1 when errorCount > 0; MSW worker linted with the config ignores and with ignore:false"
+  ],
+  "allCasesAsExpected": true,
+  "cases": [
+    {
+      "id": "reason-next-line-passes",
+      "file": "src/ok-reason.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "no-reason",
+      "file": "src/no-reason.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/require-description"
+      ]
+    },
+    {
+      "id": "whole-file-block",
+      "file": "src/whole-file.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-use",
+        "@eslint-community/eslint-comments/disable-enable-pair"
+      ]
+    },
+    {
+      "id": "ruleless-disable",
+      "file": "src/ruleless.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-unlimited-disable",
+        "@eslint-community/eslint-comments/no-restricted-disable"
+      ]
+    },
+    {
+      "id": "inline-rule-config",
+      "file": "src/inline-config.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-use",
+        "@eslint-community/eslint-comments/require-description"
+      ]
+    },
+    {
+      "id": "stale-disable",
+      "file": "src/stale.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "core"
+      ]
+    },
+    {
+      "id": "same-line-disable",
+      "file": "src/same-line.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-use"
+      ]
+    },
+    {
+      "id": "base-ban-keeps-reasoned-exit",
+      "file": "src/enum-exit.ts",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "base-ban-without-disable-fails",
+      "file": "src/enum-plain.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "no-restricted-syntax"
+      ]
+    },
+    {
+      "id": "xss-sink-fires",
+      "file": "src/components/raw-html.tsx",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "local/xss-sink"
+      ]
+    },
+    {
+      "id": "xss-sink-reasoned-disable-blocked",
+      "file": "src/components/raw-html-disabled.tsx",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-restricted-disable"
+      ]
+    },
+    {
+      "id": "javascript-url-fires",
+      "file": "src/javascript-url.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "local/xss-sink"
+      ]
+    },
+    {
+      "id": "xss-exit-file-passes",
+      "file": "src/shared/lib/safe-html.tsx",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "rules": []
+    },
+    {
+      "id": "unsanitized-reasoned-disable-blocked",
+      "file": "src/unsanitized.ts",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/no-restricted-disable"
+      ]
+    },
+    {
+      "id": "msw-worker-ignored",
+      "file": "public/mockServiceWorker.js",
+      "expectedExit": 0,
+      "exit": 0,
+      "ok": true,
+      "note": "File ignored because of a matching ignore pattern. Use \"--no-ignore\" to disable file ignore settings or use \"--no-warn-i"
+    },
+    {
+      "id": "msw-worker-without-ignore-would-fail",
+      "file": "public/mockServiceWorker.js",
+      "expectedExit": 1,
+      "exit": 1,
+      "ok": true,
+      "rules": [
+        "@eslint-community/eslint-comments/disable-enable-pair",
+        "@eslint-community/eslint-comments/no-unlimited-disable",
+        "@eslint-community/eslint-comments/no-use",
+        "@eslint-community/eslint-comments/require-description",
+        "@eslint-community/eslint-comments/no-restricted-disable"
+      ]
+    }
+  ],
+  "limits": [
+    "fixtures are synthetic one-file cases, not a generated project tree",
+    "the guard in validate-project-template.mjs checks string presence only — this receipt is what binds the strings to behavior (protected-core §4)"
+  ]
+}

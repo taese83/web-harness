@@ -29,8 +29,11 @@ test('지금 트리는 크기 실패가 없다 — 20KB를 넘는 파일은 등�
 })
 
 test('등록 파일이 커지거나 새 파일이 20KB를 넘으면 막는다', () => {
-  const grown = failures({[REGISTERED]: `${readFileSync(join(REPOSITORY, REGISTERED), 'utf8')}x`})
-  assert.ok(grown.some(message => message.startsWith(REGISTERED)), `등록 파일이 1B 커졌는데 통과했다: ${JSON.stringify(grown)}`)
+  // 현재 크기가 아니라 등록 크기보다 1B 크게 만든다 — 파일이 상한 아래로 줄어 있어도 판정이 서야 한다.
+  const current = readFileSync(join(REPOSITORY, REGISTERED), 'utf8').replace(/\r\n/g, '\n')
+  const overBy = baseline[REGISTERED] - Buffer.byteLength(current, 'utf8') + 1
+  const grown = failures({[REGISTERED]: `${current}${'x'.repeat(Math.max(1, overBy))}`})
+  assert.ok(grown.some(message => message.startsWith(REGISTERED)), `등록 크기보다 1B 커졌는데 통과했다: ${JSON.stringify(grown)}`)
   const fresh = '.claude/agents/oversized-new.md'
   const added = failures({[fresh]: 'x'.repeat(PROMPT_BYTE_BUDGET + 1)}, [...files, fresh])
   assert.ok(added.some(message => message.startsWith(fresh)), `새 20KB 초과 파일이 통과했다: ${JSON.stringify(added)}`)

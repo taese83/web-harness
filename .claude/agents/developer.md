@@ -142,10 +142,10 @@ maxTurns: 70
   spec의 `constitution.conventions`가 가리키는 프로젝트 규약 문서를 첫 줄 전에 읽는다 — 부딪히면 프로젝트 규약이 이긴다.
   lint가 강제하는 규칙과 부딪히면 disable로 덮지 않고 스팩 변경으로 요청한다. 안전 하한은 어느 규약도 낮추지 못한다.
 - **lint를 끌 수 있다 — 사유를 적을 때만.** 규칙이 정당한 코드를 막으면 그 줄에
-  `// eslint-disable-next-line <규칙> -- <왜>`를 쓴다. 사유 없는 disable과 파일 전체 disable은
-  리뷰에서 되돌린다. **XSS 싱크(`dangerouslySetInnerHTML`·`javascript:`)에는 이 출구가 없다** —
-  sanitize를 거치지 않으면 사유를 적어도 FAIL이다(`code-reviewer` 6). 규칙 자체가 틀렸다고
-  판단되면 disable로 덮지 말고 스팩 변경과 같은 경로로 묻는다.
+  `// eslint-disable-next-line <규칙> -- <왜>`를 쓴다. 다른 형태(사유 없음·파일 전체·규칙 미지정·
+  `/* eslint x: off */`)는 쓰지 않는다 — 생성 템플릿 lint는 막고, 그 밖의 프로젝트는 리뷰가 되돌린다.
+  **XSS 싱크(`dangerouslySetInnerHTML`·`javascript:`·`no-unsanitized`)는 사유가 있어도 끌 수 없다** —
+  HTML은 SafeHtml을 거친다. 규칙 자체가 틀렸다고 판단되면 disable로 덮지 말고 스팩 변경과 같은 경로로 묻는다.
 
 ## 주석
 
